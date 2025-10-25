@@ -12,15 +12,38 @@ old_string = '</tree>'
 new_string = '</list>'
 ```
 
-### 2. Search View Group Removal
+### 2. Search View Group Removal (Odoo 19)
 ```python
 import re
 
 def fix_search_views(xml_content):
-    # Remove group tags but keep content
-    pattern = r'<search>(.*?)<group[^>]*>(.*?)</group>(.*?)</search>'
-    replacement = r'<search>\1\2\3</search>'
-    return re.sub(pattern, replacement, xml_content, flags=re.DOTALL)
+    """Remove group tags from search views - not allowed in Odoo 19"""
+    # Pattern to match search views with group tags
+    pattern = r'(<search[^>]*>)(.*?)(</search>)'
+
+    def remove_groups(match):
+        search_start = match.group(1)
+        content = match.group(2)
+        search_end = match.group(3)
+
+        # Remove <group> opening tags with all attributes
+        content = re.sub(r'<group[^>]*>', '', content)
+        # Remove </group> closing tags
+        content = content.replace('</group>', '')
+
+        # Add separator before group by filters if needed
+        if 'group_by' in content and '<separator/>' not in content:
+            # Add separator before first group_by filter
+            content = re.sub(
+                r'(\s*)(<filter[^>]*group_by[^>]*>)',
+                r'\1<separator/>\1\2',
+                content,
+                count=1
+            )
+
+        return search_start + content + search_end
+
+    return re.sub(pattern, remove_groups, xml_content, flags=re.DOTALL)
 ```
 
 ### 3. Active ID Replacement

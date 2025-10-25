@@ -33,21 +33,34 @@ await this._jsonRpc("/api/endpoint", params);
 
 ## XML/View Errors
 
-### 4. Invalid view definition (Search Views)
-**Error Message**: `Invalid view definition`
-**Location**: Search views
+### 4. Invalid view type: 'tree'
+**Error Message**: `Invalid view type: 'tree'. Allowed types are: list, form, graph...`
+**Versions**: Odoo 19
+**Cause**: Tree view type renamed to 'list' in Odoo 19
+**Solution**:
+```xml
+<!-- Change all <tree> tags to <list> -->
+<list string="Items" editable="top">
+    <field name="name"/>
+</list>
+```
+
+### 5. Invalid view definition (Search Views)
+**Error Message**: `Invalid view disaster.disaster.search definition`
+**Location**: Search views with group tags
 **Versions**: Odoo 19
 **Cause**: `<group>` tags not allowed in search views
 **Solution**:
 ```xml
 <!-- Remove group tags, keep filters at root level -->
 <search>
-    <filter name="filter1"/>
-    <filter name="filter2"/>
+    <field name="name"/>
+    <separator/>
+    <filter name="group_by_type" string="Group by Type" context="{'group_by': 'type_id'}"/>
 </search>
 ```
 
-### 5. Invalid field in ir.cron
+### 6. Invalid field in ir.cron
 **Error Message**: `Invalid field 'numbercall' in 'ir.cron'`
 **Versions**: Odoo 19
 **Cause**: Field removed from cron model
