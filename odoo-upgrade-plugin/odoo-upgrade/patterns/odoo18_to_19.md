@@ -60,7 +60,31 @@ grep -A5 -B5 "<group.*Group By" --include="*.xml"
 </search>
 ```
 
-### 3. Cron Job numbercall Field Removed
+### 3. Action Window view_mode References
+**Impact**: CRITICAL - Runtime error
+**Error**: `View types not defined tree found in act_window`
+
+#### Issue
+- Action windows still reference 'tree' in view_mode field
+- Must be changed to 'list' for Odoo 19 compatibility
+
+#### Detection
+```bash
+grep -r "view_mode.*tree" --include="*.xml"
+```
+
+#### Fix
+```xml
+<!-- BEFORE (Odoo 17/18) -->
+<field name="view_mode">tree,form</field>
+<field name="view_mode">kanban,tree,form</field>
+
+<!-- AFTER (Odoo 19) -->
+<field name="view_mode">list,form</field>
+<field name="view_mode">kanban,list,form</field>
+```
+
+### 4. Cron Job numbercall Field Removed
 **Impact**: HIGH - Installation will fail
 **Error**: `Invalid field 'numbercall' in 'ir.cron'`
 

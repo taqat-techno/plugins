@@ -17,6 +17,14 @@ Automatically upgrade custom Odoo modules and themes across major versions with 
 - ✅ **Theme Support**: Bootstrap 5, SCSS, publicWidget
 - ✅ **Tool Integration**: Runs `odoo-bin upgrade_code`
 
+### 🆕 New in v2.0 (Odoo 19 Enhanced)
+- **Pre-Check Tool**: Scan for issues before upgrading
+- **Quick Fix Utility**: Apply targeted fixes for common problems
+- **Enhanced Detection**: All Odoo 19 breaking changes covered
+- **Act_window Fixes**: Automatic view_mode tree→list conversion
+- **JS Class Cleanup**: Removes incompatible js_class attributes
+- **Complete RPC Migration**: Full frontend RPC to fetch API conversion
+
 ## 📦 Installation
 
 ### As Part of Marketplace (Recommended)

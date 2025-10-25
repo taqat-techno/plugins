@@ -31,7 +31,33 @@ await this._jsonRpc("/api/endpoint", params);
 **Cause**: Template naming mismatch
 **Solution**: Verify template name matches component
 
+### 4. Cannot find key in registry
+**Error Message**: `Cannot find key "crm_kanban" in the "views" registry`
+**Versions**: Odoo 19
+**Cause**: Using js_class that's not available in the context
+**Solution**: Remove js_class attribute from kanban views
+```xml
+<!-- Remove js_class that's not available -->
+<kanban js_class="crm_kanban"> <!-- REMOVE js_class -->
+<kanban> <!-- CORRECT -->
+```
+
+### 5. Component template not found
+**Error Message**: `Template 'module.ComponentName' not found`
+**Cause**: Template naming mismatch
+**Solution**: Verify template name matches component
+
 ## XML/View Errors
+
+### 3. External ID not found: website.snippet_options
+**Error Message**: `External ID not found in the system: website.snippet_options`
+**Versions**: Odoo 19
+**Cause**: website.snippet_options was removed in Odoo 19, snippet system redesigned
+**Solution**:
+```xml
+<!-- Comment out or remove templates inheriting website.snippet_options -->
+<!-- The snippet options system has been completely redesigned in Odoo 19 -->
+```
 
 ### 4. Invalid view type: 'tree'
 **Error Message**: `Invalid view type: 'tree'. Allowed types are: list, form, graph...`
@@ -230,16 +256,43 @@ find . -name "__manifest__.py" -exec grep -H "version" {} \;
 6. **Clear cache**: Delete filestore/assets directory
 7. **Regenerate assets**: `--dev=xml,css,js`
 
+## XML Syntax Errors
+
+### 26. Malformed XML comments
+**Error**: `XMLSyntaxError: Double hyphen within comment`
+**Cause**: Nested or duplicate comment markers, double hyphens in comments
+**Solution**: Fix comment structure, escape double hyphens
+```xml
+<!-- Correct comment without double-hyphens -->
+<!-- website.snippet_options removed in Odoo 19 -->
+```
+
+### 27. Invalid manifest version format
+**Error**: `Invalid version '19.0.19.0.1.0.0.0', must have between 2 and 5 parts`
+**Cause**: Duplicated version prefix during upgrade
+**Solution**: Use proper version format: `19.0.1.0.0`
+
+## Python Dependency Errors
+
+### 28. Missing Python packages
+**Error**: `ModuleNotFoundError: No module named 'geopy'`
+**Solution**: Install required packages
+```bash
+pip install geopy spacy hachoir
+```
+
 ## Common Fix Order
 
 When encountering multiple errors, fix in this order:
-1. Manifest version and dependencies
-2. Python import errors
-3. XML structure errors
-4. JavaScript RPC service
-5. SCSS variables
-6. Theme-specific issues
-7. Test updates
+1. Install Python dependencies
+2. Fix manifest versions
+3. Fix malformed XML comments
+4. Python import errors
+5. XML structure errors (tree → list)
+6. JavaScript RPC service
+7. SCSS variables
+8. Theme-specific issues
+9. Test updates
 
 ## Prevention
 

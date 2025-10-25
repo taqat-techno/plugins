@@ -45,10 +45,20 @@ class Odoo19Upgrader:
 
                 original = content
 
-                # Update version to 19.0.x.x.x format
+                # Fix version format - extract numeric version and format properly
+                def fix_version(match):
+                    version = match.group(1)
+                    # Remove any existing 19.0. prefix if duplicated
+                    version = re.sub(r'^19\.0\.', '', version)
+                    # Extract just the numeric parts
+                    parts = re.findall(r'\d+', version)
+                    if len(parts) < 3:
+                        parts.extend(['0'] * (3 - len(parts)))
+                    return f"'version': '19.0.{'.'.join(parts[:3])}'"
+
                 content = re.sub(
-                    r"'version'\s*:\s*['\"]([0-9.]+)['\"]",
-                    lambda m: f"'version': '19.0.{m.group(1).replace('.', '.')}.0'",
+                    r"'version'\s*:\s*['\"]([^'\"]+)['\"]",
+                    fix_version,
                     content
                 )
 
@@ -86,6 +96,9 @@ class Odoo19Upgrader:
 
                 original = content
 
+                # First, fix any existing malformed comments (from previous runs)
+                content = self._fix_malformed_comments(content)
+
                 # 1. Convert tree to list views
                 content = re.sub(r'<tree(\s+[^>]*)?>', r'<list\1>', content)
                 content = content.replace('</tree>', '</list>')
@@ -95,6 +108,9 @@ class Odoo19Upgrader:
 
                 # 3. Fix kanban templates
                 content = content.replace('t-name="kanban-box"', 't-name="card"')
+
+                # Remove js_class="crm_kanban" as it's not available outside CRM
+                content = re.sub(r'\s+js_class=["\']crm_kanban["\']', '', content)
 
                 # 4. Remove numbercall from cron jobs
                 content = re.sub(
@@ -119,6 +135,47 @@ class Odoo19Upgrader:
                 # 6. Remove edit="1" from views
                 content = re.sub(r'\s+edit=["\']1["\']', '', content)
 
+                # 7. Remove website.snippet_options inheritance (doesn't exist in Odoo 19)
+                # Comment out instead of removing to preserve the code
+                if 'inherit_id="website.snippet_options"' in content:
+                    # Find and comment out the entire template
+                    pattern = r'(<template[^>]*inherit_id="website\.snippet_options"[^>]*>.*?</template>)'
+                    def comment_template(match):
+                        template_content = match.group(1)
+                        # Escape any existing double hyphens in the content to avoid XML comment errors
+                        template_content = template_content.replace('--', '- -')
+                        return f'''<!-- website.snippet_options removed in Odoo 19 - The snippet system has been redesigned
+       This template has been disabled
+  {template_content}
+  -->'''
+                    content = re.sub(pattern, comment_template, content, flags=re.DOTALL)
+
+                # 8. Fix view_mode in act_window actions
+                # Replace standalone 'tree'
+                content = re.sub(
+                    r'(<field name="view_mode">)tree(</field>)',
+                    r'\1list\2',
+                    content
+                )
+                # Replace 'tree,' with 'list,'
+                content = re.sub(
+                    r'(<field name="view_mode">)tree,',
+                    r'\1list,',
+                    content
+                )
+                # Replace ',tree' with ',list'
+                content = re.sub(
+                    r',tree([,<])',
+                    r',list\1',
+                    content
+                )
+                # Fix view_mode in view_ids
+                content = re.sub(
+                    r"'view_mode':\s*'tree'",
+                    r"'view_mode': 'list'",
+                    content
+                )
+
                 if content != original:
                     with open(xml_file, 'w', encoding='utf-8') as f:
                         f.write(content)
@@ -131,6 +188,30 @@ class Odoo19Upgrader:
 
         self.report.append(f"[OK] Fixed {fixed} XML files")
         return fixed
+
+    def _fix_malformed_comments(self, content):
+        """Fix malformed XML comments from previous runs"""
+        # Fix nested/duplicated comment starts
+        pattern = r'<!--[^>]*<!--'
+        while re.search(pattern, content):
+            content = re.sub(pattern, '<!-- ', content)
+
+        # Fix nested/duplicated comment ends
+        pattern = r'-->[^<]*-->'
+        while re.search(pattern, content):
+            content = re.sub(pattern, ' -->', content)
+
+        # Fix double hyphens within comments (except at boundaries)
+        def fix_comment_hyphens(match):
+            comment = match.group(0)
+            # Replace internal double hyphens
+            inner = comment[4:-3]  # Extract content between <!-- and -->
+            inner = re.sub(r'--+', '- -', inner)
+            return f'<!--{inner}-->'
+
+        content = re.sub(r'<!--.*?-->', fix_comment_hyphens, content, flags=re.DOTALL)
+
+        return content
 
     def _fix_search_views(self, content):
         """Remove group tags from search views"""
@@ -242,6 +323,40 @@ class Odoo19Upgrader:
         }
     }'''
 
+        # Helper function for services that use jsonrpc directly
+        jsonrpc_function = '''
+// JSON-RPC helper function for Odoo 19 (replaces rpc service)
+async function jsonrpc(endpoint, params = {}) {
+    try {
+        const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Csrf-Token': document.querySelector('meta[name="csrf-token"]')?.content || '',
+            },
+            body: JSON.stringify({
+                jsonrpc: "2.0",
+                method: "call",
+                params: params,
+                id: Math.floor(Math.random() * 1000000)
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        if (data.error) {
+            throw new Error(data.error.message || 'RPC call failed');
+        }
+        return data.result;
+    } catch (error) {
+        console.error('JSON-RPC call failed:', error);
+        throw error;
+    }
+}'''
+
         for js_file in js_files:
             if 'node_modules' in str(js_file) or '.min.js' in str(js_file):
                 continue
@@ -252,7 +367,17 @@ class Odoo19Upgrader:
 
                 original = content
 
-                # Remove RPC service import
+                # Remove import of jsonrpc from RPC service
+                if 'import {jsonrpc} from "@web/core/network/rpc_service"' in content:
+                    content = content.replace('import {jsonrpc} from "@web/core/network/rpc_service";', '')
+                    # Add the jsonrpc function after imports
+                    import_end = content.find('const ')
+                    if import_end == -1:
+                        import_end = content.find('export ')
+                    if import_end > 0:
+                        content = content[:import_end] + '\n' + jsonrpc_function + '\n' + content[import_end:]
+
+                # Remove RPC service usage
                 content = re.sub(
                     r'this\.rpc\s*=\s*useService\(["\']rpc["\']\);?\s*\n?',
                     '',
@@ -262,15 +387,16 @@ class Odoo19Upgrader:
                 # Replace this.rpc calls
                 content = content.replace('this.rpc(', 'this._jsonRpc(')
 
-                # Add _jsonRpc method if needed
+                # Add _jsonRpc method if needed for components
                 if 'this._jsonRpc(' in content and '_jsonRpc(endpoint, params' not in content:
-                    # Find setup() method and add after it
-                    setup_pattern = r'(setup\(\)\s*\{[^}]*\})'
-
-                    def add_method(match):
-                        return match.group(0) + json_rpc_method
-
-                    content = re.sub(setup_pattern, add_method, content, count=1)
+                    # Check if this is inside a component class setup
+                    if 'setup()' in content:
+                        # Find the end of setup() method
+                        setup_match = re.search(r'setup\(\)\s*\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}', content)
+                        if setup_match:
+                            # Add the method as a class method after setup
+                            setup_end = setup_match.end()
+                            content = content[:setup_end] + '\n' + json_rpc_method + '\n' + content[setup_end:]
 
                 if content != original:
                     with open(js_file, 'w', encoding='utf-8') as f:
@@ -360,6 +486,34 @@ class Odoo19Upgrader:
         print(f"\n[OK] Report saved to: {report_path}")
         return report_path
 
+    def check_python_dependencies(self):
+        """Check and list Python dependencies from all manifests"""
+        dependencies = set()
+        manifest_files = self.project_path.glob("**/__manifest__.py")
+
+        for manifest in manifest_files:
+            try:
+                with open(manifest, 'r', encoding='utf-8') as f:
+                    content = f.read()
+
+                # Find external_dependencies section
+                match = re.search(r"'external_dependencies'\s*:\s*\{[^}]*'python'\s*:\s*\[([^\]]+)\]", content, re.DOTALL)
+                if match:
+                    deps_str = match.group(1)
+                    # Extract individual dependencies
+                    deps = re.findall(r"'([^']+)'", deps_str)
+                    dependencies.update(deps)
+
+            except Exception as e:
+                print(f"  [WARNING] Could not check dependencies in {manifest}: {e}")
+
+        if dependencies:
+            print(f"\n[INFO] Found Python dependencies: {', '.join(dependencies)}")
+            print("[TIP] Install them with: pip install " + " ".join(dependencies))
+            self.report.append(f"[INFO] Python dependencies found: {', '.join(dependencies)}")
+
+        return dependencies
+
     def run(self):
         """Run the complete upgrade process"""
         print("\n Starting Odoo 19 Upgrade Process\n")
@@ -369,24 +523,28 @@ class Odoo19Upgrader:
         print("\n Step 1: Creating backup...")
         self.create_backup()
 
-        # Step 2: Manifests
-        print("\n Step 2: Updating manifest files...")
+        # Step 2: Check Dependencies
+        print("\n Step 2: Checking Python dependencies...")
+        self.check_python_dependencies()
+
+        # Step 3: Manifests
+        print("\n Step 3: Updating manifest files...")
         self.update_manifest_files()
 
-        # Step 3: XML Views
-        print("\n Step 3: Fixing XML views...")
+        # Step 4: XML Views
+        print("\n Step 4: Fixing XML views...")
         self.fix_xml_views()
 
-        # Step 4: Python Code
-        print("\n Step 4: Updating Python code...")
+        # Step 5: Python Code
+        print("\n Step 5: Updating Python code...")
         self.update_python_code()
 
-        # Step 5: JavaScript
-        print("\n Step 5: Migrating JavaScript RPC...")
+        # Step 6: JavaScript
+        print("\n Step 6: Migrating JavaScript RPC...")
         self.migrate_javascript_rpc()
 
-        # Step 6: SCSS
-        print("\n Step 6: Updating SCSS files...")
+        # Step 7: SCSS
+        print("\n Step 7: Updating SCSS files...")
         self.update_scss_files()
 
         # Generate report
