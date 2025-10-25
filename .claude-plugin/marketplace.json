@@ -10,12 +10,12 @@
   },
   "plugins": [
     {
-      "name": "odoo-development",
-      "description": "Comprehensive Odoo development tools including module upgrade, testing, and deployment automation",
+      "name": "odoo-upgrade",
+      "description": "Comprehensive Odoo module upgrade assistant for migrating between Odoo versions (14-19)",
       "source": "./",
       "strict": false,
       "skills": [
-        "./odoo-development/odoo-upgrade"
+        "./odoo-upgrade-plugin/odoo-upgrade"
       ]
     }
   ]
