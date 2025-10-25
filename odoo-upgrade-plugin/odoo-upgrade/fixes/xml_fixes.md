@@ -61,10 +61,15 @@ def fix_kanban_templates(xml_content):
     # Fix template names
     xml_content = xml_content.replace('t-name="kanban-box"', 't-name="card"')
 
-    # Remove js_class
-    pattern = r'<kanban([^>]*?)\s+js_class="[^"]*"([^>]*?)>'
-    replacement = r'<kanban\1\2>'
-    xml_content = re.sub(pattern, replacement, xml_content)
+    # Remove js_class attributes that may not be available
+    # Remove crm_kanban specifically (not available outside CRM)
+    pattern = r'\s+js_class=["\']crm_kanban["\']'
+    xml_content = re.sub(pattern, '', xml_content)
+
+    # Remove any other problematic js_class if needed
+    # pattern = r'<kanban([^>]*?)\s+js_class="[^"]*"([^>]*?)>'
+    # replacement = r'<kanban\1\2>'
+    # xml_content = re.sub(pattern, replacement, xml_content)
 
     return xml_content
 ```
