@@ -1,0 +1,22 @@
+{
+  "name": "taqat-techno-plugins",
+  "owner": {
+    "name": "TAQAT Techno",
+    "email": "contact@taqat-techno.com"
+  },
+  "metadata": {
+    "description": "Professional Odoo development skills for Claude Code",
+    "version": "1.0.0"
+  },
+  "plugins": [
+    {
+      "name": "odoo-upgrade",
+      "description": "Comprehensive Odoo module upgrade assistant for migrating between Odoo versions (14-19)",
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./odoo-upgrade-plugin/odoo-upgrade"
+      ]
+    }
+  ]
+}
