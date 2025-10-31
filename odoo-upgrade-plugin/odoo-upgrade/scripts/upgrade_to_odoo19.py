@@ -533,19 +533,19 @@ async function jsonrpc(endpoint, params = {}) {
         if not self.enable_validation:
             return None
 
-        print("\n🔍 Running pre-upgrade syntax validation...")
+        print("\n[Validation] Running pre-upgrade syntax validation...")
         validator = SyntaxValidator(self.project_path, verbose=False)
         results = validator.validate_all()
 
         if results['valid']:
-            print("✓ Pre-upgrade validation passed")
+            print("[OK] Pre-upgrade validation passed")
             self.report.append("[OK] Pre-upgrade syntax validation passed")
         else:
-            print(f"⚠ Pre-upgrade validation found {results['stats']['total_errors']} errors")
+            print(f"[WARNING] Pre-upgrade validation found {results['stats']['total_errors']} errors")
             print(f"  and {results['stats']['total_warnings']} warnings")
 
             if self.auto_fix:
-                print("\n🔧 Attempting automatic fixes...")
+                print("\n[Auto-fix] Attempting automatic fixes...")
                 fixer = AutoFixLibrary(self.project_path, backup=False)
                 fix_results = fixer.apply_all_fixes()
                 if fix_results['total_fixes'] > 0:
@@ -566,19 +566,19 @@ async function jsonrpc(endpoint, params = {}) {
         if not self.enable_validation:
             return None
 
-        print("\n🔍 Running post-upgrade syntax validation...")
+        print("\n[Validation] Running post-upgrade syntax validation...")
         validator = SyntaxValidator(self.project_path, verbose=False)
         results = validator.validate_all()
 
         if results['valid']:
-            print("✓ Post-upgrade validation passed - All syntax is correct!")
+            print("[OK] Post-upgrade validation passed - All syntax is correct!")
             self.report.append("[OK] Post-upgrade syntax validation passed")
         else:
-            print(f"❌ Post-upgrade validation found {results['stats']['total_errors']} errors")
+            print(f"[ERROR] Post-upgrade validation found {results['stats']['total_errors']} errors")
             print(f"  and {results['stats']['total_warnings']} warnings")
 
             if self.auto_fix:
-                print("\n🔧 Attempting automatic fixes...")
+                print("\n[Auto-fix] Attempting automatic fixes...")
                 fixer = AutoFixLibrary(self.project_path, backup=False)
                 fix_results = fixer.apply_all_fixes()
                 if fix_results['total_fixes'] > 0:
@@ -589,9 +589,9 @@ async function jsonrpc(endpoint, params = {}) {
                     results = validator.validate_all()
 
                     if results['valid']:
-                        print("✓ All syntax errors fixed successfully!")
+                        print("[OK] All syntax errors fixed successfully!")
                     else:
-                        print(f"⚠ {results['stats']['total_errors']} errors remain after auto-fix")
+                        print(f"[WARNING] {results['stats']['total_errors']} errors remain after auto-fix")
                         print("  Manual intervention required")
 
         # Save validation report
@@ -603,10 +603,10 @@ async function jsonrpc(endpoint, params = {}) {
     def rollback(self):
         """Rollback to backup if validation fails."""
         if not self.backup_path or not self.backup_path.exists():
-            print("❌ Cannot rollback - no backup available")
+            print("[ERROR] Cannot rollback - no backup available")
             return False
 
-        print(f"\n🔄 Rolling back to backup: {self.backup_path}")
+        print(f"\n[Rollback] Rolling back to backup: {self.backup_path}")
 
         try:
             # Remove current project contents
@@ -623,97 +623,97 @@ async function jsonrpc(endpoint, params = {}) {
                 else:
                     shutil.copy2(item, self.project_path / item.name)
 
-            print("✓ Rollback completed successfully")
+            print("[OK] Rollback completed successfully")
             self.report.append("[OK] Rolled back to backup due to validation failures")
             return True
 
         except Exception as e:
-            print(f"❌ Rollback failed: {e}")
+            print(f"[ERROR] Rollback failed: {e}")
             self.report.append(f"[ERROR] Rollback failed: {e}")
             return False
 
     def run(self):
         """Run the complete upgrade process with validation"""
-        print("\n🚀 Starting Enhanced Odoo 19 Upgrade Process")
+        print("\n>>> Starting Enhanced Odoo 19 Upgrade Process")
         print("=" * 50)
 
         # Step 1: Backup
-        print("\n📦 Step 1: Creating backup...")
+        print("\n[Step 1] Creating backup...")
         self.create_backup()
 
         # Step 2: Pre-upgrade validation
         if self.enable_validation:
-            print("\n🔍 Step 2: Pre-upgrade validation...")
+            print("\n[Step 2] Pre-upgrade validation...")
             self.pre_validation_results = self.pre_upgrade_validation()
 
             if self.pre_validation_results and self.pre_validation_results['stats']['total_errors'] > 20:
-                print("\n⚠️ Too many pre-existing errors. Consider fixing them first.")
+                print("\n[WARNING] Too many pre-existing errors. Consider fixing them first.")
                 response = input("Continue anyway? (y/n): ")
                 if response.lower() != 'y':
                     print("Upgrade cancelled. Fix errors first, then retry.")
                     return
         else:
-            print("\n⏩ Step 2: Skipping pre-upgrade validation")
+            print("\n[Step 2] Skipping pre-upgrade validation")
 
         # Step 3: Check Dependencies
-        print("\n📋 Step 3: Checking Python dependencies...")
+        print("\n[Step 3] Checking Python dependencies...")
         self.check_python_dependencies()
 
         # Step 4: Manifests
-        print("\n📝 Step 4: Updating manifest files...")
+        print("\n[Step 4] Updating manifest files...")
         self.update_manifest_files()
 
         # Step 5: XML Views
-        print("\n🔧 Step 5: Fixing XML views...")
+        print("\n[Step 5] Fixing XML views...")
         self.fix_xml_views()
 
         # Step 6: Python Code
-        print("\n🐍 Step 6: Updating Python code...")
+        print("\n[Step 6] Updating Python code...")
         self.update_python_code()
 
         # Step 7: JavaScript
-        print("\n💻 Step 7: Migrating JavaScript RPC...")
+        print("\n[Step 7] Migrating JavaScript RPC...")
         self.migrate_javascript_rpc()
 
         # Step 8: SCSS
-        print("\n🎨 Step 8: Updating SCSS files...")
+        print("\n[Step 8] Updating SCSS files...")
         self.update_scss_files()
 
         # Step 9: Post-upgrade validation
         if self.enable_validation:
-            print("\n✅ Step 9: Post-upgrade validation...")
+            print("\n[Step 9] Post-upgrade validation...")
             self.post_validation_results = self.post_upgrade_validation()
 
             if self.post_validation_results and not self.post_validation_results['valid']:
-                print("\n⚠️ Post-upgrade validation failed!")
+                print("\n[WARNING] Post-upgrade validation failed!")
 
                 if self.post_validation_results['stats']['total_errors'] > 0:
                     response = input("Would you like to rollback to backup? (y/n): ")
                     if response.lower() == 'y':
                         self.rollback()
-                        print("\n❌ Upgrade rolled back due to validation failures")
+                        print("\n[ERROR] Upgrade rolled back due to validation failures")
                         print(f"Backup preserved at: {self.backup_path}")
                         return
         else:
-            print("\n⏩ Step 9: Skipping post-upgrade validation")
+            print("\n[Step 9] Skipping post-upgrade validation")
 
         # Generate report
-        print("\n📄 Generating migration report...")
+        print("\n[Finalizing] Generating migration report...")
         self.generate_report()
 
         print("\n" + "=" * 50)
 
         if self.enable_validation and self.post_validation_results:
             if self.post_validation_results['valid']:
-                print("✅ [SUCCESS] Odoo 19 Upgrade Complete - All Syntax Valid!")
+                print("[SUCCESS] Odoo 19 Upgrade Complete - All Syntax Valid!")
             else:
-                print("⚠️ [SUCCESS] Odoo 19 Upgrade Complete - With Warnings")
+                print("[WARNING] Odoo 19 Upgrade Complete - With Warnings")
                 print(f"   {self.post_validation_results['stats']['total_errors']} errors need manual fixing")
         else:
-            print("✅ [SUCCESS] Odoo 19 Upgrade Complete!")
+            print("[SUCCESS] Odoo 19 Upgrade Complete!")
 
         if self.errors:
-            print(f"\n⚠️ [WARNING] {len(self.errors)} upgrade errors encountered. Check the report for details.")
+            print(f"\n[WARNING] {len(self.errors)} upgrade errors encountered. Check the report for details.")
 
 
 def main():
