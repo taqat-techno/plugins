@@ -17,6 +17,15 @@
       "skills": [
         "./odoo-upgrade-plugin/odoo-upgrade"
       ]
+    },
+    {
+      "name": "odoo-frontend",
+      "description": "Comprehensive Odoo website theme development with auto-detection, MCP integration, and Bootstrap version management",
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./odoo-frontend-plugin/odoo-frontend"
+      ]
     }
   ]
 }
