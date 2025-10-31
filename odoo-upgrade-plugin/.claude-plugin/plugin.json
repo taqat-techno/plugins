@@ -1,0 +1,46 @@
+{
+  "name": "odoo-upgrade",
+  "version": "3.0.0",
+  "description": "Comprehensive Odoo ERP upgrade assistant for migrating modules between versions 14-19, with automated pattern recognition and fixes for XML views, Python APIs, JavaScript/OWL components, and theme variables",
+  "author": {
+    "name": "TAQAT Techno",
+    "email": "contact@taqat-techno.com",
+    "url": "https://github.com/taqat-techno-eg"
+  },
+  "homepage": "https://github.com/taqat-techno-eg/plugins/tree/main/odoo-upgrade-plugin",
+  "repository": "https://github.com/taqat-techno-eg/plugins",
+  "license": "MIT",
+  "keywords": [
+    "odoo",
+    "erp",
+    "upgrade",
+    "migration",
+    "version-compatibility",
+    "xml-transformation",
+    "rpc-service",
+    "owl-components",
+    "bootstrap",
+    "odoo14",
+    "odoo15",
+    "odoo16",
+    "odoo17",
+    "odoo18",
+    "odoo19"
+  ],
+  "skills": "./odoo-upgrade/",
+  "scripts": "./odoo-upgrade/scripts/",
+  "hooks": "./hooks/hooks.json",
+  "metadata": {
+    "odoo-versions": ["14", "15", "16", "17", "18", "19"],
+    "supported-migrations": [
+      "14-to-15",
+      "15-to-16",
+      "16-to-17",
+      "17-to-18",
+      "18-to-19"
+    ],
+    "transformation-patterns": 100,
+    "auto-fixes": 50,
+    "manual-steps-documented": true
+  }
+}
