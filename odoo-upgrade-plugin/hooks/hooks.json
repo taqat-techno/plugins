@@ -1,0 +1,64 @@
+{
+  "PostToolUse": [
+    {
+      "name": "Auto-detect upgrade needs",
+      "matcher": "(Write|Edit).*__manifest__\\.py",
+      "description": "Automatically suggests upgrade when manifest version changes are detected",
+      "hooks": [
+        {
+          "type": "suggestion",
+          "message": "Manifest version changed. Consider running an upgrade check for compatibility."
+        }
+      ]
+    },
+    {
+      "name": "Test after module changes",
+      "matcher": "(Write|Edit|Delete).*(models|views|controllers).*\\.(py|xml)$",
+      "description": "Reminds to test module after significant code changes",
+      "hooks": [
+        {
+          "type": "suggestion",
+          "message": "Module code changed. Remember to test with: python -m odoo -d [DB] -u [MODULE] --stop-after-init"
+        }
+      ]
+    },
+    {
+      "name": "Check RPC usage",
+      "matcher": "(Write|Edit).*\\.(js|ts)$",
+      "description": "Checks for RPC service usage in JavaScript files for Odoo 19",
+      "hooks": [
+        {
+          "type": "check",
+          "pattern": "useService\\([\"']rpc[\"']\\)",
+          "message": "RPC service detected. In Odoo 19, use fetch-based JSON-RPC instead."
+        }
+      ]
+    }
+  ],
+  "PreCommit": [
+    {
+      "name": "Validate manifest before commit",
+      "description": "Ensures manifest.py has correct format before committing",
+      "hooks": [
+        {
+          "type": "validate",
+          "files": "__manifest__.py",
+          "checks": ["version", "license", "depends"]
+        }
+      ]
+    }
+  ],
+  "OnError": [
+    {
+      "name": "Suggest upgrade on compatibility error",
+      "matcher": "(Invalid field|Service.*not available|cannot import)",
+      "description": "Suggests using upgrade skill when compatibility errors occur",
+      "hooks": [
+        {
+          "type": "suggestion",
+          "message": "This looks like a version compatibility issue. Try using the odoo-upgrade skill to fix it."
+        }
+      ]
+    }
+  ]
+}
