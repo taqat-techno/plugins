@@ -51,13 +51,78 @@ Activate this skill when:
 </search>
 ```
 
-#### Tree to List Views
+#### Tree to List Views (Comprehensive)
 ```xml
+<!-- 1. View Template Tags -->
 <!-- BEFORE -->
 <tree string="Title" edit="1" editable="top">
+    <field name="name"/>
+</tree>
 
 <!-- AFTER -->
 <list string="Title" editable="top">
+    <field name="name"/>
+</list>
+
+<!-- 2. Action Window view_mode -->
+<!-- BEFORE -->
+<record id="action_my_model" model="ir.actions.act_window">
+    <field name="view_mode">tree,form,kanban</field>
+</record>
+
+<!-- AFTER -->
+<record id="action_my_model" model="ir.actions.act_window">
+    <field name="view_mode">list,form,kanban</field>
+</record>
+
+<!-- 3. XPath Expressions (CRITICAL for Odoo 18/19) -->
+<!-- BEFORE -->
+<xpath expr="//tree" position="inside">
+    <field name="new_field"/>
+</xpath>
+<xpath expr="//tree/field[@name='name']" position="after">
+    <field name="other_field"/>
+</xpath>
+
+<!-- AFTER -->
+<xpath expr="//list" position="inside">
+    <field name="new_field"/>
+</xpath>
+<xpath expr="//list/field[@name='name']" position="after">
+    <field name="other_field"/>
+</xpath>
+
+<!-- 4. Search View Group expand Attribute (Deprecated) -->
+<!-- BEFORE -->
+<group expand="0" string="Group By">
+    <filter name="group_status" context="{'group_by': 'state'}"/>
+</group>
+
+<!-- AFTER -->
+<group string="Group By">
+    <filter name="group_status" context="{'group_by': 'state'}"/>
+</group>
+```
+
+#### Python view_mode Dictionary (Odoo 18/19)
+```python
+# BEFORE
+def action_view_records(self):
+    return {
+        'type': 'ir.actions.act_window',
+        'res_model': 'my.model',
+        'view_mode': 'tree,form',
+        'view_type': 'tree',  # Deprecated parameter
+    }
+
+# AFTER
+def action_view_records(self):
+    return {
+        'type': 'ir.actions.act_window',
+        'res_model': 'my.model',
+        'view_mode': 'list,form',
+        # view_type parameter removed
+    }
 ```
 
 #### Kanban Templates (Odoo 19)

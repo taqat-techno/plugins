@@ -84,7 +84,116 @@ grep -r "view_mode.*tree" --include="*.xml"
 <field name="view_mode">kanban,list,form</field>
 ```
 
-### 4. Cron Job numbercall Field Removed
+### 4. XPath Expressions with //tree (CRITICAL - NEW)
+**Impact**: CRITICAL - View inheritance will fail
+**Error**: `Element '<xpath expr="//tree">' cannot be located in parent view`
+
+#### Issue
+- XPath expressions in view inheritance still reference `//tree`
+- Parent views now use `<list>` tags, so `//tree` no longer exists
+- This is a COMMON error missed by developers
+
+#### Detection
+```bash
+grep -r "xpath.*//tree" --include="*.xml"
+grep -r 'xpath.*expr="//tree' --include="*.xml"
+```
+
+#### Fix
+```xml
+<!-- BEFORE (Odoo 17/18) - FAILS in Odoo 19 -->
+<record id="view_inherit" model="ir.ui.view">
+    <field name="inherit_id" ref="module.view_tree"/>
+    <field name="arch" type="xml">
+        <xpath expr="//tree" position="inside">
+            <field name="new_field"/>
+        </xpath>
+    </field>
+</record>
+
+<!-- AFTER (Odoo 19) - WORKS -->
+<record id="view_inherit" model="ir.ui.view">
+    <field name="inherit_id" ref="module.view_tree"/>
+    <field name="arch" type="xml">
+        <xpath expr="//list" position="inside">
+            <field name="new_field"/>
+        </xpath>
+    </field>
+</record>
+
+<!-- Also applies to complex xpath expressions -->
+<xpath expr="//tree/field[@name='name']" position="after">
+<!-- Must become -->
+<xpath expr="//list/field[@name='name']" position="after">
+```
+
+### 5. Python view_mode Dictionaries (CRITICAL - NEW)
+**Impact**: CRITICAL - Runtime error in smart buttons and actions
+**Error**: View type 'tree' not found
+
+#### Issue
+- Python code returning action dictionaries with `'view_mode': 'tree'`
+- Smart button actions, wizard actions, etc. will fail
+- NOT detected by standard XML checks
+
+#### Detection
+```bash
+grep -r "'view_mode'.*'tree" --include="*.py"
+grep -r '"view_mode".*"tree' --include="*.py"
+```
+
+#### Fix
+```python
+# BEFORE (Odoo 17/18) - BREAKS in Odoo 19
+def action_view_subscriptions(self):
+    return {
+        'type': 'ir.actions.act_window',
+        'res_model': 'disaster.relief.request',
+        'view_mode': 'tree,form',  # ❌ BREAKS
+        'domain': [('id', 'in', self.subscribed_request_ids.ids)],
+    }
+
+# AFTER (Odoo 19) - WORKS
+def action_view_subscriptions(self):
+    return {
+        'type': 'ir.actions.act_window',
+        'res_model': 'disaster.relief.request',
+        'view_mode': 'list,form',  # ✅ WORKS
+        'domain': [('id', 'in', self.subscribed_request_ids.ids)],
+    }
+```
+
+### 6. Search View Group expand Attribute (HIGH - DEPRECATED)
+**Impact**: HIGH - Deprecated attribute
+**Error**: Warning in logs
+
+#### Issue
+- The `expand` attribute on `<group>` tags in search views is deprecated
+- Should be removed even though groups themselves are removed
+
+#### Detection
+```bash
+grep -r 'expand="[01]"' --include="*.xml"
+```
+
+#### Fix
+```xml
+<!-- BEFORE (Odoo 17/18) -->
+<group expand="0" string="Group By">
+    <filter name="status" context="{'group_by': 'state'}"/>
+</group>
+
+<!-- AFTER (Odoo 19) -->
+<group string="Group By">
+    <filter name="status" context="{'group_by': 'state'}"/>
+</group>
+
+<!-- Or better yet, remove group entirely (per pattern #2) -->
+<separator/>
+<filter name="status" string="Group by Status" context="{'group_by': 'state'}"/>
+```
+
+### 7. Cron Job numbercall Field Removed
 **Impact**: HIGH - Installation will fail
 **Error**: `Invalid field 'numbercall' in 'ir.cron'`
 
