@@ -61,6 +61,22 @@ class Odoo19PreChecker:
                     )
                     self.stats['critical_issues'] += 1
 
+                # CRITICAL: Check for XPath expressions with //tree
+                if re.search(r'xpath[^>]*expr=["\']//tree', content):
+                    count = len(re.findall(r'xpath[^>]*expr=["\']//tree', content))
+                    self.issues['critical'].append(
+                        f"{rel_path}: Found {count} xpath expression(s) with '//tree' - must be '//list' in Odoo 19"
+                    )
+                    self.stats['critical_issues'] += 1
+
+                # HIGH: Check for group expand attribute in search views
+                if re.search(r'<group[^>]*expand=["\'][01]["\']', content):
+                    count = len(re.findall(r'<group[^>]*expand=["\'][01]["\']', content))
+                    self.issues['high'].append(
+                        f"{rel_path}: Found {count} search view group(s) with 'expand' attribute - deprecated in Odoo 19"
+                    )
+                    self.stats['high_issues'] += 1
+
                 # HIGH: Check for numbercall in cron
                 if 'name="numbercall"' in content:
                     self.issues['high'].append(
@@ -204,6 +220,21 @@ class Odoo19PreChecker:
                         f"{rel_path}: Found url_for import - use self.env['ir.http']._url_for() instead"
                     )
                     self.stats['high_issues'] += 1
+
+                # CRITICAL: Check for view_mode with 'tree' in Python dictionaries
+                if re.search(r"['\"]view_mode['\"]:\s*['\"].*?tree", content):
+                    count = len(re.findall(r"['\"]view_mode['\"]:\s*['\"].*?tree", content))
+                    self.issues['critical'].append(
+                        f"{rel_path}: Found {count} Python dictionary/dictionaries with 'view_mode': 'tree' - must be 'list' in Odoo 19"
+                    )
+                    self.stats['critical_issues'] += 1
+
+                # MEDIUM: Check for view_type parameter (deprecated)
+                if re.search(r"['\"]view_type['\"]:\s*['\"]tree['\"]", content):
+                    self.issues['medium'].append(
+                        f"{rel_path}: Found 'view_type': 'tree' - parameter deprecated, use 'view_mode': 'list'"
+                    )
+                    self.stats['medium_issues'] += 1
 
                 # Check for version in manifest
                 if '__manifest__.py' in str(py_file):
