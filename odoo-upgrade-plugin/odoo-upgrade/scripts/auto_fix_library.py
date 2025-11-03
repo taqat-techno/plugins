@@ -275,6 +275,14 @@ def slug(value):
                 # Remove edit="1"
                 content = re.sub(r'\s+edit=["\']1["\']', '', content)
 
+                # Fix XPath expressions with //tree
+                content = re.sub(r'(xpath[^>]*expr=")//tree', r'\1//list', content)
+                content = re.sub(r"(xpath[^>]*expr=')//tree", r"\1//list", content)
+
+                # Remove expand attribute from search view groups
+                content = re.sub(r'(<group[^>]*)\s+expand=["\'][01]["\']', r'\1', content)
+                content = re.sub(r"(<group[^>]*)\s+expand='[01]'", r'\1', content)
+
                 if content != original:
                     with open(xml_file, 'w', encoding='utf-8') as f:
                         f.write(content)

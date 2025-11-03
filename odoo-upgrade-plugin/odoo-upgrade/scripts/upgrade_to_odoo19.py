@@ -190,6 +190,40 @@ class Odoo19Upgrader:
                     content
                 )
 
+                # 9. Fix XPath expressions with //tree
+                # Fix xpath with double quotes
+                content = re.sub(
+                    r'(xpath[^>]*expr=")//tree',
+                    r'\1//list',
+                    content
+                )
+                # Fix xpath with single quotes
+                content = re.sub(
+                    r"(xpath[^>]*expr=')//tree",
+                    r"\1//list",
+                    content
+                )
+
+                # 10. Remove expand attribute from search view groups (deprecated)
+                # Remove expand="0"
+                content = re.sub(
+                    r'(<group[^>]*)\s+expand="0"',
+                    r'\1',
+                    content
+                )
+                # Remove expand="1"
+                content = re.sub(
+                    r'(<group[^>]*)\s+expand="1"',
+                    r'\1',
+                    content
+                )
+                # Also handle with single quotes
+                content = re.sub(
+                    r"(<group[^>]*)\s+expand='[01]'",
+                    r'\1',
+                    content
+                )
+
                 if content != original:
                     with open(xml_file, 'w', encoding='utf-8') as f:
                         f.write(content)
@@ -284,6 +318,32 @@ class Odoo19Upgrader:
                 content = re.sub(
                     r'\burl_for\(',
                     r"self.env['ir.http']._url_for(",
+                    content
+                )
+
+                # Fix view_mode with 'tree' in Python dictionaries
+                # Fix standalone 'tree'
+                content = re.sub(
+                    r"(['\"]view_mode['\"]:\s*['\"])tree(['\"])",
+                    r"\1list\2",
+                    content
+                )
+                # Fix 'tree,' at start
+                content = re.sub(
+                    r"(['\"]view_mode['\"]:\s*['\"])tree,",
+                    r"\1list,",
+                    content
+                )
+                # Fix ',tree' in middle or end
+                content = re.sub(
+                    r",tree([,'\"])",
+                    r",list\1",
+                    content
+                )
+                # Fix view_type parameter (deprecated but may exist)
+                content = re.sub(
+                    r"(['\"]view_type['\"]:\s*['\"])tree(['\"])",
+                    r"\1list\2",
                     content
                 )
 
