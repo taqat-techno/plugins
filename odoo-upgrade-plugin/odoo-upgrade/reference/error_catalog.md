@@ -98,6 +98,126 @@ await this._jsonRpc("/api/endpoint", params);
 **Cause**: Kanban template name changed
 **Solution**: Change `t-name="kanban-box"` to `t-name="card"`
 
+### 7. Mail Template Helper Environment Error (NEW)
+**Error Message**: `AttributeError: 'Environment' object has no attribute 'tzinfo'`
+**Location**: Mail template `body_html` field
+**Versions**: Odoo 19
+**Cause**: Passing `env` parameter to `format_datetime()`, `format_date()`, or `format_amount()` helper functions
+**Solution**:
+```xml
+<!-- WRONG - Causes AttributeError -->
+<t t-out="format_datetime(env, object.date_start, dt_format='long')"/>
+
+<!-- CORRECT - Remove env parameter -->
+<t t-out="format_datetime(object.date_start, dt_format='long')"/>
+```
+**Detection**:
+```bash
+grep -r "format_datetime(env," --include="*.xml"
+grep -r "format_date(env," --include="*.xml"
+grep -r "format_amount(env," --include="*.xml"
+```
+
+### 8. XML Entity Not Defined (NEW)
+**Error Message**: `lxml.etree.XMLSyntaxError: Entity 'copy' not defined, line X, column Y`
+**Location**: XML data files, mail templates
+**Versions**: All Odoo versions
+**Cause**: Using HTML entities like `&copy;`, `&nbsp;`, `&mdash;` in XML files
+**Explanation**: XML only supports 5 predefined entities: `&lt;`, `&gt;`, `&amp;`, `&quot;`, `&apos;`. All other special characters must use numeric character references.
+**Solution**:
+```xml
+<!-- WRONG - XML parsing fails -->
+<p>© 2025 Company&nbsp;Name</p>
+<p>Price: 100&mdash;200</p>
+
+<!-- CORRECT - Use numeric character references -->
+<p>&#169; 2025 Company&#160;Name</p>
+<p>Price: 100&#8212;200</p>
+```
+**Common Replacements**:
+- `&copy;` → `&#169;` (©)
+- `&nbsp;` → `&#160;` (non-breaking space)
+- `&mdash;` → `&#8212;` (—)
+- `&trade;` → `&#8482;` (™)
+- `&reg;` → `&#174;` (®)
+- `&euro;` → `&#8364;` (€)
+
+**Detection**:
+```bash
+grep -r "&copy;" --include="*.xml"
+grep -r "&nbsp;" --include="*.xml"
+grep -r "&mdash;" --include="*.xml"
+```
+
+### 9. Portal XPath Cannot Be Located (NEW)
+**Error Message**: `Element '<xpath expr="//tbody//t[@t-if='not line.display_type']/td[3]">' cannot be located in parent view`
+**Location**: Sale portal template inheritance (`sale_portal_templates.xml`)
+**Versions**: Odoo 19
+**Cause**: Complete restructure of sale portal templates - wrapper conditionals removed, now uses named elements
+**Solution**:
+```xml
+<!-- OLD (Odoo 17/18) - FAILS in Odoo 19 -->
+<xpath expr="//table[@id='sales_order_table']/thead/tr/th[3]" position="attributes">
+
+<!-- NEW (Odoo 19) - Uses named element IDs -->
+<xpath expr="//table[@id='sales_order_table']/thead/tr/th[@id='product_unit_price_header']" position="attributes">
+
+<!-- OLD body XPath - FAILS -->
+<xpath expr="//tbody//t[@t-foreach='lines_to_report']//tr/t[@t-if='not line.display_type']/td[3]">
+
+<!-- NEW body XPath - WORKS -->
+<xpath expr="//tbody//tr[@name='tr_product']/td[@name='td_product_priceunit']">
+
+<!-- OLD sidebar XPath - FAILS -->
+<xpath expr="//h2[@data-id='total_amount']">
+
+<!-- NEW sidebar XPath - WORKS -->
+<xpath expr="//t[@t-set='title']//h2[@t-field='sale_order.amount_total']">
+```
+**Common Portal Element Names**:
+- Headers: `th[@id='product_unit_price_header']`, `th[@id='taxes_header']`, `th[@id='subtotal_header']`
+- Body: `tr[@name='tr_product']`, `td[@name='td_product_priceunit']`, `td[@name='td_product_taxes']`, `td[@name='td_product_subtotal']`
+
+**Detection**:
+```bash
+grep -r "t-if='not line.display_type'" --include="*.xml"
+grep -r "data-id='total_amount'" --include="*.xml"
+grep -r "sales_order_table.*th\[" --include="*.xml"
+```
+
+### 10. XML Domain Invalid Syntax (NEW)
+**Error Message**: `Invalid domain: "[('date_field', '>=', context_today().strftime('%Y-%m-%d'))]" - closing parenthesis ']' does not match opening parenthesis '('`
+**Location**: Search view filter domains
+**Versions**: All Odoo versions
+**Cause**: Using Python method calls (`.strftime()`, `.get()`, etc.) in XML domain expressions
+**Explanation**: XML domains are parsed at XML load time, not runtime. They cannot contain Python method calls or function invocations.
+**Solution**: Use Odoo's built-in date filter widget instead
+```xml
+<!-- WRONG - Method call in XML domain -->
+<search>
+    <filter name="filter_today" string="Today"
+            domain="[('sent_date', '>=', context_today().strftime('%Y-%m-%d'))]"/>
+</search>
+
+<!-- CORRECT - Use Odoo's date filter widget -->
+<search>
+    <separator/>
+    <filter name="sent_date" string="Sent Date" date="sent_date"/>
+</search>
+```
+**Benefits of date filter widget**:
+- Automatic dropdown: Today, This Week, This Month, Quarter, Year
+- Custom date range picker
+- No XML domain parsing issues
+- Standard Odoo UX
+
+**Detection**:
+```bash
+grep -r "context_today()\.strftime" --include="*.xml"
+grep -r "datetime\.timedelta" --include="*.xml" | grep "domain="
+grep -r "\.get(" --include="*.xml" | grep "domain="
+```
+
 ### 7. Invalid js_class in kanban
 **Error Message**: `Cannot find key 'crm_kanban' in the 'views' registry`
 **Versions**: Odoo 19
