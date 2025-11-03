@@ -359,6 +359,242 @@ $o-color-palettes: (
 );
 ```
 
+## 🔴 CRITICAL Mail Template Issues (NEW - Must Fix)
+
+### 10. Mail Template Helper Functions - Invalid env Parameter
+**Impact**: CRITICAL - Template rendering fails
+**Error**: `AttributeError: 'Environment' object has no attribute 'tzinfo'`
+
+#### Issue
+- Mail template helper functions changed in Odoo 19
+- `format_datetime()`, `format_date()`, `format_amount()` should NOT receive `env` parameter
+- The helpers access environment internally - passing it causes attribute errors
+
+#### Detection
+```bash
+grep -r "format_datetime(env," --include="*.xml"
+grep -r "format_date(env," --include="*.xml"
+grep -r "format_amount(env," --include="*.xml"
+```
+
+#### Fix
+```xml
+<!-- BEFORE (Odoo 17/18) - FAILS with AttributeError -->
+<t t-out="format_datetime(env, object.date_start, dt_format='long')">
+    January 15, 2025 at 2:30:00 PM
+</t>
+<t t-out="format_date(env, object.date_start)">2025-01-15</t>
+<t t-out="format_amount(env, object.amount, object.currency_id)">$100.00</t>
+
+<!-- AFTER (Odoo 19) - WORKS -->
+<t t-out="format_datetime(object.date_start, dt_format='long')">
+    January 15, 2025 at 2:30:00 PM
+</t>
+<t t-out="format_date(object.date_start)">2025-01-15</t>
+<t t-out="format_amount(object.amount, object.currency_id)">$100.00</t>
+```
+
+**Common Locations**:
+- Email templates in `data/mail_template_*.xml`
+- Report templates in `report/*.xml`
+- Website templates with dynamic dates/amounts
+
+### 11. XML Entity Encoding Issues
+**Impact**: CRITICAL - XML parsing fails
+**Error**: `lxml.etree.XMLSyntaxError: Entity 'copy' not defined, line X`
+
+#### Issue
+- HTML entities like `&copy;`, `&nbsp;`, `&mdash;` are NOT valid in XML
+- Only 5 predefined XML entities exist: `&lt;`, `&gt;`, `&amp;`, `&quot;`, `&apos;`
+- All other special characters must use numeric character references
+
+#### Detection
+```bash
+grep -r "&copy;" --include="*.xml"
+grep -r "&nbsp;" --include="*.xml"
+grep -r "&mdash;" --include="*.xml"
+grep -r "&trade;" --include="*.xml"
+```
+
+#### Fix
+```xml
+<!-- BEFORE - FAILS in XML parsing -->
+<p>© 2025 Company Name</p>
+<p>Company&nbsp;Name</p>
+<p>Price: 100&mdash;200</p>
+
+<!-- AFTER - WORKS -->
+<p>&#169; 2025 Company Name</p>
+<p>Company&#160;Name</p>
+<p>Price: 100&#8212;200</p>
+```
+
+**Common Character Codes**:
+- `©` → `&#169;` (copyright)
+- `nbsp` (non-breaking space) → `&#160;`
+- `—` (em dash) → `&#8212;`
+- `™` (trademark) → `&#8482;`
+- `€` (euro) → `&#8364;`
+
+### 12. XML Domain Method Calls Not Allowed
+**Impact**: HIGH - Search filters fail
+**Error**: `Invalid domain: closing parenthesis ']' does not match opening '('`
+
+#### Issue
+- XML domains are parsed at load time, NOT runtime
+- Cannot use Python method calls like `.strftime()`, `.get()`, functions, etc.
+- Context variables like `context_today` are available but cannot have methods called on them
+
+#### Detection
+```bash
+grep -r "context_today()\.strftime" --include="*.xml"
+grep -r "\.get(" --include="*.xml" | grep "domain="
+```
+
+#### Fix - Use Odoo's Date Filter Widget
+```xml
+<!-- BEFORE - FAILS with domain parsing error -->
+<search>
+    <filter name="filter_today" string="Today"
+            domain="[('date_field', '>=', context_today().strftime('%Y-%m-%d'))]"/>
+    <filter name="filter_this_week" string="This Week"
+            domain="[('date_field', '>=', (context_today - datetime.timedelta(days=7)).strftime('%Y-%m-%d'))]"/>
+</search>
+
+<!-- AFTER - WORKS with built-in date filter widget -->
+<search>
+    <separator/>
+    <!-- Odoo provides automatic date range dropdown: Today, This Week, This Month, etc. -->
+    <filter name="date_field" string="Date" date="date_field"/>
+</search>
+```
+
+**Date Filter Widget Benefits**:
+- Automatic dropdown with: Today, This Week, This Month, Quarter, Year
+- Custom date range picker
+- No XML domain parsing issues
+- Standard Odoo UX
+- Better user experience than single "Today" filter
+
+## 🔴 CRITICAL Portal View XPath Changes (NEW - Must Fix)
+
+### 13. Sale Portal Template Structure Changed
+**Impact**: CRITICAL - Portal view inheritance fails
+**Error**: `Element '<xpath expr="..."/>' cannot be located in parent view`
+
+#### Issue
+- Complete restructure of sale portal templates in Odoo 19
+- Removed wrapper conditionals: `<t t-if='not line.display_type'>`
+- Now uses named elements with `name="tr_product"` and `name="td_product_*"`
+- All positional XPath selectors (td[3], th[3]) must be updated
+- Sidebar structure changed - no more `data-id` attributes
+
+#### Detection
+```bash
+# Detect old portal XPath patterns
+grep -r "t-if='not line.display_type'" --include="*.xml"
+grep -r "data-id='total_amount'" --include="*.xml"
+grep -r "sales_order_table.*th\[" --include="*.xml"
+```
+
+#### Fix - Table Header XPaths
+```xml
+<!-- BEFORE (Odoo 17/18) - Positional selectors FAIL -->
+<xpath expr="//table[@id='sales_order_table']/thead/tr/th[3]" position="attributes">
+    <attribute name="t-if">condition</attribute>
+</xpath>
+
+<!-- AFTER (Odoo 19) - Named element selectors WORK -->
+<xpath expr="//table[@id='sales_order_table']/thead/tr/th[@id='product_unit_price_header']" position="attributes">
+    <attribute name="t-if">condition</attribute>
+</xpath>
+
+<!-- Other header IDs -->
+th[@id='product_qty_header']        <!-- Quantity -->
+th[@id='product_unit_price_header'] <!-- Unit Price -->
+th[@id='product_discount_header']   <!-- Discount % -->
+th[@id='taxes_header']              <!-- Taxes -->
+th[@id='subtotal_header']           <!-- Amount/Subtotal -->
+```
+
+#### Fix - Table Body XPaths
+```xml
+<!-- BEFORE (Odoo 17/18) - Nested conditional wrapper FAILS -->
+<xpath expr="//table[@id='sales_order_table']/tbody//t[@t-foreach='lines_to_report']//tr/t[@t-if='not line.display_type']/td[3]"
+       position="attributes">
+    <attribute name="t-if">condition</attribute>
+</xpath>
+
+<!-- AFTER (Odoo 19) - Direct named element selectors WORK -->
+<xpath expr="//table[@id='sales_order_table']/tbody//tr[@name='tr_product']/td[@name='td_product_priceunit']"
+       position="attributes">
+    <attribute name="t-if">condition</attribute>
+</xpath>
+
+<!-- Other body element names -->
+tr[@name='tr_product']               <!-- Product row -->
+tr[@name='tr_section']               <!-- Section row -->
+tr[@name='tr_note']                  <!-- Note row -->
+tr[@name='tr_combo']                 <!-- Combo product row -->
+
+td[@name='td_product_name']          <!-- Product name -->
+td[@name='td_product_quantity']      <!-- Quantity -->
+td[@name='td_product_priceunit']     <!-- Unit price -->
+td[@name='td_product_discount']      <!-- Discount % -->
+td[@name='td_product_taxes']         <!-- Taxes -->
+td[@name='td_product_subtotal']      <!-- Subtotal -->
+```
+
+#### Fix - Sidebar XPaths
+```xml
+<!-- BEFORE (Odoo 17/18) - data-id attribute FAILS -->
+<xpath expr="//h2[@data-id='total_amount']" position="attributes">
+    <attribute name="t-if">condition</attribute>
+</xpath>
+
+<!-- AFTER (Odoo 19) - Template variable selector WORKS -->
+<xpath expr="//t[@t-set='title']//h2[@t-field='sale_order.amount_total']" position="attributes">
+    <attribute name="t-if">condition</attribute>
+</xpath>
+
+<!-- For adding content after title -->
+<xpath expr="//t[@t-set='title']" position="after">
+    <div class="alert alert-info">Custom content</div>
+</xpath>
+```
+
+#### Fix - Optional Products (REMOVED)
+```xml
+<!--
+IMPORTANT: Optional products portal structure NO LONGER EXISTS in Odoo 19
+The sale_management module completely redesigned optional products
+
+If you have XPaths like:
+//t[@t-if='sale_order._can_be_edited_on_portal() and any((not option.is_present)...)']
+
+These templates must be COMMENTED OUT or COMPLETELY REWRITTEN for Odoo 19
+-->
+```
+
+**Complete Replacement Example**:
+```xml
+<!-- BEFORE (Odoo 17/18) -->
+<template id="sale_portal_inherit" inherit_id="sale.sale_order_portal_content">
+    <xpath expr="//table[@id='sales_order_table']/tbody//t[@t-foreach='lines_to_report']//tr/t[@t-if='not line.display_type']/td[3]"
+           position="attributes">
+        <attribute name="t-if">custom_condition</attribute>
+    </xpath>
+</template>
+
+<!-- AFTER (Odoo 19) -->
+<template id="sale_portal_inherit" inherit_id="sale.sale_order_portal_content">
+    <xpath expr="//table[@id='sales_order_table']/tbody//tr[@name='tr_product']/td[@name='td_product_priceunit']"
+           position="attributes">
+        <attribute name="t-if">custom_condition</attribute>
+    </xpath>
+</template>
+```
+
 ## Automated Upgrade Script
 
 Use the comprehensive upgrade script:
