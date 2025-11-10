@@ -26,6 +26,15 @@
       "skills": [
         "./odoo-frontend-plugin/odoo-frontend"
       ]
+    },
+    {
+      "name": "codex",
+      "description": "Universal development assistant with comprehensive code analysis, generation, refactoring, and optimization tools for all languages and frameworks",
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./codex-plugin/codex"
+      ]
     }
   ]
 }
