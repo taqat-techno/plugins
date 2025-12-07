@@ -1,29 +1,32 @@
 ---
 name: odoo-frontend
-description: "Advanced Odoo frontend development with PWA support, modern JavaScript/TypeScript, testing frameworks, performance optimization, accessibility compliance, real-time features, and complete theme scaffolding. Supports Odoo 14-19 with auto-detection, MCP integration, and comprehensive modern patterns."
+description: "Advanced Odoo frontend development with comprehensive theme development, PWA support, modern JavaScript/TypeScript, testing frameworks, performance optimization, accessibility compliance, and real-time features. Features complete $o-website-values-palettes reference, theme mirror model architecture, publicWidget patterns with editableMode handling, and MCP integration. Supports Odoo 14-19 with auto-detection."
 allowed-tools: [Read, Write, Edit, Bash, Grep, Glob, WebFetch]
 metadata:
-  version: "2.0.0"
+  version: "3.0.0"
   odoo-versions: "14,15,16,17,18,19"
   bootstrap-versions: "4.x,5.1.3"
-  javascript-features: ["ES2020+", "TypeScript", "Owl v1/v2", "Web Components"]
+  javascript-features: ["ES2020+", "TypeScript", "Owl v1/v2", "Web Components", "publicWidget"]
   testing-frameworks: ["Jest", "Cypress", "BackstopJS"]
   performance-tools: ["Core Web Vitals", "Lighthouse", "Vite"]
   accessibility: ["WCAG 2.1 AA", "ARIA", "Screen Readers"]
   real-time: ["WebSockets", "SSE", "Push Notifications"]
   mcp-tools: ["figma", "chrome-devtools", "filesystem"]
+  theme-features: ["o-website-values-palettes", "mirror-models", "snippet-groups", "color-palettes"]
   author: "TAQAT Techno"
   license: "MIT"
 ---
 
-# Odoo Frontend Development Skill
+# Odoo Frontend Development Skill v3.0
 
 ## Overview
 
 This skill provides advanced Odoo frontend development capabilities with:
+- **Theme Development**: Complete `$o-website-values-palettes` reference, color semantics, theme mirror models
 - **Auto-detection**: Automatically detect Odoo version and map to correct Bootstrap version
+- **publicWidget Framework**: Comprehensive patterns with `editableMode` handling for website builder
 - **Progressive Web Apps**: Service Workers, offline support, push notifications
-- **Modern JavaScript**: TypeScript, ES2020+, Web Components, advanced patterns
+- **Modern JavaScript**: TypeScript, ES2020+, Web Components, Owl v1/v2 patterns
 - **Testing Frameworks**: Jest, Cypress, visual regression testing
 - **Performance Optimization**: Core Web Vitals, resource hints, critical CSS
 - **Accessibility**: WCAG 2.1 AA compliance, ARIA patterns, keyboard navigation
@@ -32,6 +35,15 @@ This skill provides advanced Odoo frontend development capabilities with:
 - **Theme Scaffolding**: Complete theme module generation with proper structure
 - **Version-Aware**: Handle differences between Odoo 14-19 (Bootstrap 4/5, Owl v1/v2, Snippet structures)
 - **DevOps Ready**: CI/CD pipelines, Vite builds, automated testing
+
+## CRITICAL RULES
+
+1. **NEVER edit core Odoo** in `odoo/` or `odoo/addons/` directories
+2. **No inline JS/CSS** - Create separate `.js` and `.scss` files
+3. **JS modules**: Use `/** @odoo-module **/` annotation
+4. **Website themes**: Use `publicWidget` framework ONLY (not Owl or vanilla JS)
+5. **Bootstrap**: Use v5.1.3 classes for Odoo 16+ (never Tailwind)
+6. **Module naming**: Use `snake_case` convention
 
 ## Auto-Detection Workflow
 
@@ -72,6 +84,250 @@ The version detector will:
 **Snippet Registration Method:**
 - Odoo 14-17: Simple snippet insertion without groups
 - Odoo 18-19: Snippet groups required (`snippet_structure` with groups)
+
+## Complete Website Theme Variables System
+
+### $o-website-values-palettes - Full Reference
+
+Themes define comprehensive configuration presets. Based on analysis of 27+ standard Odoo themes:
+
+```scss
+$o-website-values-palettes: (
+    (
+        // === CORE CONFIGURATION ===
+        'color-palettes-name': 'your-theme-palette',  // Required: Links to color palette
+
+        // === HEADER & NAVIGATION ===
+        'header-template': 'default',           // Layout style
+        'header-font-size': 1rem,               // Navigation text size
+        'header-links-style': 'default',        // Navigation link styling
+        'hamburger-position': 'right',          // Mobile menu position
+        'logo-height': 3rem,                    // Logo size
+        'fixed-logo-height': 2rem,              // Logo size when header is fixed
+
+        // === TYPOGRAPHY ===
+        'font': 'Source Sans Pro',              // Body text font
+        'headings-font': 'Spartan',             // Heading font (h1-h6)
+        'navbar-font': 'Inter',                 // Navigation font
+        'buttons-font': 'Montserrat',           // Button text font
+        'headings-line-height': 1.1,            // Heading line spacing
+
+        // === BUTTONS ===
+        'btn-padding-y': .45rem,                // Vertical button padding
+        'btn-padding-x': 1.35rem,               // Horizontal button padding
+        'btn-padding-y-sm': .3rem,              // Small button vertical padding
+        'btn-padding-x-sm': .9rem,              // Small button horizontal padding
+        'btn-padding-y-lg': .6rem,              // Large button vertical padding
+        'btn-padding-x-lg': 1.8rem,             // Large button horizontal padding
+        'btn-border-radius': 10rem,             // Button corner rounding (10rem = pill)
+        'btn-border-radius-sm': 10rem,          // Small button rounding
+        'btn-border-radius-lg': 10rem,          // Large button rounding
+        'btn-border-width': 2px,                // Button border thickness
+        'btn-font-size': 1.2rem,                // Button text size
+        'btn-ripple': true,                     // Material design ripple effect
+        'btn-primary-flat': true,               // Flat primary button style
+        'btn-secondary-flat': true,             // Flat secondary button style
+        'btn-secondary-outline': true,          // Outline secondary button style
+
+        // === INPUT FIELDS ===
+        'input-padding-y': .45rem,              // Vertical input padding
+        'input-padding-y-sm': .3rem,            // Small input vertical padding
+        'input-padding-y-lg': .6rem,            // Large input vertical padding
+        'input-border-radius': .125rem,         // Input corner rounding
+        'input-border-radius-sm': .125rem,      // Small input rounding
+        'input-border-radius-lg': .125rem,      // Large input rounding
+
+        // === FOOTER ===
+        'footer-template': 'headline',          // Footer layout style
+        'footer-effect': 'slideout_slide_hover', // Footer animation effect
+        'footer-scrolltop': true,               // Show scroll-to-top button
+
+        // === LINKS ===
+        'link-underline': 'never',              // Link underline behavior
+
+        // === LAYOUT ===
+        'layout': 'boxed',                      // Overall page layout
+        'menu-border-radius': 0,                // Menu corner rounding
+    ),
+);
+```
+
+### Variable Options Reference
+
+**Header Template Options:**
+- `'default'` - Standard horizontal header
+- `'vertical'` - Sidebar-style navigation
+- `'hamburger'` - Mobile-first hamburger menu
+- `'search'` - Search-focused header layout
+- `'boxed'` - Contained header layout
+- `'sales_four'` - Sales-optimized layout
+- `'custom-theme'` - Theme-specific custom layout
+
+**Header Links Style Options:**
+- `'default'` - Standard link styling
+- `'pills'` - Pill-shaped link backgrounds
+- `'flat'` - Flat, borderless links
+- `'fill'` - Filled background links
+- `'border-bottom'` - Bottom border on hover
+
+**Footer Template Options:**
+- `'default'` - Standard footer layout
+- `'headline'` - Large headline focus
+- `'centered'` - Center-aligned content
+- `'descriptive'` - Detailed description layout
+- `'contact'` - Contact information focus
+- `'call_to_action'` - CTA-focused footer
+- `'minimalist'` - Clean, minimal footer
+- `'vertical'` - Vertical layout footer
+- `'links'` - Link-heavy footer
+- `'sales_four'` - Sales conversion optimized
+
+### Theme Color Palettes (o-color Semantic Structure)
+
+**Color Semantic Meanings:**
+- **o-color-1** = Primary brand color (main brand identity)
+- **o-color-2** = Secondary brand color (supporting brand color)
+- **o-color-3** = Light color (light backgrounds, light mode base)
+- **o-color-4** = White/body base color (main content background)
+- **o-color-5** = Dark color/font base (text color, dark mode considerations)
+
+```scss
+$o-theme-color-palettes: map-merge($o-theme-color-palettes, (
+    'my-theme-palette': (
+        'o-color-1': #007bff,      // Primary brand color
+        'o-color-2': #6c757d,      // Secondary brand color
+        'o-color-3': #f8f9fa,      // Light backgrounds
+        'o-color-4': #ffffff,      // White/body base
+        'o-color-5': #343a40,      // Dark text/dark mode base
+        'menu': 1,                  // Which color for menu (1-5)
+        'footer': 4,                // Which color for footer (1-5)
+        'copyright': 5,             // Which color for copyright (1-5)
+    ),
+));
+```
+
+### Font Configuration System
+
+```scss
+$o-theme-font-configs: map-merge($o-theme-font-configs, (
+    'Inter': (
+        'family': ('Inter', sans-serif),
+        'url': 'Inter:wght@300;400;500;600;700&display=swap',
+        'properties': (
+            'base': (
+                'font-size-base': 1rem,
+                'line-height-base': 1.6,
+            ),
+        )
+    ),
+    'Montserrat': (
+        'family': ('Montserrat', sans-serif),
+        'url': 'Montserrat:300,300i,400,400i,700,700i',
+    ),
+));
+```
+
+### Typography Hierarchy
+
+```scss
+// Common heading multipliers
+$o-theme-h1-font-size-multiplier: (64 / 16);  // ~4rem
+$o-theme-h2-font-size-multiplier: (48 / 16);  // ~3rem
+$o-theme-h3-font-size-multiplier: (36 / 16);  // ~2.25rem
+$o-theme-h4-font-size-multiplier: (28 / 16);  // ~1.75rem
+$o-theme-h5-font-size-multiplier: (24 / 16);  // ~1.5rem
+$o-theme-h6-font-size-multiplier: (21 / 16);  // ~1.3125rem
+
+// Font weights
+$o-theme-headings-font-weight: 700;   // Bold headings
+$o-theme-font-weight-normal: 400;     // Regular body text
+$o-theme-font-weight-light: 300;      // Light text
+```
+
+## Theme Page Creation Standard
+
+### Individual Page Files Pattern (Recommended)
+
+Create individual page files instead of a single `pages.xml`:
+```
+theme_name/
+├── data/
+│   ├── home.xml          # Homepage template + page
+│   ├── about.xml         # About page template + page
+│   ├── contact.xml       # Contact page (inherits website.contactus)
+│   ├── services.xml      # Services page template + page
+│   └── menu.xml          # Menu configuration
+└── views/
+    └── templates.xml     # Shared templates and layout
+```
+
+### Homepage (Inherits website.homepage)
+```xml
+<!-- data/home.xml -->
+<template id="view_home" inherit_id="website.homepage" name="Home">
+    <xpath expr="//div[@id='wrap']" position="replace">
+        <div id="wrap" class="oe_structure">
+            <!-- Homepage content here -->
+        </div>
+    </xpath>
+</template>
+```
+
+### Contact Page (Inherits website.contactus)
+```xml
+<!-- data/contact.xml -->
+<template id="view_contact" inherit_id="website.contactus" name="Contact">
+    <xpath expr="//h1" position="replace">
+        <h1>Get in Touch</h1>
+    </xpath>
+</template>
+```
+
+### Custom Pages (theme.website.page)
+```xml
+<!-- data/about.xml -->
+<template id="view_about" name="About">
+    <t t-call="website.layout">
+        <div id="wrap" class="oe_structure">
+            <section class="s_title pt96 pb48">
+                <div class="container">
+                    <h1>About Us</h1>
+                </div>
+            </section>
+        </div>
+    </t>
+</template>
+
+<record id="page_about" model="theme.website.page">
+    <field name="view_id" ref="view_about"/>
+    <field name="is_published" eval="True"/>
+    <field name="url">/about</field>
+    <field name="name">About</field>
+</record>
+```
+
+## Theme Mirror Model Architecture
+
+### How Themes Install to Pages
+
+```
+Theme Module XML
+    ↓
+theme.ir.ui.view (Template View)
+    ↓
+theme.website.page (Template Page)
+    ↓ (Theme Installation)
+    ↓
+ir.ui.view (Actual View with website_id)
+    ↓
+website.page (Actual Page with website_id)
+```
+
+### Key Points
+- Theme modules contain `theme.*` models (templates)
+- On installation, these convert to actual models with `website_id`
+- Each website gets independent copies, enabling theme reuse
+- `website_id` assignment happens at view creation level
 
 ## Theme Scaffolding Commands
 
@@ -409,63 +665,92 @@ Convert this Figma layout to Bootstrap v<version> grid system and utility classe
 
 ## JavaScript Development
 
-### Public Widget Pattern (jQuery-based)
+### Public Widget Pattern (publicWidget - REQUIRED for Themes)
 
-**Use for**: Simple interactions, integrations with jQuery libraries, minor DOM manipulations
+**IMPORTANT**: For website themes, ALWAYS use publicWidget framework - NOT Owl or vanilla JS.
 
-**Structure**:
+**Use for**: Website interactions, theme functionality, form handling, animations
+
+**Complete Structure with editableMode**:
 ```javascript
 /** @odoo-module **/
 
-import PublicWidget from "@web/legacy/js/public/public_widget";
-import { jsonrpc } from "@web/core/network/rpc_service";
+import publicWidget from "@web/legacy/js/public/public_widget";
 
-const MyWidget = PublicWidget.Widget.extend({
-    selector: ".my_widget_class",
+publicWidget.registry.MyWidget = publicWidget.Widget.extend({
+    selector: '.my-selector',
+    disabledInEditableMode: false,  // Allow in website builder
 
-    /**
-     * Lifecycle: Called before widget starts
-     */
-    willStart: async function() {
-        // Fetch data from server if needed
-        this.data = await jsonrpc("/my/data/route", {});
-        return this._super(...arguments);
+    events: {
+        'click .button': '_onClick',
+        'change input': '_onChange',
+        'submit form': '_onSubmit',
     },
 
     /**
      * Lifecycle: Called when widget starts
+     * CRITICAL: Check editableMode for website builder compatibility
      */
-    start: function() {
-        // Manipulate DOM
-        this.$el.text(this.data.message);
-
-        // Bind events
-        this._bindEvents();
-
-        return this._super(...arguments);
+    start: function () {
+        // IMPORTANT: Only run animations/interactions in read mode
+        if (!this.editableMode) {
+            this._initializeAnimation();
+            this._bindExternalEvents();
+        }
+        return this._super.apply(this, arguments);
     },
 
     /**
-     * Bind event handlers
+     * Initialize animations (only in read mode)
      */
-    _bindEvents: function() {
-        this.$('.some-button').on('click', this._onButtonClick.bind(this));
+    _initializeAnimation: function () {
+        // Animation code that should NOT run in edit mode
+        this.$el.addClass('animated');
     },
 
     /**
-     * Event handler
+     * Bind events outside the widget element
      */
-    _onButtonClick: function(ev) {
+    _bindExternalEvents: function () {
+        $(window).on('scroll.myWidget', this._onScroll.bind(this));
+        $(window).on('resize.myWidget', this._onResize.bind(this));
+    },
+
+    /**
+     * Click handler
+     */
+    _onClick: function (ev) {
         ev.preventDefault();
-        // Handle click
+        // Don't run in edit mode
+        if (this.editableMode) return;
+        // Handler logic
+    },
+
+    /**
+     * Scroll handler
+     */
+    _onScroll: function () {
+        // Throttle scroll events for performance
+    },
+
+    /**
+     * CRITICAL: Clean up event listeners to prevent memory leaks
+     */
+    destroy: function () {
+        $(window).off('.myWidget');  // Remove namespaced events
+        this._super.apply(this, arguments);
     },
 });
 
-// Register widget
-PublicWidget.registry.MyWidget = MyWidget;
-
-export default MyWidget;
+export default publicWidget.registry.MyWidget;
 ```
+
+**Key publicWidget Points:**
+1. **ALWAYS check `this.editableMode`** before running animations/interactions
+2. Use `disabledInEditableMode: false` to make widgets work in website builder
+3. **ALWAYS clean up** event listeners in `destroy()` method
+4. **NEVER use Owl or vanilla JS** for website themes - publicWidget only
+5. Use namespaced events (`.myWidget`) for easy cleanup
 
 **Include in Manifest**:
 ```python

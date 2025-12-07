@@ -2,14 +2,26 @@
 
 ## Version Matrix
 
-| Odoo Version | Bootstrap Version | Notes |
-|--------------|-------------------|-------|
-| 14.0 | 4.5.0 | Last version with Bootstrap 4 |
-| 15.0 | 5.0.2 | First version with Bootstrap 5 |
-| 16.0 | 5.1.3 | Standardized on 5.1.3 |
-| 17.0 | 5.1.3 | Maintained same version |
-| 18.0 | 5.1.3 | Maintained same version |
-| 19.0 | 5.1.3 | Current version |
+| Odoo Version | Bootstrap Version | Owl | Python | Notes |
+|--------------|-------------------|-----|--------|-------|
+| 14.0 | 4.5.0 | experimental | 3.7-3.10 | Last version with Bootstrap 4 |
+| 15.0 | 5.0.2 | experimental | 3.8-3.11 | First version with Bootstrap 5 |
+| 16.0 | 5.1.3 | v1 | 3.9-3.12 | Standardized on 5.1.3 |
+| 17.0 | 5.1.3 | v1 | 3.10-3.13 | Primary development version |
+| 18.0 | 5.1.3 | v2 | 3.10-3.13 | Owl v2 transition |
+| 19.0 | 5.1.3 | v2 | 3.10-3.13 | Current version |
+
+## CRITICAL: Version Detection
+
+Always detect the Odoo version before applying any Bootstrap classes:
+```bash
+# Check manifest version
+grep -r "version.*[0-9]\+\.[0-9]\+" __manifest__.py
+
+# Or detect from directory name
+# odoo17/ = Odoo 17 = Bootstrap 5.1.3
+# odoo14/ = Odoo 14 = Bootstrap 4.5.0
+```
 
 ## Bootstrap 4 to 5 Migration Guide
 

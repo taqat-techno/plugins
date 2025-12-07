@@ -1,21 +1,42 @@
 ---
 name: odoo-upgrade
-description: Comprehensive Odoo ERP upgrade assistant for migrating modules between Odoo versions (14-19). Handles XML views, Python API changes, JavaScript/OWL components, theme SCSS variables, and manifest updates. Use when user asks to upgrade Odoo modules, fix version compatibility issues, migrate themes between versions, or resolve Odoo 17/18/19 migration errors. Specializes in frontend RPC service migrations, view XML transformations, and theme variable restructuring.
+description: "Comprehensive Odoo ERP upgrade assistant for migrating modules between Odoo versions (14-19). Handles XML views, Python API changes, JavaScript/OWL components, theme SCSS variables, manifest updates, security implementations, and database migrations. Use when user asks to upgrade Odoo modules, fix version compatibility issues, migrate themes between versions, or resolve Odoo 17/18/19 migration errors. Specializes in frontend RPC service migrations, view XML transformations, theme variable restructuring, and portal template XPath fixes."
+metadata:
+  version: "4.0.0"
+  odoo-versions: "14,15,16,17,18,19"
+  transformation-patterns: 150
+  auto-fixes: 75
+  author: "TAQAT Techno"
+  license: "MIT"
 ---
 
-# Odoo Upgrade Assistant
+# Odoo Upgrade Assistant v4.0
 
-A comprehensive skill for upgrading Odoo modules between versions, with extensive pattern recognition and automated fixes for common migration issues.
+A comprehensive skill for upgrading Odoo modules between versions, with extensive pattern recognition, automated fixes, and deep integration with Odoo's architecture for common migration issues.
+
+## Version Compatibility Matrix
+
+| Odoo Version | Python | PostgreSQL | Bootstrap | Owl | Status |
+|--------------|--------|------------|-----------|-----|--------|
+| 14.0 | 3.7-3.10 | 13+ | 4.5.0 | experimental | Legacy |
+| 15.0 | 3.8-3.11 | 13+ | 5.0.2 | experimental | Legacy |
+| 16.0 | 3.9-3.12 | 13+ | 5.1.3 | v1 | Stable |
+| 17.0 | 3.10-3.13 | 13+ | 5.1.3 | v1 | Active |
+| 18.0 | 3.10-3.13 | 13+ | 5.1.3 | v2 | Active |
+| 19.0 | 3.10-3.13 | 13+ | 5.1.3 | v2 | Latest |
 
 ## When to Use This Skill
 
 Activate this skill when:
 - User requests upgrading Odoo modules between versions (14→19)
 - Fixing Odoo version compatibility errors
-- Migrating themes or custom modules
+- Migrating themes or custom modules to newer versions
 - Resolving RPC service errors in frontend components
-- Converting XML views for newer Odoo versions
-- Updating SCSS variables for Odoo 19 themes
+- Converting XML views for newer Odoo versions (tree→list, search groups)
+- Updating SCSS variables for Odoo 18/19 themes
+- Fixing portal view XPath inheritance errors
+- Updating mail template helper functions
+- Migrating JavaScript from Owl v1 to v2
 
 ## Upgrade Workflow
 
@@ -29,10 +50,56 @@ Activate this skill when:
 ```
 
 ### 2. Manifest Updates
-- Update version number to target format (e.g., "19.0.1.0.0")
-- Add missing 'license' key (default: 'LGPL-3')
-- Declare external dependencies
-- Update category if needed
+
+#### Standard Manifest Fields (Odoo 19 TaqaTechno Standard)
+```python
+{
+    'name': 'Module Display Name',
+    'version': '19.0.1.0.0',          # Format: ODOO_VERSION.MAJOR.MINOR.PATCH
+    'summary': 'Brief description',
+    'category': 'Category Name',
+    'author': 'TaqaTechno',            # REQUIRED for Odoo 19
+    'website': 'https://www.taqatechno.com/',  # REQUIRED
+    'support': 'info@taqatechno.com',  # REQUIRED
+    'license': 'LGPL-3',               # REQUIRED
+    'contributors': [                   # Names only, NO emails
+        'Developer Name',
+    ],
+    'depends': ['base', 'other_module'],
+    'data': [
+        'security/group_*.xml',        # User groups first
+        'security/ir.model.access.csv', # Model access
+        'security/rules_*.xml',        # Record rules
+        'views/*.xml',                 # UI views
+        'data/*.xml',                  # Default data
+    ],
+    'assets': {
+        'web.assets_frontend': [
+            'module_name/static/src/js/*.js',
+            'module_name/static/src/scss/*.scss',
+        ],
+        'web._assets_primary_variables': [
+            'module_name/static/src/scss/primary_variables.scss',
+        ],
+        'web._assets_frontend_helpers': [
+            'module_name/static/src/scss/bootstrap_overridden.scss',
+        ],
+    },
+    'installable': True,
+    'auto_install': False,
+    'application': False,
+}
+```
+
+#### Version String Migration
+```python
+# Odoo 14: '14.0.1.0.0'
+# Odoo 15: '15.0.1.0.0'
+# Odoo 16: '16.0.1.0.0'
+# Odoo 17: '17.0.1.0.0'
+# Odoo 18: '18.0.1.0.0'
+# Odoo 19: '19.0.1.0.0'
+```
 
 ### 3. XML/View Transformations
 
@@ -398,26 +465,216 @@ After upgrade:
 
 ## Version-Specific Notes
 
+### Odoo 14 → 15
+- **Bootstrap 4.x → 5.x** (major CSS class changes)
+- QWeb syntax: `t-use-call` removed, use `t-call`
+- Payment Provider API changes
+- Left/Right classes → Start/End for RTL support
+
+### Odoo 15 → 16
+- Bootstrap 5.1.3 standardization
+- Web framework module reorganization
+- Website page template changes
+- Payment flow updates
+- Owl v1 adoption begins
+
+### Odoo 16 → 17
+- OWL framework v1 fully adopted
+- Widget system changes
+- Asset pipeline updates
+- publicWidget API stabilization
+- Theme color palette improvements
+
 ### Odoo 17 → 18
+- Owl v1 → v2 migration starts
 - Minor XML changes
 - Python API mostly compatible
 - JavaScript minor updates
+- Snippet group system introduced
 
 ### Odoo 18 → 19
-- Major frontend architecture changes
-- RPC service removed from public
-- Snippet system overhaul
-- Kanban template naming changes
-- Search view structure changes
+- **Major frontend architecture changes**
+- RPC service REMOVED from public components
+- Snippet system overhaul (groups required)
+- Kanban template: `kanban-box` → `card`
+- Search view: `<group>` tags NOT allowed
+- `<tree>` views → `<list>` views
+- XPath expressions: `//tree` → `//list`
+- Portal view templates completely restructured
+- Mail template helpers: remove `env` parameter
+- Cron jobs: `numbercall` field removed
 
-### Odoo 16 → 17
-- OWL framework adoption
-- Widget system changes
-- Asset pipeline updates
+## Security Implementation (Required for All Versions)
+
+### 1. Model Access (ir.model.access.csv)
+```csv
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_my_model_user,my.model.user,model_my_model,base.group_user,1,1,1,0
+access_my_model_admin,my.model.admin,model_my_model,base.group_erp_manager,1,1,1,1
+```
+
+### 2. User Groups (security/group_*.xml)
+```xml
+<record id="group_my_manager" model="res.groups">
+    <field name="name">My Manager</field>
+    <field name="category_id" ref="base.module_category_services"/>
+    <field name="implied_ids" eval="[(4, ref('base.group_user'))]"/>
+</record>
+```
+
+### 3. Record Rules (security/rules_*.xml)
+```xml
+<record id="my_model_rule" model="ir.rule">
+    <field name="name">My Model: User own records</field>
+    <field name="model_id" ref="model_my_model"/>
+    <field name="domain_force">[('user_id', '=', user.id)]</field>
+    <field name="groups" eval="[(4, ref('base.group_user'))]"/>
+    <field name="perm_read" eval="True"/>
+    <field name="perm_write" eval="True"/>
+    <field name="perm_create" eval="True"/>
+    <field name="perm_unlink" eval="False"/>
+</record>
+```
+
+## Portal View XPath Migration (Odoo 19)
+
+### Sale Portal Template Changes
+
+The sale portal templates have been completely restructured in Odoo 19:
+
+#### Table Header XPaths
+```xml
+<!-- BEFORE (Odoo 17/18) - Positional selectors -->
+<xpath expr="//table[@id='sales_order_table']/thead/tr/th[3]" position="attributes">
+
+<!-- AFTER (Odoo 19) - Named element selectors -->
+<xpath expr="//table[@id='sales_order_table']/thead/tr/th[@id='product_unit_price_header']" position="attributes">
+```
+
+**Available Header IDs:**
+- `th[@id='product_qty_header']` - Quantity
+- `th[@id='product_unit_price_header']` - Unit Price
+- `th[@id='product_discount_header']` - Discount %
+- `th[@id='taxes_header']` - Taxes
+- `th[@id='subtotal_header']` - Amount/Subtotal
+
+#### Table Body XPaths
+```xml
+<!-- BEFORE (Odoo 17/18) -->
+<xpath expr="//table[@id='sales_order_table']/tbody//t[@t-foreach='lines_to_report']//tr/t[@t-if='not line.display_type']/td[3]" position="attributes">
+
+<!-- AFTER (Odoo 19) -->
+<xpath expr="//table[@id='sales_order_table']/tbody//tr[@name='tr_product']/td[@name='td_product_priceunit']" position="attributes">
+```
+
+**Available Body Element Names:**
+- `tr[@name='tr_product']` - Product row
+- `tr[@name='tr_section']` - Section row
+- `tr[@name='tr_note']` - Note row
+- `td[@name='td_product_name']` - Product name
+- `td[@name='td_product_quantity']` - Quantity
+- `td[@name='td_product_priceunit']` - Unit price
+- `td[@name='td_product_discount']` - Discount %
+- `td[@name='td_product_taxes']` - Taxes
+- `td[@name='td_product_subtotal']` - Subtotal
+
+## Mail Template Migration (Odoo 19)
+
+### Helper Function Changes
+```xml
+<!-- BEFORE (Odoo 17/18) - FAILS in Odoo 19 -->
+<t t-out="format_datetime(env, object.date_start, dt_format='long')"/>
+<t t-out="format_date(env, object.date_start)"/>
+<t t-out="format_amount(env, object.amount, object.currency_id)"/>
+
+<!-- AFTER (Odoo 19) - Remove env parameter -->
+<t t-out="format_datetime(object.date_start, dt_format='long')"/>
+<t t-out="format_date(object.date_start)"/>
+<t t-out="format_amount(object.amount, object.currency_id)"/>
+```
+
+### XML Entity Encoding
+```xml
+<!-- BEFORE - HTML entities (FAILS in XML) -->
+<p>&copy; 2025 Company Name</p>
+<p>Company&nbsp;Name</p>
+
+<!-- AFTER - Numeric character references -->
+<p>&#169; 2025 Company Name</p>
+<p>Company&#160;Name</p>
+```
+
+**Common Character Codes:**
+- `©` → `&#169;` (copyright)
+- ` ` → `&#160;` (non-breaking space)
+- `—` → `&#8212;` (em dash)
+- `™` → `&#8482;` (trademark)
+- `€` → `&#8364;` (euro)
+
+## Bootstrap 4 → 5 Class Migration
+
+| Bootstrap 4 | Bootstrap 5 | Description |
+|-------------|-------------|-------------|
+| `ml-*` | `ms-*` | Margin Left → Start |
+| `mr-*` | `me-*` | Margin Right → End |
+| `pl-*` | `ps-*` | Padding Left → Start |
+| `pr-*` | `pe-*` | Padding Right → End |
+| `text-left` | `text-start` | Text align left |
+| `text-right` | `text-end` | Text align right |
+| `float-left` | `float-start` | Float left |
+| `float-right` | `float-end` | Float right |
+| `form-group` | `mb-3` | Form group spacing |
+| `custom-select` | `form-select` | Custom select |
+| `close` | `btn-close` | Close button |
+| `badge-primary` | `bg-primary` | Primary badge |
+| `font-weight-bold` | `fw-bold` | Bold text |
+| `sr-only` | `visually-hidden` | Screen reader only |
+| `no-gutters` | `g-0` | No gutters in grid |
+
+## Helper Commands
+
+```bash
+# Pre-check for compatibility issues
+python scripts/odoo19_precheck.py <project_path>
+
+# Quick targeted fixes
+python scripts/quick_fix_odoo19.py <project_path>
+
+# Full comprehensive upgrade
+python scripts/upgrade_to_odoo19.py <project_path>
+
+# Update manifest versions
+python scripts/upgrade_manifest.py <project_path> 19.0
+
+# Fix RPC service migrations
+python scripts/fix_rpc_service.py <project_path>
+
+# Install upgraded module
+python -m odoo -d [DB] -i [MODULE] --addons-path=odoo/addons,projects/[PROJECT] --stop-after-init
+
+# Update module after changes
+python -m odoo -d [DB] -u [MODULE] --stop-after-init
+
+# Run with development mode for debugging
+python -m odoo -d [DB] --dev=all
+```
+
+## Migration Report Template
+
+Generate comprehensive reports documenting:
+- Files modified count
+- Lines changed
+- Patterns applied
+- Manual fixes needed
+- External dependencies added
+- Testing status
+- Known issues
+- Rollback instructions
 
 ## References
 
 - [Patterns Documentation](./patterns/common_patterns.md)
-- [Fix Templates](./fixes/)
+- [Odoo 18 to 19 Patterns](./patterns/odoo18_to_19.md)
+- [JavaScript Fixes](./fixes/javascript_fixes.md)
+- [XML Fixes](./fixes/xml_fixes.md)
 - [Error Catalog](./reference/error_catalog.md)
-- [API Changes](./reference/api_changes.md)
