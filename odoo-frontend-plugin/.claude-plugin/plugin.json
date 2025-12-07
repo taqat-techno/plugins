@@ -1,7 +1,7 @@
 {
   "name": "odoo-frontend",
-  "version": "2.0.0",
-  "description": "Advanced Odoo frontend development with PWA support, TypeScript, modern testing frameworks, performance optimization, accessibility compliance, real-time features, and complete theme scaffolding for Odoo 14-19",
+  "version": "3.0.0",
+  "description": "Advanced Odoo frontend development with comprehensive theme development, PWA support, TypeScript, testing frameworks, and performance optimization. Features complete $o-website-values-palettes reference, theme mirror model architecture, publicWidget patterns with editableMode handling, color semantic structure, and MCP integration for Odoo 14-19.",
   "author": {
     "name": "TAQAT Techno",
     "email": "contact@taqat-techno.com",
@@ -14,6 +14,9 @@
     "odoo",
     "frontend",
     "theme",
+    "website-values-palettes",
+    "publicWidget",
+    "mirror-models",
     "pwa",
     "typescript",
     "javascript",
@@ -42,12 +45,20 @@
   "metadata": {
     "odoo-versions": ["14", "15", "16", "17", "18", "19"],
     "bootstrap-versions": ["4.x", "5.1.3"],
-    "javascript-features": ["ES2020+", "TypeScript", "Owl v1/v2", "Web Components"],
+    "javascript-features": ["ES2020+", "TypeScript", "Owl v1/v2", "Web Components", "publicWidget"],
     "testing-frameworks": ["Jest", "Cypress", "BackstopJS"],
     "performance-tools": ["Core Web Vitals", "Lighthouse", "Vite"],
     "accessibility": ["WCAG 2.1 AA", "ARIA", "Screen Readers"],
     "real-time": ["WebSockets", "SSE", "Push Notifications"],
     "mcp-tools": ["figma", "chrome-devtools", "filesystem"],
+    "theme-features": {
+      "website-values-palettes": true,
+      "color-semantic-structure": true,
+      "mirror-model-architecture": true,
+      "individual-page-files": true,
+      "publicWidget-editableMode": true,
+      "snippet-groups": true
+    },
     "theme-scaffolding": true,
     "auto-detection": true
   }

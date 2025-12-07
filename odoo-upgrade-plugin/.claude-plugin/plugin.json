@@ -1,7 +1,7 @@
 {
   "name": "odoo-upgrade",
-  "version": "3.0.0",
-  "description": "Comprehensive Odoo ERP upgrade assistant for migrating modules between versions 14-19, with automated pattern recognition and fixes for XML views, Python APIs, JavaScript/OWL components, and theme variables",
+  "version": "4.0.0",
+  "description": "Comprehensive Odoo ERP upgrade assistant for migrating modules between versions 14-19. Handles XML views, Python APIs, JavaScript/OWL components, theme SCSS variables, portal templates, mail templates, security implementations, and database migrations with automated pattern recognition.",
   "author": {
     "name": "TAQAT Techno",
     "email": "contact@taqat-techno.com",
@@ -20,6 +20,9 @@
     "rpc-service",
     "owl-components",
     "bootstrap",
+    "portal-views",
+    "mail-templates",
+    "security",
     "odoo14",
     "odoo15",
     "odoo16",
@@ -39,8 +42,11 @@
       "17-to-18",
       "18-to-19"
     ],
-    "transformation-patterns": 100,
-    "auto-fixes": 50,
-    "manual-steps-documented": true
+    "transformation-patterns": 150,
+    "auto-fixes": 75,
+    "manual-steps-documented": true,
+    "bootstrap-migration": "4.x-to-5.1.3",
+    "owl-migration": "v1-to-v2",
+    "portal-xpath-fixes": true
   }
 }
