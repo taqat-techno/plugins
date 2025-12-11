@@ -35,6 +35,18 @@
       "skills": [
         "./codex-plugin/codex"
       ]
+    },
+    {
+      "name": "devops",
+      "description": "Azure DevOps integration for TaqaTechno - manage work items, PRs, pipelines, repos, wiki through natural language via MCP server",
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./devops-plugin/devops"
+      ],
+      "commands": [
+        "./devops-plugin/commands"
+      ]
     }
   ]
 }
