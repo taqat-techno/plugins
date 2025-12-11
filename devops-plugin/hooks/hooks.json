@@ -1,0 +1,139 @@
+{
+  "PostToolUse": [
+    {
+      "name": "Suggest work item link after PR",
+      "matcher": "(Write|Edit).*pull.*request|create.*pr",
+      "description": "Suggests linking work items after creating a pull request",
+      "hooks": [
+        {
+          "type": "suggestion",
+          "message": "PR created! Consider linking it to a work item for traceability. Use: 'Link PR to work item #ID'"
+        }
+      ]
+    },
+    {
+      "name": "Suggest testing after code commit",
+      "matcher": "(Bash).*(git commit|git push)",
+      "description": "Reminds to run tests after committing code",
+      "hooks": [
+        {
+          "type": "suggestion",
+          "message": "Code committed. Consider checking build status or running pipeline to verify changes."
+        }
+      ]
+    },
+    {
+      "name": "Update work item after task completion",
+      "matcher": "(Write|Edit).*\\.(py|js|ts|xml)$",
+      "description": "Suggests updating work item after significant code changes",
+      "hooks": [
+        {
+          "type": "suggestion",
+          "message": "Code changes complete. Remember to update the related work item status if this completes a task."
+        }
+      ]
+    },
+    {
+      "name": "Suggest PR after branch work",
+      "matcher": "(Bash).*git.*feature|git.*bugfix",
+      "description": "Suggests creating PR after working on feature branch",
+      "hooks": [
+        {
+          "type": "suggestion",
+          "message": "Working on feature branch. When ready, create a PR with: 'Create PR from [branch] to main'"
+        }
+      ]
+    }
+  ],
+  "OnError": [
+    {
+      "name": "Authentication error helper",
+      "matcher": "(401|Unauthorized|authentication failed|token expired)",
+      "description": "Helps with Azure DevOps authentication errors",
+      "hooks": [
+        {
+          "type": "suggestion",
+          "message": "Authentication error detected. Your Personal Access Token (PAT) may have expired. Generate a new PAT at: https://dev.azure.com/TaqaTechno/_usersSettings/tokens"
+        }
+      ]
+    },
+    {
+      "name": "Permission error helper",
+      "matcher": "(403|Forbidden|permission denied|access denied)",
+      "description": "Helps with permission errors",
+      "hooks": [
+        {
+          "type": "suggestion",
+          "message": "Permission denied. Check that your PAT has the required scopes: Code (Read/Write), Work Items (Read/Write), Build (Read/Execute)."
+        }
+      ]
+    },
+    {
+      "name": "Not found error helper",
+      "matcher": "(404|Not Found|does not exist|TF401019)",
+      "description": "Helps with resource not found errors",
+      "hooks": [
+        {
+          "type": "suggestion",
+          "message": "Resource not found. Verify: 1) Project name is correct, 2) Work item ID exists, 3) Repository name matches exactly."
+        }
+      ]
+    },
+    {
+      "name": "Work item validation error",
+      "matcher": "(VS403507|field validation|required field)",
+      "description": "Helps with work item field validation errors",
+      "hooks": [
+        {
+          "type": "suggestion",
+          "message": "Work item validation failed. Check required fields: Title is always required. For bugs, Severity and Priority are often required. For tasks, Activity type may be required."
+        }
+      ]
+    },
+    {
+      "name": "Build failure helper",
+      "matcher": "(build failed|pipeline failed|test failure)",
+      "description": "Helps diagnose build failures",
+      "hooks": [
+        {
+          "type": "suggestion",
+          "message": "Build failed. To investigate: 1) Check build logs with 'Show build logs for #ID', 2) Review test results, 3) Consider creating a bug to track the fix."
+        }
+      ]
+    },
+    {
+      "name": "WIQL syntax error",
+      "matcher": "(WIQL|query syntax|invalid query)",
+      "description": "Helps with WIQL query errors",
+      "hooks": [
+        {
+          "type": "suggestion",
+          "message": "WIQL query error. Common fixes: 1) Use @Me for current user, 2) Use @Today for today's date, 3) Enclose field names in [], 4) Use single quotes for string values."
+        }
+      ]
+    },
+    {
+      "name": "Rate limit helper",
+      "matcher": "(429|rate limit|too many requests)",
+      "description": "Helps with API rate limiting",
+      "hooks": [
+        {
+          "type": "suggestion",
+          "message": "Rate limit reached. Azure DevOps has API limits. Wait a moment before retrying, or batch multiple operations together."
+        }
+      ]
+    }
+  ],
+  "PreCommit": [
+    {
+      "name": "Remind to link work item",
+      "description": "Reminds to link commits to work items",
+      "hooks": [
+        {
+          "type": "suggestion",
+          "message": "Before committing: Consider including work item ID in commit message (e.g., 'Fix #1234: Description') for automatic linking in Azure DevOps."
+        }
+      ]
+    }
+  ]
+}
