@@ -1,0 +1,60 @@
+{
+  "name": "devops",
+  "version": "1.0.0",
+  "description": "Azure DevOps integration for TaqaTechno - manage work items, PRs, pipelines, repos, wiki, and more through natural language. Leverages the official Microsoft Azure DevOps MCP server with 100+ tools.",
+  "author": {
+    "name": "TAQAT Techno",
+    "email": "info@taqatechno.com",
+    "url": "https://github.com/taqat-techno-eg"
+  },
+  "homepage": "https://github.com/taqat-techno-eg/plugins",
+  "repository": "https://github.com/taqat-techno-eg/plugins",
+  "license": "MIT",
+  "keywords": [
+    "azure-devops",
+    "devops",
+    "work-items",
+    "pipelines",
+    "pull-requests",
+    "ci-cd",
+    "agile",
+    "scrum",
+    "sprint",
+    "taqatechno",
+    "project-management",
+    "mcp",
+    "automation"
+  ],
+  "skills": "./devops/",
+  "commands": "./commands/",
+  "hooks": "./hooks/hooks.json",
+  "scripts": "./devops/scripts/",
+  "metadata": {
+    "organization": "TaqaTechno",
+    "mcp-server": "@azure-devops/mcp",
+    "mcp-version": "latest",
+    "tools-count": "100+",
+    "domains": [
+      "core",
+      "work",
+      "work-items",
+      "repositories",
+      "pipelines",
+      "test-plans",
+      "wiki",
+      "search",
+      "advanced-security"
+    ],
+    "authentication": "PAT",
+    "supported-features": [
+      "work-item-management",
+      "pull-request-workflows",
+      "pipeline-operations",
+      "repository-browsing",
+      "wiki-management",
+      "code-search",
+      "test-plan-management",
+      "security-alerts"
+    ]
+  }
+}
