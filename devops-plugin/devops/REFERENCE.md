@@ -41,13 +41,33 @@ Lists teams within a project.
 ---
 
 #### `mcp_ado_core_get_identity_ids`
-Looks up user identities.
+Looks up user identities. **USE THIS to get user GUIDs for mentions!**
 
 **Parameters:**
-- `searchFilter` (required): Search string (name or email)
-- `filterValue` (required): Value to search for
+- `searchFilter` (required): Filter type - use `"General"` for name/email search
+- `filterValue` (required): Value to search for (name or email)
 
-**Returns:** Array of identity objects
+**Returns:** Array of identity objects with `id` (GUID), `displayName`, `uniqueName`
+
+**Example - Find user for mention:**
+```
+mcp_ado_core_get_identity_ids({
+  "searchFilter": "General",
+  "filterValue": "mahmoud"
+})
+
+# Returns:
+{
+  "id": "6011f8b0-xxxx-xxxx-xxxx-xxxxxxxxxxxx",  // ← Use this GUID for @mentions
+  "displayName": "Mahmoud Elshahed",
+  "uniqueName": "melshahed@pearlpixels.com"
+}
+```
+
+**Common searchFilter values:**
+- `"General"` - Search by display name or email (most common)
+- `"DisplayName"` - Search by display name only
+- `"MailAddress"` - Search by email only
 
 ---
 
@@ -142,13 +162,35 @@ Links two work items together.
 ---
 
 #### `mcp_ado_workitems_add_comment`
-Adds a comment to a work item.
+Adds a comment to a work item. **USE THIS for mentions instead of update_work_item!**
 
 **Parameters:**
 - `id` (required): Work item ID
 - `text` (required): Comment text (HTML supported)
 
 **Returns:** Created comment object
+
+**⚠️ IMPORTANT - For User Mentions:**
+1. First get user GUID using `mcp_ado_core_get_identity_ids`
+2. Use format `@<GUID>` in the comment text
+
+**Example - Mention a user:**
+```
+# Step 1: Get user identity
+mcp_ado_core_get_identity_ids({
+  "searchFilter": "General",
+  "filterValue": "mahmoud"
+})
+# Returns: { "id": "6011f8b0-xxxx-xxxx-xxxx-xxxxxxxxxxxx", ... }
+
+# Step 2: Add comment with mention
+mcp_ado_workitems_add_comment({
+  "id": 1385,
+  "text": "@<6011f8b0-xxxx-xxxx-xxxx-xxxxxxxxxxxx> please review this work item."
+})
+```
+
+**DO NOT USE** `update_work_item` with `System.History` for comments/mentions!
 
 ---
 

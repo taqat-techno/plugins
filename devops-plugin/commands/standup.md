@@ -11,19 +11,57 @@ Generate a formatted daily standup report based on your Azure DevOps work items.
 
 ## Instructions
 
-1. Query work items assigned to the current user
-2. Identify items completed recently (yesterday/today)
-3. Identify items currently in progress
-4. Check for any blockers or issues
-5. Format as standup notes
+**IMPORTANT**:
+- Use `mcp_ado_workitems_query_workitems` tool (NOT `search_work_items`)
+- **ALWAYS query by project** - Never query without project scope
 
-## WIQL Query
+### Step-by-Step:
 
+1. **First, list all projects** using `mcp_ado_core_list_projects`
+2. **For EACH project**, run the WIQL query with `project` parameter
+3. Identify items completed recently (yesterday/today) - state changed to Done/Closed
+4. Identify items currently in progress - Active/In Progress state
+5. Check for any blockers or issues
+6. Format as standup notes grouped by project
+
+## Correct Tool Usage
+
+**DO NOT USE**: `mcp_ado_search_workitem` - TEXT SEARCH only!
+
+**USE THIS**:
+```
+# Step 1: Get all projects
+mcp_ado_core_list_projects()
+
+# Step 2: Query each project
+mcp_ado_workitems_query_workitems({
+  "project": "ProjectName",  // ← ALWAYS REQUIRED
+  "query": "SELECT ... FROM WorkItems WHERE ..."
+})
+```
+
+## WIQL Query (for mcp_ado_workitems_query_workitems)
+
+### Primary Query (with project scope)
 ```sql
-SELECT [System.Id], [System.Title], [System.State], [System.ChangedDate]
+SELECT [System.Id], [System.Title], [System.State], [System.ChangedDate],
+       [System.WorkItemType], [System.TeamProject]
 FROM WorkItems
-WHERE [System.AssignedTo] = @Me
-  AND ([System.State] = 'Active' OR [System.State] = 'In Progress' OR [System.State] = 'Done')
+WHERE [System.TeamProject] = 'PROJECT_NAME'
+  AND [System.AssignedTo] CONTAINS 'ahmed'
+  AND ([System.State] = 'Active' OR [System.State] = 'In Progress' OR [System.State] = 'Done' OR [System.State] = 'Resolved')
+  AND [System.ChangedDate] >= @Today - 2
+ORDER BY [System.State], [System.ChangedDate] DESC
+```
+
+### Using @Me macro (with project)
+```sql
+SELECT [System.Id], [System.Title], [System.State], [System.ChangedDate],
+       [System.WorkItemType], [System.TeamProject]
+FROM WorkItems
+WHERE [System.TeamProject] = @Project
+  AND [System.AssignedTo] = @Me
+  AND ([System.State] = 'Active' OR [System.State] = 'In Progress' OR [System.State] = 'Done' OR [System.State] = 'Resolved')
   AND [System.ChangedDate] >= @Today - 2
 ORDER BY [System.State], [System.ChangedDate] DESC
 ```
