@@ -40,6 +40,107 @@ Activate this skill when user requests:
 - Test plan management
 - Security alert monitoring
 
+## ⚠️ CRITICAL: Correct Tool Selection
+
+### DEFAULT: Always Query by Project First
+
+**ALWAYS** start by listing projects, then query each project:
+
+```
+# Step 1: Get all projects
+mcp_ado_core_list_projects()
+
+# Step 2: Query EACH project (required!)
+mcp_ado_workitems_query_workitems({
+  "project": "ProjectName",  // ← ALWAYS REQUIRED
+  "query": "SELECT ... FROM WorkItems WHERE ..."
+})
+```
+
+### Getting Work Items by AssignedTo (My Tasks)
+
+**WRONG** ❌: `mcp_ado_search_workitem` with filters - This is TEXT SEARCH only!
+```
+# WRONG - Returns 0 results because search_work_items is for text search
+search_work_items(searchText: "*", filters: {"System.AssignedTo": ["Ahmed"]})
+```
+
+**WRONG** ❌: Query without project scope
+```
+# WRONG - Missing project parameter
+mcp_ado_workitems_query_workitems(query: "SELECT ... WHERE ...")
+```
+
+**CORRECT** ✅: `mcp_ado_workitems_query_workitems` with project + WIQL
+```
+# CORRECT - Always include project parameter
+mcp_ado_workitems_query_workitems({
+  "project": "MyProject",
+  "query": "SELECT [System.Id], [System.Title], [System.State] FROM WorkItems WHERE [System.AssignedTo] CONTAINS 'ahmed' AND [System.State] <> 'Closed'"
+})
+```
+
+### Tool Purpose Summary
+| Task | Correct Tool | Wrong Tool |
+|------|--------------|------------|
+| List all projects | `list_projects` (FIRST!) | - |
+| My assigned work items | `query_workitems` (WIQL + project) | ❌ `search_workitem` |
+| Filter by state/type | `query_workitems` (WIQL + project) | ❌ `search_workitem` |
+| Search text in items | `search_workitem` | - |
+| Get single item by ID | `get_workitem` | - |
+| List multiple by IDs | `list_workitems` | - |
+| **Add comment/mention** | `add_comment` | ❌ `update_workitem` with System.History |
+
+### Adding Comments and Mentions
+
+**WRONG** ❌: Using `update_work_item` with `System.History`
+```
+# WRONG - System.History is read-only/append-only, mentions don't work properly
+update_work_item({
+  "workItemId": 1385,
+  "additionalFields": {"System.History": "<a href='mailto:...'>Name</a>"}
+})
+```
+
+**CORRECT** ✅: Use `mcp_ado_workitems_add_comment` for comments
+```
+# CORRECT - Use dedicated comment tool
+mcp_ado_workitems_add_comment({
+  "id": 1385,
+  "text": "Mentioning @<6011f8b0-...> for review."  // Use GUID format
+})
+```
+
+### User Mention Format in Azure DevOps
+
+To mention a user, you need their **Identity GUID**:
+
+1. **First, get user identity**:
+```
+mcp_ado_core_get_identity_ids({
+  "searchFilter": "General",
+  "filterValue": "ahmed"
+})
+```
+
+2. **Use the GUID in mention**:
+```
+# Format: @<GUID>
+mcp_ado_workitems_add_comment({
+  "id": 1385,
+  "text": "@<6011f8b0-xxxx-xxxx-xxxx-xxxxxxxxxxxx> please review this."
+})
+```
+
+### Common Mention Patterns
+
+| Action | Tool | Format |
+|--------|------|--------|
+| Add comment | `add_comment` | Plain text or HTML |
+| Mention user | `add_comment` | `@<GUID>` where GUID from `get_identity_ids` |
+| Update field | `update_workitem` | Only for actual field updates |
+| Get user GUID | `get_identity_ids` | Search by name/email |
+
 ## Tool Reference by Domain
 
 ### Core Domain (3 tools)
@@ -129,13 +230,19 @@ For documentation.
 | `mcp_ado_wiki_update_page` | Update page | "Update installation docs" |
 
 ### Search Domain (3 tools)
-For finding content.
+For finding content via **TEXT SEARCH** (searching within content).
+
+⚠️ **CRITICAL WARNING**: These tools search TEXT/CONTENT only! They do NOT filter by fields like AssignedTo!
+- **For filtering by AssignedTo**: Use `mcp_ado_workitems_query_workitems` with WIQL
+- **For text search in work item content**: Use `mcp_ado_search_workitem`
 
 | Tool | Description | Example Use |
 |------|-------------|-------------|
-| `mcp_ado_search_code` | Search code | "Find 'authenticate'" |
-| `mcp_ado_search_wiki` | Search wiki | "Search for deployment" |
-| `mcp_ado_search_workitem` | Search items | "Find login bugs" |
+| `mcp_ado_search_code` | Search code content | "Find 'authenticate' in code" |
+| `mcp_ado_search_wiki` | Search wiki content | "Search for deployment in wiki" |
+| `mcp_ado_search_workitem` | Search work item text/titles | "Find items mentioning 'login'" |
+
+**NEVER use `mcp_ado_search_workitem` to filter by AssignedTo, State, or other fields!**
 
 ### Advanced Security Domain (2 tools)
 For security monitoring.
