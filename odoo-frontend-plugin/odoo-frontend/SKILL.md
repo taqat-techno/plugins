@@ -44,6 +44,7 @@ This skill provides advanced Odoo frontend development capabilities with:
 4. **Website themes**: Use `publicWidget` framework ONLY (not Owl or vanilla JS)
 5. **Bootstrap**: Use v5.1.3 classes for Odoo 16+ (never Tailwind)
 6. **Module naming**: Use `snake_case` convention
+7. **Translations**: Use `_t()` ONLY for dynamic labels from JS (arrays/variables), NOT for static XML strings
 
 ## Auto-Detection Workflow
 
@@ -843,6 +844,75 @@ export default MyComponent;
     </div>
 </template>
 ```
+
+### Translation (_t) Best Practices
+
+**CRITICAL RULE**: Only use `_t` for **dynamic labels from JavaScript**, NOT for static strings in XML templates.
+
+**Why?**
+- Static strings in XML templates (`.xml` files) are automatically extracted by Odoo's translation system
+- Using `_t()` in templates for static strings duplicates translation entries and adds unnecessary overhead
+- `_t()` is only needed when labels come from JavaScript variables/arrays
+
+**CORRECT - Use `_t()` for dynamic JS labels:**
+```javascript
+/** @odoo-module **/
+
+import { _t } from "@web/core/l10n/translation";
+
+// Month names from JS array need translation
+const MONTHS = [
+    {value: 1, label: "Jan", full: "January"},
+    {value: 2, label: "Feb", full: "February"},
+    // ...
+];
+
+export class DatePicker extends Component {
+    // Translate dynamic label from JS array
+    translateLabel(key) {
+        return _t(key);
+    }
+
+    get displayLabel() {
+        const month = this.months.find(m => m.value === this.selectedMonth);
+        // Use _t for month name from JS array
+        return `${this.translateLabel(month?.label || "")} ${this.selectedYear}`;
+    }
+}
+```
+
+**CORRECT - Template using translation method for dynamic values:**
+```xml
+<!-- Month names come from JS MONTHS array - need _t -->
+<t t-foreach="getAvailableMonths()" t-as="month" t-key="month.value">
+    <a href="#" t-on-click.prevent="() => this.selectMonth(month.value)">
+        <t t-esc="translateLabel(month.full)"/>
+    </a>
+</t>
+```
+
+**WRONG - Don't wrap static XML strings with _t:**
+```xml
+<!-- WRONG: Static strings don't need _t - Odoo translates XML automatically -->
+<span t-esc="translateLabel('No data available')"/>
+<a href="#"><t t-esc="translateLabel('Live')"/></a>
+
+<!-- CORRECT: Leave static strings as plain text in XML -->
+<span>No data available</span>
+<a href="#">Live</a>
+```
+
+**When to use `_t()`:**
+1. ✅ Labels from JavaScript arrays/objects (month names, day names, etc.)
+2. ✅ Dynamic strings built in JavaScript methods
+3. ✅ Error messages generated in JS code
+4. ✅ Computed display labels in getters
+
+**When NOT to use `_t()`:**
+1. ❌ Static text directly in XML templates
+2. ❌ Button labels written in XML
+3. ❌ Placeholder text in XML attributes
+4. ❌ Any hardcoded string in `.xml` files
 
 ## SCSS and Bootstrap Customization
 
