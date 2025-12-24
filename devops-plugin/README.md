@@ -2,7 +2,7 @@
 
 A comprehensive Azure DevOps integration plugin for Claude Code, enabling natural language interaction with your DevOps workflows.
 
-**Version**: 1.2.0 | **Organization**: TaqaTechno
+**Version**: 1.3.0 | **Organization**: TaqaTechno
 
 ## Features
 
@@ -14,6 +14,12 @@ A comprehensive Azure DevOps integration plugin for Claude Code, enabling natura
 - **Repository Access** - Browse code, commits, branches
 - **Wiki Documentation** - Read, create, and update wiki pages
 - **Code Search** - Search across repositories and work items
+
+### New in v1.3.0
+- **Required Field Validation** - Validates required fields before updates, asks user for missing values
+- **State Transition Rules** - Enforces Task→Done requires Original Estimate + Completed Hours
+- **User Story QC Checkpoint** - User Stories must pass through "Ready for QC" before Done
+- **15 Team Members Cached** - PearlPixels and Taqat team members with smart aliases
 
 ### New in v1.1.0
 - **Auto @Mention Processing** - Automatic user lookup and HTML formatting for mentions
@@ -203,15 +209,23 @@ The plugin enforces proper work item hierarchy:
 Epic (Strategic Initiative)
   └── Feature (Functional Area)
         └── User Story / PBI (Requirement)
-              ├── Task (Technical Work)
-              └── Bug (Defect)
+              └── Task (Technical Work)
+                    └── Bug (Defect found during task)
 ```
+
+**Key Rule**: Bugs MUST be under a Task (not standalone or under PBI directly).
 
 **Creating a Task:**
 ```
 "Create task: Fix login validation"
 ```
-Claude will ask for a parent PBI/Bug before creating the task.
+Claude will ask for a parent User Story/PBI before creating the task.
+
+**Creating a Bug:**
+```
+"Create bug: Login button not responding"
+```
+Claude will ask: "Which Task is this bug related to?" before creating.
 
 **Creating a User Story:**
 ```
@@ -237,21 +251,33 @@ The plugin automatically:
 4. Sends the comment with working @mention notifications
 
 **Quick Reference - TaqaTechno Team (GUIDs Cached):**
+
+**PearlPixels Team (@pearlpixels.com):**
 | Mention | Team Member | Email |
 |---------|-------------|-------|
 | @lakosha, @alakosha | Ahmed Abdelkhaleq Lakosha | alakosha@pearlpixels.com |
 | @abdelaleem, @aabdelalem | Ahmed Abdelaleem | aabdelalem@pearlpixels.com |
 | @eslam, @ehafez, @hafez | Eslam Hafez Mohamed | ehafez@pearlpixels.com |
-| @mahmoud, @melshahed | Mahmoud Elshahed | melshahed@pearlpixels.com |
+| @mahmoud, @melshahed, @elshahed | Mahmoud Elshahed | melshahed@pearlpixels.com |
+| @elafify, @melafify | Mahmoud Abdelrahman El-afify | melafify@pearlpixels.com |
+| @hala, @hibrahim | Hala Ibrahim | hibrahim@pearlpixels.com |
 | @sameh, @sabdlal | Sameh Abdlal Yussef Btaih | sabdlal@pearlpixels.com |
 | @yussef, @yhussein | Yussef Hussein Hussein | yhussein@pearlpixels.com |
 | @shehab, @sgamal, @gamal | Shehab Gamal | sgamal@pearlpixels.com |
 | @mostafa, @mahmed | Mostafa Ahmed | mahmed@pearlpixels.com |
+
+**Taqat Team (@Taqat.qa):**
+| Mention | Team Member | Email |
+|---------|-------------|-------|
+| @ajay, @akuppakalathil | Ajay Kuppakalathil | akuppakalathil@Taqat.qa |
+| @semir, @sworku, @worku | Semir Worku | sworku@Taqat.qa |
+| @hacene, @hmeziani, @meziani | Hacene Meziani | hmeziani@Taqat.qa |
+| @houssem, @hbenmbarek | Houssem Ben Mbarek | hbenmbarek@Taqat.qa |
 | @muram, @mmakkawi, @makawi | Muram Makawi Abuzaid | mmakkawi@Taqat.qa |
 
-**Note**: For the two Ahmeds, use last names to avoid ambiguity:
-- `@lakosha` or `@alakosha` for Ahmed Abdelkhaleq Lakosha
-- `@abdelaleem` or `@aabdelalem` for Ahmed Abdelaleem
+**Disambiguation Notes:**
+- Two Ahmeds: `@lakosha` for Ahmed Lakosha, `@abdelaleem` for Ahmed Abdelaleem
+- Two Mahmouds: `@mahmoud` or `@elshahed` for Mahmoud Elshahed, `@elafify` for Mahmoud El-afify
 
 ---
 
@@ -403,11 +429,13 @@ Edit `hooks/hooks.json` to add contextual suggestions:
 
 When modifying work item creation:
 
-1. **Tasks** - MUST have parent (Bug or PBI)
-2. **Bugs** - SHOULD have parent (PBI) but can be standalone
+1. **Bugs** - MUST have parent (Task) - bugs discovered during task work
+2. **Tasks** - MUST have parent (User Story/PBI)
 3. **PBIs** - MUST have parent (Feature)
 4. **Features** - MUST have parent (Epic)
 5. **Epics** - Top-level, no parent required
+
+**Hierarchy Flow**: Epic → Feature → PBI → Task → Bug
 
 ### Mention Processing
 
@@ -476,6 +504,21 @@ Example:
 ---
 
 ## Changelog
+
+### v1.3.0 (2024-12)
+- **Added** Required field validation before create/update operations
+- **Added** State transition validation rules (Task→Done requires hours)
+- **Added** User Story→Done requires "Ready for QC" state first (QA checkpoint)
+- **Added** Pre-update validation workflow with user prompts
+- **Added** Proactive missing field detection and user guidance
+- **Added** 6 new team members to mention cache (15 total)
+- **Added** Bug→Task hierarchy rule (bugs must be under tasks)
+- **Updated** SKILL.md with comprehensive validation section (300+ lines)
+- **Updated** User Story state machine with mandatory QC checkpoint
+- **Updated** Error handling with field validation guidance
+- **Updated** Hierarchy: Epic→Feature→PBI→Task→Bug
+- **Fixed** Don't silently skip required fields - ask user instead
+- **Fixed** User Stories cannot skip to Done without QA review
 
 ### v1.2.0 (2024-12)
 - **Added** `/devops setup` command for cross-platform MCP configuration
