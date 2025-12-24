@@ -44,6 +44,7 @@ This skill provides advanced Odoo frontend development capabilities with:
 4. **Website themes**: Use `publicWidget` framework ONLY (not Owl or vanilla JS)
 5. **Bootstrap**: Use v5.1.3 classes for Odoo 16+ (never Tailwind)
 6. **Module naming**: Use `snake_case` convention
+7. **Translations**: Wrap static labels in JS arrays/constants with `_t()` AT DEFINITION TIME (not via runtime wrappers). Static XML strings are auto-translated.
 
 ## Auto-Detection Workflow
 
@@ -843,6 +844,106 @@ export default MyComponent;
     </div>
 </template>
 ```
+
+### Translation (_t) Best Practices
+
+**CRITICAL RULE**: Use `_t()` at **DEFINITION TIME** for static labels in JavaScript arrays/constants, NOT via runtime wrapper methods. Static strings in XML templates are automatically translated by Odoo.
+
+**Why?**
+- Static strings in XML templates (`.xml` files) are automatically extracted by Odoo's translation system
+- Using `_t()` in templates for static strings duplicates translation entries and adds unnecessary overhead
+- `_t()` MUST wrap strings **at definition time** in JS so Odoo's PO extractor can find them
+- Runtime wrapper methods (like `translateLabel(key)`) do NOT work - the strings are never found by the extractor
+
+**CORRECT - Wrap static labels with `_t()` AT DEFINITION TIME:**
+```javascript
+/** @odoo-module **/
+
+import { _t } from "@web/core/l10n/translation";
+
+// ✅ CORRECT: Wrap each string with _t() at definition time
+const MONTHS = [
+    {value: 1, short: _t("Jan"), full: _t("January")},
+    {value: 2, short: _t("Feb"), full: _t("February")},
+    {value: 3, short: _t("Mar"), full: _t("March")},
+    {value: 4, short: _t("Apr"), full: _t("April")},
+    {value: 5, short: _t("May"), full: _t("May")},
+    {value: 6, short: _t("Jun"), full: _t("June")},
+    {value: 7, short: _t("Jul"), full: _t("July")},
+    {value: 8, short: _t("Aug"), full: _t("August")},
+    {value: 9, short: _t("Sep"), full: _t("September")},
+    {value: 10, short: _t("Oct"), full: _t("October")},
+    {value: 11, short: _t("Nov"), full: _t("November")},
+    {value: 12, short: _t("Dec"), full: _t("December")},
+];
+
+// ✅ CORRECT: Status labels wrapped at definition
+const STATUS_LABELS = {
+    draft: _t("Draft"),
+    pending: _t("Pending"),
+    approved: _t("Approved"),
+    rejected: _t("Rejected"),
+};
+
+export class DatePicker extends Component {
+    setup() {
+        this.months = MONTHS;  // Already translated at definition
+    }
+
+    get displayLabel() {
+        const month = this.months.find(m => m.value === this.selectedMonth);
+        // No translateLabel() needed - values are already translated
+        return `${month?.short || ""} ${this.selectedYear}`;
+    }
+}
+```
+
+**WRONG - Runtime wrapper methods don't work:**
+```javascript
+// ❌ WRONG: Strings without _t() at definition will NOT be translated
+const MONTHS = [
+    {value: 1, label: "Jan", full: "January"},  // NOT FOUND by PO extractor!
+    {value: 2, label: "Feb", full: "February"},
+];
+
+// ❌ WRONG: This pattern does NOT work for translation
+translateLabel(key) {
+    return _t(key);  // key is a variable, not a literal - PO extractor can't find it!
+}
+```
+
+**CORRECT - Template using pre-translated values:**
+```xml
+<!-- Month values come from JS MONTHS array - already translated at definition -->
+<t t-foreach="getAvailableMonths()" t-as="month" t-key="month.value">
+    <a href="#" t-on-click.prevent="() => this.selectMonth(month.value)">
+        <!-- No wrapper needed - month.full is already translated -->
+        <t t-esc="month.full"/>
+    </a>
+</t>
+```
+
+**CORRECT - Static XML strings need NO wrapper:**
+```xml
+<!-- Static strings in XML are auto-translated by Odoo -->
+<span>No data available</span>
+<a href="#">Live</a>
+<button type="submit">Submit</button>
+```
+
+**When to use `_t()` at DEFINITION TIME:**
+1. ✅ Static labels in JavaScript arrays (month names, day names, status labels)
+2. ✅ Static labels in JavaScript objects/constants
+3. ✅ Error messages defined as constants
+4. ✅ Any string literal that will be displayed to users from JS
+
+**When NOT to use `_t()`:**
+1. ❌ Static text directly in XML templates (auto-translated)
+2. ❌ Runtime wrapper methods like `translateLabel(key)` (doesn't work!)
+3. ❌ Dynamic variables passed to `_t()` at runtime
+4. ❌ Any hardcoded string in `.xml` files
+
+**REMEMBER**: If you define a string in JavaScript that will be shown to users, wrap it with `_t()` **where it's defined**, not where it's used.
 
 ## SCSS and Bootstrap Customization
 
