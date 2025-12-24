@@ -2,7 +2,7 @@
 
 A comprehensive Azure DevOps integration plugin for Claude Code, enabling natural language interaction with your DevOps workflows.
 
-**Version**: 1.1.0 | **Organization**: TaqaTechno
+**Version**: 1.2.0 | **Organization**: TaqaTechno
 
 ## Features
 
@@ -25,13 +25,68 @@ A comprehensive Azure DevOps integration plugin for Claude Code, enabling natura
 
 ## Installation
 
-1. Clone this plugin to your Claude Code plugins directory
-2. Configure Azure DevOps MCP server in your settings
-3. Restart Claude Code
+### Quick Setup (Claude Code Assisted)
 
-### MCP Server Configuration
+The easiest way to configure this plugin is using Claude Code:
 
-Add to your `~/.claude/settings.json`:
+```
+/devops setup
+```
+
+Claude will automatically:
+1. Detect your platform (Windows/macOS/Linux)
+2. Find your settings file location
+3. Guide you through PAT token creation
+4. Configure the MCP server
+5. Verify the installation
+
+### Manual Installation
+
+#### Step 1: Clone Plugin
+
+Clone this repository to any location on your system.
+
+#### Step 2: Prerequisites
+
+- **Node.js 18+** required for MCP server
+
+```bash
+# Check Node.js version
+node --version
+
+# Install if needed:
+# Windows: winget install OpenJS.NodeJS.LTS
+# macOS: brew install node
+# Ubuntu: sudo apt install nodejs npm
+```
+
+#### Step 3: Create Personal Access Token (PAT)
+
+1. Go to: `https://dev.azure.com/{YOUR_ORG}/_usersSettings/tokens`
+2. Click **"New Token"**
+3. Configure:
+   - **Name**: `Claude Code MCP`
+   - **Expiration**: Choose appropriate duration
+   - **Scopes**:
+     - Code: Read, Write
+     - Work Items: Read, Write, Manage
+     - Build: Read, Execute
+     - Release: Read, Write, Execute
+     - Wiki: Read, Write
+     - Test Management: Read
+4. Click **"Create"** and **copy the token immediately**
+
+#### Step 4: Configure MCP Server
+
+**Find your Claude Code settings file:**
+
+| Platform | Settings File Location |
+|----------|------------------------|
+| **Windows** | `%USERPROFILE%\.claude\settings.json` |
+| **macOS** | `~/.claude/settings.json` |
+| **Linux** | `~/.claude/settings.json` |
+
+**Add the MCP server configuration:**
 
 ```json
 {
@@ -39,7 +94,7 @@ Add to your `~/.claude/settings.json`:
     "azure-devops": {
       "type": "stdio",
       "command": "npx",
-      "args": ["-y", "@azure-devops/mcp", "TaqaTechno"],
+      "args": ["-y", "@anthropic-ai/azure-devops-mcp", "YOUR_ORGANIZATION"],
       "env": {
         "ADO_MCP_AUTH_TOKEN": "YOUR_PAT_TOKEN"
       }
@@ -48,14 +103,66 @@ Add to your `~/.claude/settings.json`:
 }
 ```
 
+Replace:
+- `YOUR_ORGANIZATION` with your Azure DevOps organization name
+- `YOUR_PAT_TOKEN` with your Personal Access Token
+
+#### Step 5: Secure Token Storage (Recommended)
+
+For better security, store your PAT as an environment variable:
+
+**Windows (PowerShell as Admin):**
+```powershell
+[System.Environment]::SetEnvironmentVariable('ADO_PAT_TOKEN', 'your-pat-here', 'User')
+```
+
+**macOS/Linux (add to ~/.bashrc or ~/.zshrc):**
+```bash
+export ADO_PAT_TOKEN="your-pat-here"
+```
+
+**Then update settings.json to use the variable:**
+```json
+{
+  "mcpServers": {
+    "azure-devops": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@anthropic-ai/azure-devops-mcp", "YOUR_ORGANIZATION"],
+      "env": {
+        "ADO_MCP_AUTH_TOKEN": "${ADO_PAT_TOKEN}"
+      }
+    }
+  }
+}
+```
+
+#### Step 6: Restart Claude Code
+
+Close and reopen Claude Code, then test:
+```
+"List my Azure DevOps projects"
+```
+
+### Troubleshooting
+
+| Issue | Solution |
+|-------|----------|
+| MCP server not responding | Check Node.js installation (`node --version`) |
+| Permission denied | Verify PAT scopes and expiration |
+| Cannot find module | Run `npm cache clean --force` |
+| Settings file not found | Create: `mkdir ~/.claude && echo {} > ~/.claude/settings.json` |
+
 ---
 
 ## Quick Commands
 
 | Command | Description |
 |---------|-------------|
-| `/sync-my-tasks` | **NEW** - Sync DevOps tasks to Claude TODO list |
-| `/create-user-story` | **NEW** - Create story with What/How/Why format |
+| `/devops setup` | **NEW** - Configure MCP server (cross-platform) |
+| `/devops status` | **NEW** - Check MCP connection status |
+| `/sync-my-tasks` | Sync DevOps tasks to Claude TODO list |
+| `/create-user-story` | Create story with What/How/Why format |
 | `/standup` | Generate daily standup notes |
 | `/sprint` | Sprint progress summary |
 | `/my-tasks` | List your active work items |
@@ -129,14 +236,22 @@ The plugin automatically:
 3. Formats as proper Azure DevOps HTML mentions
 4. Sends the comment with working @mention notifications
 
-**Quick Reference - TaqaTechno Team:**
-| Mention | Team Member |
-|---------|-------------|
-| @ahmed | Ahmed Abdelkhaleq |
-| @eslam | Eslam Hafez Mohamed |
-| @yussef | Yussef Hussein Hussein |
-| @sameh | Sameh Abdlal Yussef |
-| @mahmoud | Mahmoud Elshahed |
+**Quick Reference - TaqaTechno Team (GUIDs Cached):**
+| Mention | Team Member | Email |
+|---------|-------------|-------|
+| @lakosha, @alakosha | Ahmed Abdelkhaleq Lakosha | alakosha@pearlpixels.com |
+| @abdelaleem, @aabdelalem | Ahmed Abdelaleem | aabdelalem@pearlpixels.com |
+| @eslam, @ehafez, @hafez | Eslam Hafez Mohamed | ehafez@pearlpixels.com |
+| @mahmoud, @melshahed | Mahmoud Elshahed | melshahed@pearlpixels.com |
+| @sameh, @sabdlal | Sameh Abdlal Yussef Btaih | sabdlal@pearlpixels.com |
+| @yussef, @yhussein | Yussef Hussein Hussein | yhussein@pearlpixels.com |
+| @shehab, @sgamal, @gamal | Shehab Gamal | sgamal@pearlpixels.com |
+| @mostafa, @mahmed | Mostafa Ahmed | mahmed@pearlpixels.com |
+| @muram, @mmakkawi, @makawi | Muram Makawi Abuzaid | mmakkawi@Taqat.qa |
+
+**Note**: For the two Ahmeds, use last names to avoid ambiguity:
+- `@lakosha` or `@alakosha` for Ahmed Abdelkhaleq Lakosha
+- `@abdelaleem` or `@aabdelalem` for Ahmed Abdelaleem
 
 ---
 
@@ -204,10 +319,11 @@ Claude will ask:
 ```
 devops-plugin/
 ├── .claude-plugin/
-│   └── plugin.json           # Plugin metadata (v1.1.0)
+│   └── plugin.json           # Plugin metadata (v1.2.0)
 ├── commands/                  # Slash commands
-│   ├── sync-my-tasks.md      # NEW - TODO sync command
-│   ├── create-user-story.md  # NEW - Structured story creation
+│   ├── devops.md             # NEW - Setup & configuration
+│   ├── sync-my-tasks.md      # TODO sync command
+│   ├── create-user-story.md  # Structured story creation
 │   ├── create-task.md        # Updated - Hierarchy enforcement
 │   ├── create-bug.md
 │   ├── my-tasks.md
@@ -360,6 +476,15 @@ Example:
 ---
 
 ## Changelog
+
+### v1.2.0 (2024-12)
+- **Added** `/devops setup` command for cross-platform MCP configuration
+- **Added** `/devops status` command to check MCP connection
+- **Added** Platform detection (Windows/macOS/Linux)
+- **Added** Environment variable support for secure PAT storage
+- **Added** Claude Code assisted setup workflow
+- **Updated** Installation guide with cross-platform instructions
+- **Updated** Troubleshooting section with common issues
 
 ### v1.1.2 (2024-12)
 - **Fixed** Critical: `search_workitem` returns 0 results for field filters

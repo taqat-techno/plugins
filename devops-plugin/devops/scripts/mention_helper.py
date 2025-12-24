@@ -30,37 +30,153 @@ from typing import Dict, List, Tuple, Optional
 
 
 # TaqaTechno team members cache for quick lookup
+# GUIDs retrieved from Azure DevOps on 2024-12-24
 # This avoids repeated API calls for common team members
+#
+# Alias Strategy:
+# - First name: @eslam, @mahmoud, @sameh, @yussef, @shehab, @muram, @mostafa
+# - Last name for disambiguation: @lakosha (Ahmed L.), @abdelaleem (Ahmed A.)
+# - Email prefix: @alakosha, @ehafez, @melshahed, etc.
+#
 TEAM_CACHE = {
-    'ahmed': {
+    # ===== Ahmed Abdelkhaleq Lakosha - Senior Developer =====
+    # Use @lakosha or @alakosha to avoid confusion with other Ahmed
+    'lakosha': {
         'email': 'alakosha@pearlpixels.com',
         'display': 'Ahmed Abdelkhaleq Lakosha',
-        'guid': None  # To be populated on first lookup
+        'guid': '1216c274-32ad-6e2c-80a4-6c0132e99fab'
     },
+    'alakosha': {
+        'email': 'alakosha@pearlpixels.com',
+        'display': 'Ahmed Abdelkhaleq Lakosha',
+        'guid': '1216c274-32ad-6e2c-80a4-6c0132e99fab'
+    },
+    'ahmed.lakosha': {
+        'email': 'alakosha@pearlpixels.com',
+        'display': 'Ahmed Abdelkhaleq Lakosha',
+        'guid': '1216c274-32ad-6e2c-80a4-6c0132e99fab'
+    },
+
+    # ===== Ahmed Abdelaleem - Developer =====
+    # Use @abdelaleem or @aabdelalem to avoid confusion with other Ahmed
+    'abdelaleem': {
+        'email': 'aabdelalem@pearlpixels.com',
+        'display': 'Ahmed Abdelaleem',
+        'guid': '89cc2a81-1632-68e7-8a9b-5c0fa4eb003a'
+    },
+    'aabdelalem': {
+        'email': 'aabdelalem@pearlpixels.com',
+        'display': 'Ahmed Abdelaleem',
+        'guid': '89cc2a81-1632-68e7-8a9b-5c0fa4eb003a'
+    },
+    'ahmed.abdelaleem': {
+        'email': 'aabdelalem@pearlpixels.com',
+        'display': 'Ahmed Abdelaleem',
+        'guid': '89cc2a81-1632-68e7-8a9b-5c0fa4eb003a'
+    },
+
+    # ===== Eslam Hafez Mohamed - Developer =====
     'eslam': {
         'email': 'ehafez@pearlpixels.com',
         'display': 'Eslam Hafez Mohamed',
-        'guid': None
+        'guid': '2a53fa48-c275-6ca8-aae1-3b180c399a21'
     },
-    'yussef': {
-        'email': 'yhussein@pearlpixels.com',
-        'display': 'Yussef Hussein Hussein',
-        'guid': None
+    'ehafez': {
+        'email': 'ehafez@pearlpixels.com',
+        'display': 'Eslam Hafez Mohamed',
+        'guid': '2a53fa48-c275-6ca8-aae1-3b180c399a21'
     },
-    'sameh': {
-        'email': 'sabdlal@pearlpixels.com',
-        'display': 'Sameh Abdlal Yussef Btaih',
-        'guid': None
+    'hafez': {
+        'email': 'ehafez@pearlpixels.com',
+        'display': 'Eslam Hafez Mohamed',
+        'guid': '2a53fa48-c275-6ca8-aae1-3b180c399a21'
     },
+
+    # ===== Mahmoud Elshahed - Developer =====
     'mahmoud': {
         'email': 'melshahed@pearlpixels.com',
         'display': 'Mahmoud Elshahed',
-        'guid': None
+        'guid': '5849d7a6-36ba-6765-bbf4-d870d6e7bbca'
     },
-    'hossam': {
-        'email': 'hessam@pearlpixels.com',
-        'display': 'Hossam',
-        'guid': None
+    'melshahed': {
+        'email': 'melshahed@pearlpixels.com',
+        'display': 'Mahmoud Elshahed',
+        'guid': '5849d7a6-36ba-6765-bbf4-d870d6e7bbca'
+    },
+    'elshahed': {
+        'email': 'melshahed@pearlpixels.com',
+        'display': 'Mahmoud Elshahed',
+        'guid': '5849d7a6-36ba-6765-bbf4-d870d6e7bbca'
+    },
+
+    # ===== Sameh Abdlal Yussef Btaih - Developer =====
+    'sameh': {
+        'email': 'sabdlal@pearlpixels.com',
+        'display': 'Sameh Abdlal Yussef Btaih',
+        'guid': '1e49dcfd-57df-61c0-83cb-a163798f3617'
+    },
+    'sabdlal': {
+        'email': 'sabdlal@pearlpixels.com',
+        'display': 'Sameh Abdlal Yussef Btaih',
+        'guid': '1e49dcfd-57df-61c0-83cb-a163798f3617'
+    },
+
+    # ===== Yussef Hussein Hussein - Developer =====
+    'yussef': {
+        'email': 'yhussein@pearlpixels.com',
+        'display': 'Yussef Hussein Hussein',
+        'guid': '7ae5a9c0-6899-6f22-be7d-ceb72188e9d1'
+    },
+    'yhussein': {
+        'email': 'yhussein@pearlpixels.com',
+        'display': 'Yussef Hussein Hussein',
+        'guid': '7ae5a9c0-6899-6f22-be7d-ceb72188e9d1'
+    },
+
+    # ===== Shehab Gamal - Developer =====
+    'shehab': {
+        'email': 'sgamal@pearlpixels.com',
+        'display': 'Shehab Gamal',
+        'guid': '9aced8ab-b578-6aa7-8d55-85342116c08b'
+    },
+    'sgamal': {
+        'email': 'sgamal@pearlpixels.com',
+        'display': 'Shehab Gamal',
+        'guid': '9aced8ab-b578-6aa7-8d55-85342116c08b'
+    },
+    'gamal': {
+        'email': 'sgamal@pearlpixels.com',
+        'display': 'Shehab Gamal',
+        'guid': '9aced8ab-b578-6aa7-8d55-85342116c08b'
+    },
+
+    # ===== Mostafa Ahmed - QA/Tester =====
+    'mostafa': {
+        'email': 'mahmed@pearlpixels.com',
+        'display': 'Mostafa Ahmed',
+        'guid': '2a9b995c-4223-6b04-91a7-871a0949f83f'
+    },
+    'mahmed': {
+        'email': 'mahmed@pearlpixels.com',
+        'display': 'Mostafa Ahmed',
+        'guid': '2a9b995c-4223-6b04-91a7-871a0949f83f'
+    },
+
+    # ===== Muram Makawi Abuzaid - Property Management =====
+    'muram': {
+        'email': 'mmakkawi@Taqat.qa',
+        'display': 'Muram Makawi Abuzaid',
+        'guid': '9db8db2e-42b2-6bc7-a57b-8a1fdb257748'
+    },
+    'mmakkawi': {
+        'email': 'mmakkawi@Taqat.qa',
+        'display': 'Muram Makawi Abuzaid',
+        'guid': '9db8db2e-42b2-6bc7-a57b-8a1fdb257748'
+    },
+    'makawi': {
+        'email': 'mmakkawi@Taqat.qa',
+        'display': 'Muram Makawi Abuzaid',
+        'guid': '9db8db2e-42b2-6bc7-a57b-8a1fdb257748'
     },
 }
 
