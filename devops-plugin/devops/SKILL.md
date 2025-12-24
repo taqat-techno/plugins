@@ -1,7 +1,7 @@
 ---
 name: devops
 description: "Azure DevOps integration skill for TaqaTechno organization. Manages work items, pull requests, pipelines, repositories, wiki, test plans, and security alerts through the official Microsoft Azure DevOps MCP server. Use when user asks about: tasks, bugs, PRs, builds, sprints, standups, code reviews, deployments, or any Azure DevOps operations."
-version: "1.0.0"
+version: "1.3.0"
 author: "TAQAT Techno"
 license: "MIT"
 allowed-tools:
@@ -479,37 +479,57 @@ ORDER BY [Microsoft.VSTS.Common.Priority]
 Epic (Strategic Initiative)
   └── Feature (Functional Area)
         └── User Story / PBI (Requirement)
-              ├── Task (Technical Work)
-              └── Bug (Defect)
+              └── Task (Technical Work)
+                    └── Bug (Defect found during task)
 ```
 
 ### Creation Rules
 
 | Creating | Must Have Parent | Parent Type |
 |----------|-----------------|-------------|
-| **Task** | REQUIRED | Bug OR User Story/PBI |
-| **Bug** | RECOMMENDED | User Story/PBI (or standalone) |
+| **Bug** | **REQUIRED** | Task (bug found while working on task) |
+| **Task** | **REQUIRED** | User Story/PBI |
 | **User Story/PBI** | REQUIRED | Feature |
 | **Feature** | REQUIRED | Epic |
 | **Epic** | None | Top-level |
+
+### Bug Hierarchy Rule
+
+**Bugs MUST be linked to a Task** - This ensures:
+- Traceability: Know which task introduced or discovered the bug
+- Context: Bug is related to specific technical work
+- Accountability: Task owner is aware of related bugs
+
+```
+User Story #100: "Add login feature"
+  └── Task #101: "Implement login form"
+        └── Bug #102: "Login button not responding" ← Bug under Task
+```
 
 ### Validation Before Creation
 
 Before creating a work item, ALWAYS:
 
-1. **For Task**:
-   - Ask: "Which Bug or User Story should this task be under?"
+1. **For Bug**:
+   - Ask: "Which Task is this bug related to?"
+   - If no parent Task specified, prompt user to:
+     a) Select existing Task
+     b) Create new Task first
+   - NEVER create orphan bugs - they must be under a Task
+
+2. **For Task**:
+   - Ask: "Which User Story or PBI should this task be under?"
    - If no parent specified, prompt user to:
-     a) Select existing Bug/PBI
-     b) Create new Bug/PBI first
+     a) Select existing PBI
+     b) Create new PBI first
    - NEVER create orphan tasks
 
-2. **For User Story/PBI**:
+3. **For User Story/PBI**:
    - Ask: "Which Feature should this story be under?"
    - If no Feature exists, prompt to create one
    - If no Feature specified, list available Features
 
-3. **For Feature**:
+4. **For Feature**:
    - Ask: "Which Epic should this feature be under?"
    - List available Epics in project
    - Create Epic first if needed
@@ -534,11 +554,32 @@ mcp__azure-devops__wit_work_items_link({
 User: "Create task: Fix login button"
 
 Claude:
-1. Ask: "Which User Story or Bug should this task be under?"
+1. Ask: "Which User Story or PBI should this task be under?"
 2. User provides parent ID or creates new PBI
 3. Create task
 4. Link task to parent
 5. Confirm: "Task #1234 created under PBI #1000"
+```
+
+### Example Workflow: Creating a Bug
+
+```
+User: "Create bug: Login button not responding"
+
+Claude:
+1. Ask: "Which Task is this bug related to?"
+2. User provides Task ID (e.g., #1234)
+3. Create bug with details
+4. Link bug to parent Task
+5. Confirm: "Bug #1235 created under Task #1234"
+
+If user doesn't know the Task:
+1. Ask: "What feature/area were you working on when you found this bug?"
+2. Search for related tasks
+3. Present options: "Found these tasks in that area:
+   - Task #1234: Implement login form
+   - Task #1235: Add password validation
+   Which one is related to this bug?"
 ```
 
 ### User Story Format (What? How? Why?)
@@ -585,6 +626,367 @@ When creating User Stories or PBIs, ALWAYS structure with:
 - Business benefit
 ```
 
+## ⚠️ REQUIRED FIELDS VALIDATION (CRITICAL)
+
+### MANDATORY: Validate Before Create/Update
+
+**NEVER create or update a work item without checking required fields!**
+
+Before ANY `wit_create_work_item` or `wit_update_work_item` call:
+1. Check what fields are REQUIRED for the operation
+2. If required fields are missing, **ASK THE USER** - don't skip or guess!
+3. Only proceed when all required fields have values
+
+### Required Fields by Work Item Type
+
+#### Task Creation
+| Field | Required | Description |
+|-------|----------|-------------|
+| `System.Title` | **REQUIRED** | Task title |
+| `System.Description` | Recommended | Task description |
+| `Microsoft.VSTS.Scheduling.OriginalEstimate` | **REQUIRED for Done** | Estimated hours |
+| `Microsoft.VSTS.Scheduling.CompletedWork` | **REQUIRED for Done** | Actual hours spent |
+| `Microsoft.VSTS.Scheduling.RemainingWork` | Recommended | Hours remaining |
+| Parent Link | **REQUIRED** | Must link to User Story/PBI |
+
+#### Bug Creation
+| Field | Required | Description |
+|-------|----------|-------------|
+| `System.Title` | **REQUIRED** | Bug title |
+| `System.Description` | Recommended | Bug description |
+| `Microsoft.VSTS.TCM.ReproSteps` | Recommended | Steps to reproduce |
+| `Microsoft.VSTS.Common.Severity` | Recommended | 1-Critical, 2-High, 3-Medium, 4-Low |
+| `Microsoft.VSTS.Common.Priority` | Recommended | 1-4 (1=highest) |
+| Parent Link | **REQUIRED** | Must link to a Task |
+
+#### User Story / PBI Creation
+| Field | Required | Description |
+|-------|----------|-------------|
+| `System.Title` | **REQUIRED** | Story title |
+| `System.Description` | **REQUIRED** | Story description (What/How/Why) |
+| `Microsoft.VSTS.Common.AcceptanceCriteria` | **REQUIRED** | Done criteria |
+| `Microsoft.VSTS.Scheduling.StoryPoints` | Recommended | Effort estimate |
+| Parent Link | **REQUIRED** | Must link to Feature |
+
+### State Transition Rules
+
+#### Task State Transitions
+
+```
+┌──────┐     ┌────────┐     ┌──────┐
+│ New  │ ──► │ Active │ ──► │ Done │
+└──────┘     └────────┘     └──────┘
+                              ▲
+                              │ REQUIRES:
+                              │ - Original Estimate
+                              │ - Completed Work
+```
+
+| From State | To State | Required Fields | Ask User If Missing |
+|------------|----------|-----------------|---------------------|
+| New | Active | None | - |
+| Active | Done | `OriginalEstimate`, `CompletedWork` | **YES - ALWAYS ASK!** |
+| New | Done | `OriginalEstimate`, `CompletedWork` | **YES - ALWAYS ASK!** |
+| Any | Removed | None | - |
+
+**Example Validation for Task → Done:**
+```
+User: "Set task #1234 to Done"
+
+Claude MUST:
+1. Get current work item details:
+   mcp__azure-devops__wit_get_work_item({
+     "project": "ProjectName",
+     "id": 1234,
+     "fields": ["System.State", "Microsoft.VSTS.Scheduling.OriginalEstimate",
+                "Microsoft.VSTS.Scheduling.CompletedWork"]
+   })
+
+2. Check if OriginalEstimate and CompletedWork have values
+
+3. IF MISSING - ASK USER:
+   "To mark task #1234 as Done, I need:
+   - Original Estimate (hours): [currently not set]
+   - Completed Work (hours): [currently not set]
+
+   Please provide these values."
+
+4. ONLY after user provides values, make the update:
+   mcp__azure-devops__wit_update_work_item({
+     "id": 1234,
+     "updates": [
+       {"path": "/fields/Microsoft.VSTS.Scheduling.OriginalEstimate", "value": "8"},
+       {"path": "/fields/Microsoft.VSTS.Scheduling.CompletedWork", "value": "6"},
+       {"path": "/fields/System.State", "value": "Done"}
+     ]
+   })
+```
+
+#### Bug State Transitions
+
+```
+┌──────┐     ┌────────┐     ┌──────────┐     ┌────────┐
+│ New  │ ──► │ Active │ ──► │ Resolved │ ──► │ Closed │
+└──────┘     └────────┘     └──────────┘     └────────┘
+                              ▲
+                              │ REQUIRES:
+                              │ - Resolution
+```
+
+| From State | To State | Required Fields | Ask User If Missing |
+|------------|----------|-----------------|---------------------|
+| New | Active | None | - |
+| Active | Resolved | `Microsoft.VSTS.Common.ResolvedReason` | **YES** |
+| Resolved | Closed | None | - |
+
+#### User Story / PBI State Transitions
+
+```
+┌──────┐     ┌────────┐     ┌──────────────┐     ┌──────┐     ┌────────┐
+│ New  │ ──► │ Active │ ──► │ Ready for QC │ ──► │ Done │ ──► │ Closed │
+└──────┘     └────────┘     └──────────────┘     └──────┘     └────────┘
+                                   ▲
+                                   │ REQUIRED before Done:
+                                   │ - Must pass through "Ready for QC"
+                                   │ - All child Tasks must be Done
+```
+
+| From State | To State | Required/Recommended | Ask User If Missing |
+|------------|----------|---------------------|---------------------|
+| New | Active | None | - |
+| Active | Ready for QC | All child Tasks must be Done | **WARN if tasks incomplete** |
+| Ready for QC | Done | Acceptance Criteria verified | **ASK for confirmation** |
+| Done | Closed | QA sign-off | - |
+| **Active** | **Done** | **❌ NOT ALLOWED DIRECTLY** | **ENFORCE Ready for QC first** |
+| **New** | **Done** | **❌ NOT ALLOWED DIRECTLY** | **ENFORCE Ready for QC first** |
+
+### ⚠️ CRITICAL RULE: User Story → Done Requires Ready for QC
+
+**MANDATORY**: User Stories CANNOT transition directly to "Done" from any state other than "Ready for QC"!
+
+```
+User Story State Machine (ENFORCED):
+
+┌──────────────────────────────────────────────────────────────────────┐
+│                    USER STORY STATE TRANSITIONS                       │
+├──────────────────────────────────────────────────────────────────────┤
+│                                                                       │
+│   New  ──►  Active  ──►  Ready for QC  ──►  Done  ──►  Closed       │
+│                              ▲                                        │
+│                              │                                        │
+│            ⚠️ MANDATORY CHECKPOINT                                    │
+│            Cannot skip to Done!                                       │
+│                                                                       │
+└──────────────────────────────────────────────────────────────────────┘
+```
+
+**Why This Rule Exists:**
+- Ensures QA review before completion
+- Forces explicit quality checkpoint
+- Prevents accidental completion without testing
+- Maintains proper workflow discipline
+
+**Example Validation for User Story → Done:**
+```
+User: "Set user story #1000 to Done"
+
+Claude MUST:
+1. Get current work item details:
+   mcp__azure-devops__wit_get_work_item({
+     "project": "ProjectName",
+     "id": 1000,
+     "fields": ["System.State", "System.WorkItemType"]
+   })
+
+2. Check current state:
+   - If state is "Ready for QC" → Proceed to Done
+   - If state is NOT "Ready for QC" → MUST transition to Ready for QC first
+
+3. IF NOT "Ready for QC" - ENFORCE INTERMEDIATE STATE:
+   "⚠️ User Story #1000 is currently in '{currentState}' state.
+
+   Before marking as Done, it must pass through 'Ready for QC' for quality review.
+
+   Shall I:
+   1. Move it to 'Ready for QC' now (you can then mark it Done after QA)
+   2. Move it to 'Ready for QC' AND then to 'Done' in one workflow?
+
+   Please confirm the approach."
+
+4. If user confirms option 2 (both transitions):
+   // First transition: Current → Ready for QC
+   await mcp__azure-devops__wit_update_work_item({
+     "id": 1000,
+     "updates": [
+       {"path": "/fields/System.State", "value": "Ready for QC"}
+     ]
+   });
+
+   // Second transition: Ready for QC → Done
+   await mcp__azure-devops__wit_update_work_item({
+     "id": 1000,
+     "updates": [
+       {"path": "/fields/System.State", "value": "Done"}
+     ]
+   });
+
+5. Confirm to user:
+   "✅ User Story #1000 has been moved:
+    - From: {originalState}
+    - Through: Ready for QC (QA checkpoint)
+    - To: Done
+
+    The story passed through the required QA checkpoint."
+```
+
+**Quick Reference - User Story State Rule:**
+
+| Current State | User Wants "Done" | Action Required |
+|---------------|------------------|-----------------|
+| New | ❌ Block | Transition: New → Active → Ready for QC → Done |
+| Active | ❌ Block | Transition: Active → Ready for QC → Done |
+| Ready for QC | ✅ Allow | Direct transition to Done |
+| Done | N/A | Already Done |
+| Closed | N/A | Reopen first |
+
+### Pre-Update Validation Workflow
+
+**ALWAYS follow this workflow before updating work items:**
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    USER REQUEST                             │
+│         "Update task #1234 to Done"                         │
+└─────────────────────────────────────────────────────────────┘
+                          │
+                          ▼
+┌─────────────────────────────────────────────────────────────┐
+│  STEP 1: Fetch Current Work Item                            │
+│  - Get current state                                         │
+│  - Get all relevant fields                                   │
+│  - Check work item type                                      │
+└─────────────────────────────────────────────────────────────┘
+                          │
+                          ▼
+┌─────────────────────────────────────────────────────────────┐
+│  STEP 2: Determine Required Fields                           │
+│  - Based on work item type                                   │
+│  - Based on state transition (from → to)                     │
+│  - Check organization-specific rules                         │
+└─────────────────────────────────────────────────────────────┘
+                          │
+                          ▼
+┌─────────────────────────────────────────────────────────────┐
+│  STEP 3: Check If Required Fields Have Values                │
+│  - OriginalEstimate set? CompletedWork set?                  │
+│  - Parent linked? Description filled?                        │
+└─────────────────────────────────────────────────────────────┘
+                          │
+              ┌───────────┴───────────┐
+              │                       │
+              ▼                       ▼
+    ┌─────────────────┐     ┌─────────────────────────┐
+    │ ALL FIELDS SET  │     │ MISSING REQUIRED FIELDS │
+    │                 │     │                         │
+    │ Proceed with    │     │ ASK USER for values     │
+    │ update          │     │ before proceeding       │
+    └─────────────────┘     └─────────────────────────┘
+                                      │
+                                      ▼
+                          ┌─────────────────────────┐
+                          │ User provides values    │
+                          │ OR cancels operation    │
+                          └─────────────────────────┘
+                                      │
+                                      ▼
+                          ┌─────────────────────────┐
+                          │ Make update with ALL    │
+                          │ fields in single call   │
+                          └─────────────────────────┘
+```
+
+### Common Field Paths Reference
+
+| Field Name | API Path | Type |
+|------------|----------|------|
+| Title | `/fields/System.Title` | string |
+| Description | `/fields/System.Description` | html |
+| State | `/fields/System.State` | string |
+| Assigned To | `/fields/System.AssignedTo` | identity |
+| Original Estimate | `/fields/Microsoft.VSTS.Scheduling.OriginalEstimate` | double (hours) |
+| Completed Work | `/fields/Microsoft.VSTS.Scheduling.CompletedWork` | double (hours) |
+| Remaining Work | `/fields/Microsoft.VSTS.Scheduling.RemainingWork` | double (hours) |
+| Story Points | `/fields/Microsoft.VSTS.Scheduling.StoryPoints` | double |
+| Priority | `/fields/Microsoft.VSTS.Common.Priority` | integer (1-4) |
+| Severity | `/fields/Microsoft.VSTS.Common.Severity` | string |
+| Acceptance Criteria | `/fields/Microsoft.VSTS.Common.AcceptanceCriteria` | html |
+| Repro Steps | `/fields/Microsoft.VSTS.TCM.ReproSteps` | html |
+| Iteration Path | `/fields/System.IterationPath` | string |
+| Area Path | `/fields/System.AreaPath` | string |
+
+### Example: Complete Task Update with Validation
+
+```javascript
+// User: "Mark task #1234 as done, I spent 6 hours on it"
+
+// Step 1: Get current state
+const item = await mcp__azure-devops__wit_get_work_item({
+  "project": "Relief Center",
+  "id": 1234,
+  "fields": [
+    "System.State",
+    "System.Title",
+    "Microsoft.VSTS.Scheduling.OriginalEstimate",
+    "Microsoft.VSTS.Scheduling.CompletedWork"
+  ]
+});
+
+// Step 2: Check required fields
+// Current: OriginalEstimate = null, CompletedWork = null, State = "Active"
+
+// Step 3: User provided CompletedWork (6), but OriginalEstimate missing
+// ASK: "What was the original estimate for this task?"
+// User: "8 hours"
+
+// Step 4: Update with ALL required fields
+await mcp__azure-devops__wit_update_work_item({
+  "id": 1234,
+  "updates": [
+    {"path": "/fields/Microsoft.VSTS.Scheduling.OriginalEstimate", "value": "8"},
+    {"path": "/fields/Microsoft.VSTS.Scheduling.CompletedWork", "value": "6"},
+    {"path": "/fields/Microsoft.VSTS.Scheduling.RemainingWork", "value": "0"},
+    {"path": "/fields/System.State", "value": "Done"}
+  ]
+});
+
+// Step 5: Confirm to user
+// "Task #1234 marked as Done. Original estimate: 8h, Completed: 6h"
+```
+
+### Validation Error Messages
+
+When required fields are missing, provide CLEAR guidance:
+
+**Good Response:**
+```
+❌ Cannot mark task #1234 as Done - missing required fields:
+
+| Field | Current Value | Required |
+|-------|--------------|----------|
+| Original Estimate | (not set) | ✗ Required |
+| Completed Work | (not set) | ✗ Required |
+
+Please provide:
+1. Original Estimate (hours): How many hours did you estimate for this task?
+2. Completed Work (hours): How many hours did you actually spend?
+```
+
+**Bad Response:**
+```
+// DON'T DO THIS - Don't silently skip required fields!
+"Task updated to Done"  // ← Will fail or corrupt data!
+```
+
 ## Response Formatting
 
 When presenting Azure DevOps data, use consistent formatting:
@@ -622,42 +1024,125 @@ Pipeline: CI-Main (ID: 12)
 
 ## Error Handling
 
+### Common API Errors
+
 | Error Code | Cause | Solution |
 |------------|-------|----------|
 | 401 | Unauthorized | PAT expired - regenerate token |
 | 403 | Forbidden | Insufficient permissions - check PAT scopes |
 | 404 | Not Found | Invalid ID - verify project/item exists |
-| VS403507 | Field validation | Check required fields |
+| VS403507 | Field validation | **Check required fields - see below** |
 | TF401019 | Item not found | Work item may be deleted |
+| TF401320 | Invalid field value | Check field type and format |
+| TF401347 | State transition invalid | Check allowed state transitions |
+
+### Field Validation Errors (VS403507)
+
+**This error means required fields are missing!** Don't ignore it - ask the user for values.
+
+**Common Causes:**
+1. **Task → Done without hours**: Missing `OriginalEstimate` or `CompletedWork`
+2. **PBI without criteria**: Missing `AcceptanceCriteria`
+3. **Work item without parent**: Required by organization policy
+
+**How to Handle:**
+```
+ERROR: VS403507 - Field 'Microsoft.VSTS.Scheduling.CompletedWork'
+       cannot be empty when state is 'Done'
+
+CORRECT RESPONSE:
+"I cannot mark this task as Done because the Completed Work field is required.
+How many hours did you spend on this task?"
+
+WRONG RESPONSE:
+"Failed to update task" // ← Don't just report error, help user fix it!
+```
+
+### Validation Quick Reference
+
+| When User Says | Check Before Proceeding |
+|----------------|------------------------|
+| "Mark task as done" | OriginalEstimate, CompletedWork |
+| "Close this bug" | ResolvedReason (if not Resolved yet) |
+| "Create a bug" | **Parent Task specified** |
+| "Create a task" | Parent User Story/PBI specified |
+| "Move story to resolved" | All child tasks are Done |
+| "Create user story" | AcceptanceCriteria, Description, Parent Feature |
+| **"Mark story as done"** | **Current state MUST be "Ready for QC" - enforce intermediate state!** |
+| **"Set user story to done"** | **If not "Ready for QC", transition to "Ready for QC" first** |
+
+### Proactive Validation Example
+
+```javascript
+// ALWAYS do this BEFORE attempting state change:
+async function validateTaskDone(project, taskId) {
+  const item = await wit_get_work_item({
+    project,
+    id: taskId,
+    fields: [
+      "System.State",
+      "System.WorkItemType",
+      "Microsoft.VSTS.Scheduling.OriginalEstimate",
+      "Microsoft.VSTS.Scheduling.CompletedWork"
+    ]
+  });
+
+  const missing = [];
+  if (!item.OriginalEstimate) missing.push("Original Estimate (hours)");
+  if (!item.CompletedWork) missing.push("Completed Work (hours)");
+
+  if (missing.length > 0) {
+    // ASK USER - don't proceed!
+    return {
+      valid: false,
+      message: `To mark this task as Done, please provide:\n${missing.map(f => `- ${f}`).join('\n')}`
+    };
+  }
+
+  return { valid: true };
+}
+```
 
 ## Best Practices
 
-1. **Always start with context**
+1. **ALWAYS validate required fields before updates** ⚠️
+   - Fetch current work item state before updating
+   - Check if required fields have values
+   - ASK USER for missing values - never skip or guess!
+   - See "Required Fields Validation" section above
+
+2. **Always start with context**
    - List projects first if unsure
    - Verify project name before operations
 
-2. **Use appropriate work item types**
+3. **Use appropriate work item types**
    - Bug for defects
    - Task for technical work
    - User Story for requirements
 
-3. **Link related items**
+4. **Link related items**
    - Link bugs to user stories
    - Link tasks to parent stories
    - Link PRs to work items
 
-4. **Include all required fields**
+5. **Include all required fields on creation**
    - Title (always required)
    - Description (highly recommended)
    - Priority/Severity (for bugs)
    - Acceptance Criteria (for stories)
+   - **OriginalEstimate** (for tasks you expect to close)
 
-5. **Use WIQL for complex queries**
+6. **Validate state transitions**
+   - Task → Done: Needs OriginalEstimate + CompletedWork
+   - Bug → Resolved: Needs ResolvedReason
+   - Story → Resolved: Check all tasks are Done first
+
+7. **Use WIQL for complex queries**
    - More powerful than simple filters
    - Supports date math (@Today - 7)
    - Supports hierarchy (UNDER)
 
-6. **Monitor builds proactively**
+8. **Monitor builds proactively**
    - Check build status after PR merge
    - Get logs for failed builds
    - Link build failures to bugs

@@ -178,6 +178,109 @@ TEAM_CACHE = {
         'display': 'Muram Makawi Abuzaid',
         'guid': '9db8db2e-42b2-6bc7-a57b-8a1fdb257748'
     },
+
+    # ===== Hala Ibrahim - Developer (KhairGate) =====
+    'hala': {
+        'email': 'hibrahim@pearlpixels.com',
+        'display': 'Hala Ibrahim',
+        'guid': '5d49adc4-2483-6e8b-bccd-b450d5172fdf'
+    },
+    'hibrahim': {
+        'email': 'hibrahim@pearlpixels.com',
+        'display': 'Hala Ibrahim',
+        'guid': '5d49adc4-2483-6e8b-bccd-b450d5172fdf'
+    },
+    'ibrahim': {
+        'email': 'hibrahim@pearlpixels.com',
+        'display': 'Hala Ibrahim',
+        'guid': '5d49adc4-2483-6e8b-bccd-b450d5172fdf'
+    },
+
+    # ===== Mahmoud Abdelrahman Ameen El-afify - Developer =====
+    # Use @elafify or @melafify to distinguish from Mahmoud Elshahed
+    'elafify': {
+        'email': 'melafify@pearlpixels.com',
+        'display': 'Mahmoud Abdelrahman Ameen El-afify',
+        'guid': '0ede0b59-4487-64ae-b2ae-5737b813ef52'
+    },
+    'melafify': {
+        'email': 'melafify@pearlpixels.com',
+        'display': 'Mahmoud Abdelrahman Ameen El-afify',
+        'guid': '0ede0b59-4487-64ae-b2ae-5737b813ef52'
+    },
+    'mahmoud.elafify': {
+        'email': 'melafify@pearlpixels.com',
+        'display': 'Mahmoud Abdelrahman Ameen El-afify',
+        'guid': '0ede0b59-4487-64ae-b2ae-5737b813ef52'
+    },
+
+    # ===== Ajay Kuppakalathil - Project Manager (Taqat) =====
+    'ajay': {
+        'email': 'akuppakalathil@Taqat.qa',
+        'display': 'Ajay Kuppakalathil',
+        'guid': '75315053-b6f9-6ad6-bbb2-d824b0f4fbcd'
+    },
+    'akuppakalathil': {
+        'email': 'akuppakalathil@Taqat.qa',
+        'display': 'Ajay Kuppakalathil',
+        'guid': '75315053-b6f9-6ad6-bbb2-d824b0f4fbcd'
+    },
+    'kuppakalathil': {
+        'email': 'akuppakalathil@Taqat.qa',
+        'display': 'Ajay Kuppakalathil',
+        'guid': '75315053-b6f9-6ad6-bbb2-d824b0f4fbcd'
+    },
+
+    # ===== Semir Worku - Project Manager (Taqat) =====
+    'semir': {
+        'email': 'sworku@Taqat.qa',
+        'display': 'Semir Worku',
+        'guid': '8c68a911-8edf-6c0b-b7a3-0370fd6eff14'
+    },
+    'sworku': {
+        'email': 'sworku@Taqat.qa',
+        'display': 'Semir Worku',
+        'guid': '8c68a911-8edf-6c0b-b7a3-0370fd6eff14'
+    },
+    'worku': {
+        'email': 'sworku@Taqat.qa',
+        'display': 'Semir Worku',
+        'guid': '8c68a911-8edf-6c0b-b7a3-0370fd6eff14'
+    },
+
+    # ===== Hacene Meziani - Manager (KhairGate) =====
+    'hacene': {
+        'email': 'hmeziani@Taqat.qa',
+        'display': 'Hacene Meziani',
+        'guid': 'e10ce161-a043-6c10-89e6-a6dbad79ffaa'
+    },
+    'hmeziani': {
+        'email': 'hmeziani@Taqat.qa',
+        'display': 'Hacene Meziani',
+        'guid': 'e10ce161-a043-6c10-89e6-a6dbad79ffaa'
+    },
+    'meziani': {
+        'email': 'hmeziani@Taqat.qa',
+        'display': 'Hacene Meziani',
+        'guid': 'e10ce161-a043-6c10-89e6-a6dbad79ffaa'
+    },
+
+    # ===== Houssem Ben Mbarek - Developer (Property Management) =====
+    'houssem': {
+        'email': 'hbenmbarek@Taqat.qa',
+        'display': 'Houssem Ben Mbarek',
+        'guid': '67893817-0260-68eb-b57c-3e42ec51634a'
+    },
+    'hbenmbarek': {
+        'email': 'hbenmbarek@Taqat.qa',
+        'display': 'Houssem Ben Mbarek',
+        'guid': '67893817-0260-68eb-b57c-3e42ec51634a'
+    },
+    'benmbarek': {
+        'email': 'hbenmbarek@Taqat.qa',
+        'display': 'Houssem Ben Mbarek',
+        'guid': '67893817-0260-68eb-b57c-3e42ec51634a'
+    },
 }
 
 
