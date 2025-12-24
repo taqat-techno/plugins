@@ -69,19 +69,24 @@ Add to your `~/.claude/settings.json`:
 
 ### Syncing Tasks to TODO List
 
-Keep your Claude Code TODO list in sync with Azure DevOps:
+Keep your Claude Code TODO list in sync with Azure DevOps using a **fast global query**:
 
 ```
-/sync-my-tasks                    # Auto-detect project from git
-/sync-my-tasks Relief Center      # Sync from specific project
-/sync-my-tasks --all              # Sync from all projects
+/sync-my-tasks                           # Sync ALL tasks across all projects (fast!)
+/sync-my-tasks --project "Relief Center" # Filter to specific project only
 ```
 
 The command will:
-- Fetch work items assigned to you
-- Map Azure DevOps states to TODO states (Active → in_progress, New → pending)
-- Add new items and update existing ones
+- Use **single global WIQL query** (faster than per-project queries!)
+- Include **project name** in each TODO item for easy identification
+- Include **direct links** to work items in Azure DevOps
+- Map states: Active → in_progress, New → pending
 - Preserve your manually added TODOs
+
+**TODO Format:**
+```
+[Relief Center] #1234 Task: Fix login bug | https://dev.azure.com/TaqaTechno/Relief%20Center/_workitems/edit/1234
+```
 
 ### Creating Work Items with Hierarchy
 
@@ -304,14 +309,29 @@ html = format_mention_html("guid-123", "Mahmoud Elshahed")
 # Returns: '<a href="#" data-vss-mention="version:2.0,guid:guid-123">@Mahmoud Elshahed</a>'
 ```
 
-### TODO Sync State Mapping
+### TODO Sync Format & State Mapping
 
+**TODO Content Format:**
+```
+[{PROJECT_NAME}] #{ID} {TYPE}: {TITLE} | {LINK}
+```
+
+Example:
+```
+[Relief Center] #1234 Task: Fix login bug | https://dev.azure.com/TaqaTechno/Relief%20Center/_workitems/edit/1234
+```
+
+**State Mapping:**
 | Azure DevOps State | TODO Status |
 |-------------------|-------------|
 | New, To Do | pending |
 | Active, In Progress | in_progress |
 | Done, Closed | completed |
 | Removed | (skip) |
+
+**Performance:**
+- Uses single global WIQL query across all projects
+- ~500ms total vs N * 500ms for per-project queries
 
 ---
 
@@ -340,6 +360,11 @@ html = format_mention_html("guid-123", "Mahmoud Elshahed")
 ---
 
 ## Changelog
+
+### v1.1.1 (2024-12)
+- **Enhanced** `/sync-my-tasks` with global WIQL query (faster!)
+- **Enhanced** TODO format now includes project name and direct link
+- **Added** WIQL query reference section with common queries
 
 ### v1.1.0 (2024-12)
 - **Added** `/sync-my-tasks` command for TODO list synchronization
