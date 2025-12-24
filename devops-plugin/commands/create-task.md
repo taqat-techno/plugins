@@ -9,17 +9,70 @@ description: 'Create a new task work item in Azure DevOps'
 
 Create a new task work item with proper fields.
 
+## Hierarchy Requirement
+
+**IMPORTANT**: Tasks MUST have a parent work item (Bug or User Story/PBI).
+
+```
+Epic
+  └── Feature
+        └── User Story / PBI   ← Parent for Task
+              └── Task         ← This is what we're creating
+```
+
 ## Instructions
 
-1. Gather task information:
-   - Title (required)
-   - Description
-   - Estimated hours (optional)
-   - Parent work item (optional)
-2. Ask for project if not specified
-3. Create the task work item
-4. Link to parent if specified
-5. Return task ID and URL
+### Step 1: Identify Parent (MANDATORY)
+Before creating the task, ask:
+- "Which User Story, PBI, or Bug should this task be under?"
+- If user doesn't know, list recent PBIs/Bugs in the project:
+```
+mcp__azure-devops__wit_my_work_items({
+  "project": "ProjectName",
+  "type": "assignedtome"
+})
+```
+
+### Step 2: Validate Parent Exists
+```
+mcp__azure-devops__wit_get_work_item({
+  "project": "ProjectName",
+  "id": PARENT_ID
+})
+```
+Verify parent type is Bug, User Story, or Product Backlog Item.
+
+### Step 3: Gather Task Information
+- Title (required)
+- Description
+- Estimated hours (optional)
+
+### Step 4: Create Task
+```
+mcp__azure-devops__wit_create_work_item({
+  "project": "ProjectName",
+  "workItemType": "Task",
+  "fields": [
+    {"name": "System.Title", "value": "Task title"},
+    {"name": "System.Description", "value": "Description"}
+  ]
+})
+```
+
+### Step 5: Link to Parent (MANDATORY)
+```
+mcp__azure-devops__wit_work_items_link({
+  "project": "ProjectName",
+  "updates": [{
+    "id": NEW_TASK_ID,
+    "linkToId": PARENT_ID,
+    "type": "child"
+  }]
+})
+```
+
+### Step 6: Confirm Creation
+Return task ID, URL, and parent link confirmation.
 
 ## Required Fields
 

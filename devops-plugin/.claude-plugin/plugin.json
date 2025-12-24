@@ -1,7 +1,7 @@
 {
   "name": "devops",
-  "version": "1.0.0",
-  "description": "Azure DevOps integration for TaqaTechno - manage work items, PRs, pipelines, repos, wiki, and more through natural language. Leverages the official Microsoft Azure DevOps MCP server with 100+ tools.",
+  "version": "1.1.0",
+  "description": "Azure DevOps integration for TaqaTechno - manage work items, PRs, pipelines, repos, wiki, and more through natural language. Leverages the official Microsoft Azure DevOps MCP server with 100+ tools. Features: auto @mentions, work item hierarchy enforcement, What/How/Why story format, TODO sync.",
   "author": {
     "name": "TAQAT Techno",
     "email": "info@taqatechno.com",
@@ -48,6 +48,10 @@
     "authentication": "PAT",
     "supported-features": [
       "work-item-management",
+      "work-item-hierarchy-enforcement",
+      "auto-mention-processing",
+      "todo-sync",
+      "what-how-why-stories",
       "pull-request-workflows",
       "pipeline-operations",
       "repository-browsing",

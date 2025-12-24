@@ -141,6 +141,47 @@ mcp_ado_workitems_add_comment({
 | Update field | `update_workitem` | Only for actual field updates |
 | Get user GUID | `get_identity_ids` | Search by name/email |
 
+### Automatic Mention Processing
+
+When adding comments with @mentions, follow this process:
+
+1. **Detect @mentions in text**:
+   - Pattern: `@username`, `@firstname.lastname`, `@email`
+   - Example: "Please review this @mahmoud @eslam.hafez"
+
+2. **Resolve each mention to GUID**:
+   ```
+   For each @mention found:
+     mcp__azure-devops__core_get_identity_ids({
+       "searchFilter": "extracted_username"
+     })
+   ```
+
+3. **Convert to HTML anchor format** (better UI rendering):
+   ```html
+   <a href="#" data-vss-mention="version:2.0,guid:GUID">@DisplayName</a>
+   ```
+
+4. **Add comment with processed text**:
+   ```
+   mcp__azure-devops__wit_add_work_item_comment({
+     "project": "ProjectName",
+     "workItemId": 1234,
+     "comment": "Please review <a href=\"#\" data-vss-mention=\"version:2.0,guid:abc-123\">@Mahmoud Elshahed</a>",
+     "format": "html"
+   })
+   ```
+
+### TaqaTechno Team Members (Quick Reference)
+
+| Name | Email | Use |
+|------|-------|-----|
+| Ahmed Abdelkhaleq | alakosha@pearlpixels.com | @ahmed |
+| Eslam Hafez Mohamed | ehafez@pearlpixels.com | @eslam |
+| Yussef Hussein | yhussein@pearlpixels.com | @yussef |
+| Sameh Abdlal | sabdlal@pearlpixels.com | @sameh |
+| Mahmoud Elshahed | melshahed@pearlpixels.com | @mahmoud |
+
 ## Tool Reference by Domain
 
 ### Core Domain (3 tools)
@@ -413,6 +454,120 @@ ORDER BY [Microsoft.VSTS.Common.Priority]
 | **Bug** | Defects | Title, Repro Steps, Severity, Priority |
 | **Issue** | Blockers | Title, Description, Resolution |
 | **Test Case** | Test scenarios | Title, Steps, Expected Results |
+
+## Work Item Hierarchy Rules
+
+### MANDATORY: Enforce This Hierarchy
+
+```
+Epic (Strategic Initiative)
+  └── Feature (Functional Area)
+        └── User Story / PBI (Requirement)
+              ├── Task (Technical Work)
+              └── Bug (Defect)
+```
+
+### Creation Rules
+
+| Creating | Must Have Parent | Parent Type |
+|----------|-----------------|-------------|
+| **Task** | REQUIRED | Bug OR User Story/PBI |
+| **Bug** | RECOMMENDED | User Story/PBI (or standalone) |
+| **User Story/PBI** | REQUIRED | Feature |
+| **Feature** | REQUIRED | Epic |
+| **Epic** | None | Top-level |
+
+### Validation Before Creation
+
+Before creating a work item, ALWAYS:
+
+1. **For Task**:
+   - Ask: "Which Bug or User Story should this task be under?"
+   - If no parent specified, prompt user to:
+     a) Select existing Bug/PBI
+     b) Create new Bug/PBI first
+   - NEVER create orphan tasks
+
+2. **For User Story/PBI**:
+   - Ask: "Which Feature should this story be under?"
+   - If no Feature exists, prompt to create one
+   - If no Feature specified, list available Features
+
+3. **For Feature**:
+   - Ask: "Which Epic should this feature be under?"
+   - List available Epics in project
+   - Create Epic first if needed
+
+### Linking After Creation
+
+Always link child to parent immediately:
+```
+mcp__azure-devops__wit_work_items_link({
+  "project": "ProjectName",
+  "updates": [{
+    "id": CHILD_ID,
+    "linkToId": PARENT_ID,
+    "type": "child"
+  }]
+})
+```
+
+### Example Workflow: Creating a Task
+
+```
+User: "Create task: Fix login button"
+
+Claude:
+1. Ask: "Which User Story or Bug should this task be under?"
+2. User provides parent ID or creates new PBI
+3. Create task
+4. Link task to parent
+5. Confirm: "Task #1234 created under PBI #1000"
+```
+
+### User Story Format (What? How? Why?)
+
+When creating User Stories or PBIs, ALWAYS structure with:
+
+1. **WHAT?** (Requirements)
+   - What needs to be done?
+   - What is the deliverable?
+   - What are the acceptance criteria?
+
+2. **HOW?** (Approach)
+   - How will this be implemented?
+   - What technical approach?
+   - What components are affected?
+
+3. **WHY?** (Business Value)
+   - Why is this needed?
+   - What problem does it solve?
+   - What value does it deliver?
+
+**Template:**
+```markdown
+## What (Requirements)
+[Description of what needs to be done]
+
+### Acceptance Criteria
+- [ ] Criteria 1
+- [ ] Criteria 2
+- [ ] Criteria 3
+
+## How (Implementation Approach)
+[Technical approach description]
+
+### Affected Components
+- Component 1
+- Component 2
+
+## Why (Business Value)
+[Business justification]
+
+### Impact
+- User benefit
+- Business benefit
+```
 
 ## Response Formatting
 

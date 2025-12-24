@@ -1,6 +1,17 @@
 {
   "PostToolUse": [
     {
+      "name": "Suggest task sync on session start",
+      "matcher": "session.*start|context.*load|Read.*CLAUDE\\.md",
+      "description": "Suggests syncing Azure DevOps tasks when starting a new session",
+      "hooks": [
+        {
+          "type": "suggestion",
+          "message": "Consider running /sync-my-tasks to sync your Azure DevOps work items with your TODO list."
+        }
+      ]
+    },
+    {
       "name": "Suggest work item link after PR",
       "matcher": "(Write|Edit).*pull.*request|create.*pr",
       "description": "Suggests linking work items after creating a pull request",
