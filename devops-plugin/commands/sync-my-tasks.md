@@ -23,37 +23,71 @@ Synchronize Azure DevOps work items assigned to you with Claude Code's TODO list
 /sync-my-tasks --project "Relief Center" # Filter to specific project only
 ```
 
-## Workflow
+## ⚠️ CRITICAL: Tool Selection Guide
 
-### Step 1: Execute Global WIQL Query (Single Fast Query)
-
-**Use this WIQL query to get ALL work items assigned to you across ALL projects:**
+### DO NOT USE `search_workitem` for Field Filters!
 
 ```
-mcp__azure-devops__wit_get_query_results_by_id({
-  "id": "custom",
-  "wiql": "SELECT [System.Id], [System.Title], [System.State], [System.WorkItemType], [System.TeamProject], [System.AreaPath] FROM WorkItems WHERE [System.AssignedTo] = @Me AND [System.State] NOT IN ('Done', 'Closed', 'Removed', 'Resolved') ORDER BY [System.ChangedDate] DESC"
-})
-```
-
-**Alternative - Using search_workitem for faster results:**
-```
+❌ WRONG - This returns 0 results!
 mcp__azure-devops__search_workitem({
   "searchText": "*",
-  "assignedTo": ["@Me"],
-  "state": ["New", "Active", "In Progress", "To Do"],
+  "assignedTo": ["@Me"],        // IGNORED! Not a filter!
+  "state": ["New", "Active"],   // IGNORED! Not a filter!
   "top": 100
 })
 ```
 
-**Or use wit_my_work_items without project filter:**
-```
+**Why?** `search_workitem` is a **TEXT SEARCH** tool. It searches work item content (title, description text), NOT field values like AssignedTo or State. The `assignedTo` and `state` parameters in search tools are **facet filters for search results**, not query filters.
+
+### ✅ CORRECT Tools for "Assigned to Me" Queries
+
+| Tool | Use Case | Notes |
+|------|----------|-------|
+| `wit_my_work_items` | Get items assigned to you per project | **RECOMMENDED** - Fast, reliable |
+| `wit_get_query_results_by_id` | Run saved WIQL queries | Requires query ID |
+| `wit_get_work_items_for_iteration` | Get items for specific sprint | Per-iteration only |
+
+## Workflow
+
+### Step 1: Get Work Items Using `wit_my_work_items`
+
+**For each active project, call `wit_my_work_items`:**
+
+```javascript
+// Relief Center
 mcp__azure-devops__wit_my_work_items({
-  "project": "*",
+  "project": "Relief Center",
   "type": "assignedtome",
   "includeCompleted": false,
   "top": 100
 })
+
+// Property Management
+mcp__azure-devops__wit_my_work_items({
+  "project": "Property Management",
+  "type": "assignedtome",
+  "includeCompleted": false,
+  "top": 100
+})
+```
+
+**This returns work item IDs. Then fetch details:**
+
+```javascript
+mcp__azure-devops__wit_get_work_items_batch_by_ids({
+  "project": "Relief Center",
+  "ids": [1746, 1828, 1651, ...],  // IDs from previous call
+  "fields": ["System.Id", "System.Title", "System.State", "System.WorkItemType", "System.TeamProject"]
+})
+```
+
+### Step 1b: Alternative - List Projects First (For Many Projects)
+
+```javascript
+// Get all projects
+mcp__azure-devops__core_list_projects({})
+
+// Then call wit_my_work_items for each project in parallel
 ```
 
 ### Step 2: Transform to TODO Format with Project & Link
