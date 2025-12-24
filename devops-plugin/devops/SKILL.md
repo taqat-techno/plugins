@@ -59,37 +59,53 @@ mcp_ado_workitems_query_workitems({
 
 ### Getting Work Items by AssignedTo (My Tasks)
 
-**WRONG** ❌: `mcp_ado_search_workitem` with filters - This is TEXT SEARCH only!
-```
-# WRONG - Returns 0 results because search_work_items is for text search
-search_work_items(searchText: "*", filters: {"System.AssignedTo": ["Ahmed"]})
-```
-
-**WRONG** ❌: Query without project scope
-```
-# WRONG - Missing project parameter
-mcp_ado_workitems_query_workitems(query: "SELECT ... WHERE ...")
+**WRONG** ❌: `search_workitem` with filters - This is TEXT SEARCH only!
+```javascript
+// WRONG - Returns 0 results! search_workitem is for TEXT SEARCH, not field filtering
+mcp__azure-devops__search_workitem({
+  "searchText": "*",
+  "assignedTo": ["@Me"],     // IGNORED! Not a query filter!
+  "state": ["New", "Active"] // IGNORED! Not a query filter!
+})
 ```
 
-**CORRECT** ✅: `mcp_ado_workitems_query_workitems` with project + WIQL
+**CORRECT** ✅: Use `wit_my_work_items` (RECOMMENDED - Fastest!)
+```javascript
+// Step 1: Get work item IDs for each project
+mcp__azure-devops__wit_my_work_items({
+  "project": "Relief Center",
+  "type": "assignedtome",
+  "includeCompleted": false,
+  "top": 100
+})
+
+// Step 2: Get full details for the returned IDs
+mcp__azure-devops__wit_get_work_items_batch_by_ids({
+  "project": "Relief Center",
+  "ids": [1746, 1828, 1651],  // IDs from step 1
+  "fields": ["System.Id", "System.Title", "System.State", "System.WorkItemType", "System.TeamProject"]
+})
 ```
-# CORRECT - Always include project parameter
-mcp_ado_workitems_query_workitems({
-  "project": "MyProject",
-  "query": "SELECT [System.Id], [System.Title], [System.State] FROM WorkItems WHERE [System.AssignedTo] CONTAINS 'ahmed' AND [System.State] <> 'Closed'"
+
+**ALTERNATIVE** ✅: Use WIQL query with project scope
+```javascript
+// Must specify project - queries cannot be truly global
+mcp__azure-devops__wit_get_query_results_by_id({
+  "project": "Relief Center",
+  "id": "assignedtome"  // Use predefined query
 })
 ```
 
 ### Tool Purpose Summary
 | Task | Correct Tool | Wrong Tool |
 |------|--------------|------------|
-| List all projects | `list_projects` (FIRST!) | - |
-| My assigned work items | `query_workitems` (WIQL + project) | ❌ `search_workitem` |
-| Filter by state/type | `query_workitems` (WIQL + project) | ❌ `search_workitem` |
+| List all projects | `core_list_projects` (FIRST!) | - |
+| **My assigned work items** | `wit_my_work_items` ⭐ (FASTEST!) | ❌ `search_workitem` |
+| Filter by state/type | `wit_my_work_items` or WIQL | ❌ `search_workitem` |
 | Search text in items | `search_workitem` | - |
-| Get single item by ID | `get_workitem` | - |
-| List multiple by IDs | `list_workitems` | - |
-| **Add comment/mention** | `add_comment` | ❌ `update_workitem` with System.History |
+| Get single item by ID | `wit_get_work_item` | - |
+| Get multiple items by IDs | `wit_get_work_items_batch_by_ids` | - |
+| **Add comment/mention** | `wit_add_work_item_comment` | ❌ `wit_update_work_item` with System.History |
 
 ### Adding Comments and Mentions
 

@@ -361,6 +361,13 @@ Example:
 
 ## Changelog
 
+### v1.1.2 (2024-12)
+- **Fixed** Critical: `search_workitem` returns 0 results for field filters
+- **Added** Clear warnings: `search_workitem` is TEXT SEARCH only, not field filter
+- **Updated** Recommended tool: `wit_my_work_items` for "Assigned to Me" queries
+- **Updated** Tool reference tables with correct MCP tool names
+- **Updated** `/sync-my-tasks` workflow to use `wit_my_work_items` per project
+
 ### v1.1.1 (2024-12)
 - **Enhanced** `/sync-my-tasks` with global WIQL query (faster!)
 - **Enhanced** TODO format now includes project name and direct link
