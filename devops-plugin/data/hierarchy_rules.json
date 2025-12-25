@@ -1,0 +1,308 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$comment": "TaqaTechno work item hierarchy rules and parent-child relationships",
+  "version": "1.0.0",
+  "organization": "TaqaTechno",
+  "lastUpdated": "2025-12",
+
+  "hierarchyStructure": {
+    "description": "Standard work item hierarchy from top to bottom",
+    "levels": [
+      {
+        "level": 1,
+        "type": "Epic",
+        "description": "Strategic initiatives and large business goals",
+        "parentRequired": false,
+        "validParents": []
+      },
+      {
+        "level": 2,
+        "type": "Feature",
+        "description": "Functional areas and major capabilities",
+        "parentRequired": true,
+        "validParents": ["Epic"]
+      },
+      {
+        "level": 3,
+        "type": "User Story",
+        "alternateNames": ["Product Backlog Item", "PBI"],
+        "description": "User requirements and deliverables",
+        "parentRequired": true,
+        "validParents": ["Feature"]
+      },
+      {
+        "level": 4,
+        "type": "Task",
+        "description": "Technical work items",
+        "parentRequired": true,
+        "validParents": ["User Story", "Product Backlog Item"]
+      },
+      {
+        "level": 5,
+        "type": "Bug",
+        "description": "Defects found during development or testing",
+        "parentRequired": true,
+        "validParents": ["Task"]
+      }
+    ]
+  },
+
+  "parentChildRules": {
+    "Bug": {
+      "validParents": ["Task"],
+      "parentRequired": true,
+      "requirementLevel": "MUST",
+      "noParentMessage": "Bugs MUST be linked to a Task. Which task is this bug related to?",
+      "wrongParentMessage": "Bugs can only be children of Tasks, not {parentType}.",
+      "searchStrategy": {
+        "primary": "keyword_search",
+        "secondary": "sprint_items",
+        "tertiary": "recent_activity"
+      }
+    },
+    "Task": {
+      "validParents": ["User Story", "Product Backlog Item"],
+      "parentRequired": true,
+      "requirementLevel": "MUST",
+      "noParentMessage": "Tasks MUST be linked to a User Story or PBI. Which story should this task be under?",
+      "wrongParentMessage": "Tasks can only be children of User Stories or PBIs, not {parentType}.",
+      "searchStrategy": {
+        "primary": "keyword_search",
+        "secondary": "sprint_items",
+        "tertiary": "recent_activity"
+      }
+    },
+    "User Story": {
+      "validParents": ["Feature"],
+      "parentRequired": true,
+      "requirementLevel": "SHOULD",
+      "noParentMessage": "User Stories should be linked to a Feature. Which feature does this belong to?",
+      "wrongParentMessage": "User Stories can only be children of Features, not {parentType}.",
+      "searchStrategy": {
+        "primary": "keyword_search",
+        "secondary": "active_features",
+        "tertiary": "recent_activity"
+      }
+    },
+    "Product Backlog Item": {
+      "validParents": ["Feature"],
+      "parentRequired": true,
+      "requirementLevel": "SHOULD",
+      "noParentMessage": "PBIs should be linked to a Feature. Which feature does this belong to?",
+      "wrongParentMessage": "PBIs can only be children of Features, not {parentType}.",
+      "searchStrategy": {
+        "primary": "keyword_search",
+        "secondary": "active_features",
+        "tertiary": "recent_activity"
+      }
+    },
+    "Feature": {
+      "validParents": ["Epic"],
+      "parentRequired": true,
+      "requirementLevel": "SHOULD",
+      "noParentMessage": "Features should be linked to an Epic. Which epic does this belong to?",
+      "wrongParentMessage": "Features can only be children of Epics, not {parentType}.",
+      "searchStrategy": {
+        "primary": "active_epics",
+        "secondary": "keyword_search"
+      }
+    },
+    "Epic": {
+      "validParents": [],
+      "parentRequired": false,
+      "requirementLevel": "NONE",
+      "noParentMessage": null,
+      "wrongParentMessage": null,
+      "searchStrategy": null
+    }
+  },
+
+  "parentDetectionPatterns": {
+    "explicitReference": {
+      "patterns": [
+        "under #(\\d+)",
+        "for story #(\\d+)",
+        "for pbi #(\\d+)",
+        "for task #(\\d+)",
+        "parent #(\\d+)",
+        "linked to #(\\d+)",
+        "related to #(\\d+)",
+        "child of #(\\d+)",
+        "belongs to #(\\d+)",
+        "part of #(\\d+)"
+      ],
+      "caseSensitive": false,
+      "extractGroup": 1
+    },
+    "implicitReference": {
+      "patterns": [
+        "for the (\\w+) story",
+        "in (\\w+) feature",
+        "under (\\w+) epic"
+      ],
+      "requiresSearch": true
+    }
+  },
+
+  "searchStrategies": {
+    "keyword_search": {
+      "description": "Search by keywords extracted from work item title",
+      "tool": "search_workitem",
+      "params": {
+        "searchText": "{keywords}",
+        "workItemType": ["{parentType}"],
+        "top": 5
+      }
+    },
+    "sprint_items": {
+      "description": "Get items from current sprint",
+      "tool": "wit_get_work_items_for_iteration",
+      "params": {
+        "project": "{project}",
+        "iterationId": "{currentIterationId}"
+      },
+      "filterBy": "workItemType"
+    },
+    "recent_activity": {
+      "description": "Get user's recently touched items",
+      "tool": "wit_my_work_items",
+      "params": {
+        "project": "{project}",
+        "type": "myactivity",
+        "top": 20
+      },
+      "filterBy": "workItemType"
+    },
+    "active_features": {
+      "description": "Get active features in project",
+      "tool": "wit_get_query_results_by_id",
+      "params": {
+        "project": "{project}",
+        "query": "Active Features"
+      }
+    },
+    "active_epics": {
+      "description": "Get active epics in project",
+      "tool": "wit_get_query_results_by_id",
+      "params": {
+        "project": "{project}",
+        "query": "Active Epics"
+      }
+    }
+  },
+
+  "linkTypes": {
+    "child": {
+      "name": "Parent-Child",
+      "apiValue": "child",
+      "description": "Standard hierarchy link",
+      "useFor": ["hierarchy"]
+    },
+    "related": {
+      "name": "Related",
+      "apiValue": "related",
+      "description": "Cross-reference without hierarchy",
+      "useFor": ["references"]
+    },
+    "duplicate": {
+      "name": "Duplicate",
+      "apiValue": "duplicate",
+      "description": "Marks item as duplicate of another",
+      "useFor": ["deduplication"]
+    },
+    "successor": {
+      "name": "Successor",
+      "apiValue": "successor",
+      "description": "Dependency - this item comes after",
+      "useFor": ["dependencies", "sequencing"]
+    },
+    "predecessor": {
+      "name": "Predecessor",
+      "apiValue": "predecessor",
+      "description": "Dependency - this item comes before",
+      "useFor": ["dependencies", "sequencing"]
+    },
+    "tested by": {
+      "name": "Tested By",
+      "apiValue": "tested by",
+      "description": "Link to test case",
+      "useFor": ["testing"]
+    },
+    "tests": {
+      "name": "Tests",
+      "apiValue": "tests",
+      "description": "Test case tests this item",
+      "useFor": ["testing"]
+    }
+  },
+
+  "validationRules": {
+    "preventOrphans": {
+      "enabled": true,
+      "strictTypes": ["Bug", "Task"],
+      "warnTypes": ["User Story", "Product Backlog Item", "Feature"],
+      "allowTypes": ["Epic"]
+    },
+    "preventCircular": {
+      "enabled": true,
+      "errorMessage": "Cannot create circular reference: {item} is already a descendant of {target}"
+    },
+    "validateParentType": {
+      "enabled": true,
+      "errorMessage": "{childType} cannot be a child of {parentType}. Valid parents: {validParents}"
+    },
+    "validateParentExists": {
+      "enabled": true,
+      "errorMessage": "Parent work item #{id} not found"
+    },
+    "validateSameProject": {
+      "enabled": true,
+      "errorMessage": "Parent and child must be in the same project"
+    }
+  },
+
+  "userPrompts": {
+    "selectParent": {
+      "intro": "Found potential parent {parentType}s for this {childType}:",
+      "tableHeaders": ["#", "ID", "Title", "Sprint", "State"],
+      "options": {
+        "createNew": "[Create new {parentType}]",
+        "skipWarning": "[Skip linking] (not recommended)"
+      },
+      "question": "Which {parentType} should this {childType} be under?"
+    },
+    "noParentsFound": {
+      "message": "No {parentType}s found matching \"{keywords}\".",
+      "options": [
+        "1. Create a new {parentType} first (recommended)",
+        "2. Select from existing {parentType}s in current sprint",
+        "3. Create {childType} without parent (not recommended)"
+      ],
+      "question": "What would you like to do?"
+    },
+    "confirmParent": {
+      "message": "Parent specified: #{id}",
+      "verification": "Verifying parent exists and is correct type...",
+      "success": "Found: {parentType} #{id} - {title}",
+      "proceed": "Creating {childType}..."
+    }
+  },
+
+  "outputFormats": {
+    "hierarchyTree": {
+      "prefix": {
+        "branch": "├── ",
+        "lastBranch": "└── ",
+        "vertical": "│   ",
+        "empty": "    "
+      },
+      "itemFormat": "{type} #{id}: {title} [{state}]",
+      "currentMarker": " ← YOU ARE HERE"
+    },
+    "creationConfirmation": {
+      "success": "✅ {type} #{id} created: \"{title}\"",
+      "parentLink": "   └── Parent: {parentType} #{parentId} - {parentTitle}",
+      "hierarchyHeader": "\nHierarchy:"
+    }
+  }
+}

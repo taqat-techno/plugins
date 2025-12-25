@@ -1,8 +1,46 @@
 # DevOps Plugin for Claude Code
 
-A comprehensive Azure DevOps integration plugin for Claude Code, enabling natural language interaction with your DevOps workflows.
+A comprehensive Azure DevOps integration plugin for Claude Code, enabling natural language interaction with your DevOps workflows through **HYBRID** CLI + MCP architecture.
 
-**Version**: 1.3.0 | **Organization**: TaqaTechno
+**Version**: 2.0.0 | **Organization**: TaqaTechno | **Mode**: Hybrid (CLI + MCP)
+
+---
+
+## What's New in v2.0.0 - Hybrid Mode
+
+🚀 **Major Release**: Combines Azure DevOps CLI power with MCP convenience for optimal performance.
+
+### Highlights
+
+| Feature | Description |
+|---------|-------------|
+| **Hybrid Architecture** | CLI for automation, MCP for interactive queries |
+| **Intelligent Routing** | Claude automatically selects best tool for each task |
+| **CLI Installation** | Automated setup for Windows, macOS, Linux |
+| **Predefined Memories** | Best practices cached for instant Claude reference |
+| **Automation Scripts** | PowerShell and Python scripts for common workflows |
+| **4 New Commands** | `/cli-run`, `/setup-pipeline-vars`, `/install-extension`, `/full-sprint-report` |
+
+### Hybrid Mode Benefits
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    HYBRID ARCHITECTURE                      │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  CLI (Azure DevOps CLI)          MCP (100+ Tools)           │
+│  ├─ Batch operations             ├─ Interactive queries     │
+│  ├─ Pipeline variables           ├─ Code review threads     │
+│  ├─ Service connections          ├─ Test plan management    │
+│  ├─ Extension management         ├─ Security alerts         │
+│  ├─ Project creation             ├─ Search (code/wiki)      │
+│  └─ Parallel execution           └─ Natural language        │
+│                                                             │
+│              Claude Intelligently Routes Tasks              │
+└─────────────────────────────────────────────────────────────┘
+```
+
+---
 
 ## Features
 
@@ -14,120 +52,133 @@ A comprehensive Azure DevOps integration plugin for Claude Code, enabling natura
 - **Repository Access** - Browse code, commits, branches
 - **Wiki Documentation** - Read, create, and update wiki pages
 - **Code Search** - Search across repositories and work items
+- **Test Plans** - Manage test plans, cases, and results
+- **Security Alerts** - Monitor and analyze security vulnerabilities
 
-### New in v1.3.0
-- **Required Field Validation** - Validates required fields before updates, asks user for missing values
-- **State Transition Rules** - Enforces Task→Done requires Original Estimate + Completed Hours
-- **User Story QC Checkpoint** - User Stories must pass through "Ready for QC" before Done
-- **15 Team Members Cached** - PearlPixels and Taqat team members with smart aliases
+### v2.0.0 Features
+- **Hybrid Mode** - CLI + MCP for optimal performance
+- **Automated CLI Setup** - Cross-platform installation scripts
+- **Predefined Memories** - Best practices, WIQL queries, automation templates
+- **New Commands** - `/cli-run`, `/setup-pipeline-vars`, `/install-extension`, `/full-sprint-report`
+- **Automation Scripts** - PowerShell (batch_update, sprint_report, pr_automation)
+- **Python Scripts** - Hybrid standup, sprint planner, release notes generators
 
-### New in v1.1.0
-- **Auto @Mention Processing** - Automatic user lookup and HTML formatting for mentions
-- **Work Item Hierarchy Enforcement** - Tasks require parents, proper Epic→Feature→PBI→Task structure
-- **What/How/Why Story Format** - Structured user story creation template
+### Previous Features (v1.3.0)
+- **Required Field Validation** - Validates required fields before updates
+- **State Transition Rules** - Enforces Task→Done requires hours
+- **User Story QC Checkpoint** - Stories must pass through "Ready for QC"
+- **@Mention Processing** - Automatic user lookup and HTML formatting
+- **Work Item Hierarchy** - Epic→Feature→PBI→Task→Bug enforcement
 - **TODO Sync** - Sync Azure DevOps tasks to Claude Code TODO list
 
 ---
 
-## Installation
+## Quick Start
 
-### Quick Setup (Claude Code Assisted)
-
-The easiest way to configure this plugin is using Claude Code:
+### Option 1: Full Hybrid Setup (Recommended)
 
 ```
 /devops setup
 ```
 
-Claude will automatically:
-1. Detect your platform (Windows/macOS/Linux)
-2. Find your settings file location
-3. Guide you through PAT token creation
-4. Configure the MCP server
-5. Verify the installation
+This installs both CLI and MCP:
+1. ✅ Detects your platform
+2. ✅ Installs Azure CLI + DevOps extension
+3. ✅ Configures MCP server
+4. ✅ Sets up authentication
+5. ✅ Validates both connections
 
-### Manual Installation
+### Option 2: CLI Only
 
-#### Step 1: Clone Plugin
-
-Clone this repository to any location on your system.
-
-#### Step 2: Prerequisites
-
-- **Node.js 18+** required for MCP server
-
-```bash
-# Check Node.js version
-node --version
-
-# Install if needed:
-# Windows: winget install OpenJS.NodeJS.LTS
-# macOS: brew install node
-# Ubuntu: sudo apt install nodejs npm
+```
+/devops setup --cli
 ```
 
-#### Step 3: Create Personal Access Token (PAT)
+Or run the installer script directly:
+
+**Windows (PowerShell):**
+```powershell
+.\devops\scripts\cli\install_cli.ps1 -Organization "TaqaTechno"
+```
+
+**macOS/Linux (Bash):**
+```bash
+./devops/scripts/cli/install_cli.sh --org TaqaTechno
+```
+
+### Option 3: MCP Only
+
+```
+/devops setup --mcp
+```
+
+---
+
+## Installation
+
+### Prerequisites
+
+| Requirement | Version | Purpose |
+|-------------|---------|---------|
+| Node.js | 18+ | MCP server runtime |
+| Azure CLI | 2.30+ | CLI operations |
+| Python | 3.8+ | Hybrid scripts (optional) |
+
+### Step 1: Install Azure CLI
+
+**Windows:**
+```powershell
+winget install -e --id Microsoft.AzureCLI
+```
+
+**macOS:**
+```bash
+brew install azure-cli
+```
+
+**Linux:**
+```bash
+curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
+```
+
+### Step 2: Install DevOps Extension
+
+```bash
+az extension add --name azure-devops
+```
+
+### Step 3: Create Personal Access Token (PAT)
 
 1. Go to: `https://dev.azure.com/{YOUR_ORG}/_usersSettings/tokens`
 2. Click **"New Token"**
-3. Configure:
-   - **Name**: `Claude Code MCP`
-   - **Expiration**: Choose appropriate duration
-   - **Scopes**:
-     - Code: Read, Write
-     - Work Items: Read, Write, Manage
-     - Build: Read, Execute
-     - Release: Read, Write, Execute
-     - Wiki: Read, Write
-     - Test Management: Read
-4. Click **"Create"** and **copy the token immediately**
+3. Configure scopes:
+   - Code: Read, Write
+   - Work Items: Read, Write, Manage
+   - Build: Read, Execute
+   - Release: Read, Write, Execute
+   - Wiki: Read, Write
+   - Test Management: Read
+   - Variable Groups: Read, Create
+4. Copy the token immediately
 
-#### Step 4: Configure MCP Server
+### Step 4: Configure Authentication
 
-**Find your Claude Code settings file:**
-
-| Platform | Settings File Location |
-|----------|------------------------|
-| **Windows** | `%USERPROFILE%\.claude\settings.json` |
-| **macOS** | `~/.claude/settings.json` |
-| **Linux** | `~/.claude/settings.json` |
-
-**Add the MCP server configuration:**
-
-```json
-{
-  "mcpServers": {
-    "azure-devops": {
-      "type": "stdio",
-      "command": "npx",
-      "args": ["-y", "@anthropic-ai/azure-devops-mcp", "YOUR_ORGANIZATION"],
-      "env": {
-        "ADO_MCP_AUTH_TOKEN": "YOUR_PAT_TOKEN"
-      }
-    }
-  }
-}
-```
-
-Replace:
-- `YOUR_ORGANIZATION` with your Azure DevOps organization name
-- `YOUR_PAT_TOKEN` with your Personal Access Token
-
-#### Step 5: Secure Token Storage (Recommended)
-
-For better security, store your PAT as an environment variable:
-
-**Windows (PowerShell as Admin):**
-```powershell
-[System.Environment]::SetEnvironmentVariable('ADO_PAT_TOKEN', 'your-pat-here', 'User')
-```
-
-**macOS/Linux (add to ~/.bashrc or ~/.zshrc):**
+**CLI Authentication:**
 ```bash
-export ADO_PAT_TOKEN="your-pat-here"
+# Set environment variable (recommended)
+# Windows:
+[System.Environment]::SetEnvironmentVariable('AZURE_DEVOPS_EXT_PAT', 'your-pat', 'User')
+
+# macOS/Linux:
+export AZURE_DEVOPS_EXT_PAT="your-pat"
+
+# Set defaults
+az devops configure --defaults organization=https://dev.azure.com/YOUR_ORG
 ```
 
-**Then update settings.json to use the variable:**
+**MCP Authentication:**
+
+Add to `~/.claude/settings.json`:
 ```json
 {
   "mcpServers": {
@@ -143,417 +194,376 @@ export ADO_PAT_TOKEN="your-pat-here"
 }
 ```
 
-#### Step 6: Restart Claude Code
+### Step 5: Verify Installation
 
-Close and reopen Claude Code, then test:
 ```
-"List my Azure DevOps projects"
+/devops status
 ```
 
-### Troubleshooting
-
-| Issue | Solution |
-|-------|----------|
-| MCP server not responding | Check Node.js installation (`node --version`) |
-| Permission denied | Verify PAT scopes and expiration |
-| Cannot find module | Run `npm cache clean --force` |
-| Settings file not found | Create: `mkdir ~/.claude && echo {} > ~/.claude/settings.json` |
+Expected output:
+```
+Azure DevOps Integration Status
+================================
+CLI Status:     ✅ Installed (v2.65.0)
+MCP Status:     ✅ Connected
+Hybrid Mode:    ✅ Enabled
+Organization:   TaqaTechno
+```
 
 ---
 
-## Quick Commands
+## Commands Reference
+
+### Setup & Status
 
 | Command | Description |
 |---------|-------------|
-| `/devops setup` | **NEW** - Configure MCP server (cross-platform) |
-| `/devops status` | **NEW** - Check MCP connection status |
-| `/sync-my-tasks` | Sync DevOps tasks to Claude TODO list |
+| `/devops setup` | Complete hybrid setup (CLI + MCP) |
+| `/devops setup --cli` | Install Azure CLI only |
+| `/devops setup --mcp` | Configure MCP server only |
+| `/devops status` | Check connection status |
+
+### CLI Operations (New in v2.0)
+
+| Command | Description |
+|---------|-------------|
+| `/cli-run <command>` | Execute any Azure DevOps CLI command |
+| `/setup-pipeline-vars` | Manage pipeline variables and groups |
+| `/install-extension` | Install marketplace extensions |
+| `/full-sprint-report` | Comprehensive hybrid sprint report |
+
+### Work Items
+
+| Command | Description |
+|---------|-------------|
+| `/my-tasks` | List your active work items |
+| `/create-task` | Create task (with parent enforcement) |
+| `/create-bug` | Create a new bug |
 | `/create-user-story` | Create story with What/How/Why format |
+| `/sync-my-tasks` | Sync tasks to Claude TODO list |
+
+### Sprint & Standup
+
+| Command | Description |
+|---------|-------------|
 | `/standup` | Generate daily standup notes |
 | `/sprint` | Sprint progress summary |
-| `/my-tasks` | List your active work items |
-| `/create-bug` | Create a new bug |
-| `/create-task` | Create a new task (with parent enforcement) |
 | `/build-status` | Check recent build status |
 
 ---
 
-## User Guide
+## Hybrid Routing
 
-### Syncing Tasks to TODO List
+Claude automatically selects CLI or MCP based on task characteristics:
 
-Keep your Claude Code TODO list in sync with Azure DevOps using a **fast global query**:
+### When CLI is Used
 
-```
-/sync-my-tasks                           # Sync ALL tasks across all projects (fast!)
-/sync-my-tasks --project "Relief Center" # Filter to specific project only
-```
+| Task | Reason |
+|------|--------|
+| Batch work item updates | Scripting faster for loops |
+| Create infrastructure | CLI-only features |
+| Pipeline variables | CLI-only feature |
+| Service connections | CLI-only feature |
+| Extensions | CLI-only feature |
+| Parallel operations | Performance |
 
-The command will:
-- Use **single global WIQL query** (faster than per-project queries!)
-- Include **project name** in each TODO item for easy identification
-- Include **direct links** to work items in Azure DevOps
-- Map states: Active → in_progress, New → pending
-- Preserve your manually added TODOs
+### When MCP is Used
 
-**TODO Format:**
-```
-[Relief Center] #1234 Task: Fix login bug | https://dev.azure.com/TaqaTechno/Relief%20Center/_workitems/edit/1234
-```
+| Task | Reason |
+|------|--------|
+| Interactive queries | More convenient |
+| Code review threads | Dedicated tools |
+| Test plan management | MCP-only feature |
+| Security alerts | MCP-only feature |
+| Search (code/wiki) | MCP-only feature |
+| Natural language | Better UX |
 
-### Creating Work Items with Hierarchy
-
-The plugin enforces proper work item hierarchy:
-
-```
-Epic (Strategic Initiative)
-  └── Feature (Functional Area)
-        └── User Story / PBI (Requirement)
-              └── Task (Technical Work)
-                    └── Bug (Defect found during task)
-```
-
-**Key Rule**: Bugs MUST be under a Task (not standalone or under PBI directly).
-
-**Creating a Task:**
-```
-"Create task: Fix login validation"
-```
-Claude will ask for a parent User Story/PBI before creating the task.
-
-**Creating a Bug:**
-```
-"Create bug: Login button not responding"
-```
-Claude will ask: "Which Task is this bug related to?" before creating.
-
-**Creating a User Story:**
-```
-/create-user-story
-```
-Claude will gather:
-- **What?** - Requirements and acceptance criteria
-- **How?** - Implementation approach
-- **Why?** - Business value and impact
-
-### Mentioning Team Members in Comments
-
-When adding comments with @mentions:
+### Hybrid Example
 
 ```
-"Add comment to #1234: @mahmoud please review this change"
-```
+User: "Create 10 tasks for implementing authentication"
 
-The plugin automatically:
-1. Detects @mentions in your text
-2. Looks up user GUIDs
-3. Formats as proper Azure DevOps HTML mentions
-4. Sends the comment with working @mention notifications
-
-**Quick Reference - TaqaTechno Team (GUIDs Cached):**
-
-**PearlPixels Team (@pearlpixels.com):**
-| Mention | Team Member | Email |
-|---------|-------------|-------|
-| @lakosha, @alakosha | Ahmed Abdelkhaleq Lakosha | alakosha@pearlpixels.com |
-| @abdelaleem, @aabdelalem | Ahmed Abdelaleem | aabdelalem@pearlpixels.com |
-| @eslam, @ehafez, @hafez | Eslam Hafez Mohamed | ehafez@pearlpixels.com |
-| @mahmoud, @melshahed, @elshahed | Mahmoud Elshahed | melshahed@pearlpixels.com |
-| @elafify, @melafify | Mahmoud Abdelrahman El-afify | melafify@pearlpixels.com |
-| @hala, @hibrahim | Hala Ibrahim | hibrahim@pearlpixels.com |
-| @sameh, @sabdlal | Sameh Abdlal Yussef Btaih | sabdlal@pearlpixels.com |
-| @yussef, @yhussein | Yussef Hussein Hussein | yhussein@pearlpixels.com |
-| @shehab, @sgamal, @gamal | Shehab Gamal | sgamal@pearlpixels.com |
-| @mostafa, @mahmed | Mostafa Ahmed | mahmed@pearlpixels.com |
-
-**Taqat Team (@Taqat.qa):**
-| Mention | Team Member | Email |
-|---------|-------------|-------|
-| @ajay, @akuppakalathil | Ajay Kuppakalathil | akuppakalathil@Taqat.qa |
-| @semir, @sworku, @worku | Semir Worku | sworku@Taqat.qa |
-| @hacene, @hmeziani, @meziani | Hacene Meziani | hmeziani@Taqat.qa |
-| @houssem, @hbenmbarek | Houssem Ben Mbarek | hbenmbarek@Taqat.qa |
-| @muram, @mmakkawi, @makawi | Muram Makawi Abuzaid | mmakkawi@Taqat.qa |
-
-**Disambiguation Notes:**
-- Two Ahmeds: `@lakosha` for Ahmed Lakosha, `@abdelaleem` for Ahmed Abdelaleem
-- Two Mahmouds: `@mahmoud` or `@elshahed` for Mahmoud Elshahed, `@elafify` for Mahmoud El-afify
-
----
-
-## Usage Examples
-
-### Work Items
-
-```
-"Show my active work items"
-"Create bug: Login button not responding on mobile"
-"Update task #1234 to Done"
-"Link bug #456 to user story #123"
-"Add comment to #1234: @eslam can you check this?"
-```
-
-### User Stories (What/How/Why)
-
-```
-"Create user story for implementing dark mode"
-
-Claude will ask:
-- What needs to be done? (Requirements)
-- How should it be implemented? (Approach)
-- Why is this important? (Business value)
-```
-
-### Pull Requests
-
-```
-"List open PRs"
-"Review PR #45"
-"Create PR from feature/auth to main"
-"Merge PR #45"
-```
-
-### Builds
-
-```
-"Show recent builds"
-"Why did build #789 fail?"
-"Run CI pipeline"
-```
-
-### Sprint
-
-```
-"Sprint summary"
-"Prepare standup notes"
-"What's blocking the team?"
-```
-
-### TODO Sync
-
-```
-"/sync-my-tasks"
-"Sync my tasks from Relief Center and Property Management"
+Claude's Approach:
+1. MCP: Get team member identities
+2. CLI: Batch create tasks in parallel
+3. MCP: Verify and report results
 ```
 
 ---
 
-## Developer Guide
+## Predefined Memories
 
-### Plugin Structure
+Claude automatically loads best practices from the `memories/` directory:
+
+| Memory | Purpose |
+|--------|---------|
+| `cli_best_practices.md` | CLI command patterns, JMESPath queries |
+| `mcp_best_practices.md` | MCP tool patterns by domain |
+| `automation_templates.md` | Reusable PowerShell/Bash/Python scripts |
+| `wiql_queries.md` | 40+ WIQL query templates |
+| `team_workflows.md` | TaqaTechno-specific conventions |
+| `hybrid_routing.md` | CLI vs MCP decision matrix |
+
+---
+
+## Automation Scripts
+
+### CLI Scripts (PowerShell)
+
+Located in `devops/scripts/cli/`:
+
+| Script | Description |
+|--------|-------------|
+| `install_cli.ps1` | Windows CLI installer |
+| `install_cli.sh` | Unix CLI installer |
+| `configure_defaults.ps1` | Set CLI defaults |
+| `batch_update.ps1` | Bulk work item updates |
+| `sprint_report.ps1` | Sprint report generator |
+| `pr_automation.ps1` | PR workflow automation |
+
+**Example - Batch Update:**
+```powershell
+.\batch_update.ps1 -WorkItemIds 1,2,3,4,5 -State "Done" -Parallel
+```
+
+### Hybrid Scripts (Python)
+
+Located in `devops/scripts/hybrid/`:
+
+| Script | Description |
+|--------|-------------|
+| `standup_generator.py` | Daily standup notes |
+| `sprint_planner.py` | Sprint planning with capacity |
+| `release_notes.py` | Release notes from completed work |
+
+**Example - Standup:**
+```bash
+python standup_generator.py "Relief Center" --format markdown
+```
+
+---
+
+## Plugin Structure
 
 ```
 devops-plugin/
 ├── .claude-plugin/
-│   └── plugin.json           # Plugin metadata (v1.2.0)
-├── commands/                  # Slash commands
-│   ├── devops.md             # NEW - Setup & configuration
-│   ├── sync-my-tasks.md      # TODO sync command
-│   ├── create-user-story.md  # Structured story creation
-│   ├── create-task.md        # Updated - Hierarchy enforcement
+│   └── plugin.json              # Plugin metadata (v2.0.0)
+├── commands/                     # Slash commands
+│   ├── devops.md                # Setup & configuration (enhanced)
+│   ├── cli-run.md               # NEW - Execute CLI commands
+│   ├── setup-pipeline-vars.md   # NEW - Variable management
+│   ├── install-extension.md     # NEW - Extension installation
+│   ├── full-sprint-report.md    # NEW - Hybrid sprint report
+│   ├── sync-my-tasks.md
+│   ├── create-user-story.md
+│   ├── create-task.md
 │   ├── create-bug.md
 │   ├── my-tasks.md
 │   ├── standup.md
 │   ├── sprint.md
 │   └── build-status.md
-├── devops/                    # Main skill
-│   ├── SKILL.md              # Core skill (550+ lines)
-│   ├── REFERENCE.md          # API reference (720+ lines)
-│   ├── EXAMPLES.md           # Usage examples
+├── devops/                       # Main skill
+│   ├── SKILL.md                 # Core skill (1500+ lines, v2.0)
+│   ├── REFERENCE.md             # API reference
+│   ├── EXAMPLES.md              # Usage examples
 │   └── scripts/
-│       ├── mention_helper.py # NEW - @mention processing
+│       ├── cli/                 # NEW - CLI scripts
+│       │   ├── install_cli.ps1
+│       │   ├── install_cli.sh
+│       │   ├── configure_defaults.ps1
+│       │   ├── batch_update.ps1
+│       │   ├── sprint_report.ps1
+│       │   └── pr_automation.ps1
+│       ├── hybrid/              # NEW - Hybrid scripts
+│       │   ├── standup_generator.py
+│       │   ├── sprint_planner.py
+│       │   └── release_notes.py
+│       ├── mention_helper.py
 │       ├── pr_analyzer.py
 │       ├── sprint_report.py
-│       └── standup_helper.py
+│       ├── standup_helper.py
+│       └── README.md            # Scripts documentation
+├── memories/                     # NEW - Predefined memories
+│   ├── README.md
+│   ├── cli_best_practices.md
+│   ├── mcp_best_practices.md
+│   ├── automation_templates.md
+│   ├── wiql_queries.md
+│   └── team_workflows.md
 ├── hooks/
-│   └── hooks.json            # Context hooks
+│   └── hooks.json
+├── hybrid_routing.md            # NEW - Routing decision guide
+├── MIGRATION.md                 # NEW - v1.3 to v2.0 guide
+├── CHANGELOG.md                 # NEW - Version history
 ├── LICENSE
 └── README.md
 ```
 
-### Adding New Commands
-
-Create a new `.md` file in `commands/`:
-
-```markdown
----
-title: 'Command Name'
-read_only: false           # true for read-only commands
-type: 'command'
-description: 'What this command does'
 ---
 
-# Command Name
+## Usage Examples
 
-Description and instructions...
+### CLI Operations
 
-## Instructions
-1. Step one
-2. Step two
+```bash
+# Execute CLI command
+/cli-run az boards work-item create --title "New Task" --type Task
 
-## Example
-...
+# Manage variables
+/setup-pipeline-vars create "Production-Secrets"
+/setup-pipeline-vars add "Production-Secrets" API_URL "https://api.example.com"
+/setup-pipeline-vars secret "Production-Secrets" API_KEY
+
+# Install extension
+/install-extension ms-devlabs.workitem-feature-timeline-extension
 ```
 
-### Extending the Skill
+### Hybrid Workflows
 
-Edit `devops/SKILL.md` to add:
-- New tool references
-- WIQL query templates
-- Workflow patterns
-- Best practices
+```bash
+# Full sprint report (uses both CLI and MCP)
+/full-sprint-report "Relief Center" "Relief Center Team"
 
-### Adding Hooks
+# Batch update (CLI for speed)
+"Update tasks 100-110 to Active state"
 
-Edit `hooks/hooks.json` to add contextual suggestions:
-
-```json
-{
-  "PostToolUse": [
-    {
-      "name": "Hook name",
-      "matcher": "regex pattern",
-      "description": "When to trigger",
-      "hooks": [
-        {
-          "type": "suggestion",
-          "message": "Suggestion text"
-        }
-      ]
-    }
-  ]
-}
+# Code review (MCP for rich features)
+"Review PR #45 and add comments"
 ```
 
-### Work Item Hierarchy Rules
+### Work Items
 
-When modifying work item creation:
-
-1. **Bugs** - MUST have parent (Task) - bugs discovered during task work
-2. **Tasks** - MUST have parent (User Story/PBI)
-3. **PBIs** - MUST have parent (Feature)
-4. **Features** - MUST have parent (Epic)
-5. **Epics** - Top-level, no parent required
-
-**Hierarchy Flow**: Epic → Feature → PBI → Task → Bug
-
-### Mention Processing
-
-Use the `mention_helper.py` script:
-
-```python
-from mention_helper import extract_mentions, format_mention_html
-
-# Extract @mentions
-mentions = extract_mentions("Review this @mahmoud")
-# Returns: ['mahmoud']
-
-# Format for Azure DevOps
-html = format_mention_html("guid-123", "Mahmoud Elshahed")
-# Returns: '<a href="#" data-vss-mention="version:2.0,guid:guid-123">@Mahmoud Elshahed</a>'
+```bash
+"Show my active work items"
+"Create bug: Login button not responding on mobile"
+"Update task #1234 to Done with 6 hours completed"
+"Link bug #456 to user story #123"
+"Add comment to #1234: @eslam please review"
 ```
 
-### TODO Sync Format & State Mapping
+### Sprint & Standup
 
-**TODO Content Format:**
+```bash
+"/standup"
+"/sprint"
+"What's blocking the team?"
+"Sprint summary for Relief Center"
 ```
-[{PROJECT_NAME}] #{ID} {TYPE}: {TITLE} | {LINK}
-```
-
-Example:
-```
-[Relief Center] #1234 Task: Fix login bug | https://dev.azure.com/TaqaTechno/Relief%20Center/_workitems/edit/1234
-```
-
-**State Mapping:**
-| Azure DevOps State | TODO Status |
-|-------------------|-------------|
-| New, To Do | pending |
-| Active, In Progress | in_progress |
-| Done, Closed | completed |
-| Removed | (skip) |
-
-**Performance:**
-- Uses single global WIQL query across all projects
-- ~500ms total vs N * 500ms for per-project queries
 
 ---
 
-## Documentation
+## Environment Variables
 
-- [SKILL.md](devops/SKILL.md) - Complete skill reference with hierarchy rules
-- [REFERENCE.md](devops/REFERENCE.md) - Tool and WIQL reference
-- [EXAMPLES.md](devops/EXAMPLES.md) - Usage examples
+| Variable | Purpose | Used By |
+|----------|---------|---------|
+| `AZURE_DEVOPS_EXT_PAT` | CLI authentication | CLI scripts |
+| `ADO_PAT_TOKEN` | MCP authentication | MCP server |
+| `DEVOPS_HYBRID_MODE` | Enable hybrid mode | All components |
 
 ---
 
-## Requirements
+## Troubleshooting
 
-- Claude Code CLI
-- Azure DevOps account with PAT
-- Node.js 18+ (for MCP server)
+### CLI Issues
 
-## PAT Scopes Required
+| Issue | Solution |
+|-------|----------|
+| "az not found" | Install Azure CLI for your platform |
+| "devops extension not found" | Run `az extension add --name azure-devops` |
+| "Not logged in" | Set `AZURE_DEVOPS_EXT_PAT` or run `az devops login` |
+| "Organization not found" | Check organization name spelling |
 
-- Code (Read, Write)
-- Work Items (Read, Write)
-- Build (Read, Execute)
-- Wiki (Read, Write)
-- Test Management (Read)
+### MCP Issues
+
+| Issue | Solution |
+|-------|----------|
+| "MCP server not responding" | Check Node.js 18+ installed |
+| "Authentication failed" | Verify PAT token in settings.json |
+| "npx command failed" | Run `npm cache clean --force` |
+
+### Hybrid Issues
+
+| Issue | Solution |
+|-------|----------|
+| "CLI not being used" | Check `DEVOPS_HYBRID_MODE=true` |
+| "Slow batch operations" | Use CLI scripts with `-Parallel` |
 
 ---
 
 ## Changelog
 
+### v2.0.0 (2025-12) - Hybrid Mode Release
+
+**Major Features:**
+- **Hybrid Architecture** - Combines CLI and MCP for optimal performance
+- **Intelligent Routing** - Claude automatically selects best tool
+- **CLI Installation** - Automated setup for all platforms
+- **Predefined Memories** - 6 memory files with best practices
+
+**New Commands:**
+- `/cli-run` - Execute any CLI command
+- `/setup-pipeline-vars` - Manage pipeline variables (CLI-only)
+- `/install-extension` - Install marketplace extensions (CLI-only)
+- `/full-sprint-report` - Comprehensive hybrid report
+
+**New Scripts:**
+- `install_cli.ps1/sh` - CLI installers
+- `configure_defaults.ps1` - CLI configuration
+- `batch_update.ps1` - Bulk work item updates
+- `sprint_report.ps1` - Sprint report generator
+- `pr_automation.ps1` - PR workflow automation
+- `standup_generator.py` - Hybrid standup notes
+- `sprint_planner.py` - Sprint planning with capacity
+- `release_notes.py` - Release notes generator
+
+**New Memories:**
+- `cli_best_practices.md` - CLI patterns and tips
+- `mcp_best_practices.md` - MCP tool patterns
+- `automation_templates.md` - Reusable scripts
+- `wiql_queries.md` - 40+ WIQL queries
+- `team_workflows.md` - TaqaTechno workflows
+- `hybrid_routing.md` - Decision matrix
+
+**Enhanced:**
+- `SKILL.md` - Updated to v2.0 with hybrid mode section (1500+ lines)
+- `plugin.json` - Updated metadata for hybrid mode
+- `devops.md` - Enhanced setup with CLI installation
+
 ### v1.3.0 (2024-12)
-- **Added** Required field validation before create/update operations
-- **Added** State transition validation rules (Task→Done requires hours)
-- **Added** User Story→Done requires "Ready for QC" state first (QA checkpoint)
-- **Added** Pre-update validation workflow with user prompts
-- **Added** Proactive missing field detection and user guidance
-- **Added** 6 new team members to mention cache (15 total)
-- **Added** Bug→Task hierarchy rule (bugs must be under tasks)
-- **Updated** SKILL.md with comprehensive validation section (300+ lines)
-- **Updated** User Story state machine with mandatory QC checkpoint
-- **Updated** Error handling with field validation guidance
-- **Updated** Hierarchy: Epic→Feature→PBI→Task→Bug
-- **Fixed** Don't silently skip required fields - ask user instead
-- **Fixed** User Stories cannot skip to Done without QA review
+- Required field validation
+- State transition rules
+- User Story QC checkpoint
+- 15 team members cached
 
 ### v1.2.0 (2024-12)
-- **Added** `/devops setup` command for cross-platform MCP configuration
-- **Added** `/devops status` command to check MCP connection
-- **Added** Platform detection (Windows/macOS/Linux)
-- **Added** Environment variable support for secure PAT storage
-- **Added** Claude Code assisted setup workflow
-- **Updated** Installation guide with cross-platform instructions
-- **Updated** Troubleshooting section with common issues
-
-### v1.1.2 (2024-12)
-- **Fixed** Critical: `search_workitem` returns 0 results for field filters
-- **Added** Clear warnings: `search_workitem` is TEXT SEARCH only, not field filter
-- **Updated** Recommended tool: `wit_my_work_items` for "Assigned to Me" queries
-- **Updated** Tool reference tables with correct MCP tool names
-- **Updated** `/sync-my-tasks` workflow to use `wit_my_work_items` per project
-
-### v1.1.1 (2024-12)
-- **Enhanced** `/sync-my-tasks` with global WIQL query (faster!)
-- **Enhanced** TODO format now includes project name and direct link
-- **Added** WIQL query reference section with common queries
+- `/devops setup` command
+- Cross-platform configuration
+- Environment variable support
 
 ### v1.1.0 (2024-12)
-- **Added** `/sync-my-tasks` command for TODO list synchronization
-- **Added** `/create-user-story` command with What/How/Why format
-- **Added** `mention_helper.py` for automatic @mention processing
-- **Updated** Work item creation with hierarchy enforcement
-- **Updated** `create-task.md` to require parent work item
-- **Added** Sync suggestion hook on session start
+- TODO sync command
+- @mention processing
+- Work item hierarchy enforcement
+- What/How/Why story format
 
 ### v1.0.0 (2024-11)
-- Initial release with core DevOps features
-- 100+ tools across 10 domains
+- Initial release
+- 100+ MCP tools
 - 6 slash commands
-- WIQL query support
+
+---
+
+## Migration from v1.3
+
+See [MIGRATION.md](MIGRATION.md) for upgrade guide.
+
+**Quick Migration:**
+1. Run `/devops setup` to install CLI
+2. Set `AZURE_DEVOPS_EXT_PAT` environment variable
+3. Restart Claude Code
+
+All v1.3 features continue to work. New hybrid features are additive.
 
 ---
 

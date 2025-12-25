@@ -1,0 +1,162 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$comment": "TaqaTechno team members cache for @mention suggestions - GUIDs must be resolved via API",
+  "version": "1.0.0",
+  "organization": "TaqaTechno",
+  "lastUpdated": "2025-12",
+
+  "important": {
+    "notice": "GUIDs are NOT stored here - always resolve via core_get_identity_ids API",
+    "reason": "GUIDs may change, API ensures accuracy",
+    "usage": "Use this cache for SUGGESTIONS only, not for direct mention formatting"
+  },
+
+  "teamMembers": [
+    {
+      "displayName": "Ahmed Abdelkhaleq",
+      "searchTerms": ["ahmed", "alakosha", "abdelkhaleq"],
+      "email": "alakosha@pearlpixels.com",
+      "role": "Developer",
+      "status": "active"
+    },
+    {
+      "displayName": "Eslam Hafez Mohamed",
+      "searchTerms": ["eslam", "ehafez", "hafez"],
+      "email": "ehafez@pearlpixels.com",
+      "role": "Developer",
+      "status": "active"
+    },
+    {
+      "displayName": "Yussef Hussein",
+      "searchTerms": ["yussef", "yhussein", "hussein"],
+      "email": "yhussein@pearlpixels.com",
+      "role": "Developer",
+      "status": "active"
+    },
+    {
+      "displayName": "Sameh Abdlal",
+      "searchTerms": ["sameh", "sabdlal", "abdlal"],
+      "email": "sabdlal@pearlpixels.com",
+      "role": "Developer",
+      "status": "active"
+    },
+    {
+      "displayName": "Mahmoud Elshahed",
+      "searchTerms": ["mahmoud", "melshahed", "elshahed"],
+      "email": "melshahed@pearlpixels.com",
+      "role": "Developer",
+      "status": "active"
+    },
+    {
+      "displayName": "Mohamed Afifi",
+      "searchTerms": ["mohamed", "mafifi", "afifi", "mo"],
+      "email": "mafifi@pearlpixels.com",
+      "role": "Developer",
+      "status": "active"
+    },
+    {
+      "displayName": "Hossam Moussa",
+      "searchTerms": ["hossam", "hmoussa", "moussa"],
+      "email": "hmoussa@pearlpixels.com",
+      "role": "Developer",
+      "status": "active"
+    },
+    {
+      "displayName": "Amr Saber",
+      "searchTerms": ["amr", "asaber", "saber"],
+      "email": "asaber@pearlpixels.com",
+      "role": "Developer",
+      "status": "active"
+    },
+    {
+      "displayName": "Sara Ahmed",
+      "searchTerms": ["sara", "sahmed"],
+      "email": "sahmed@pearlpixels.com",
+      "role": "Developer",
+      "status": "active"
+    },
+    {
+      "displayName": "Omar Khaled",
+      "searchTerms": ["omar", "okhaled", "khaled"],
+      "email": "okhaled@pearlpixels.com",
+      "role": "Developer",
+      "status": "active"
+    },
+    {
+      "displayName": "Khaled Ibrahim",
+      "searchTerms": ["khaled", "kibrahim", "ibrahim"],
+      "email": "kibrahim@pearlpixels.com",
+      "role": "Team Lead",
+      "status": "active"
+    },
+    {
+      "displayName": "Mona Hassan",
+      "searchTerms": ["mona", "mhassan", "hassan"],
+      "email": "mhassan@pearlpixels.com",
+      "role": "QA Engineer",
+      "status": "active"
+    },
+    {
+      "displayName": "Tamer Farouk",
+      "searchTerms": ["tamer", "tfarouk", "farouk"],
+      "email": "tfarouk@pearlpixels.com",
+      "role": "DevOps Engineer",
+      "status": "active"
+    },
+    {
+      "displayName": "Nour El-Din",
+      "searchTerms": ["nour", "neldin", "eldin"],
+      "email": "neldin@pearlpixels.com",
+      "role": "Developer",
+      "status": "active"
+    },
+    {
+      "displayName": "Layla Mostafa",
+      "searchTerms": ["layla", "lmostafa", "mostafa"],
+      "email": "lmostafa@pearlpixels.com",
+      "role": "UI/UX Designer",
+      "status": "active"
+    }
+  ],
+
+  "mentionFormat": {
+    "htmlTemplate": "<a href=\"#\" data-vss-mention=\"version:2.0,guid:{GUID}\">@{DISPLAY_NAME}</a>",
+    "plainTextFallback": "@{DISPLAY_NAME}",
+    "guidPattern": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+  },
+
+  "resolutionRules": {
+    "exactMatch": {
+      "priority": 1,
+      "description": "Exact match on email or displayName"
+    },
+    "searchTermMatch": {
+      "priority": 2,
+      "description": "Match on any searchTerm"
+    },
+    "partialMatch": {
+      "priority": 3,
+      "description": "Partial match - requires user confirmation"
+    },
+    "noMatch": {
+      "priority": 4,
+      "description": "No match found - ask user for clarification",
+      "action": "DO_NOT_POST"
+    }
+  },
+
+  "validationRules": {
+    "mustResolveViaApi": true,
+    "neverGuesGuid": true,
+    "neverPostUnresolved": true,
+    "confirmAmbiguous": true,
+    "suggestAlternatives": true
+  },
+
+  "errorMessages": {
+    "notFound": "I couldn't find a user matching '@{SEARCH}' in Azure DevOps.",
+    "multipleMatches": "Found multiple users matching '@{SEARCH}'. Which one did you mean?",
+    "apiError": "I couldn't verify the user mention due to a connection issue.",
+    "confirmation": "I found '{DISPLAY_NAME}'. Is this correct?"
+  }
+}

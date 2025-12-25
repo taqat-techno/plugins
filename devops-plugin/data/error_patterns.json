@@ -1,0 +1,407 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$comment": "Azure DevOps API error patterns and recovery actions",
+  "version": "1.0.0",
+  "organization": "TaqaTechno",
+  "lastUpdated": "2025-12",
+
+  "errorCategories": {
+    "FIELD_ERROR": "Field validation or requirement errors",
+    "STATE_ERROR": "State transition or workflow errors",
+    "NOT_FOUND": "Resource not found errors",
+    "PERMISSION": "Authentication or authorization errors",
+    "CONFLICT": "Update conflict or concurrency errors",
+    "VALIDATION": "Input validation errors",
+    "RATE_LIMIT": "API rate limiting errors"
+  },
+
+  "errorPatterns": {
+    "VS403507": {
+      "category": "FIELD_ERROR",
+      "pattern": "Field '(.+)' cannot be empty",
+      "regex": "VS403507.*Field '([^']+)' cannot be empty",
+      "userMessage": "Required field '{field}' is missing",
+      "detailedMessage": "To complete this operation, the field '{field}' must have a value.",
+      "recovery": {
+        "type": "ask_for_field",
+        "prompt": "Please provide a value for {field}:",
+        "fieldMapping": {
+          "Microsoft.VSTS.Scheduling.OriginalEstimate": {
+            "friendlyName": "Original Estimate",
+            "unit": "hours",
+            "defaultPrompt": "How many hours did you estimate for this task?"
+          },
+          "Microsoft.VSTS.Scheduling.CompletedWork": {
+            "friendlyName": "Completed Work",
+            "unit": "hours",
+            "defaultPrompt": "How many hours did you actually work on this?"
+          },
+          "Microsoft.VSTS.Common.ResolvedReason": {
+            "friendlyName": "Resolved Reason",
+            "options": ["Fixed", "As Designed", "Cannot Reproduce", "Duplicate", "Deferred"],
+            "defaultValue": "Fixed"
+          }
+        }
+      }
+    },
+
+    "TF401347": {
+      "category": "STATE_ERROR",
+      "pattern": "Invalid state transition",
+      "regex": "TF401347.*Invalid state transition from '([^']+)' to '([^']+)'",
+      "userMessage": "Cannot transition from '{from}' to '{to}' directly",
+      "detailedMessage": "{workItemType} cannot move from '{from}' to '{to}' directly. There may be intermediate states required.",
+      "recovery": {
+        "type": "suggest_transition_path",
+        "prompt": "Would you like to see the valid state transitions?",
+        "transitionPaths": {
+          "User Story": {
+            "Active": {
+              "Done": {
+                "blocked": true,
+                "intermediate": "Ready for QC",
+                "message": "User Stories must pass through 'Ready for QC' before Done"
+              }
+            }
+          },
+          "Bug": {
+            "New": {
+              "Closed": {
+                "blocked": true,
+                "intermediate": "Resolved",
+                "message": "Bugs must be Resolved before being Closed"
+              }
+            }
+          }
+        }
+      }
+    },
+
+    "TF401019": {
+      "category": "NOT_FOUND",
+      "pattern": "Work item does not exist",
+      "regex": "TF401019.*Work item (\\d+) does not exist",
+      "userMessage": "Work item #{id} not found",
+      "detailedMessage": "The work item #{id} could not be found. It may have been deleted or you may not have access to it.",
+      "recovery": {
+        "type": "search_alternative",
+        "prompt": "Would you like to search for similar work items?",
+        "actions": [
+          "Search by keywords",
+          "View my recent activity",
+          "Check another project"
+        ]
+      }
+    },
+
+    "VS403403": {
+      "category": "PERMISSION",
+      "pattern": "Access denied|Forbidden",
+      "regex": "VS403403.*(Access denied|Forbidden|does not have.*permission)",
+      "userMessage": "Permission denied for this operation",
+      "detailedMessage": "Your Personal Access Token (PAT) doesn't have the required permissions for this operation.",
+      "recovery": {
+        "type": "show_required_permissions",
+        "prompt": "Check your PAT permissions in Azure DevOps",
+        "scopeMapping": {
+          "work_items": {
+            "read": "vso.work",
+            "write": "vso.work_write",
+            "full": "vso.work_full"
+          },
+          "code": {
+            "read": "vso.code",
+            "write": "vso.code_write",
+            "full": "vso.code_full"
+          },
+          "build": {
+            "read": "vso.build",
+            "execute": "vso.build_execute"
+          }
+        },
+        "helpUrl": "https://docs.microsoft.com/azure/devops/organizations/accounts/use-personal-access-tokens-to-authenticate"
+      }
+    },
+
+    "TF400813": {
+      "category": "NOT_FOUND",
+      "pattern": "Resource not available",
+      "regex": "TF400813.*resource.*not (available|found)",
+      "userMessage": "Resource not found or access denied",
+      "detailedMessage": "The requested project, repository, or resource could not be found or you don't have access.",
+      "recovery": {
+        "type": "list_available",
+        "prompt": "Would you like to see available resources?",
+        "actions": [
+          "List projects",
+          "List repositories",
+          "Check project permissions"
+        ]
+      }
+    },
+
+    "TF401398": {
+      "category": "NOT_FOUND",
+      "pattern": "ref.*does not exist",
+      "regex": "TF401398.*ref '([^']+)' does not exist",
+      "userMessage": "Branch '{branch}' not found",
+      "detailedMessage": "The branch '{branch}' doesn't exist in the repository.",
+      "recovery": {
+        "type": "suggest_branches",
+        "prompt": "Did you mean one of these branches?",
+        "actions": [
+          "List available branches",
+          "Create new branch",
+          "Search for similar branch names"
+        ]
+      }
+    },
+
+    "VS403323": {
+      "category": "CONFLICT",
+      "pattern": "update conflict|optimistic concurrency",
+      "regex": "VS403323.*((update|optimistic) conflict|was modified)",
+      "userMessage": "Update conflict detected",
+      "detailedMessage": "This item was modified by someone else since you last viewed it.",
+      "recovery": {
+        "type": "refresh_and_retry",
+        "prompt": "Refresh the item and try again?",
+        "actions": [
+          "Refresh and show current state",
+          "Force update (override)",
+          "Cancel operation"
+        ]
+      }
+    },
+
+    "VS403513": {
+      "category": "VALIDATION",
+      "pattern": "Invalid field value",
+      "regex": "VS403513.*'([^']+)' is not valid for field '([^']+)'",
+      "userMessage": "Invalid value for {field}",
+      "detailedMessage": "The value '{value}' is not valid for the field '{field}'.",
+      "recovery": {
+        "type": "show_valid_values",
+        "prompt": "Valid values for {field}:",
+        "actions": [
+          "Show allowed values",
+          "Use default value",
+          "Cancel operation"
+        ]
+      }
+    },
+
+    "TF401028": {
+      "category": "VALIDATION",
+      "pattern": "source and target.*same",
+      "regex": "TF401028.*(source and target|same branch)",
+      "userMessage": "Source and target branches are the same",
+      "detailedMessage": "Cannot create a pull request where source and target branches are identical.",
+      "recovery": {
+        "type": "ask_for_different_branch",
+        "prompt": "Please specify a different target branch:",
+        "actions": [
+          "List available branches",
+          "Use default branch (main/develop)"
+        ]
+      }
+    },
+
+    "VS403406": {
+      "category": "CONFLICT",
+      "pattern": "merge conflict",
+      "regex": "VS403406.*merge conflict",
+      "userMessage": "Pull request has merge conflicts",
+      "detailedMessage": "The pull request cannot be merged due to conflicts with the target branch.",
+      "recovery": {
+        "type": "resolve_conflicts",
+        "prompt": "The PR has merge conflicts that need resolution.",
+        "actions": [
+          "View conflicting files",
+          "Open PR in browser",
+          "Show merge conflict details"
+        ]
+      }
+    },
+
+    "VS403500": {
+      "category": "VALIDATION",
+      "pattern": "queue.*build|pipeline.*failed",
+      "regex": "VS403500.*(cannot queue|pipeline.*error)",
+      "userMessage": "Cannot start pipeline",
+      "detailedMessage": "The pipeline could not be queued. Check the pipeline configuration.",
+      "recovery": {
+        "type": "show_pipeline_details",
+        "prompt": "Would you like to see the pipeline configuration?",
+        "actions": [
+          "View pipeline definition",
+          "View recent runs",
+          "Check agent availability"
+        ]
+      }
+    },
+
+    "VS403429": {
+      "category": "RATE_LIMIT",
+      "pattern": "rate limit|too many requests",
+      "regex": "VS403429.*(rate limit|too many requests)",
+      "userMessage": "API rate limit exceeded",
+      "detailedMessage": "You've made too many requests. Please wait before trying again.",
+      "recovery": {
+        "type": "wait_and_retry",
+        "prompt": "Waiting before retry...",
+        "waitSeconds": 60,
+        "actions": [
+          "Wait and retry automatically",
+          "Cancel operation"
+        ]
+      }
+    }
+  },
+
+  "recoveryTypes": {
+    "ask_for_field": {
+      "description": "Prompt user for missing field value",
+      "workflow": [
+        "Parse error to identify field",
+        "Get field friendly name from mapping",
+        "Ask user for value",
+        "Retry operation with field included"
+      ]
+    },
+    "suggest_transition_path": {
+      "description": "Show valid state transition path",
+      "workflow": [
+        "Get work item type and current state",
+        "Lookup valid transitions",
+        "Present intermediate state requirement",
+        "Offer to execute multi-step transition"
+      ]
+    },
+    "search_alternative": {
+      "description": "Search for alternative resources",
+      "workflow": [
+        "Present search options to user",
+        "Execute search based on selection",
+        "Show results",
+        "Allow user to select alternative"
+      ]
+    },
+    "show_required_permissions": {
+      "description": "Display required PAT scopes",
+      "workflow": [
+        "Identify operation type",
+        "Lookup required scopes",
+        "Display setup instructions",
+        "Provide documentation link"
+      ]
+    },
+    "list_available": {
+      "description": "List available resources",
+      "workflow": [
+        "Query for available resources",
+        "Display list to user",
+        "Allow selection or fuzzy match",
+        "Retry with selected resource"
+      ]
+    },
+    "suggest_branches": {
+      "description": "Suggest similar branch names",
+      "workflow": [
+        "List repository branches",
+        "Find similar names (fuzzy match)",
+        "Present suggestions",
+        "Retry with selected branch or create new"
+      ]
+    },
+    "refresh_and_retry": {
+      "description": "Refresh resource and retry",
+      "workflow": [
+        "Fetch latest version of resource",
+        "Show what changed",
+        "Ask user to confirm retry",
+        "Execute with fresh data"
+      ]
+    },
+    "show_valid_values": {
+      "description": "Display allowed field values",
+      "workflow": [
+        "Get field definition",
+        "List allowed values",
+        "Present to user",
+        "Accept selection and retry"
+      ]
+    },
+    "ask_for_different_branch": {
+      "description": "Request different branch",
+      "workflow": [
+        "List available branches",
+        "Exclude current branch",
+        "Ask user to select",
+        "Retry with new branch"
+      ]
+    },
+    "resolve_conflicts": {
+      "description": "Guide through conflict resolution",
+      "workflow": [
+        "Get PR conflict details",
+        "List conflicting files",
+        "Provide resolution options",
+        "Open in browser if needed"
+      ]
+    },
+    "show_pipeline_details": {
+      "description": "Show pipeline configuration",
+      "workflow": [
+        "Fetch pipeline definition",
+        "Check recent run logs",
+        "Identify failure reason",
+        "Suggest fixes"
+      ]
+    },
+    "wait_and_retry": {
+      "description": "Wait for rate limit reset",
+      "workflow": [
+        "Wait specified duration",
+        "Show countdown to user",
+        "Retry operation",
+        "If still rate limited, wait longer"
+      ]
+    }
+  },
+
+  "fieldFriendlyNames": {
+    "System.Title": "Title",
+    "System.Description": "Description",
+    "System.State": "State",
+    "System.AssignedTo": "Assigned To",
+    "System.IterationPath": "Sprint/Iteration",
+    "System.AreaPath": "Area",
+    "Microsoft.VSTS.Scheduling.OriginalEstimate": "Original Estimate (hours)",
+    "Microsoft.VSTS.Scheduling.CompletedWork": "Completed Work (hours)",
+    "Microsoft.VSTS.Scheduling.RemainingWork": "Remaining Work (hours)",
+    "Microsoft.VSTS.Common.ResolvedReason": "Resolved Reason",
+    "Microsoft.VSTS.Common.ClosedReason": "Closed Reason",
+    "Microsoft.VSTS.Common.Priority": "Priority",
+    "Microsoft.VSTS.Common.Severity": "Severity"
+  },
+
+  "errorMessageTemplates": {
+    "standard": "{emoji} {shortSummary}\n\n**Reason**: {reason}\n\n**Details**:\n{details}\n\n**To fix**:\n{fixSteps}",
+    "permission": "🔒 Permission Denied\n\n**Operation**: {operation}\n**Reason**: {reason}\n\n**Required Scopes**:\n{scopes}\n\n**How to Fix**:\n{fixSteps}\n\n**Help**: {helpUrl}",
+    "notFound": "🔍 Not Found\n\n**Looking for**: {resource}\n**In**: {location}\n\n**Possible reasons**:\n{reasons}\n\n**Actions**:\n{actions}",
+    "validation": "⚠️ Validation Error\n\n**Field**: {field}\n**Provided**: {value}\n**Expected**: {expected}\n\n**To fix**:\n{fixSteps}"
+  },
+
+  "emojis": {
+    "error": "❌",
+    "warning": "⚠️",
+    "permission": "🔒",
+    "notFound": "🔍",
+    "timeout": "⏳",
+    "conflict": "🔄",
+    "success": "✅",
+    "info": "ℹ️",
+    "question": "❓"
+  }
+}

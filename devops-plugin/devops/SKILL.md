@@ -1,7 +1,7 @@
 ---
 name: devops
-description: "Azure DevOps integration skill for TaqaTechno organization. Manages work items, pull requests, pipelines, repositories, wiki, test plans, and security alerts through the official Microsoft Azure DevOps MCP server. Use when user asks about: tasks, bugs, PRs, builds, sprints, standups, code reviews, deployments, or any Azure DevOps operations."
-version: "1.3.0"
+description: "Azure DevOps HYBRID integration skill for TaqaTechno organization. Combines CLI power with MCP convenience for optimal performance. Uses CLI for automation, batch operations, variables, and extensions. Uses MCP for interactive queries, code reviews, test plans, search, and security alerts. Intelligent routing automatically selects the best tool for each task."
+version: "2.0.0"
 author: "TAQAT Techno"
 license: "MIT"
 allowed-tools:
@@ -9,23 +9,315 @@ allowed-tools:
   - Write
   - Bash
   - WebFetch
+  - Glob
+  - Grep
 metadata:
   organization: "TaqaTechno"
-  mcp-server: "@azure-devops/mcp"
-  tools-count: "100+"
+  mode: "hybrid"
+  mcp-server: "@anthropic-ai/azure-devops-mcp"
+  cli-extension: "azure-devops"
+  cli-min-version: "2.30.0"
+  tools-count: "100+ MCP tools + full CLI"
   domains: "core,work,work-items,repositories,pipelines,test-plans,wiki,search,advanced-security"
+  cli-exclusive: "variables,extensions,service-connections,project-creation,batch-scripting"
+  mcp-exclusive: "test-plans,search,security-alerts,pr-threads,team-capacity"
 ---
 
-# Azure DevOps Integration Skill
+# Azure DevOps Integration Skill (v2.0 - Hybrid Mode)
 
-A comprehensive skill for managing Azure DevOps resources through natural language, powered by the official Microsoft Azure DevOps MCP server.
+A comprehensive skill for managing Azure DevOps resources through natural language, leveraging **BOTH** Azure DevOps CLI and MCP Server for optimal performance.
 
 ## Configuration
 
 - **Organization**: TaqaTechno
-- **MCP Server**: `@azure-devops/mcp` (Official Microsoft)
+- **Mode**: **HYBRID** (CLI + MCP)
+- **MCP Server**: `@anthropic-ai/azure-devops-mcp` (Official Anthropic)
+- **CLI Extension**: `azure-devops` (via Azure CLI)
 - **Authentication**: Personal Access Token (PAT)
-- **Tools Available**: 100+ across 10 domains
+  - CLI: `AZURE_DEVOPS_EXT_PAT` environment variable
+  - MCP: `ADO_PAT_TOKEN` environment variable
+- **Tools Available**: 100+ MCP tools + full CLI command set
+
+---
+
+## Hybrid Mode: CLI + MCP Integration
+
+This skill leverages **BOTH** Azure DevOps CLI and MCP Server for optimal performance. Claude automatically routes tasks to the best tool based on task characteristics.
+
+### Quick Decision Matrix
+
+| Task Type | Use CLI | Use MCP | Reason |
+|-----------|:-------:|:-------:|--------|
+| Batch work item updates | **Y** | | CLI scripting faster for loops |
+| Single work item query | | **Y** | MCP more convenient |
+| Create multiple items | **Y** | | CLI parallel execution |
+| PR code review threads | | **Y** | MCP has dedicated tools |
+| Create service connections | **Y** | | CLI only feature |
+| Install extensions | **Y** | | CLI only feature |
+| Manage pipeline variables | **Y** | | CLI only feature |
+| Run pipelines | **Y** | Y | CLI better for CI/CD |
+| Test plan management | | **Y** | MCP only feature |
+| Security alerts | | **Y** | MCP only feature |
+| Search code/wiki | | **Y** | MCP only feature |
+| Create projects | **Y** | | CLI better |
+| Daily standup queries | | **Y** | MCP more natural |
+| Sprint reports | | **Y** | MCP queries sufficient |
+| Automated scripts | **Y** | | CLI scriptable |
+| Team capacity | | **Y** | MCP only feature |
+| Interactive conversation | | **Y** | MCP natural language |
+
+### When Claude Uses CLI
+
+| Scenario | CLI Command | Reason |
+|----------|-------------|--------|
+| Batch updates | `az boards work-item update` in loop | Scriptable |
+| Create infrastructure | `az devops project create` | CLI only |
+| Variable management | `az pipelines variable` | CLI only |
+| Extension management | `az devops extension` | CLI only |
+| Automated pipelines | `az pipelines run` | CI/CD integration |
+| Parallel operations | Multiple `az` commands with `&` | Performance |
+
+### When Claude Uses MCP
+
+| Scenario | MCP Tool | Reason |
+|----------|----------|--------|
+| Interactive queries | `wit_my_work_items` | Convenience |
+| Code review | `repo_*_pull_request_thread*` | Dedicated tools |
+| Test management | `testplan_*` | MCP only |
+| Security alerts | `advsec_*` | MCP only |
+| Search | `search_*` | MCP only |
+| Natural language | All tools | Better UX |
+
+### Hybrid Workflow Example
+
+```
+User: "Create 10 tasks for implementing authentication and assign to the team"
+
+Claude's Approach:
+1. Use MCP to get team member identities
+2. Use CLI batch script to create tasks in parallel
+3. Use MCP to verify and report results
+
+Step 1 (MCP):
+mcp__azure-devops__core_get_identity_ids({ searchFilter: "mahmoud" })
+mcp__azure-devops__core_get_identity_ids({ searchFilter: "eslam" })
+
+Step 2 (CLI):
+for i in 1..10; do
+  az boards work-item create --title "Auth Task $i" --type Task --assigned-to $TEAM[$i % 2] &
+done
+wait
+
+Step 3 (MCP):
+mcp__azure-devops__wit_my_work_items({ project: "...", top: 10 })
+# Confirm creation and report to user
+```
+
+### CLI-Only Features
+
+These features are **ONLY available via CLI**, not MCP:
+
+| Feature | CLI Command |
+|---------|-------------|
+| Create project | `az devops project create` |
+| Create repository | `az repos create` |
+| Variable groups | `az pipelines variable-group` |
+| Pipeline variables | `az pipelines variable` |
+| Service connections | `az devops service-endpoint` |
+| Extensions | `az devops extension install` |
+| Create pipeline | `az pipelines create` |
+
+### MCP-Only Features
+
+These features are **ONLY available via MCP**, not CLI:
+
+| Feature | MCP Tool |
+|---------|----------|
+| Test plans | `testplan_list_test_plans`, `testplan_create_test_plan` |
+| Test cases | `testplan_create_test_case`, `testplan_update_test_case_steps` |
+| Test results | `testplan_show_test_results_from_build_id` |
+| Code search | `search_code` |
+| Wiki search | `search_wiki` |
+| Work item search | `search_workitem` |
+| Security alerts | `advsec_get_alerts`, `advsec_get_alert_details` |
+| PR threads | `repo_list_pull_request_threads` |
+| PR thread comments | `repo_list_pull_request_thread_comments` |
+| Reply to PR comment | `repo_reply_to_comment` |
+| Resolve PR thread | `repo_resolve_comment` |
+| Team capacity | `work_get_team_capacity`, `work_update_team_capacity` |
+| Batch work item update | `wit_update_work_items_batch` |
+
+---
+
+## CLI Command Reference (Quick Access)
+
+Quick reference for common CLI commands. Use these when Claude selects CLI for a task.
+
+### Work Items (CLI)
+
+```bash
+# Create work item
+az boards work-item create --title "Task Title" --type Task --project "Project"
+
+# Update work item
+az boards work-item update --id 123 --state Active
+
+# Query work items (WIQL)
+az boards query --wiql "SELECT [System.Id], [System.Title] FROM WorkItems WHERE [System.AssignedTo] = @Me"
+
+# Show work item details
+az boards work-item show --id 123 --output yaml
+
+# Delete work item
+az boards work-item delete --id 123 --yes
+
+# Add relation/link
+az boards work-item relation add --id 123 --relation-type "System.LinkTypes.Hierarchy-Reverse" --target-id 456
+```
+
+### Pull Requests (CLI)
+
+```bash
+# List active PRs
+az repos pr list --status active --output table
+
+# Create PR
+az repos pr create --source-branch feature/login --target-branch main --title "Feature: Login"
+
+# Update PR (auto-complete, squash)
+az repos pr update --id 45 --auto-complete true --squash true
+
+# Complete/merge PR
+az repos pr update --id 45 --status completed
+
+# Add reviewer
+az repos pr reviewer add --id 45 --reviewers user@email.com
+
+# Show PR details
+az repos pr show --id 45 --output yaml
+```
+
+### Pipelines (CLI)
+
+```bash
+# Run pipeline
+az pipelines run --name "CI-Build" --branch main
+
+# List builds
+az pipelines runs list --top 10 --output table
+
+# Get build status
+az pipelines runs show --id 456
+
+# List pipeline definitions
+az pipelines list --output table
+
+# Get build logs
+az pipelines runs artifact download --build-id 456 --artifact-name drop
+
+# Cancel build
+az pipelines build cancel --build-id 456
+```
+
+### Repositories (CLI)
+
+```bash
+# List repos
+az repos list --output table
+
+# Show repo details
+az repos show --repository my-repo
+
+# List branches
+az repos ref list --repository my-repo --filter heads/
+
+# Create branch
+az repos ref create --name refs/heads/feature/new --repository my-repo --object-id <commit-sha>
+```
+
+### Infrastructure (CLI Only)
+
+These features are **ONLY available via CLI**:
+
+```bash
+# Create project
+az devops project create --name "New Project" --description "Description" --process Agile
+
+# Variable groups
+az pipelines variable-group list --output table
+az pipelines variable-group create --name "Production Secrets" --variables API_URL=https://api.example.com --authorize true
+az pipelines variable-group variable create --group-id 1 --name API_KEY --secret true
+
+# Pipeline variables
+az pipelines variable create --name ENVIRONMENT --value staging --pipeline-name "CI-Build"
+az pipelines variable update --name ENVIRONMENT --value production --pipeline-name "CI-Build"
+
+# Service connections
+az devops service-endpoint list --output table
+az devops service-endpoint azurerm create --name "Azure Production" --azure-rm-subscription-id "sub-id"
+
+# Extensions
+az devops extension search --search-query "timetracker" --output table
+az devops extension install --publisher-id ms-devlabs --extension-id workitem-feature-timeline-extension
+az devops extension list --output table
+```
+
+### Output Formatting
+
+```bash
+# Table format (human-readable)
+az devops project list --output table
+
+# JSON format (for parsing)
+az repos list --output json
+
+# TSV format (for scripts)
+az repos list --query "[].name" --output tsv
+
+# YAML format (configuration)
+az boards work-item show --id 123 --output yaml
+
+# JMESPath query filtering
+az repos list --query "[].{Name:name, ID:id}" --output table
+az repos pr list --query "[?status=='active']" --output table
+```
+
+### Batch Operations
+
+```bash
+# Update multiple work items (sequential)
+az boards work-item update --id 1 --state Done && az boards work-item update --id 2 --state Done
+
+# Create multiple work items (parallel)
+for i in 1 2 3 4 5; do
+  az boards work-item create --title "Task $i" --type Task &
+done
+wait
+
+# Query and pipe to another command
+az boards query --wiql "SELECT [System.Id] FROM WorkItems WHERE [System.State] = 'New'" \
+  --query "[].id" -o tsv | while read id; do
+    az boards work-item update --id $id --state Active
+  done
+```
+
+### Environment Setup
+
+```bash
+# Configure defaults
+az devops configure --defaults organization=https://dev.azure.com/TaqaTechno project="Relief Center"
+
+# Check current configuration
+az devops configure --list
+
+# Login with PAT
+echo $AZURE_DEVOPS_EXT_PAT | az devops login --organization https://dev.azure.com/TaqaTechno
+
+# Verify authentication
+az devops project list
+```
+
+---
 
 ## When to Use This Skill
 
@@ -107,6 +399,74 @@ mcp__azure-devops__wit_get_query_results_by_id({
 | Get multiple items by IDs | `wit_get_work_items_batch_by_ids` | - |
 | **Add comment/mention** | `wit_add_work_item_comment` | ❌ `wit_update_work_item` with System.History |
 
+### 🛡️ Tool Selection Guard (MANDATORY)
+
+**Reference**: See `guards/tool_selection_guard.md` for complete documentation.
+
+Claude MUST apply this guard **BEFORE** executing any work item query tool:
+
+#### Auto-Correction Rules
+
+**Rule 1: Intent Detection**
+```
+TRIGGER PHRASES → FORCE wit_my_work_items:
+- "my tasks" / "my work items" / "assigned to me"
+- "my bugs" / "my stories" / "my items"
+- "show what I'm working on" / "my current work"
+
+IF user says these AND intended_tool == search_workitem:
+  → BLOCK search_workitem
+  → USE wit_my_work_items INSTEAD
+```
+
+**Rule 2: Filter Parameter Validation**
+```
+BEFORE executing search_workitem, CHECK:
+  - Does call include assignedTo parameter?
+  - Does call include state parameter?
+  - Does call include iteration parameter?
+
+IF ANY filter params present:
+  → WARN: "search_workitem ignores these filters!"
+  → DO NOT EXECUTE
+  → SUGGEST: wit_my_work_items or CLI WIQL
+```
+
+**Rule 3: Wildcard Search Detection**
+```
+IF searchText == "*" OR searchText is empty/wildcard:
+  AND has filter parameters:
+    → This is NOT a text search
+    → REDIRECT to wit_my_work_items or WIQL
+```
+
+#### Guard Execution Flow
+
+```
+┌───────────────────────────────────────────────────────────────┐
+│ 1. ANALYZE: Extract intent from user request                  │
+│    "show my active tasks" → intent="my items", filter="Active"│
+├───────────────────────────────────────────────────────────────┤
+│ 2. MATCH: Map intent to correct tool                          │
+│    "my items" → wit_my_work_items ✅                          │
+├───────────────────────────────────────────────────────────────┤
+│ 3. VALIDATE: Check for wrong tool selection                   │
+│    IF search_workitem with filters → BLOCK & REDIRECT         │
+├───────────────────────────────────────────────────────────────┤
+│ 4. EXECUTE: Run validated tool with correct params            │
+└───────────────────────────────────────────────────────────────┘
+```
+
+#### Quick Decision Matrix
+
+| User Says | Correct Tool | Never Use |
+|-----------|--------------|-----------|
+| "my tasks" | `wit_my_work_items` | `search_workitem` |
+| "search for login" | `search_workitem` | - |
+| "active bugs" | CLI WIQL | `search_workitem` |
+| "sprint backlog" | `wit_get_work_items_for_iteration` | `search_workitem` |
+| "work item #123" | `wit_get_work_item` | - |
+
 ### Adding Comments and Mentions
 
 **WRONG** ❌: Using `update_work_item` with `System.History`
@@ -157,46 +517,890 @@ mcp_ado_workitems_add_comment({
 | Update field | `update_workitem` | Only for actual field updates |
 | Get user GUID | `get_identity_ids` | Search by name/email |
 
-### Automatic Mention Processing
+### 🔔 Mention Processing with Validation (MANDATORY)
 
-When adding comments with @mentions, follow this process:
+**Reference**: `processors/mention_processor.md` and `data/team_members.json`
 
-1. **Detect @mentions in text**:
-   - Pattern: `@username`, `@firstname.lastname`, `@email`
-   - Example: "Please review this @mahmoud @eslam.hafez"
+```
+┌─────────────────────────────────────────────────────────────────┐
+│           ⚠️ CRITICAL: NEVER POST FAKE MENTIONS                  │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  BEFORE posting any comment with @mentions:                     │
+│                                                                  │
+│  1. EXTRACT all @mentions from text                             │
+│  2. RESOLVE each to GUID via core_get_identity_ids API          │
+│  3. VALIDATE all resolutions succeeded                          │
+│                                                                  │
+│  IF ANY mention fails to resolve:                               │
+│    → DO NOT POST the comment                                    │
+│    → ASK USER for clarification                                 │
+│    → SUGGEST known team members                                 │
+│    → WAIT for correct name                                      │
+│                                                                  │
+│  Plain text "@name" does NOT send notifications!                │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
 
-2. **Resolve each mention to GUID**:
-   ```
-   For each @mention found:
-     mcp__azure-devops__core_get_identity_ids({
-       "searchFilter": "extracted_username"
-     })
-   ```
+#### Mention Resolution Workflow
 
-3. **Convert to HTML anchor format** (better UI rendering):
-   ```html
-   <a href="#" data-vss-mention="version:2.0,guid:GUID">@DisplayName</a>
-   ```
+```
+User: "Add comment mentioning @mahmoud"
 
-4. **Add comment with processed text**:
-   ```
-   mcp__azure-devops__wit_add_work_item_comment({
-     "project": "ProjectName",
-     "workItemId": 1234,
-     "comment": "Please review <a href=\"#\" data-vss-mention=\"version:2.0,guid:abc-123\">@Mahmoud Elshahed</a>",
-     "format": "html"
-   })
-   ```
+STEP 1: Extract mentions
+  → Found: ["mahmoud"]
+
+STEP 2: Resolve via API (MANDATORY)
+  → core_get_identity_ids({ searchFilter: "mahmoud" })
+  → Result: { id: "6011f8b0-...", displayName: "Mahmoud Elshahed" }
+
+STEP 3: Validate resolution
+  → ✅ GUID found → Proceed
+  → ❌ No match → ASK USER (do not post!)
+
+STEP 4: Format as HTML
+  → <a href="#" data-vss-mention="version:2.0,guid:6011f8b0-...">@Mahmoud Elshahed</a>
+
+STEP 5: Post comment with format: "html"
+```
+
+#### Failed Resolution - MUST Ask User
+
+```
+User: "Add comment mentioning @bob"
+
+Claude (after failed API lookup):
+┌─────────────────────────────────────────────────────────────────┐
+│ ⚠️ I couldn't find a user matching "@bob" in Azure DevOps.       │
+│                                                                  │
+│ Did you mean one of these team members?                         │
+│ • Mahmoud Elshahed (@mahmoud)                                   │
+│ • Eslam Hafez (@eslam)                                          │
+│ • Ahmed Abdelkhaleq (@ahmed)                                    │
+│ • Mohamed Afifi (@mohamed)                                      │
+│                                                                  │
+│ Please provide the correct name or email.                       │
+│ I won't post until I can properly resolve the mention.          │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+#### Code Example: Proper Mention Flow
+
+```javascript
+// Step 1: Resolve mention (REQUIRED)
+const identity = await mcp__azure-devops__core_get_identity_ids({
+  "searchFilter": "mahmoud"
+});
+
+// Step 2: Check if resolved
+if (!identity || identity.length === 0) {
+  // DO NOT POST - Ask user for clarification
+  return "I couldn't find @mahmoud. Did you mean...?";
+}
+
+// Step 3: Format HTML mention
+const mention = `<a href="#" data-vss-mention="version:2.0,guid:${identity.id}">@${identity.displayName}</a>`;
+
+// Step 4: Post comment
+mcp__azure-devops__wit_add_work_item_comment({
+  "project": "Relief Center",
+  "workItemId": 1234,
+  "comment": `Please review this. ${mention}`,
+  "format": "html"  // REQUIRED for mentions
+});
+```
 
 ### TaqaTechno Team Members (Quick Reference)
 
-| Name | Email | Use |
-|------|-------|-----|
-| Ahmed Abdelkhaleq | alakosha@pearlpixels.com | @ahmed |
-| Eslam Hafez Mohamed | ehafez@pearlpixels.com | @eslam |
-| Yussef Hussein | yhussein@pearlpixels.com | @yussef |
-| Sameh Abdlal | sabdlal@pearlpixels.com | @sameh |
-| Mahmoud Elshahed | melshahed@pearlpixels.com | @mahmoud |
+| Name | Email | Search Terms |
+|------|-------|--------------|
+| Ahmed Abdelkhaleq | alakosha@pearlpixels.com | @ahmed, @alakosha |
+| Eslam Hafez Mohamed | ehafez@pearlpixels.com | @eslam, @ehafez |
+| Yussef Hussein | yhussein@pearlpixels.com | @yussef, @yhussein |
+| Sameh Abdlal | sabdlal@pearlpixels.com | @sameh, @sabdlal |
+| Mahmoud Elshahed | melshahed@pearlpixels.com | @mahmoud, @melshahed |
+| Mohamed Afifi | mafifi@pearlpixels.com | @mohamed, @mafifi |
+| Hossam Moussa | hmoussa@pearlpixels.com | @hossam, @hmoussa |
+| Amr Saber | asaber@pearlpixels.com | @amr, @asaber |
+
+**Note**: Always resolve via API - never assume GUIDs!
+
+### 🔒 Pre-Flight Validation (MANDATORY)
+
+**Reference**: `validators/state_transition_validator.md` and `data/required_fields.json`
+
+Claude MUST validate **BEFORE** executing any state change on work items:
+
+#### Pre-Flight Validation Workflow
+
+```
+┌───────────────────────────────────────────────────────────────┐
+│ User: "Mark task #1234 as Done"                               │
+├───────────────────────────────────────────────────────────────┤
+│ STEP 1: FETCH current work item                               │
+│   wit_get_work_item({ id: 1234, project: "...",               │
+│     fields: ["System.State", "System.WorkItemType",           │
+│              "Microsoft.VSTS.Scheduling.*"] })                │
+├───────────────────────────────────────────────────────────────┤
+│ STEP 2: CHECK required fields for transition                  │
+│   Task → Done REQUIRES: OriginalEstimate, CompletedWork       │
+├───────────────────────────────────────────────────────────────┤
+│ STEP 3: If MISSING → ASK user (DO NOT attempt update!)        │
+│   "To mark as Done, I need: Original Estimate? Hours spent?"  │
+├───────────────────────────────────────────────────────────────┤
+│ STEP 4: EXECUTE single update with ALL fields + state         │
+└───────────────────────────────────────────────────────────────┘
+```
+
+#### Required Fields by Transition
+
+| Work Item Type | To State | Required Fields | Auto-Set |
+|----------------|----------|-----------------|----------|
+| **Task** | Done | `OriginalEstimate`, `CompletedWork` | `RemainingWork=0` |
+| **Bug** | Resolved | `ResolvedReason` (default: "Fixed") | - |
+| **User Story** | Done | - | **BLOCKED from Active** → Must go through "Ready for QC" |
+
+#### State Machine Enforcement (User Stories)
+
+```
+User Story CANNOT go directly from Active → Done!
+
+Required path: Active → Ready for QC → Done
+                            ↑
+                            │ MANDATORY QC CHECKPOINT
+                            │
+If user tries Active → Done:
+  → BLOCK the transition
+  → EXPLAIN: "User Stories must pass through Ready for QC"
+  → OFFER: "Move to Ready for QC first?"
+```
+
+#### Example: Task → Done Pre-Flight
+
+**User**: "Mark task #1234 as Done"
+
+**Claude** (BEFORE attempting update):
+```
+Checking task #1234...
+
+To mark this task as Done, I need:
+• Original Estimate (hours): ___
+• Completed Work (hours): ___
+
+I'll automatically set Remaining Work to 0.
+
+Please provide these values.
+```
+
+**User**: "8 hours estimated, 6 actual"
+
+**Claude** (NOW executes):
+```javascript
+mcp__azure-devops__wit_update_work_item({
+  "id": 1234,
+  "updates": [
+    { "path": "/fields/Microsoft.VSTS.Scheduling.OriginalEstimate", "value": "8" },
+    { "path": "/fields/Microsoft.VSTS.Scheduling.CompletedWork", "value": "6" },
+    { "path": "/fields/Microsoft.VSTS.Scheduling.RemainingWork", "value": "0" },
+    { "path": "/fields/System.State", "value": "Done" }
+  ]
+})
+```
+
+#### Quick Reference: State Transition Rules
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                 STATE TRANSITION RULES                           │
+├─────────────────────────────────────────────────────────────────┤
+│  TASK → Done                                                    │
+│  ├── REQUIRES: OriginalEstimate (hours)                         │
+│  ├── REQUIRES: CompletedWork (hours)                            │
+│  └── AUTO-SET: RemainingWork = 0                                │
+├─────────────────────────────────────────────────────────────────┤
+│  BUG → Resolved                                                 │
+│  └── REQUIRES: ResolvedReason (default: "Fixed")                │
+│      Options: Fixed, As Designed, Cannot Reproduce,             │
+│               Deferred, Duplicate, Not a Bug, Obsolete          │
+├─────────────────────────────────────────────────────────────────┤
+│  USER STORY → Done                                              │
+│  └── ⚠️ BLOCKED if current state is "Active"                    │
+│      MUST go: Active → Ready for QC → Done                      │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### 📁 Smart Project Context (AUTOMATIC)
+
+**Reference**: `context/project_context.md` and `data/project_defaults.json`
+
+Claude maintains project context automatically so users don't need to specify project in every query.
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│              SMART PROJECT CONTEXT                               │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  First query: "Show my tasks in Relief Center"                  │
+│    → Sets context: Relief Center                                │
+│                                                                  │
+│  Next query: "Show my tasks"                                    │
+│    → Uses context automatically: Relief Center                  │
+│                                                                  │
+│  Switch: "switch to KhairGate"                                  │
+│    → Updates context: KhairGate                                 │
+│                                                                  │
+│  Override: "bugs in Property Management"                        │
+│    → One-time query (context unchanged)                         │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+#### Context Detection (First Use)
+
+```
+User: "show my tasks" (no project specified)
+
+IF no context set:
+  1. List all projects via core_list_projects
+  2. Check user's items in each via wit_my_work_items
+  3. Find most active project
+  4. INFORM user: "Using Relief Center (8 active items)"
+  5. Set context and proceed
+```
+
+#### Context Commands
+
+| Command | Effect |
+|---------|--------|
+| "switch to KhairGate" | Set new default |
+| "use Relief Center" | Set new default |
+| "work on Property Management" | Set new default |
+| "bugs in KhairGate" | One-time override (default unchanged) |
+| "all my tasks across all projects" | Query all, aggregate |
+| "what project am I in?" | Show current context |
+
+#### Output Format
+
+Always show current context in responses:
+
+```
+📁 Project: Relief Center
+
+## My Work Items (8)
+| ID | Type | Title |
+...
+
+💡 Say "switch to [project]" to change
+```
+
+#### Available Projects (TaqaTechno)
+
+| Project | Aliases |
+|---------|---------|
+| Relief Center | relief, rc |
+| KhairGate | kg |
+| Property Management | pm, property |
+| TAQAT HR | hr |
+| Beneshty | beneshty |
+| OkSouq | souq |
+| Arcelia | arcelia |
+| Ittihad Club | ittihad |
+
+### 🔗 Repository ID Resolution (AUTOMATIC)
+
+**Reference**: `resolvers/repository_resolver.md` and `data/repository_cache.json`
+
+Azure DevOps APIs require repository **GUIDs** (not names) for PR and branch operations. Claude automatically resolves names to IDs.
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│              REPOSITORY RESOLUTION                               │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  User: "Create PR in relief-center-api"                         │
+│                                                                  │
+│  STEP 1: Is it a GUID?                                          │
+│    Pattern: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx                │
+│    "relief-center-api" → NOT a GUID, need to resolve            │
+│                                                                  │
+│  STEP 2: Resolve via API                                        │
+│    repo_get_repo_by_name_or_id({                                │
+│      project: "Relief Center",                                  │
+│      repositoryNameOrId: "relief-center-api"                    │
+│    })                                                           │
+│    → Returns: { id: "a1b2c3d4-...", name: "relief-center-api" } │
+│                                                                  │
+│  STEP 3: Use GUID in API call                                   │
+│    repo_create_pull_request({                                   │
+│      repositoryId: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"       │
+│    })                                                           │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+#### Resolution Workflow
+
+```
+Input: "relief-center-api" or "relief" or "a1b2c3d4-..."
+
+1. Is GUID? → Use directly (bypass resolution)
+2. Check session cache → Use cached GUID
+3. Direct lookup → repo_get_repo_by_name_or_id
+4. List and match → repo_list_repos_by_project + filter
+5. Fuzzy match → Partial name matching
+6. Not found → Show available repos
+```
+
+#### API Tools for Resolution
+
+| Method | Tool | When to Use |
+|--------|------|-------------|
+| **Direct Lookup** | `repo_get_repo_by_name_or_id` | First attempt (best) |
+| **List + Match** | `repo_list_repos_by_project` | If direct fails |
+
+#### Operations Requiring Repository GUID
+
+| Operation | Tool | Needs GUID |
+|-----------|------|------------|
+| Create PR | `repo_create_pull_request` | ✅ Yes |
+| Update PR | `repo_update_pull_request` | ✅ Yes |
+| List PRs | `repo_list_pull_requests_by_repo_or_project` | ✅ Yes |
+| Create Branch | `repo_create_branch` | ✅ Yes |
+| List Branches | `repo_list_branches_by_repo` | ✅ Yes |
+| Search Commits | `repo_search_commits` | ✅ Yes |
+| Link WI to PR | `wit_link_work_item_to_pull_request` | ✅ Yes |
+
+#### Repository Aliases (TaqaTechno)
+
+| Project | Repository | Common Aliases |
+|---------|------------|----------------|
+| Relief Center | relief-center-api | relief, relief-api, rc-api |
+| Relief Center | relief-center-web | relief-web, rc-web |
+| KhairGate | khairgate-backend | khairgate, kg, kg-backend |
+| KhairGate | khairgate-frontend | kg-frontend, kg-web |
+| Property Management | property-management | property, pm |
+| TAQAT HR | taqat-hr | hr, taqat-hr-backend |
+| Arcelia | arcelia | arcelia-crm, crm |
+| Ittihad Club | ittihadclub | ittihad, club |
+
+#### Example: Create PR with Resolution
+
+**User**: "Create PR from feature/login to main in relief-center-api"
+
+**Claude**:
+```
+Resolving repository "relief-center-api"...
+✅ Resolved: a1b2c3d4-e5f6-7890-abcd-ef1234567890
+
+Creating pull request...
+```
+
+```javascript
+// Step 1: Resolve repository
+const repo = await mcp__azure-devops__repo_get_repo_by_name_or_id({
+  "project": "Relief Center",
+  "repositoryNameOrId": "relief-center-api"
+});
+
+// Step 2: Create PR with GUID
+mcp__azure-devops__repo_create_pull_request({
+  "repositoryId": repo.id,  // ← GUID, not name!
+  "sourceRefName": "refs/heads/feature/login",
+  "targetRefName": "refs/heads/main",
+  "title": "Feature: Login implementation"
+});
+```
+
+#### Error Handling
+
+```
+If repository not found:
+
+⚠️ Repository "myrepo" not found in Relief Center.
+
+Available repositories:
+• relief-center-api
+• relief-center-web
+• relief-center-docs
+
+Please specify the correct repository name.
+```
+
+```
+If multiple fuzzy matches:
+
+Found multiple repositories matching "relief":
+1. relief-center-api
+2. relief-center-web
+
+Which repository did you mean?
+```
+
+#### Quick Reference
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│              REPOSITORY RESOLUTION QUICK REFERENCE              │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  ALWAYS RESOLVE BEFORE:                                         │
+│  • Creating PRs                                                 │
+│  • Creating branches                                            │
+│  • Listing branches                                             │
+│  • Searching commits                                            │
+│  • Linking work items to PRs                                    │
+│                                                                  │
+│  INPUT TYPES:                                                   │
+│  • GUID: a1b2c3d4-... → Use directly                            │
+│  • Name: relief-center-api → Resolve via API                    │
+│  • Alias: relief → Resolve to relief-center-api                 │
+│                                                                  │
+│  NEVER pass repository NAME to repositoryId parameter!          │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### 🔗 Work Item Hierarchy Helper (AUTOMATIC)
+
+**Reference**: `helpers/hierarchy_helper.md` and `data/hierarchy_rules.json`
+
+Claude automatically finds or creates parent work items when creating child items, preventing orphan work items.
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│              WORK ITEM HIERARCHY                                 │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  Epic (Strategic Initiative)                                    │
+│    └── Feature (Functional Area)                                │
+│          └── User Story / PBI (Requirement)                     │
+│                └── Task (Technical Work)                        │
+│                      └── Bug (Defect)                           │
+│                                                                  │
+│  RULES:                                                         │
+│  • Bug MUST have parent Task                                    │
+│  • Task MUST have parent User Story/PBI                         │
+│  • User Story SHOULD have parent Feature                        │
+│  • Feature SHOULD have parent Epic                              │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+#### Parent Requirements
+
+| Creating | Required Parent | Requirement Level |
+|----------|-----------------|-------------------|
+| **Bug** | Task | MUST (enforced) |
+| **Task** | User Story / PBI | MUST (enforced) |
+| User Story | Feature | SHOULD (prompted) |
+| Feature | Epic | SHOULD (prompted) |
+| Epic | None | - |
+
+#### Parent Detection Workflow
+
+```
+User: "Create task: Implement login validation"
+
+STEP 1: Check for explicit parent in message
+  Patterns: "under #123", "for story #456", "parent #789"
+  → If found, use specified parent
+
+STEP 2: If no parent specified, search for candidates
+  Method 1: Keyword search ("login", "validation")
+  Method 2: Current sprint items
+  Method 3: User's recent activity
+
+STEP 3: Present options to user
+  "Found potential parent stories:
+   1. #100 - User Authentication Feature
+   2. #105 - Login Page Implementation
+   Which should this task be under?"
+
+STEP 4: Create and link
+  Create task → Link as child of selected parent
+```
+
+#### Specifying Parents in Commands
+
+| Pattern | Example |
+|---------|---------|
+| `under #ID` | "Create task under #123" |
+| `for story #ID` | "Create task for story #456" |
+| `for task #ID` | "Create bug for task #789" |
+| `parent #ID` | "Create bug parent #100" |
+| `linked to #ID` | "Create task linked to #200" |
+
+#### Example: Creating Task with Auto-Detection
+
+**User**: "Create task: Implement login form validation"
+
+**Claude**:
+```
+📁 Project: Relief Center
+
+No parent specified. Searching for related User Stories...
+
+Found potential parent stories:
+
+| # | ID | Title | State |
+|---|-----|-------|-------|
+| 1 | #100 | User Authentication Feature | Active |
+| 2 | #105 | Login Page Implementation | Active |
+
+Which User Story should this task be under?
+```
+
+**User**: "#100"
+
+**Claude**:
+```javascript
+// Step 1: Create task
+const task = await mcp__azure-devops__wit_create_work_item({
+  "project": "Relief Center",
+  "workItemType": "Task",
+  "fields": [
+    { "name": "System.Title", "value": "Implement login form validation" }
+  ]
+});
+
+// Step 2: Link to parent
+await mcp__azure-devops__wit_work_items_link({
+  "project": "Relief Center",
+  "updates": [{
+    "id": task.id,
+    "linkToId": 100,
+    "type": "child"
+  }]
+});
+```
+
+```
+✅ Task #150 created: "Implement login form validation"
+   └── Parent: User Story #100 - User Authentication Feature
+
+Hierarchy:
+Feature #50: Authentication Module
+  └── User Story #100: User Authentication Feature
+        └── Task #150: Implement login form validation ← NEW
+```
+
+#### Error Handling
+
+```
+If no parent specified for Bug/Task:
+
+⚠️ Tasks MUST be linked to a User Story.
+No parent specified.
+
+Options:
+1. Select from existing stories in current sprint
+2. Create a new User Story first
+3. Specify parent: "under #123"
+
+Which would you like to do?
+```
+
+```
+If wrong parent type:
+
+⚠️ Cannot create Task under Bug #200.
+
+Tasks can only be children of User Stories or PBIs.
+Bug #200 is a Bug, which cannot be a parent of Task.
+
+Please specify a User Story as the parent.
+```
+
+#### Hierarchy Visualization
+
+When displaying work items, show their context:
+
+```
+📋 Task #150: Implement login form validation
+
+Hierarchy:
+Epic #10: Platform Modernization
+  └── Feature #50: Authentication Module
+        └── User Story #100: User Authentication Feature
+              └── Task #150: Implement login form validation ← YOU ARE HERE
+                    └── Bug #200: Login fails on Safari
+
+State: Active | Sprint: Sprint 15
+```
+
+#### Quick Reference
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│              HIERARCHY HELPER QUICK REFERENCE                    │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  PARENT REQUIREMENTS:                                           │
+│  • Bug MUST have parent Task                                    │
+│  • Task MUST have parent User Story/PBI                         │
+│  • User Story SHOULD have parent Feature                        │
+│                                                                  │
+│  SPECIFY PARENT:                                                │
+│  • "Create task under #123"                                     │
+│  • "Create bug for task #456"                                   │
+│  • "Add task to story #789"                                     │
+│                                                                  │
+│  AUTO-DETECTION:                                                │
+│  • Keywords from title searched                                 │
+│  • Sprint items checked                                         │
+│  • Options presented to user                                    │
+│                                                                  │
+│  NEVER create orphan Tasks or Bugs!                             │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### 🛡️ Error Recovery System (AUTOMATIC)
+
+**Reference**: `errors/error_recovery.md` and `data/error_patterns.json`
+
+Claude automatically transforms cryptic API errors into actionable user messages with guided recovery workflows.
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│              ERROR RECOVERY SYSTEM                               │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  BEFORE (Frustrating):                                          │
+│  "Error: VS403507 - Field cannot be empty"                      │
+│                                                                  │
+│  AFTER (Actionable):                                            │
+│  "To mark Task #1234 as Done, I need:                           │
+│   • Original Estimate: ___ hours                                │
+│   • Completed Work: ___ hours                                   │
+│   Please provide these values."                                 │
+│                                                                  │
+│  GOAL: Users should NEVER see raw API errors!                   │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+#### Two-Layer Protection
+
+| Layer | Approach | When Used |
+|-------|----------|-----------|
+| **1. Proactive Prevention** | Check requirements BEFORE operation | Always (preferred) |
+| **2. Reactive Recovery** | Transform errors when they occur | Fallback |
+
+#### Layer 1: Proactive Prevention (PREFERRED)
+
+```
+User: "Mark task #1234 as Done"
+
+STEP 1: Pre-flight check
+┌────────────────────────────────────────┐
+│ Get current work item:                 │
+│ wit_get_work_item({ id: 1234 })        │
+│                                        │
+│ Check required fields:                 │
+│ - OriginalEstimate: [empty] ❌         │
+│ - CompletedWork: [empty] ❌            │
+└────────────────────────────────────────┘
+
+STEP 2: Ask BEFORE attempting
+┌────────────────────────────────────────┐
+│ "Task #1234 needs these fields to be   │
+│  marked as Done:                       │
+│                                        │
+│ • Original Estimate (hours): ___       │
+│ • Completed Work (hours): ___          │
+│                                        │
+│ Please provide the values."            │
+└────────────────────────────────────────┘
+
+STEP 3: Update with all fields
+→ SUCCESS - No error encountered!
+```
+
+#### Layer 2: Reactive Recovery (FALLBACK)
+
+When errors occur despite prevention, transform them:
+
+```
+Error: VS403507 - Field 'OriginalEstimate' cannot be empty
+
+RECOVERY:
+┌────────────────────────────────────────────────────────────────┐
+│ ❌ Cannot mark task as Done                                     │
+│                                                                │
+│ **Missing Required Field**:                                    │
+│ • Original Estimate (hours)                                    │
+│                                                                │
+│ **To fix**: Tell me how many hours you estimated for this task.│
+└────────────────────────────────────────────────────────────────┘
+```
+
+#### Error Pattern Catalog
+
+| Error Code | User Message | Recovery Action |
+|------------|--------------|-----------------|
+| `VS403507` | "Task needs {field} to be marked {state}" | Ask for field value |
+| `TF401347` | "{Type} must go through {intermediate} before {target}" | Offer two-step transition |
+| `TF401019` | "Work item #{id} not found" | Suggest searching |
+| `VS403403` | "Permission denied. Token missing '{scope}' scope." | Show required scopes |
+| `TF401398` | "Branch '{branch}' not found" | List available branches |
+| `VS403323` | "Update conflict - someone else modified this" | Refresh and retry |
+| `VS403513` | "'{value}' is not valid for {field}" | Show valid values |
+| `TF401028` | "Source and target branches cannot be the same" | Ask for different branch |
+| `VS403406` | "PR has merge conflicts" | Show conflict details |
+
+#### Recovery Workflow Examples
+
+**Required Field Missing:**
+```
+Error: VS403507 - CompletedWork cannot be empty
+
+Claude Response:
+┌────────────────────────────────────────────────────────────────┐
+│ ❌ Cannot mark Task #1234 as Done                               │
+│                                                                │
+│ **Reason**: Required fields are missing                        │
+│                                                                │
+│ **Missing Fields**:                                            │
+│ • Original Estimate (hours): [not set]                         │
+│ • Completed Work (hours): [not set]                            │
+│                                                                │
+│ **Quick Fix Options**:                                         │
+│ 1. Tell me the hours: "8 hours estimated, 6 hours actual"      │
+│ 2. Same hours for both: "8 hours"                              │
+│                                                                │
+│ I'll update all fields and mark as Done in one step.           │
+└────────────────────────────────────────────────────────────────┘
+```
+
+**Invalid State Transition:**
+```
+Error: TF401347 - Invalid state transition from 'Active' to 'Done'
+
+Claude Response:
+┌────────────────────────────────────────────────────────────────┐
+│ ⚠️ Cannot move User Story #1000 directly to Done                │
+│                                                                │
+│ **Reason**: User Stories must pass through QC                  │
+│                                                                │
+│ **Required Path**:                                             │
+│ Active → Ready for QC → Done                                   │
+│                                                                │
+│ **Options**:                                                   │
+│ 1. Move to "Ready for QC" first (recommended)                  │
+│ 2. Move through both states now                                │
+│                                                                │
+│ Which would you like to do?                                    │
+└────────────────────────────────────────────────────────────────┘
+```
+
+**Permission Denied:**
+```
+Error: VS403403 - Access denied
+
+Claude Response:
+┌────────────────────────────────────────────────────────────────┐
+│ 🔒 Permission Denied                                            │
+│                                                                │
+│ **Operation**: Update work item #1234                          │
+│ **Reason**: PAT missing required permissions                   │
+│                                                                │
+│ **Required Scopes**:                                           │
+│ • vso.work_write (Work Items - Read, write, & manage)          │
+│                                                                │
+│ **How to Fix**:                                                │
+│ 1. Go to Azure DevOps → User Settings → Personal Access Tokens │
+│ 2. Edit your token and enable required scope                   │
+│ 3. Update your Claude Code settings                            │
+└────────────────────────────────────────────────────────────────┘
+```
+
+**Resource Not Found:**
+```
+Error: TF401398 - Branch 'feature/login' does not exist
+
+Claude Response:
+┌────────────────────────────────────────────────────────────────┐
+│ 🔍 Branch Not Found                                             │
+│                                                                │
+│ **Looking for**: feature/login                                 │
+│ **Repository**: relief-center-api                              │
+│                                                                │
+│ **Similar branches found**:                                    │
+│ • feature/login-page                                           │
+│ • feature/user-login                                           │
+│ • feature/login-api                                            │
+│                                                                │
+│ **Options**:                                                   │
+│ 1. Use one of the similar branches above                       │
+│ 2. Create new branch "feature/login"                           │
+│ 3. List all branches                                           │
+└────────────────────────────────────────────────────────────────┘
+```
+
+#### Error Message Emoji Guide
+
+| Emoji | Meaning | Use Case |
+|-------|---------|----------|
+| ❌ | Error/Blocked | Operation failed |
+| ⚠️ | Warning | Partial success or caution |
+| 🔒 | Permission | Access denied |
+| 🔍 | Not Found | Resource missing |
+| ⏳ | Timeout | Operation took too long |
+| 🔄 | Conflict | Update conflict |
+| ✅ | Success | Recovery successful |
+
+#### Pre-Flight Validation Checklist
+
+Before executing operations, validate to prevent errors:
+
+| Operation | Pre-Flight Checks |
+|-----------|-------------------|
+| **Task → Done** | OriginalEstimate set? CompletedWork set? |
+| **Bug → Resolved** | ResolvedReason selected? |
+| **User Story → Done** | Current state is "Ready for QC"? |
+| **Create PR** | Source branch exists? Target branch exists? Different branches? |
+| **Link to PR** | Repository GUID resolved? PR exists? |
+| **Create Task** | Parent User Story specified? |
+| **Create Bug** | Parent Task specified? |
+
+#### Quick Reference
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│              ERROR RECOVERY QUICK REFERENCE                      │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  COMMON ERRORS & QUICK FIXES:                                   │
+│                                                                  │
+│  "Field cannot be empty" (VS403507)                             │
+│  → Ask user for the required field value                        │
+│  → Update all fields in single call                             │
+│                                                                  │
+│  "Invalid state transition" (TF401347)                          │
+│  → Show required intermediate states                            │
+│  → Offer to do multi-step transition                            │
+│                                                                  │
+│  "Not found" (TF401019)                                         │
+│  → Check for typos                                              │
+│  → Search for similar items                                     │
+│  → Check project scope                                          │
+│                                                                  │
+│  "Permission denied" (VS403403)                                 │
+│  → List required PAT scopes                                     │
+│  → Provide setup instructions                                   │
+│                                                                  │
+│  PREVENTION IS BETTER THAN RECOVERY:                            │
+│  • Always pre-fetch work item before updating                   │
+│  • Check required fields before state change                    │
+│  • Validate branches before PR creation                         │
+│  • Resolve repository names before API calls                    │
+│                                                                  │
+│  NEVER show raw API errors to users!                            │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
 
 ## Tool Reference by Domain
 
@@ -1149,9 +2353,62 @@ async function validateTaskDone(project, taskId) {
 
 ## Integration Notes
 
-This skill works with the Azure DevOps MCP server configured at:
-- Settings: `C:\Users\ahmed\.claude\settings.json`
-- Guides: `C:\odoo\AZURE_DEVOPS_MCP_CLAUDE_GUIDE.md`
-- User Guide: `C:\odoo\AZURE_DEVOPS_USER_GUIDE.md`
+This skill works with **BOTH** Azure DevOps CLI and MCP server in hybrid mode.
 
-The MCP server provides direct access to Azure DevOps REST APIs through a standardized protocol, enabling natural language interaction with all DevOps resources.
+### Configuration Files
+
+| Resource | Path | Purpose |
+|----------|------|---------|
+| MCP Settings | `C:\Users\ahmed\.claude\settings.json` | MCP server config |
+| Claude Guide | `C:\odoo\AZURE_DEVOPS_MCP_CLAUDE_GUIDE.md` | Developer reference |
+| User Guide | `C:\odoo\AZURE_DEVOPS_USER_GUIDE.md` | End-user documentation |
+| Hybrid Routing | `hybrid_routing.md` | CLI vs MCP decision guide |
+| Plugin Config | `plugin.json` | Plugin metadata (v2.0.0) |
+
+### Predefined Memories
+
+Claude loads these memories for intelligent routing and best practices:
+
+| Memory File | Purpose |
+|-------------|---------|
+| `memories/cli_best_practices.md` | CLI command patterns and tips |
+| `memories/mcp_best_practices.md` | MCP tool usage patterns |
+| `memories/automation_templates.md` | Reusable PowerShell/Bash/Python scripts |
+| `memories/wiql_queries.md` | 40+ WIQL query templates |
+| `memories/team_workflows.md` | TaqaTechno-specific workflows |
+
+### Available Commands
+
+| Command | Type | Description |
+|---------|------|-------------|
+| `/devops setup` | Hybrid | Install CLI and configure MCP |
+| `/cli-run <command>` | CLI | Execute any CLI command |
+| `/setup-pipeline-vars` | CLI | Manage pipeline variables |
+| `/install-extension` | CLI | Install marketplace extensions |
+| `/full-sprint-report` | Hybrid | Comprehensive sprint report |
+| `/standup` | MCP | Generate standup notes |
+| `/my-tasks` | MCP | List assigned work items |
+| `/sprint` | MCP | Sprint progress summary |
+
+### Authentication
+
+**CLI Authentication**:
+```bash
+# Set PAT environment variable
+export AZURE_DEVOPS_EXT_PAT="your-pat-token"
+
+# Configure defaults
+az devops configure --defaults organization=https://dev.azure.com/TaqaTechno
+```
+
+**MCP Authentication**:
+- PAT stored in `ADO_PAT_TOKEN` environment variable
+- Server configured in Claude Code settings
+
+### Version Information
+
+- **Skill Version**: 2.0.0 (Hybrid Mode)
+- **CLI Version Required**: Azure CLI 2.30.0+ with azure-devops extension
+- **MCP Server**: @anthropic-ai/azure-devops-mcp (Official Anthropic)
+
+The hybrid architecture provides optimal performance by routing tasks to CLI or MCP based on task characteristics, combining CLI's scripting power with MCP's natural language convenience.
