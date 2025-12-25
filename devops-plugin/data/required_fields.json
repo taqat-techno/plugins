@@ -1,0 +1,270 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$comment": "Required fields lookup for Azure DevOps work item state transitions - TaqaTechno",
+  "version": "1.0.0",
+  "organization": "TaqaTechno",
+  "lastUpdated": "2025-12",
+
+  "fieldPaths": {
+    "OriginalEstimate": "/fields/Microsoft.VSTS.Scheduling.OriginalEstimate",
+    "CompletedWork": "/fields/Microsoft.VSTS.Scheduling.CompletedWork",
+    "RemainingWork": "/fields/Microsoft.VSTS.Scheduling.RemainingWork",
+    "ResolvedReason": "/fields/Microsoft.VSTS.Common.ResolvedReason",
+    "State": "/fields/System.State",
+    "ClosedDate": "/fields/Microsoft.VSTS.Common.ClosedDate",
+    "ResolvedDate": "/fields/Microsoft.VSTS.Common.ResolvedDate",
+    "ActivatedDate": "/fields/Microsoft.VSTS.Common.ActivatedDate"
+  },
+
+  "workItemTypes": {
+    "Task": {
+      "validStates": ["New", "Active", "Done", "Removed"],
+      "transitions": {
+        "Active": {
+          "from": ["New"],
+          "required": [],
+          "auto_set": {}
+        },
+        "Done": {
+          "from": ["New", "Active"],
+          "required": [
+            "Microsoft.VSTS.Scheduling.OriginalEstimate",
+            "Microsoft.VSTS.Scheduling.CompletedWork"
+          ],
+          "auto_set": {
+            "Microsoft.VSTS.Scheduling.RemainingWork": "0"
+          },
+          "prompts": {
+            "Microsoft.VSTS.Scheduling.OriginalEstimate": "Original Estimate (hours): How many hours did you estimate for this task?",
+            "Microsoft.VSTS.Scheduling.CompletedWork": "Completed Work (hours): How many hours did you actually spend?"
+          },
+          "validation": {
+            "Microsoft.VSTS.Scheduling.OriginalEstimate": {
+              "type": "number",
+              "min": 0,
+              "message": "Original Estimate must be a positive number of hours"
+            },
+            "Microsoft.VSTS.Scheduling.CompletedWork": {
+              "type": "number",
+              "min": 0,
+              "message": "Completed Work must be a positive number of hours"
+            }
+          }
+        },
+        "Removed": {
+          "from": ["New", "Active", "Done"],
+          "required": [],
+          "auto_set": {}
+        }
+      }
+    },
+
+    "Bug": {
+      "validStates": ["New", "Active", "Resolved", "Closed", "Removed"],
+      "transitions": {
+        "Active": {
+          "from": ["New"],
+          "required": [],
+          "auto_set": {}
+        },
+        "Resolved": {
+          "from": ["New", "Active"],
+          "required": [
+            "Microsoft.VSTS.Common.ResolvedReason"
+          ],
+          "defaults": {
+            "Microsoft.VSTS.Common.ResolvedReason": "Fixed"
+          },
+          "prompts": {
+            "Microsoft.VSTS.Common.ResolvedReason": "Resolved Reason: Why is this bug being resolved?"
+          },
+          "options": {
+            "Microsoft.VSTS.Common.ResolvedReason": [
+              "Fixed",
+              "As Designed",
+              "Cannot Reproduce",
+              "Deferred",
+              "Duplicate",
+              "Not a Bug",
+              "Obsolete"
+            ]
+          }
+        },
+        "Closed": {
+          "from": ["Resolved"],
+          "required": [],
+          "auto_set": {}
+        },
+        "Removed": {
+          "from": ["New", "Active", "Resolved", "Closed"],
+          "required": [],
+          "auto_set": {}
+        }
+      }
+    },
+
+    "User Story": {
+      "validStates": ["New", "Active", "Ready for QC", "Done", "Removed"],
+      "transitions": {
+        "Active": {
+          "from": ["New"],
+          "required": [],
+          "auto_set": {}
+        },
+        "Ready for QC": {
+          "from": ["Active"],
+          "required": [],
+          "auto_set": {}
+        },
+        "Done": {
+          "from": ["Ready for QC"],
+          "required": [],
+          "auto_set": {},
+          "blocked_from": ["New", "Active"],
+          "requires_intermediate": "Ready for QC",
+          "message": "User Stories must pass through 'Ready for QC' before Done. This ensures QC review is completed.",
+          "suggestion": "Would you like me to move this to 'Ready for QC' first?"
+        },
+        "Removed": {
+          "from": ["New", "Active", "Ready for QC", "Done"],
+          "required": [],
+          "auto_set": {}
+        }
+      }
+    },
+
+    "Product Backlog Item": {
+      "validStates": ["New", "Approved", "Committed", "Done", "Removed"],
+      "transitions": {
+        "Approved": {
+          "from": ["New"],
+          "required": [],
+          "auto_set": {}
+        },
+        "Committed": {
+          "from": ["Approved"],
+          "required": [],
+          "auto_set": {}
+        },
+        "Done": {
+          "from": ["Committed"],
+          "required": [],
+          "auto_set": {},
+          "blocked_from": ["New", "Approved"],
+          "requires_intermediate": "Committed",
+          "message": "PBIs should be Committed before Done."
+        },
+        "Removed": {
+          "from": ["New", "Approved", "Committed", "Done"],
+          "required": [],
+          "auto_set": {}
+        }
+      }
+    },
+
+    "Feature": {
+      "validStates": ["New", "Active", "Resolved", "Closed", "Removed"],
+      "transitions": {
+        "Active": {
+          "from": ["New"],
+          "required": [],
+          "auto_set": {}
+        },
+        "Resolved": {
+          "from": ["Active"],
+          "required": [],
+          "auto_set": {}
+        },
+        "Closed": {
+          "from": ["Resolved"],
+          "required": [],
+          "auto_set": {}
+        },
+        "Removed": {
+          "from": ["New", "Active", "Resolved", "Closed"],
+          "required": [],
+          "auto_set": {}
+        }
+      }
+    },
+
+    "Epic": {
+      "validStates": ["New", "Active", "Resolved", "Closed", "Removed"],
+      "transitions": {
+        "Active": {
+          "from": ["New"],
+          "required": [],
+          "auto_set": {}
+        },
+        "Resolved": {
+          "from": ["Active"],
+          "required": [],
+          "auto_set": {}
+        },
+        "Closed": {
+          "from": ["Resolved"],
+          "required": [],
+          "auto_set": {}
+        },
+        "Removed": {
+          "from": ["New", "Active", "Resolved", "Closed"],
+          "required": [],
+          "auto_set": {}
+        }
+      }
+    },
+
+    "Issue": {
+      "validStates": ["New", "Active", "Resolved", "Closed"],
+      "transitions": {
+        "Active": {
+          "from": ["New"],
+          "required": [],
+          "auto_set": {}
+        },
+        "Resolved": {
+          "from": ["Active"],
+          "required": [],
+          "auto_set": {}
+        },
+        "Closed": {
+          "from": ["Resolved"],
+          "required": [],
+          "auto_set": {}
+        }
+      }
+    }
+  },
+
+  "commonErrors": {
+    "VS403507": {
+      "pattern": "Field '(.+)' cannot be empty",
+      "type": "required_field_missing",
+      "recovery": "Extract field name and prompt user for value"
+    },
+    "TF401347": {
+      "pattern": "Invalid state transition",
+      "type": "invalid_transition",
+      "recovery": "Check valid transitions and suggest correct path"
+    },
+    "TF401320": {
+      "pattern": "The field '(.+)' cannot be set",
+      "type": "field_readonly",
+      "recovery": "Remove field from update and inform user"
+    }
+  },
+
+  "fetchFields": {
+    "preFlightCheck": [
+      "System.Id",
+      "System.Title",
+      "System.State",
+      "System.WorkItemType",
+      "System.TeamProject",
+      "Microsoft.VSTS.Scheduling.OriginalEstimate",
+      "Microsoft.VSTS.Scheduling.CompletedWork",
+      "Microsoft.VSTS.Scheduling.RemainingWork",
+      "Microsoft.VSTS.Common.ResolvedReason"
+    ]
+  }
+}

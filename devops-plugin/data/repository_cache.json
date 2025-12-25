@@ -1,0 +1,234 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$comment": "TaqaTechno repository mappings - GUIDs resolved via API at runtime",
+  "version": "1.0.0",
+  "organization": "TaqaTechno",
+  "lastUpdated": "2025-12",
+
+  "important": {
+    "notice": "GUIDs are NOT stored here - always resolve via API",
+    "reason": "Repository GUIDs may change, API ensures accuracy",
+    "usage": "Use this cache for alias resolution and suggestions only"
+  },
+
+  "projects": {
+    "Relief Center": {
+      "repositories": [
+        {
+          "name": "relief-center-api",
+          "aliases": ["relief", "relief-api", "rc-api", "relief-backend"],
+          "description": "Main API backend for Relief Center",
+          "defaultBranch": "main",
+          "type": "backend"
+        },
+        {
+          "name": "relief-center-web",
+          "aliases": ["relief-web", "rc-web", "relief-frontend"],
+          "description": "Web frontend for Relief Center",
+          "defaultBranch": "main",
+          "type": "frontend"
+        },
+        {
+          "name": "relief-center-docs",
+          "aliases": ["relief-docs", "rc-docs"],
+          "description": "Documentation repository",
+          "defaultBranch": "main",
+          "type": "documentation"
+        }
+      ]
+    },
+
+    "KhairGate": {
+      "repositories": [
+        {
+          "name": "khairgate-backend",
+          "aliases": ["khairgate", "kg", "kg-backend", "kg-api"],
+          "description": "KhairGate API backend",
+          "defaultBranch": "develop",
+          "type": "backend"
+        },
+        {
+          "name": "khairgate-frontend",
+          "aliases": ["kg-frontend", "kg-web", "khairgate-web"],
+          "description": "KhairGate web frontend",
+          "defaultBranch": "develop",
+          "type": "frontend"
+        },
+        {
+          "name": "khairgate-mobile",
+          "aliases": ["kg-mobile", "kg-app"],
+          "description": "KhairGate mobile application",
+          "defaultBranch": "develop",
+          "type": "mobile"
+        }
+      ]
+    },
+
+    "Property Management": {
+      "repositories": [
+        {
+          "name": "property-management",
+          "aliases": ["property", "pm", "taqat-property"],
+          "description": "Property management system",
+          "defaultBranch": "main",
+          "type": "backend"
+        },
+        {
+          "name": "property-portal",
+          "aliases": ["pm-portal", "property-web"],
+          "description": "Property management portal",
+          "defaultBranch": "main",
+          "type": "frontend"
+        }
+      ]
+    },
+
+    "TAQAT HR": {
+      "repositories": [
+        {
+          "name": "taqat-hr",
+          "aliases": ["hr", "taqat-hr-backend", "hr-backend"],
+          "description": "HR and payroll management",
+          "defaultBranch": "main",
+          "type": "backend"
+        },
+        {
+          "name": "taqat-hr-portal",
+          "aliases": ["hr-portal", "hr-web"],
+          "description": "Employee self-service portal",
+          "defaultBranch": "main",
+          "type": "frontend"
+        }
+      ]
+    },
+
+    "Beneshty": {
+      "repositories": [
+        {
+          "name": "beneshty",
+          "aliases": ["children", "beneshty-backend"],
+          "description": "Child charity platform backend",
+          "defaultBranch": "main",
+          "type": "backend"
+        },
+        {
+          "name": "beneshty-web",
+          "aliases": ["beneshty-frontend"],
+          "description": "Beneshty web application",
+          "defaultBranch": "main",
+          "type": "frontend"
+        }
+      ]
+    },
+
+    "OkSouq": {
+      "repositories": [
+        {
+          "name": "oksouq",
+          "aliases": ["souq", "marketplace", "oksouq-backend"],
+          "description": "OkSouq marketplace backend",
+          "defaultBranch": "main",
+          "type": "backend"
+        },
+        {
+          "name": "oksouq-web",
+          "aliases": ["souq-web", "oksouq-frontend"],
+          "description": "OkSouq web storefront",
+          "defaultBranch": "main",
+          "type": "frontend"
+        },
+        {
+          "name": "oksouq-seller",
+          "aliases": ["seller-portal", "souq-seller"],
+          "description": "Seller dashboard",
+          "defaultBranch": "main",
+          "type": "frontend"
+        }
+      ]
+    },
+
+    "Arcelia": {
+      "repositories": [
+        {
+          "name": "arcelia",
+          "aliases": ["arcelia-crm", "crm", "real-estate-crm"],
+          "description": "Real estate CRM system",
+          "defaultBranch": "main",
+          "type": "backend"
+        },
+        {
+          "name": "arcelia-portal",
+          "aliases": ["arcelia-web", "crm-portal"],
+          "description": "CRM web portal",
+          "defaultBranch": "main",
+          "type": "frontend"
+        }
+      ]
+    },
+
+    "Ittihad Club": {
+      "repositories": [
+        {
+          "name": "ittihadclub",
+          "aliases": ["ittihad", "club", "sports"],
+          "description": "Ittihad Club event management",
+          "defaultBranch": "main",
+          "type": "backend"
+        },
+        {
+          "name": "ittihadclub-app",
+          "aliases": ["ittihad-mobile", "club-app"],
+          "description": "Ittihad Club mobile app",
+          "defaultBranch": "main",
+          "type": "mobile"
+        }
+      ]
+    }
+  },
+
+  "resolutionRules": {
+    "guidPattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+    "caseSensitive": false,
+    "matchOrder": [
+      "exactName",
+      "alias",
+      "partialName",
+      "fuzzy"
+    ],
+    "cacheExpiry": "session"
+  },
+
+  "apiTools": {
+    "directLookup": {
+      "tool": "repo_get_repo_by_name_or_id",
+      "params": ["project", "repositoryNameOrId"],
+      "description": "Best method - direct lookup by name or ID"
+    },
+    "listAndMatch": {
+      "tool": "repo_list_repos_by_project",
+      "params": ["project", "repoNameFilter"],
+      "description": "Fallback - list repos and match"
+    }
+  },
+
+  "errorMessages": {
+    "notFound": "Repository \"{input}\" not found in {project}.",
+    "multipleMatches": "Found multiple repositories matching \"{input}\". Which one did you mean?",
+    "apiError": "Could not resolve repository due to a connection issue.",
+    "noAccess": "You don't have access to repository \"{input}\"."
+  },
+
+  "operationsRequiringGuid": [
+    "repo_create_pull_request",
+    "repo_update_pull_request",
+    "repo_get_pull_request_by_id",
+    "repo_list_pull_requests_by_repo_or_project",
+    "repo_create_branch",
+    "repo_list_branches_by_repo",
+    "repo_get_branch_by_name",
+    "repo_search_commits",
+    "repo_list_pull_requests_by_commits",
+    "wit_link_work_item_to_pull_request",
+    "wit_add_artifact_link"
+  ]
+}

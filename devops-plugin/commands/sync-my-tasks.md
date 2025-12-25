@@ -23,29 +23,61 @@ Synchronize Azure DevOps work items assigned to you with Claude Code's TODO list
 /sync-my-tasks --project "Relief Center" # Filter to specific project only
 ```
 
-## ⚠️ CRITICAL: Tool Selection Guide
+## 🛡️ TOOL SELECTION GUARD (MANDATORY)
+
+**Reference**: `guards/tool_selection_guard.md`
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                 ⚠️ CRITICAL: TOOL SELECTION                      │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  ✅ CORRECT: wit_my_work_items                                   │
+│     Purpose-built for "my tasks" queries. Use this!              │
+│                                                                  │
+│  ❌ WRONG: search_workitem                                       │
+│     TEXT SEARCH ONLY - Returns 0 results for sync!               │
+│     AssignedTo/State params are IGNORED by this tool!            │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
 
 ### DO NOT USE `search_workitem` for Field Filters!
 
-```
-❌ WRONG - This returns 0 results!
+```javascript
+// ❌ WRONG - Returns 0 results! DO NOT USE!
 mcp__azure-devops__search_workitem({
   "searchText": "*",
-  "assignedTo": ["@Me"],        // IGNORED! Not a filter!
-  "state": ["New", "Active"],   // IGNORED! Not a filter!
+  "assignedTo": ["@Me"],        // ❌ IGNORED! Not a filter!
+  "state": ["New", "Active"],   // ❌ IGNORED! Not a filter!
   "top": 100
 })
+// Result: 0 items - SYNC FAILS
 ```
 
-**Why?** `search_workitem` is a **TEXT SEARCH** tool. It searches work item content (title, description text), NOT field values like AssignedTo or State. The `assignedTo` and `state` parameters in search tools are **facet filters for search results**, not query filters.
+**Why it fails**: `search_workitem` is a **TEXT SEARCH** tool. It searches text inside title/description, NOT field values. The `assignedTo` and `state` parameters are facet filters for search results, not query filters.
 
-### ✅ CORRECT Tools for "Assigned to Me" Queries
+### ✅ CORRECT Tool: `wit_my_work_items`
 
-| Tool | Use Case | Notes |
-|------|----------|-------|
-| `wit_my_work_items` | Get items assigned to you per project | **RECOMMENDED** - Fast, reliable |
-| `wit_get_query_results_by_id` | Run saved WIQL queries | Requires query ID |
-| `wit_get_work_items_for_iteration` | Get items for specific sprint | Per-iteration only |
+```javascript
+// ✅ CORRECT - This WORKS!
+mcp__azure-devops__wit_my_work_items({
+  "project": "Relief Center",    // ← REQUIRED
+  "type": "assignedtome",
+  "includeCompleted": false,
+  "top": 100
+})
+// Result: All my work items - SYNC SUCCEEDS
+```
+
+### Tool Selection Matrix
+
+| Tool | Use Case | Status |
+|------|----------|--------|
+| `wit_my_work_items` | Get items assigned to you | ✅ **USE THIS** |
+| `wit_get_work_items_batch_by_ids` | Get full details by ID | ✅ Use for details |
+| `wit_get_query_results_by_id` | Run saved WIQL queries | ✅ Alternative |
+| `search_workitem` | TEXT SEARCH in content | ❌ **NEVER for sync** |
 
 ## Workflow
 
