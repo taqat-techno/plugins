@@ -2,132 +2,268 @@
 title: 'DevOps'
 read_only: false
 type: 'command'
-description: 'Azure DevOps integration skill for TaqaTechno organization. Manages work items, pull requests, pipelines, repositories, wiki, test plans, and security alerts through the official Microsoft Azure DevOps MCP server. Use when user asks about: tasks, bugs, PRs, builds, sprints, standups, code reviews, deployments, or any Azure DevOps operations.'
+description: 'Complete Azure DevOps integration - installs CLI, configures MCP, and enables hybrid mode for best performance. Use when user asks about DevOps setup, configuration, or status.'
 ---
 
-# Azure DevOps Integration
+# Azure DevOps Integration - Unified Setup
 
-Comprehensive Azure DevOps integration via MCP server with 100+ tools.
+Complete Azure DevOps integration with BOTH CLI and MCP for optimal performance.
 
 ## Sub-Commands
 
 | Sub-Command | Description |
 |-------------|-------------|
-| `/devops setup` | Configure Azure DevOps MCP server |
-| `/devops status` | Check MCP server connection status |
+| `/devops setup` | **Full setup**: CLI installation + MCP configuration |
+| `/devops setup --cli` | Install Azure DevOps CLI only |
+| `/devops setup --mcp` | Configure MCP server only |
+| `/devops status` | Check both CLI and MCP connection status |
+| `/devops upgrade` | Upgrade CLI and MCP to latest versions |
 | `/devops help` | Show available DevOps capabilities |
 
 ---
 
-## `/devops setup` - MCP Server Configuration
+## `/devops setup` - Complete Installation
 
-### Step 1: Detect Platform and Settings Location
+### Overview
 
-**Detect the user's platform and Claude Code settings file location:**
+This command performs a complete setup of Azure DevOps integration:
+1. Installs Azure CLI (if not present)
+2. Adds Azure DevOps CLI extension
+3. Configures CLI defaults and authentication
+4. Configures MCP server in Claude settings
+5. Validates both are working
+6. Enables hybrid mode
+
+---
+
+### Phase 1: Environment Detection
+
+**Step 1.1: Detect Platform**
+
+```bash
+# Windows detection
+if ($env:OS -eq "Windows_NT") { "Windows" }
+
+# macOS detection
+if [[ "$OSTYPE" == "darwin"* ]]; then echo "macOS"; fi
+
+# Linux detection
+if [[ "$OSTYPE" == "linux-gnu"* ]]; then echo "Linux"; fi
+```
+
+**Step 1.2: Locate Settings File**
 
 | Platform | Settings File Location |
 |----------|------------------------|
-| **Windows** | `%USERPROFILE%\.claude\settings.json` or `C:\Users\{USERNAME}\.claude\settings.json` |
-| **macOS** | `~/.claude/settings.json` or `/Users/{USERNAME}/.claude/settings.json` |
-| **Linux/Ubuntu** | `~/.claude/settings.json` or `/home/{USERNAME}/.claude/settings.json` |
+| **Windows** | `C:\Users\{USERNAME}\.claude\settings.json` |
+| **macOS** | `/Users/{USERNAME}/.claude/settings.json` |
+| **Linux** | `/home/{USERNAME}/.claude/settings.json` |
 
-**Quick Detection Commands:**
+**Step 1.3: Check Prerequisites**
 
 ```bash
-# Windows (PowerShell)
-echo $env:USERPROFILE\.claude\settings.json
+# Check Node.js (required for MCP)
+node --version  # Must be 18+
 
-# Windows (CMD)
-echo %USERPROFILE%\.claude\settings.json
-
-# macOS/Linux
-echo ~/.claude/settings.json
+# Check npm/npx
+npx --version
 ```
 
-### Step 2: Gather Configuration Information
+---
 
-**Ask the user for:**
-1. **Organization Name** (required): Azure DevOps organization (e.g., `TaqaTechno`, `MyCompany`)
-2. **PAT Token** (required): Personal Access Token from Azure DevOps
+### Phase 2: Azure CLI Installation
 
-**How to create a PAT token:**
-1. Go to `https://dev.azure.com/{organization}/_usersSettings/tokens`
-2. Click "New Token"
-3. Give it a name (e.g., "Claude Code MCP")
-4. Select required scopes:
-   - **Code**: Read, Write
-   - **Work Items**: Read, Write, Manage
-   - **Build**: Read, Execute
-   - **Release**: Read, Write, Execute
-   - **Wiki**: Read, Write
-   - **Test Management**: Read
-5. Click "Create" and copy the token
+**Step 2.1: Check if Azure CLI is installed**
 
-### Step 3: Configure MCP Server
+```bash
+az --version
+```
 
-**Read current settings file or create new one:**
+**Step 2.2: Install Azure CLI (if not present)**
+
+#### Windows Installation
+
+```powershell
+# Option 1: Winget (Recommended - fastest)
+winget install -e --id Microsoft.AzureCLI
+
+# Option 2: Chocolatey
+choco install azure-cli -y
+
+# Option 3: PowerShell direct download
+$ProgressPreference = 'SilentlyContinue'
+Invoke-WebRequest -Uri https://aka.ms/installazurecliwindows -OutFile .\AzureCLI.msi
+Start-Process msiexec.exe -Wait -ArgumentList '/I AzureCLI.msi /quiet'
+Remove-Item .\AzureCLI.msi
+```
+
+#### macOS Installation
+
+```bash
+# Homebrew (Recommended)
+brew update && brew install azure-cli
+
+# Alternative: Direct script
+curl -L https://aka.ms/InstallAzureCli | bash
+```
+
+#### Linux Installation
+
+```bash
+# Ubuntu/Debian
+curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
+
+# RHEL/CentOS/Fedora
+sudo rpm --import https://packages.microsoft.com/keys/microsoft.asc
+sudo dnf install -y https://packages.microsoft.com/config/rhel/8/packages-microsoft-prod.rpm
+sudo dnf install azure-cli -y
+
+# Alternative: pip install
+pip install azure-cli
+```
+
+---
+
+### Phase 3: Azure DevOps CLI Extension
+
+**Step 3.1: Install the DevOps extension**
+
+```bash
+# Install extension
+az extension add --name azure-devops
+
+# Or upgrade if already installed
+az extension add --name azure-devops --upgrade
+```
+
+**Step 3.2: Verify installation**
+
+```bash
+# Check extension is installed
+az extension show --name azure-devops
+
+# Expected output includes:
+# "name": "azure-devops"
+# "version": "1.x.x"
+```
+
+---
+
+### Phase 4: Gather User Information
+
+**Ask user for required information:**
+
+1. **Organization Name** (required)
+   - Example: `TaqaTechno`, `MyCompany`
+   - Used for both CLI and MCP configuration
+
+2. **Personal Access Token (PAT)** (required)
+   - Must have scopes: Code, Work Items, Build, Wiki, Test Management
+   - Will be stored securely as environment variable
+
+3. **Default Project** (optional)
+   - Sets default project for CLI commands
+   - Example: `Relief Center`, `My Project`
+
+**How to create a PAT:**
+
+1. Go to: `https://dev.azure.com/{ORGANIZATION}/_usersSettings/tokens`
+2. Click **"New Token"**
+3. Configure:
+   - **Name**: `Claude Code Integration`
+   - **Expiration**: 90 days (or custom)
+   - **Scopes** (select these):
+     - Code: Read, Write
+     - Work Items: Read, Write, Manage
+     - Build: Read, Execute
+     - Release: Read, Write, Execute
+     - Wiki: Read, Write
+     - Test Management: Read
+     - Graph: Read (for user lookups)
+4. Click **"Create"** and **copy the token immediately**
+
+---
+
+### Phase 5: CLI Configuration
+
+**Step 5.1: Set organization default**
+
+```bash
+az devops configure --defaults organization=https://dev.azure.com/{ORGANIZATION}
+```
+
+**Step 5.2: Set project default (optional)**
+
+```bash
+az devops configure --defaults project="{PROJECT_NAME}"
+```
+
+**Step 5.3: Configure PAT authentication**
+
+#### Option A: Environment Variable (Recommended for security)
+
+**Windows (PowerShell as Admin):**
+```powershell
+# Set for current user (persistent)
+[System.Environment]::SetEnvironmentVariable('AZURE_DEVOPS_EXT_PAT', '{PAT_TOKEN}', 'User')
+
+# Also set for MCP server
+[System.Environment]::SetEnvironmentVariable('ADO_PAT_TOKEN', '{PAT_TOKEN}', 'User')
+
+# Refresh current session
+$env:AZURE_DEVOPS_EXT_PAT = '{PAT_TOKEN}'
+$env:ADO_PAT_TOKEN = '{PAT_TOKEN}'
+```
+
+**macOS/Linux (add to ~/.bashrc or ~/.zshrc):**
+```bash
+# Add to shell profile
+echo 'export AZURE_DEVOPS_EXT_PAT="{PAT_TOKEN}"' >> ~/.bashrc
+echo 'export ADO_PAT_TOKEN="{PAT_TOKEN}"' >> ~/.bashrc
+
+# Reload profile
+source ~/.bashrc
+```
+
+#### Option B: Interactive Login
+
+```bash
+az devops login --organization https://dev.azure.com/{ORGANIZATION}
+# Paste PAT when prompted
+```
+
+**Step 5.4: Verify CLI authentication**
+
+```bash
+# Test CLI connection
+az devops project list --output table
+```
+
+---
+
+### Phase 6: MCP Server Configuration
+
+**Step 6.1: Read or create settings.json**
 
 ```javascript
 // Read existing settings
 Read({ file_path: "{SETTINGS_PATH}" })
 
-// If file doesn't exist, create with base structure
-```
-
-**MCP Server Configuration (add to mcpServers object):**
-
-```json
+// If file doesn't exist or empty, start with base structure
 {
-  "mcpServers": {
-    "azure-devops": {
-      "type": "stdio",
-      "command": "npx",
-      "args": ["-y", "@anthropic-ai/azure-devops-mcp", "{ORGANIZATION_NAME}"],
-      "env": {
-        "ADO_MCP_AUTH_TOKEN": "{PAT_TOKEN}"
-      }
-    }
-  }
+  "mcpServers": {}
 }
 ```
 
-**IMPORTANT Security Notes:**
-- Never commit PAT tokens to version control
-- Consider using environment variables for tokens in shared configs:
-  ```json
-  "env": {
-    "ADO_MCP_AUTH_TOKEN": "${ADO_PAT_TOKEN}"
-  }
-  ```
-  Then set `ADO_PAT_TOKEN` in your system environment
+**Step 6.2: Add MCP server configuration**
 
-### Step 4: Environment Variable Setup (Recommended)
-
-**For enhanced security, set PAT as system environment variable:**
-
-**Windows (PowerShell - Admin):**
-```powershell
-[System.Environment]::SetEnvironmentVariable('ADO_PAT_TOKEN', 'your-pat-token-here', 'User')
-```
-
-**Windows (CMD - Admin):**
-```cmd
-setx ADO_PAT_TOKEN "your-pat-token-here"
-```
-
-**macOS/Linux (add to ~/.bashrc or ~/.zshrc):**
-```bash
-export ADO_PAT_TOKEN="your-pat-token-here"
-```
-
-**Then use in settings.json:**
 ```json
 {
   "mcpServers": {
     "azure-devops": {
       "type": "stdio",
       "command": "npx",
-      "args": ["-y", "@anthropic-ai/azure-devops-mcp", "{ORGANIZATION_NAME}"],
+      "args": ["-y", "@anthropic-ai/azure-devops-mcp", "{ORGANIZATION}"],
       "env": {
         "ADO_MCP_AUTH_TOKEN": "${ADO_PAT_TOKEN}"
       }
@@ -136,73 +272,263 @@ export ADO_PAT_TOKEN="your-pat-token-here"
 }
 ```
 
-### Step 5: Verify Installation
+**IMPORTANT**: Use `${ADO_PAT_TOKEN}` to reference the environment variable, not the actual token.
 
-**Prerequisites Check:**
-```bash
-# Check Node.js version (requires 18+)
-node --version
+**Step 6.3: Write updated settings**
 
-# Check npm
-npm --version
-
-# Test npx
-npx --version
+```javascript
+// Merge with existing settings and write
+Write({ file_path: "{SETTINGS_PATH}", content: JSON.stringify(settings, null, 2) })
 ```
-
-**If Node.js is not installed:**
-- Windows: Download from https://nodejs.org/ or use `winget install OpenJS.NodeJS.LTS`
-- macOS: `brew install node` or download from https://nodejs.org/
-- Ubuntu: `sudo apt update && sudo apt install nodejs npm`
-
-### Step 6: Restart Claude Code
-
-**After configuration:**
-1. Close Claude Code completely
-2. Reopen Claude Code
-3. Test with: "List my Azure DevOps projects"
 
 ---
 
-## `/devops status` - Check Connection
+### Phase 7: Enable Hybrid Mode
 
-**Verify MCP server is working:**
+**Set environment variable to enable hybrid mode:**
+
+**Windows:**
+```powershell
+[System.Environment]::SetEnvironmentVariable('DEVOPS_HYBRID_MODE', 'true', 'User')
+```
+
+**macOS/Linux:**
+```bash
+echo 'export DEVOPS_HYBRID_MODE="true"' >> ~/.bashrc
+source ~/.bashrc
+```
+
+---
+
+### Phase 8: Validation
+
+**Step 8.1: Validate CLI**
+
+```bash
+# Check Azure CLI version (should be 2.30.0+)
+az --version
+
+# Check DevOps extension
+az extension show --name azure-devops --query "version" -o tsv
+
+# Test project listing
+az devops project list --output table
+```
+
+**Step 8.2: Validate MCP**
 
 ```javascript
-// Try to list projects - this will test the connection
+// Test MCP connection by listing projects
 mcp__azure-devops__core_list_projects({})
 ```
 
-**Expected Response:**
-- Success: Returns list of projects in the organization
-- Error: Check PAT token, organization name, or Node.js installation
+**Step 8.3: Report Status**
+
+```
+====================================================
+  AZURE DEVOPS INTEGRATION - SETUP COMPLETE
+====================================================
+
+CLI STATUS:
+  Azure CLI Version:     2.65.0
+  DevOps Extension:      1.0.1
+  Organization:          TaqaTechno
+  Default Project:       Relief Center
+  Authentication:        PAT via AZURE_DEVOPS_EXT_PAT
+
+MCP STATUS:
+  Package:               @anthropic-ai/azure-devops-mcp
+  Organization:          TaqaTechno
+  Authentication:        PAT via ADO_PAT_TOKEN
+  Tools Available:       100+
+
+HYBRID MODE:             ENABLED
+
+NEXT STEPS:
+  1. Restart Claude Code to activate MCP
+  2. Test with: "List my projects"
+  3. Use /devops status to check anytime
+
+====================================================
+```
+
+---
+
+### Phase 9: Restart Instructions
+
+**IMPORTANT: Claude Code must be restarted for MCP to take effect.**
+
+```
+To complete setup:
+1. Close Claude Code completely
+2. Reopen Claude Code
+3. Test with: "List my Azure DevOps projects"
+```
+
+---
+
+## `/devops setup --cli` - CLI Only Installation
+
+Run only the CLI installation phases (2-5) without MCP configuration.
+
+**Use case**: When MCP is already configured but CLI is missing.
+
+```
+/devops setup --cli
+```
+
+---
+
+## `/devops setup --mcp` - MCP Only Configuration
+
+Run only the MCP configuration phases (6) without CLI installation.
+
+**Use case**: When CLI is already installed but MCP needs configuration.
+
+```
+/devops setup --mcp
+```
+
+---
+
+## `/devops status` - Check Status
+
+**Comprehensive status check for both CLI and MCP:**
+
+### CLI Status Check
+
+```bash
+# Check CLI version
+az --version 2>&1
+
+# Check extension
+az extension show --name azure-devops 2>&1
+
+# Check defaults
+az devops configure --list 2>&1
+
+# Test connection
+az devops project list --output table 2>&1
+```
+
+### MCP Status Check
+
+```javascript
+// Test MCP by listing projects
+mcp__azure-devops__core_list_projects({})
+```
+
+### Status Report Format
+
+```
+====================================================
+  AZURE DEVOPS INTEGRATION STATUS
+====================================================
+
+CLI STATUS:
+  Installed:             YES
+  Azure CLI Version:     2.65.0
+  DevOps Extension:      1.0.1 (azure-devops)
+  Organization Default:  https://dev.azure.com/TaqaTechno
+  Project Default:       Relief Center
+  PAT Configured:        YES (via AZURE_DEVOPS_EXT_PAT)
+  Connection Test:       SUCCESS (5 projects found)
+
+MCP STATUS:
+  Configured:            YES
+  Server Package:        @anthropic-ai/azure-devops-mcp
+  Organization:          TaqaTechno
+  PAT Configured:        YES (via ADO_PAT_TOKEN)
+  Connection Test:       SUCCESS (5 projects found)
+  Tools Available:       100+ across 10 domains
+
+HYBRID MODE:             ENABLED
+
+CAPABILITIES:
+  CLI-Exclusive:         Variables, Extensions, Service Connections
+  MCP-Exclusive:         Test Plans, Search, Security Alerts
+  Hybrid:                Work Items, PRs, Pipelines, Wiki
+
+RECOMMENDATIONS:
+  - All systems operational
+  - Consider updating CLI (newer version available)
+
+====================================================
+```
+
+---
+
+## `/devops upgrade` - Upgrade Components
+
+**Upgrade both CLI extension and MCP package:**
+
+### Upgrade CLI Extension
+
+```bash
+az extension update --name azure-devops
+```
+
+### Upgrade MCP Package
+
+MCP package updates automatically with `npx -y` flag, but you can clear cache:
+
+```bash
+# Clear npm cache to force latest version
+npm cache clean --force
+
+# Or remove cached package
+npx clear-npx-cache
+```
+
+### Verify Upgrades
+
+```bash
+# Check CLI extension version
+az extension show --name azure-devops --query "version"
+
+# MCP will use latest on next Claude restart
+```
 
 ---
 
 ## `/devops help` - Capabilities Overview
 
-**Available Tool Categories:**
+### Available Tool Categories
 
-| Category | Tools | Examples |
-|----------|-------|----------|
-| **Work Items** | 20+ | Create, update, query, link, comment |
-| **Repositories** | 15+ | List repos, branches, commits, PRs |
-| **Pull Requests** | 10+ | Create, review, approve, merge |
-| **Pipelines** | 10+ | Run builds, view logs, check status |
-| **Wiki** | 5+ | Read, create, update pages |
-| **Search** | 3+ | Code search, work item search, wiki search |
-| **Test Plans** | 5+ | Create plans, suites, test cases |
-| **Security** | 2+ | View advanced security alerts |
+| Category | CLI | MCP | Tools |
+|----------|:---:|:---:|-------|
+| **Work Items** | Y | Y | Create, update, query, link, comment |
+| **Pull Requests** | Y | Y | Create, review, merge, threads |
+| **Pipelines** | Y | Y | Run, monitor, logs |
+| **Repositories** | Y | Y | List, branches, commits |
+| **Wiki** | Y | Y | Read, create, update |
+| **Test Plans** | | Y | Plans, suites, cases, results |
+| **Search** | | Y | Code, wiki, work items |
+| **Security** | | Y | Advanced security alerts |
+| **Variables** | Y | | Pipeline and variable groups |
+| **Extensions** | Y | | Marketplace extensions |
+| **Service Connections** | Y | | Azure RM, GitHub, etc. |
+| **Projects** | Y | Y | Create, list, manage |
 
-**Quick Commands:**
-- `/my-tasks` - List your active work items
-- `/standup` - Generate daily standup notes
-- `/sprint` - Sprint progress summary
-- `/create-task` - Create new task (with hierarchy)
-- `/create-user-story` - Create story with What/How/Why format
-- `/create-bug` - Create new bug
-- `/sync-my-tasks` - Sync tasks to TODO list
-- `/build-status` - Check recent builds
+### Quick Commands
+
+| Command | Description |
+|---------|-------------|
+| `/my-tasks` | List your active work items |
+| `/standup` | Generate daily standup notes |
+| `/sprint` | Sprint progress summary |
+| `/create-task` | Create new task (with hierarchy) |
+| `/create-user-story` | Create story with What/How/Why |
+| `/create-bug` | Create new bug |
+| `/sync-my-tasks` | Sync tasks to TODO list |
+| `/build-status` | Check recent builds |
+
+### Hybrid Mode Benefits
+
+When hybrid mode is enabled:
+- **CLI** handles: Batch operations, infrastructure, variables, scripting
+- **MCP** handles: Interactive queries, reviews, tests, search, security
+- **Claude** automatically routes to the best tool for each task
 
 ---
 
@@ -212,79 +538,140 @@ mcp__azure-devops__core_list_projects({})
 
 **Claude:**
 ```
-Let me help you configure the Azure DevOps MCP server.
+Let me set up complete Azure DevOps integration with both CLI and MCP.
 
-First, I'll detect your platform and settings location...
+PHASE 1: Environment Detection
+Platform: Windows
+Settings: C:\Users\ahmed\.claude\settings.json
+Node.js: v20.10.0 (OK)
 
-Your platform: Windows
-Settings file: C:\Users\ahmed\.claude\settings.json
+PHASE 2: Azure CLI Check
+Azure CLI is already installed (version 2.65.0)
 
-I need some information:
-1. What is your Azure DevOps organization name?
-2. Do you have a Personal Access Token (PAT)?
+PHASE 3: DevOps Extension
+Installing azure-devops extension...
+Extension installed successfully (version 1.0.1)
 
-If you don't have a PAT yet, here's how to create one:
-1. Go to: https://dev.azure.com/_usersSettings/tokens
-2. Click "New Token"
-3. Name: "Claude Code MCP"
-4. Scopes: Code (Read/Write), Work Items (Read/Write/Manage), Build (Read/Execute), Wiki (Read/Write)
-5. Click "Create" and copy the token
+I need some information to complete setup:
+
+1. Organization name: (e.g., TaqaTechno)
+2. Personal Access Token (PAT)
+   - Create at: https://dev.azure.com/_usersSettings/tokens
+   - Required scopes: Code, Work Items, Build, Wiki, Test Management
+
+3. Default project (optional): (e.g., Relief Center)
 ```
 
-**User:** Organization is TaqaTechno, here's my PAT: [token]
+**User:** Organization is TaqaTechno, project is Relief Center, PAT is [token]
 
 **Claude:**
 ```
-Great! I'll configure the MCP server now.
+Configuring Azure DevOps integration...
 
-Reading your current settings...
-Adding azure-devops MCP server configuration...
+PHASE 5: CLI Configuration
+Setting organization default... Done
+Setting project default... Done
+Configuring PAT authentication... Done
+Testing CLI connection... SUCCESS (5 projects found)
 
-Configuration added successfully!
+PHASE 6: MCP Configuration
+Reading settings.json...
+Adding azure-devops MCP server...
+Writing updated settings... Done
 
-Next steps:
-1. Restart Claude Code
+PHASE 7: Hybrid Mode
+Enabling hybrid mode... Done
+
+PHASE 8: Validation
+CLI Test: SUCCESS
+MCP Test: Pending restart
+
+====================================================
+  SETUP COMPLETE
+====================================================
+
+CLI: Configured and working
+MCP: Configured (restart required)
+Hybrid Mode: ENABLED
+
+NEXT STEPS:
+1. Restart Claude Code to activate MCP
 2. Test with: "List my projects"
+3. Use /devops status to verify
 
-Optional: For better security, set your PAT as an environment variable:
-[System.Environment]::SetEnvironmentVariable('ADO_PAT_TOKEN', 'your-token', 'User')
-
-Then I can update the config to use ${ADO_PAT_TOKEN} instead.
+Your PAT has been stored securely as environment variables:
+- AZURE_DEVOPS_EXT_PAT (for CLI)
+- ADO_PAT_TOKEN (for MCP)
 ```
 
 ---
 
 ## Troubleshooting
 
-### "MCP server not responding"
-1. Check Node.js is installed: `node --version`
-2. Verify PAT token is valid and not expired
-3. Ensure organization name is correct
-4. Restart Claude Code
+### CLI Issues
 
-### "Permission denied" errors
-1. Check PAT token has required scopes
-2. Verify you have access to the project/resource
-3. Token may have expired - create a new one
+| Issue | Solution |
+|-------|----------|
+| `'az' is not recognized` | Install Azure CLI for your platform |
+| `No module named 'azure.devops'` | Run `az extension add --name azure-devops` |
+| `Please run 'az login'` | Run `az devops login` or set `AZURE_DEVOPS_EXT_PAT` |
+| `TF400813: Resource not available` | Check organization name spelling |
+| `TF401019: The work item does not exist` | Verify project access permissions |
 
-### "Cannot find module" errors
+### MCP Issues
+
+| Issue | Solution |
+|-------|----------|
+| `MCP server not responding` | Check Node.js 18+ is installed |
+| `Cannot find module` | Run `npm cache clean --force` |
+| `Authentication failed` | Verify PAT token in `ADO_PAT_TOKEN` |
+| `npx command not found` | Install Node.js which includes npx |
+| `ENOENT settings.json` | Create: `mkdir ~/.claude && echo {} > ~/.claude/settings.json` |
+
+### Hybrid Mode Issues
+
+| Issue | Solution |
+|-------|----------|
+| `CLI commands not working` | Verify `AZURE_DEVOPS_EXT_PAT` is set |
+| `Slow batch operations` | Ensure CLI is being used (check logs) |
+| `Some features missing` | Run `/devops status` to diagnose |
+
+### Common Fixes
+
 ```bash
-# Clear npm cache and retry
+# Reset CLI extension
+az extension remove --name azure-devops
+az extension add --name azure-devops
+
+# Clear npm cache for MCP
 npm cache clean --force
 
-# Or install the MCP package manually
-npm install -g @anthropic-ai/azure-devops-mcp
+# Verify environment variables (Windows)
+echo $env:AZURE_DEVOPS_EXT_PAT
+echo $env:ADO_PAT_TOKEN
+
+# Verify environment variables (Unix)
+echo $AZURE_DEVOPS_EXT_PAT
+echo $ADO_PAT_TOKEN
 ```
 
-### Settings file not found
-```bash
-# Create the .claude directory
-# Windows
-mkdir %USERPROFILE%\.claude
+---
 
-# macOS/Linux
-mkdir -p ~/.claude
+## Security Best Practices
 
-# Create empty settings.json
-echo {} > ~/.claude/settings.json
-```
+1. **Never commit PAT tokens** to version control
+2. **Use environment variables** instead of hardcoding tokens
+3. **Set short expiration** (30-90 days) for PATs
+4. **Use minimal scopes** - only grant what's needed
+5. **Rotate PATs regularly** - create new ones before expiration
+6. **Use System.AccessToken** in Azure Pipelines instead of personal PATs
+
+---
+
+## Files Modified by Setup
+
+| File | Changes |
+|------|---------|
+| `~/.claude/settings.json` | MCP server configuration added |
+| User environment | `AZURE_DEVOPS_EXT_PAT`, `ADO_PAT_TOKEN`, `DEVOPS_HYBRID_MODE` |
+| Azure CLI config | Organization and project defaults |

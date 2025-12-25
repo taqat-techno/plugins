@@ -1,0 +1,185 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$comment": "TaqaTechno Azure DevOps projects configuration",
+  "version": "1.0.0",
+  "organization": "TaqaTechno",
+  "organizationUrl": "https://dev.azure.com/TaqaTechno",
+  "lastUpdated": "2025-12",
+
+  "projects": [
+    {
+      "name": "Relief Center",
+      "id": null,
+      "description": "Disaster management and relief coordination system",
+      "aliases": ["relief", "relief-center", "rc", "disaster"],
+      "defaultTeam": "Relief Center Team",
+      "primaryRepo": "relief-center-api",
+      "urlPath": "Relief%20Center",
+      "active": true,
+      "priority": 1
+    },
+    {
+      "name": "KhairGate",
+      "id": null,
+      "description": "Enterprise beneficiary management with Eurasia wallet integration",
+      "aliases": ["khairgate", "kg", "beneficiary"],
+      "defaultTeam": "KhairGate Team",
+      "primaryRepo": "khairgate-backend",
+      "urlPath": "KhairGate",
+      "active": true,
+      "priority": 2
+    },
+    {
+      "name": "Property Management",
+      "id": null,
+      "description": "Real estate and property management system",
+      "aliases": ["property", "pm", "taqat-property", "real-estate"],
+      "defaultTeam": "Property Management Team",
+      "primaryRepo": "property-management",
+      "urlPath": "Property%20Management",
+      "active": true,
+      "priority": 3
+    },
+    {
+      "name": "TAQAT HR",
+      "id": null,
+      "description": "Human resources and payroll management",
+      "aliases": ["hr", "taqat-hr", "payroll"],
+      "defaultTeam": "TAQAT HR Team",
+      "primaryRepo": "taqat-hr",
+      "urlPath": "TAQAT%20HR",
+      "active": true,
+      "priority": 4
+    },
+    {
+      "name": "Beneshty",
+      "id": null,
+      "description": "Child-focused charity platform",
+      "aliases": ["beneshty", "children", "charity"],
+      "defaultTeam": "Beneshty Team",
+      "primaryRepo": "beneshty",
+      "urlPath": "Beneshty",
+      "active": true,
+      "priority": 5
+    },
+    {
+      "name": "OkSouq",
+      "id": null,
+      "description": "Marketplace and e-commerce platform",
+      "aliases": ["oksouq", "souq", "marketplace"],
+      "defaultTeam": "OkSouq Team",
+      "primaryRepo": "oksouq",
+      "urlPath": "OkSouq",
+      "active": true,
+      "priority": 6
+    },
+    {
+      "name": "Arcelia",
+      "id": null,
+      "description": "Real estate CRM system",
+      "aliases": ["arcelia", "crm", "real-estate-crm"],
+      "defaultTeam": "Arcelia Team",
+      "primaryRepo": "arcelia",
+      "urlPath": "Arcelia",
+      "active": true,
+      "priority": 7
+    },
+    {
+      "name": "Ittihad Club",
+      "id": null,
+      "description": "Sports club event management",
+      "aliases": ["ittihad", "club", "ittihadclub", "sports"],
+      "defaultTeam": "Ittihad Team",
+      "primaryRepo": "ittihadclub",
+      "urlPath": "Ittihad%20Club",
+      "active": true,
+      "priority": 8
+    }
+  ],
+
+  "contextRules": {
+    "persistence": {
+      "description": "Context persists throughout conversation session",
+      "resetOn": "explicit_switch_or_new_session"
+    },
+    "detection": {
+      "method": "user_activity_analysis",
+      "fallback": "ask_user",
+      "confirmSelection": true
+    },
+    "override": {
+      "temporary": {
+        "triggers": ["in", "for", "from"],
+        "behavior": "one_time_query_only"
+      },
+      "permanent": {
+        "triggers": ["switch to", "use", "work on", "change project to", "set project"],
+        "behavior": "update_default_context"
+      }
+    },
+    "multiProject": {
+      "triggers": ["all projects", "across all projects", "every project", "all my work"],
+      "behavior": "query_all_aggregate_results"
+    }
+  },
+
+  "switchPhrases": {
+    "permanent": [
+      "switch to {project}",
+      "use {project}",
+      "work on {project}",
+      "change project to {project}",
+      "set project {project}",
+      "default project {project}"
+    ],
+    "temporary": [
+      "in {project}",
+      "for {project}",
+      "from {project}",
+      "{query} in {project}"
+    ],
+    "multiProject": [
+      "all projects",
+      "across all projects",
+      "every project",
+      "all my work"
+    ],
+    "queryContext": [
+      "what project am I in",
+      "current project",
+      "which project",
+      "show context"
+    ]
+  },
+
+  "outputFormat": {
+    "contextIndicator": "📁 Project: {projectName}",
+    "tempOverride": "📁 Querying: {tempProject} (one-time)\n📌 Default: {defaultProject}",
+    "multiProject": "📁 Querying all projects...",
+    "switchConfirm": "✓ Switched to {newProject}\n\nPrevious: {oldProject}\nCurrent: {newProject}"
+  },
+
+  "urlTemplates": {
+    "workItem": "https://dev.azure.com/TaqaTechno/{projectUrlPath}/_workitems/edit/{workItemId}",
+    "board": "https://dev.azure.com/TaqaTechno/{projectUrlPath}/_boards/board",
+    "backlog": "https://dev.azure.com/TaqaTechno/{projectUrlPath}/_backlogs/backlog",
+    "sprint": "https://dev.azure.com/TaqaTechno/{projectUrlPath}/_sprints/taskboard",
+    "repo": "https://dev.azure.com/TaqaTechno/{projectUrlPath}/_git/{repoName}",
+    "pr": "https://dev.azure.com/TaqaTechno/{projectUrlPath}/_git/{repoName}/pullrequest/{prId}",
+    "pipeline": "https://dev.azure.com/TaqaTechno/{projectUrlPath}/_build?definitionId={pipelineId}",
+    "wiki": "https://dev.azure.com/TaqaTechno/{projectUrlPath}/_wiki/wikis"
+  },
+
+  "aliasResolution": {
+    "description": "Resolve common aliases to project names",
+    "caseSensitive": false,
+    "matchPartial": true,
+    "examples": {
+      "relief": "Relief Center",
+      "rc": "Relief Center",
+      "kg": "KhairGate",
+      "pm": "Property Management",
+      "hr": "TAQAT HR"
+    }
+  }
+}
