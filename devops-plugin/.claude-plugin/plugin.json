@@ -1,7 +1,7 @@
 {
   "name": "devops",
-  "version": "1.3.0",
-  "description": "Azure DevOps integration for TaqaTechno - manage work items, PRs, pipelines, repos, wiki, and more through natural language. Leverages the official Microsoft Azure DevOps MCP server with 100+ tools. Features: cross-platform MCP setup, auto @mentions, work item hierarchy enforcement, What/How/Why story format, TODO sync, required field validation with user prompts.",
+  "version": "2.0.0",
+  "description": "Azure DevOps HYBRID integration for TaqaTechno - combines CLI power with MCP convenience. Features: unified setup with CLI installation + MCP configuration, intelligent routing between CLI and MCP, automation templates, predefined memories, and 100+ MCP tools. Best of both worlds for maximum DevOps productivity.",
   "author": {
     "name": "TAQAT Techno",
     "email": "info@taqatechno.com",
@@ -10,9 +10,15 @@
   "homepage": "https://github.com/taqat-techno-eg/plugins",
   "repository": "https://github.com/taqat-techno-eg/plugins",
   "license": "MIT",
+  "changelog": "./CHANGELOG.md",
+  "migration": "./MIGRATION.md",
   "keywords": [
     "azure-devops",
     "devops",
+    "cli",
+    "mcp",
+    "hybrid",
+    "automation",
     "work-items",
     "pipelines",
     "pull-requests",
@@ -21,18 +27,24 @@
     "scrum",
     "sprint",
     "taqatechno",
-    "project-management",
-    "mcp",
-    "automation"
+    "project-management"
   ],
   "skills": "./devops/",
   "commands": "./commands/",
   "hooks": "./hooks/hooks.json",
   "scripts": "./devops/scripts/",
+  "memories": "./memories/",
   "metadata": {
     "organization": "TaqaTechno",
+    "release-date": "2025-12",
+    "mode": "hybrid",
+    "commands-count": 12,
+    "scripts-count": 10,
+    "memory-files-count": 6,
     "mcp-server": "@anthropic-ai/azure-devops-mcp",
     "mcp-version": "latest",
+    "cli-extension": "azure-devops",
+    "cli-min-version": "2.30.0",
     "tools-count": "100+",
     "domains": [
       "core",
@@ -45,13 +57,60 @@
       "search",
       "advanced-security"
     ],
-    "authentication": "PAT",
+    "cli-exclusive-features": [
+      "project-creation",
+      "repository-creation",
+      "service-connections",
+      "extensions",
+      "variable-groups",
+      "pipeline-variables",
+      "batch-scripting",
+      "parallel-execution",
+      "pipeline-creation"
+    ],
+    "mcp-exclusive-features": [
+      "test-plans",
+      "test-cases",
+      "test-results",
+      "search-code",
+      "search-wiki",
+      "search-workitems",
+      "security-alerts",
+      "pr-threads",
+      "pr-comments",
+      "team-capacity",
+      "batch-work-item-updates"
+    ],
+    "hybrid-features": [
+      "work-items",
+      "pull-requests",
+      "pipelines",
+      "wiki",
+      "repositories",
+      "iterations"
+    ],
+    "authentication": {
+      "cli": {
+        "method": "PAT",
+        "env_var": "AZURE_DEVOPS_EXT_PAT",
+        "alternative": "az devops login"
+      },
+      "mcp": {
+        "method": "PAT",
+        "env_var": "ADO_PAT_TOKEN"
+      }
+    },
     "supported-platforms": [
       "windows",
       "macos",
       "linux"
     ],
     "supported-features": [
+      "unified-setup",
+      "cli-installation",
+      "mcp-configuration",
+      "hybrid-routing",
+      "intelligent-tool-selection",
       "cross-platform-setup",
       "environment-variable-tokens",
       "claude-assisted-configuration",
@@ -68,7 +127,16 @@
       "wiki-management",
       "code-search",
       "test-plan-management",
-      "security-alerts"
+      "security-alerts",
+      "automation-scripts",
+      "predefined-memories"
+    ],
+    "version-history": [
+      "2.0.0",
+      "1.3.0",
+      "1.2.0",
+      "1.1.0",
+      "1.0.0"
     ]
   }
 }
