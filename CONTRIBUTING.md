@@ -8,7 +8,7 @@ Thank you for your interest in contributing! This marketplace thrives on communi
 
 1. **Fork the Repository**
    ```bash
-   gh repo fork taqat-techno-eg/plugins
+   gh repo fork taqat-techno/plugins
    ```
 
 2. **Create Your Skill Directory**

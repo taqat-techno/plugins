@@ -86,18 +86,18 @@ The Odoo Frontend Plugin supercharges your Odoo website and theme development wi
 
 ## Commands
 
-### `/theme_web_rec` - Theme Mirror Model Generator
+### `/odoo-frontend:theme_web_rec` - Theme Mirror Model Generator
 
 Create theme mirror models following Odoo core patterns for multi-website support.
 
 #### Usage
 ```
-/theme_web_rec <website_module_path> <theme_module_path> [model_name]
+/odoo-frontend:theme_web_rec <website_module_path> <theme_module_path> [model_name]
 ```
 
 #### Example
 ```
-/theme_web_rec projects/pp/website_portfolio projects/pp/theme_pp
+/odoo-frontend:theme_web_rec projects/pp/website_portfolio projects/pp/theme_pp
 ```
 
 This command:
@@ -287,8 +287,8 @@ We welcome contributions! Please:
 
 ## Support
 
-- **Repository**: https://github.com/taqat-techno-eg/plugins
-- **Issues**: https://github.com/taqat-techno-eg/plugins/issues
+- **Repository**: https://github.com/taqat-techno/plugins
+- **Issues**: https://github.com/taqat-techno/plugins/issues
 - **Contact**: contact@taqat-techno.com
 
 ## License

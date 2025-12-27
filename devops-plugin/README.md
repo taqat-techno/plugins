@@ -78,7 +78,7 @@ A comprehensive Azure DevOps integration plugin for Claude Code, enabling natura
 ### Option 1: Full Hybrid Setup (Recommended)
 
 ```
-/devops setup
+/devops:devops setup
 ```
 
 This installs both CLI and MCP:
@@ -91,7 +91,7 @@ This installs both CLI and MCP:
 ### Option 2: CLI Only
 
 ```
-/devops setup --cli
+/devops:devops setup --cli
 ```
 
 Or run the installer script directly:
@@ -109,7 +109,7 @@ Or run the installer script directly:
 ### Option 3: MCP Only
 
 ```
-/devops setup --mcp
+/devops:devops setup --mcp
 ```
 
 ---
@@ -197,7 +197,7 @@ Add to `~/.claude/settings.json`:
 ### Step 5: Verify Installation
 
 ```
-/devops status
+/devops:devops status
 ```
 
 Expected output:
@@ -218,37 +218,37 @@ Organization:   TaqaTechno
 
 | Command | Description |
 |---------|-------------|
-| `/devops setup` | Complete hybrid setup (CLI + MCP) |
-| `/devops setup --cli` | Install Azure CLI only |
-| `/devops setup --mcp` | Configure MCP server only |
-| `/devops status` | Check connection status |
+| `/devops:devops setup` | Complete hybrid setup (CLI + MCP) |
+| `/devops:devops setup --cli` | Install Azure CLI only |
+| `/devops:devops setup --mcp` | Configure MCP server only |
+| `/devops:devops status` | Check connection status |
 
 ### CLI Operations (New in v2.0)
 
 | Command | Description |
 |---------|-------------|
-| `/cli-run <command>` | Execute any Azure DevOps CLI command |
-| `/setup-pipeline-vars` | Manage pipeline variables and groups |
-| `/install-extension` | Install marketplace extensions |
-| `/full-sprint-report` | Comprehensive hybrid sprint report |
+| `/devops:cli-run <command>` | Execute any Azure DevOps CLI command |
+| `/devops:setup-pipeline-vars` | Manage pipeline variables and groups |
+| `/devops:install-extension` | Install marketplace extensions |
+| `/devops:full-sprint-report` | Comprehensive hybrid sprint report |
 
 ### Work Items
 
 | Command | Description |
 |---------|-------------|
-| `/my-tasks` | List your active work items |
-| `/create-task` | Create task (with parent enforcement) |
-| `/create-bug` | Create a new bug |
-| `/create-user-story` | Create story with What/How/Why format |
-| `/sync-my-tasks` | Sync tasks to Claude TODO list |
+| `/devops:my-tasks` | List your active work items |
+| `/devops:create-task` | Create task (with parent enforcement) |
+| `/devops:create-bug` | Create a new bug |
+| `/devops:create-user-story` | Create story with What/How/Why format |
+| `/devops:sync-my-tasks` | Sync tasks to Claude TODO list |
 
 ### Sprint & Standup
 
 | Command | Description |
 |---------|-------------|
-| `/standup` | Generate daily standup notes |
-| `/sprint` | Sprint progress summary |
-| `/build-status` | Check recent build status |
+| `/devops:standup` | Generate daily standup notes |
+| `/devops:sprint` | Sprint progress summary |
+| `/devops:build-status` | Check recent build status |
 
 ---
 
@@ -408,22 +408,22 @@ devops-plugin/
 
 ```bash
 # Execute CLI command
-/cli-run az boards work-item create --title "New Task" --type Task
+/devops:cli-run az boards work-item create --title "New Task" --type Task
 
 # Manage variables
-/setup-pipeline-vars create "Production-Secrets"
-/setup-pipeline-vars add "Production-Secrets" API_URL "https://api.example.com"
-/setup-pipeline-vars secret "Production-Secrets" API_KEY
+/devops:setup-pipeline-vars create "Production-Secrets"
+/devops:setup-pipeline-vars add "Production-Secrets" API_URL "https://api.example.com"
+/devops:setup-pipeline-vars secret "Production-Secrets" API_KEY
 
 # Install extension
-/install-extension ms-devlabs.workitem-feature-timeline-extension
+/devops:install-extension ms-devlabs.workitem-feature-timeline-extension
 ```
 
 ### Hybrid Workflows
 
 ```bash
 # Full sprint report (uses both CLI and MCP)
-/full-sprint-report "Relief Center" "Relief Center Team"
+/devops:full-sprint-report "Relief Center" "Relief Center Team"
 
 # Batch update (CLI for speed)
 "Update tasks 100-110 to Active state"
@@ -445,8 +445,8 @@ devops-plugin/
 ### Sprint & Standup
 
 ```bash
-"/standup"
-"/sprint"
+"/devops:standup"
+"/devops:sprint"
 "What's blocking the team?"
 "Sprint summary for Relief Center"
 ```
@@ -559,7 +559,7 @@ devops-plugin/
 See [MIGRATION.md](MIGRATION.md) for upgrade guide.
 
 **Quick Migration:**
-1. Run `/devops setup` to install CLI
+1. Run `/devops:devops setup` to install CLI
 2. Set `AZURE_DEVOPS_EXT_PAT` environment variable
 3. Restart Claude Code
 
@@ -571,7 +571,7 @@ All v1.3 features continue to work. New hybrid features are additive.
 
 - **Organization**: TaqaTechno
 - **Email**: info@taqatechno.com
-- **Repository**: https://github.com/taqat-techno-eg/plugins
+- **Repository**: https://github.com/taqat-techno/plugins
 
 ## License
 

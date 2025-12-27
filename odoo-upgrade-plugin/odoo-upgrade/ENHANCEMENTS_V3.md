@@ -609,16 +609,16 @@ python odoo_upgrade_cli.py test --verbose
 **Developer**: TAQAT Techno
 **Version**: 3.0.0
 **License**: MIT
-**Repository**: https://github.com/taqat-techno-eg/plugins
+**Repository**: https://github.com/taqat-techno/plugins
 
 ---
 
 ## 📞 Support
 
 For issues, questions, or contributions:
-- **GitHub Issues**: https://github.com/taqat-techno-eg/plugins/issues
+- **GitHub Issues**: https://github.com/taqat-techno/plugins/issues
 - **Email**: contact@taqat-techno.com
-- **Documentation**: https://github.com/taqat-techno-eg/plugins/tree/main/odoo-upgrade-plugin
+- **Documentation**: https://github.com/taqat-techno/plugins/tree/main/odoo-upgrade-plugin
 
 ---
 

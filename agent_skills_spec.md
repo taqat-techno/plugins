@@ -405,7 +405,7 @@ For questions or issues with skills in this marketplace:
 1. Check the skill's README
 2. Look at [examples](./examples/) if available
 3. Review this specification
-4. [Open an issue](https://github.com/taqat-techno-eg/plugins/issues)
+4. [Open an issue](https://github.com/taqat-techno/plugins/issues)
 
 ---
 

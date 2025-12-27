@@ -42,7 +42,7 @@ Automatically upgrade custom Odoo modules and themes across major versions with 
 ```bash
 # Clone marketplace to plugins directory
 cd ~/.claude/plugins/marketplaces
-git clone https://github.com/taqat-techno-eg/plugins.git taqat-techno-plugins
+git clone https://github.com/taqat-techno/plugins.git taqat-techno-plugins
 
 # All skills auto-discovered by Claude Code
 ```
@@ -53,7 +53,7 @@ git clone https://github.com/taqat-techno-eg/plugins.git taqat-techno-plugins
 # Copy just this skill
 mkdir -p ~/.claude/skills
 curl -o ~/.claude/skills/odoo-upgrade.md \
-  https://raw.githubusercontent.com/taqat-techno-eg/plugins/main/odoo-development/odoo-upgrade/SKILL.md
+  https://raw.githubusercontent.com/taqat-techno/plugins/main/odoo-development/odoo-upgrade/SKILL.md
 ```
 
 ### Windows Installation
@@ -61,11 +61,11 @@ curl -o ~/.claude/skills/odoo-upgrade.md \
 ```cmd
 REM Marketplace method
 cd %USERPROFILE%\.claude\plugins\marketplaces
-git clone https://github.com/taqat-techno-eg/plugins.git taqat-techno-plugins
+git clone https://github.com/taqat-techno/plugins.git taqat-techno-plugins
 
 REM Or standalone
 curl -o %USERPROFILE%\.claude\skills\odoo-upgrade.md ^
-  https://raw.githubusercontent.com/taqat-techno-eg/plugins/main/odoo-development/odoo-upgrade/SKILL.md
+  https://raw.githubusercontent.com/taqat-techno/plugins/main/odoo-development/odoo-upgrade/SKILL.md
 ```
 
 ## 🎯 Usage
@@ -250,4 +250,4 @@ MIT License - See [LICENSE](../../../LICENSE)
 
 ---
 
-**Part of**: [TAQAT Techno Plugins Marketplace](https://github.com/taqat-techno-eg/plugins)
+**Part of**: [TAQAT Techno Plugins Marketplace](https://github.com/taqat-techno/plugins)

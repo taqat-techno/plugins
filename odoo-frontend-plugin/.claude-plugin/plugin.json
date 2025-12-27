@@ -5,10 +5,10 @@
   "author": {
     "name": "TAQAT Techno",
     "email": "contact@taqat-techno.com",
-    "url": "https://github.com/taqat-techno-eg"
+    "url": "https://github.com/taqat-techno"
   },
-  "homepage": "https://github.com/taqat-techno-eg/plugins/tree/main/odoo-frontend-plugin",
-  "repository": "https://github.com/taqat-techno-eg/plugins",
+  "homepage": "https://github.com/taqat-techno/plugins/tree/main/odoo-frontend-plugin",
+  "repository": "https://github.com/taqat-techno/plugins",
   "license": "MIT",
   "keywords": [
     "odoo",

@@ -41,7 +41,7 @@ Automatically upgrade custom Odoo modules and themes across major versions (14â†
 1. Open Claude Code
 2. Type `/plugins` command
 3. Click "Add Marketplace"
-4. Enter repository URL: `https://github.com/taqat-techno-eg/plugins.git`
+4. Enter repository URL: `https://github.com/taqat-techno/plugins.git`
 5. Click "Install"
 
 All skills will be automatically available!
@@ -53,6 +53,22 @@ Ask Claude: "Show me available skills"
 
 You should see `odoo-upgrade` listed.
 
+### Enable Auto-Updates (Recommended)
+
+To receive new features and bug fixes automatically, enable auto-updates for this marketplace:
+
+1. Open Claude Code settings
+2. Navigate to **Plugins** section
+3. Find **taqat-techno-plugins** marketplace
+4. Toggle **Auto-Update** to ON
+
+With auto-updates enabled, you'll automatically get:
+- New plugin versions and features
+- Bug fixes and security patches
+- New skills as they become available
+
+> **Note**: You can also manually update anytime by running `git pull` in the marketplace directory.
+
 ### Manual Installation (Alternative)
 
 If you prefer manual installation:
@@ -62,7 +78,7 @@ If you prefer manual installation:
 cd ~/.claude/plugins/marketplaces
 
 # Clone the marketplace
-git clone https://github.com/taqat-techno-eg/plugins.git taqat-techno-plugins
+git clone https://github.com/taqat-techno/plugins.git taqat-techno-plugins
 
 # Restart Claude Code
 ```
@@ -70,7 +86,7 @@ git clone https://github.com/taqat-techno-eg/plugins.git taqat-techno-plugins
 **Windows:**
 ```cmd
 cd %USERPROFILE%\.claude\plugins\marketplaces
-git clone https://github.com/taqat-techno-eg/plugins.git taqat-techno-plugins
+git clone https://github.com/taqat-techno/plugins.git taqat-techno-plugins
 ```
 
 ## Usage
@@ -204,7 +220,7 @@ cat ~/.claude/plugins/marketplaces/taqat-techno-plugins/.claude-plugin/marketpla
 
 ### Still Having Issues?
 
-[Open an issue](https://github.com/taqat-techno-eg/plugins/issues) with:
+[Open an issue](https://github.com/taqat-techno/plugins/issues) with:
 - Claude Code version
 - Installation method used
 - Error messages (if any)
@@ -231,15 +247,15 @@ TAQAT Techno is an Odoo development and consulting firm specializing in enterpri
 **Open Source Contributions:**
 - Claude Code skills marketplace for Odoo development
 - Odoo module upgrades automation tooling
-- Custom addons published on [GitHub](https://github.com/taqat-techno-eg)
+- Custom addons published on [GitHub](https://github.com/taqat-techno)
 
 **Contact:**
-- GitHub: [@taqat-techno-eg](https://github.com/taqat-techno-eg)
+- GitHub: [@taqat-techno](https://github.com/taqat-techno)
 - Email: contact@taqat-techno.com
 
 ## Support & Contributions
 
-**Found a bug?** [Open an issue](https://github.com/taqat-techno-eg/plugins/issues) with error details and steps to reproduce.
+**Found a bug?** [Open an issue](https://github.com/taqat-techno/plugins/issues) with error details and steps to reproduce.
 
 **Need a feature?** Submit a feature request with your use case and expected behavior.
 
