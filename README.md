@@ -1,86 +1,47 @@
 # TAQAT Techno Plugins - Claude Code Skills Marketplace
 
-![Skills](https://img.shields.io/badge/skills-1-blue.svg)
+![Plugins](https://img.shields.io/badge/plugins-5-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 ![Odoo](https://img.shields.io/badge/Odoo-14--19-purple.svg)
+![Azure DevOps](https://img.shields.io/badge/Azure_DevOps-Integrated-0078D7.svg)
 
-Production-ready Claude Code skills for professional Odoo ERP development, specializing in multi-version upgrades, code migrations, and automated transformations.
-
-## Overview
-
-This marketplace provides **agent skills** for Claude Code - structured instruction sets that enable autonomous execution of complex Odoo development tasks. Each skill contains:
-
-- **Domain expertise**: Odoo-specific patterns and best practices
-- **Automated transformations**: Python, XML, JavaScript, SCSS code migrations
-- **Safety mechanisms**: Validation, backups, and rollback procedures
-- **Testing integration**: Module installation and sanity checks
-
-## 📦 Available Skills
-
-### 🔄 Odoo Module Upgrade
-
-[![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](./odoo-development/odoo-upgrade/)
-[![Odoo](https://img.shields.io/badge/Odoo-14--19-purple.svg)](./odoo-development/odoo-upgrade/)
-
-Automatically upgrade custom Odoo modules and themes across major versions (14→19) with intelligent code transformations, testing, and comprehensive reporting.
-
-**Features**:
-- Multi-version jumps with cumulative changes
-- Automatic Python, XML, JavaScript, SCSS transformations
-- Safe migration with backups and testing
-- Detailed upgrade reports with manual steps
-
-[**📚 Read More**](./odoo-development/odoo-upgrade/) | [**⚡ Quick Install**](#-quick-install)
+Production-ready Claude Code plugins for professional development - Odoo ERP, Azure DevOps, universal code assistance, and push notifications.
 
 ---
 
-## 🚀 Quick Install
+## Available Plugins
 
-### Install via Claude Code UI (Recommended)
+| Plugin | Description | Version |
+|--------|-------------|---------|
+| [**odoo-upgrade**](./odoo-upgrade-plugin/README.md) | Odoo module upgrade assistant (v14-19) | 1.0.0 |
+| [**odoo-frontend**](./odoo-frontend-plugin/README.md) | Website theme development with Bootstrap | 1.0.0 |
+| [**codex**](./codex-plugin/README.md) | Universal code analysis & generation | 1.0.0 |
+| [**devops**](./devops-plugin/README.md) | Azure DevOps integration via MCP | 1.0.0 |
+| [**ntfy-notifications**](./ntfy-notifications/README.md) | Push notifications to your phone | 2.0.0 |
+
+---
+
+## Quick Installation
+
+### Method 1: Claude Code UI (Recommended)
 
 1. Open Claude Code
 2. Type `/plugins` command
-3. Click "Add Marketplace"
-4. Enter repository URL: `https://github.com/taqat-techno/plugins.git`
-5. Click "Install"
+3. Click **"Add Marketplace"**
+4. Enter repository URL:
+   ```
+   https://github.com/taqat-techno/plugins.git
+   ```
+5. Click **"Install"**
 
-All skills will be automatically available!
+All plugins will be automatically available!
 
-**Verify Installation:**
-```
-Ask Claude: "Show me available skills"
-```
+### Method 2: Manual Installation
 
-You should see `odoo-upgrade` listed.
-
-### Enable Auto-Updates (Recommended)
-
-To receive new features and bug fixes automatically, enable auto-updates for this marketplace:
-
-1. Open Claude Code settings
-2. Navigate to **Plugins** section
-3. Find **taqat-techno-plugins** marketplace
-4. Toggle **Auto-Update** to ON
-
-With auto-updates enabled, you'll automatically get:
-- New plugin versions and features
-- Bug fixes and security patches
-- New skills as they become available
-
-> **Note**: You can also manually update anytime by running `git pull` in the marketplace directory.
-
-### Manual Installation (Alternative)
-
-If you prefer manual installation:
-
+**Linux/macOS:**
 ```bash
-# Navigate to marketplaces directory
 cd ~/.claude/plugins/marketplaces
-
-# Clone the marketplace
 git clone https://github.com/taqat-techno/plugins.git taqat-techno-plugins
-
-# Restart Claude Code
 ```
 
 **Windows:**
@@ -89,120 +50,217 @@ cd %USERPROFILE%\.claude\plugins\marketplaces
 git clone https://github.com/taqat-techno/plugins.git taqat-techno-plugins
 ```
 
-## Usage
+### Verify Installation
 
-Skills are invoked automatically when Claude Code detects relevant tasks. Use natural language to describe your objective:
-
-### Practical Examples
-
-**Single module upgrade:**
+Ask Claude:
 ```
-"Upgrade custom_inventory in projects/TAQAT/ from odoo16 to odoo19"
+"Show me available skills"
 ```
 
-**Theme migration with Bootstrap:**
+You should see all 5 plugins listed.
+
+---
+
+## Plugin Details
+
+### Odoo Module Upgrade
+
+[![Docs](https://img.shields.io/badge/docs-README-blue)](./odoo-upgrade-plugin/README.md)
+[![Odoo](https://img.shields.io/badge/Odoo-14--19-purple.svg)]()
+
+Automatically upgrade custom Odoo modules across major versions with intelligent code transformations.
+
+**Features:**
+- Multi-version jumps (14 → 19)
+- Python, XML, JavaScript, SCSS transformations
+- 100+ upgrade patterns
+- Safe migration with backups
+
+**Usage:**
 ```
-"Migrate theme_construction from v14 to v17, update Bootstrap classes"
+"Upgrade my_module from odoo16 to odoo19"
 ```
 
-**Multi-version jump with testing:**
+[**Read Full Documentation**](./odoo-upgrade-plugin/README.md)
+
+---
+
+### Odoo Frontend Development
+
+[![Docs](https://img.shields.io/badge/docs-README-blue)](./odoo-frontend-plugin/README.md)
+[![Bootstrap](https://img.shields.io/badge/Bootstrap-5.1.3-7952B3.svg)]()
+
+Comprehensive website theme development with auto-detection, MCP integration, and Bootstrap version management.
+
+**Features:**
+- Theme scaffold generation
+- Bootstrap 5.1.3 integration
+- SCSS variable system
+- publicWidget patterns
+- Multi-website support
+
+**Usage:**
 ```
-"Upgrade custom_pos module from odoo15 to odoo18, run tests in test database"
+"Create a new Odoo 17 website theme"
 ```
 
-**Batch project upgrade:**
+[**Read Full Documentation**](./odoo-frontend-plugin/README.md)
+
+---
+
+### Codex - Universal Code Assistant
+
+[![Docs](https://img.shields.io/badge/docs-README-blue)](./codex-plugin/README.md)
+[![Languages](https://img.shields.io/badge/languages-All-green.svg)]()
+
+Universal development assistant with comprehensive code analysis, generation, refactoring, and optimization.
+
+**Features:**
+- Multi-language support
+- Code analysis & refactoring
+- Pattern detection
+- Best practices enforcement
+- Documentation generation
+
+**Usage:**
 ```
-"Upgrade all modules in projects/client_xyz/ from version 16 to 18"
+"Analyze this Python file for improvements"
+"Refactor this function to be more efficient"
 ```
 
-### How It Works
+[**Read Full Documentation**](./codex-plugin/README.md)
 
-1. **Detection**: Claude Code identifies the task matches `odoo-upgrade` skill trigger
-2. **Loading**: Skill instructions (SKILL.md) are loaded into context
-3. **Execution**: Claude follows step-by-step procedures autonomously
-4. **Validation**: Changes are tested against target Odoo version
-5. **Reporting**: Detailed report generated with manual review items
+---
 
-## Technical Architecture
+### Azure DevOps Integration
 
-### Repository Structure
+[![Docs](https://img.shields.io/badge/docs-README-blue)](./devops-plugin/README.md)
+[![Azure](https://img.shields.io/badge/Azure_DevOps-MCP-0078D7.svg)]()
+
+Complete Azure DevOps integration for TaqaTechno organization via MCP server.
+
+**Features:**
+- Work items: create, update, query, link
+- Pull requests: create, review, approve
+- Pipelines: run, monitor, view logs
+- Wiki & code search
+- Sprint reports & standups
+
+**Commands:**
+| Command | Description |
+|---------|-------------|
+| `/devops` | Setup & status |
+| `/devops:my-tasks` | Your assigned work items |
+| `/devops:sprint` | Sprint progress |
+| `/devops:standup` | Daily standup notes |
+| `/devops:create-pr` | Create pull request |
+
+[**Read Full Documentation**](./devops-plugin/README.md)
+
+---
+
+### ntfy Push Notifications
+
+[![Docs](https://img.shields.io/badge/docs-README-blue)](./ntfy-notifications/README.md)
+[![Free](https://img.shields.io/badge/cost-FREE-brightgreen.svg)]()
+[![ntfy](https://img.shields.io/badge/ntfy.sh-v2.0-orange.svg)]()
+
+Push notifications to your phone when Claude completes tasks, needs input, or encounters errors.
+
+**Features:**
+- Instant push notifications (iOS/Android/Desktop)
+- No account required (uses ntfy.sh)
+- Auto-retry with exponential backoff
+- Deduplication & rate limiting
+- Local notification history
+- Self-hosted server support
+
+**Commands:**
+| Command | Description |
+|---------|-------------|
+| `/ntfy <message>` | Quick send notification |
+| `/ntfy-setup` | Interactive setup wizard |
+| `/ntfy-test` | Test notification delivery |
+| `/ntfy-status` | Check configuration |
+| `/ntfy-history` | View notification history |
+| `/ntfy-config` | Update settings |
+
+**Quick Setup:**
+1. Install **ntfy** app on your phone
+2. Create a unique topic (e.g., `claude-john-x7k9m2`)
+3. Run `/ntfy-setup` in Claude Code
+4. Done! Claude will now notify you automatically
+
+[**Read Full Documentation**](./ntfy-notifications/README.md)
+
+---
+
+## Auto-Updates
+
+Enable auto-updates to receive new features automatically:
+
+1. Open Claude Code settings
+2. Navigate to **Plugins** section
+3. Find **taqat-techno-plugins**
+4. Toggle **Auto-Update** to ON
+
+Or manually update:
+```bash
+cd ~/.claude/plugins/marketplaces/taqat-techno-plugins
+git pull
+```
+
+---
+
+## Repository Structure
 
 ```
 taqat-techno-plugins/
 ├── .claude-plugin/
-│   └── marketplace.json          # Marketplace metadata (JSON)
-├── odoo-development/             # Plugin group
-│   └── odoo-upgrade/             # Individual skill
-│       ├── SKILL.md              # Skill instructions with YAML frontmatter
-│       └── README.md             # User documentation
-├── agent_skills_spec.md          # Skills specification reference
-├── README.md                     # This file
-└── LICENSE                       # MIT License
+│   └── marketplace.json           # Marketplace metadata
+├── odoo-upgrade-plugin/           # Odoo version migration
+│   ├── odoo-upgrade/
+│   │   ├── SKILL.md
+│   │   ├── scripts/
+│   │   ├── patterns/
+│   │   └── fixes/
+│   └── README.md
+├── odoo-frontend-plugin/          # Website theme development
+│   ├── odoo-frontend/
+│   │   └── SKILL.md
+│   └── README.md
+├── codex-plugin/                  # Universal code assistant
+│   ├── codex/
+│   │   └── SKILL.md
+│   └── README.md
+├── devops-plugin/                 # Azure DevOps integration
+│   ├── devops/
+│   │   └── SKILL.md
+│   ├── commands/
+│   └── README.md
+├── ntfy-notifications/            # Push notifications
+│   ├── notify.py
+│   ├── notification_checker.py
+│   ├── notification_logger.py
+│   ├── hooks.py
+│   ├── config.json
+│   ├── CLAUDE.md
+│   ├── commands/
+│   └── README.md
+├── agent_skills_spec.md           # Skills specification
+├── CONTRIBUTING.md                # Contribution guidelines
+├── LICENSE                        # MIT License
+└── README.md                      # This file
 ```
 
-### Skill Format
-
-Each `SKILL.md` contains:
-
-1. **YAML Frontmatter**: Metadata including name, description, allowed-tools, version
-2. **Markdown Body**: Step-by-step instructions, transformation patterns, error handling
-3. **Tool Declarations**: Pre-approved tools (Read, Write, Edit, Bash, Grep, Glob)
-
-Example structure:
-```markdown
 ---
-name: odoo-upgrade
-description: "Upgrade Odoo modules across versions..."
-allowed-tools: [Read, Write, Edit, Bash, Grep]
-metadata:
-  version: "1.0.0"
-  odoo-versions: "14,15,16,17,18,19"
----
-# Skill instructions...
-```
 
-### Transformation Engine
+## Troubleshooting
 
-The `odoo-upgrade` skill includes 100+ transformation patterns:
-
-- **Python**: ORM changes, hook signatures, context keys, deprecated methods
-- **XML**: `attrs={}` to expressions, `<tree>` → `<list>`, settings restructure
-- **JavaScript**: OWL v1/v2 migration, ES6 modules, widget → component
-- **SCSS**: Bootstrap 5 migration, `.less` → `.scss`, modern grid classes
-
-## Skills Roadmap
-
-**Production Ready:**
-- [x] `odoo-upgrade` - Multi-version module upgrade (v1.0.0)
-
-**In Development:**
-- [ ] `odoo-testing` - Automated unit/integration test generation
-- [ ] `odoo-performance` - Performance profiling and optimization
-- [ ] `odoo-docker` - Docker/docker-compose setup automation
-
-**Planned:**
-- [ ] `odoo-migration` - Database migration with OpenUpgrade integration
-- [ ] `odoo-security` - Security audit and vulnerability scanning
-- [ ] `odoo-ci-cd` - GitHub Actions / GitLab CI pipeline generator
-
-## Contributing
-
-See [agent_skills_spec.md](./agent_skills_spec.md) for skill creation guidelines.
-
-**Quick Start:**
-1. Fork this repository
-2. Create skill: `mkdir -p plugin-name/skill-name && cd $_`
-3. Create `SKILL.md` with YAML frontmatter
-4. Update `.claude-plugin/marketplace.json`
-5. Test locally in `~/.claude/plugins/marketplaces/`
-6. Submit pull request
-
-## 🔧 Troubleshooting
-
-### Skills Not Appearing
+### Plugins Not Appearing
 
 ```bash
-# Check installation location
+# Check installation
 ls ~/.claude/plugins/marketplaces/taqat-techno-plugins
 
 # Verify marketplace.json
@@ -211,56 +269,60 @@ cat ~/.claude/plugins/marketplaces/taqat-techno-plugins/.claude-plugin/marketpla
 # Restart Claude Code
 ```
 
-### Skill Not Loading
+### Plugin Not Loading
 
-1. Verify YAML frontmatter in `SKILL.md`
-2. Check skill path in `marketplace.json`
-3. Ensure directory name matches skill `name` field
-4. Look for syntax errors in SKILL.md
+1. Verify YAML frontmatter in SKILL.md
+2. Check skill path in marketplace.json
+3. Look for syntax errors
+4. Restart Claude Code
 
 ### Still Having Issues?
 
 [Open an issue](https://github.com/taqat-techno/plugins/issues) with:
 - Claude Code version
-- Installation method used
-- Error messages (if any)
+- Plugin name
+- Error messages
 - Steps to reproduce
+
+---
+
+## Contributing
+
+See [agent_skills_spec.md](./agent_skills_spec.md) for skill creation guidelines.
+
+**Quick Start:**
+1. Fork this repository
+2. Create plugin directory: `mkdir -p my-plugin/skill-name`
+3. Create `SKILL.md` with YAML frontmatter
+4. Update `.claude-plugin/marketplace.json`
+5. Add `README.md` documentation
+6. Test locally
+7. Submit pull request
+
+---
 
 ## About TAQAT Techno
 
-TAQAT Techno is an Odoo development and consulting firm specializing in enterprise-grade ERP solutions for the Egyptian and Middle Eastern markets. Our expertise includes:
+TAQAT Techno is an Odoo development and consulting firm specializing in enterprise-grade ERP solutions.
 
-**Core Services:**
-- Custom Odoo module development and localization
-- Multi-version upgrade and migration services (Odoo 10-19)
-- Performance optimization and scaling for high-volume deployments
-- DevOps automation: Docker, CI/CD, monitoring, backups
-- Technical consulting and architecture design
-
-**Technical Focus:**
-- Complex business logic implementation (manufacturing, logistics, finance)
-- Third-party system integrations (APIs, EDI, legacy systems)
-- Custom report engines and BI dashboards
-- Mobile application development (Odoo native + custom)
-- Security hardening and compliance (GDPR, SOC2)
-
-**Open Source Contributions:**
-- Claude Code skills marketplace for Odoo development
-- Odoo module upgrades automation tooling
-- Custom addons published on [GitHub](https://github.com/taqat-techno)
+**Services:**
+- Custom Odoo module development
+- Multi-version upgrade and migration (Odoo 10-19)
+- Performance optimization
+- DevOps automation
+- Technical consulting
 
 **Contact:**
 - GitHub: [@taqat-techno](https://github.com/taqat-techno)
 - Email: contact@taqat-techno.com
-
-## Support & Contributions
-
-**Found a bug?** [Open an issue](https://github.com/taqat-techno/plugins/issues) with error details and steps to reproduce.
-
-**Need a feature?** Submit a feature request with your use case and expected behavior.
-
-**Want to contribute?** See [agent_skills_spec.md](./agent_skills_spec.md) for skill creation guidelines.
+- Website: [taqatechno.com](https://www.taqatechno.com)
 
 ---
 
-**License**: MIT | **Version**: 1.0.0 | **Maintainer**: TAQAT Techno
+## License
+
+MIT License - Free to use, modify, and distribute.
+
+---
+
+**Plugins**: 5 | **Version**: 1.1.0 | **Maintainer**: TAQAT Techno

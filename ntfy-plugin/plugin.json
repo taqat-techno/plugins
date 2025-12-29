@@ -1,0 +1,80 @@
+{
+  "name": "ntfy-notifications",
+  "version": "2.0.0",
+  "description": "Push notifications to your phone via ntfy.sh when Claude completes tasks, needs input, or encounters errors. 100% FREE - No account required!",
+  "author": "TaqaTechno",
+  "website": "https://www.taqatechno.com",
+  "support": "info@taqatechno.com",
+  "license": "MIT",
+  "homepage": "https://ntfy.sh",
+  "repository": "https://github.com/taqatechno/claude-ntfy-plugin",
+  "keywords": [
+    "notifications",
+    "push",
+    "ntfy",
+    "mobile",
+    "alerts",
+    "task-complete",
+    "action-required",
+    "hooks",
+    "automation"
+  ],
+  "engines": {
+    "claude-code": ">=1.0.0"
+  },
+  "dependencies": {
+    "python": ">=3.8",
+    "requests": ">=2.25.0"
+  },
+  "commands": {
+    "ntfy": {
+      "description": "Quick send notification: /ntfy <message>",
+      "file": "commands/quick.md"
+    },
+    "ntfy-setup": {
+      "description": "Interactive setup wizard for ntfy notifications",
+      "file": "commands/setup.md"
+    },
+    "ntfy-test": {
+      "description": "Send a test notification to verify setup",
+      "file": "commands/test.md"
+    },
+    "ntfy-status": {
+      "description": "Check ntfy configuration and connection status",
+      "file": "commands/status.md"
+    },
+    "ntfy-history": {
+      "description": "View notification history and statistics",
+      "file": "commands/history.md"
+    },
+    "ntfy-config": {
+      "description": "Update ntfy configuration settings",
+      "file": "commands/config.md"
+    }
+  },
+  "hooks": {
+    "post-tool-use": {
+      "description": "Auto-notify on task completion",
+      "file": "hooks.py",
+      "function": "on_tool_complete"
+    }
+  },
+  "settings": {
+    "auto_notify_on_complete": {
+      "type": "boolean",
+      "default": true,
+      "description": "Automatically send notification when tasks complete"
+    },
+    "auto_notify_on_error": {
+      "type": "boolean",
+      "default": true,
+      "description": "Automatically send notification on errors"
+    },
+    "notify_priority_threshold": {
+      "type": "string",
+      "default": "default",
+      "description": "Minimum priority for auto-notifications",
+      "enum": ["min", "low", "default", "high", "urgent"]
+    }
+  }
+}

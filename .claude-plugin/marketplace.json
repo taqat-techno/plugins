@@ -47,6 +47,21 @@
       "commands": [
         "./devops-plugin/commands"
       ]
+    },
+    {
+      "name": "ntfy-notifications",
+      "description": "Push notifications to your phone via ntfy.sh when Claude completes tasks, needs input, or encounters errors. 100% FREE - No account required!",
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./ntfy-plugin/CLAUDE.md"
+      ],
+      "commands": [
+        "./ntfy-plugin/commands"
+      ],
+      "version": "2.0.0",
+      "author": "TaqaTechno",
+      "keywords": ["notifications", "push", "ntfy", "mobile", "alerts", "automation"]
     }
   ]
 }
