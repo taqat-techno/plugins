@@ -186,8 +186,8 @@ Contributions are welcome! Please:
 
 ## Support
 
-- **Repository**: https://github.com/taqat-techno-eg/plugins
-- **Issues**: https://github.com/taqat-techno-eg/plugins/issues
+- **Repository**: https://github.com/taqat-techno/plugins
+- **Issues**: https://github.com/taqat-techno/plugins/issues
 - **Contact**: contact@taqat-techno.com
 
 ## License

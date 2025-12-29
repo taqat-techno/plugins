@@ -5,10 +5,10 @@
   "author": {
     "name": "TAQAT Techno",
     "email": "info@taqatechno.com",
-    "url": "https://github.com/taqat-techno-eg"
+    "url": "https://github.com/taqat-techno"
   },
-  "homepage": "https://github.com/taqat-techno-eg/plugins",
-  "repository": "https://github.com/taqat-techno-eg/plugins",
+  "homepage": "https://github.com/taqat-techno/plugins",
+  "repository": "https://github.com/taqat-techno/plugins",
   "license": "MIT",
   "changelog": "./CHANGELOG.md",
   "migration": "./MIGRATION.md",

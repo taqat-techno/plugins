@@ -1,13 +1,13 @@
 ---
 description: Create theme mirror models following Odoo core patterns for website themes
 author: TAQAT Techno
-author-url: https://github.com/taqat-techno-eg
+author-url: https://github.com/taqat-techno
 version: 1.0.0
 ---
 
 # Theme Website Record Command
 
-You are implementing the `/theme_web_rec` command that creates theme mirror models following Odoo core patterns from `website.page`/`theme.website.page` architecture.
+You are implementing the `/odoo-frontend:theme_web_rec` command that creates theme mirror models following Odoo core patterns from `website.page`/`theme.website.page` architecture.
 
 ## Functionality
 
