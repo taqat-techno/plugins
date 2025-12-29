@@ -1,10 +1,50 @@
-# @Mention Auto-Processor
+# @Mention Auto-Processor (v2.0 - Strict Enforcement)
 
 ## Purpose
 
 This processor automatically detects and resolves @mentions in comments to proper Azure DevOps format. It ensures users receive notifications when mentioned.
 
 **CRITICAL RULE**: **NEVER** post a comment with an unresolved/fake mention. If a mention cannot be resolved, **ASK the user** to clarify before posting.
+
+---
+
+## Why MCP is Better Than CLI for Mentions
+
+After deep research, **MCP is the ONLY reliable way** to handle mentions:
+
+| Approach | Pros | Cons | Verdict |
+|----------|------|------|---------|
+| **MCP `core_get_identity_ids`** | Direct GUID resolution, official API | None | **USE THIS** |
+| CLI `az devops user list` | Available | No direct identity search, slow | Don't use |
+| Hardcoded GUIDs | Fast | GUIDs change, unreliable | **NEVER** |
+| Plain text @mentions | Easy | NO notifications sent | **NEVER** |
+
+**Conclusion**: Always use `mcp__azure-devops__core_get_identity_ids` for mention resolution.
+
+---
+
+## Strict Enforcement Guard
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│         MENTION VALIDATION GUARD (MANDATORY CHECK)               │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  BEFORE calling wit_add_work_item_comment:                      │
+│                                                                  │
+│  1. SCAN comment text for @mentions                             │
+│  2. IF mentions found:                                          │
+│     a. Call core_get_identity_ids for EACH mention              │
+│     b. IF ANY resolution fails → STOP, ASK USER                 │
+│     c. IF ALL resolved → Convert to HTML format                 │
+│  3. ONLY THEN post the comment with format: "html"              │
+│                                                                  │
+│  BLOCKING RULE:                                                 │
+│  If step 2b fails, you MUST NOT post the comment.               │
+│  Ask user for clarification instead.                            │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
 
 ---
 
@@ -31,6 +71,60 @@ This processor automatically detects and resolves @mentions in comments to prope
 │  Plain text mentions DO NOT send notifications!                 │
 │                                                                  │
 └─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Common Mention Failures and Fixes
+
+### Issue 1: API Returns Empty Array
+
+**Problem**: `core_get_identity_ids` returns empty identities array.
+
+**Causes**:
+1. Search term too short (use at least 3 characters)
+2. User not in organization
+3. Typo in name
+
+**Fix**:
+```javascript
+// Try with email if name fails
+mcp__azure-devops__core_get_identity_ids({
+  "searchFilter": "melshahed@pearlpixels.com"  // Try full email
+})
+
+// Or try with full name
+mcp__azure-devops__core_get_identity_ids({
+  "searchFilter": "Mahmoud Elshahed"  // Try display name
+})
+```
+
+### Issue 2: Multiple Matches
+
+**Problem**: API returns multiple identities.
+
+**Fix**: Present options to user and wait for selection.
+
+```
+Found multiple users matching "ahmed":
+1. Ahmed Abdelkhaleq (alakosha@pearlpixels.com)
+2. Ahmed Mohamed (amohamed@pearlpixels.com)
+
+Which one did you mean?
+```
+
+### Issue 3: HTML Not Rendering
+
+**Problem**: Mention appears as text, not clickable.
+
+**Fix**: Ensure `format: "html"` is specified:
+```javascript
+mcp__azure-devops__wit_add_work_item_comment({
+  "project": "Relief Center",
+  "workItemId": 1234,
+  "comment": "<a href=\"#\" data-vss-mention=\"version:2.0,guid:xxx\">@Name</a>",
+  "format": "html"  // ← REQUIRED!
+})
 ```
 
 ---
@@ -146,6 +240,18 @@ mcp__azure-devops__core_get_identity_ids({
 {
   "identities": []
 }
+```
+
+**Fallback Strategy if First Attempt Fails**:
+
+```
+1. Try with username: @mahmoud → searchFilter: "mahmoud"
+2. If fails, try with FULL EMAIL from team_members.json  ← MOST RELIABLE!
+3. If fails, try with full display name
+4. If all fail → ASK USER (do not post!)
+
+IMPORTANT: Full email (user@domain.com) has highest success rate!
+Tested: "alakosha" failed, "alakosha@pearlpixels.com" succeeded
 ```
 
 ### Step 3: Validate ALL Resolutions
@@ -414,6 +520,36 @@ mcp__azure-devops__wit_add_work_item_comment({
 
 ---
 
+## Debugging Mention Issues
+
+### Debug Checklist
+
+```
+□ 1. Is searchFilter at least 3 characters?
+□ 2. Did API return any identities?
+□ 3. Is the GUID valid format (xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)?
+□ 4. Is format: "html" specified in comment API?
+□ 5. Is the HTML properly escaped in the comment string?
+□ 6. Does the data-vss-mention attribute have correct format?
+```
+
+### Test Command
+
+To test if mentioning is working:
+
+```
+"Add a test comment on work item #[ID] mentioning @ahmed"
+```
+
+Expected behavior:
+1. Claude should call `core_get_identity_ids({ searchFilter: "ahmed" })`
+2. Claude should receive a GUID
+3. Claude should format HTML with the GUID
+4. Claude should post with `format: "html"`
+5. Ahmed should receive an Azure DevOps notification
+
+---
+
 ## Checklist Before Posting Comment
 
 - [ ] All @mentions extracted from text
@@ -435,9 +571,10 @@ This processor integrates with:
 1. **SKILL.md** - Main skill file references this processor
 2. **data/team_members.json** - Cached team member info for suggestions
 3. **commands/add-comment.md** - Uses processor for all comments
+4. **rules/business_rules.md** - Overall business rules
 
 ---
 
-*Mention Processor v1.0*
+*Mention Processor v2.0 - Strict Enforcement*
 *Part of DevOps Plugin v3.0 Enhancement*
 *TaqaTechno - December 2025*

@@ -2,12 +2,111 @@
 title: 'Create Task'
 read_only: false
 type: 'command'
-description: 'Create a task with automatic parent User Story detection and linking'
+description: 'Create a task with automatic parent User Story detection, naming conventions, and linking'
 ---
 
 # Create Task
 
-Create a Task work item with **automatic parent detection and linking** to maintain proper hierarchy.
+Create a Task work item with **automatic parent detection, naming conventions, and linking** to maintain proper hierarchy.
+
+## MANDATORY: Task Naming Conventions
+
+All Task titles MUST start with a type prefix:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                TASK NAMING CONVENTIONS                           │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  [DEV]   Backend Developer (APIs, database, server-side)        │
+│  [FRONT] Frontend Developer (UI, CSS, JavaScript, templates)    │
+│  [QA]    Tester/QA (testing, test cases, verification)          │
+│  [IMP]   Implementation (config, deploy, setup, migration)      │
+│                                                                  │
+│  EXAMPLES:                                                       │
+│  [DEV] Implement user authentication API                        │
+│  [FRONT] Create login form component                            │
+│  [QA] Write test cases for login flow                           │
+│  [IMP] Configure OAuth2 settings                                │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Auto-Detection Keywords
+
+| Keywords | Prefix |
+|----------|--------|
+| API, endpoint, database, model, backend, server, ORM, query, schema | `[DEV]` |
+| UI, component, form, page, style, CSS, SCSS, frontend, template, React, Vue | `[FRONT]` |
+| test, QA, verify, validate, check, regression, scenario, bug verification | `[QA]` |
+| deploy, config, setup, install, migration, infrastructure, CI/CD, server hosting | `[IMP]` |
+
+## MANDATORY: Auto-Sprint Detection
+
+Tasks MUST be assigned to the **current working sprint** based on today's date:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│              AUTO-SPRINT DETECTION RULE                          │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  BEFORE creating a task:                                        │
+│                                                                  │
+│  1. Get current date (today)                                    │
+│  2. Fetch team iterations with dates                            │
+│  3. Find iteration where: startDate <= today <= finishDate      │
+│  4. Set System.IterationPath to that sprint                     │
+│                                                                  │
+│  IF no current sprint found:                                    │
+│  → Ask user which sprint to use                                 │
+│  → Present available sprints list                               │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Sprint Detection Logic
+
+```javascript
+// Step 1: Get team iterations
+const iterations = await mcp__azure-devops__work_list_team_iterations({
+  "project": currentProject,
+  "team": currentTeam
+});
+
+// Step 2: Find current sprint by date
+const today = new Date();
+const currentSprint = iterations.find(iter => {
+  const start = new Date(iter.attributes.startDate);
+  const finish = new Date(iter.attributes.finishDate);
+  return today >= start && today <= finish;
+});
+
+// Step 3: Use current sprint or ask user
+if (currentSprint) {
+  iterationPath = currentSprint.path;
+  console.log(`Auto-detected sprint: ${currentSprint.name}`);
+} else {
+  // Present available sprints to user
+  askUserToSelectSprint(iterations);
+}
+```
+
+### Example: Auto-Sprint Assignment
+
+```
+Today: 2025-12-29
+
+Available Sprints:
+| Sprint | Start | End | Status |
+|--------|-------|-----|--------|
+| Sprint 14 | Dec 1 | Dec 14 | Completed |
+| Sprint 15 | Dec 15 | Dec 28 | Completed |
+| Sprint 16 | Dec 29 | Jan 11 | ← CURRENT |
+| Sprint 17 | Jan 12 | Jan 25 | Future |
+
+Auto-detected: Sprint 16 (Dec 29 - Jan 11)
+Task will be assigned to: Project\Sprint 16
+```
 
 ## 🔗 Hierarchy Helper Integration
 
@@ -16,8 +115,10 @@ Create a Task work item with **automatic parent detection and linking** to maint
 Tasks MUST be linked to a parent User Story or PBI. This command automatically:
 1. Detects if a parent is specified
 2. Searches for candidate parents if not specified
-3. Presents options to the user
-4. Creates the task and links it to the parent
+3. **Applies naming prefix** ([DEV], [FRONT], [QA], or [IMP])
+4. **Auto-assigns to current sprint** based on date
+5. Presents options to the user
+6. Creates the task and links it to the parent
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -27,9 +128,12 @@ Tasks MUST be linked to a parent User Story or PBI. This command automatically:
 │  Task MUST have parent User Story or PBI!                       │
 │                                                                  │
 │  User Story #100: User Authentication                           │
-│    └── Task #150: Implement login form ← CORRECT                │
+│    └── Task #150: [DEV] Implement login API ← CORRECT           │
+│    └── Task #151: [FRONT] Create login form ← CORRECT           │
+│    └── Task #152: [QA] Test login flow ← CORRECT                │
 │                                                                  │
 │  Task #999: Orphan task ← WRONG (no parent!)                    │
+│  Task #998: Implement login ← WRONG (no prefix!)                │
 │                                                                  │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -157,23 +261,56 @@ Found potential parents for "login validation":
 Which User Story should this task be under?
 ```
 
-### Step 4: Create Task
+### Step 4: Detect Current Sprint
 
 ```javascript
-// Create the task
+// Get team iterations to find current sprint
+const iterations = await mcp__azure-devops__work_list_team_iterations({
+  "project": currentProject,
+  "team": currentTeam
+});
+
+// Find sprint where today falls between start and end dates
+const today = new Date();
+let currentIterationPath = null;
+
+for (const iter of iterations) {
+  if (iter.attributes && iter.attributes.startDate && iter.attributes.finishDate) {
+    const start = new Date(iter.attributes.startDate);
+    const finish = new Date(iter.attributes.finishDate);
+    if (today >= start && today <= finish) {
+      currentIterationPath = iter.path;
+      console.log(`Auto-detected sprint: ${iter.name} (${iter.attributes.startDate} - ${iter.attributes.finishDate})`);
+      break;
+    }
+  }
+}
+
+// If no current sprint found, ask user
+if (!currentIterationPath) {
+  // Present available sprints
+  const upcomingSprints = iterations.filter(i => new Date(i.attributes?.startDate) >= today);
+  // Ask user to select
+}
+```
+
+### Step 5: Create Task with Sprint
+
+```javascript
+// Create the task with auto-detected sprint
 const task = await mcp__azure-devops__wit_create_work_item({
   "project": currentProject,
   "workItemType": "Task",
   "fields": [
-    { "name": "System.Title", "value": request.title },
+    { "name": "System.Title", "value": "[PREFIX] " + request.title },
     { "name": "System.Description", "value": request.description || "" },
-    { "name": "System.IterationPath", "value": currentIterationPath },
+    { "name": "System.IterationPath", "value": currentIterationPath },  // Auto-detected!
     { "name": "Microsoft.VSTS.Scheduling.OriginalEstimate", "value": request.estimate }
   ].filter(f => f.value)  // Remove empty fields
 });
 ```
 
-### Step 5: Link to Parent
+### Step 6: Link to Parent
 
 ```javascript
 // Link task as child of selected parent
@@ -187,7 +324,7 @@ await mcp__azure-devops__wit_work_items_link({
 });
 ```
 
-### Step 6: Confirm to User
+### Step 7: Confirm to User
 
 ```
 ✅ Task #150 created: "Implement login validation"
