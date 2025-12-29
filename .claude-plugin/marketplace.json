@@ -49,7 +49,7 @@
       ]
     },
     {
-      "name": "ntfy-notifications",
+      "name": "ntfy",
       "description": "Push notifications to your phone via ntfy.sh when Claude completes tasks, needs input, or encounters errors. 100% FREE - No account required!",
       "source": "./",
       "strict": false,
