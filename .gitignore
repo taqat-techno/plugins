@@ -20,3 +20,8 @@ Thumbs.db
 *.tmp
 *.bak
 *~
+
+# ntfy-plugin user-specific files
+ntfy-plugin/ntfy/scripts/config.json
+ntfy-plugin/ntfy/scripts/notification_history.json
+ntfy-plugin/ntfy/scripts/failed_notifications.log

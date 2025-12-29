@@ -363,6 +363,144 @@ except Exception as e:
 
 ---
 
+## Interactive Two-Way Communication
+
+### NEW: Ask User & Wait for Response
+
+The plugin now supports **true two-way communication** - send notifications with action buttons and WAIT for the user's response.
+
+### Import Pattern
+```python
+import sys
+PLUGIN_PATH = r"{PLUGIN_DIR}/ntfy/scripts"
+sys.path.insert(0, PLUGIN_PATH)
+from interactive import ask_user, ask_yes_no, ask_choice, ask_confirm, ask_approval
+```
+
+### Primary Function: `ask_user()`
+
+```python
+from interactive import ask_user
+
+# Send question with buttons, wait for response
+response = ask_user(
+    title="Database Selection",
+    message="Which database should we use?",
+    options=["PostgreSQL", "MySQL", "SQLite"],
+    timeout=120  # seconds
+)
+
+if response == "PostgreSQL":
+    setup_postgres()
+elif response is None:
+    print("User didn't respond, using default")
+```
+
+### Convenience Functions
+
+```python
+from interactive import ask_yes_no, ask_choice, ask_confirm, ask_approval
+
+# Yes/No question
+if ask_yes_no("Deploy?", "All tests passed.") == "YES":
+    deploy()
+
+# Multiple choice
+db = ask_choice("Database", "Select:", ["PostgreSQL", "MySQL", "SQLite"])
+
+# Confirmation (returns True/False)
+if ask_confirm("Delete logs", "This cannot be undone"):
+    delete_logs()
+
+# Approval workflow
+result = ask_approval("PR #123", "Adds auth feature")
+if result == "APPROVE":
+    merge_pr()
+```
+
+### How It Works
+
+```
+1. Claude sends notification with action buttons
+   ↓
+2. User sees notification on phone with clickable buttons
+   ↓
+3. User taps a button (e.g., "PostgreSQL")
+   ↓
+4. Button sends response back to ntfy topic
+   ↓
+5. Claude polls topic and receives the response
+   ↓
+6. Claude continues execution based on user's choice
+```
+
+### Interactive Examples
+
+#### Example 1: Deployment Approval
+```python
+response = ask_user(
+    title="Production Deployment",
+    message="Ready to deploy v2.1.0 to production?\n\n"
+            "Changes:\n"
+            "- New user dashboard\n"
+            "- Bug fixes\n"
+            "- Performance improvements",
+    options=["Deploy Now", "Deploy Later", "Cancel"],
+    timeout=300  # 5 minutes
+)
+
+if response == "Deploy Now":
+    run_deployment()
+elif response == "Deploy Later":
+    schedule_deployment()
+else:
+    print("Deployment cancelled")
+```
+
+#### Example 2: Error Recovery
+```python
+response = ask_user(
+    title="Build Failed",
+    message="npm install failed with error:\n"
+            "ERESOLVE unable to resolve dependency tree\n\n"
+            "How should I proceed?",
+    options=["Retry", "Use --force", "Skip", "Abort"],
+    timeout=120
+)
+
+if response == "Retry":
+    retry_install()
+elif response == "Use --force":
+    force_install()
+```
+
+#### Example 3: Configuration Choice
+```python
+env = ask_choice(
+    "Environment",
+    "Which environment should I configure?",
+    ["Development", "Staging", "Production"]
+)
+
+config = load_config(env.lower())
+```
+
+### Timeout Behavior
+
+- Default timeout: 120 seconds (2 minutes)
+- If user doesn't respond: returns `None`
+- Always handle `None` case with a fallback
+
+```python
+response = ask_user("Question", "Choose:", ["A", "B"], timeout=60)
+
+if response is None:
+    print("No response, using default option A")
+    response = "A"
+```
+
+---
+
 ## Best Practices
 
 1. **Always notify on task completion** - Users are not watching the terminal
@@ -370,6 +508,8 @@ except Exception as e:
 3. **Include actionable details** - What was done, what's needed
 4. **Don't spam** - Deduplication prevents duplicate notifications
 5. **Handle failures gracefully** - Continue work even if notification fails
+6. **Use interactive for decisions** - When you need user input, use `ask_user()`
+7. **Always handle timeout** - User may not respond, have a fallback plan
 
 ---
 
