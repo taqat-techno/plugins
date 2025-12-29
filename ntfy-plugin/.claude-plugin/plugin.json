@@ -1,0 +1,43 @@
+{
+  "name": "ntfy-notifications",
+  "version": "2.0.0",
+  "description": "Push notifications to your phone via ntfy.sh when Claude completes tasks, needs input, or encounters errors. 100% FREE - No account required!",
+  "author": {
+    "name": "TAQAT Techno",
+    "email": "contact@taqat-techno.com",
+    "url": "https://github.com/taqat-techno"
+  },
+  "homepage": "https://github.com/taqat-techno/plugins/tree/main/ntfy-plugin",
+  "repository": "https://github.com/taqat-techno/plugins",
+  "license": "MIT",
+  "keywords": [
+    "notifications",
+    "push",
+    "ntfy",
+    "mobile",
+    "alerts",
+    "automation",
+    "claude-code",
+    "agent",
+    "async",
+    "background-tasks"
+  ],
+  "skills": "./ntfy/",
+  "scripts": "./ntfy/scripts/",
+  "commands": "./commands/",
+  "metadata": {
+    "notification-service": "ntfy.sh",
+    "platforms": ["iOS", "Android", "Desktop", "Web"],
+    "features": [
+      "automatic-retry",
+      "deduplication",
+      "rate-limiting",
+      "history-logging",
+      "context-managers",
+      "decorators"
+    ],
+    "priority-levels": 5,
+    "requires-account": false,
+    "self-hosted-support": true
+  }
+}

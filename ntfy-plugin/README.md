@@ -259,24 +259,25 @@ For private/authenticated servers:
 ## Plugin Structure
 
 ```
-ntfy-notifications/
-├── plugin.json              # Plugin metadata and commands
-├── config.json              # User configuration
-├── notify.py                # Core notification functions
-├── notification_checker.py  # Retry logic and fail-safe
-├── notification_logger.py   # History and analytics
-├── hooks.py                 # Automatic triggers
-├── CLAUDE.md                # Instructions for Claude
-├── README.md                # This file
-├── notification_history.json    # Auto-generated log
-├── failed_notifications.log     # Fallback for failures
-└── commands/
-    ├── quick.md             # /ntfy command
-    ├── setup.md             # /ntfy-setup command
-    ├── test.md              # /ntfy-test command
-    ├── status.md            # /ntfy-status command
-    ├── history.md           # /ntfy-history command
-    └── config.md            # /ntfy-config command
+ntfy-plugin/
+├── .claude-plugin/
+│   └── plugin.json              # Plugin metadata
+├── ntfy/                        # Skill folder
+│   ├── SKILL.md                 # Main skill with YAML frontmatter
+│   ├── config.json              # User configuration
+│   └── scripts/                 # Python utilities
+│       ├── notify.py            # Core notification functions
+│       ├── notification_checker.py  # Retry logic and fail-safe
+│       ├── notification_logger.py   # History and analytics
+│       └── hooks.py             # Automatic triggers and decorators
+├── commands/                    # Slash commands
+│   ├── ntfy.md                  # /ntfy <message> - Quick send
+│   ├── setup.md                 # /ntfy-setup - Interactive setup
+│   ├── test.md                  # /ntfy-test - Test notification
+│   ├── status.md                # /ntfy-status - Check config
+│   ├── history.md               # /ntfy-history - View history
+│   └── config.md                # /ntfy-config - Update settings
+└── README.md                    # This documentation
 ```
 
 ---

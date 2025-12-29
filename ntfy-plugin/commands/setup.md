@@ -1,38 +1,15 @@
+---
+title: 'ntfy Setup'
+read_only: false
+type: 'command'
+description: 'Interactive setup wizard for ntfy push notifications'
+---
+
 # /ntfy-setup
 
 Interactive setup wizard for ntfy push notifications.
 
-## What This Does
-
-Guides the user through configuring ntfy notifications:
-1. Checks if ntfy app is installed
-2. Helps create/choose a topic
-3. Configures the plugin
-4. Sends a test notification
-
-## Implementation
-
-```python
-import sys
-from pathlib import Path
-
-plugin_dir = Path(r"${PLUGIN_DIR}")
-sys.path.insert(0, str(plugin_dir))
-
-from notify import setup_topic, test_notification, get_config_status, check_connection
-
-# Check current status
-status = get_config_status()
-
-if status['configured']:
-    print(f"Currently configured:")
-    print(f"  Topic: {status['topic']}")
-    print(f"  Server: {status['server']}")
-    print("")
-    print("To reconfigure, provide a new topic name.")
-```
-
-## User Interaction Flow
+## Instructions
 
 ### Step 1: Check Prerequisites
 
@@ -71,6 +48,14 @@ Tell the user:
 ### Step 4: Configure Plugin
 
 ```python
+import sys
+from pathlib import Path
+
+plugin_dir = Path(r"${PLUGIN_DIR}/ntfy/scripts")
+sys.path.insert(0, str(plugin_dir))
+
+from notify import setup_topic, test_notification
+
 # After getting topic from user
 topic_name = "USER_PROVIDED_TOPIC"
 setup_topic(topic_name)
@@ -79,7 +64,6 @@ setup_topic(topic_name)
 ### Step 5: Test Notification
 
 ```python
-# Send test to verify
 result = test_notification()
 
 if result['success']:
@@ -99,9 +83,8 @@ For self-hosted servers:
 setup_topic("my-topic", server="https://ntfy.example.com")
 ```
 
-## Verification
+## Expected Output
 
-After setup, the user should see:
 ```
 [OK] Topic configured: claude-john-x7k9m2
 [OK] Server: https://ntfy.sh
@@ -110,3 +93,7 @@ Sending test notification...
 [OK] Test notification sent successfully!
 [INFO] Check your phone for the notification
 ```
+
+---
+
+*Part of ntfy-notifications Plugin v2.0*
