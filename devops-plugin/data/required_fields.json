@@ -70,13 +70,15 @@
         "Resolved": {
           "from": ["New", "Active"],
           "required": [
-            "Microsoft.VSTS.Common.ResolvedReason"
+            "Microsoft.VSTS.Common.ResolvedReason",
+            "Microsoft.VSTS.Scheduling.CompletedWork"
           ],
           "defaults": {
             "Microsoft.VSTS.Common.ResolvedReason": "Fixed"
           },
           "prompts": {
-            "Microsoft.VSTS.Common.ResolvedReason": "Resolved Reason: Why is this bug being resolved?"
+            "Microsoft.VSTS.Common.ResolvedReason": "Resolved Reason: Why is this bug being resolved?",
+            "Microsoft.VSTS.Scheduling.CompletedWork": "Completed Work (hours): How many hours did you spend fixing this bug?"
           },
           "options": {
             "Microsoft.VSTS.Common.ResolvedReason": [
@@ -88,6 +90,13 @@
               "Not a Bug",
               "Obsolete"
             ]
+          },
+          "validation": {
+            "Microsoft.VSTS.Scheduling.CompletedWork": {
+              "type": "number",
+              "min": 0,
+              "message": "Completed Work must be a positive number of hours"
+            }
           }
         },
         "Closed": {
