@@ -59,9 +59,6 @@
       "commands": [
         "./ntfy-plugin/commands"
       ],
-      "version": "2.0.0",
-      "author": "TaqaTechno",
-      "keywords": ["notifications", "push", "ntfy", "mobile", "alerts", "automation"]
     }
   ]
 }
