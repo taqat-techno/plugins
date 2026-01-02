@@ -35,6 +35,173 @@ Claude MUST send notifications in these situations:
 | **Blocked/Error** | `high` | When progress is blocked or an error occurs |
 | **Long-Running Task** | `low` | After 60+ seconds of continuous work |
 
+## MANDATORY: Interactive Notifications for Actions
+
+**Claude MUST use interactive notifications whenever user action is needed.**
+
+ALL notifications include the web URL so iOS users can respond via browser.
+
+### Import Pattern for Actions
+```python
+import sys
+PLUGIN_PATH = r"{PLUGIN_DIR}/ntfy/scripts"
+sys.path.insert(0, PLUGIN_PATH)
+from claude_actions import need_action, task_done, ask_proceed, ask_choice, get_user_input, blocked, error_occurred
+```
+
+### When Claude Needs User Input
+```python
+from claude_actions import need_action
+
+# ALWAYS use this when you need user decision
+response = need_action(
+    "Database Selection",
+    "Which database should I use for the project?",
+    ["PostgreSQL", "MySQL", "SQLite"]
+)
+
+if response == "PostgreSQL":
+    setup_postgres()
+```
+
+### When Task Completes with Optional Next Steps
+```python
+from claude_actions import task_done
+
+# If there are suggested next steps, include them!
+result = task_done(
+    "API Integration Complete",
+    "Created 5 REST endpoints with authentication",
+    next_steps=["Run tests", "Deploy to staging", "Update documentation"]
+)
+
+if result == "Run tests":
+    run_tests()
+elif result == "Deploy to staging":
+    deploy_staging()
+elif result == "done":
+    print("User chose to stop here")
+```
+
+### When Claude Needs Approval to Proceed
+```python
+from claude_actions import ask_proceed
+
+if ask_proceed("Delete old log files", "This will remove 50 files older than 30 days"):
+    delete_logs()
+else:
+    print("User declined, skipping deletion")
+```
+
+### When Claude is Blocked
+```python
+from claude_actions import blocked
+
+response = blocked(
+    "Build Failed",
+    "npm install failed with dependency errors",
+    ["Retry", "Use --force", "Skip", "Abort"]
+)
+
+if response == "Retry":
+    retry_build()
+```
+
+### Getting Free-Text Input
+```python
+from claude_actions import get_user_input
+
+module_name = get_user_input(
+    "What should I name the new module?",
+    "Creating module for inventory management"
+)
+```
+
+---
+
+## Notification Mode (Session-Based Auto-Notifications)
+
+### Enabling Notification Mode
+
+Use `/ntfy-mode` to toggle automatic notifications for the session:
+
+```
+/ntfy-mode on                  Enable with default topic
+/ntfy-mode on my-custom-topic  Enable with custom topic for this session
+/ntfy-mode off                 Disable notification mode
+/ntfy-mode status              Check current status
+```
+
+### How Notification Mode Works
+
+When **ON**, Claude automatically:
+- Sends notification after EVERY task completion
+- Includes suggested next steps as options
+- Sends interactive notifications when decisions are needed
+- Waits for user response via ntfy before proceeding
+- Uses session topic (custom or default)
+
+When **OFF**, Claude:
+- Works normally without automatic notifications
+- Only sends notifications when explicitly requested
+
+### Session State
+
+```python
+from session import (
+    is_notification_mode_on,  # Check if mode is ON
+    get_session_topic,        # Get current topic
+    show_status               # Display status
+)
+
+# Always check before sending notifications
+if is_notification_mode_on():
+    # Send notification
+    pass
+```
+
+### Claude's Behavior When Mode is ON
+
+**At the end of every task:**
+```python
+from claude_actions import task_done
+
+# This automatically checks if mode is ON
+result = task_done(
+    "Created User Authentication",
+    "Implemented login, logout, JWT tokens",
+    next_steps=["Run tests", "Deploy", "Add 2FA"]
+)
+
+if result == "Run tests":
+    run_tests()
+elif result == "Deploy":
+    deploy()
+```
+
+**When Claude needs user input:**
+```python
+from claude_actions import need_action
+
+response = need_action(
+    "Database Choice",
+    "Which database for the project?",
+    ["PostgreSQL", "MySQL", "MongoDB"]
+)
+# Waits for user response via ntfy
+```
+
+**When Claude is blocked:**
+```python
+from claude_actions import blocked
+
+response = blocked(
+    "Build Failed",
+    "npm install returned errors",
+    ["Retry", "Use --force", "Skip", "Abort"]
+)
+```
+
 ---
 
 ## Configuration
@@ -420,10 +587,11 @@ if result == "APPROVE":
 
 ### How It Works
 
+**Android:**
 ```
 1. Claude sends notification with action buttons
    ↓
-2. User sees notification on phone with clickable buttons
+2. User sees notification with clickable buttons
    ↓
 3. User taps a button (e.g., "PostgreSQL")
    ↓
@@ -433,6 +601,88 @@ if result == "APPROVE":
    ↓
 6. Claude continues execution based on user's choice
 ```
+
+**iOS (Text-based replies):**
+```
+1. Claude sends notification with numbered options
+   ↓
+2. User sees notification: "Reply: 1=Yes, 2=No, 3=Maybe"
+   ↓
+3. User taps notification → opens ntfy app → types "1" or "Yes"
+   ↓
+4. Response is published to the topic
+   ↓
+5. Claude polls topic and receives the response
+   ↓
+6. Claude continues execution based on user's choice
+```
+
+### iOS vs Android Platform Support
+
+**IMPORTANT**: ntfy action buttons are **NOT supported on iOS** (only Android + Web).
+
+The plugin provides cross-platform support with different methods:
+
+| Feature | Android | iOS |
+|---------|---------|-----|
+| Action Buttons | ✅ Native buttons | ❌ Not supported |
+| Text Replies | ✅ Works | ✅ Works |
+| Click to Open | ✅ Works | ✅ Works |
+
+### Platform Configuration
+
+Set your platform in config or per-call:
+
+```python
+from interactive import set_platform, ask_user
+
+# Set default platform (persists in config)
+set_platform("ios")       # iOS users
+set_platform("android")   # Android users
+set_platform("universal") # Both (default)
+
+# Or specify per-call
+response = ask_user(
+    "Question",
+    "Choose:",
+    ["A", "B", "C"],
+    platform="ios"  # Override for this call
+)
+```
+
+### Platform Modes
+
+| Mode | Description | Best For |
+|------|-------------|----------|
+| `universal` | Shows buttons + numbered options | Mixed devices |
+| `ios` | Numbered options only, tap-to-reply | iOS users |
+| `android` | Action buttons only | Android users |
+
+### iOS User Instructions
+
+When using iOS, the notification will show:
+```
+Reply with number or text:
+  1 = Yes
+  2 = No
+  3 = Maybe
+
+Respond via: https://ntfy.sh/YOUR-TOPIC
+```
+
+**IMPORTANT**: The iOS ntfy app does NOT have an easy publish interface like Android.
+
+**To respond on iOS:**
+1. Open your web browser (Safari, Chrome, etc.)
+2. Go to `https://ntfy.sh/YOUR-TOPIC` (replace with your actual topic)
+3. Type your choice in the message box: "1" or "Yes"
+4. Click "Publish" or press Enter
+5. Claude receives your response
+
+**Alternative**: You can also use:
+- The ntfy web app at `https://ntfy.sh`
+- Subscribe to your topic and use the publish feature
+- Any HTTP client to POST to `https://ntfy.sh/YOUR-TOPIC`
 
 ### Interactive Examples
 

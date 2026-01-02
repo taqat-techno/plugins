@@ -1,0 +1,11 @@
+{
+  "notification_mode": false,
+  "session_topic": null,
+  "session_start": null,
+  "auto_notify_complete": true,
+  "auto_notify_action": true,
+  "auto_notify_error": true,
+  "auto_notify_progress": true,
+  "task_count": 0,
+  "notification_count": 0
+}
