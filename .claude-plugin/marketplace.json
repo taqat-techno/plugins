@@ -59,6 +59,18 @@
       "commands": [
         "./ntfy-plugin/commands"
       ]
+    },
+    {
+      "name": "odoo-report",
+      "description": "Professional Odoo Email Templates & QWeb Reports toolkit - Create, manage, debug, and migrate email templates and PDF reports across Odoo 14-19 with intelligent pattern recognition and version-aware syntax",
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./odoo-report-plugin/odoo-report"
+      ],
+      "commands": [
+        "./odoo-report-plugin/commands"
+      ]
     }
   ]
 }
