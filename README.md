@@ -1,6 +1,6 @@
 # TAQAT Techno Plugins - Claude Code Skills Marketplace
 
-![Plugins](https://img.shields.io/badge/plugins-5-blue.svg)
+![Plugins](https://img.shields.io/badge/plugins-6-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 ![Odoo](https://img.shields.io/badge/Odoo-14--19-purple.svg)
 ![Azure DevOps](https://img.shields.io/badge/Azure_DevOps-Integrated-0078D7.svg)
@@ -15,6 +15,7 @@ Production-ready Claude Code plugins for professional development - Odoo ERP, Az
 |--------|-------------|---------|
 | [**odoo-upgrade**](./odoo-upgrade-plugin/README.md) | Odoo module upgrade assistant (v14-19) | 1.0.0 |
 | [**odoo-frontend**](./odoo-frontend-plugin/README.md) | Website theme development with Bootstrap | 1.0.0 |
+| [**odoo-report**](./odoo-report-plugin/README.md) | Email templates & QWeb reports toolkit | 1.0.0 |
 | [**codex**](./codex-plugin/README.md) | Universal code analysis & generation | 1.0.0 |
 | [**devops**](./devops-plugin/README.md) | Azure DevOps integration via MCP | 1.0.0 |
 | [**ntfy-notifications**](./ntfy-notifications/README.md) | Push notifications to your phone | 2.0.0 |
@@ -57,7 +58,7 @@ Ask Claude:
 "Show me available skills"
 ```
 
-You should see all 5 plugins listed.
+You should see all 6 plugins listed.
 
 ---
 
@@ -105,6 +106,42 @@ Comprehensive website theme development with auto-detection, MCP integration, an
 ```
 
 [**Read Full Documentation**](./odoo-frontend-plugin/README.md)
+
+---
+
+### Odoo Email Templates & QWeb Reports
+
+[![Docs](https://img.shields.io/badge/docs-README-blue)](./odoo-report-plugin/README.md)
+[![Odoo](https://img.shields.io/badge/Odoo-14--19-purple.svg)]()
+
+Professional toolkit for creating, managing, debugging, and migrating email templates and PDF reports across Odoo versions.
+
+**Features:**
+- Email template creation with pattern library (50+ patterns)
+- QWeb PDF report generation (30+ patterns)
+- Version-aware syntax (t-esc vs t-out)
+- Automatic template migration between versions
+- Template validation and debugging
+- Company branding support (Odoo 19)
+
+**Commands:**
+| Command | Description |
+|---------|-------------|
+| `/odoo-report` | Main entry point & help |
+| `/create-email-template` | Create professional email template |
+| `/create-qweb-report` | Create QWeb PDF report |
+| `/migrate-template` | Migrate between Odoo versions |
+| `/analyze-template` | Analyze template for issues |
+| `/fix-template` | Auto-fix common issues |
+
+**Usage:**
+```
+"Create an email template for sale.order quotation"
+"Migrate my templates from Odoo 14 to Odoo 17"
+"Create a PDF report for invoices"
+```
+
+[**Read Full Documentation**](./odoo-report-plugin/README.md)
 
 ---
 
@@ -229,6 +266,14 @@ taqat-techno-plugins/
 │   ├── odoo-frontend/
 │   │   └── SKILL.md
 │   └── README.md
+├── odoo-report-plugin/            # Email templates & QWeb reports
+│   ├── odoo-report/
+│   │   └── SKILL.md
+│   ├── commands/
+│   ├── memories/
+│   ├── data/
+│   ├── templates/
+│   └── README.md
 ├── codex-plugin/                  # Universal code assistant
 │   ├── codex/
 │   │   └── SKILL.md
@@ -325,4 +370,4 @@ MIT License - Free to use, modify, and distribute.
 
 ---
 
-**Plugins**: 5 | **Version**: 1.1.0 | **Maintainer**: TAQAT Techno
+**Plugins**: 6 | **Version**: 1.2.0 | **Maintainer**: TAQAT Techno
