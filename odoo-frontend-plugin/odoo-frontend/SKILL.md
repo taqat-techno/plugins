@@ -1,9 +1,9 @@
 ---
 name: odoo-frontend
-description: "Advanced Odoo frontend development with comprehensive theme development, PWA support, modern JavaScript/TypeScript, testing frameworks, performance optimization, accessibility compliance, and real-time features. Features complete $o-website-values-palettes reference, theme mirror model architecture, publicWidget patterns with editableMode handling, and MCP integration. Supports Odoo 14-19 with auto-detection."
+description: "Advanced Odoo frontend development with comprehensive theme development, /create-theme command, PWA support, modern JavaScript/TypeScript, testing frameworks, performance optimization, accessibility compliance, and real-time features. Features complete $o-website-values-palettes reference, theme mirror model architecture, publicWidget patterns with editableMode handling, and MCP integration. Supports Odoo 14-19 with auto-detection."
 allowed-tools: [Read, Write, Edit, Bash, Grep, Glob, WebFetch]
 metadata:
-  version: "3.0.0"
+  version: "3.1.0"
   odoo-versions: "14,15,16,17,18,19"
   bootstrap-versions: "4.x,5.1.3"
   javascript-features: ["ES2020+", "TypeScript", "Owl v1/v2", "Web Components", "publicWidget"]
@@ -17,11 +17,12 @@ metadata:
   license: "MIT"
 ---
 
-# Odoo Frontend Development Skill v3.0
+# Odoo Frontend Development Skill v3.1
 
 ## Overview
 
 This skill provides advanced Odoo frontend development capabilities with:
+- **🎨 /create-theme Command**: Generate complete production-ready theme modules with all files
 - **Theme Development**: Complete `$o-website-values-palettes` reference, color semantics, theme mirror models
 - **Auto-detection**: Automatically detect Odoo version and map to correct Bootstrap version
 - **publicWidget Framework**: Comprehensive patterns with `editableMode` handling for website builder
@@ -35,6 +36,83 @@ This skill provides advanced Odoo frontend development capabilities with:
 - **Theme Scaffolding**: Complete theme module generation with proper structure
 - **Version-Aware**: Handle differences between Odoo 14-19 (Bootstrap 4/5, Owl v1/v2, Snippet structures)
 - **DevOps Ready**: CI/CD pipelines, Vite builds, automated testing
+
+---
+
+## 🎨 /create-theme Command
+
+**Quick Start**: Generate a complete, production-ready Odoo theme module.
+
+### Usage
+
+```bash
+# Interactive mode (recommended)
+/create-theme
+
+# Quick mode with arguments
+/create-theme <theme_name> <project_path>
+
+# Full arguments
+/create-theme <theme_name> <project_path> --version=17 --colors="#207AB7,#FB9F54,#F6F4F0,#FFFFFF,#191A19" --font="IBM Plex Sans"
+```
+
+### What Gets Created
+
+```
+theme_<name>/
+├── __init__.py
+├── __manifest__.py
+├── security/
+│   └── ir.model.access.csv
+├── data/
+│   ├── assets.xml
+│   ├── menu.xml
+│   └── pages/                        # Individual page files (BEST PRACTICE!)
+│       ├── home_page.xml            # Homepage (inherits website.homepage)
+│       ├── aboutus_page.xml         # About Us page
+│       ├── contactus_page.xml       # Contact (inherits website.contactus)
+│       └── services_page.xml        # Services page
+├── views/
+│   ├── layout/
+│   │   ├── header.xml               # Header customization
+│   │   ├── footer.xml               # Footer customization
+│   │   └── templates.xml            # Base layout templates
+│   └── snippets/
+│       └── custom_snippets.xml      # Custom snippet definitions
+└── static/src/
+    ├── scss/
+    │   ├── primary_variables.scss   # $o-website-values-palettes + colors
+    │   ├── bootstrap_overridden.scss
+    │   └── theme.scss
+    ├── js/
+    │   ├── theme.js                 # publicWidget implementations
+    │   └── snippets_options.js
+    └── img/
+```
+
+### Color System (o-color-1 to o-color-5)
+
+| Variable | Semantic Meaning | Default |
+|----------|------------------|---------|
+| `o-color-1` | Primary brand color | #207AB7 |
+| `o-color-2` | Secondary/accent | #FB9F54 |
+| `o-color-3` | Light backgrounds | #F6F4F0 |
+| `o-color-4` | White/body base | #FFFFFF |
+| `o-color-5` | Dark text/headings | #191A19 |
+
+### Version Support
+
+- **Odoo 14-15**: Bootstrap 4.5.0, simple snippets
+- **Odoo 16-17**: Bootstrap 5.1.3, modern asset bundles
+- **Odoo 18-19**: Bootstrap 5.1.3, snippet groups required
+
+### Run Script Directly
+
+```bash
+python scripts/create_theme.py <theme_name> <output_path> --version=17 --colors="#207AB7,#FB9F54,#F6F4F0,#FFFFFF,#191A19"
+```
+
+---
 
 ## CRITICAL RULES
 
@@ -1826,5 +1904,13 @@ jobs:
 
 ## Changelog
 
-- v2.0.0: Added PWA support, TypeScript, testing frameworks, performance optimization, accessibility, real-time features, and modern build tools
-- v1.0.0: Initial release with full Odoo 14-19 support, Figma/DevTools MCP integration
+- **v3.1.0**: Added `/create-theme` command for complete theme generation based on 40+ real implementations
+  - Complete `$o-website-values-palettes` configuration
+  - Semantic color system (`o-color-1` to `o-color-5`)
+  - Individual page files pattern (best practice)
+  - publicWidget patterns with `editableMode` handling
+  - Version-specific snippet registration (14-19)
+  - Windows console encoding fix for script output
+- **v3.0.0**: Enhanced theme system with $o-website-values-palettes reference and mirror model architecture
+- **v2.0.0**: Added PWA support, TypeScript, testing frameworks, performance optimization, accessibility, real-time features, and modern build tools
+- **v1.0.0**: Initial release with full Odoo 14-19 support, Figma/DevTools MCP integration

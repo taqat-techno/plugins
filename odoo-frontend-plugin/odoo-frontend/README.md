@@ -1,10 +1,35 @@
-# Odoo Frontend Development Skill v2.0
+# Odoo Frontend Development Skill v3.1
 
-Advanced Odoo frontend development with modern JavaScript, PWA support, testing frameworks, performance optimization, and comprehensive theme development capabilities.
+Advanced Odoo frontend development with modern JavaScript, PWA support, testing frameworks, performance optimization, and comprehensive theme development capabilities. Now featuring the powerful `/create-theme` command!
+
+## 🎨 NEW: /create-theme Command
+
+**Generate production-ready Odoo themes instantly!**
+
+```bash
+# Interactive mode
+/create-theme
+
+# Quick mode
+/create-theme modern_dark projects/my_project --version=17
+
+# With colors
+/create-theme corporate projects/client --colors="#207AB7,#FB9F54,#F6F4F0,#FFFFFF,#191A19"
+```
+
+Creates a complete theme module with:
+- `$o-website-values-palettes` configuration
+- Semantic color system (`o-color-1` to `o-color-5`)
+- Individual page files (best practice pattern)
+- publicWidget JavaScript with `editableMode` handling
+- Proper asset bundle configuration
+- Menu configuration
+- Version-specific snippet registration
 
 ## 🚀 Features
 
 ### Core Capabilities
+- **🎨 /create-theme Command**: Generate complete theme modules with all files
 - **Auto-Detection**: Automatically detects Odoo version (14-19) and maps to correct Bootstrap version
 - **Theme Scaffolding**: Generate complete theme modules with proper structure
 - **Version-Aware**: Handles differences between Odoo versions (Owl v1/v2, snippet structures)
@@ -179,32 +204,65 @@ Claude Code will:
 
 ## File Structure
 
-Generated themes follow this structure:
+Generated themes follow this structure (using `/create-theme`):
 
 ```
 theme_<name>/
 ├── __init__.py
 ├── __manifest__.py                    # Module metadata
+├── security/
+│   └── ir.model.access.csv            # Security rules
 ├── data/
-│   └── pages.xml                      # Theme pages
+│   ├── assets.xml                     # Asset configuration
+│   ├── menu.xml                       # Navigation menu
+│   └── pages/                         # Individual page files (BEST PRACTICE!)
+│       ├── home_page.xml             # Homepage (inherits website.homepage)
+│       ├── aboutus_page.xml          # About Us page
+│       ├── contactus_page.xml        # Contact page
+│       └── services_page.xml         # Services page
 ├── views/
-│   ├── templates.xml                  # Base templates
+│   ├── layout/
+│   │   ├── header.xml                # Header customization
+│   │   ├── footer.xml                # Footer customization
+│   │   └── templates.xml             # Base templates
 │   └── snippets/
-│       └── custom_snippets.xml        # Snippet definitions
+│       └── custom_snippets.xml       # Snippet definitions
 ├── static/
 │   └── src/
 │       ├── scss/
-│       │   ├── primary_variables.scss # Theme colors & fonts
-│       │   └── bootstrap_overridden.scss  # Bootstrap overrides
+│       │   ├── primary_variables.scss # $o-website-values-palettes + colors
+│       │   ├── bootstrap_overridden.scss  # Bootstrap overrides
+│       │   └── theme.scss            # Custom theme styles
 │       ├── js/
-│       │   ├── theme.js               # Public widgets
-│       │   └── snippets_options.js    # Snippet options JS
+│       │   ├── theme.js              # publicWidget implementations
+│       │   └── snippets_options.js   # Snippet options JS
 │       └── img/
-│           └── snippets/              # Snippet thumbnails
-└── README.md
+│           └── .gitkeep              # Image placeholder
+└── static/description/
+    ├── cover.png                      # Theme cover image
+    └── screenshot.png                 # Theme screenshot
 ```
 
 ## Helper Scripts
+
+### Theme Generator (NEW!)
+
+```bash
+python scripts/create_theme.py <theme_name> <output_path> [options]
+```
+
+Options:
+- `--version=<ver>` - Odoo version (14-19), default: 17
+- `--colors=<colors>` - Comma-separated 5 hex colors
+- `--font=<font>` - Primary font family
+- `--header=<tpl>` - Header template (default/hamburger/centered)
+- `--footer=<tpl>` - Footer template (default/headline/minimalist)
+- `--author=<name>` - Author name
+
+Example:
+```bash
+python scripts/create_theme.py modern_blue projects/client --version=17 --colors="#207AB7,#FB9F54,#F6F4F0,#FFFFFF,#191A19" --font="IBM Plex Sans"
+```
 
 ### Version Detection
 
@@ -404,5 +462,7 @@ For issues or questions:
 
 ## Version
 
+- **v3.1.0** - Added `/create-theme` command with comprehensive theme generation based on 40+ real implementations
+- **v3.0.0** - Enhanced theme system with $o-website-values-palettes reference and mirror model architecture
 - **v2.0.0** - Added PWA, TypeScript, testing, performance optimization, accessibility, real-time features
 - **v1.0.0** - Initial release with full Odoo 14-19 support

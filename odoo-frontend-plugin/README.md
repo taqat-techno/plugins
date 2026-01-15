@@ -1,6 +1,22 @@
-# Odoo Frontend Plugin for Claude Code
+# Odoo Frontend Plugin for Claude Code v3.1
 
-Advanced Odoo frontend development plugin with PWA support, TypeScript, modern testing frameworks, performance optimization, accessibility compliance, and complete theme scaffolding for Odoo 14-19.
+Advanced Odoo frontend development plugin with PWA support, TypeScript, modern testing frameworks, performance optimization, accessibility compliance, and complete theme scaffolding for Odoo 14-19. Now featuring the powerful `/create-theme` command!
+
+## 🎨 NEW: /create-theme Command
+
+**Generate production-ready Odoo themes instantly!**
+
+```bash
+/create-theme modern_corp projects/my_project --version=17 --colors="#207AB7,#FB9F54,#F6F4F0,#FFFFFF,#191A19"
+```
+
+Creates a complete theme module with:
+- `$o-website-values-palettes` configuration
+- Semantic `o-color-1` to `o-color-5` system
+- Individual page files (best practice)
+- publicWidget JavaScript with `editableMode`
+- Menu configuration and asset bundles
+- Version-specific snippet registration
 
 ## Overview
 
@@ -9,6 +25,7 @@ The Odoo Frontend Plugin supercharges your Odoo website and theme development wi
 ## Features
 
 ### 🎨 Theme Development
+- **🆕 /create-theme Command**: Generate complete theme modules with all files
 - **Complete Theme Scaffolding**: Generate full theme module structures
 - **Theme Mirror Models**: `/theme_web_rec` command for multi-website support
 - **Bootstrap Version Management**: Auto-detect and handle Bootstrap 4/5
@@ -85,6 +102,32 @@ The Odoo Frontend Plugin supercharges your Odoo website and theme development wi
    ```
 
 ## Commands
+
+### `/odoo-frontend:create-theme` - Theme Generator (NEW!)
+
+Create complete, production-ready Odoo theme modules.
+
+#### Usage
+```bash
+# Interactive mode
+/create-theme
+
+# Quick mode
+/create-theme <theme_name> <project_path>
+
+# Full arguments
+/create-theme modern_corp projects/client --version=17 --colors="#207AB7,#FB9F54,#F6F4F0,#FFFFFF,#191A19" --font="IBM Plex Sans"
+```
+
+#### What Gets Created
+- `__manifest__.py` with proper asset bundles
+- `primary_variables.scss` with `$o-website-values-palettes`
+- Semantic color palette (`o-color-1` to `o-color-5`)
+- Individual page files (home, about, contact, services)
+- publicWidget JavaScript with `editableMode` handling
+- Menu configuration
+- Custom snippet templates
+- Security rules
 
 ### `/odoo-frontend:theme_web_rec` - Theme Mirror Model Generator
 
@@ -296,6 +339,20 @@ We welcome contributions! Please:
 MIT License - See LICENSE file for details
 
 ## Changelog
+
+### Version 3.1.0
+- **NEW**: `/create-theme` command for complete theme generation
+- Theme generation based on 40+ real-world implementations
+- Individual page files pattern (best practice)
+- Enhanced `$o-website-values-palettes` support
+- publicWidget patterns with `editableMode` handling
+- Version-specific snippet registration (14-19)
+
+### Version 3.0.0
+- Enhanced theme mirror model architecture
+- Complete `$o-website-values-palettes` reference
+- Semantic color system documentation
+- MCP integration improvements
 
 ### Version 2.0.0
 - Added PWA support with service workers

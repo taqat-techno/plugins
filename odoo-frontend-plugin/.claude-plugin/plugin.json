@@ -1,7 +1,7 @@
 {
   "name": "odoo-frontend",
-  "version": "3.0.0",
-  "description": "Advanced Odoo frontend development with comprehensive theme development, PWA support, TypeScript, testing frameworks, and performance optimization. Features complete $o-website-values-palettes reference, theme mirror model architecture, publicWidget patterns with editableMode handling, color semantic structure, and MCP integration for Odoo 14-19.",
+  "version": "3.1.0",
+  "description": "Advanced Odoo frontend development with comprehensive theme development, /create-theme command, PWA support, TypeScript, testing frameworks, and performance optimization. Features complete $o-website-values-palettes reference, theme mirror model architecture, publicWidget patterns with editableMode handling, color semantic structure, and MCP integration for Odoo 14-19.",
   "author": {
     "name": "TAQAT Techno",
     "email": "contact@taqat-techno.com",
@@ -14,6 +14,8 @@
     "odoo",
     "frontend",
     "theme",
+    "create-theme",
+    "theme-generator",
     "website-values-palettes",
     "publicWidget",
     "mirror-models",
