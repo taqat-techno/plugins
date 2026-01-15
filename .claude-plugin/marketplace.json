@@ -5,8 +5,9 @@
     "email": "contact@taqat-techno.com"
   },
   "metadata": {
-    "description": "Professional Odoo development skills for Claude Code",
-    "version": "1.0.0"
+    "description": "Professional development skills for Claude Code - Odoo, DevOps, Document Conversion & more",
+    "version": "1.2.0",
+    "plugins_count": 7
   },
   "plugins": [
     {
@@ -62,7 +63,7 @@
     },
     {
       "name": "odoo-report",
-      "description": "Professional Odoo Email Templates & QWeb Reports toolkit - Create, manage, debug, and migrate email templates and PDF reports across Odoo 14-19 with intelligent pattern recognition and version-aware syntax",
+      "description": "Professional Odoo Email Templates & QWeb Reports - Complete toolkit for creating, managing, and debugging email templates and PDF reports across Odoo 14-19",
       "source": "./",
       "strict": false,
       "skills": [
@@ -70,6 +71,21 @@
       ],
       "commands": [
         "./odoo-report-plugin/commands"
+      ]
+    },
+    {
+      "name": "pandoc",
+      "description": "Universal document conversion powered by Pandoc - Convert between 50+ input and 60+ output formats including PDF, Word, HTML, EPUB, LaTeX, and presentations",
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./pandoc-plugin/pandoc"
+      ],
+      "commands": [
+        "./pandoc-plugin/commands"
+      ],
+      "memories": [
+        "./pandoc-plugin/memories"
       ]
     }
   ]

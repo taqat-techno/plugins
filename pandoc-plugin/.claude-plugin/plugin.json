@@ -1,0 +1,78 @@
+{
+  "name": "pandoc",
+  "version": "1.0.0",
+  "description": "Universal document conversion powered by Pandoc - Convert between 50+ input formats and 60+ output formats including PDF, Word, HTML, EPUB, LaTeX, Markdown, and presentations. Professional document transformation with templates, citations, and batch processing.",
+  "author": {
+    "name": "TAQAT Techno",
+    "email": "info@taqatechno.com",
+    "url": "https://github.com/taqat-techno"
+  },
+  "homepage": "https://github.com/taqat-techno/plugins/tree/main/pandoc-plugin",
+  "repository": "https://github.com/taqat-techno/plugins",
+  "license": "MIT",
+  "keywords": [
+    "pandoc",
+    "document-conversion",
+    "pdf",
+    "docx",
+    "word",
+    "markdown",
+    "html",
+    "epub",
+    "ebook",
+    "latex",
+    "slides",
+    "presentations",
+    "reveal.js",
+    "beamer",
+    "citations",
+    "bibliography",
+    "academic",
+    "documentation",
+    "technical-writing"
+  ],
+  "skills": "./pandoc/",
+  "commands": "./commands/",
+  "scripts": "./pandoc/scripts/",
+  "templates": "./templates/",
+  "memories": "./memories/",
+  "metadata": {
+    "pandoc-min-version": "3.0.0",
+    "supported-platforms": ["windows", "macos", "linux"],
+    "commands-count": 9,
+    "input-formats": "50+",
+    "output-formats": "60+",
+    "features": [
+      "pdf-generation",
+      "word-docx-conversion",
+      "html-generation",
+      "epub-ebook-creation",
+      "slide-presentations",
+      "latex-output",
+      "markdown-conversion",
+      "citation-processing",
+      "bibliography-management",
+      "custom-templates",
+      "batch-conversion",
+      "format-detection",
+      "table-of-contents",
+      "numbered-sections",
+      "math-rendering",
+      "syntax-highlighting"
+    ],
+    "primary-formats": {
+      "input": ["markdown", "docx", "html", "latex", "rst", "org", "epub", "csv"],
+      "output": ["pdf", "docx", "html", "epub", "latex", "beamer", "revealjs", "pptx"]
+    },
+    "dependencies": {
+      "required": ["pandoc"],
+      "optional-for-pdf": ["texlive", "miktex", "tinytext"],
+      "optional-for-citations": ["pandoc-crossref"]
+    },
+    "installation": {
+      "windows": ["choco install pandoc", "winget install JohnMacFarlane.Pandoc"],
+      "macos": ["brew install pandoc"],
+      "linux": ["apt install pandoc", "dnf install pandoc"]
+    }
+  }
+}
