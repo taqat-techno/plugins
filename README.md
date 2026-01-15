@@ -1,6 +1,6 @@
 # TAQAT Techno Plugins - Claude Code Skills Marketplace
 
-![Plugins](https://img.shields.io/badge/plugins-6-blue.svg)
+![Plugins](https://img.shields.io/badge/plugins-7-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 ![Odoo](https://img.shields.io/badge/Odoo-14--19-purple.svg)
 ![Azure DevOps](https://img.shields.io/badge/Azure_DevOps-Integrated-0078D7.svg)
@@ -15,10 +15,11 @@ Production-ready Claude Code plugins for professional development - Odoo ERP, Az
 |--------|-------------|---------|
 | [**odoo-upgrade**](./odoo-upgrade-plugin/README.md) | Odoo module upgrade assistant (v14-19) | 1.0.0 |
 | [**odoo-frontend**](./odoo-frontend-plugin/README.md) | Website theme development with Bootstrap | 1.0.0 |
-| [**odoo-report**](./odoo-report-plugin/README.md) | Email templates & QWeb reports toolkit | 1.0.0 |
+| [**odoo-report**](./odoo-report-plugin/README.md) | Email templates & QWeb reports (v14-19) | 1.0.0 |
 | [**codex**](./codex-plugin/README.md) | Universal code analysis & generation | 1.0.0 |
 | [**devops**](./devops-plugin/README.md) | Azure DevOps integration via MCP | 1.0.0 |
-| [**ntfy-notifications**](./ntfy-notifications/README.md) | Push notifications to your phone | 2.0.0 |
+| [**ntfy-notifications**](./ntfy-plugin/README.md) | Push notifications to your phone | 2.0.0 |
+| [**pandoc**](./pandoc-plugin/README.md) | Universal document conversion (50+ formats) | 1.0.0 |
 
 ---
 
@@ -58,7 +59,7 @@ Ask Claude:
 "Show me available skills"
 ```
 
-You should see all 6 plugins listed.
+You should see all 7 plugins listed.
 
 ---
 
@@ -106,42 +107,6 @@ Comprehensive website theme development with auto-detection, MCP integration, an
 ```
 
 [**Read Full Documentation**](./odoo-frontend-plugin/README.md)
-
----
-
-### Odoo Email Templates & QWeb Reports
-
-[![Docs](https://img.shields.io/badge/docs-README-blue)](./odoo-report-plugin/README.md)
-[![Odoo](https://img.shields.io/badge/Odoo-14--19-purple.svg)]()
-
-Professional toolkit for creating, managing, debugging, and migrating email templates and PDF reports across Odoo versions.
-
-**Features:**
-- Email template creation with pattern library (50+ patterns)
-- QWeb PDF report generation (30+ patterns)
-- Version-aware syntax (t-esc vs t-out)
-- Automatic template migration between versions
-- Template validation and debugging
-- Company branding support (Odoo 19)
-
-**Commands:**
-| Command | Description |
-|---------|-------------|
-| `/odoo-report` | Main entry point & help |
-| `/create-email-template` | Create professional email template |
-| `/create-qweb-report` | Create QWeb PDF report |
-| `/migrate-template` | Migrate between Odoo versions |
-| `/analyze-template` | Analyze template for issues |
-| `/fix-template` | Auto-fix common issues |
-
-**Usage:**
-```
-"Create an email template for sale.order quotation"
-"Migrate my templates from Odoo 14 to Odoo 17"
-"Create a PDF report for invoices"
-```
-
-[**Read Full Documentation**](./odoo-report-plugin/README.md)
 
 ---
 
@@ -228,7 +193,73 @@ Push notifications to your phone when Claude completes tasks, needs input, or en
 3. Run `/ntfy-setup` in Claude Code
 4. Done! Claude will now notify you automatically
 
-[**Read Full Documentation**](./ntfy-notifications/README.md)
+[**Read Full Documentation**](./ntfy-plugin/README.md)
+
+---
+
+### Odoo Email Templates & QWeb Reports
+
+[![Docs](https://img.shields.io/badge/docs-README-blue)](./odoo-report-plugin/README.md)
+[![Odoo](https://img.shields.io/badge/Odoo-14--19-purple.svg)]()
+
+Complete toolkit for creating, managing, and debugging email templates and PDF reports across Odoo versions.
+
+**Features:**
+- Email template generation with version-aware syntax
+- QWeb PDF report creation with action binding
+- Template validation and debugging
+- Migration between Odoo versions
+- Preview with sample data
+
+**Commands:**
+| Command | Description |
+|---------|-------------|
+| `/odoo-report` | Main entry point |
+| `/odoo-report:create-email-template` | Create email template |
+| `/odoo-report:create-qweb-report` | Create PDF report |
+| `/odoo-report:validate-template` | Validate syntax |
+| `/odoo-report:migrate-template` | Migrate between versions |
+
+[**Read Full Documentation**](./odoo-report-plugin/README.md)
+
+---
+
+### Pandoc - Universal Document Converter
+
+[![Docs](https://img.shields.io/badge/docs-README-blue)](./pandoc-plugin/README.md)
+[![Formats](https://img.shields.io/badge/formats-50%2B-green.svg)]()
+[![Pandoc](https://img.shields.io/badge/Pandoc-3.0%2B-blue.svg)]()
+
+Universal document conversion powered by Pandoc. Transform documents between 50+ input and 60+ output formats.
+
+**Features:**
+- PDF generation with LaTeX (academic, report, book presets)
+- Word document conversion with templates
+- HTML generation with CSS and syntax highlighting
+- EPUB eBook creation with covers and metadata
+- Presentations (reveal.js, Beamer, PowerPoint)
+- Batch conversion support
+
+**Commands:**
+| Command | Description |
+|---------|-------------|
+| `/pandoc` | Main help and status |
+| `/pandoc-pdf` | Convert to PDF |
+| `/pandoc-docx` | Convert to Word |
+| `/pandoc-html` | Convert to HTML |
+| `/pandoc-epub` | Create eBooks |
+| `/pandoc-slides` | Create presentations |
+| `/pandoc-convert` | General conversion |
+
+**Quick Examples:**
+```bash
+/pandoc-pdf document.md                    # Create PDF
+/pandoc-docx report.md --toc               # Word with TOC
+/pandoc-slides talk.md --theme=moon        # reveal.js slides
+/pandoc-epub book.md --cover=cover.jpg     # eBook with cover
+```
+
+[**Read Full Documentation**](./pandoc-plugin/README.md)
 
 ---
 
@@ -266,14 +297,6 @@ taqat-techno-plugins/
 │   ├── odoo-frontend/
 │   │   └── SKILL.md
 │   └── README.md
-├── odoo-report-plugin/            # Email templates & QWeb reports
-│   ├── odoo-report/
-│   │   └── SKILL.md
-│   ├── commands/
-│   ├── memories/
-│   ├── data/
-│   ├── templates/
-│   └── README.md
 ├── codex-plugin/                  # Universal code assistant
 │   ├── codex/
 │   │   └── SKILL.md
@@ -283,14 +306,22 @@ taqat-techno-plugins/
 │   │   └── SKILL.md
 │   ├── commands/
 │   └── README.md
-├── ntfy-notifications/            # Push notifications
-│   ├── notify.py
-│   ├── notification_checker.py
-│   ├── notification_logger.py
-│   ├── hooks.py
-│   ├── config.json
-│   ├── CLAUDE.md
+├── ntfy-plugin/                   # Push notifications
+│   ├── ntfy/
+│   │   └── SKILL.md
 │   ├── commands/
+│   └── README.md
+├── odoo-report-plugin/            # Email templates & QWeb reports
+│   ├── odoo-report/
+│   │   └── SKILL.md
+│   ├── commands/
+│   └── README.md
+├── pandoc-plugin/                 # Universal document conversion
+│   ├── pandoc/
+│   │   ├── SKILL.md
+│   │   └── scripts/
+│   ├── commands/
+│   ├── memories/
 │   └── README.md
 ├── agent_skills_spec.md           # Skills specification
 ├── CONTRIBUTING.md                # Contribution guidelines
@@ -370,4 +401,4 @@ MIT License - Free to use, modify, and distribute.
 
 ---
 
-**Plugins**: 6 | **Version**: 1.2.0 | **Maintainer**: TAQAT Techno
+**Plugins**: 7 | **Version**: 1.2.0 | **Maintainer**: TAQAT Techno
