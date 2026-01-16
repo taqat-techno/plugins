@@ -34,8 +34,6 @@
   "skills": "./pandoc/",
   "commands": "./commands/",
   "scripts": "./pandoc/scripts/",
-  "templates": "./templates/",
-  "memories": "./memories/",
   "metadata": {
     "pandoc-min-version": "3.0.0",
     "supported-platforms": ["windows", "macos", "linux"],

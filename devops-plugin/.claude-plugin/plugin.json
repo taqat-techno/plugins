@@ -33,7 +33,6 @@
   "commands": "./commands/",
   "hooks": "./hooks/hooks.json",
   "scripts": "./devops/scripts/",
-  "memories": "./memories/",
   "metadata": {
     "organization": "TaqaTechno",
     "release-date": "2025-12",
