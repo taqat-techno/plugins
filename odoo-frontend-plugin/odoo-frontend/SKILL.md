@@ -1,7 +1,7 @@
 ---
 name: odoo-frontend
 description: "Advanced Odoo frontend development with comprehensive theme development, /create-theme command, PWA support, modern JavaScript/TypeScript, testing frameworks, performance optimization, accessibility compliance, and real-time features. Features complete $o-website-values-palettes reference, theme mirror model architecture, publicWidget patterns with editableMode handling, and MCP integration. Supports Odoo 14-19 with auto-detection."
-version: "4.0.0"
+version: "5.0.0"
 author: "TAQAT Techno"
 license: "MIT"
 allowed-tools:
@@ -24,7 +24,7 @@ metadata:
   theme-features: ["o-website-values-palettes", "mirror-models", "snippet-groups", "color-palettes"]
 ---
 
-# Odoo Frontend Development Skill v3.1
+# Odoo Frontend Development Skill v5.0
 
 ## Overview
 
@@ -72,7 +72,7 @@ theme_<name>/
 ├── security/
 │   └── ir.model.access.csv
 ├── data/
-│   ├── assets.xml
+│   ├── assets.xml                   # Minimal - fonts via SCSS
 │   ├── menu.xml
 │   └── pages/                        # Individual page files (BEST PRACTICE!)
 │       ├── home_page.xml            # Homepage (inherits website.homepage)
@@ -80,22 +80,30 @@ theme_<name>/
 │       ├── contactus_page.xml       # Contact (inherits website.contactus)
 │       └── services_page.xml        # Services page
 ├── views/
-│   ├── layout/
-│   │   ├── header.xml               # Header customization
-│   │   ├── footer.xml               # Footer customization
-│   │   └── templates.xml            # Base layout templates
-│   └── snippets/
-│       └── custom_snippets.xml      # Custom snippet definitions
+│   └── templates.xml                # Layout customizations only
+│   # ⚠️ NO header.xml or footer.xml needed!
+│   # Configure via $o-website-values-palettes instead
 └── static/src/
     ├── scss/
-    │   ├── primary_variables.scss   # $o-website-values-palettes + colors
-    │   ├── bootstrap_overridden.scss
-    │   └── theme.scss
+    │   ├── primary_variables.scss   # ALL theme config here!
+    │   └── theme.scss               # Additional custom styles
+    │   # ⚠️ NO bootstrap_overridden.scss needed!
+    │   # Variables control everything
     ├── js/
-    │   ├── theme.js                 # publicWidget implementations
-    │   └── snippets_options.js
+    │   └── theme.js                 # publicWidget if needed
     └── img/
 ```
+
+### ⚠️ Simplified Approach (v5.0)
+
+**NO custom header/footer XML needed!** Configure via `$o-website-values-palettes`:
+- `'header-template'`: `'default'` | `'hamburger'` | `'vertical'` | `'sidebar'`
+- `'footer-template'`: `'default'` | `'centered'` | `'minimalist'` | `'links'` | `'descriptive'`
+
+**NO bootstrap_overridden.scss needed!** Variables control everything:
+- Button padding, radius, styles
+- Input padding, radius
+- Typography, spacing, layout
 
 ### Color System (o-color-1 to o-color-5)
 
@@ -473,87 +481,130 @@ website.page (Actual Page with website_id)
    python -c "import sys; sys.path.insert(0, 'helpers'); from version_detector import detect_version; print(detect_version('.'))"
    ```
 
-2. **Create Module Structure**
+2. **Create Module Structure** (SIMPLIFIED v5.0)
    ```
    theme_<name>/
    ├── __init__.py
    ├── __manifest__.py
+   ├── security/
+   │   └── ir.model.access.csv
    ├── data/
-   │   └── pages.xml
+   │   ├── assets.xml              # Minimal
+   │   ├── menu.xml
+   │   └── pages/                  # Individual page files
+   │       ├── home_page.xml
+   │       └── aboutus_page.xml
    ├── views/
-   │   ├── templates.xml
-   │   └── snippets/
-   │       └── custom_snippets.xml
+   │   └── templates.xml           # Layout only
+   │   # ⚠️ NO header.xml or footer.xml!
    ├── static/
    │   └── src/
    │       ├── scss/
-   │       │   ├── primary_variables.scss
-   │       │   └── bootstrap_overridden.scss
+   │       │   ├── primary_variables.scss  # ALL config here!
+   │       │   └── theme.scss
+   │       │   # ⚠️ NO bootstrap_overridden.scss!
    │       ├── js/
    │       │   └── theme.js
    │       └── img/
    └── README.md
    ```
 
-3. **Generate `__manifest__.py`**
+3. **Generate `__manifest__.py`** (SIMPLIFIED v5.0)
    ```python
    {
        'name': 'Theme <Name>',
        'version': '<odoo_version>.1.0.0',
        'category': 'Website/Theme',
-       'author': 'Your Company',
+       'author': 'TaqaTechno',
+       'website': 'https://www.taqatechno.com/',
+       'support': 'info@taqatechno.com',
+       'license': 'LGPL-3',
        'depends': ['website'],
        'data': [
+           'security/ir.model.access.csv',
+           'data/menu.xml',
+           # Individual page files (NOT a single pages.xml)
+           'data/pages/home_page.xml',
+           'data/pages/aboutus_page.xml',
+           'data/pages/contactus_page.xml',
            'views/templates.xml',
-           'views/snippets/custom_snippets.xml',
-           'data/pages.xml',
+           # ⚠️ NO header.xml or footer.xml needed!
        ],
        'assets': {
+           # ALL theme configuration in primary_variables.scss
            'web._assets_primary_variables': [
-               'theme_<name>/static/src/scss/primary_variables.scss',
+               ('prepend', 'theme_<name>/static/src/scss/primary_variables.scss'),
            ],
-           'web._assets_frontend_helpers': [
-               'theme_<name>/static/src/scss/bootstrap_overridden.scss',
-           ],
+           # Additional custom styles (optional)
            'web.assets_frontend': [
+               'theme_<name>/static/src/scss/theme.scss',
                'theme_<name>/static/src/js/theme.js',
            ],
+           # ⚠️ NO web._assets_frontend_helpers entry needed!
+           # Bootstrap overrides done via $o-website-values-palettes
        },
        'installable': True,
        'auto_install': False,
        'application': False,
-       'license': 'LGPL-3',
    }
    ```
 
-4. **Generate `primary_variables.scss`**
+4. **Generate `primary_variables.scss`** (COMPLETE v5.0)
    ```scss
-   // Theme Primary Variables
-   // Override Odoo's default variables here
+   // ===================================================================
+   // Theme: <Name>
+   // Generated by TAQAT Techno /create-theme command v5.0
+   // ===================================================================
+   //
+   // ⚠️ IMPORTANT: This file is PREPENDED before Odoo core variables!
+   // DO NOT use map-merge() with core variables - they don't exist yet!
+   // ===================================================================
 
-   // Color Palette (o-color-1 through o-color-5)
-   $o-color-1: #3498db !default;
-   $o-color-2: #2ecc71 !default;
-   $o-color-3: #e74c3c !default;
-   $o-color-4: #f39c12 !default;
-   $o-color-5: #9b59b6 !default;
+   // === Font Configuration (STANDALONE - no map-merge!) ===
+   $o-theme-font-configs: (
+       'Inter': (
+           'family': ('Inter', sans-serif),
+           'url': 'Inter:300,300i,400,400i,500,500i,600,600i,700,700i',
+       ),
+   );
 
-   // Website Values Palette
+   // === Website Values Palette (MASTER CONFIGURATION) ===
+   // NO bootstrap_overridden.scss needed - configure everything here!
    $o-website-values-palettes: (
        (
-           'color-palettes-name': 'theme-<name>-palette',
-           // Typography
+           // Reference existing palette (avoids map-merge issues)
+           'color-palettes-name': 'default-1',
+
+           // === Typography ===
            'font': 'Inter',
            'headings-font': 'Inter',
            'navbar-font': 'Inter',
            'buttons-font': 'Inter',
-           // Header
+
+           // === Header (NO custom header.xml needed!) ===
+           // Options: 'default' | 'hamburger' | 'vertical' | 'sidebar'
            'header-template': 'default',
+           'header-links-style': 'default',
            'logo-height': 3rem,
-           // Buttons
-           'btn-border-radius': 0.25rem,
+           'fixed-logo-height': 2rem,
+
+           // === Buttons ===
            'btn-padding-y': 0.45rem,
            'btn-padding-x': 1.35rem,
+           'btn-border-radius': 0.25rem,
+
+           // === Inputs ===
+           'input-padding-y': 0.45rem,
+           'input-border-radius': 0.25rem,
+
+           // === Footer (NO custom footer.xml needed!) ===
+           // Options: 'default' | 'centered' | 'minimalist' | 'links' | 'descriptive'
+           'footer-template': 'default',
+           'footer-scrolltop': true,
+
+           // === Links & Layout ===
+           'link-underline': 'hover',
+           'layout': 'full',
        )
    );
    ```
@@ -2016,6 +2067,15 @@ jobs:
 
 ## Changelog
 
+- **v5.0.0**: Major simplification based on comprehensive variable system analysis
+  - **⚠️ NO bootstrap_overridden.scss needed**: All Bootstrap control via `$o-website-values-palettes`
+  - **⚠️ NO custom header/footer XML needed**: Configure via variables instead
+    - `'header-template'`: `'default'` | `'hamburger'` | `'vertical'` | `'sidebar'`
+    - `'footer-template'`: `'default'` | `'centered'` | `'minimalist'` | `'links'` | `'descriptive'`
+  - **Complete $o-website-values-palettes reference**: 115+ configuration keys documented
+  - **Complete $o-theme-font-configs reference**: Google Fonts via 'family' + 'url' (parameter only)
+  - **Simplified theme structure**: Fewer files, variables control everything
+  - **Updated all templates**: Removed unnecessary files from /create-theme output
 - **v4.0.0**: CRITICAL fixes based on real-world theme development issues
   - **⚠️ SCSS Load Order Documentation**: Documented that theme SCSS loads BEFORE core variables
   - **Removed map-merge() patterns**: Fixed examples that used `map-merge()` with core variables (causes "Undefined variable" errors)
