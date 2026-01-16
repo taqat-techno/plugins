@@ -268,6 +268,49 @@ $o-website-values-palettes: (
 - `'links'` - Link-heavy footer
 - `'sales_four'` - Sales conversion optimized
 
+### ⚠️ CRITICAL: SCSS Load Order in Odoo Themes
+
+**Theme SCSS files load BEFORE core Odoo variables are defined!**
+
+When you use `prepend` in your manifest's asset bundles, your SCSS executes BEFORE Odoo's core `primary_variables.scss`:
+
+```
+LOAD ORDER:
+1. YOUR theme's primary_variables.scss (via prepend)  ← FIRST
+2. Odoo core primary_variables.scss                    ← SECOND (where $o-color-palettes, etc. are FIRST defined)
+3. Other SCSS files
+```
+
+**⛔ CRITICAL LIMITATIONS:**
+- **CANNOT use map-merge()** with core variables (they don't exist yet!)
+- `$o-color-palettes`, `$o-theme-color-palettes`, `$o-theme-font-configs` are all UNDEFINED when your theme loads
+
+**❌ WRONG (Will cause "Undefined variable" error):**
+```scss
+$o-color-palettes: map-merge($o-color-palettes, (...));         // ERROR!
+$o-theme-font-configs: map-merge($o-theme-font-configs, (...)); // ERROR!
+```
+
+**✅ CORRECT (Define as standalone):**
+```scss
+// Standalone font config (no map-merge!)
+$o-theme-font-configs: (
+    'Poppins': (
+        'family': ('Poppins', sans-serif),
+        'url': 'Poppins:300,300i,400,400i,500,500i,600,600i,700,700i',
+    ),
+);
+
+// Reference existing palette by name (not custom palette!)
+$o-website-values-palettes: (
+    (
+        'color-palettes-name': 'default-1',  // Use existing palette name!
+        'font': 'Poppins',
+        // ...other values
+    ),
+);
+```
+
 ### Theme Color Palettes (o-color Semantic Structure)
 
 **Color Semantic Meanings:**
@@ -277,41 +320,41 @@ $o-website-values-palettes: (
 - **o-color-4** = White/body base color (main content background)
 - **o-color-5** = Dark color/font base (text color, dark mode considerations)
 
+**⚠️ IMPORTANT**: Due to SCSS load order, you CANNOT create custom color palettes via `map-merge()` in theme modules. Instead, reference existing palettes:
+
 ```scss
-$o-theme-color-palettes: map-merge($o-theme-color-palettes, (
-    'my-theme-palette': (
-        'o-color-1': #007bff,      // Primary brand color
-        'o-color-2': #6c757d,      // Secondary brand color
-        'o-color-3': #f8f9fa,      // Light backgrounds
-        'o-color-4': #ffffff,      // White/body base
-        'o-color-5': #343a40,      // Dark text/dark mode base
-        'menu': 1,                  // Which color for menu (1-5)
-        'footer': 4,                // Which color for footer (1-5)
-        'copyright': 5,             // Which color for copyright (1-5)
+// Reference existing Odoo palette names:
+// 'default-1' through 'default-21' (standard Odoo palettes)
+
+$o-website-values-palettes: (
+    (
+        'color-palettes-name': 'default-1',  // Reference existing palette
+        'font': 'Inter',
+        'headings-font': 'Inter',
+        // ... customize non-color settings
     ),
-));
+);
 ```
 
 ### Font Configuration System
 
+**⚠️ IMPORTANT**: Define fonts as STANDALONE (no map-merge!):
+
 ```scss
-$o-theme-font-configs: map-merge($o-theme-font-configs, (
+// ✅ CORRECT: Standalone definition
+$o-theme-font-configs: (
     'Inter': (
         'family': ('Inter', sans-serif),
-        'url': 'Inter:wght@300;400;500;600;700&display=swap',
-        'properties': (
-            'base': (
-                'font-size-base': 1rem,
-                'line-height-base': 1.6,
-            ),
-        )
+        'url': 'Inter:wght@300;400;500;600;700',
     ),
     'Montserrat': (
         'family': ('Montserrat', sans-serif),
         'url': 'Montserrat:300,300i,400,400i,700,700i',
     ),
-));
+);
 ```
+
+**❌ WRONG**: Do NOT use `ir.asset` records for Google Fonts in themes - this causes malformed URLs!
 
 ### Typography Hierarchy
 
@@ -1098,13 +1141,21 @@ $o-website-values-palettes: (
     )
 );
 
-// Google Fonts Configuration
+// Google Fonts Configuration (STANDALONE - no map-merge!)
 $o-theme-font-configs: (
     'Inter': (
         'family': ('Inter', sans-serif),
         'url': 'Inter:wght@300;400;500;600;700',
     ),
 );
+```
+
+**⚠️ NEVER use these patterns in themes:**
+```scss
+// ❌ WRONG - Will cause "Undefined variable" errors
+$o-color-palettes: map-merge($o-color-palettes, (...));
+$o-theme-color-palettes: map-merge($o-theme-color-palettes, (...));
+$o-theme-font-configs: map-merge($o-theme-font-configs, (...));
 ```
 
 ### Bootstrap Overrides
@@ -1380,6 +1431,45 @@ grep ERROR odoo.log
 
 ## Troubleshooting
 
+### ⚠️ SCSS Compilation Errors (CRITICAL)
+
+**Issue: "Undefined variable: $o-color-palettes" or "$o-theme-font-configs"**
+
+**Cause:** Using `map-merge()` with core Odoo variables in theme SCSS. Theme files load BEFORE core variables are defined.
+
+**Solution:**
+1. Remove ALL `map-merge()` calls with core variables
+2. Define `$o-theme-font-configs` as standalone (no merge)
+3. Use `'color-palettes-name': 'default-1'` to reference existing palettes
+4. See "CRITICAL: SCSS Load Order" section above
+
+**Issue: CSS showing 0 rules / Styles not loading**
+
+**Cause:** Silent SCSS compilation failure due to undefined variables.
+
+**Diagnosis:**
+```javascript
+// In browser console
+document.styleSheets[0].cssRules.length  // Should be > 0
+// If 0, SCSS compilation failed silently
+```
+
+**Solution:**
+1. Check browser console for "Style compilation failed" errors
+2. Fix undefined variable errors (see above)
+3. Clear asset cache:
+```python
+# Via Odoo shell
+>>> self.env['ir.attachment'].search([('url', 'like', '/web/assets/')]).unlink()
+>>> self.env.cr.commit()
+```
+
+**Issue: Malformed Google Fonts URL**
+
+**Cause:** Using `ir.asset` records for external font URLs causes URL duplication.
+
+**Solution:** Use `$o-theme-font-configs` in SCSS instead of `ir.asset` XML records.
+
 ### Snippet Not Appearing
 
 **Causes:**
@@ -1401,12 +1491,14 @@ grep ERROR odoo.log
 - Variable override not using `!default`
 - CSS specificity issues
 - Asset not compiled
+- **SCSS compilation failed silently** (check console!)
 
 **Solutions:**
 1. Verify asset bundle in manifest
 2. Clear browser cache
 3. Check asset regeneration: `odoo-bin --update theme_<name>`
 4. Use browser DevTools to inspect computed styles
+5. **Check console for SCSS errors first!**
 
 ### JavaScript Not Working
 
@@ -1421,6 +1513,19 @@ grep ERROR odoo.log
 2. Verify widget/component registration
 3. Check console for errors
 4. Ensure correct Owl version usage
+
+### XPath Errors in Header/Footer Templates
+
+**Cause:** Complex XPath expressions like `//header//nav` may not match Odoo's actual HTML structure.
+
+**Solution:** Use simple XPath expressions:
+```xml
+<!-- ✅ CORRECT: Simple XPath -->
+<xpath expr="//header" position="attributes">
+
+<!-- ❌ WRONG: Complex XPath may not match -->
+<xpath expr="//header//nav" position="attributes">
+```
 
 ## Expert Tips
 
@@ -1911,6 +2016,13 @@ jobs:
 
 ## Changelog
 
+- **v4.0.0**: CRITICAL fixes based on real-world theme development issues
+  - **⚠️ SCSS Load Order Documentation**: Documented that theme SCSS loads BEFORE core variables
+  - **Removed map-merge() patterns**: Fixed examples that used `map-merge()` with core variables (causes "Undefined variable" errors)
+  - **Font loading fix**: Use `$o-theme-font-configs` as standalone, NOT via `ir.asset` records
+  - **XPath simplification**: Use simple expressions (//header) not complex ones (//header//nav)
+  - **Enhanced troubleshooting**: Added SCSS debugging, asset cache clearing, silent compilation failures
+  - **Corrected all templates**: `/create-theme` command now generates working code without map-merge issues
 - **v3.1.0**: Added `/create-theme` command for complete theme generation based on 40+ real implementations
   - Complete `$o-website-values-palettes` configuration
   - Semantic color system (`o-color-1` to `o-color-5`)
