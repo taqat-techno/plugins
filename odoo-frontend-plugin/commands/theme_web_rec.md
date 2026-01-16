@@ -1,8 +1,8 @@
 ---
-description: Create theme mirror models following Odoo core patterns for website themes
-author: TAQAT Techno
-author-url: https://github.com/taqat-techno
-version: 1.0.0
+title: 'Theme Web Rec'
+read_only: false
+type: 'command'
+description: 'Create theme mirror models following Odoo core patterns for website themes'
 ---
 
 # Theme Website Record Command

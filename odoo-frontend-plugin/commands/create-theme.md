@@ -1,9 +1,8 @@
 ---
 title: 'Create Theme'
+read_only: false
+type: 'command'
 description: 'Create a complete Odoo website theme by extracting design system variables from Figma via Chrome browser automation'
-author: TAQAT Techno
-author-url: https://github.com/taqat-techno
-version: 4.0.0
 ---
 
 # /create-theme - Figma-to-Odoo Theme Generator

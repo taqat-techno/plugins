@@ -1,20 +1,27 @@
 ---
 name: odoo-frontend
 description: "Advanced Odoo frontend development with comprehensive theme development, /create-theme command, PWA support, modern JavaScript/TypeScript, testing frameworks, performance optimization, accessibility compliance, and real-time features. Features complete $o-website-values-palettes reference, theme mirror model architecture, publicWidget patterns with editableMode handling, and MCP integration. Supports Odoo 14-19 with auto-detection."
-allowed-tools: [Read, Write, Edit, Bash, Grep, Glob, WebFetch]
+version: "4.0.0"
+author: "TAQAT Techno"
+license: "MIT"
+allowed-tools:
+  - Read
+  - Write
+  - Edit
+  - Bash
+  - Grep
+  - Glob
+  - WebFetch
 metadata:
-  version: "3.1.0"
-  odoo-versions: "14,15,16,17,18,19"
-  bootstrap-versions: "4.x,5.1.3"
+  odoo-versions: ["14", "15", "16", "17", "18", "19"]
+  bootstrap-versions: ["4.x", "5.1.3"]
   javascript-features: ["ES2020+", "TypeScript", "Owl v1/v2", "Web Components", "publicWidget"]
   testing-frameworks: ["Jest", "Cypress", "BackstopJS"]
   performance-tools: ["Core Web Vitals", "Lighthouse", "Vite"]
   accessibility: ["WCAG 2.1 AA", "ARIA", "Screen Readers"]
   real-time: ["WebSockets", "SSE", "Push Notifications"]
-  mcp-tools: ["figma", "chrome-devtools", "filesystem"]
+  mcp-tools: ["claude-in-chrome", "figma", "chrome-devtools", "filesystem"]
   theme-features: ["o-website-values-palettes", "mirror-models", "snippet-groups", "color-palettes"]
-  author: "TAQAT Techno"
-  license: "MIT"
 ---
 
 # Odoo Frontend Development Skill v3.1

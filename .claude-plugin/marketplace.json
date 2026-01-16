@@ -26,6 +26,9 @@
       "strict": false,
       "skills": [
         "./odoo-frontend-plugin/odoo-frontend"
+      ],
+      "commands": [
+        "./odoo-frontend-plugin/commands"
       ]
     },
     {
