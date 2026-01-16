@@ -72,7 +72,7 @@ theme_<name>/
 ├── security/
 │   └── ir.model.access.csv
 ├── data/
-│   ├── assets.xml                   # Minimal - fonts via SCSS
+│   ├── assets.xml
 │   ├── menu.xml
 │   └── pages/                        # Individual page files (BEST PRACTICE!)
 │       ├── home_page.xml            # Homepage (inherits website.homepage)
@@ -80,30 +80,32 @@ theme_<name>/
 │       ├── contactus_page.xml       # Contact (inherits website.contactus)
 │       └── services_page.xml        # Services page
 ├── views/
-│   └── templates.xml                # Layout customizations only
-│   # ⚠️ NO header.xml or footer.xml needed!
-│   # Configure via $o-website-values-palettes instead
+│   ├── layout/
+│   │   ├── header.xml               # Header customization (OPTIONAL)
+│   │   ├── footer.xml               # Footer customization (OPTIONAL)
+│   │   └── templates.xml            # Base layout templates
+│   └── snippets/
+│       └── custom_snippets.xml      # Custom snippet definitions
 └── static/src/
     ├── scss/
-    │   ├── primary_variables.scss   # ALL theme config here!
+    │   ├── primary_variables.scss   # Theme variables + fonts
+    │   ├── bootstrap_overridden.scss # Bootstrap overrides (OPTIONAL)
     │   └── theme.scss               # Additional custom styles
-    │   # ⚠️ NO bootstrap_overridden.scss needed!
-    │   # Variables control everything
     ├── js/
-    │   └── theme.js                 # publicWidget if needed
+    │   ├── theme.js                 # publicWidget implementations
+    │   └── snippets_options.js      # Snippet options (if needed)
     └── img/
 ```
 
-### ⚠️ Simplified Approach (v5.0)
+### 💡 Simplified Approach (Recommended)
 
-**NO custom header/footer XML needed!** Configure via `$o-website-values-palettes`:
+In MOST cases, you can configure via `$o-website-values-palettes` without custom XML:
 - `'header-template'`: `'default'` | `'hamburger'` | `'vertical'` | `'sidebar'`
 - `'footer-template'`: `'default'` | `'centered'` | `'minimalist'` | `'links'` | `'descriptive'`
 
-**NO bootstrap_overridden.scss needed!** Variables control everything:
-- Button padding, radius, styles
-- Input padding, radius
-- Typography, spacing, layout
+**When to use custom header.xml/footer.xml:**
+- Design requires completely custom layout not available in templates
+- Need additional HTML elements beyond what templates provide
 
 ### Color System (o-color-1 to o-color-5)
 
@@ -179,102 +181,452 @@ The version detector will:
 - Odoo 14-17: Simple snippet insertion without groups
 - Odoo 18-19: Snippet groups required (`snippet_structure` with groups)
 
-## Complete Website Theme Variables System
+## Complete Theme Variables Reference
 
-### $o-website-values-palettes - Full Reference
+This section provides complete documentation for the three core SCSS variable systems used in Odoo themes.
 
-Themes define comprehensive configuration presets. Based on analysis of 27+ standard Odoo themes:
+---
+
+### 📚 1. $o-theme-font-configs - Google Fonts Configuration
+
+`$o-theme-font-configs` defines available fonts for Odoo website themes with automatic Google Fonts import.
+
+#### Structure
 
 ```scss
-$o-website-values-palettes: (
-    (
-        // === CORE CONFIGURATION ===
-        'color-palettes-name': 'your-theme-palette',  // Required: Links to color palette
-
-        // === HEADER & NAVIGATION ===
-        'header-template': 'default',           // Layout style
-        'header-font-size': 1rem,               // Navigation text size
-        'header-links-style': 'default',        // Navigation link styling
-        'hamburger-position': 'right',          // Mobile menu position
-        'logo-height': 3rem,                    // Logo size
-        'fixed-logo-height': 2rem,              // Logo size when header is fixed
-
-        // === TYPOGRAPHY ===
-        'font': 'Source Sans Pro',              // Body text font
-        'headings-font': 'Spartan',             // Heading font (h1-h6)
-        'navbar-font': 'Inter',                 // Navigation font
-        'buttons-font': 'Montserrat',           // Button text font
-        'headings-line-height': 1.1,            // Heading line spacing
-
-        // === BUTTONS ===
-        'btn-padding-y': .45rem,                // Vertical button padding
-        'btn-padding-x': 1.35rem,               // Horizontal button padding
-        'btn-padding-y-sm': .3rem,              // Small button vertical padding
-        'btn-padding-x-sm': .9rem,              // Small button horizontal padding
-        'btn-padding-y-lg': .6rem,              // Large button vertical padding
-        'btn-padding-x-lg': 1.8rem,             // Large button horizontal padding
-        'btn-border-radius': 10rem,             // Button corner rounding (10rem = pill)
-        'btn-border-radius-sm': 10rem,          // Small button rounding
-        'btn-border-radius-lg': 10rem,          // Large button rounding
-        'btn-border-width': 2px,                // Button border thickness
-        'btn-font-size': 1.2rem,                // Button text size
-        'btn-ripple': true,                     // Material design ripple effect
-        'btn-primary-flat': true,               // Flat primary button style
-        'btn-secondary-flat': true,             // Flat secondary button style
-        'btn-secondary-outline': true,          // Outline secondary button style
-
-        // === INPUT FIELDS ===
-        'input-padding-y': .45rem,              // Vertical input padding
-        'input-padding-y-sm': .3rem,            // Small input vertical padding
-        'input-padding-y-lg': .6rem,            // Large input vertical padding
-        'input-border-radius': .125rem,         // Input corner rounding
-        'input-border-radius-sm': .125rem,      // Small input rounding
-        'input-border-radius-lg': .125rem,      // Large input rounding
-
-        // === FOOTER ===
-        'footer-template': 'headline',          // Footer layout style
-        'footer-effect': 'slideout_slide_hover', // Footer animation effect
-        'footer-scrolltop': true,               // Show scroll-to-top button
-
-        // === LINKS ===
-        'link-underline': 'never',              // Link underline behavior
-
-        // === LAYOUT ===
-        'layout': 'boxed',                      // Overall page layout
-        'menu-border-radius': 0,                // Menu corner rounding
+$o-theme-font-configs: (
+    '<Font Name>': (
+        'family': (<CSS font-family list>),     // Required: Font family with fallbacks
+        'url': '<Google Fonts parameter>',       // Required*: Google Fonts query param ONLY
+        'properties': (                          // Optional: Per-context CSS overrides
+            '<font-alias>': (
+                '<website-value-key>': <value>,
+            ),
+        ),
     ),
 );
 ```
 
-### Variable Options Reference
+**⚠️ CRITICAL**: The `'url'` key contains **only the query parameter**, NOT the full URL!
+
+```scss
+// ✅ CORRECT - Only the font parameter
+'url': 'Poppins:300,300i,400,400i,600,600i,700,700i'
+
+// The system generates: https://fonts.googleapis.com/css?family=Poppins:...&display=swap
+
+// ❌ WRONG - Do not include full URL
+'url': 'https://fonts.googleapis.com/css?family=Poppins:300,400,700'
+```
+
+#### Font Weight Specification
+
+```scss
+// Format: FontName:weight1,weight1i,weight2,weight2i,...
+//   - Number alone = normal style
+//   - Number + 'i' = italic style
+
+'url': 'Poppins:300,300i,400,400i,600,600i,700,700i'
+//      Light  Light-i  Regular Regular-i SemiBold ...
+```
+
+#### Multiple Word Font Names
+
+```scss
+// Replace spaces with +
+'url': 'Open+Sans:300,300i,400,400i,700,700i'
+'url': 'Source+Sans+Pro:300,300i,400,400i,700,700i'
+'url': 'DM+Serif+Display:400,400i'
+```
+
+#### Font Aliases (for 'properties' key)
+
+| Alias | Maps To | Usage |
+|-------|---------|-------|
+| `'base'` | `'font'` | Body text |
+| `'headings'` | `'headings-font'` | All headings (H1-H6) |
+| `'h2'` - `'h6'` | `'h2-font'` - `'h6-font'` | Individual headings |
+| `'navbar'` | `'navbar-font'` | Navigation menu |
+| `'buttons'` | `'buttons-font'` | Button text |
+| `'display-1'` - `'display-4'` | `'display-1-font'` - `'display-4-font'` | Display text |
+
+#### Complete Example
+
+```scss
+// ⚠️ STANDALONE definition - NO map-merge with core variables!
+$o-theme-font-configs: (
+    'Poppins': (
+        'family': ('Poppins', sans-serif),
+        'url': 'Poppins:300,300i,400,400i,500,500i,600,600i,700,700i',
+        'properties': (
+            'base': (
+                'font-size-base': (15 / 16) * 1rem,
+                'header-font-size': (15 / 16) * 1rem,
+            ),
+        ),
+    ),
+    'Playfair Display': (
+        'family': ('Playfair Display', serif),
+        'url': 'Playfair+Display:400,400i,700,700i',
+    ),
+    'Inter': (
+        'family': ('Inter', sans-serif),
+        'url': 'Inter:300,400,500,600,700',
+    ),
+);
+```
+
+#### Arabic/RTL Font Support
+
+```scss
+$o-theme-font-configs: (
+    'IBM Plex Sans Arabic': (
+        'family': ('IBM Plex Sans Arabic', sans-serif),
+        'url': 'IBM+Plex+Sans+Arabic:100,200,300,400,500,600,700',
+    ),
+    'Cairo': (
+        'family': ('Cairo', sans-serif),
+        'url': 'Cairo:200,300,400,500,600,700,800,900',
+    ),
+    'Almarai': (
+        'family': ('Almarai', sans-serif),
+        'url': 'Almarai:300,400,700,800',
+    ),
+);
+```
+
+---
+
+### 📚 2. $o-color-palettes - Color System
+
+`$o-color-palettes` defines all color palettes with 5 core colors plus component assignments.
+
+#### The Five Core Colors
+
+| Color | Semantic Meaning | Typical Usage |
+|-------|------------------|---------------|
+| `o-color-1` | **Primary/Accent** | Brand color, buttons, links, highlights |
+| `o-color-2` | **Secondary** | Complementary accent, secondary buttons |
+| `o-color-3` | **Light Background** | Section backgrounds, cards, light areas |
+| `o-color-4` | **White/Lightest** | Main content background (usually #FFFFFF) |
+| `o-color-5` | **Dark/Text** | Dark backgrounds, text color, footer |
+
+#### Visual Representation
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  o-color-4 (White Background)                           │
+│  ┌─────────────────────────────────────────────────┐   │
+│  │  o-color-3 (Light Section)                      │   │
+│  │    Text: o-color-5 (Dark)                       │   │
+│  │    Links: o-color-1 (Primary)                   │   │
+│  │    Buttons: o-color-1 (Primary), o-color-2 (Sec)│   │
+│  └─────────────────────────────────────────────────┘   │
+│  ┌─────────────────────────────────────────────────┐   │
+│  │  o-color-5 (Dark Section - Footer)              │   │
+│  │    Text: o-color-4 (White)                      │   │
+│  │    Links: o-color-3 (Light)                     │   │
+│  └─────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────┘
+```
+
+#### Color Combinations (o_cc1 - o_cc5)
+
+Color combinations are **preset color schemes** that automatically set background, text, headings, links, and buttons.
+
+| Class | Background | Typical Usage |
+|-------|------------|---------------|
+| `o_cc1` | `o-color-4` (White) | Main content areas |
+| `o_cc2` | `o-color-3` (Light) | Alternate sections |
+| `o_cc3` | `o-color-2` (Secondary) | Accent sections |
+| `o_cc4` | `o-color-1` (Primary) | Call-to-action sections |
+| `o_cc5` | `o-color-5` (Dark) | Footer, dark sections |
+
+#### Color Palette Structure
+
+```scss
+$o-color-palettes: map-merge($o-color-palettes, (
+    'my-palette': (
+        // Required: The 5 core colors
+        'o-color-1': #09294F,      // Primary (Navy blue)
+        'o-color-2': #FFA807,      // Secondary (Orange)
+        'o-color-3': #F6F4F0,      // Light background
+        'o-color-4': #FFFFFF,      // White
+        'o-color-5': #1B212C,      // Dark
+
+        // Component color assignments (1-5 → o_cc1-o_cc5)
+        'menu': 1,                 // Menu uses o_cc1
+        'footer': 5,               // Footer uses o_cc5
+        'copyright': 5,            // Copyright uses o_cc5
+
+        // Color combination overrides
+        'o-cc1-text': 'o-color-5',
+        'o-cc1-headings': 'o-color-5',
+        'o-cc5-link': 'o-color-4',
+        'o-cc5-btn-primary': 'o-color-2',
+    ),
+));
+```
+
+#### Override Syntax for Color Combinations
+
+```scss
+// Override specific colors within a combination
+'o-cc{n}-{property}': value
+
+// Available properties:
+'o-cc1-text': #333333,           // Text color
+'o-cc1-headings': 'o-color-5',   // Headings color
+'o-cc1-link': 'o-color-1',       // Link color
+'o-cc1-btn-primary': 'o-color-1', // Primary button
+'o-cc1-btn-secondary': 'o-color-2', // Secondary button
+
+// Example for dark background (o_cc5)
+'o-cc5-text': rgba(#fff, .8),    // Semi-transparent white
+'o-cc5-headings': 'o-color-4',   // White headings
+'o-cc5-link': 'o-color-4',       // White links
+'o-cc5-btn-primary': 'o-color-2', // Orange buttons on dark
+```
+
+#### HTML Usage
+
+```xml
+<!-- White background section -->
+<section class="o_cc o_cc1 pt32 pb32">
+    <div class="container"><h2>Content</h2></div>
+</section>
+
+<!-- Light background section -->
+<section class="o_cc o_cc2 pt32 pb32">...</section>
+
+<!-- Primary color background (CTA) -->
+<section class="o_cc o_cc4 pt32 pb32">...</section>
+
+<!-- Dark background (footer style) -->
+<section class="o_cc o_cc5 pt32 pb32">...</section>
+```
+
+---
+
+### 📚 3. $o-website-values-palettes - Complete Configuration (115+ Keys)
+
+`$o-website-values-palettes` is the **master configuration variable** controlling Bootstrap components, typography, buttons, inputs, header/footer templates, and much more.
+
+#### Quick Reference by Category
+
+| Category | Keys Count | Description |
+|----------|------------|-------------|
+| Typography & Fonts | 13 | Font family configuration |
+| Font Sizes | 13 | Base and heading sizes |
+| Line Heights | 11 | Text spacing |
+| Margins | 22 | Heading and paragraph margins |
+| Buttons | 17 | Button styling |
+| Inputs | 12 | Form field styling |
+| Header | 13 | Header/navigation config |
+| Footer | 3 | Footer config |
+| Links | 1 | Link underline behavior |
+| Layout | 3 | Page layout |
+| Colors & Gradients | 5 | Color palette and gradients |
+| Google Fonts | 2 | Additional font loading |
+| **Total** | **115+** | |
+
+#### 3.1 Typography & Fonts
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `'font'` | string | First in config | Base font for entire site |
+| `'headings-font'` | string | Inherits `font` | Font for H1-H6 headings |
+| `'navbar-font'` | string | Inherits `font` | Font for navigation menu |
+| `'buttons-font'` | string | Inherits `font` | Font for button text |
+| `'h2-font'` - `'h6-font'` | string | Inherits headings | Individual heading fonts |
+| `'display-1-font'` - `'display-4-font'` | string | Inherits headings | Display text fonts |
+
+#### 3.2 Font Sizes
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `'font-size-base'` | size | `1rem` | Base font size (16px) |
+| `'small-font-size'` | size | `0.875rem` | Small text (14px) |
+| `'h1-font-size'` - `'h6-font-size'` | size | Calculated | Heading sizes |
+| `'display-1-font-size'` - `'display-6-font-size'` | size | 5rem-2.5rem | Display sizes |
+
+#### 3.3 Line Heights & Margins
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `'body-line-height'` | number | `1.5` | Body text line height |
+| `'headings-line-height'` | number | `1.2` | All headings line height |
+| `'h2-line-height'` - `'h6-line-height'` | number | Inherits | Individual heading line heights |
+| `'paragraph-margin-top'` | size | `0` | Paragraph top margin |
+| `'paragraph-margin-bottom'` | size | `16px` | Paragraph bottom margin |
+| `'headings-margin-top'` | size | `0` | Headings top margin |
+| `'headings-margin-bottom'` | size | `0.5rem` | Headings bottom margin |
+| `'h2-margin-top'` - `'h6-margin-top'` | size | Inherits | Individual margins |
+| `'h2-margin-bottom'` - `'h6-margin-bottom'` | size | Inherits | Individual margins |
+
+#### 3.4 Buttons (17 Keys)
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `'btn-padding-y'` | size | Bootstrap | Vertical padding |
+| `'btn-padding-x'` | size | Bootstrap | Horizontal padding |
+| `'btn-font-size'` | size | Bootstrap | Font size |
+| `'btn-padding-y-sm'` / `'btn-padding-x-sm'` | size | Bootstrap | Small button padding |
+| `'btn-padding-y-lg'` / `'btn-padding-x-lg'` | size | Bootstrap | Large button padding |
+| `'btn-font-size-sm'` / `'btn-font-size-lg'` | size | Bootstrap | Size variants |
+| `'btn-border-width'` | size | Bootstrap | Border thickness |
+| `'btn-border-radius'` | size | Bootstrap | Corner radius |
+| `'btn-border-radius-sm'` / `'btn-border-radius-lg'` | size | Bootstrap | Size variant radius |
+| `'btn-primary-outline'` | boolean | `false` | Primary as outline |
+| `'btn-secondary-outline'` | boolean | `false` | Secondary as outline |
+| `'btn-primary-flat'` | boolean | `false` | Flat primary style |
+| `'btn-secondary-flat'` | boolean | `false` | Flat secondary style |
+| `'btn-ripple'` | boolean | `false` | Material Design ripple |
+
+#### 3.5 Inputs & Forms (12 Keys)
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `'input-padding-y'` / `'input-padding-x'` | size | Bootstrap | Input padding |
+| `'input-font-size'` | size | Bootstrap | Input font size |
+| `'input-padding-y-sm'` / `'input-padding-x-sm'` | size | Bootstrap | Small input padding |
+| `'input-padding-y-lg'` / `'input-padding-x-lg'` | size | Bootstrap | Large input padding |
+| `'input-border-width'` | size | Bootstrap | Border thickness |
+| `'input-border-radius'` | size | Bootstrap | Corner radius |
+| `'input-border-radius-sm'` / `'input-border-radius-lg'` | size | Bootstrap | Size variant radius |
+
+#### 3.6 Header & Navigation (13 Keys)
+
+| Key | Type | Values | Default | Description |
+|-----|------|--------|---------|-------------|
+| `'header-template'` | string | See below | `'default'` | Header layout |
+| `'header-links-style'` | string | See below | `'default'` | Nav link styling |
+| `'header-font-size'` | size | CSS length | Bootstrap | Header text size |
+| `'logo-height'` | size | CSS length | Navbar height | Logo height |
+| `'fixed-logo-height'` | size | CSS length | Smaller | Logo when fixed |
+| `'hamburger-position'` | string | `'left'`/`'center'`/`'right'` | `'left'` | Desktop position |
+| `'hamburger-position-mobile'` | string | `'left'`/`'center'`/`'right'` | `'left'` | Mobile position |
+| `'menu-border-width'` | size | CSS length | null | Menu border |
+| `'menu-border-radius'` | size | CSS length | null | Menu corners |
+| `'menu-box-shadow'` | CSS | shadow/none | null | Menu shadow |
+| `'sidebar-width'` | size | CSS length | `18.75rem` | Sidebar width |
 
 **Header Template Options:**
-- `'default'` - Standard horizontal header
-- `'vertical'` - Sidebar-style navigation
-- `'hamburger'` - Mobile-first hamburger menu
-- `'search'` - Search-focused header layout
-- `'boxed'` - Contained header layout
-- `'sales_four'` - Sales-optimized layout
-- `'custom-theme'` - Theme-specific custom layout
+- `'default'` - Standard horizontal navbar
+- `'hamburger'` - Hamburger menu (collapsed)
+- `'vertical'` - Vertical sidebar navigation
+- `'sidebar'` - Full sidebar layout
 
 **Header Links Style Options:**
-- `'default'` - Standard link styling
-- `'pills'` - Pill-shaped link backgrounds
-- `'flat'` - Flat, borderless links
-- `'fill'` - Filled background links
-- `'border-bottom'` - Bottom border on hover
+- `'default'` - Standard links
+- `'fill'` - Filled background on hover
+- `'outline'` - Outline border on hover
+- `'pills'` - Rounded pill-shaped links
+- `'block'` - Block-style links
+- `'border-bottom'` - Underline border on hover
+
+#### 3.7 Footer (3 Keys)
+
+| Key | Type | Values | Default | Description |
+|-----|------|--------|---------|-------------|
+| `'footer-template'` | string | Template name | `'default'` | Footer layout |
+| `'footer-effect'` | string | See below | `null` | Animation effect |
+| `'footer-scrolltop'` | boolean | `true`/`false` | `false` | Scroll-to-top button |
 
 **Footer Template Options:**
-- `'default'` - Standard footer layout
-- `'headline'` - Large headline focus
-- `'centered'` - Center-aligned content
-- `'descriptive'` - Detailed description layout
-- `'contact'` - Contact information focus
-- `'call_to_action'` - CTA-focused footer
-- `'minimalist'` - Clean, minimal footer
-- `'vertical'` - Vertical layout footer
-- `'links'` - Link-heavy footer
-- `'sales_four'` - Sales conversion optimized
+- `'default'` - Standard footer
+- `'centered'` - Center-aligned
+- `'minimalist'` - Clean, minimal
+- `'links'` - Link-heavy
+- `'descriptive'` - Detailed description
+
+**Footer Effects:**
+- `null` - No effect (static)
+- `'slideout_slide_hover'` - Slide out on hover
+- `'slideout_shadow'` - Shadow on scroll
+
+#### 3.8 Links (1 Key)
+
+| Key | Type | Values | Default | Description |
+|-----|------|--------|---------|-------------|
+| `'link-underline'` | string | `'never'`/`'hover'`/`'always'` | `'hover'` | Underline behavior |
+
+#### 3.9 Layout (3 Keys)
+
+| Key | Type | Values | Default | Description |
+|-----|------|--------|---------|-------------|
+| `'layout'` | string | `'full'`/`'boxed'` | `'full'` | Page layout |
+| `'body-image'` | URL | Image path | `null` | Background image |
+| `'body-image-type'` | string | `'image'`/`'pattern'` | `'image'` | Background type |
+
+#### 3.10 Colors & Gradients (5 Keys)
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `'color-palettes-name'` | string | null | Active color palette name |
+| `'menu-gradient'` | CSS gradient | null | Menu background gradient |
+| `'menu-secondary-gradient'` | CSS gradient | null | Secondary menu gradient |
+| `'footer-gradient'` | CSS gradient | null | Footer background gradient |
+| `'copyright-gradient'` | CSS gradient | null | Copyright gradient |
+
+#### 3.11 Google Fonts (2 Keys)
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `'google-fonts'` | list | null | Additional Google fonts to load |
+| `'google-local-fonts'` | map | null | Locally hosted fonts |
+
+---
+
+### Complete Example - Modern Corporate Theme
+
+```scss
+$o-website-values-palettes: (
+    (
+        // === REQUIRED ===
+        'color-palettes-name': 'my-corporate-palette',
+
+        // === TYPOGRAPHY ===
+        'font': 'Inter',
+        'headings-font': 'Inter',
+        'navbar-font': 'Inter',
+        'buttons-font': 'Inter',
+        'font-size-base': 1rem,
+        'headings-line-height': 1.3,
+        'body-line-height': 1.6,
+
+        // === HEADER (NO custom header.xml needed!) ===
+        'header-template': 'default',      // or 'hamburger', 'vertical', 'sidebar'
+        'header-links-style': 'default',   // or 'pills', 'fill', 'border-bottom'
+        'logo-height': 48px,
+        'fixed-logo-height': 36px,
+
+        // === BUTTONS ===
+        'btn-padding-y': 0.75rem,
+        'btn-padding-x': 1.5rem,
+        'btn-padding-y-lg': 1rem,
+        'btn-padding-x-lg': 2rem,
+        'btn-border-radius': 8px,
+        'btn-border-radius-lg': 12px,
+        'btn-ripple': true,
+
+        // === INPUTS ===
+        'input-padding-y': 0.75rem,
+        'input-padding-x': 1rem,
+        'input-border-radius': 8px,
+
+        // === FOOTER (NO custom footer.xml needed!) ===
+        'footer-template': 'default',      // or 'centered', 'minimalist', 'links'
+        'footer-scrolltop': true,
+
+        // === LINKS ===
+        'link-underline': 'hover',         // or 'never', 'always'
+
+        // === LAYOUT ===
+        'layout': 'full',                  // or 'boxed'
+    ),
+);
+```
 
 ### ⚠️ CRITICAL: SCSS Load Order in Odoo Themes
 
@@ -285,7 +637,7 @@ When you use `prepend` in your manifest's asset bundles, your SCSS executes BEFO
 ```
 LOAD ORDER:
 1. YOUR theme's primary_variables.scss (via prepend)  ← FIRST
-2. Odoo core primary_variables.scss                    ← SECOND (where $o-color-palettes, etc. are FIRST defined)
+2. Odoo core primary_variables.scss                    ← SECOND
 3. Other SCSS files
 ```
 
@@ -309,7 +661,7 @@ $o-theme-font-configs: (
     ),
 );
 
-// Reference existing palette by name (not custom palette!)
+// Reference existing palette by name
 $o-website-values-palettes: (
     (
         'color-palettes-name': 'default-1',  // Use existing palette name!
@@ -319,67 +671,9 @@ $o-website-values-palettes: (
 );
 ```
 
-### Theme Color Palettes (o-color Semantic Structure)
-
-**Color Semantic Meanings:**
-- **o-color-1** = Primary brand color (main brand identity)
-- **o-color-2** = Secondary brand color (supporting brand color)
-- **o-color-3** = Light color (light backgrounds, light mode base)
-- **o-color-4** = White/body base color (main content background)
-- **o-color-5** = Dark color/font base (text color, dark mode considerations)
-
-**⚠️ IMPORTANT**: Due to SCSS load order, you CANNOT create custom color palettes via `map-merge()` in theme modules. Instead, reference existing palettes:
-
-```scss
-// Reference existing Odoo palette names:
-// 'default-1' through 'default-21' (standard Odoo palettes)
-
-$o-website-values-palettes: (
-    (
-        'color-palettes-name': 'default-1',  // Reference existing palette
-        'font': 'Inter',
-        'headings-font': 'Inter',
-        // ... customize non-color settings
-    ),
-);
-```
-
-### Font Configuration System
-
-**⚠️ IMPORTANT**: Define fonts as STANDALONE (no map-merge!):
-
-```scss
-// ✅ CORRECT: Standalone definition
-$o-theme-font-configs: (
-    'Inter': (
-        'family': ('Inter', sans-serif),
-        'url': 'Inter:wght@300;400;500;600;700',
-    ),
-    'Montserrat': (
-        'family': ('Montserrat', sans-serif),
-        'url': 'Montserrat:300,300i,400,400i,700,700i',
-    ),
-);
-```
-
 **❌ WRONG**: Do NOT use `ir.asset` records for Google Fonts in themes - this causes malformed URLs!
 
-### Typography Hierarchy
-
-```scss
-// Common heading multipliers
-$o-theme-h1-font-size-multiplier: (64 / 16);  // ~4rem
-$o-theme-h2-font-size-multiplier: (48 / 16);  // ~3rem
-$o-theme-h3-font-size-multiplier: (36 / 16);  // ~2.25rem
-$o-theme-h4-font-size-multiplier: (28 / 16);  // ~1.75rem
-$o-theme-h5-font-size-multiplier: (24 / 16);  // ~1.5rem
-$o-theme-h6-font-size-multiplier: (21 / 16);  // ~1.3125rem
-
-// Font weights
-$o-theme-headings-font-weight: 700;   // Bold headings
-$o-theme-font-weight-normal: 400;     // Regular body text
-$o-theme-font-weight-light: 300;      // Light text
-```
+---
 
 ## Theme Page Creation Standard
 
@@ -481,7 +775,7 @@ website.page (Actual Page with website_id)
    python -c "import sys; sys.path.insert(0, 'helpers'); from version_detector import detect_version; print(detect_version('.'))"
    ```
 
-2. **Create Module Structure** (SIMPLIFIED v5.0)
+2. **Create Module Structure**
    ```
    theme_<name>/
    ├── __init__.py
@@ -489,27 +783,32 @@ website.page (Actual Page with website_id)
    ├── security/
    │   └── ir.model.access.csv
    ├── data/
-   │   ├── assets.xml              # Minimal
+   │   ├── assets.xml
    │   ├── menu.xml
-   │   └── pages/                  # Individual page files
+   │   └── pages/
    │       ├── home_page.xml
    │       └── aboutus_page.xml
    ├── views/
-   │   └── templates.xml           # Layout only
-   │   # ⚠️ NO header.xml or footer.xml!
+   │   ├── layout/
+   │   │   ├── header.xml          # Header customization (OPTIONAL)
+   │   │   ├── footer.xml          # Footer customization (OPTIONAL)
+   │   │   └── templates.xml       # Base layout templates
+   │   └── snippets/
+   │       └── custom_snippets.xml # Custom snippet definitions
    ├── static/
    │   └── src/
    │       ├── scss/
-   │       │   ├── primary_variables.scss  # ALL config here!
+   │       │   ├── primary_variables.scss
+   │       │   ├── bootstrap_overridden.scss
    │       │   └── theme.scss
-   │       │   # ⚠️ NO bootstrap_overridden.scss!
    │       ├── js/
-   │       │   └── theme.js
+   │       │   ├── theme.js
+   │       │   └── snippets_options.js
    │       └── img/
    └── README.md
    ```
 
-3. **Generate `__manifest__.py`** (SIMPLIFIED v5.0)
+3. **Generate `__manifest__.py`**
    ```python
    {
        'name': 'Theme <Name>',
@@ -522,26 +821,29 @@ website.page (Actual Page with website_id)
        'depends': ['website'],
        'data': [
            'security/ir.model.access.csv',
+           'views/layout/templates.xml',
+           'views/layout/header.xml',
+           'views/layout/footer.xml',
+           'views/snippets/custom_snippets.xml',
            'data/menu.xml',
-           # Individual page files (NOT a single pages.xml)
            'data/pages/home_page.xml',
            'data/pages/aboutus_page.xml',
            'data/pages/contactus_page.xml',
-           'views/templates.xml',
-           # ⚠️ NO header.xml or footer.xml needed!
        ],
        'assets': {
-           # ALL theme configuration in primary_variables.scss
            'web._assets_primary_variables': [
                ('prepend', 'theme_<name>/static/src/scss/primary_variables.scss'),
            ],
-           # Additional custom styles (optional)
+           'web._assets_frontend_helpers': [
+               'theme_<name>/static/src/scss/bootstrap_overridden.scss',
+           ],
            'web.assets_frontend': [
                'theme_<name>/static/src/scss/theme.scss',
                'theme_<name>/static/src/js/theme.js',
            ],
-           # ⚠️ NO web._assets_frontend_helpers entry needed!
-           # Bootstrap overrides done via $o-website-values-palettes
+           'website.assets_wysiwyg': [
+               'theme_<name>/static/src/js/snippets_options.js',
+           ],
        },
        'installable': True,
        'auto_install': False,
@@ -2067,15 +2369,37 @@ jobs:
 
 ## Changelog
 
-- **v5.0.0**: Major simplification based on comprehensive variable system analysis
-  - **⚠️ NO bootstrap_overridden.scss needed**: All Bootstrap control via `$o-website-values-palettes`
-  - **⚠️ NO custom header/footer XML needed**: Configure via variables instead
-    - `'header-template'`: `'default'` | `'hamburger'` | `'vertical'` | `'sidebar'`
-    - `'footer-template'`: `'default'` | `'centered'` | `'minimalist'` | `'links'` | `'descriptive'`
-  - **Complete $o-website-values-palettes reference**: 115+ configuration keys documented
-  - **Complete $o-theme-font-configs reference**: Google Fonts via 'family' + 'url' (parameter only)
-  - **Simplified theme structure**: Fewer files, variables control everything
-  - **Updated all templates**: Removed unnecessary files from /create-theme output
+- **v5.1.0**: Comprehensive Variable Reference Enhancement (MAJOR)
+  - **Complete $o-theme-font-configs reference**:
+    - 'family': CSS font-family list (tuple format)
+    - 'url': Google Fonts parameter ONLY (not full URL)
+    - 'properties': Per-context CSS overrides (base, headings, navbar, buttons)
+    - Font aliases documentation: 'base', 'headings', 'h2'-'h6', 'navbar', 'buttons'
+    - Arabic/RTL font support examples
+  - **Complete $o-color-palettes reference**:
+    - 5 core colors semantic meanings (o-color-1 through o-color-5)
+    - Color combinations (o_cc1 - o_cc5) presets and usage
+    - Override syntax for color combinations (`'o-cc{n}-{property}'`)
+    - Component assignments (menu, footer, copyright)
+    - HTML usage examples with color classes
+  - **Complete $o-website-values-palettes reference (115+ keys)**:
+    - Typography & Fonts (13 keys): font family configuration
+    - Font Sizes (13 keys): base and heading sizes
+    - Line Heights & Margins (33 keys): spacing configuration
+    - Buttons (17 keys): padding, radius, style options
+    - Inputs (12 keys): form field styling
+    - Header (13 keys): templates, link styles, logo, hamburger
+    - Footer (3 keys): templates, effects, scrolltop
+    - Links (1 key): underline behavior
+    - Layout (3 keys): full/boxed, background
+    - Colors & Gradients (5 keys): palette selection, gradients
+    - Google Fonts (2 keys): additional fonts
+  - **Restored full theme structure**: header.xml, footer.xml, snippets (OPTIONAL but present in hierarchy)
+  - **Removed redundant documentation sections**: Cleaned up duplicate content
+- **v5.0.0**: Major enhancement based on comprehensive variable system analysis
+  - Variables can control header/footer templates without custom XML
+  - Configure via `'header-template'` and `'footer-template'` variables
+  - Bootstrap control via `$o-website-values-palettes`
 - **v4.0.0**: CRITICAL fixes based on real-world theme development issues
   - **⚠️ SCSS Load Order Documentation**: Documented that theme SCSS loads BEFORE core variables
   - **Removed map-merge() patterns**: Fixed examples that used `map-merge()` with core variables (causes "Undefined variable" errors)

@@ -293,30 +293,33 @@ theme_{{name}}/
 │       ├── contactus_page.xml          # Inherits website.contactus
 │       └── services_page.xml           # theme.website.page
 ├── views/
-│   └── templates.xml                    # Layout customizations only
-│   # ⚠️ NO header.xml or footer.xml!
-│   # Configure via $o-website-values-palettes instead
+│   ├── layout/
+│   │   ├── header.xml                  # Header customization (OPTIONAL)
+│   │   ├── footer.xml                  # Footer customization (OPTIONAL)
+│   │   └── templates.xml               # Base layout templates
+│   └── snippets/
+│       └── custom_snippets.xml         # Custom snippet definitions
 └── static/
     ├── description/
     │   ├── cover.png
     │   └── screenshot.png
     └── src/
         ├── scss/
-        │   ├── primary_variables.scss   # ALL theme config here!
+        │   ├── primary_variables.scss   # Theme variables + fonts
+        │   ├── bootstrap_overridden.scss # Bootstrap overrides (OPTIONAL)
         │   └── theme.scss               # Additional custom styles
-        │   # ⚠️ NO bootstrap_overridden.scss needed!
-        │   # Variables control everything
         ├── js/
-        │   └── theme.js                 # publicWidget if needed
+        │   ├── theme.js                 # publicWidget implementations
+        │   └── snippets_options.js      # Snippet options (if needed)
         └── img/
             └── .gitkeep
 ```
 
-### ⚠️ IMPORTANT: Simplified Approach
+### 💡 Simplified Approach (Recommended)
 
-**NO custom header/footer XML needed!** Odoo provides multiple header/footer templates:
+In MOST cases, you can configure everything via `$o-website-values-palettes` without creating custom XML:
 
-**Header Templates** (via `'header-template'` in $o-website-values-palettes):
+**Header Templates** (via `'header-template'`):
 - `'default'` - Standard horizontal navbar
 - `'hamburger'` - Hamburger menu (collapsed)
 - `'vertical'` - Vertical sidebar navigation
@@ -327,12 +330,17 @@ theme_{{name}}/
 - `'centered'` - Center-aligned
 - `'minimalist'` - Clean minimal
 - `'links'` - Link-heavy footer
+- `'descriptive'` - Full description footer
 
-**NO bootstrap_overridden.scss needed!** Use `$o-website-values-palettes` to control:
-- Button padding, radius, styles
-- Input padding, radius
-- Header/footer templates
-- Typography, spacing, everything!
+**When to use custom header.xml/footer.xml:**
+- Design requires completely custom header layout not available in templates
+- Need additional HTML elements beyond what templates provide
+- Complex JavaScript-based navigation interactions
+
+**When bootstrap_overridden.scss IS useful:**
+- Need Bootstrap variables not exposed in `$o-website-values-palettes`
+- Complex responsive breakpoint customizations
+- Custom grid configurations
 
 ### Phase 5: Installation & Testing
 
@@ -662,7 +670,7 @@ $o-website-values-palettes: (
 }
 ```
 
-## __manifest__.py Template (SIMPLIFIED)
+## __manifest__.py Template
 
 ```python
 # -*- coding: utf-8 -*-
@@ -678,6 +686,7 @@ $o-website-values-palettes: (
         - Google Fonts integration
         - Responsive header/footer configuration
         - Custom page templates
+        - Custom snippets
     """,
     'category': 'Theme/Creative',
     'author': 'TaqaTechno',
@@ -689,27 +698,35 @@ $o-website-values-palettes: (
     ],
     'data': [
         'security/ir.model.access.csv',
+        'views/layout/templates.xml',
+        'views/layout/header.xml',
+        'views/layout/footer.xml',
+        'views/snippets/custom_snippets.xml',
         'data/menu.xml',
-        # Individual page files (NOT a single pages.xml)
+        # Individual page files (BEST PRACTICE!)
         'data/pages/home_page.xml',
         'data/pages/aboutus_page.xml',
         'data/pages/contactus_page.xml',
         'data/pages/services_page.xml',
-        'views/templates.xml',
-        # ⚠️ NO header.xml or footer.xml needed!
     ],
     'assets': {
-        # ALL theme configuration in primary_variables.scss
+        # Primary variables - PREPENDED (loads before Odoo core)
         'web._assets_primary_variables': [
             ('prepend', '{{theme_name}}/static/src/scss/primary_variables.scss'),
         ],
-        # Additional custom styles (optional)
+        # Bootstrap overrides (if needed)
+        'web._assets_frontend_helpers': [
+            '{{theme_name}}/static/src/scss/bootstrap_overridden.scss',
+        ],
+        # Main frontend assets
         'web.assets_frontend': [
             '{{theme_name}}/static/src/scss/theme.scss',
             '{{theme_name}}/static/src/js/theme.js',
         ],
-        # ⚠️ NO web._assets_frontend_helpers entry needed!
-        # Bootstrap overrides done via $o-website-values-palettes
+        # Website editor assets (snippet options)
+        'website.assets_wysiwyg': [
+            '{{theme_name}}/static/src/js/snippets_options.js',
+        ],
     },
     'images': [
         'static/description/cover.png',
@@ -864,19 +881,21 @@ Target Odoo version [17]: 17
 ║ ✓ __manifest__.py                                            ║
 ║ ✓ __init__.py                                                ║
 ║ ✓ security/ir.model.access.csv                               ║
-║ ✓ static/src/scss/primary_variables.scss   (ALL config here!)║
-║ ✓ static/src/scss/theme.scss               (Custom styles)   ║
-║ ✓ static/src/js/theme.js                   (publicWidget)    ║
-║ ✓ views/templates.xml                      (Layout only)     ║
-║ ✓ data/assets.xml                          (Minimal)         ║
+║ ✓ static/src/scss/primary_variables.scss                     ║
+║ ✓ static/src/scss/bootstrap_overridden.scss                  ║
+║ ✓ static/src/scss/theme.scss                                 ║
+║ ✓ static/src/js/theme.js                                     ║
+║ ✓ static/src/js/snippets_options.js                          ║
+║ ✓ views/layout/header.xml                                    ║
+║ ✓ views/layout/footer.xml                                    ║
+║ ✓ views/layout/templates.xml                                 ║
+║ ✓ views/snippets/custom_snippets.xml                         ║
+║ ✓ data/assets.xml                                            ║
 ║ ✓ data/menu.xml                                              ║
 ║ ✓ data/pages/home_page.xml                                   ║
 ║ ✓ data/pages/aboutus_page.xml                                ║
 ║ ✓ data/pages/contactus_page.xml                              ║
 ║ ✓ data/pages/services_page.xml                               ║
-║                                                              ║
-║ ⚠️  NO header.xml/footer.xml needed - configured via SCSS!   ║
-║ ⚠️  NO bootstrap_overridden.scss - variables are enough!     ║
 ╚══════════════════════════════════════════════════════════════╝
 
 ╔══════════════════════════════════════════════════════════════╗
@@ -1003,26 +1022,27 @@ python odoo-bin shell -d {{DATABASE}}
 ### Correct Asset Bundle Configuration
 
 ```python
-# __manifest__.py - CORRECT asset bundle configuration (SIMPLIFIED)
+# __manifest__.py - CORRECT asset bundle configuration
 'assets': {
     # Primary variables - PREPENDED (loads before Odoo core)
     # Contains: $o-theme-font-configs, $o-website-values-palettes
     'web._assets_primary_variables': [
         ('prepend', 'theme_name/static/src/scss/primary_variables.scss'),
     ],
-    # Main frontend assets (additional custom styles if needed)
+    # Bootstrap overrides - loads after helpers (OPTIONAL but useful)
+    'web._assets_frontend_helpers': [
+        'theme_name/static/src/scss/bootstrap_overridden.scss',
+    ],
+    # Main frontend assets
     'web.assets_frontend': [
         'theme_name/static/src/scss/theme.scss',
         'theme_name/static/src/js/theme.js',
     ],
-    # Website editor assets (snippet options - only if custom snippets)
-    # 'website.assets_wysiwyg': [
-    #     'theme_name/static/src/js/snippets_options.js',
-    # ],
+    # Website editor assets (snippet options)
+    'website.assets_wysiwyg': [
+        'theme_name/static/src/js/snippets_options.js',
+    ],
 },
-# ⚠️ NOTE: NO web._assets_frontend_helpers entry needed!
-# All Bootstrap configuration is done via $o-website-values-palettes
-# in primary_variables.scss
 ```
 
 ### Testing Checklist
