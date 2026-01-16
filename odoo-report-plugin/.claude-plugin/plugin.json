@@ -8,9 +8,6 @@
   "commands": "./commands/",
   "hooks": "./hooks/hooks.json",
   "scripts": "./odoo-report/scripts/",
-  "memories": "./memories/",
-  "data": "./data/",
-  "templates": "./templates/",
   "metadata": {
     "mode": "codebase",
     "supported_versions": ["14", "15", "16", "17", "18", "19"],
