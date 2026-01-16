@@ -1,0 +1,41 @@
+{
+  "name": "codex",
+  "version": "1.0.0",
+  "description": "Universal development assistant with comprehensive code analysis, generation, refactoring, and optimization tools for all languages and frameworks",
+  "author": {
+    "name": "TAQAT Techno",
+    "email": "contact@taqat-techno.com",
+    "url": "https://github.com/taqat-techno"
+  },
+  "homepage": "https://github.com/taqat-techno/plugins/tree/main/codex-plugin",
+  "repository": "https://github.com/taqat-techno/plugins",
+  "license": "MIT",
+  "keywords": [
+    "code-analysis",
+    "code-generation",
+    "refactoring",
+    "optimization",
+    "testing",
+    "documentation",
+    "security",
+    "performance",
+    "universal",
+    "development"
+  ],
+  "skills": "./codex/",
+  "metadata": {
+    "category": "development",
+    "features": [
+      "code-analysis",
+      "code-generation",
+      "refactoring",
+      "optimization",
+      "testing",
+      "documentation",
+      "security-audit",
+      "performance-optimization"
+    ],
+    "supported-languages": "all",
+    "supported-frameworks": "all"
+  }
+}
