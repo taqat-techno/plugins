@@ -105,13 +105,36 @@ The Odoo Frontend Plugin supercharges your Odoo website and theme development wi
    odoo-frontend-plugin/
    ├── .claude-plugin/
    │   └── plugin.json
-   ├── odoo-frontend/
+   ├── commands/                    # Slash commands (at plugin root)
+   │   ├── create-theme.md
+   │   └── theme_web_rec.md
+   ├── data/                        # JSON configuration data
+   │   ├── color_palettes.json
+   │   ├── theme_templates.json
+   │   ├── typography_defaults.json
+   │   └── version_mapping.json
+   ├── helpers/                     # Helper documentation
+   │   ├── color_helper.md
+   │   ├── theme_helper.md
+   │   └── version_helper.md
+   ├── hooks/
+   │   └── hooks.json
+   ├── memories/                    # Best practices & patterns
+   │   ├── bootstrap_mapping.md
+   │   ├── figma_extraction.md
+   │   ├── publicwidget_patterns.md
+   │   ├── scss_variables.md
+   │   └── theme_development.md
+   ├── odoo-frontend/               # Main skill folder
    │   ├── SKILL.md
-   │   ├── commands/
-   │   │   └── theme_web_rec.md
-   │   ├── scripts/
-   │   ├── reference/
-   │   └── templates/
+   │   └── scripts/
+   ├── reference/                   # Technical references
+   │   ├── bootstrap_versions.md
+   │   ├── owl_migration.md
+   │   └── ...
+   ├── validators/                  # Validation patterns
+   │   ├── scss_validator.md
+   │   └── theme_validator.md
    └── README.md
    ```
 

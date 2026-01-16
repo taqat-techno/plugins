@@ -45,10 +45,15 @@
     "odoo18",
     "odoo19"
   ],
-  "commands": "./odoo-frontend/commands/",
   "skills": "./odoo-frontend/",
-  "scripts": "./odoo-frontend/scripts/",
+  "commands": "./commands/",
   "hooks": "./hooks/hooks.json",
+  "scripts": "./odoo-frontend/scripts/",
+  "memories": "./memories/",
+  "data": "./data/",
+  "helpers": "./helpers/",
+  "validators": "./validators/",
+  "reference": "./reference/",
   "metadata": {
     "odoo-versions": ["14", "15", "16", "17", "18", "19"],
     "bootstrap-versions": ["4.x", "5.1.3"],
