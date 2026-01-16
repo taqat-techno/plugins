@@ -1,7 +1,7 @@
 {
   "name": "odoo-frontend",
-  "version": "3.1.0",
-  "description": "Advanced Odoo frontend development with comprehensive theme development, /create-theme command, PWA support, TypeScript, testing frameworks, and performance optimization. Features complete $o-website-values-palettes reference, theme mirror model architecture, publicWidget patterns with editableMode handling, color semantic structure, and MCP integration for Odoo 14-19.",
+  "version": "4.0.0",
+  "description": "Advanced Odoo frontend development with Figma browser automation for design extraction, /create-theme command, PWA support, TypeScript, testing frameworks, and performance optimization. Features Chrome MCP integration, automatic color/typography extraction, $o-website-values-palettes reference, theme mirror model architecture, publicWidget patterns, and MCP integration for Odoo 14-19.",
   "author": {
     "name": "TAQAT Techno",
     "email": "contact@taqat-techno.com",
@@ -14,6 +14,11 @@
     "odoo",
     "frontend",
     "theme",
+    "figma",
+    "figma-to-odoo",
+    "design-extraction",
+    "browser-automation",
+    "chrome-mcp",
     "create-theme",
     "theme-generator",
     "website-values-palettes",
@@ -52,14 +57,22 @@
     "performance-tools": ["Core Web Vitals", "Lighthouse", "Vite"],
     "accessibility": ["WCAG 2.1 AA", "ARIA", "Screen Readers"],
     "real-time": ["WebSockets", "SSE", "Push Notifications"],
-    "mcp-tools": ["figma", "chrome-devtools", "filesystem"],
+    "mcp-tools": ["claude-in-chrome", "figma", "chrome-devtools", "filesystem"],
+    "figma-integration": {
+      "browser-automation": true,
+      "color-extraction": true,
+      "typography-extraction": true,
+      "display-sizes": true,
+      "auto-palette-generation": true
+    },
     "theme-features": {
       "website-values-palettes": true,
       "color-semantic-structure": true,
       "mirror-model-architecture": true,
       "individual-page-files": true,
       "publicWidget-editableMode": true,
-      "snippet-groups": true
+      "snippet-groups": true,
+      "figma-to-theme": true
     },
     "theme-scaffolding": true,
     "auto-detection": true

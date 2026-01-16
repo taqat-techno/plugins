@@ -1,14 +1,28 @@
-# Odoo Frontend Plugin for Claude Code v3.1
+# Odoo Frontend Plugin for Claude Code v4.0
 
-Advanced Odoo frontend development plugin with PWA support, TypeScript, modern testing frameworks, performance optimization, accessibility compliance, and complete theme scaffolding for Odoo 14-19. Now featuring the powerful `/create-theme` command!
+Advanced Odoo frontend development plugin with **Figma browser automation**, PWA support, TypeScript, modern testing frameworks, performance optimization, accessibility compliance, and complete theme scaffolding for Odoo 14-19.
 
-## 🎨 NEW: /create-theme Command
+## 🎨 NEW: /create-theme with Figma Browser Automation
 
-**Generate production-ready Odoo themes instantly!**
+**Extract design variables directly from Figma and generate production-ready Odoo themes!**
 
 ```bash
+# Open Figma design in Chrome, extract colors & typography, generate theme
+/create-theme --figma https://www.figma.com/file/abc123/MyDesign
+
+# Full arguments
+/create-theme my_theme projects/my_project --figma <figma_url> --version=17
+
+# Manual mode (without Figma)
 /create-theme modern_corp projects/my_project --version=17 --colors="#207AB7,#FB9F54,#F6F4F0,#FFFFFF,#191A19"
 ```
+
+### Figma Integration Features:
+- 🔄 **Chrome Browser Automation**: Opens Figma via Claude-in-Chrome MCP tools
+- 🎨 **Color Extraction**: Primary, secondary → `o-color-1` to `o-color-5` mapping
+- 📝 **Typography Extraction**: H1-H6 with H6 fixed at 16px (1rem) base
+- 📏 **Extended Hierarchy**: Display classes (display-1 to display-6) for designs with >6 levels
+- ⚙️ **Auto-Fix**: Tests installation and automatically fixes common issues
 
 Creates a complete theme module with:
 - `$o-website-values-palettes` configuration
@@ -103,26 +117,36 @@ The Odoo Frontend Plugin supercharges your Odoo website and theme development wi
 
 ## Commands
 
-### `/odoo-frontend:create-theme` - Theme Generator (NEW!)
+### `/odoo-frontend:create-theme` - Figma-to-Odoo Theme Generator (v4.0)
 
-Create complete, production-ready Odoo theme modules.
+Create complete, production-ready Odoo theme modules with **Figma browser automation**.
 
 #### Usage
 ```bash
-# Interactive mode
-/create-theme
+# Figma mode (Recommended) - Opens Figma in Chrome, extracts design variables
+/create-theme --figma https://www.figma.com/file/abc123/MyDesign
 
-# Quick mode
-/create-theme <theme_name> <project_path>
+# Full arguments with Figma
+/create-theme my_theme projects/client --figma <url> --version=17
 
-# Full arguments
+# Manual mode (without Figma)
 /create-theme modern_corp projects/client --version=17 --colors="#207AB7,#FB9F54,#F6F4F0,#FFFFFF,#191A19" --font="IBM Plex Sans"
 ```
 
+#### Figma Extraction Workflow
+1. **Opens Figma in Chrome** via Claude-in-Chrome MCP
+2. **Extracts Colors**: Primary → `o-color-1`, Secondary → `o-color-2`, etc.
+3. **Extracts Typography**: H1-H6 sizes (H6 always 16px as base)
+4. **Extended Hierarchy**: Adds `display-1` to `display-6` for >6 heading levels
+5. **Generates Theme** with all SCSS variables
+6. **Tests Installation** and auto-fixes errors
+
 #### What Gets Created
 - `__manifest__.py` with proper asset bundles
-- `primary_variables.scss` with `$o-website-values-palettes`
+- `primary_variables.scss` with `$o-website-values-palettes` (from Figma)
 - Semantic color palette (`o-color-1` to `o-color-5`)
+- Typography multipliers: `$o-theme-h1-font-size-multiplier` etc.
+- Display font sizes (if extended hierarchy detected)
 - Individual page files (home, about, contact, services)
 - publicWidget JavaScript with `editableMode` handling
 - Menu configuration
@@ -264,6 +288,12 @@ $o-color-palettes: map-merge($o-color-palettes, (
 ## MCP Integration
 
 The plugin supports MCP (Model Context Protocol) tools:
+- **Claude-in-Chrome**: Browser automation for Figma design extraction
+  - `mcp__claude-in-chrome__tabs_context_mcp` - Get browser context
+  - `mcp__claude-in-chrome__navigate` - Navigate to Figma URL
+  - `mcp__claude-in-chrome__computer` - Screenshots and interactions
+  - `mcp__claude-in-chrome__read_page` - Extract design elements
+  - `mcp__claude-in-chrome__find` - Locate color/typography elements
 - **Figma**: Convert Figma designs to Odoo HTML
 - **Chrome DevTools**: Extract styles from websites
 - **Filesystem**: Advanced file operations
@@ -340,8 +370,17 @@ MIT License - See LICENSE file for details
 
 ## Changelog
 
+### Version 4.0.0 (Latest)
+- **NEW**: Figma browser automation via Claude-in-Chrome MCP tools
+- **NEW**: Automatic color extraction from Figma designs
+- **NEW**: Typography extraction (H1-H6 with H6 fixed at 16px)
+- **NEW**: Extended hierarchy with display classes for >6 heading levels
+- **NEW**: Auto-fix for installation issues
+- Chrome MCP integration for design variable extraction
+- Complete SCSS template generation from Figma
+
 ### Version 3.1.0
-- **NEW**: `/create-theme` command for complete theme generation
+- `/create-theme` command for complete theme generation
 - Theme generation based on 40+ real-world implementations
 - Individual page files pattern (best practice)
 - Enhanced `$o-website-values-palettes` support
