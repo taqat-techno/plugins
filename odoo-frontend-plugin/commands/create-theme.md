@@ -50,35 +50,49 @@ Opens Figma, extracts design variables, and guides through theme creation.
 │                    PHASE 1: FIGMA DESIGN EXTRACTION                          │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                               │
-│  STEP 1: Open Figma in Chrome                                                │
-│  ─────────────────────────────                                               │
+│  ⚠️ CRITICAL: NAVIGATE TO PAGES, NOT COMPONENTS!                             │
+│  ─────────────────────────────────────────────────                           │
+│  Always extract design variables from ACTUAL PAGES (Homepage, About, etc.)   │
+│  NOT from isolated components. Pages show real-world usage of:               │
+│  • Primary colors in headers, buttons, CTAs                                  │
+│  • Font sizes in actual heading hierarchies                                  │
+│  • Background colors in sections                                             │
+│                                                                               │
+│  STEP 1: Open Figma and Navigate to Homepage                                 │
+│  ─────────────────────────────────────────────                               │
 │  Using Claude-in-Chrome MCP tools:                                           │
 │  1. Get browser tab context                                                  │
 │  2. Create new tab if needed                                                 │
 │  3. Navigate to Figma URL                                                    │
 │  4. Wait for design to load                                                  │
+│  5. NAVIGATE TO HOMEPAGE or main page (NOT components panel!)                │
+│  6. If homepage isn't visible, look for page list in left sidebar            │
 │                                                                               │
-│  STEP 2: Extract Colors                                                      │
-│  ─────────────────────────                                                   │
-│  Look for:                                                                   │
-│  • Primary color: Usually the dominant brand color                           │
-│  • Secondary color: Accent/CTA color                                         │
-│  • Background colors: Light backgrounds (o-color-3)                          │
-│  • White/base color (o-color-4)                                              │
-│  • Dark/text color (o-color-5)                                               │
+│  STEP 2: Extract Colors FROM PAGES                                           │
+│  ──────────────────────────────────                                          │
+│  Navigate through pages (Home, About, Contact) and identify:                 │
+│  • Primary color: Header background, primary buttons, links                  │
+│  • Secondary color: CTAs, accent elements, hover states                      │
+│  • Background colors: Section backgrounds, cards (o-color-3)                 │
+│  • White/base color: Main content background (o-color-4)                     │
+│  • Dark/text color: Body text, headings (o-color-5)                          │
 │                                                                               │
-│  STEP 3: Extract Typography                                                  │
-│  ──────────────────────────                                                  │
-│  Extract from text styles:                                                   │
-│  • Font family (body text)                                                   │
-│  • Font family (headings if different)                                       │
-│  • H1 size (largest heading)                                                 │
-│  • H2 size                                                                   │
-│  • H3 size                                                                   │
-│  • H4 size                                                                   │
-│  • H5 size                                                                   │
-│  • H6 size (defaults to 16px if not found)                                   │
-│  • Display sizes (if > 6 heading levels exist)                               │
+│  STEP 3: Extract Typography FROM PAGE HEADINGS                               │
+│  ─────────────────────────────────────────────                               │
+│  Click on actual page headings to extract:                                   │
+│  • Font family (from page body text)                                         │
+│  • Font family (from page headings if different)                             │
+│  • H1 size (page title/hero heading)                                         │
+│  • H2 size (section headings)                                                │
+│  • H3 size (subsection headings)                                             │
+│  • H4-H6 sizes (smaller headings on page)                                    │
+│  • Body text size (paragraph text)                                           │
+│                                                                               │
+│  PAGES TO CHECK (in order):                                                  │
+│  1. Homepage - Primary colors, hero typography, main CTA styles              │
+│  2. About/Services - Section backgrounds, content hierarchy                  │
+│  3. Contact - Form styles, secondary elements                                │
+│  4. Footer area - Dark backgrounds, link colors                              │
 │                                                                               │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -98,35 +112,56 @@ mcp__claude-in-chrome__navigate({ url: figmaUrl, tabId: tabId })
 // Step 4: Wait for design to load
 mcp__claude-in-chrome__computer({ action: "wait", duration: 5, tabId: tabId })
 
-// Step 5: Take screenshot to analyze design
+// Step 5: Take screenshot to see current view
 mcp__claude-in-chrome__computer({ action: "screenshot", tabId: tabId })
 
-// Step 6: Read page to find color/font information
-mcp__claude-in-chrome__read_page({ tabId: tabId, filter: "all" })
+// Step 6: CRITICAL - Navigate to PAGES (not components!)
+// Look for page list in left sidebar and click on Homepage/main page
+mcp__claude-in-chrome__find({ query: "Homepage", tabId: tabId })
+// OR
+mcp__claude-in-chrome__find({ query: "Home", tabId: tabId })
 
-// Step 7: Look for specific design elements
-mcp__claude-in-chrome__find({ query: "color palette", tabId: tabId })
-mcp__claude-in-chrome__find({ query: "typography", tabId: tabId })
+// Step 7: Click on the Homepage/main page to view it
+mcp__claude-in-chrome__computer({ action: "left_click", coordinate: [x, y], tabId: tabId })
+
+// Step 8: Take screenshot of the actual page design
+mcp__claude-in-chrome__computer({ action: "screenshot", tabId: tabId })
+
+// Step 9: Click on elements ON THE PAGE to extract values
+// Click on header to get primary color
+// Click on heading text to get font-family and size
+// Click on body text to get body font
 ```
 
-#### Figma Design Panel Navigation
+#### Figma Page Navigation (CRITICAL)
+
+**⚠️ ALWAYS navigate to actual PAGES to extract variables, NOT components!**
 
 To extract design variables, Claude will:
 
-1. **Navigate to Design Panel**:
-   - Look for the right sidebar (Design tab)
-   - Click on text elements to see typography styles
-   - Click on colored elements to see fill colors
+1. **Navigate to Pages List (Left Sidebar)**:
+   - Look for "Pages" section in the left sidebar
+   - Find and click on "Homepage", "Home", or main page
+   - If no homepage, navigate to the first complete page design
 
-2. **Extract Color Values**:
-   - Primary: Most prominent brand color (buttons, headers)
-   - Secondary: Accent color (CTAs, highlights)
-   - Look for color style definitions in the Styles panel
+2. **Extract Colors FROM PAGE ELEMENTS**:
+   - Click on the header/navbar → Get primary color
+   - Click on CTA buttons → Get secondary/accent color
+   - Click on section backgrounds → Get background colors
+   - Click on body text → Get text color
+   - **DO NOT** extract from component library or style guide panels
 
-3. **Extract Typography Values**:
-   - Click on heading text to inspect font properties
-   - Record font-family, font-size, font-weight, line-height
-   - Map sizes to H1-H6 hierarchy
+3. **Extract Typography FROM PAGE HEADINGS**:
+   - Click on the main page title (H1) → Get H1 size and font
+   - Click on section headings → Get H2, H3 sizes
+   - Click on body paragraphs → Get body font and size
+   - Record: font-family, font-size, font-weight, line-height
+
+4. **Navigate Through Multiple Pages**:
+   - Homepage → Primary colors, hero typography
+   - About/Services → Section styles, content hierarchy
+   - Contact → Form styles, alternative layouts
+   - Footer area → Dark backgrounds, footer typography
 
 ### Phase 2: Typography Hierarchy Mapping
 
