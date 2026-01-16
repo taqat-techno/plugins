@@ -1,13 +1,20 @@
 ---
 name: odoo-upgrade
 description: "Comprehensive Odoo ERP upgrade assistant for migrating modules between Odoo versions (14-19). Handles XML views, Python API changes, JavaScript/OWL components, theme SCSS variables, manifest updates, security implementations, and database migrations. Use when user asks to upgrade Odoo modules, fix version compatibility issues, migrate themes between versions, or resolve Odoo 17/18/19 migration errors. Specializes in frontend RPC service migrations, view XML transformations, theme variable restructuring, and portal template XPath fixes."
+version: "4.0.0"
+author: "TAQAT Techno"
+license: "MIT"
+allowed-tools:
+  - Read
+  - Write
+  - Edit
+  - Bash
+  - Glob
+  - Grep
 metadata:
-  version: "4.0.0"
-  odoo-versions: "14,15,16,17,18,19"
+  odoo-versions: ["14", "15", "16", "17", "18", "19"]
   transformation-patterns: 150
   auto-fixes: 75
-  author: "TAQAT Techno"
-  license: "MIT"
 ---
 
 # Odoo Upgrade Assistant v4.0

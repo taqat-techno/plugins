@@ -1,30 +1,27 @@
 ---
 name: codex
-description: Universal development assistant with comprehensive code analysis, generation, refactoring, and optimization tools for all languages and frameworks
-version: 1.0.0
-author: Ahmed
-license: MIT
-category: development
-tags:
-  - code-analysis
-  - code-generation
-  - refactoring
-  - optimization
-  - testing
-  - documentation
-  - security
-  - performance
+description: "Universal development assistant with comprehensive code analysis, generation, refactoring, and optimization tools for all languages and frameworks"
+version: "1.0.0"
+author: "TAQAT Techno"
+license: "MIT"
 allowed-tools:
-  - read
-  - write
-  - edit
-  - bash
-  - glob
-  - grep
-mcp-server:
-  command: node
-  args: ["dist/index.js"]
-  cwd: "../"
+  - Read
+  - Write
+  - Edit
+  - Bash
+  - Glob
+  - Grep
+metadata:
+  category: "development"
+  tags:
+    - code-analysis
+    - code-generation
+    - refactoring
+    - optimization
+    - testing
+    - documentation
+    - security
+    - performance
 ---
 
 # Codex - Universal Development Assistant
