@@ -1,7 +1,7 @@
 ---
 name: odoo-frontend
-description: "Advanced Odoo frontend development with comprehensive theme development, /create-theme command, PWA support, modern JavaScript/TypeScript, testing frameworks, performance optimization, accessibility compliance, and real-time features. Features complete $o-website-values-palettes reference, theme mirror model architecture, publicWidget patterns with editableMode handling, and MCP integration. Supports Odoo 14-19 with auto-detection."
-version: "5.0.0"
+description: "Advanced Odoo frontend development with comprehensive theme development, /create-theme command, theme.utils activation system, complete dynamic page reference (headers, footers, shop, blog), design workflow methodology, PWA support, modern JavaScript/TypeScript, testing frameworks, performance optimization, accessibility compliance, and real-time features. Features complete $o-website-values-palettes reference, theme mirror model architecture, publicWidget patterns with editableMode handling, and MCP integration. Supports Odoo 14-19 with auto-detection."
+version: "6.0.0"
 author: "TAQAT Techno"
 license: "MIT"
 allowed-tools:
@@ -24,12 +24,15 @@ metadata:
   theme-features: ["o-website-values-palettes", "mirror-models", "snippet-groups", "color-palettes"]
 ---
 
-# Odoo Frontend Development Skill v5.0
+# Odoo Frontend Development Skill v6.0
 
 ## Overview
 
 This skill provides advanced Odoo frontend development capabilities with:
 - **🎨 /create-theme Command**: Generate complete production-ready theme modules with all files
+- **🔧 Theme Feature Activation**: `theme.utils` model with `_theme_xxx_post_copy()` for template configuration
+- **📋 Complete Dynamic Page Reference**: All 11 headers, 9 footers, shop, product, blog templates with XML IDs
+- **🎯 Design Workflow**: Figma → Odoo template matching → configuration → enhancement methodology
 - **Theme Development**: Complete `$o-website-values-palettes` reference, color semantics, theme mirror models
 - **Auto-detection**: Automatically detect Odoo version and map to correct Bootstrap version
 - **publicWidget Framework**: Comprehensive patterns with `editableMode` handling for website builder
@@ -2367,7 +2370,878 @@ jobs:
 - **Web Components**: https://developer.mozilla.org/en-US/docs/Web/Web_Components
 - **Community Forums**: https://www.odoo.com/forum/
 
+## Theme Feature Activation System (CRITICAL)
+
+### Overview: The theme.utils Model
+
+When creating a theme, you MUST include a **models/theme_xxx.py** file that implements the `theme.utils` pattern. This allows your theme to:
+- Enable/disable header templates
+- Enable/disable footer templates
+- Activate optional features on theme installation
+- Configure the theme's default appearance
+
+### Required File Structure
+
+```
+theme_yourtheme/
+├── __init__.py                    # Must import models
+├── __manifest__.py
+├── models/
+│   ├── __init__.py               # Must import theme_yourtheme
+│   └── theme_yourtheme.py        # theme.utils implementation (REQUIRED!)
+├── data/
+├── views/
+└── static/
+```
+
+### models/__init__.py
+```python
+from . import theme_yourtheme
+```
+
+### models/theme_yourtheme.py (REQUIRED PATTERN)
+```python
+from odoo import models
+
+class ThemeYourTheme(models.AbstractModel):
+    _inherit = 'theme.utils'
+
+    def _theme_yourtheme_post_copy(self, mod):
+        """
+        Called automatically when theme is installed on a website.
+        Use enable_view() and disable_view() to configure templates.
+
+        IMPORTANT: Method name MUST be _theme_{technical_name}_post_copy
+        where technical_name matches folder name (underscores, not hyphens).
+        """
+        # Enable desired header template (mutual exclusivity enforced)
+        self.enable_view('website.template_header_sales_two')
+
+        # Enable desired footer template (mutual exclusivity enforced)
+        self.enable_view('website.template_footer_contact')
+
+        # Enable optional features
+        self.enable_view('website.option_header_brand_logo')
+
+        # Disable unwanted defaults
+        self.disable_view('website.header_visibility_standard')
+        self.enable_view('website.header_visibility_fixed')
+```
+
+### Key Methods Available
+
+| Method | Purpose | Example |
+|--------|---------|---------|
+| `enable_view(xml_id)` | Activate a template | `self.enable_view('website.template_header_hamburger')` |
+| `disable_view(xml_id)` | Deactivate a template | `self.disable_view('website.template_header_default')` |
+| `enable_asset(xml_id)` | Activate an asset bundle | `self.enable_asset('website.theme_custom_assets')` |
+| `disable_asset(xml_id)` | Deactivate an asset bundle | `self.disable_asset('website.theme_old_assets')` |
+
+### Mutual Exclusivity Rules
+
+**Headers**: Only ONE primary header template can be active at a time. When you `enable_view()` a header, Odoo automatically handles deactivating others.
+
+**Footers**: Only ONE primary footer template can be active at a time. Same automatic handling.
+
+**Header Options**: Alignment variants, visibility effects, and components can be combined with the active header.
+
+### Complete Example: Modern Business Theme
+
+```python
+from odoo import models
+
+class ThemeModernBusiness(models.AbstractModel):
+    _inherit = 'theme.utils'
+
+    def _theme_modern_business_post_copy(self, mod):
+        """Configure Modern Business theme defaults."""
+
+        # === HEADER CONFIGURATION ===
+        # Use hamburger header with centered mobile
+        self.enable_view('website.template_header_hamburger')
+        self.enable_view('website.template_header_hamburger_mobile_align_center')
+
+        # Fixed header that disappears on scroll
+        self.disable_view('website.header_visibility_standard')
+        self.enable_view('website.header_visibility_disappears')
+
+        # Show logo, not brand name
+        self.enable_view('website.option_header_brand_logo')
+        self.disable_view('website.option_header_brand_name')
+
+        # === FOOTER CONFIGURATION ===
+        # Use contact footer with call-to-action style
+        self.enable_view('website.template_footer_contact')
+
+        # Enable scroll-to-top button
+        # (This is configured in $o-website-values-palettes, not via views)
+
+        # === OPTIONAL FEATURES ===
+        # Enable search in header
+        self.enable_view('website.header_search_box')
+
+        # Enable social links
+        self.enable_view('website.header_social_links')
+```
+
+---
+
+## Complete Dynamic Page Reference
+
+This section documents ALL available templates in Odoo for dynamic pages. Use this reference when:
+1. Comparing a Figma design to find the closest Odoo template
+2. Configuring theme defaults via `_theme_xxx_post_copy()`
+3. Understanding what features Odoo provides out-of-the-box
+
+---
+
+### 📋 HEADER TEMPLATES (11 Primary + Variants)
+
+All headers inherit from `website.layout`. Only ONE primary header can be active per website.
+
+#### Primary Header Templates
+
+| XML ID | Name | Description | Best For |
+|--------|------|-------------|----------|
+| `website.template_header_default` | Default | Standard horizontal navbar | Most websites |
+| `website.template_header_hamburger` | Hamburger | Collapsed hamburger menu | Minimal designs |
+| `website.template_header_stretch` | Stretch | Full-width stretched navbar | Wide layouts |
+| `website.template_header_vertical` | Vertical | Vertical sidebar navigation | App-like sites |
+| `website.template_header_search` | Search | Header with prominent search | E-commerce, directories |
+| `website.template_header_sales_one` | Sales 1 | E-commerce focused header | Online stores |
+| `website.template_header_sales_two` | Sales 2 | E-commerce with categories | Large catalogs |
+| `website.template_header_sales_three` | Sales 3 | E-commerce alternate | Product-focused |
+| `website.template_header_sales_four` | Sales 4 | E-commerce variant | Fashion, retail |
+| `website.template_header_sidebar` | Sidebar | Full sidebar layout | Dashboard sites |
+| `website.template_header_boxed` | Boxed | Rounded box container | Modern brands |
+
+#### Header Alignment Variants (per header)
+
+Each header supports alignment variants. Example for Default header:
+- `website.template_header_default` - Left aligned (default)
+- `website.template_header_default_align_center` - Center aligned
+- `website.template_header_default_align_right` - Right aligned
+
+**Mobile variants** (append `_mobile_align_center` or `_mobile_align_right`):
+- `website.template_header_hamburger_mobile_align_center`
+- `website.template_header_hamburger_mobile_align_right`
+
+#### Header Visibility Effects (mutually exclusive)
+
+| XML ID | Effect | Description |
+|--------|--------|-------------|
+| `website.header_visibility_standard` | Standard | Always visible, scrolls with page |
+| `website.header_visibility_fixed` | Fixed | Sticks to top on scroll |
+| `website.header_visibility_disappears` | Disappears | Hides on scroll down, shows on scroll up |
+| `website.header_visibility_fade_out` | Fade Out | Fades out on scroll |
+
+#### Header Components (can be combined)
+
+| XML ID | Component | Default |
+|--------|-----------|---------|
+| `website.option_header_brand_logo` | Show logo image | **Active** |
+| `website.option_header_brand_name` | Show text "My Website" | Inactive |
+| `website.header_call_to_action` | CTA button (Contact Us) | **Active** |
+| `website.header_search_box` | Search bar | **Active** |
+| `website.header_social_links` | Social media icons | Inactive |
+| `website.header_text_element` | Custom text element | **Active** |
+| `website.header_language_selector` | Language dropdown | **Active** |
+
+#### Header Visual Reference
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ DEFAULT HEADER                                                   │
+│ ┌────────┬────────────────────────────────┬───────────────────┐ │
+│ │ LOGO   │  Home  About  Services  Blog   │  Search   CTA BTN │ │
+│ └────────┴────────────────────────────────┴───────────────────┘ │
+└─────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+│ HAMBURGER HEADER                                                 │
+│ ┌────────┬───────────────────────────────┬────────────────────┐ │
+│ │ ☰ MENU │         LOGO                  │   Search   CTA     │ │
+│ └────────┴───────────────────────────────┴────────────────────┘ │
+│                    ↓ (expanded menu)                             │
+│ ┌─────────────────────────────────────────────────────────────┐ │
+│ │  Home  │  About  │  Services  │  Blog  │  Contact           │ │
+│ └─────────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+│ SALES TWO HEADER (E-commerce)                                    │
+│ ┌─────────────────────────────────────────────────────────────┐ │
+│ │ Top bar: Phone | Email | Currency | Language                 │ │
+│ ├─────────────────────────────────────────────────────────────┤ │
+│ │ LOGO        [    Search Bar    ]        Account  Cart 🛒    │ │
+│ ├─────────────────────────────────────────────────────────────┤ │
+│ │ Category 1  │  Category 2  │  Category 3  │  All Products   │ │
+│ └─────────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────┘
+
+┌────────────────────────────────────────────────────────────────┐
+│ VERTICAL/SIDEBAR HEADER                                         │
+│ ┌──────────────┬──────────────────────────────────────────────┐│
+│ │              │                                               ││
+│ │    LOGO      │                                               ││
+│ │              │                                               ││
+│ │  ─────────── │              PAGE CONTENT                     ││
+│ │              │                                               ││
+│ │   Home       │                                               ││
+│ │   About      │                                               ││
+│ │   Services   │                                               ││
+│ │   Blog       │                                               ││
+│ │   Contact    │                                               ││
+│ │              │                                               ││
+│ │  ─────────── │                                               ││
+│ │  [Social]    │                                               ││
+│ └──────────────┴──────────────────────────────────────────────┘│
+└────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+### 📋 FOOTER TEMPLATES (9 Options)
+
+All footers inherit from `website.layout`. Only ONE primary footer can be active per website.
+
+| XML ID | Name | Description | Best For |
+|--------|------|-------------|----------|
+| `website.footer_custom` | Default | Customizable default footer | General use |
+| `website.template_footer_descriptive` | Descriptive | Detailed company description | Corporate sites |
+| `website.template_footer_centered` | Centered | Center-aligned minimal | Landing pages |
+| `website.template_footer_links` | Links | Multiple link columns | Large sites |
+| `website.template_footer_minimalist` | Minimalist | Ultra-minimal footer | Clean designs |
+| `website.template_footer_contact` | Contact | Contact info focused | Service businesses |
+| `website.template_footer_call_to_action` | CTA | Newsletter/action focused | Marketing sites |
+| `website.template_footer_headline` | Headline | Large headline text | Brand statements |
+| `website.template_footer_slideout` | Slideout | Slides out on scroll | Modern/trendy |
+
+#### Footer Options
+
+| XML ID | Option | Description |
+|--------|--------|-------------|
+| `website.footer_no_copyright` | Remove copyright | Hides copyright line |
+| `website.footer_language_selector_inline` | Inline language | Language selector style |
+
+#### Footer Visual Reference
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ DEFAULT FOOTER                                                   │
+│ ┌─────────────────────────────────────────────────────────────┐ │
+│ │  LOGO                                                        │ │
+│ │  Company description text here...                            │ │
+│ │                                                              │ │
+│ │  Links        Services      Contact                          │ │
+│ │  · About      · Web Dev     123 Street                       │ │
+│ │  · Blog       · Design      City, Country                    │ │
+│ │  · Careers    · Support     +1 234 567 890                   │ │
+│ │                                                              │ │
+│ │  [Social Icons]                                              │ │
+│ ├─────────────────────────────────────────────────────────────┤ │
+│ │  © 2024 Company Name. All rights reserved.                   │ │
+│ └─────────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+│ MINIMALIST FOOTER                                                │
+│ ┌─────────────────────────────────────────────────────────────┐ │
+│ │          © 2024 Company  ·  Privacy  ·  Terms               │ │
+│ └─────────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+│ CONTACT FOOTER                                                   │
+│ ┌─────────────────────────────────────────────────────────────┐ │
+│ │  ┌──────────────┬───────────────┬────────────────────────┐  │ │
+│ │  │  📍 Address  │  📞 Phone     │  ✉️ Email              │  │ │
+│ │  │  123 Street  │  +1 234 567   │  hello@company.com     │  │ │
+│ │  │  City        │               │                        │  │ │
+│ │  └──────────────┴───────────────┴────────────────────────┘  │ │
+│ │                        [Social Icons]                        │ │
+│ └─────────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+│ CALL-TO-ACTION FOOTER                                            │
+│ ┌─────────────────────────────────────────────────────────────┐ │
+│ │            Subscribe to our newsletter                       │ │
+│ │  ┌─────────────────────────────────┬─────────────────────┐  │ │
+│ │  │  Enter your email...            │  [Subscribe Now]    │  │ │
+│ │  └─────────────────────────────────┴─────────────────────┘  │ │
+│ │                                                              │ │
+│ │  © 2024 Company  ·  [Social Icons]                          │ │
+│ └─────────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+### 📋 SHOP PAGE TEMPLATES (website_sale module)
+
+#### Shop Layout Options
+
+| XML ID | Feature | Default | Description |
+|--------|---------|---------|-------------|
+| `website_sale.products_design_card` | Card design | Inactive | Card-style product items |
+| `website_sale.products_design_thumbs` | Thumbnails | Inactive | Thumbnail layout |
+| `website_sale.products_design_grid` | Grid design | Inactive | Grid layout |
+| `website_sale.products_thumb_4_3` | 4:3 ratio | Inactive | 4:3 image aspect ratio |
+| `website_sale.products_thumb_4_5` | 4:5 ratio | Inactive | 4:5 image aspect ratio |
+| `website_sale.products_thumb_2_3` | 2:3 ratio | Inactive | 2:3 image aspect ratio |
+| `website_sale.products_thumb_cover` | Cover fill | **Active** | Image fills container |
+
+#### Shop Categories & Filters
+
+| XML ID | Feature | Default | Description |
+|--------|---------|---------|-------------|
+| `website_sale.products_categories` | Left sidebar categories | Inactive | Categories in left sidebar |
+| `website_sale.products_categories_top` | Top categories | **Active** | Categories in top nav |
+| `website_sale.products_attributes` | Attribute filters | **Active** | Product attribute filters |
+| `website_sale.filter_products_price` | Price filter | Inactive | Price range slider |
+| `website_sale.filter_products_tags` | Tags filter | **Active** | Filter by product tags |
+| `website_sale.search` | Search box | **Active** | Product search |
+| `website_sale.sort` | Sort dropdown | **Active** | Sort products |
+| `website_sale.add_grid_or_list_option` | Grid/List toggle | **Active** | View toggle button |
+
+#### Product Item Options
+
+| XML ID | Feature | Default | Description |
+|--------|---------|---------|-------------|
+| `website_sale.products_description` | Description | Inactive | Show description in listing |
+| `website_sale.products_add_to_cart` | Add to Cart | Inactive | Add to cart button in listing |
+
+#### Shop Visual Reference
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ SHOP PAGE (Categories Top - Default)                             │
+├─────────────────────────────────────────────────────────────────┤
+│  All  │  Category 1  │  Category 2  │  Category 3               │
+├─────────────────────────────────────────────────────────────────┤
+│  [Search...]          [Sort: Featured ▼]   [☷ Grid] [☰ List]   │
+├─────────────────────────────────────────────────────────────────┤
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐        │
+│  │  [IMG]   │  │  [IMG]   │  │  [IMG]   │  │  [IMG]   │        │
+│  │          │  │          │  │          │  │          │        │
+│  │ Product 1│  │ Product 2│  │ Product 3│  │ Product 4│        │
+│  │ $99.00   │  │ $149.00  │  │ $79.00   │  │ $199.00  │        │
+│  └──────────┘  └──────────┘  └──────────┘  └──────────┘        │
+│                                                                  │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐        │
+│  │  [IMG]   │  │  [IMG]   │  │  [IMG]   │  │  [IMG]   │        │
+│  │ ...      │  │ ...      │  │ ...      │  │ ...      │        │
+│  └──────────┘  └──────────┘  └──────────┘  └──────────┘        │
+├─────────────────────────────────────────────────────────────────┤
+│                    [1] [2] [3] ... [Next →]                      │
+└─────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+│ SHOP PAGE (Categories Left Sidebar)                              │
+├────────────────┬────────────────────────────────────────────────┤
+│ CATEGORIES     │  [Search...]     [Sort ▼]    [☷] [☰]          │
+│ ─────────────  ├────────────────────────────────────────────────┤
+│ □ All          │  ┌────────┐  ┌────────┐  ┌────────┐           │
+│ ▸ Category 1   │  │ [IMG]  │  │ [IMG]  │  │ [IMG]  │           │
+│   · Sub 1.1    │  │ Prod 1 │  │ Prod 2 │  │ Prod 3 │           │
+│   · Sub 1.2    │  │ $99    │  │ $149   │  │ $79    │           │
+│ ▸ Category 2   │  └────────┘  └────────┘  └────────┘           │
+│ ▸ Category 3   │                                                │
+│                │  ┌────────┐  ┌────────┐  ┌────────┐           │
+│ PRICE          │  │ ...    │  │ ...    │  │ ...    │           │
+│ ─────────────  │  └────────┘  └────────┘  └────────┘           │
+│ $0 ─●────── $500│                                               │
+│                │                                                │
+│ TAGS           │                                                │
+│ ─────────────  │                                                │
+│ [New] [Sale]   │                                                │
+└────────────────┴────────────────────────────────────────────────┘
+```
+
+---
+
+### 📋 PRODUCT DETAIL PAGE TEMPLATES
+
+| XML ID | Feature | Default | Description |
+|--------|---------|---------|-------------|
+| `website_sale.product_tags` | Product tags | **Active** | Display product tags |
+| `website_sale.product_comment` | Reviews | Inactive | Discussion/rating section |
+| `website_sale.product_custom_text` | Terms block | **Active** | Terms & conditions |
+| `website_sale.product_share_buttons` | Share buttons | **Active** | Social share buttons |
+| `website_sale.product_quantity` | Quantity selector | **Active** | Qty input field |
+| `website_sale.product_buy_now` | Buy Now | Inactive | Quick buy button |
+| `website_sale.product_variants` | Variants list | Inactive | List view of variants |
+| `website_sale.alternative_products` | Alternatives | **Active** | Alternative products carousel |
+| `website_sale.carousel_product_indicators_bottom` | Carousel bottom | **Active** | Image indicators at bottom |
+| `website_sale.carousel_product_indicators_left` | Carousel left | Inactive | Image indicators on left |
+
+#### Product Page Visual Reference
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ PRODUCT DETAIL PAGE                                              │
+├─────────────────────────────────────────────────────────────────┤
+│  Home > Category > Product Name                                  │
+├───────────────────────────────┬─────────────────────────────────┤
+│                               │                                  │
+│  ┌─────────────────────────┐  │  Product Name                    │
+│  │                         │  │  ★★★★☆ (24 reviews)             │
+│  │      [MAIN IMAGE]       │  │                                  │
+│  │                         │  │  $199.00                         │
+│  │                         │  │  ̶$̶2̶4̶9̶.̶0̶0̶ -20%                     │
+│  └─────────────────────────┘  │                                  │
+│  [○] [○] [●] [○]              │  Color: [Blue ▼]                 │
+│                               │  Size:  [M ▼]                    │
+│  ┌──────┐ ┌──────┐ ┌──────┐  │                                  │
+│  │thumb1│ │thumb2│ │thumb3│  │  Qty: [- 1 +]                    │
+│  └──────┘ └──────┘ └──────┘  │                                  │
+│                               │  [Add to Cart]  [Buy Now]        │
+│                               │                                  │
+│                               │  [♡ Wishlist] [🔗 Share]         │
+│                               │                                  │
+│                               │  Tags: [New] [Bestseller]        │
+├───────────────────────────────┴─────────────────────────────────┤
+│  DESCRIPTION  │  SPECIFICATIONS  │  REVIEWS (24)                 │
+├─────────────────────────────────────────────────────────────────┤
+│  Full product description text goes here...                      │
+│                                                                  │
+├─────────────────────────────────────────────────────────────────┤
+│  ALTERNATIVE PRODUCTS                                            │
+│  ┌────────┐  ┌────────┐  ┌────────┐  ┌────────┐                │
+│  │ Alt 1  │  │ Alt 2  │  │ Alt 3  │  │ Alt 4  │                │
+│  └────────┘  └────────┘  └────────┘  └────────┘                │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+### 📋 BLOG PAGE TEMPLATES (website_blog module)
+
+#### Blog Listing Options
+
+| XML ID | Feature | Default | Description |
+|--------|---------|---------|-------------|
+| `website_blog.opt_blog_cover_post` | Latest post banner | **Active** | Show latest post as banner |
+| `website_blog.opt_blog_cover_post_fullwidth_design` | Fullwidth banner | **Active** | Banner spans full width |
+| `website_blog.opt_blog_list_view` | List view | Inactive | Posts as list vs grid |
+| `website_blog.opt_blog_cards_design` | Cards design | Inactive | Bootstrap card components |
+| `website_blog.opt_blog_readable` | Readability | **Active** | Larger, readable text |
+| `website_blog.opt_blog_sidebar_show` | Sidebar | Inactive | Show blog sidebar |
+
+#### Blog Sidebar Components (when enabled)
+
+| XML ID | Feature | Default | Description |
+|--------|---------|---------|-------------|
+| `website_blog.opt_sidebar_blog_index_archives` | Archives | **Active** | Date-based archive |
+| `website_blog.opt_sidebar_blog_index_follow_us` | Follow Us | **Active** | Social media links |
+| `website_blog.opt_sidebar_blog_index_tags` | Tags | **Active** | Tag cloud |
+
+#### Blog Post Loop Display
+
+| XML ID | Feature | Default | Description |
+|--------|---------|---------|-------------|
+| `website_blog.opt_posts_loop_show_cover` | Cover image | **Active** | Featured image |
+| `website_blog.opt_posts_loop_show_author` | Author | **Active** | Author name/avatar |
+| `website_blog.opt_posts_loop_show_stats` | Stats | Inactive | Comment/view counts |
+| `website_blog.opt_posts_loop_show_teaser` | Teaser | **Active** | Preview text and tags |
+
+#### Blog Post Detail Options
+
+| XML ID | Feature | Default | Description |
+|--------|---------|---------|-------------|
+| `website_blog.opt_blog_post_readable` | Readability | **Active** | Larger, readable text |
+| `website_blog.opt_blog_post_sidebar` | Sidebar | Inactive | Show post sidebar |
+| `website_blog.opt_blog_post_regular_cover` | Regular cover | Inactive | Title above cover |
+| `website_blog.opt_blog_post_breadcrumb` | Breadcrumbs | **Active** | Navigation breadcrumbs |
+| `website_blog.opt_blog_post_read_next` | Read next | **Active** | Next article banner |
+| `website_blog.opt_blog_post_comment` | Comments | Inactive | Enable comments |
+| `website_blog.opt_blog_post_select_to_tweet` | Tweet selection | Inactive | Highlight-to-tweet |
+
+#### Blog Visual Reference
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ BLOG LISTING (Grid View - Default)                               │
+├─────────────────────────────────────────────────────────────────┤
+│  ┌─────────────────────────────────────────────────────────────┐│
+│  │             [FEATURED POST BANNER IMAGE]                     ││
+│  │                                                              ││
+│  │  Latest Article Title                                        ││
+│  │  Short teaser text for the featured post...                  ││
+│  │                        [Read More →]                         ││
+│  └─────────────────────────────────────────────────────────────┘│
+├─────────────────────────────────────────────────────────────────┤
+│  All Posts  │  Category 1  │  Category 2  │  [Search...]        │
+├─────────────────────────────────────────────────────────────────┤
+│  ┌────────────────┐  ┌────────────────┐  ┌────────────────┐    │
+│  │   [IMAGE]      │  │   [IMAGE]      │  │   [IMAGE]      │    │
+│  │                │  │                │  │                │    │
+│  │ Post Title 1   │  │ Post Title 2   │  │ Post Title 3   │    │
+│  │ By Author      │  │ By Author      │  │ By Author      │    │
+│  │ Jan 15, 2024   │  │ Jan 10, 2024   │  │ Jan 5, 2024    │    │
+│  │                │  │                │  │                │    │
+│  │ Teaser text... │  │ Teaser text... │  │ Teaser text... │    │
+│  │ [Tag1] [Tag2]  │  │ [Tag1]         │  │ [Tag2] [Tag3]  │    │
+│  └────────────────┘  └────────────────┘  └────────────────┘    │
+└─────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+│ BLOG POST DETAIL (Fullwidth Cover - Default)                     │
+├─────────────────────────────────────────────────────────────────┤
+│  ┌─────────────────────────────────────────────────────────────┐│
+│  │                   [FULL WIDTH COVER IMAGE]                   ││
+│  │                                                              ││
+│  │           Article Title Goes Here                            ││
+│  │           By Author Name  ·  January 15, 2024               ││
+│  └─────────────────────────────────────────────────────────────┘│
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│     Full article content with readable typography.               │
+│                                                                  │
+│     Multiple paragraphs of content...                            │
+│                                                                  │
+│     [Share: Facebook | Twitter | LinkedIn]                       │
+│                                                                  │
+│     Tags: [Technology] [Tutorial] [Odoo]                         │
+│                                                                  │
+├─────────────────────────────────────────────────────────────────┤
+│  ┌─────────────────────────────────────────────────────────────┐│
+│  │  READ NEXT: Next Article Title                               ││
+│  │  [Banner Image]                                              ││
+│  └─────────────────────────────────────────────────────────────┘│
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+### 📋 CART & CHECKOUT TEMPLATES
+
+| XML ID | Feature | Default | Description |
+|--------|---------|---------|-------------|
+| `website_sale.suggested_products_list` | Suggested products | **Active** | Accessory products in cart |
+| `website_sale.reduction_code` | Promo code | **Active** | Coupon code input |
+| `website_sale.address_b2b` | B2B fields | Inactive | Business address fields |
+| `website_sale.accept_terms_and_conditions` | T&C checkbox | Inactive | Require T&C acceptance |
+
+---
+
+## Design Workflow: Figma to Odoo
+
+### The Methodology
+
+When converting a Figma design to an Odoo theme, follow this workflow:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    DESIGN WORKFLOW                               │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  1. ANALYZE DESIGN                                               │
+│     ↓                                                            │
+│     Extract: Colors, Fonts, Layout, Components                   │
+│                                                                  │
+│  2. COMPARE TO ODOO TEMPLATES                                    │
+│     ↓                                                            │
+│     Match: Header style, Footer style, Page layouts              │
+│                                                                  │
+│  3. CHOOSE CLOSEST TEMPLATE                                      │
+│     ↓                                                            │
+│     Select: Best matching header + footer + features             │
+│                                                                  │
+│  4. CONFIGURE VIA VARIABLES                                      │
+│     ↓                                                            │
+│     Set: $o-website-values-palettes configuration                │
+│                                                                  │
+│  5. ENHANCE WITH CUSTOM CSS                                      │
+│     ↓                                                            │
+│     Add: Only what templates can't provide                       │
+│                                                                  │
+│  6. CREATE CUSTOM SNIPPETS (if needed)                           │
+│     ↓                                                            │
+│     Build: Components not available in Odoo                      │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Step 1: Analyze the Figma Design
+
+Extract these key elements:
+
+| Element | What to Look For | Maps To |
+|---------|------------------|---------|
+| **Primary Color** | Main brand color (buttons, links, CTAs) | `o-color-1` |
+| **Secondary Color** | Accent color, secondary buttons | `o-color-2` |
+| **Light Background** | Section backgrounds, cards | `o-color-3` |
+| **White/Base** | Main content background | `o-color-4` |
+| **Dark/Text** | Headings, footer, dark sections | `o-color-5` |
+| **Font Family** | Body text, headings | `$o-theme-font-configs` |
+| **Header Style** | Navigation layout | `'header-template'` |
+| **Footer Style** | Footer layout | `'footer-template'` |
+
+### Step 2: Match Header Style
+
+| If Design Has... | Use Template |
+|-----------------|--------------|
+| Standard horizontal nav | `template_header_default` |
+| Hidden menu (hamburger icon) | `template_header_hamburger` |
+| Full-width stretched nav | `template_header_stretch` |
+| Vertical sidebar navigation | `template_header_vertical` |
+| Prominent search bar | `template_header_search` |
+| E-commerce with categories | `template_header_sales_two` |
+| Top bar + main nav | `template_header_sales_one` |
+| Sidebar with content | `template_header_sidebar` |
+| Rounded/boxed container | `template_header_boxed` |
+
+### Step 3: Match Footer Style
+
+| If Design Has... | Use Template |
+|-----------------|--------------|
+| Multi-column with logo | `footer_custom` (default) |
+| Detailed company info | `template_footer_descriptive` |
+| Center-aligned minimal | `template_footer_centered` |
+| Multiple link columns only | `template_footer_links` |
+| Ultra-minimal copyright only | `template_footer_minimalist` |
+| Contact info focus | `template_footer_contact` |
+| Newsletter/CTA focus | `template_footer_call_to_action` |
+| Large headline text | `template_footer_headline` |
+| Modern slide-out effect | `template_footer_slideout` |
+
+### Step 4: Generate Theme Configuration
+
+Based on analysis, create the configuration:
+
+```scss
+// primary_variables.scss - Generated from Figma Analysis
+
+$o-theme-font-configs: (
+    'Poppins': (
+        'family': ('Poppins', sans-serif),
+        'url': 'Poppins:300,400,500,600,700',
+    ),
+);
+
+$o-website-values-palettes: (
+    (
+        'color-palettes-name': 'default-1',
+
+        // Typography (from Figma)
+        'font': 'Poppins',
+        'headings-font': 'Poppins',
+
+        // Header (matched to closest template)
+        'header-template': 'hamburger',  // Figma shows hamburger menu
+        'header-links-style': 'pills',   // Rounded pill-style links
+        'logo-height': 48px,
+
+        // Footer (matched to closest template)
+        'footer-template': 'contact',    // Figma shows contact-focused footer
+        'footer-scrolltop': true,
+
+        // Buttons (from Figma measurements)
+        'btn-padding-y': 0.75rem,
+        'btn-padding-x': 1.5rem,
+        'btn-border-radius': 8px,
+
+        // Layout
+        'link-underline': 'never',
+    )
+);
+```
+
+### Step 5: Create theme.utils Implementation
+
+```python
+# models/theme_yourtheme.py
+
+from odoo import models
+
+class ThemeYourTheme(models.AbstractModel):
+    _inherit = 'theme.utils'
+
+    def _theme_yourtheme_post_copy(self, mod):
+        # Enable matched header template
+        self.enable_view('website.template_header_hamburger')
+        self.enable_view('website.template_header_hamburger_mobile_align_center')
+
+        # Enable matched footer template
+        self.enable_view('website.template_footer_contact')
+
+        # Enable desired header components
+        self.enable_view('website.option_header_brand_logo')
+        self.enable_view('website.header_search_box')
+
+        # Configure visibility effect
+        self.disable_view('website.header_visibility_standard')
+        self.enable_view('website.header_visibility_fixed')
+```
+
+### Decision Flowchart: Header Selection
+
+```
+START: Analyze header design
+    │
+    ├─ Is navigation hidden by default?
+    │   │
+    │   ├─ YES → template_header_hamburger
+    │   │
+    │   └─ NO → Is there a vertical sidebar?
+    │           │
+    │           ├─ YES → Is it full-page sidebar?
+    │           │   │
+    │           │   ├─ YES → template_header_sidebar
+    │           │   └─ NO → template_header_vertical
+    │           │
+    │           └─ NO → Is it e-commerce focused?
+    │                   │
+    │                   ├─ YES → Does it have category mega-menu?
+    │                   │   │
+    │                   │   ├─ YES → template_header_sales_two
+    │                   │   └─ NO → template_header_sales_one
+    │                   │
+    │                   └─ NO → Is search prominent?
+    │                           │
+    │                           ├─ YES → template_header_search
+    │                           │
+    │                           └─ NO → Is it boxed/contained?
+    │                                   │
+    │                                   ├─ YES → template_header_boxed
+    │                                   │
+    │                                   └─ NO → Is it full-width?
+    │                                           │
+    │                                           ├─ YES → template_header_stretch
+    │                                           └─ NO → template_header_default
+```
+
+### Decision Flowchart: Footer Selection
+
+```
+START: Analyze footer design
+    │
+    ├─ Is it minimal (just copyright)?
+    │   │
+    │   ├─ YES → template_footer_minimalist
+    │   │
+    │   └─ NO → Is it center-aligned?
+    │           │
+    │           ├─ YES → template_footer_centered
+    │           │
+    │           └─ NO → Is there a newsletter/CTA?
+    │                   │
+    │                   ├─ YES → template_footer_call_to_action
+    │                   │
+    │                   └─ NO → Is it contact info focused?
+    │                           │
+    │                           ├─ YES → template_footer_contact
+    │                           │
+    │                           └─ NO → Is it primarily links?
+    │                                   │
+    │                                   ├─ YES → template_footer_links
+    │                                   │
+    │                                   └─ NO → Has detailed description?
+    │                                           │
+    │                                           ├─ YES → template_footer_descriptive
+    │                                           │
+    │                                           └─ NO → footer_custom (default)
+```
+
+---
+
+## Updated /create-theme Command (v6.0)
+
+The `/create-theme` command now automatically generates the `models/theme_xxx.py` file with template activation.
+
+### What Gets Created (v6.0)
+
+```
+theme_<name>/
+├── __init__.py                        # Imports models
+├── __manifest__.py                    # Updated with models/ import
+├── models/
+│   ├── __init__.py                   # Imports theme_<name>
+│   └── theme_<name>.py               # theme.utils implementation (NEW!)
+├── security/
+│   └── ir.model.access.csv
+├── data/
+│   ├── assets.xml
+│   ├── menu.xml
+│   └── pages/
+│       ├── home_page.xml
+│       ├── aboutus_page.xml
+│       └── contactus_page.xml
+├── views/
+│   ├── layout/
+│   │   └── templates.xml
+│   └── snippets/
+│       └── custom_snippets.xml
+└── static/src/
+    ├── scss/
+    │   ├── primary_variables.scss
+    │   └── theme.scss
+    ├── js/
+    │   └── theme.js
+    └── img/
+```
+
+### Generated theme_<name>.py
+
+```python
+from odoo import models
+
+
+class Theme<Name>(models.AbstractModel):
+    _inherit = 'theme.utils'
+
+    def _theme_<name>_post_copy(self, mod):
+        """
+        Configure theme defaults when installed on a website.
+
+        This method is called automatically when the theme is applied.
+        Use enable_view() and disable_view() to configure templates.
+        """
+        # === HEADER CONFIGURATION ===
+        # Enable desired header template (only one can be active)
+        self.enable_view('website.template_header_<detected>')
+
+        # Configure header visibility
+        self.disable_view('website.header_visibility_standard')
+        self.enable_view('website.header_visibility_fixed')
+
+        # Enable header components
+        self.enable_view('website.option_header_brand_logo')
+
+        # === FOOTER CONFIGURATION ===
+        # Enable desired footer template (only one can be active)
+        self.enable_view('website.template_footer_<detected>')
+```
+
+---
+
 ## Changelog
+
+- **v6.0.0**: Theme Feature Activation System & Dynamic Page Reference (MAJOR)
+  - **NEW: Theme Feature Activation System**
+    - Complete `theme.utils` model documentation
+    - `_theme_{module}_post_copy()` pattern requirement
+    - `enable_view()` and `disable_view()` method reference
+    - Mutual exclusivity rules for headers/footers
+    - Complete working examples
+  - **NEW: Complete Dynamic Page Reference**
+    - 11 header templates with XML IDs and visual diagrams
+    - 9 footer templates with XML IDs and visual diagrams
+    - All shop page templates (categories, filters, layout)
+    - All product detail page templates
+    - All blog templates (listing, detail, sidebar)
+    - Cart and checkout templates
+  - **NEW: Design Workflow Methodology**
+    - Figma analysis extraction guide
+    - Template matching decision flowcharts
+    - Configuration generation from design
+    - Step-by-step workflow documentation
+  - **UPDATED: /create-theme command v6.0**
+    - Now generates `models/theme_xxx.py` automatically
+    - Template activation based on configuration
+    - Complete module structure with all required files
 
 - **v5.1.0**: Comprehensive Variable Reference Enhancement (MAJOR)
   - **Complete $o-theme-font-configs reference**:
