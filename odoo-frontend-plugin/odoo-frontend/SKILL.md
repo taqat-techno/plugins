@@ -1,7 +1,7 @@
 ---
 name: odoo-frontend
 description: "Advanced Odoo frontend development with comprehensive theme development, /create-theme command, theme.utils activation system, complete dynamic page reference (headers, footers, shop, blog), design workflow methodology, PWA support, modern JavaScript/TypeScript, testing frameworks, performance optimization, accessibility compliance, and real-time features. Features complete $o-website-values-palettes reference, theme mirror model architecture, publicWidget patterns with editableMode handling, and MCP integration. Supports Odoo 14-19 with auto-detection."
-version: "6.0.0"
+version: "7.0.0"
 author: "TAQAT Techno"
 license: "MIT"
 allowed-tools:
@@ -3147,6 +3147,573 @@ START: Analyze footer design
 
 ---
 
+## Website Snippets Complete Reference
+
+This section documents ALL available snippets in Odoo, how they work, and how to create custom ones. Use this when building website pages, creating custom snippets, or understanding the website builder.
+
+---
+
+### 📚 SNIPPET ARCHITECTURE OVERVIEW
+
+Snippets are reusable building blocks for Odoo website pages, enabling drag-and-drop page construction.
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                     ODOO SNIPPET SYSTEM                          │
+├─────────────────────────────────────────────────────────────────┤
+│  ┌──────────────────┐    ┌──────────────────┐                   │
+│  │  STATIC SNIPPETS │    │ DYNAMIC SNIPPETS │                   │
+│  ├──────────────────┤    ├──────────────────┤                   │
+│  │ • Pre-built HTML │    │ • Data-driven    │                   │
+│  │ • 81+ templates  │    │ • ir.filters     │                   │
+│  │ • Drag & drop    │    │ • Display temps  │                   │
+│  └──────────────────┘    └──────────────────┘                   │
+│                              │                                   │
+│  ┌───────────────────────────┴────────────────────────────────┐ │
+│  │                   SNIPPET OPTIONS SYSTEM                    │ │
+│  ├────────────────────────────────────────────────────────────┤ │
+│  │  we-select | we-button | we-colorpicker | we-input | etc.  │ │
+│  │  data-selector | data-select-class | data-js | data-css    │ │
+│  └────────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+### 📋 STATIC SNIPPETS INVENTORY (81+ Templates)
+
+Odoo provides **81+ static snippet templates** organized into 6 main categories:
+
+| Category | Count | Purpose |
+|----------|-------|---------|
+| Structure | 14 | Page sections, layouts |
+| Gallery/Media | 3 | Image galleries, carousels |
+| Features | 11 | Feature showcases |
+| Dynamic Content | 15 | Maps, forms, embeds |
+| Inner Content | 16 | Cards, quotes, text blocks |
+| Mega Menus | 9 | Navigation menus |
+
+#### Structure Snippets (14)
+
+| Snippet ID | Name | Description | Best For |
+|------------|------|-------------|----------|
+| `s_banner` | Banner | Hero section with background | Landing pages |
+| `s_cover` | Cover | Full-width cover image | Headers |
+| `s_text_image` | Text - Image | Two-column: text left, image right | Features |
+| `s_image_text` | Image - Text | Two-column: image left, text right | Features |
+| `s_title` | Title | Section title with subtitle | Section headers |
+| `s_text_block` | Text Block | Multi-column text content | Content |
+| `s_numbers` | Numbers | Statistics/counters display | Achievements |
+| `s_picture` | Picture | Single large image | Visual focus |
+| `s_three_columns` | Columns | Three-column layout | Content grids |
+| `s_big_boxes` | Big Boxes | Large feature boxes | Services |
+| `s_features` | Features | Feature grid with icons | Benefits |
+| `s_masonry_block` | Masonry Block | Masonry-style grid | Galleries |
+| `s_image_gallery` | Image Gallery | Multi-image gallery | Portfolios |
+| `s_images_wall` | Images Wall | Wall-style display | Media |
+
+#### Features Snippets (11)
+
+| Snippet ID | Name | Description | Best For |
+|------------|------|-------------|----------|
+| `s_comparisons` | Comparisons | Side-by-side comparison | Product comparison |
+| `s_company_team` | Company Team | Team member cards | About pages |
+| `s_call_to_action` | Call to Action | CTA section with button | Conversions |
+| `s_references` | References | Client logos/references | Social proof |
+| `s_accordion` | Accordion | Collapsible content | FAQs |
+| `s_features_grid` | Features Grid | Grid of feature icons | Benefits |
+| `s_table_of_content` | Table of Content | Scrollspy navigation | Long pages |
+| `s_pricelist` | Pricelist | Pricing table | Products |
+| `s_product_list` | Product List | Product showcase | E-commerce |
+| `s_faq_collapse` | FAQ | Frequently asked questions | Support |
+| `s_tabs` | Tabs | Tabbed content | Organization |
+
+#### Dynamic Content Snippets (15)
+
+| Snippet ID | Name | Description | Best For |
+|------------|------|-------------|----------|
+| `s_google_map` | Google Map | Google Maps embed | Contact pages |
+| `s_map` | Map | Leaflet/OpenStreetMap | Locations |
+| `s_embed_code` | Embed Code | Custom HTML/embed | Third-party |
+| `s_website_form` | Website Form | Contact/custom forms | Lead capture |
+| `s_searchbar` | Searchbar | Search functionality | Navigation |
+| `s_social_media` | Social Media | Social links | Engagement |
+| `s_share` | Share | Share buttons | Content sharing |
+| `s_dynamic_snippet` | Dynamic Snippet | Base dynamic content | Data display |
+| `s_dynamic_snippet_carousel` | Dynamic Carousel | Dynamic carousel | Featured content |
+| `s_chart` | Chart | Data visualization | Reports |
+| `s_countdown` | Countdown | Timer/countdown | Events |
+| `s_popup` | Popup | Modal popup | Promotions |
+| `s_newsletter_block` | Newsletter | Email subscription | Marketing |
+| `s_newsletter_popup` | Newsletter Popup | Popup subscription | Lead capture |
+| `s_newsletter_subscribe_form` | Newsletter Form | Inline subscription | Footer |
+
+#### Inner Content Snippets (16)
+
+| Snippet ID | Name | Description | Best For |
+|------------|------|-------------|----------|
+| `s_hr` | Horizontal Rule | Divider line | Section breaks |
+| `s_alert` | Alert | Alert/notification box | Notices |
+| `s_card` | Card | Content card | Items |
+| `s_three_cards` | Three Cards | Three-card layout | Services |
+| `s_four_cards` | Four Cards | Four-card layout | Features |
+| `s_timeline` | Timeline | Timeline display | History |
+| `s_process_steps` | Process Steps | Step-by-step guide | Tutorials |
+| `s_quotes_carousel` | Quotes Carousel | Testimonial slider | Social proof |
+| `s_quotes_grid` | Quotes Grid | Testimonial grid | Reviews |
+| `s_rating` | Rating | Star rating display | Reviews |
+| `s_progress_bar` | Progress Bar | Progress indicator | Statistics |
+| `s_blockquote` | Blockquote | Styled quote | Emphasis |
+| `s_badge` | Badge | Badge/label | Labels |
+| `s_button` | Button | Styled button | CTAs |
+| `s_separator` | Separator | Section separator | Visual breaks |
+| `s_text_highlight` | Text Highlight | Highlighted text box | Emphasis |
+
+#### Mega Menu Snippets (9)
+
+| Snippet ID | Name | Description |
+|------------|------|-------------|
+| `s_mega_menu_multi_menus` | Multi Menus | Multiple menu columns |
+| `s_mega_menu_menu_image_menu` | Menu Image Menu | Three-section with image |
+| `s_mega_menu_little_icons` | Little Icons | Icon-based menu |
+| `s_mega_menu_images_subtitles` | Images Subtitles | Images with subtitles |
+| `s_mega_menu_cards` | Cards | Card-style menu |
+| `s_mega_menu_big_icons` | Big Icons | Large icon menu |
+| `s_mega_menu_thumbnails` | Thumbnails | Thumbnail gallery menu |
+| `s_mega_menu_odoo_menu` | Odoo Menu | Odoo-style menu |
+| `s_mega_menu_no_extra_info` | No Extra Info | Simple menu |
+
+---
+
+### 📋 DYNAMIC SNIPPETS SYSTEM
+
+Dynamic snippets fetch data from the database and render using templates.
+
+#### Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                  DYNAMIC SNIPPET FLOW                            │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  ┌──────────────────┐                                           │
+│  │   DATA SOURCE    │ ← ir.filters / ir.actions.server          │
+│  └────────┬─────────┘                                           │
+│           │                                                      │
+│           ▼                                                      │
+│  ┌──────────────────┐                                           │
+│  │ DYNAMIC FILTER   │ ← website.snippet.filter model            │
+│  │ (Data Fetcher)   │                                           │
+│  └────────┬─────────┘                                           │
+│           │                                                      │
+│           ▼                                                      │
+│  ┌──────────────────┐                                           │
+│  │ DISPLAY TEMPLATE │ ← dynamic_filter_template_*               │
+│  │   (Renderer)     │                                           │
+│  └──────────────────┘                                           │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+#### Product Dynamic Snippets (website_sale)
+
+**Main Snippet**: `s_dynamic_snippet_products`
+
+**Display Templates (15 variants)**:
+
+| Template Key | Name | Style |
+|--------------|------|-------|
+| `dynamic_filter_template_product_product_add_to_cart` | Add to Cart | With purchase button |
+| `dynamic_filter_template_product_product_banner` | Banner | Large banner format |
+| `dynamic_filter_template_product_product_borderless_1/2/3` | Borderless | Clean borderless |
+| `dynamic_filter_template_product_product_card_style` | Card Style | Card-based |
+| `dynamic_filter_template_product_product_centered` | Centered | Center-aligned |
+| `dynamic_filter_template_product_product_horizontal_card` | Horizontal Card | Horizontal layout |
+| `dynamic_filter_template_product_product_mini` | Mini | Compact display |
+| `dynamic_filter_template_product_product_minimalist_1/2/3/4` | Minimalist | Minimal designs |
+| `dynamic_filter_template_product_product_picture` | Picture | Image-focused |
+
+**Dynamic Filters (6 data sources)**:
+
+| Filter ID | Name | Logic |
+|-----------|------|-------|
+| `dynamic_filter_newest_products` | Newest Products | Sorted by create_date desc |
+| `dynamic_filter_recently_sold_products` | Recently Sold | Products with recent sales |
+| `dynamic_filter_recently_viewed_products` | Recently Viewed | User's browsing history |
+| `dynamic_filter_accessories` | Accessories | Related accessories |
+| `dynamic_filter_products_sold_with` | Sold With | Frequently bought together |
+| `dynamic_filter_alternative_products` | Alternative | Similar products |
+
+#### Blog Dynamic Snippets (website_blog)
+
+**Main Snippet**: `s_blog_posts`
+
+**Display Templates (4 layouts)**:
+
+| Template Key | Name |
+|--------------|------|
+| `dynamic_filter_template_blog_post_big_picture` | Big Picture |
+| `dynamic_filter_template_blog_post_card` | Card |
+| `dynamic_filter_template_blog_post_horizontal` | Horizontal |
+| `dynamic_filter_template_blog_post_vertical` | Vertical |
+
+**Filters**: `dynamic_filter_latest_posts`, `dynamic_filter_most_read_posts`
+
+#### Event Dynamic Snippets (website_event)
+
+**Main Snippet**: `s_events`
+
+**Display Templates**: `dynamic_filter_template_event_event_card`, `dynamic_filter_template_event_event_list`
+
+**Filter**: `dynamic_filter_upcoming_events`
+
+---
+
+### 📋 SNIPPET OPTIONS SYSTEM
+
+The options system allows users to customize snippets in the website editor.
+
+#### We-* Elements Reference
+
+| Element | Purpose | Key Attributes |
+|---------|---------|----------------|
+| `we-select` | Dropdown selection | `data-name`, `data-dependencies` |
+| `we-button` | Toggle button | `data-select-class`, `data-toggle-class` |
+| `we-colorpicker` | Color picker | `data-css-property`, `data-color-prefix` |
+| `we-input` | Text/number input | `data-attribute-name`, `data-unit` |
+| `we-range` | Slider | `data-min`, `data-max`, `data-step` |
+| `we-checkbox` | Checkbox toggle | `data-select-class` |
+| `we-button-group` | Grouped buttons | For alignment, etc. |
+| `we-row` | Option row | Groups related inputs |
+| `we-select-pager` | Paginated selection | For large option sets |
+
+#### Data Attributes Reference
+
+| Attribute | Purpose | Example |
+|-----------|---------|---------|
+| `data-selector` | Target CSS selector | `data-selector=".s_banner"` |
+| `data-select-class` | Toggle CSS class | `data-select-class="shadow-lg"` |
+| `data-select-style` | Enable style editing | `data-select-style="true"` |
+| `data-css-property` | CSS property to modify | `data-css-property="padding"` |
+| `data-js` | JavaScript handler class | `data-js="BackgroundImage"` |
+| `data-dependencies` | Show based on other options | `data-dependencies="image_opt"` |
+| `data-exclude` | Hide for certain elements | `data-exclude=".no-shadow"` |
+| `data-no-preview` | Disable live preview | `data-no-preview="true"` |
+| `data-attribute-name` | HTML attribute to set | `data-attribute-name="data-speed"` |
+
+#### Built-in JavaScript Handlers
+
+| Handler | Purpose |
+|---------|---------|
+| `BackgroundImage` | Background image management |
+| `BackgroundPosition` | Image positioning |
+| `BackgroundToggler` | Toggle background type |
+| `ColoredLevelBackground` | Color palette backgrounds |
+| `BackgroundShape` | Decorative shapes |
+| `ImageTools` | Image editing |
+| `ReplaceMedia` | Media replacement |
+| `FontawesomeTools` | Icon management |
+| `Carousel` | Carousel controls |
+| `DynamicSnippet` | Dynamic content options |
+
+#### Complete Options Template Example
+
+```xml
+<template id="s_my_snippet_options" inherit_id="website.snippet_options">
+    <xpath expr="." position="inside">
+        <div data-js="MySnippetHandler"
+             data-selector=".s_my_snippet"
+             data-drop-in=".oe_structure"
+             data-drop-near="section">
+
+            <!-- Layout Selection -->
+            <we-select string="Layout" data-name="layout_opt">
+                <we-button data-select-class="layout-grid">Grid</we-button>
+                <we-button data-select-class="layout-list">List</we-button>
+            </we-select>
+
+            <!-- Color Options -->
+            <we-colorpicker string="Background"
+                            data-name="bg_color_opt"
+                            data-select-style="true"
+                            data-css-property="background-color"/>
+
+            <!-- Spacing -->
+            <we-range string="Spacing"
+                      data-name="spacing_opt"
+                      data-select-style="true"
+                      data-css-property="gap"
+                      data-min="0"
+                      data-max="100"
+                      data-step="5"
+                      data-unit="px"/>
+
+            <!-- Conditional Option -->
+            <we-select string="Shadow Size"
+                       data-name="shadow_size_opt"
+                       data-dependencies="shadow_opt">
+                <we-button data-select-class="shadow-sm">Small</we-button>
+                <we-button data-select-class="shadow-lg">Large</we-button>
+            </we-select>
+
+        </div>
+    </xpath>
+</template>
+```
+
+---
+
+### 📋 CREATING CUSTOM SNIPPETS (VERSION-AWARE)
+
+#### Odoo 14-17: Simple Registration
+
+```xml
+<!-- 1. Snippet Template -->
+<template id="s_my_snippet" name="My Snippet">
+    <section class="s_my_snippet pt48 pb48 o_cc o_cc1">
+        <div class="container">
+            <div class="row">
+                <div class="col-lg-12 text-center">
+                    <h2>My Custom Snippet</h2>
+                    <p>Content goes here...</p>
+                </div>
+            </div>
+        </div>
+    </section>
+</template>
+
+<!-- 2. Snippet Registration -->
+<template id="s_my_snippet_insert" inherit_id="website.snippets">
+    <xpath expr="//div[@id='snippet_structure']//t[@t-snippet][last()]" position="after">
+        <t t-snippet="my_module.s_my_snippet"
+           t-thumbnail="/my_module/static/src/img/snippets/s_my_snippet.svg">
+            <keywords>my, custom, snippet</keywords>
+        </t>
+    </xpath>
+</template>
+```
+
+#### Odoo 18-19: With Snippet Groups
+
+```xml
+<!-- 1. Snippet Template (same as above) -->
+
+<!-- 2. Optional: Custom Snippet Group -->
+<template id="snippet_group_custom" inherit_id="website.snippets">
+    <xpath expr="//div[@id='snippet_groups']" position="inside">
+        <t snippet-group="custom"
+           t-snippet="website.s_snippet_group"
+           string="Custom Snippets"/>
+    </xpath>
+</template>
+
+<!-- 3. Snippet Registration with Group -->
+<template id="s_my_snippet_insert" inherit_id="website.snippets">
+    <xpath expr="//div[@id='snippet_structure']/*[1]" position="before">
+        <t t-snippet="my_module.s_my_snippet"
+           string="My Snippet"
+           group="custom"
+           t-thumbnail="/my_module/static/src/img/snippets/s_my_snippet.svg"/>
+    </xpath>
+</template>
+```
+
+#### Snippet Panel Categories
+
+| Panel ID | Category | XPath Target |
+|----------|----------|--------------|
+| `snippet_mega_menu` | Mega Menu | `//div[@id='snippet_mega_menu']` |
+| `snippet_structure` | Structure | `//div[@id='snippet_structure']` |
+| `snippet_media` | Gallery | `//div[@id='snippet_media']` |
+| `snippet_feature` | Features | `//div[@id='snippet_feature']` |
+| `snippet_dynamic` | Dynamic Content | `//div[@id='snippet_dynamic']` |
+| `snippet_inner_content` | Inner Content | `//div[@id='snippet_inner_content']` |
+
+---
+
+### 📋 SNIPPET JAVASCRIPT INTEGRATION
+
+#### publicWidget Pattern for Snippets
+
+```javascript
+/** @odoo-module **/
+
+import publicWidget from "@web/legacy/js/public/public_widget";
+
+publicWidget.registry.MySnippet = publicWidget.Widget.extend({
+    selector: '.s_my_snippet',
+    disabledInEditableMode: false,  // Allow in website builder
+
+    events: {
+        'click .load-more': '_onLoadMore',
+    },
+
+    start: function () {
+        // CRITICAL: Check editableMode for builder compatibility
+        if (!this.editableMode) {
+            this._initializeAnimations();
+        }
+        return this._super(...arguments);
+    },
+
+    _initializeAnimations: function () {
+        // Animation code that should NOT run in edit mode
+        this.$el.addClass('animated');
+    },
+
+    _onLoadMore: function (ev) {
+        ev.preventDefault();
+        if (this.editableMode) return;  // Don't run in edit mode
+        // Handler logic
+    },
+
+    destroy: function () {
+        // CRITICAL: Clean up event listeners
+        $(window).off('.mySnippet');
+        this._super(...arguments);
+    },
+});
+
+export default publicWidget.registry.MySnippet;
+```
+
+#### Snippet Options JavaScript Handler
+
+```javascript
+/** @odoo-module **/
+
+import options from "@web_editor/js/editor/snippets.options";
+
+options.registry.MySnippetOption = options.Class.extend({
+    /**
+     * Handle data attribute changes
+     */
+    selectDataAttribute: function(previewMode, widgetValue, params) {
+        this._super(...arguments);
+        if (params.attributeName === 'layout') {
+            this._applyLayout(widgetValue);
+        }
+    },
+
+    _applyLayout: function(layout) {
+        this.$target.removeClass('layout-grid layout-list');
+        this.$target.addClass(`layout-${layout}`);
+    },
+
+    /**
+     * Compute option visibility
+     */
+    _computeWidgetVisibility: function(methodName, params) {
+        if (methodName === 'showAdvanced') {
+            return this.$target.hasClass('advanced-mode');
+        }
+        return this._super(...arguments);
+    },
+});
+```
+
+---
+
+### 📋 VERSION DIFFERENCES FOR SNIPPETS
+
+| Feature | Odoo 14-15 | Odoo 16-17 | Odoo 18-19 |
+|---------|------------|------------|------------|
+| **Snippet Count** | ~40 | 81+ | 155+ |
+| **Registration** | Simple XPath | Simple XPath | Groups required |
+| **Asset System** | Template inherit | ir.asset model | ir.asset model |
+| **JavaScript** | `odoo.define()` | ES6 modules | Plugin-based |
+| **Bootstrap** | 4.x | 5.1.3 | 5.1.3 |
+| **Dynamic Snippets** | Basic | Full | Full + Categories |
+| **Editor** | Legacy | Legacy | Plugin architecture |
+
+#### Odoo 19 Plugin Pattern (New)
+
+```javascript
+import { Plugin } from "@html_editor/plugin";
+import { registry } from "@web/core/registry";
+
+export class MySnippetPlugin extends Plugin {
+    static id = "mySnippet";
+    static dependencies = ["builderOptions", "builderActions"];
+
+    resources = {
+        builder_options: [{
+            template: "my_module.MySnippetOption",
+            selector: "section",
+            applyTo: ".s_my_snippet",
+        }],
+        builder_actions: {
+            MyAction: { /* action definition */ },
+        },
+    };
+}
+
+registry.category("website-plugins").add("mySnippet", MySnippetPlugin);
+```
+
+---
+
+### 📋 CREATING DYNAMIC SNIPPETS
+
+#### Step 1: Define the Filter
+
+```xml
+<record id="dynamic_filter_my_items" model="website.snippet.filter">
+    <field name="name">My Items</field>
+    <field name="model_name">my.model</field>
+    <field name="limit">12</field>
+    <field name="filter_id" ref="ir_filter_my_items"/>
+</record>
+
+<record id="ir_filter_my_items" model="ir.filters">
+    <field name="name">Latest Items</field>
+    <field name="model_id">my.model</field>
+    <field name="domain">[('is_published', '=', True)]</field>
+    <field name="sort">create_date desc</field>
+</record>
+```
+
+#### Step 2: Create Display Template
+
+```xml
+<template id="dynamic_filter_template_my_model_card" name="My Model Card">
+    <t t-foreach="records" t-as="record">
+        <div class="col-lg-4 mb-4">
+            <div class="card h-100 shadow-sm">
+                <img t-att-src="record.image_url" class="card-img-top"/>
+                <div class="card-body">
+                    <h5 class="card-title" t-esc="record.name"/>
+                    <p class="card-text" t-esc="record.description"/>
+                </div>
+            </div>
+        </div>
+    </t>
+</template>
+```
+
+#### Step 3: Create Dynamic Snippet
+
+```xml
+<template id="s_dynamic_my_items" name="Dynamic My Items">
+    <section class="s_dynamic_snippet s_dynamic_my_items pt48 pb48"
+             data-snippet="s_dynamic_my_items"
+             data-name="Dynamic My Items"
+             data-filter-id="my_module.dynamic_filter_my_items"
+             data-template-key="my_module.dynamic_filter_template_my_model_card"
+             data-number-of-elements="6"
+             data-number-of-elements-small-devices="2">
+        <div class="container">
+            <div class="row">
+                <h2 class="col-12 text-center mb-4">Featured Items</h2>
+            </div>
+            <div class="dynamic_snippet_template row"/>
+        </div>
+    </section>
+</template>
+```
+
+---
+
 ## Updated /create-theme Command (v6.0)
 
 The `/create-theme` command now automatically generates the `models/theme_xxx.py` file with template activation.
@@ -3218,6 +3785,36 @@ class Theme<Name>(models.AbstractModel):
 ---
 
 ## Changelog
+
+- **v7.0.0**: Website Snippets Complete Reference (MAJOR)
+  - **NEW: Complete Static Snippets Inventory (81+ Templates)**
+    - Structure snippets (s_banner, s_cover, s_parallax, etc.)
+    - Feature snippets (s_features, s_comparisons, s_image_text, etc.)
+    - Dynamic content snippets (s_dynamic_snippet_*, products, blog, events)
+    - Inner content snippets (s_hr, s_badge, s_card, s_blockquote, etc.)
+    - Mega menu snippets (s_mega_menu_*, multi_menus, odoo_menu)
+  - **NEW: Dynamic Snippets System Documentation**
+    - website.snippet.filter model architecture
+    - 15 product display templates (dynamic_filter_template_*)
+    - 6 built-in product snippet filters
+    - Blog and event dynamic snippet patterns
+  - **NEW: Snippet Options System Reference**
+    - Complete we-* elements (we-select, we-button, we-colorpicker, we-input, we-range, we-checkbox)
+    - Data attributes reference (data-selector, data-select-class, data-js, data-css-property, data-dependencies)
+    - Built-in JavaScript handlers (BackgroundImage, Carousel, ImageTools, etc.)
+    - Complete snippet options XML example
+  - **NEW: Version-Aware Custom Snippet Creation**
+    - Odoo 14-17 simple t-snippet registration
+    - Odoo 18-19 snippet groups pattern
+    - XPath insertion techniques
+  - **NEW: Odoo 19 Plugin Pattern Documentation**
+    - @html_editor/plugin based architecture
+    - 130+ plugin files reference
+    - SnippetOption class pattern
+  - **NEW: Creating Dynamic Snippets Guide**
+    - Define filter (website.snippet.filter)
+    - Create display template (dynamic_filter_template_*)
+    - Create dynamic snippet with data-filter-id
 
 - **v6.0.0**: Theme Feature Activation System & Dynamic Page Reference (MAJOR)
   - **NEW: Theme Feature Activation System**
