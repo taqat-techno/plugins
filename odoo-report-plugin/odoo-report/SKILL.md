@@ -1,7 +1,7 @@
 ---
 name: odoo-report
-description: "Professional Odoo Email Templates & QWeb Reports - Complete toolkit for creating, managing, and debugging email templates and PDF reports across Odoo 14-19. Provides smart pattern-based template generation, version-aware syntax, and comprehensive validation."
-version: "1.0.0"
+description: "Professional Odoo Email Templates & QWeb Reports - Complete toolkit for creating, managing, and debugging email templates and PDF reports across Odoo 14-19. Includes wkhtmltopdf setup, Arabic/RTL support, bilingual patterns, and comprehensive validation."
+version: "2.0.0"
 author: "TaqaTechno"
 license: "LGPL-3"
 allowed-tools:
@@ -26,9 +26,9 @@ metadata:
     - notification-layouts
 ---
 
-# Odoo Email Templates & QWeb Reports Skill (v1.0)
+# Odoo Email Templates & QWeb Reports Skill (v2.0)
 
-A comprehensive skill for creating, managing, debugging, and migrating Odoo email templates and QWeb reports across versions 14-19 with intelligent pattern recognition and version-aware syntax.
+A comprehensive skill for creating, managing, debugging, and migrating Odoo email templates and QWeb reports across versions 14-19. Features wkhtmltopdf configuration, Arabic/RTL support, bilingual report patterns, and intelligent version-aware syntax.
 
 ## Configuration
 
@@ -777,6 +777,640 @@ print(rendered[record.id])
 
 ---
 
+## wkhtmltopdf Setup & Configuration
+
+### ⚠️ CRITICAL: wkhtmltopdf is REQUIRED for PDF Reports
+
+Odoo uses wkhtmltopdf to convert QWeb HTML to PDF. Without proper configuration, PDF generation will fail.
+
+### Installation
+
+```bash
+# Windows
+winget install wkhtmltopdf.wkhtmltox
+# OR download from: https://wkhtmltopdf.org/downloads.html
+
+# Ubuntu/Debian
+sudo apt-get install wkhtmltopdf
+
+# macOS
+brew install wkhtmltopdf
+```
+
+### Odoo Configuration (MANDATORY)
+
+Add to your `odoo.conf`:
+
+```ini
+[options]
+# Windows
+bin_path = C:\Program Files\wkhtmltopdf\bin
+
+# Linux
+bin_path = /usr/local/bin
+
+# macOS (Homebrew)
+bin_path = /opt/homebrew/bin
+```
+
+### Verification
+
+After server restart, check logs for:
+```
+Will use the Wkhtmltopdf binary at C:\Program Files\wkhtmltopdf\bin\wkhtmltopdf.exe
+```
+
+### Common Errors
+
+| Error | Cause | Solution |
+|-------|-------|----------|
+| `Unable to find Wkhtmltopdf` | bin_path not configured | Add bin_path to odoo.conf |
+| `PDF generation timeout` | Network resources requested | Remove external URLs (fonts, images) |
+| `Blank PDF generated` | CSS/SCSS errors | Check browser console, validate SCSS |
+| `Exit with code 1` | HTML syntax error | Validate QWeb template XML |
+
+### Key Limitation: OFFLINE Mode
+
+**wkhtmltopdf runs WITHOUT network access**. This means:
+- ❌ Google Fonts CDN will NOT load
+- ❌ External images will NOT render
+- ❌ External CSS will NOT apply
+- ✅ Use `web.external_layout` for fonts
+- ✅ Embed images as base64 or use Odoo attachments
+
+---
+
+## Arabic/RTL & Multilingual Reports
+
+### ⚠️ CRITICAL: UTF-8 Encoding Requirement
+
+Arabic text displaying as `ÙØ§ØªÙˆØ±Ø©` instead of `فاتورة` indicates UTF-8 → Latin-1 encoding corruption.
+
+### MANDATORY Template Wrapper
+
+**ALWAYS** use this structure for non-Latin text support:
+
+```xml
+<template id="report_document">
+    <t t-call="web.html_container">        <!-- ✅ Provides UTF-8 meta tag -->
+        <t t-foreach="docs" t-as="o">
+            <t t-call="web.external_layout"> <!-- ✅ Loads proper fonts -->
+                <div class="page">
+                    <!-- Your content here -->
+                </div>
+            </t>
+        </t>
+    </t>
+</template>
+```
+
+### ❌ WRONG Patterns (Will Cause Encoding Issues)
+
+```xml
+<!-- WRONG: Custom HTML without proper encoding -->
+<template id="report_document">
+    <html>
+        <head><title>Report</title></head>
+        <body>
+            فاتورة  <!-- Will display as ÙØ§ØªÙˆØ±Ø© -->
+        </body>
+    </html>
+</template>
+
+<!-- WRONG: Missing web.html_container -->
+<template id="report_document">
+    <t t-foreach="docs" t-as="o">
+        <t t-call="web.external_layout">
+            <!-- Missing outer container! -->
+        </t>
+    </t>
+</template>
+```
+
+### Bilingual Label Pattern
+
+```xml
+<!-- Side-by-side: English | Arabic -->
+<th style="background: #1a5276; color: white; padding: 12px;">
+    Date | التاريخ
+</th>
+
+<!-- Stacked: Arabic on top, English below -->
+<th style="background: #1a5276; color: white; padding: 12px;">
+    <div>التاريخ</div>
+    <div style="font-size: 10px; font-weight: normal;">Date</div>
+</th>
+```
+
+### RTL Text Alignment
+
+```xml
+<!-- Force RTL for Arabic paragraphs -->
+<div style="direction: rtl; text-align: right;">
+    يرجى إرسال حوالاتكم على الحساب المذكور أعلاه
+</div>
+
+<!-- Mixed content: Use CSS classes -->
+<style>
+    .rtl { direction: rtl; text-align: right; }
+    .ltr { direction: ltr; text-align: left; }
+</style>
+```
+
+### Currency Symbol Corruption
+
+If `$` displays as `$Â` or similar:
+- **Cause**: Same UTF-8 encoding issue
+- **Solution**: Use `web.html_container` wrapper
+
+---
+
+## Paper Format Configuration
+
+### Custom Paper Format Template
+
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="paperformat_custom" model="report.paperformat">
+        <field name="name">Custom Invoice Format</field>
+        <field name="default" eval="False"/>
+        <field name="format">A4</field>
+        <field name="orientation">Portrait</field>
+        <field name="margin_top">20</field>
+        <field name="margin_bottom">20</field>
+        <field name="margin_left">15</field>
+        <field name="margin_right">15</field>
+        <field name="header_line" eval="False"/>
+        <field name="header_spacing">0</field>
+        <field name="dpi">90</field>
+    </record>
+</odoo>
+```
+
+### Linking Paper Format to Report
+
+```xml
+<record id="action_report_invoice" model="ir.actions.report">
+    <field name="name">Custom Invoice</field>
+    <field name="model">account.move</field>
+    <field name="report_type">qweb-pdf</field>
+    <field name="report_name">module.report_invoice_template</field>
+    <field name="paperformat_id" ref="module.paperformat_custom"/>
+    <!-- ... other fields ... -->
+</record>
+```
+
+### Standard Paper Formats
+
+| Format | Dimensions | Use Case |
+|--------|------------|----------|
+| `A4` | 210 × 297 mm | Standard international |
+| `Letter` | 216 × 279 mm | US standard |
+| `Legal` | 216 × 356 mm | Legal documents |
+| `A5` | 148 × 210 mm | Small documents |
+| `Custom` | Set page_width/page_height | Special sizes |
+
+### Orientation Options
+
+- `Portrait` - Vertical (default)
+- `Landscape` - Horizontal (wide tables, charts)
+
+---
+
+## Report SCSS Styling
+
+### Correct Asset Bundle
+
+```python
+# __manifest__.py
+{
+    'assets': {
+        'web.report_assets_common': [
+            'module/static/src/scss/report_styles.scss',
+        ],
+    },
+}
+```
+
+### ⚠️ CRITICAL: Google Fonts Pitfall
+
+```scss
+// ❌ BROKEN - Semicolons in URL break SCSS parsing
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+
+// ✅ FIXED - Use weight range syntax
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300..700&display=swap');
+
+// ✅ BEST - Don't use Google Fonts (wkhtmltopdf is offline!)
+// Rely on system fonts via web.external_layout
+```
+
+### Why External Fonts Fail
+
+1. wkhtmltopdf runs **offline** (no network access)
+2. Google Fonts CDN requests timeout
+3. Result: Fallback to system fonts
+
+### Recommended Font Stack
+
+```scss
+// Safe fonts that work in PDF generation
+$report-font-family: 'DejaVu Sans', 'Arial', 'Helvetica', sans-serif;
+
+.page {
+    font-family: $report-font-family;
+}
+```
+
+### Color Scheme Pattern
+
+```scss
+// Define colors once
+$primary-color: #1a5276;      // Dark blue
+$secondary-color: #d5dbdb;    // Light gray
+$accent-color: #f39c12;       // Orange/Gold
+$border-color: #bdc3c7;
+$text-dark: #2c3e50;
+$text-muted: #7f8c8d;
+
+// Table header
+.table-header, thead tr {
+    background-color: $primary-color;
+    color: white;
+}
+
+// Label cells
+.label-cell {
+    background-color: $secondary-color;
+    color: $primary-color;
+    font-weight: bold;
+}
+
+// Alternating rows
+tbody tr:nth-child(even) {
+    background-color: rgba($secondary-color, 0.3);
+}
+```
+
+### Print-Specific Styles
+
+```scss
+@media print {
+    // Ensure colors print
+    * {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+
+    // Page breaks
+    .page-break-before { page-break-before: always; }
+    .page-break-after { page-break-after: always; }
+    .no-break { page-break-inside: avoid; }
+}
+```
+
+---
+
+## Debug Report Workflow
+
+### Systematic Diagnosis Steps
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                 REPORT DEBUG WORKFLOW                             │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                   │
+│  STEP 1: Check Infrastructure                                    │
+│  ─────────────────────────────                                   │
+│  □ wkhtmltopdf installed? → wkhtmltopdf --version               │
+│  □ bin_path in odoo.conf?                                        │
+│  □ Server restarted after config change?                         │
+│  □ Server log shows wkhtmltopdf path?                           │
+│                                                                   │
+│  STEP 2: Validate Template Structure                             │
+│  ────────────────────────────────────                            │
+│  □ Uses web.html_container wrapper?                              │
+│  □ Uses web.external_layout?                                     │
+│  □ Has t-foreach docs loop?                                      │
+│  □ Content inside div.page?                                      │
+│                                                                   │
+│  STEP 3: Check Report Action                                     │
+│  ───────────────────────────                                     │
+│  □ report_name matches template id?                              │
+│  □ report_file matches template id?                              │
+│  □ binding_model_id correct?                                     │
+│  □ report_type = 'qweb-pdf'?                                     │
+│                                                                   │
+│  STEP 4: Test Render in Shell                                    │
+│  ────────────────────────────                                    │
+│  python odoo-bin shell -d DATABASE                               │
+│  >>> report = env.ref('module.report_action')                    │
+│  >>> pdf, _ = report._render_qweb_pdf([record_id])              │
+│  >>> # Check console for errors                                  │
+│                                                                   │
+│  STEP 5: Browser Cache                                           │
+│  ─────────────────────                                           │
+│  □ Clear browser cache (Ctrl+Shift+R)                           │
+│  □ Clear Odoo asset cache if needed                             │
+│                                                                   │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Issue-Specific Debugging
+
+**Encoding Issues (Arabic, Chinese, etc.)**:
+```
+Symptom: ÙØ§ØªÙˆØ±Ø© instead of فاتورة
+Cause: Missing web.html_container
+Fix: Add <t t-call="web.html_container"> as outermost wrapper
+```
+
+**Blank PDF**:
+```
+Symptom: PDF generates but is empty
+Causes:
+  1. CSS syntax error → Check SCSS for semicolons in URLs
+  2. Missing template → Verify report_name matches template id
+  3. No records → Check docs variable has records
+```
+
+**Fonts Not Rendering**:
+```
+Symptom: Wrong font in PDF
+Cause: External font URLs (wkhtmltopdf offline)
+Fix: Use web.external_layout or system fonts only
+```
+
+**Timeout/Hang**:
+```
+Symptom: PDF generation hangs or times out
+Cause: External resources being fetched
+Fix: Remove all external URLs (CDNs, external images)
+```
+
+### Clear Asset Cache
+
+```python
+# Odoo shell
+env['ir.attachment'].search([
+    ('url', 'like', '/web/assets/')
+]).unlink()
+env.cr.commit()
+```
+
+---
+
+## Bilingual Invoice Template (Complete Example)
+
+Based on proven sadad_invoice implementation:
+
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Paper Format -->
+    <record id="paperformat_bilingual_invoice" model="report.paperformat">
+        <field name="name">Bilingual Invoice A4</field>
+        <field name="format">A4</field>
+        <field name="orientation">Portrait</field>
+        <field name="margin_top">25</field>
+        <field name="margin_bottom">25</field>
+        <field name="margin_left">15</field>
+        <field name="margin_right">15</field>
+        <field name="dpi">90</field>
+    </record>
+
+    <!-- Report Action -->
+    <record id="action_report_bilingual_invoice" model="ir.actions.report">
+        <field name="name">Bilingual Invoice</field>
+        <field name="model">account.move</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">module.report_bilingual_invoice_document</field>
+        <field name="report_file">module.report_bilingual_invoice_document</field>
+        <field name="paperformat_id" ref="paperformat_bilingual_invoice"/>
+        <field name="binding_model_id" ref="account.model_account_move"/>
+        <field name="binding_type">report</field>
+        <field name="print_report_name">'Invoice - %s' % object.name</field>
+    </record>
+
+    <!-- CRITICAL: Proper wrapper structure for UTF-8 -->
+    <template id="report_bilingual_invoice_document">
+        <t t-call="web.html_container">
+            <t t-foreach="docs" t-as="o">
+                <t t-call="web.external_layout">
+                    <t t-call="module.report_bilingual_invoice_content"/>
+                </t>
+            </t>
+        </t>
+    </template>
+
+    <!-- Content Template -->
+    <template id="report_bilingual_invoice_content">
+        <div class="page" style="font-family: Arial, sans-serif; font-size: 12px;">
+
+            <!-- Bilingual Header -->
+            <div style="text-align: center; margin-bottom: 30px; border-bottom: 3px solid #1a5276; padding-bottom: 15px;">
+                <h1 style="color: #1a5276; margin: 0;">
+                    Sales Invoice | فاتورة مبيعات
+                </h1>
+                <h2 style="margin: 10px 0 0 0;" t-field="o.name"/>
+            </div>
+
+            <!-- Invoice Info Grid -->
+            <table style="width: 100%; border-collapse: collapse; margin-bottom: 25px;">
+                <tr>
+                    <td style="width: 25%; border: 1px solid #bdc3c7; padding: 10px; background: #d5dbdb; color: #1a5276; font-weight: bold;">
+                        Invoice Date | تاريخ الفاتورة
+                    </td>
+                    <td style="width: 25%; border: 1px solid #bdc3c7; padding: 10px;">
+                        <span t-field="o.invoice_date" t-options='{"widget": "date"}'/>
+                    </td>
+                    <td style="width: 25%; border: 1px solid #bdc3c7; padding: 10px; background: #d5dbdb; color: #1a5276; font-weight: bold;">
+                        Due Date | تاريخ الاستحقاق
+                    </td>
+                    <td style="width: 25%; border: 1px solid #bdc3c7; padding: 10px;">
+                        <span t-field="o.invoice_date_due" t-options='{"widget": "date"}'/>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="border: 1px solid #bdc3c7; padding: 10px; background: #d5dbdb; color: #1a5276; font-weight: bold;">
+                        Customer | العميل
+                    </td>
+                    <td colspan="3" style="border: 1px solid #bdc3c7; padding: 10px;">
+                        <span t-field="o.partner_id.name"/>
+                    </td>
+                </tr>
+            </table>
+
+            <!-- Invoice Lines Table -->
+            <table style="width: 100%; border-collapse: collapse; margin-bottom: 25px;">
+                <thead>
+                    <tr style="background: #1a5276; color: white;">
+                        <th style="padding: 12px; border: 1px solid #1a5276; text-align: center; width: 5%;">
+                            #
+                        </th>
+                        <th style="padding: 12px; border: 1px solid #1a5276; text-align: left;">
+                            <div>الوصف</div>
+                            <div style="font-size: 10px; font-weight: normal;">Description</div>
+                        </th>
+                        <th style="padding: 12px; border: 1px solid #1a5276; text-align: center; width: 10%;">
+                            <div>الكمية</div>
+                            <div style="font-size: 10px; font-weight: normal;">Qty</div>
+                        </th>
+                        <th style="padding: 12px; border: 1px solid #1a5276; text-align: right; width: 15%;">
+                            <div>السعر</div>
+                            <div style="font-size: 10px; font-weight: normal;">Unit Price</div>
+                        </th>
+                        <th style="padding: 12px; border: 1px solid #1a5276; text-align: right; width: 15%;">
+                            <div>الإجمالي</div>
+                            <div style="font-size: 10px; font-weight: normal;">Subtotal</div>
+                        </th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <t t-set="line_num" t-value="0"/>
+                    <t t-foreach="o.invoice_line_ids.filtered(lambda l: not l.display_type)" t-as="line">
+                        <t t-set="line_num" t-value="line_num + 1"/>
+                        <tr t-att-style="'background-color: #f9f9f9;' if line_index % 2 == 0 else ''">
+                            <td style="border: 1px solid #bdc3c7; padding: 10px; text-align: center;">
+                                <t t-out="line_num"/>
+                            </td>
+                            <td style="border: 1px solid #bdc3c7; padding: 10px;">
+                                <t t-out="line.name"/>
+                            </td>
+                            <td style="border: 1px solid #bdc3c7; padding: 10px; text-align: center;">
+                                <span t-field="line.quantity"/>
+                                <t t-if="line.product_uom_id">
+                                    <span t-field="line.product_uom_id.name"/>
+                                </t>
+                            </td>
+                            <td style="border: 1px solid #bdc3c7; padding: 10px; text-align: right;">
+                                <span t-field="line.price_unit" t-options='{"widget": "monetary", "display_currency": o.currency_id}'/>
+                            </td>
+                            <td style="border: 1px solid #bdc3c7; padding: 10px; text-align: right;">
+                                <span t-field="line.price_subtotal" t-options='{"widget": "monetary", "display_currency": o.currency_id}'/>
+                            </td>
+                        </tr>
+                    </t>
+                </tbody>
+            </table>
+
+            <!-- Totals Section -->
+            <div style="margin-top: 20px;">
+                <table style="width: 40%; margin-left: auto; border-collapse: collapse;">
+                    <tr>
+                        <td style="border: 1px solid #bdc3c7; padding: 10px; background: #d5dbdb; color: #1a5276; font-weight: bold;">
+                            Subtotal | المجموع الفرعي
+                        </td>
+                        <td style="border: 1px solid #bdc3c7; padding: 10px; text-align: right;">
+                            <span t-field="o.amount_untaxed" t-options='{"widget": "monetary", "display_currency": o.currency_id}'/>
+                        </td>
+                    </tr>
+                    <t t-if="o.amount_tax">
+                        <tr>
+                            <td style="border: 1px solid #bdc3c7; padding: 10px; background: #d5dbdb; color: #1a5276; font-weight: bold;">
+                                Tax | الضريبة
+                            </td>
+                            <td style="border: 1px solid #bdc3c7; padding: 10px; text-align: right;">
+                                <span t-field="o.amount_tax" t-options='{"widget": "monetary", "display_currency": o.currency_id}'/>
+                            </td>
+                        </tr>
+                    </t>
+                    <tr style="font-size: 14px;">
+                        <td style="border: 2px solid #1a5276; padding: 12px; background: #1a5276; color: white; font-weight: bold;">
+                            Total | الإجمالي
+                        </td>
+                        <td style="border: 2px solid #1a5276; padding: 12px; text-align: right; font-weight: bold;">
+                            <span t-field="o.amount_total" t-options='{"widget": "monetary", "display_currency": o.currency_id}'/>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+
+            <!-- Payment Terms (RTL for Arabic) -->
+            <t t-if="o.invoice_payment_term_id">
+                <div style="margin-top: 30px; padding: 15px; background: #f8f9fa; border-radius: 4px;">
+                    <strong>Payment Terms | شروط الدفع:</strong>
+                    <span t-field="o.invoice_payment_term_id.name"/>
+                </div>
+            </t>
+
+        </div>
+    </template>
+</odoo>
+```
+
+---
+
+## Report Validation Checklist
+
+### Pre-Flight Checks (MANDATORY)
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│              QWEB REPORT VALIDATION CHECKLIST                     │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                   │
+│  1. INFRASTRUCTURE                                               │
+│     □ wkhtmltopdf installed and in PATH                         │
+│     □ bin_path configured in odoo.conf                          │
+│     □ Server restarted after config change                       │
+│     □ Server log confirms wkhtmltopdf path                      │
+│                                                                   │
+│  2. TEMPLATE STRUCTURE (for non-Latin text)                     │
+│     □ web.html_container as OUTERMOST wrapper                   │
+│     □ t-foreach docs loop                                        │
+│     □ web.external_layout for company header/fonts              │
+│     □ Content inside div.page                                    │
+│                                                                   │
+│  3. ENCODING VERIFICATION                                        │
+│     □ NOT using custom <html> tags                               │
+│     □ NOT importing external fonts via CDN                      │
+│     □ Arabic/Chinese text renders correctly                      │
+│     □ Currency symbols display correctly (no $Â)                │
+│                                                                   │
+│  4. SCSS/CSS VALIDATION                                          │
+│     □ Using web.report_assets_common bundle                      │
+│     □ No semicolons in @import URLs                             │
+│     □ No external CDN resources                                  │
+│     □ System fonts only (DejaVu, Arial, etc.)                   │
+│                                                                   │
+│  5. REPORT ACTION FIELDS                                         │
+│     □ report_name = 'module.template_id'                        │
+│     □ report_file = 'module.template_id'                        │
+│     □ binding_model_id = ref('module.model_xxx')                │
+│     □ report_type = 'qweb-pdf'                                  │
+│     □ paperformat_id linked (if custom)                         │
+│                                                                   │
+│  6. MANIFEST FILE                                                │
+│     □ depends includes target module (account, sale, etc.)      │
+│     □ data files in correct order (paperformat before action)   │
+│     □ assets bundle = web.report_assets_common                  │
+│                                                                   │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Post-Generation Testing
+
+```bash
+# 1. Update module
+python -m odoo -c conf/project.conf -d database -u module --stop-after-init
+
+# 2. Verify wkhtmltopdf in server log
+# Look for: "Will use the Wkhtmltopdf binary at..."
+
+# 3. Generate test PDF
+# Navigate to record > Print menu > Select report
+
+# 4. Verify PDF content
+# - All text displays correctly (especially non-Latin)
+# - Currency symbols correct
+# - Layout matches design
+# - Page breaks work correctly
+```
+
+---
+
 ## File Locations Reference
 
 ### Core Template Locations
@@ -816,6 +1450,74 @@ odoo/addons/account/
 
 ---
 
-*Odoo Report Plugin v1.0*
+## Changelog
+
+### v2.0.0 - Major Enhancement Release (January 2026)
+
+Based on lessons learned from sadad_invoice_report development.
+
+**NEW SECTIONS:**
+
+- **wkhtmltopdf Setup & Configuration**
+  - Installation commands (Windows, Linux, macOS)
+  - Odoo `bin_path` configuration (MANDATORY)
+  - Common errors and solutions
+  - Offline mode limitations explained
+
+- **Arabic/RTL & Multilingual Reports**
+  - CRITICAL: UTF-8 encoding requirements
+  - `web.html_container` + `web.external_layout` pattern
+  - Wrong patterns that cause encoding corruption
+  - Bilingual label patterns (side-by-side, stacked)
+  - RTL text alignment
+
+- **Paper Format Configuration**
+  - Custom paper format template
+  - Linking to report actions
+  - Standard formats reference (A4, Letter, Legal)
+
+- **Report SCSS Styling**
+  - Correct asset bundle (`web.report_assets_common`)
+  - Google Fonts pitfall (semicolons break SCSS)
+  - Why external fonts fail in wkhtmltopdf
+  - Recommended font stack
+  - Color scheme patterns
+  - Print-specific styles
+
+- **Debug Report Workflow**
+  - Systematic 5-step diagnosis
+  - Issue-specific debugging guides
+  - Asset cache clearing
+
+- **Bilingual Invoice Template**
+  - Complete working example based on sadad_invoice
+  - Paper format, report action, templates included
+  - Proven UTF-8/Arabic support
+
+- **Report Validation Checklist**
+  - 6-category pre-flight checks
+  - Post-generation testing steps
+
+**ISSUES PREVENTED:**
+
+| Issue | Time Saved |
+|-------|------------|
+| Arabic text encoding corruption | 2+ hours |
+| wkhtmltopdf configuration | 30 min |
+| Google Fonts/external resources | 1 hour |
+| SCSS semicolon parsing | 1 hour |
+
+### v1.0.0 - Initial Release
+
+- Email template patterns (50+)
+- QWeb report patterns (30+)
+- Version decision matrix (Odoo 14-19)
+- Commands reference
+- Validation rules
+- Module-specific templates
+
+---
+
+*Odoo Report Plugin v2.0*
 *TaqaTechno - Professional Email Templates & QWeb Reports*
-*Supports Odoo 14-19*
+*Supports Odoo 14-19 | Arabic/RTL Ready*
