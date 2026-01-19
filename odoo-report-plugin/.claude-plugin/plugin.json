@@ -1,7 +1,7 @@
 {
   "name": "odoo-report",
-  "version": "1.0.0",
-  "description": "Professional Odoo Email Templates & QWeb Reports - Complete toolkit for creating, managing, and debugging email templates and PDF reports across Odoo 14-19",
+  "version": "2.0.0",
+  "description": "Professional Odoo Email Templates & QWeb Reports - Complete toolkit with wkhtmltopdf setup, Arabic/RTL support, bilingual patterns, and PDF report generation across Odoo 14-19",
   "author": "TaqaTechno",
   "license": "LGPL-3",
   "skills": "./odoo-report/",
