@@ -1,0 +1,48 @@
+{
+  "PostToolUse": [
+    {
+      "name": "Remotion Render Audio Check",
+      "matcher": "remotion render",
+      "description": "After rendering a video, remind to validate audio duration",
+      "hooks": [
+        {
+          "type": "suggestion",
+          "message": "Render complete! Validate audio sync: python scripts/measure_audio.py public/audio/narration.mp3 --fps 30"
+        }
+      ]
+    },
+    {
+      "name": "Continuous Audio Pattern Guard",
+      "matcher": "<Audio.*src.*/>.*<\\/Sequence>",
+      "description": "Warn if Audio component is placed inside a Sequence (causes cutting)",
+      "hooks": [
+        {
+          "type": "suggestion",
+          "message": "WARNING: <Audio> should be at the ROOT level, not inside <Sequence>! Audio inside Sequence will CUT between slides. Move <Audio> to the outermost <AbsoluteFill>."
+        }
+      ]
+    },
+    {
+      "name": "Voice Generation Duration",
+      "matcher": "generate_voice\\.py",
+      "description": "After voice generation, suggest measuring duration",
+      "hooks": [
+        {
+          "type": "suggestion",
+          "message": "Voice generated! Measure duration: python scripts/measure_audio.py [output.mp3] --fps 30"
+        }
+      ]
+    },
+    {
+      "name": "Audio Concat Timestamp Reminder",
+      "matcher": "concat_audio\\.py",
+      "description": "After concatenating audio, remind to use timestamps for Sequences",
+      "hooks": [
+        {
+          "type": "suggestion",
+          "message": "Audio concatenated! Use the 'segments' array from the JSON output to set Sequence from/durationInFrames values. Use 'total_frames_with_padding' for composition durationInFrames."
+        }
+      ]
+    }
+  ]
+}

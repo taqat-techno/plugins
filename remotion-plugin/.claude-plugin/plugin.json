@@ -1,0 +1,65 @@
+{
+  "name": "remotion",
+  "version": "1.0.0",
+  "description": "Create professional videos with smooth voice narration using Remotion and Claude Code. Features continuous audio pipeline that prevents voice cutting between slides, free edge-tts voice generation, and full video creation from text prompts.",
+  "author": {
+    "name": "TAQAT Techno",
+    "email": "info@taqatechno.com",
+    "url": "https://github.com/taqat-techno"
+  },
+  "homepage": "https://github.com/taqat-techno/plugins/tree/main/remotion-plugin",
+  "repository": "https://github.com/taqat-techno/plugins",
+  "license": "MIT",
+  "keywords": [
+    "remotion",
+    "video",
+    "voice",
+    "narration",
+    "edge-tts",
+    "animation",
+    "react",
+    "typescript",
+    "presentation",
+    "tts",
+    "text-to-speech",
+    "mp4",
+    "webm",
+    "gif",
+    "motion-graphics"
+  ],
+  "skills": "./remotion/",
+  "commands": "./commands/",
+  "hooks": "./hooks/hooks.json",
+  "scripts": "./remotion/scripts/",
+  "metadata": {
+    "category": "video-creation",
+    "mode": "cli-tool",
+    "supported-platforms": ["windows", "macos", "linux"],
+    "node-min-version": "18.0.0",
+    "python-min-version": "3.8.0",
+    "remotion-version": "4.0.0+",
+    "commands-count": 5,
+    "scripts-count": 4,
+    "features": [
+      "video-creation-from-prompts",
+      "free-voice-narration-edge-tts",
+      "continuous-audio-pipeline",
+      "multi-scene-compositions",
+      "spring-physics-animations",
+      "timeline-driven-videos",
+      "cross-platform-setup",
+      "quality-preset-rendering",
+      "audio-duration-validation",
+      "tailwindcss-styling"
+    ],
+    "voice-engines": {
+      "free": "edge-tts (Microsoft Neural, 300+ voices, 70+ languages)",
+      "paid": "ElevenLabs (realistic voices, character-level timestamps)"
+    },
+    "output-formats": ["mp4", "webm", "gif", "png-sequence"],
+    "dependencies": {
+      "required": ["node", "python", "edge-tts", "mutagen"],
+      "optional": ["pydub", "ffmpeg", "elevenlabs"]
+    }
+  }
+}
