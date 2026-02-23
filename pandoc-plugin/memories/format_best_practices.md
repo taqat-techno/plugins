@@ -151,3 +151,131 @@ graphicx, fontspec, unicode-math
 - Custom fonts without XeLaTeX
 - Large images in EPUB
 - Complex Word formatting loss
+
+---
+
+## Arabic / RTL Document Support
+
+### Critical: Use XeLaTeX for Arabic PDF
+Arabic requires XeLaTeX (not pdflatex) to handle Unicode and right-to-left text:
+
+```bash
+# Arabic PDF — ALWAYS use --pdf-engine=xelatex
+pandoc arabic_document.md \
+  -o output.pdf \
+  --pdf-engine=xelatex \
+  -V mainfont="Arial" \
+  -V lang=ar \
+  -V dir=rtl \
+  -V geometry:margin=1in \
+  --toc
+
+# Alternative with Amiri font (better Arabic typography)
+pandoc arabic_document.md \
+  -o output.pdf \
+  --pdf-engine=xelatex \
+  -V mainfont="Amiri" \
+  -V sansfont="Amiri" \
+  -V monofont="Courier New" \
+  -V lang=ar \
+  -V dir=rtl
+```
+
+### LaTeX Template for Arabic (create `arabic_template.tex`):
+```latex
+\documentclass{article}
+\usepackage{polyglossia}
+\setmainlanguage{arabic}
+\setotherlanguage{english}
+\usepackage{fontspec}
+\setmainfont{Amiri}
+\begin{document}
+$body$
+\end{document}
+```
+```bash
+pandoc input.md -o output.pdf --pdf-engine=xelatex --template=arabic_template.tex
+```
+
+### Arabic HTML Output
+```bash
+# Add dir="rtl" to HTML output
+pandoc arabic_document.md \
+  -o output.html \
+  -s \
+  --metadata=lang:ar \
+  -V dir=rtl \
+  -H <(echo '<style>body{direction:rtl;text-align:right;font-family:Arial,sans-serif;}</style>')
+
+# With inline styles (portable)
+pandoc arabic_document.md -o output.html -s \
+  --include-in-header=rtl_style.html
+```
+
+**`rtl_style.html`** content:
+```html
+<style>
+  body { direction: rtl; text-align: right; font-family: 'Segoe UI', Arial, sans-serif; }
+  table { direction: rtl; }
+  th, td { text-align: right; }
+  code, pre { direction: ltr; text-align: left; }
+</style>
+```
+
+### Bilingual Arabic/English Document
+```bash
+# Mixed Arabic/English document
+# Use \textlr{} for English text within Arabic paragraphs
+# Or use \begin{LTR} ... \end{LTR} blocks in LaTeX
+
+# For Word output (bilingual)
+pandoc bilingual.md -o output.docx \
+  --reference-doc=bilingual_template.docx
+```
+
+### Markdown formatting for Arabic content:
+```markdown
+---
+lang: ar
+dir: rtl
+title: "عنوان المستند"
+---
+
+# مقدمة
+
+هذا مستند باللغة العربية. يمكن استخدام **النص العريض** و*المائل*.
+
+## قائمة
+
+- العنصر الأول
+- العنصر الثاني
+- العنصر الثالث
+
+::: {dir=ltr}
+This paragraph is in English (LTR) within an Arabic document.
+:::
+```
+
+### Arabic Font Recommendations
+| Font | Use Case | Install |
+|------|---------|---------|
+| **Amiri** | Body text, formal documents | `miktex packages install amiri` |
+| **Cairo** | Modern/UI documents | Google Fonts |
+| **Scheherazade** | Classical/Quranic text | SIL International |
+| **Arial** | Universal fallback | Windows built-in |
+| **Segoe UI** | Windows UI-style | Windows built-in |
+
+### Word Count for RTL
+```bash
+# Pandoc includes RTL characters in word count
+pandoc --lua-filter=wordcount.lua arabic.md
+```
+
+### Common Arabic PDF Issues
+| Problem | Solution |
+|---------|---------|
+| Text appears as boxes | Install Arabic font, use XeLaTeX |
+| Reversed sentence order | Add `-V dir=rtl` and use polyglossia |
+| Numbers appear reversed | Use `\textlr{123}` for numeric sections |
+| Mixed script renders wrong | Use bidi package in template |
+| Font not found | Use `fc-list :lang=ar` to find installed Arabic fonts |

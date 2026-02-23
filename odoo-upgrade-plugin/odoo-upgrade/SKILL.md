@@ -314,6 +314,113 @@ export class MyComponent extends Component {
 }
 ```
 
+#### OWL 1.x → OWL 2.0 Lifecycle Hook Migration (Odoo 18+)
+
+OWL 2.0 (used in Odoo 18+) renames all lifecycle hooks and changes the constructor signature. This is a **breaking change** — old method names simply won't be called.
+
+**Lifecycle Hook Rename Table:**
+
+| OWL 1.x (Odoo 14-17) | OWL 2.0 (Odoo 18-19) | Notes |
+|----------------------|----------------------|-------|
+| `constructor(parent, props)` | `setup()` | No `super()` needed |
+| `willStart()` | `onWillStart(callback)` | Now uses `onWillStart` hook function |
+| `mounted()` | `onMounted(callback)` | Now uses `onMounted` hook function |
+| `willUpdateProps(nextProps)` | `onWillUpdateProps(callback)` | Callback receives `nextProps` |
+| `patched()` | `onPatched(callback)` | Now uses `onPatched` hook function |
+| `willUnmount()` | `onWillUnmount(callback)` | Now uses `onWillUnmount` hook function |
+| `willPatch()` | `onWillPatch(callback)` | Now uses `onWillPatch` hook function |
+| `destroyed()` | `onDestroyed(callback)` | Now uses `onDestroyed` hook function |
+
+**Before (OWL 1.x — Odoo 14-17):**
+```javascript
+/** @odoo-module **/
+import { Component } from "@odoo/owl";
+
+export class MyWidget extends Component {
+    constructor(parent, props) {
+        super(...arguments);
+        this.state = { count: 0 };
+    }
+
+    async willStart() {
+        this.data = await this._loadData();
+    }
+
+    mounted() {
+        this._setupListeners();
+    }
+
+    patched() {
+        this._updateDOM();
+    }
+
+    willUnmount() {
+        this._cleanupListeners();
+    }
+}
+```
+
+**After (OWL 2.0 — Odoo 18-19):**
+```javascript
+/** @odoo-module **/
+import { Component, onMounted, onPatched, onWillStart, onWillUnmount, useState } from "@odoo/owl";
+
+export class MyWidget extends Component {
+    setup() {
+        // useState replaces this.state = {}
+        this.state = useState({ count: 0 });
+
+        onWillStart(async () => {
+            this.data = await this._loadData();
+        });
+
+        onMounted(() => {
+            this._setupListeners();
+        });
+
+        onPatched(() => {
+            this._updateDOM();
+        });
+
+        onWillUnmount(() => {
+            this._cleanupListeners();
+        });
+    }
+}
+```
+
+**Key OWL 2.0 Import Changes:**
+```javascript
+// OLD — OWL 1.x
+import { Component } from "@odoo/owl";
+
+// NEW — OWL 2.0 (import hooks explicitly)
+import {
+    Component,
+    useState,
+    useRef,
+    useEnv,
+    onMounted,
+    onPatched,
+    onWillStart,
+    onWillUpdateProps,
+    onWillPatch,
+    onWillUnmount,
+    onDestroyed,
+} from "@odoo/owl";
+```
+
+**Auto-fix command:**
+```bash
+python scripts/auto_fix_library.py --fix owl_lifecycle <project_path>
+```
+
+**Detection command:**
+```bash
+python scripts/odoo19_precheck.py <project_path>
+# Look for: [HIGH] OWL 1.x lifecycle methods found
+```
+
 ### 6. Theme SCSS Variables (Odoo 19)
 
 #### Proper Structure

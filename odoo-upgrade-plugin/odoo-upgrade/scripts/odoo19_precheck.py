@@ -98,6 +98,14 @@ class Odoo19PreChecker:
                     )
                     self.stats['critical_issues'] += 1
 
+                # HIGH: Check for attrs= attribute (deprecated in Odoo 17, removed in 19)
+                if re.search(r'\battrs\s*=\s*["\']', content):
+                    count = len(re.findall(r'\battrs\s*=\s*["\']', content))
+                    self.issues['high'].append(
+                        f"{rel_path}: Found {count} attrs='...' attribute(s) - must be converted to inline invisible/required/readonly in Odoo 17+"
+                    )
+                    self.stats['high_issues'] += 1
+
                 # MEDIUM: Check for kanban-box template
                 if 't-name="kanban-box"' in content:
                     self.issues['medium'].append(
@@ -228,6 +236,23 @@ class Odoo19PreChecker:
                         f"{rel_path}: Found {count} Python dictionary/dictionaries with 'view_mode': 'tree' - must be 'list' in Odoo 19"
                     )
                     self.stats['critical_issues'] += 1
+
+                # CRITICAL: Check for type='json' in @http.route (must be 'jsonrpc' in Odoo 19)
+                if re.search(r"@http\.route\([^)]*type\s*=\s*['\"]json['\"]", content):
+                    count = len(re.findall(r"@http\.route\([^)]*type\s*=\s*['\"]json['\"]", content))
+                    self.issues['critical'].append(
+                        f"{rel_path}: Found {count} @http.route with type='json' - must be type='jsonrpc' in Odoo 19"
+                    )
+                    self.stats['critical_issues'] += 1
+
+                # HIGH: Check for OWL 1.x lifecycle hooks
+                owl_hooks = ['mounted()', 'willStart()', 'patched()', 'willUnmount()', 'willUpdateProps()']
+                for hook in owl_hooks:
+                    if hook in content and 'Component' in content:
+                        self.issues['high'].append(
+                            f"{rel_path}: OWL 1.x lifecycle hook '{hook}' found - rename to 'on{hook[0].upper()}{hook[1:]}' for OWL 2.0"
+                        )
+                        self.stats['high_issues'] += 1
 
                 # MEDIUM: Check for view_type parameter (deprecated)
                 if re.search(r"['\"]view_type['\"]:\s*['\"]tree['\"]", content):

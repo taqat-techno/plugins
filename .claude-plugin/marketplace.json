@@ -6,8 +6,8 @@
   },
   "metadata": {
     "description": "Professional development skills for Claude Code - Odoo, DevOps, Document Conversion & more",
-    "version": "1.3.0",
-    "plugins_count": 8
+    "version": "1.4.0",
+    "plugins_count": 11
   },
   "plugins": [
     {
@@ -98,6 +98,42 @@
       ],
       "commands": [
         "./remotion-plugin/commands"
+      ]
+    },
+    {
+      "name": "odoo-test",
+      "description": "Comprehensive Odoo testing toolkit - generate test skeletons from model definitions, run tests with formatted output, create realistic mock data, and analyze test coverage gaps across Odoo 14-19",
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./odoo-test-plugin/odoo-test"
+      ],
+      "commands": [
+        "./odoo-test-plugin/commands"
+      ]
+    },
+    {
+      "name": "odoo-security",
+      "description": "Odoo security audit toolkit - verify ir.model.access.csv completeness, audit @http.route auth= parameters, analyze sudo() usage with context analysis, and generate detailed security reports with risk scoring",
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./odoo-security-plugin/odoo-security"
+      ],
+      "commands": [
+        "./odoo-security-plugin/commands"
+      ]
+    },
+    {
+      "name": "odoo-i18n",
+      "description": "Odoo internationalization toolkit - extract translatable strings to .pot/.po files, validate translation completeness, find missing translations by language, and manage Arabic/RTL localization with full Odoo 14-19 support",
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./odoo-i18n-plugin/odoo-i18n"
+      ],
+      "commands": [
+        "./odoo-i18n-plugin/commands"
       ]
     }
   ]

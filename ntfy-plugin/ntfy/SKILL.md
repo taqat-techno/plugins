@@ -763,6 +763,163 @@ if response is None:
 
 ---
 
+## Notification Templates
+
+Use these pre-defined templates for consistent, actionable notifications:
+
+```python
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent / "scripts"))
+from notify import send_notification
+
+# Template dictionary — use instead of custom messages
+TEMPLATES = {
+    # Task lifecycle
+    "task_complete": {
+        "title": "✅ Task Complete",
+        "body": "{task_name}",
+        "priority": "default",
+        "tags": ["white_check_mark"],
+    },
+    "task_complete_with_details": {
+        "title": "✅ Done: {task_name}",
+        "body": "{details}\n\nNext: {next_step}",
+        "priority": "default",
+        "tags": ["white_check_mark"],
+    },
+    # Action required
+    "needs_input": {
+        "title": "⏸️ Input Required",
+        "body": "{question}",
+        "priority": "high",
+        "tags": ["pause_button"],
+    },
+    "needs_decision": {
+        "title": "🤔 Decision Needed",
+        "body": "{question}\n\nOptions: {options}",
+        "priority": "high",
+        "tags": ["thinking_face"],
+    },
+    # Errors
+    "error": {
+        "title": "❌ Error: {module}",
+        "body": "{error_message}",
+        "priority": "urgent",
+        "tags": ["x", "warning"],
+    },
+    "warning": {
+        "title": "⚠️ Warning",
+        "body": "{message}",
+        "priority": "high",
+        "tags": ["warning"],
+    },
+    # Development workflow
+    "server_ready": {
+        "title": "🚀 Server Ready",
+        "body": "Odoo running at http://localhost:{port}\nDatabase: {database}",
+        "priority": "low",
+        "tags": ["rocket"],
+    },
+    "module_updated": {
+        "title": "🔄 Module Updated",
+        "body": "{module} updated successfully on {database}",
+        "priority": "low",
+        "tags": ["arrows_counterclockwise"],
+    },
+    "tests_passed": {
+        "title": "✅ Tests Passed",
+        "body": "{module}: {count} tests passed",
+        "priority": "default",
+        "tags": ["white_check_mark", "test_tube"],
+    },
+    "tests_failed": {
+        "title": "❌ Tests Failed",
+        "body": "{module}: {failed} failed / {total} total\n{details}",
+        "priority": "urgent",
+        "tags": ["x", "test_tube"],
+    },
+    "deploy_complete": {
+        "title": "🚀 Deployed",
+        "body": "{module} deployed to {environment}",
+        "priority": "default",
+        "tags": ["rocket"],
+    },
+}
+
+def notify_from_template(template_key: str, **kwargs) -> dict:
+    """Send a notification using a pre-defined template."""
+    template = TEMPLATES.get(template_key)
+    if not template:
+        raise ValueError(f"Unknown template: {template_key}. Available: {list(TEMPLATES.keys())}")
+
+    title = template["title"].format(**kwargs)
+    body = template["body"].format(**kwargs)
+
+    return send_notification(
+        title=title,
+        message=body,
+        priority=template.get("priority", "default"),
+        tags=template.get("tags", []),
+    )
+
+# Usage examples:
+# notify_from_template("task_complete", task_name="Build khairgate module")
+# notify_from_template("error", module="disaster", error_message="Import failed: geopy not found")
+# notify_from_template("server_ready", port=8069, database="khairgate19")
+# notify_from_template("tests_passed", module="auth_otp", count=12)
+```
+
+---
+
+## Notification Fallback (Windows Toast)
+
+If ntfy.sh is unreachable (no internet, server down), fall back to Windows Toast notifications:
+
+```python
+import subprocess
+import sys
+
+def send_notification_with_fallback(title: str, message: str, priority: str = "default") -> dict:
+    """Send notification via ntfy.sh with Windows Toast fallback."""
+    # Try ntfy first
+    try:
+        sys.path.insert(0, str(Path(__file__).parent / "scripts"))
+        from notify import send_notification
+        result = send_notification(title=title, message=message, priority=priority)
+        if result.get("success"):
+            return result
+    except Exception as e:
+        pass  # Fall through to fallback
+
+    # Fallback 1: Windows Toast Notification (PowerShell BurntToast)
+    if sys.platform == "win32":
+        try:
+            ps_cmd = f'''
+Add-Type -AssemblyName System.Windows.Forms
+$notify = New-Object System.Windows.Forms.NotifyIcon
+$notify.Icon = [System.Drawing.SystemIcons]::Information
+$notify.Visible = $true
+$notify.ShowBalloonTip(5000, "{title}", "{message}", [System.Windows.Forms.ToolTipIcon]::Info)
+Start-Sleep 1
+$notify.Dispose()
+'''
+            subprocess.Popen(
+                ["powershell", "-WindowStyle", "Hidden", "-Command", ps_cmd],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            return {"success": True, "method": "windows_toast"}
+        except Exception:
+            pass
+
+    # Fallback 2: Terminal bell + print
+    print(f"\a[NOTIFICATION] {title}: {message}", flush=True)
+    return {"success": True, "method": "terminal"}
+```
+
+---
+
 ## CRITICAL REMINDER
 
 **Sending notifications is MANDATORY, not optional.**

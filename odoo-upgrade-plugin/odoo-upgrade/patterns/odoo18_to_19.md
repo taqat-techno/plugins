@@ -610,6 +610,9 @@ This script automatically handles:
 - ✅ Manifest version updates
 - ✅ Python API updates
 - ✅ SCSS variable fixes
+- ✅ Controller type='json' → type='jsonrpc'
+- ✅ attrs={} → inline invisible/required/readonly
+- ✅ OWL 1.x lifecycle hook renames
 
 ## Quick Checklist
 
@@ -621,3 +624,235 @@ This script automatically handles:
 - [ ] Update manifest versions
 - [ ] Test module installation
 - [ ] Run tests
+- [ ] Verify no `type='json'` in @http.route
+- [ ] Verify no `attrs=` attributes in XML views
+- [ ] Check OWL components use OWL 2.0 lifecycle hooks
+
+---
+
+## Pattern 14: Controller Type Migration (CRITICAL)
+
+### Problem
+Odoo 19 renamed the JSON-RPC controller type from `'json'` to `'jsonrpc'`.
+Routes using `type='json'` will return 404 or error silently.
+
+### Detection
+```bash
+grep -r "type='json'" controllers/ --include="*.py"
+grep -r 'type="json"' controllers/ --include="*.py"
+```
+
+### Before (Odoo 17/18)
+```python
+from odoo import http
+from odoo.http import request
+
+class MyController(http.Controller):
+
+    @http.route('/api/my/endpoint', type='json', auth='user', methods=['POST'])
+    def my_endpoint(self, **kwargs):
+        return {'status': 'ok'}
+
+    @http.route('/web/dataset/call_kw', type='json', auth='user')
+    def call_kw(self, model, method, args, kwargs):
+        pass
+```
+
+### After (Odoo 19)
+```python
+from odoo import http
+from odoo.http import request
+
+class MyController(http.Controller):
+
+    @http.route('/api/my/endpoint', type='jsonrpc', auth='user', methods=['POST'])
+    def my_endpoint(self, **kwargs):
+        return {'status': 'ok'}
+
+    @http.route('/web/dataset/call_kw', type='jsonrpc', auth='user')
+    def call_kw(self, model, method, args, kwargs):
+        pass
+```
+
+### Auto-Fix
+```bash
+# Auto-fix with the library (replaces ONLY inside @http.route)
+python auto_fix_library.py /path/to/module --specific controller_type
+
+# Manual regex (safe - only matches inside @http.route decorators)
+grep -rn "type='json'" controllers/ --include="*.py"
+# Then replace type='json' with type='jsonrpc' in each file
+```
+
+### Notes
+- Only affects `@http.route` decorators — do NOT change `type='json'` elsewhere
+- Public JSON endpoints (`auth='public'`) also need this change
+- Website controllers in `website_*` modules need this change
+
+---
+
+## Pattern 15: attrs={} → Inline Expressions (CRITICAL for Odoo 17+)
+
+### Problem
+The `attrs` attribute was deprecated in Odoo 16, partially removed in 17, and fully removed in Odoo 19.
+Fields using `attrs="{'invisible': [...]}"` will raise XML parse errors or be silently ignored.
+
+### Detection
+```bash
+grep -rn "attrs=" views/ --include="*.xml"
+grep -rn "attrs=" --include="*.xml" -r .
+```
+
+### Before (Odoo 14/15/16)
+```xml
+<!-- Single condition -->
+<field name="discount" attrs="{'invisible': [('order_type', '=', 'service')]}"/>
+
+<!-- Multiple conditions -->
+<field name="date_end"
+    attrs="{'invisible': [('is_recurring', '=', False)],
+            'required': [('is_recurring', '=', True)]}"/>
+
+<!-- Readonly condition -->
+<field name="state"
+    attrs="{'readonly': [('state', 'not in', ['draft', 'sent'])]}"/>
+```
+
+### After (Odoo 17/18/19)
+```xml
+<!-- Single condition — Python expression directly -->
+<field name="discount" invisible="order_type == 'service'"/>
+
+<!-- Multiple conditions — separate attributes -->
+<field name="date_end"
+    invisible="not is_recurring"
+    required="is_recurring"/>
+
+<!-- Readonly condition -->
+<field name="state"
+    readonly="state not in ('draft', 'sent')"/>
+```
+
+### Expression Conversion Rules
+| Domain | Inline Expression |
+|--------|------------------|
+| `[('field', '=', value)]` | `field == value` |
+| `[('field', '!=', value)]` | `field != value` |
+| `[('field', 'in', [...])]` | `field in (...)` |
+| `[('field', 'not in', [...])]` | `field not in (...)` |
+| `[('field', '=', False)]` | `not field` |
+| `[('field', '=', True)]` | `field` |
+| `['|', cond1, cond2]` | `cond1 or cond2` |
+| `['&', cond1, cond2]` | `cond1 and cond2` |
+
+### Auto-Fix (simple cases)
+```bash
+python auto_fix_library.py /path/to/module --specific attrs_inline
+```
+
+**Note**: The auto-fix handles simple single-condition cases. Complex nested domains need manual review.
+
+### Manual Review Required When
+- Domain uses `'|'` (OR) or `'&'` (AND) operators
+- Domain references fields from related models
+- Domain uses functions like `context_today()`
+- Multiple conditions with mixed AND/OR
+
+---
+
+## Pattern 16: OWL 1.x → OWL 2.0 Lifecycle Hooks (Odoo 18+)
+
+### Problem
+Odoo 18 upgraded to OWL 2.0 which renamed all lifecycle methods and changed
+the component constructor pattern. OWL 1.x components will fail silently or throw errors.
+
+### Detection
+```bash
+grep -rn "mounted()\|willStart()\|patched()\|willUnmount()" static/src/js/ --include="*.js"
+grep -rn "constructor(parent, props)" static/src/js/ --include="*.js"
+```
+
+### Before (OWL 1.x — Odoo 16/17)
+```javascript
+/** @odoo-module **/
+import { Component, useState } from "@odoo/owl";
+
+class MyWidget extends Component {
+    constructor(parent, props) {
+        super(parent, props);
+        this.state = useState({ count: 0 });
+    }
+
+    async willStart() {
+        await this._loadData();
+    }
+
+    mounted() {
+        this._setupListeners();
+    }
+
+    patched() {
+        this._updateView();
+    }
+
+    willUnmount() {
+        this._cleanup();
+    }
+}
+```
+
+### After (OWL 2.0 — Odoo 18+)
+```javascript
+/** @odoo-module **/
+import { Component, useState, onMounted, onWillStart, onPatched, onWillUnmount } from "@odoo/owl";
+
+class MyWidget extends Component {
+    setup() {
+        this.state = useState({ count: 0 });
+
+        onWillStart(async () => {
+            await this._loadData();
+        });
+
+        onMounted(() => {
+            this._setupListeners();
+        });
+
+        onPatched(() => {
+            this._updateView();
+        });
+
+        onWillUnmount(() => {
+            this._cleanup();
+        });
+    }
+}
+```
+
+### Lifecycle Hook Mapping
+| OWL 1.x (method) | OWL 2.0 (hook function in setup) |
+|-------------------|----------------------------------|
+| `constructor(parent, props)` | `setup()` |
+| `async willStart()` | `onWillStart(async () => {...})` |
+| `mounted()` | `onMounted(() => {...})` |
+| `patched()` | `onPatched(() => {...})` |
+| `willUnmount()` | `onWillUnmount(() => {...})` |
+| `willUpdateProps(nextProps)` | `onWillUpdateProps((nextProps) => {...})` |
+| `willPatch()` | `onWillPatch(() => {...})` |
+
+### Import Change
+```javascript
+// Before (OWL 1.x)
+import { Component, useState } from "@odoo/owl";
+
+// After (OWL 2.0) — import lifecycle hooks as functions
+import { Component, useState, onMounted, onWillStart, onPatched, onWillUnmount } from "@odoo/owl";
+```
+
+### Auto-Fix (basic renames only)
+```bash
+python auto_fix_library.py /path/to/module --specific owl_lifecycle
+```
+
+**Note**: Auto-fix renames the methods but does NOT restructure them into `setup()`.
+Full migration to `setup()` requires manual refactoring of the constructor pattern.
