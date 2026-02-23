@@ -1518,6 +1518,210 @@ Based on lessons learned from sadad_invoice_report development.
 
 ---
 
+---
+
+## QR Code & Barcode in Reports
+
+### ZATCA/Saudi e-Invoice QR Code (Legally Required)
+Saudi Arabia's ZATCA requires a QR code on all B2C invoices. Use Odoo's built-in barcode API:
+
+```xml
+<!-- Built-in Odoo barcode route — no extra library needed -->
+<img t-att-src="'/report/barcode/QR/%s' % (o.l10n_sa_qr_code_str or '')"
+     style="max-width:100px; max-height:100px;"
+     t-if="o.l10n_sa_qr_code_str"/>
+
+<!-- Generic QR code from any string -->
+<img t-att-src="'/report/barcode/?type=QR&amp;value=%s&amp;width=150&amp;height=150'
+     % (o.name or '')"
+     style="width:150px; height:150px;"/>
+
+<!-- Product barcode (Code128) -->
+<img t-att-src="'/report/barcode/Code128/%s' % (line.product_id.barcode or '')"
+     style="height:40px;"
+     t-if="line.product_id.barcode"/>
+```
+
+### Available Barcode Types
+| Type | Use Case |
+|------|---------|
+| `QR` | QR codes for invoices, payments, URLs |
+| `Code128` | Product barcodes (GS1-128) |
+| `EAN13` | Retail product codes |
+| `EAN8` | Short retail product codes |
+| `Code39` | Alphanumeric codes |
+| `ITF` | Shipping/logistics |
+
+### Python: Custom QR Code with qrcode Library
+```python
+# In report model or controller
+import qrcode
+import base64
+from io import BytesIO
+
+def _get_qr_code_base64(self, data: str) -> str:
+    """Generate QR code and return as base64 string for embedding in report."""
+    qr = qrcode.QRCode(version=1, box_size=10, border=4)
+    qr.add_data(data)
+    qr.make(fit=True)
+    img = qr.make_image(fill_color="black", back_color="white")
+    buffered = BytesIO()
+    img.save(buffered, format="PNG")
+    return base64.b64encode(buffered.getvalue()).decode()
+```
+
+```xml
+<!-- Use in report template (pass via report values) -->
+<img t-att-src="'data:image/png;base64,%s' % o._get_qr_code_base64(o.name)"
+     style="width:100px; height:100px;"/>
+```
+
+### wkhtmltopdf Barcode Note
+> External image URLs (e.g., `https://...`) will NOT render in wkhtmltopdf when using `--disable-external-links`.
+> Always use Odoo's internal `/report/barcode/` route which renders server-side.
+
+---
+
+## Report Wizard (User-Configurable Reports)
+
+When a report needs user input (date range, grouping, language selection), use a `TransientModel` wizard:
+
+### 1. Wizard Model
+```python
+# wizard/report_wizard.py
+from odoo import api, fields, models
+
+class MyReportWizard(models.TransientModel):
+    _name = 'my.report.wizard'
+    _description = 'My Report Wizard'
+
+    date_from = fields.Date(
+        string='From Date',
+        required=True,
+        default=fields.Date.context_today,
+    )
+    date_to = fields.Date(
+        string='To Date',
+        required=True,
+        default=fields.Date.context_today,
+    )
+    partner_ids = fields.Many2many(
+        'res.partner',
+        string='Partners',
+        help='Leave empty to include all partners',
+    )
+    report_type = fields.Selection([
+        ('summary', 'Summary'),
+        ('detailed', 'Detailed'),
+    ], string='Report Type', default='summary', required=True)
+
+    def action_print_report(self):
+        """Generate and return the report action."""
+        self.ensure_one()
+        data = {
+            'form': {
+                'date_from': str(self.date_from),
+                'date_to': str(self.date_to),
+                'partner_ids': self.partner_ids.ids,
+                'report_type': self.report_type,
+            }
+        }
+        return self.env.ref('my_module.action_my_report').report_action(
+            self, data=data
+        )
+```
+
+### 2. Wizard View
+```xml
+<!-- views/report_wizard_views.xml -->
+<record id="view_my_report_wizard_form" model="ir.ui.view">
+    <field name="name">my.report.wizard.form</field>
+    <field name="model">my.report.wizard</field>
+    <field name="arch" type="xml">
+        <form string="Generate Report">
+            <group>
+                <group string="Date Range">
+                    <field name="date_from"/>
+                    <field name="date_to"/>
+                </group>
+                <group string="Filters">
+                    <field name="partner_ids" widget="many2many_tags"/>
+                    <field name="report_type"/>
+                </group>
+            </group>
+            <footer>
+                <button name="action_print_report" type="object"
+                        string="Print Report" class="btn-primary"/>
+                <button string="Cancel" class="btn-secondary"
+                        special="cancel"/>
+            </footer>
+        </form>
+    </field>
+</record>
+
+<!-- Menu action to open wizard -->
+<record id="action_open_my_report_wizard" model="ir.actions.act_window">
+    <field name="name">My Report</field>
+    <field name="res_model">my.report.wizard</field>
+    <field name="view_mode">form</field>
+    <field name="target">new</field>
+</record>
+```
+
+### 3. Report Template Receiving Wizard Data
+```xml
+<!-- reports/my_report.xml -->
+<template id="report_my_report">
+    <t t-call="web.html_container">
+        <t t-foreach="docs" t-as="o">
+            <!-- Access wizard data via 'data' context variable -->
+            <t t-set="date_from" t-value="data['form']['date_from']"/>
+            <t t-set="date_to" t-value="data['form']['date_to']"/>
+            <t t-set="report_type" t-value="data['form']['report_type']"/>
+
+            <t t-call="web.external_layout">
+                <div class="page">
+                    <h2>
+                        Report: <t t-esc="date_from"/> to <t t-esc="date_to"/>
+                    </h2>
+                    <!-- Conditional content based on wizard selection -->
+                    <t t-if="report_type == 'detailed'">
+                        <!-- Detailed view -->
+                    </t>
+                    <t t-else="">
+                        <!-- Summary view -->
+                    </t>
+                </div>
+            </t>
+        </t>
+    </t>
+</template>
+```
+
+### 4. Report Action (for wizard)
+```xml
+<record id="action_my_report" model="ir.actions.report">
+    <field name="name">My Report</field>
+    <field name="model">my.report.wizard</field>
+    <field name="report_type">qweb-pdf</field>
+    <field name="report_name">my_module.report_my_report</field>
+    <field name="report_file">my_module.report_my_report</field>
+    <!-- Note: binding_model_id is NOT set for wizard-triggered reports -->
+</record>
+```
+
+### Manifest Entry for Wizard
+```python
+'data': [
+    'security/ir.model.access.csv',  # Add: access_my_report_wizard,...
+    'wizard/report_wizard_views.xml',
+    'reports/my_report.xml',
+    'views/menus.xml',
+],
+```
+
+---
+
 *Odoo Report Plugin v2.0*
 *TaqaTechno - Professional Email Templates & QWeb Reports*
 *Supports Odoo 14-19 | Arabic/RTL Ready*

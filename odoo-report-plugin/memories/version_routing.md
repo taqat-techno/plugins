@@ -147,3 +147,30 @@ template_category = fields.Selection([
     'company.email_secondary_color': '#875A7B',  # Button background
 }
 ```
+
+## Odoo 19 Company Branding Changes in Reports
+
+Odoo 19 changed how `res.company` fields are accessed in QWeb report context:
+
+```xml
+<!-- Odoo 17/18: Use res_company directly -->
+<t t-set="company_logo" t-value="res_company.logo"/>
+<t t-set="company_name" t-value="res_company.name"/>
+
+<!-- Odoo 19: Use company_id from the document -->
+<t t-set="company" t-value="docs[0].company_id"/>
+<t t-set="company_logo" t-value="company.logo"/>
+<t t-set="company_name" t-value="company.name"/>
+
+<!-- Odoo 19: New email color fields (for branded PDF headers) -->
+<div t-att-style="'background-color: %s;' % (company.email_secondary_color or '#875A7B')">
+    <span t-att-style="'color: %s;' % (company.email_primary_color or '#FFFFFF')">
+        <t t-esc="company_name"/>
+    </span>
+</div>
+```
+
+**Migration rule (17/18 → 19)**:
+- Replace `res_company` variable with `docs[0].company_id` at top of template
+- Add `email_primary_color` and `email_secondary_color` branding if needed
+- The `web.external_layout` template handles this automatically — only need manual changes for custom layouts

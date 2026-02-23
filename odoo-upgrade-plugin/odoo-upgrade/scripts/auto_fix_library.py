@@ -569,6 +569,154 @@ def slug(value):
 
         return fixed_count
 
+    def fix_controller_type(self) -> int:
+        """Fix Odoo 19: type='json' → type='jsonrpc' in @http.route decorators."""
+        fixed_count = 0
+        pattern = re.compile(
+            r"(@http\.route\([^)]*?)type\s*=\s*['\"]json['\"]([^)]*\))",
+            re.DOTALL,
+        )
+
+        py_files = list(self.project_path.glob("**/*.py"))
+        for py_file in py_files:
+            if '__pycache__' in str(py_file):
+                continue
+            try:
+                with open(py_file, 'r', encoding='utf-8') as f:
+                    content = f.read()
+
+                new_content = pattern.sub(
+                    lambda m: m.group(1) + "type='jsonrpc'" + m.group(2),
+                    content,
+                )
+
+                if new_content != content:
+                    with open(py_file, 'w', encoding='utf-8') as f:
+                        f.write(new_content)
+                    self.files_modified.add(py_file)
+                    fixed_count += 1
+
+            except Exception as e:
+                print(f"  Error fixing controller type in {py_file}: {e}")
+
+        if fixed_count > 0:
+            self.fixes_applied.append(
+                f"Fixed controller type='json' → type='jsonrpc' in {fixed_count} files"
+            )
+        return fixed_count
+
+    def fix_attrs_to_inline(self) -> int:
+        """Fix Odoo 18/19: attrs={'invisible':[...]} → invisible='...' inline expressions in XML."""
+        fixed_count = 0
+
+        def _domain_to_expr(domain_str: str) -> str:
+            """Convert simple Odoo domain list to Python inline expression."""
+            # Match single condition: [('field', '=', 'value')]
+            m = re.match(
+                r"""\[\s*\(\s*['"](\w+)['"]\s*,\s*['"]([!=<>]{1,2})['"]\s*,\s*['"]?([^'"\)\]]+)['"]?\s*\)\s*\]""",
+                domain_str.strip(),
+            )
+            if m:
+                field, op, value = m.group(1), m.group(2), m.group(3).strip()
+                # Wrap non-numeric values in quotes
+                if not re.match(r'^-?\d+(\.\d+)?$', value) and value not in ('True', 'False', 'None'):
+                    value = f"'{value}'"
+                return f"{field} {op} {value}"
+            # Fallback: return the raw domain (requires manual review)
+            return domain_str
+
+        def _convert_attrs(match: re.Match) -> str:
+            """Convert a single attrs="..." attribute to individual inline attrs."""
+            original = match.group(0)
+            attrs_content = match.group(1)
+
+            try:
+                # Normalise quotes for safe parsing
+                normalised = attrs_content.replace("'", '"')
+                import json
+                attrs_dict = json.loads(normalised)
+            except Exception:
+                return original  # Can't parse safely; leave unchanged
+
+            replacements = []
+            for attr_name in ('invisible', 'required', 'readonly', 'column_invisible'):
+                if attr_name in attrs_dict:
+                    expr = _domain_to_expr(str(attrs_dict[attr_name]).replace('"', "'"))
+                    replacements.append(f'{attr_name}="{expr}"')
+
+            if not replacements:
+                return original
+            return ' '.join(replacements)
+
+        attrs_re = re.compile(r"""attrs\s*=\s*["']\{([^}]+)\}["']""", re.DOTALL)
+
+        xml_files = list(self.project_path.glob("**/*.xml"))
+        for xml_file in xml_files:
+            try:
+                with open(xml_file, 'r', encoding='utf-8') as f:
+                    content = f.read()
+
+                new_content = attrs_re.sub(_convert_attrs, content)
+
+                if new_content != content:
+                    with open(xml_file, 'w', encoding='utf-8') as f:
+                        f.write(new_content)
+                    self.files_modified.add(xml_file)
+                    fixed_count += 1
+
+            except Exception as e:
+                print(f"  Error fixing attrs in {xml_file}: {e}")
+
+        if fixed_count > 0:
+            self.fixes_applied.append(
+                f"Converted attrs={{}} to inline expressions in {fixed_count} files"
+            )
+        return fixed_count
+
+    def fix_owl_lifecycle_hooks(self) -> int:
+        """Fix OWL 1.x → OWL 2.0: rename lifecycle hooks in JS files."""
+        fixed_count = 0
+        renames = [
+            (r'\bmounted\s*\(\s*\)\s*\{', 'onMounted() {'),
+            (r'\bwillStart\s*\(\s*\)\s*\{', 'onWillStart() {'),
+            (r'\bpatched\s*\(\s*\)\s*\{', 'onPatched() {'),
+            (r'\bwillUnmount\s*\(\s*\)\s*\{', 'onWillUnmount() {'),
+            (r'\bwillUpdateProps\s*\(\s*\)\s*\{', 'onWillUpdateProps() {'),
+            # Constructor with parent/props → setup()
+            (r'\bconstructor\s*\(\s*parent\s*,\s*props\s*\)\s*\{', 'setup() {'),
+        ]
+
+        js_files = list(self.project_path.glob("**/*.js"))
+        for js_file in js_files:
+            if 'node_modules' in str(js_file) or '.min.js' in str(js_file):
+                continue
+            try:
+                with open(js_file, 'r', encoding='utf-8') as f:
+                    content = f.read()
+
+                # Only process files that use OWL (import from @odoo/owl or owl.Component)
+                if 'Component' not in content:
+                    continue
+
+                new_content = content
+                for pattern, replacement in renames:
+                    new_content = re.sub(pattern, replacement, new_content)
+
+                if new_content != content:
+                    with open(js_file, 'w', encoding='utf-8') as f:
+                        f.write(new_content)
+                    self.files_modified.add(js_file)
+                    fixed_count += 1
+
+            except Exception as e:
+                print(f"  Error fixing OWL hooks in {js_file}: {e}")
+
+        if fixed_count > 0:
+            self.fixes_applied.append(
+                f"Renamed OWL 1.x lifecycle hooks to OWL 2.0 in {fixed_count} files"
+            )
+        return fixed_count
+
     # ========== Main Methods ==========
 
     def apply_all_fixes(self) -> Dict:
@@ -595,11 +743,17 @@ def slug(value):
         results['xml_comments'] = self.fix_xml_comments()
         results['xml_odoo19'] = self.fix_xml_odoo19_compatibility()
 
+        # Odoo 19 specific Python fixes
+        print("\nApplying Odoo 19 Python fixes...")
+        results['controller_type'] = self.fix_controller_type()
+        results['attrs_inline'] = self.fix_attrs_to_inline()
+
         # JavaScript fixes
         print("\nApplying JavaScript fixes...")
         results['js_rpc'] = self.fix_javascript_rpc()
         results['js_modules'] = self.fix_javascript_module_declaration()
         results['js_async'] = self.fix_javascript_async_await()
+        results['owl_lifecycle'] = self.fix_owl_lifecycle_hooks()
 
         # SCSS fixes
         print("\nApplying SCSS fixes...")
@@ -634,9 +788,12 @@ def slug(value):
             'python_syntax': self.fix_python_syntax_errors,
             'xml_comments': self.fix_xml_comments,
             'xml_odoo19': self.fix_xml_odoo19_compatibility,
+            'controller_type': self.fix_controller_type,
+            'attrs_inline': self.fix_attrs_to_inline,
             'js_rpc': self.fix_javascript_rpc,
             'js_modules': self.fix_javascript_module_declaration,
             'js_async': self.fix_javascript_async_await,
+            'owl_lifecycle': self.fix_owl_lifecycle_hooks,
             'scss_variables': self.fix_scss_variables,
             'scss_syntax': self.fix_scss_syntax,
         }
