@@ -96,7 +96,7 @@ This installs both CLI and MCP:
 
 - **Organization**: YOUR-ORG
 - **Email**: support@example.com
-- **Repository**: https://github.com/taqat-techno-eg/plugins
+- **Repository**: https://github.com/taqat-techno/plugins
 
 ## License
 
