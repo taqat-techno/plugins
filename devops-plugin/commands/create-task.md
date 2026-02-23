@@ -347,7 +347,7 @@ Sprint: Sprint 15
 
 **Claude**:
 ```
-📁 Project: Relief Center
+📁 Project: Project Alpha
 
 Parent specified: #100
 Verifying parent...
@@ -359,7 +359,7 @@ Creating task...
 ```javascript
 // Create task
 const task = await mcp__azure-devops__wit_create_work_item({
-  "project": "Relief Center",
+  "project": "Project Alpha",
   "workItemType": "Task",
   "fields": [
     { "name": "System.Title", "value": "Implement form validation" }
@@ -368,7 +368,7 @@ const task = await mcp__azure-devops__wit_create_work_item({
 
 // Link to parent
 await mcp__azure-devops__wit_work_items_link({
-  "project": "Relief Center",
+  "project": "Project Alpha",
   "updates": [{
     "id": task.id,
     "linkToId": 100,
@@ -388,7 +388,7 @@ await mcp__azure-devops__wit_work_items_link({
 
 **Claude**:
 ```
-📁 Project: Relief Center
+📁 Project: Project Alpha
 
 No parent specified. Searching for related User Stories...
 
@@ -424,7 +424,7 @@ Feature #50: Authentication Module
 
 **Claude**:
 ```
-📁 Project: Relief Center
+📁 Project: Project Alpha
 
 No parent specified. Searching for related User Stories...
 
@@ -448,7 +448,7 @@ What would you like to do?
 **Claude**:
 ```javascript
 const task = await mcp__azure-devops__wit_create_work_item({
-  "project": "Relief Center",
+  "project": "Project Alpha",
   "workItemType": "Task",
   "fields": [
     { "name": "System.Title", "value": "Implement OAuth2 login" },
@@ -469,7 +469,7 @@ const task = await mcp__azure-devops__wit_create_work_item({
 
 **Claude**:
 ```
-📁 Project: Relief Center
+📁 Project: Project Alpha
 
 Parent specified: #200
 Verifying parent...

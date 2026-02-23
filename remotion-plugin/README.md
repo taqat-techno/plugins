@@ -132,4 +132,4 @@ MIT - Free to use, modify, and distribute.
 
 ## Author
 
-**TAQAT Techno** - info@taqatechno.com
+**TAQAT Techno** - support@example.com

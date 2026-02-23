@@ -17,17 +17,17 @@ This context manager **automatically tracks and maintains** the current project 
 │                                                                  │
 │  GOAL: User should never have to repeat project name            │
 │                                                                  │
-│  Session 1: "Show my tasks in Relief Center"                    │
-│             → Sets context: Relief Center                       │
+│  Session 1: "Show my tasks in Project Alpha"                    │
+│             → Sets context: Project Alpha                       │
 │                                                                  │
 │  Session 2: "Show my tasks"                                     │
-│             → Uses context: Relief Center (automatic)           │
+│             → Uses context: Project Alpha (automatic)           │
 │                                                                  │
-│  Session 3: "Switch to KhairGate"                               │
-│             → Updates context: KhairGate                        │
+│  Session 3: "Switch to Project Beta"                               │
+│             → Updates context: Project Beta                        │
 │                                                                  │
 │  Session 4: "Create a bug"                                      │
-│             → Uses context: KhairGate (automatic)               │
+│             → Uses context: Project Beta (automatic)               │
 │                                                                  │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -70,17 +70,17 @@ This context manager **automatically tracks and maintains** the current project 
 │  ┌─────────────────────────────────────────────────────────┐    │
 │  │ "I found you have work items in multiple projects:      │    │
 │  │                                                         │    │
-│  │  • Relief Center (8 active items)                       │    │
-│  │  • KhairGate (3 active items)                           │    │
-│  │  • Property Management (2 active items)                 │    │
+│  │  • Project Alpha (8 active items)                       │    │
+│  │  • Project Beta (3 active items)                           │    │
+│  │  • Project Gamma (2 active items)                 │    │
 │  │                                                         │    │
-│  │  I'll use Relief Center as default.                     │    │
+│  │  I'll use Project Alpha as default.                     │    │
 │  │  Say 'switch to [project]' to change."                  │    │
 │  └─────────────────────────────────────────────────────────┘    │
 │                                                                  │
 │  STEP 4: Set context and proceed                                │
 │  ┌─────────────────────────────────────────────────────────┐    │
-│  │ setContext("Relief Center")                             │    │
+│  │ setContext("Project Alpha")                             │    │
 │  │ // Now execute original request                         │    │
 │  └─────────────────────────────────────────────────────────┘    │
 │                                                                  │
@@ -90,31 +90,31 @@ This context manager **automatically tracks and maintains** the current project 
 ### Context Switching
 
 ```
-User: "switch to KhairGate"
+User: "switch to Project Beta"
 
 Claude:
 ┌─────────────────────────────────────────────────────────────────┐
-│ ✓ Switched to KhairGate                                         │
+│ ✓ Switched to Project Beta                                         │
 │                                                                  │
-│ All subsequent commands will use KhairGate as the default       │
+│ All subsequent commands will use Project Beta as the default       │
 │ project until you switch again.                                 │
 │                                                                  │
-│ Previous context: Relief Center                                 │
-│ Current context: KhairGate                                      │
+│ Previous context: Project Alpha                                 │
+│ Current context: Project Beta                                      │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
 ### Explicit Project Override
 
 ```
-User: "show tasks in Property Management"
+User: "show tasks in Project Gamma"
 
 Claude:
 ┌─────────────────────────────────────────────────────────────────┐
-│ Querying Property Management (one-time override)                │
+│ Querying Project Gamma (one-time override)                │
 │                                                                  │
-│ Note: Your default project is still KhairGate.                  │
-│ To permanently switch, say "switch to Property Management"      │
+│ Note: Your default project is still Project Beta.                  │
+│ To permanently switch, say "switch to Project Gamma"      │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -128,7 +128,7 @@ Claude:
 Context persists throughout the conversation session.
 
 Once set:
-  currentProject = "Relief Center"
+  currentProject = "Project Alpha"
 
 All subsequent queries use it automatically:
   wit_my_work_items({ project: currentProject, ... })
@@ -144,10 +144,10 @@ IF user specifies project in command:
   → DO NOT change the default context
 
 Example:
-  Context: Relief Center
-  User: "bugs in KhairGate"
-  → Query KhairGate (this time)
-  → Context still: Relief Center
+  Context: Project Alpha
+  User: "bugs in Project Beta"
+  → Query Project Beta (this time)
+  → Context still: Project Alpha
 ```
 
 ### Rule 3: Switch Command (Permanent)
@@ -191,7 +191,7 @@ IF no context set AND user doesn't specify project:
   → DO NOT silently pick a project
 
 Example:
-  "I'll use Relief Center (your most active project).
+  "I'll use Project Alpha (your most active project).
    Is this correct, or would you prefer a different project?"
 ```
 
@@ -303,7 +303,7 @@ function getContext() {
 Always show current context in responses:
 
 ┌─────────────────────────────────────────────────────────────────┐
-│ 📁 Project: Relief Center                                       │
+│ 📁 Project: Project Alpha                                       │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                  │
 │ My Work Items (8)                                               │
@@ -328,13 +328,13 @@ I noticed you haven't set a default project yet.
 Checking your activity across projects...
 
 Found work items in:
-• Relief Center (8 active items) ← Most active
-• KhairGate (3 active items)
-• Property Management (2 active items)
+• Project Alpha (8 active items) ← Most active
+• Project Beta (3 active items)
+• Project Gamma (2 active items)
 
-I'll use **Relief Center** as your default project.
+I'll use **Project Alpha** as your default project.
 
-📁 Project: Relief Center
+📁 Project: Project Alpha
 
 ## My Work Items (8)
 | ID | Type | Title | State |
@@ -343,7 +343,7 @@ I'll use **Relief Center** as your default project.
 | #1235 | Bug | UI alignment | New |
 ...
 
-💡 Say "switch to KhairGate" to change projects.
+💡 Say "switch to Project Beta" to change projects.
 ```
 
 ### Example 2: Subsequent Queries
@@ -352,9 +352,9 @@ I'll use **Relief Center** as your default project.
 
 **Claude**:
 ```
-📁 Project: Relief Center (using default)
+📁 Project: Project Alpha (using default)
 
-Creating bug in Relief Center...
+Creating bug in Project Alpha...
 
 ✅ Bug #1300 created: "Button not working"
    State: New
@@ -363,23 +363,23 @@ Creating bug in Relief Center...
 
 ### Example 3: Switch Projects
 
-**User**: "switch to KhairGate"
+**User**: "switch to Project Beta"
 
 **Claude**:
 ```
 ✓ Switched project context
 
-Previous: Relief Center
-Current: KhairGate
+Previous: Project Alpha
+Current: Project Beta
 
-All subsequent commands will use KhairGate.
+All subsequent commands will use Project Beta.
 ```
 
 **User**: "my tasks"
 
 **Claude**:
 ```
-📁 Project: KhairGate
+📁 Project: Project Beta
 
 ## My Work Items (3)
 | ID | Type | Title | State |
@@ -390,20 +390,20 @@ All subsequent commands will use KhairGate.
 
 ### Example 4: One-Time Override
 
-**User**: "bugs in Property Management"
+**User**: "bugs in Project Gamma"
 
 **Claude**:
 ```
-📁 Querying: Property Management (one-time)
-📌 Default remains: KhairGate
+📁 Querying: Project Gamma (one-time)
+📌 Default remains: Project Beta
 
-## Bugs in Property Management (2)
+## Bugs in Project Gamma (2)
 | ID | Title | State |
 |----|-------|-------|
 | #200 | Login fails | Active |
 ...
 
-💡 To switch permanently: "switch to Property Management"
+💡 To switch permanently: "switch to Project Gamma"
 ```
 
 ### Example 5: All Projects Query
@@ -416,26 +416,26 @@ All subsequent commands will use KhairGate.
 
 ## My Work Items Across All Projects
 
-### Relief Center (8 items)
+### Project Alpha (8 items)
 | ID | Type | Title | State |
 |----|------|-------|-------|
 | #1234 | Task | Fix login | Active |
 ...
 
-### KhairGate (3 items)
+### Project Beta (3 items)
 | ID | Type | Title | State |
 |----|------|-------|-------|
 | #500 | Task | API work | Active |
 ...
 
-### Property Management (2 items)
+### Project Gamma (2 items)
 | ID | Type | Title | State |
 |----|------|-------|-------|
 | #200 | Bug | Login issue | New |
 ...
 
 📊 Total: 13 items across 3 projects
-📌 Default project: KhairGate
+📌 Default project: Project Beta
 ```
 
 ---
@@ -518,13 +518,13 @@ or
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                  │
 │  SET DEFAULT:                                                   │
-│    "switch to Relief Center"                                    │
-│    "use KhairGate"                                              │
-│    "work on Property Management"                                │
+│    "switch to Project Alpha"                                    │
+│    "use Project Beta"                                              │
+│    "work on Project Gamma"                                │
 │                                                                  │
 │  ONE-TIME QUERY:                                                │
-│    "tasks in Relief Center" (doesn't change default)            │
-│    "bugs from KhairGate" (doesn't change default)               │
+│    "tasks in Project Alpha" (doesn't change default)            │
+│    "bugs from Project Beta" (doesn't change default)               │
 │                                                                  │
 │  QUERY ALL:                                                     │
 │    "all my tasks across all projects"                           │
@@ -541,4 +541,4 @@ or
 
 *Project Context Manager v1.0*
 *Part of DevOps Plugin v3.0 Enhancement*
-*TaqaTechno - December 2025*
+*YOUR-ORG - December 2025*

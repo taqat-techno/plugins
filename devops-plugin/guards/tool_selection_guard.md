@@ -83,7 +83,7 @@ User wants to see work items?
 // Find items containing "login" in text
 mcp__azure-devops__search_workitem({
   "searchText": "login authentication",  // ← Searches this TEXT
-  "project": ["Relief Center"]           // ← Limits to project
+  "project": ["Project Alpha"]           // ← Limits to project
 })
 ```
 
@@ -105,7 +105,7 @@ mcp__azure-devops__search_workitem({
 **Parameters**:
 ```javascript
 mcp__azure-devops__wit_my_work_items({
-  "project": "Relief Center",     // REQUIRED - project scope
+  "project": "Project Alpha",     // REQUIRED - project scope
   "type": "assignedtome",         // "assignedtome" or "myactivity"
   "includeCompleted": false,      // Include Done/Closed items?
   "top": 50                       // Max items to return
@@ -121,9 +121,9 @@ mcp__azure-devops__wit_my_work_items({
 **Parameters**:
 ```javascript
 mcp__azure-devops__wit_get_work_items_for_iteration({
-  "project": "Relief Center",
+  "project": "Project Alpha",
   "iterationId": "Sprint 15",    // Iteration name or GUID
-  "team": "Relief Center Team"   // Optional team scope
+  "team": "Project Alpha Team"   // Optional team scope
 })
 ```
 
@@ -135,7 +135,7 @@ mcp__azure-devops__wit_get_work_items_for_iteration({
 az boards query --wiql "
   SELECT [System.Id], [System.Title], [System.State]
   FROM WorkItems
-  WHERE [System.TeamProject] = 'Relief Center'
+  WHERE [System.TeamProject] = 'Project Alpha'
     AND [System.AssignedTo] = 'mahmoud@email.com'
     AND [System.State] = 'Active'
     AND [System.WorkItemType] = 'Bug'
@@ -292,7 +292,7 @@ mcp__azure-devops__search_workitem({
 **After Guard (CORRECT)**:
 ```javascript
 mcp__azure-devops__wit_my_work_items({
-  "project": "Relief Center",
+  "project": "Project Alpha",
   "type": "assignedtome",
   "includeCompleted": false,
   "top": 50
@@ -309,7 +309,7 @@ mcp__azure-devops__wit_my_work_items({
 // This IS a text search, so search_workitem is correct
 mcp__azure-devops__search_workitem({
   "searchText": "login bug",
-  "project": ["Relief Center"]
+  "project": ["Project Alpha"]
 })
 // Result: Items containing "login bug" text
 ```
@@ -332,7 +332,7 @@ mcp__azure-devops__search_workitem({
 az boards query --wiql "
   SELECT [System.Id], [System.Title]
   FROM WorkItems
-  WHERE [System.TeamProject] = 'Relief Center'
+  WHERE [System.TeamProject] = 'Project Alpha'
     AND [System.AssignedTo] CONTAINS 'mahmoud'
     AND [System.State] = 'Active'
     AND [System.WorkItemType] = 'Bug'
@@ -354,4 +354,4 @@ This guard integrates with:
 
 *Tool Selection Guard v1.0*
 *Part of DevOps Plugin v3.0 Enhancement*
-*TaqaTechno - December 2025*
+*YOUR-ORG - December 2025*

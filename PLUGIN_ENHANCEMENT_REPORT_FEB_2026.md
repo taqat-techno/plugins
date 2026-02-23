@@ -31,7 +31,7 @@
 - All memory files (30+ files across plugins)
 - All helper and reference files (20+ files)
 - Changelogs: devops v2.0, remotion v1.0, upgrade v3.1
-- Session learnings: `SESSION_LEARNINGS_2025-11-03.md` (Relief Center migration)
+- Session learnings: `SESSION_LEARNINGS_2025-11-03.md` (Project Alpha migration)
 - Enhancement plans: `ENHANCEMENT_REPORT_JAN_2026.md`, `ENHANCEMENT_PLAN_V2.md`, `ENHANCEMENTS_V3.md`
 - Error catalogs: 35+ error categories documented
 - Pattern libraries: 150+ upgrade patterns, 50+ email patterns, 30+ QWeb patterns
@@ -54,7 +54,7 @@
 
 | Plugin | Version | Maturity | Odoo 19 Ready | Last Real-World Test | Gaps |
 |--------|---------|----------|--------------|---------------------|------|
-| **odoo-upgrade** | 4.0.0 | ★★★★★ | 95% | Nov 2025 (Relief Center) | OWL 2.0 migration, Odoo 18 intermediary |
+| **odoo-upgrade** | 4.0.0 | ★★★★★ | 95% | Nov 2025 (Project Alpha) | OWL 2.0 migration, Odoo 18 intermediary |
 | **odoo-frontend** | 7.0.0 | ★★★★★ | 85% | Jan 2026 | Odoo 19 snippet API, dark mode |
 | **odoo-report** | 2.0.0 | ★★★★☆ | 80% | Dec 2025 (sadad_invoice) | Charts, e-invoice, Odoo 19 company branding |
 | **devops** | 2.0.0 | ★★★★☆ | N/A | Active daily use | GitHub integration, Jenkins, deploy hooks |
@@ -70,7 +70,7 @@
 ### Current Strengths
 - 150 transformation patterns covering Odoo 14→19
 - 75 automated fixes, 95-98% success rate
-- Real-world validated by Relief Center migration (6 critical issues found and resolved)
+- Real-world validated by Project Alpha migration (6 critical issues found and resolved)
 - Comprehensive error catalog (35+ categories)
 - Unified CLI (`odoo_upgrade_cli.py`) with precheck, validate, quickfix, autofix commands
 - Session learnings properly captured in patterns and fixes directories
@@ -293,7 +293,7 @@ publicWidget.registry.LazyImages = publicWidget.Widget.extend({
 ```
 
 #### Gap 6: Multi-Language RTL/LTR Switcher
-The projects include Arabic sites (Beneshty, khairgate, relief_center) but the frontend plugin has **no RTL switching pattern**. The report plugin covers RTL for PDFs but not for website themes.
+The projects include Arabic sites (Project Delta, khairgate, relief_center) but the frontend plugin has **no RTL switching pattern**. The report plugin covers RTL for PDFs but not for website themes.
 
 **What to add**: A pattern for dynamic RTL/LTR switching in publicWidget based on `html[dir="rtl"]`.
 
@@ -468,7 +468,7 @@ gh pr create --title "feat: [AB#1234] Feature Name" --body "Closes AB#1234"
 ```
 
 #### Gap 2: Jenkins CI/CD Integration
-The `ittihadclub` project uses Jenkins CI/CD (noted in main CLAUDE.md). No Jenkins patterns exist.
+The `project-eta` project uses Jenkins CI/CD (noted in main CLAUDE.md). No Jenkins patterns exist.
 
 **What to add**: A `jenkins_integration.md` memory or helper file covering:
 - Triggering Jenkins builds from Azure DevOps
@@ -851,7 +851,7 @@ odoo-test-plugin/
 
 ### Proposal 3: `odoo-i18n-plugin` ⭐⭐⭐⭐ (HIGH PRIORITY)
 
-**Why**: You have Arabic sites (Beneshty, khairgate, relief_center, sadad_invoice). The `TRANSLATION_GUIDELINES.md` exists in odoo19 but is not a plugin. Translation work is repeated across all projects.
+**Why**: You have Arabic sites (Project Delta, khairgate, relief_center, sadad_invoice). The `TRANSLATION_GUIDELINES.md` exists in odoo19 but is not a plugin. Translation work is repeated across all projects.
 
 **What it would do**:
 - Generate `.pot` template files from module source

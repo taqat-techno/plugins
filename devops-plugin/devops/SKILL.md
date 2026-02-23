@@ -1,6 +1,6 @@
 ---
 name: devops
-description: "Azure DevOps HYBRID integration skill for TaqaTechno organization. Combines CLI power with MCP convenience for optimal performance. Uses CLI for automation, batch operations, variables, and extensions. Uses MCP for interactive queries, code reviews, test plans, search, and security alerts. Intelligent routing automatically selects the best tool for each task."
+description: "Azure DevOps HYBRID integration skill for YOUR-ORG organization. Combines CLI power with MCP convenience for optimal performance. Uses CLI for automation, batch operations, variables, and extensions. Uses MCP for interactive queries, code reviews, test plans, search, and security alerts. Intelligent routing automatically selects the best tool for each task."
 version: "2.0.0"
 author: "TAQAT Techno"
 license: "MIT"
@@ -12,7 +12,7 @@ allowed-tools:
   - Glob
   - Grep
 metadata:
-  organization: "TaqaTechno"
+  organization: "YOUR-ORG"
   mode: "hybrid"
   mcp-server: "@anthropic-ai/azure-devops-mcp"
   cli-extension: "azure-devops"
@@ -29,7 +29,7 @@ A comprehensive skill for managing Azure DevOps resources through natural langua
 
 ## Configuration
 
-- **Organization**: TaqaTechno
+- **Organization**: YOUR-ORG
 - **Mode**: **HYBRID** (CLI + MCP)
 - **MCP Server**: `@anthropic-ai/azure-devops-mcp` (Official Anthropic)
 - **CLI Extension**: `azure-devops` (via Azure CLI)
@@ -305,13 +305,13 @@ az boards query --wiql "SELECT [System.Id] FROM WorkItems WHERE [System.State] =
 
 ```bash
 # Configure defaults
-az devops configure --defaults organization=https://dev.azure.com/TaqaTechno project="Relief Center"
+az devops configure --defaults organization=https://dev.azure.com/YOUR-ORG project="Project Alpha"
 
 # Check current configuration
 az devops configure --list
 
 # Login with PAT
-echo $AZURE_DEVOPS_EXT_PAT | az devops login --organization https://dev.azure.com/TaqaTechno
+echo $AZURE_DEVOPS_EXT_PAT | az devops login --organization https://dev.azure.com/YOUR-ORG
 
 # Verify authentication
 az devops project list
@@ -365,7 +365,7 @@ mcp__azure-devops__search_workitem({
 ```javascript
 // Step 1: Get work item IDs for each project
 mcp__azure-devops__wit_my_work_items({
-  "project": "Relief Center",
+  "project": "Project Alpha",
   "type": "assignedtome",
   "includeCompleted": false,
   "top": 100
@@ -373,7 +373,7 @@ mcp__azure-devops__wit_my_work_items({
 
 // Step 2: Get full details for the returned IDs
 mcp__azure-devops__wit_get_work_items_batch_by_ids({
-  "project": "Relief Center",
+  "project": "Project Alpha",
   "ids": [1746, 1828, 1651],  // IDs from step 1
   "fields": ["System.Id", "System.Title", "System.State", "System.WorkItemType", "System.TeamProject"]
 })
@@ -383,7 +383,7 @@ mcp__azure-devops__wit_get_work_items_batch_by_ids({
 ```javascript
 // Must specify project - queries cannot be truly global
 mcp__azure-devops__wit_get_query_results_by_id({
-  "project": "Relief Center",
+  "project": "Project Alpha",
   "id": "assignedtome"  // Use predefined query
 })
 ```
@@ -553,14 +553,14 @@ STEP 1: Extract mentions
 
 STEP 2: Resolve via API (MANDATORY)
   → core_get_identity_ids({ searchFilter: "mahmoud" })
-  → Result: { id: "6011f8b0-...", displayName: "Mahmoud Elshahed" }
+  → Result: { id: "6011f8b0-...", displayName: "John Doe" }
 
 STEP 3: Validate resolution
   → ✅ GUID found → Proceed
   → ❌ No match → ASK USER (do not post!)
 
 STEP 4: Format as HTML
-  → <a href="#" data-vss-mention="version:2.0,guid:6011f8b0-...">@Mahmoud Elshahed</a>
+  → <a href="#" data-vss-mention="version:2.0,guid:6011f8b0-...">@John Doe</a>
 
 STEP 5: Post comment with format: "html"
 ```
@@ -575,10 +575,10 @@ Claude (after failed API lookup):
 │ ⚠️ I couldn't find a user matching "@bob" in Azure DevOps.       │
 │                                                                  │
 │ Did you mean one of these team members?                         │
-│ • Mahmoud Elshahed (@mahmoud)                                   │
-│ • Eslam Hafez (@eslam)                                          │
-│ • Ahmed Abdelkhaleq (@ahmed)                                    │
-│ • Mohamed Afifi (@mohamed)                                      │
+│ • John Doe (@mahmoud)                                   │
+│ • Jane Smith (@eslam)                                          │
+│ • User One (@ahmed)                                    │
+│ • Bob Williams (@mohamed)                                      │
 │                                                                  │
 │ Please provide the correct name or email.                       │
 │ I won't post until I can properly resolve the mention.          │
@@ -604,25 +604,22 @@ const mention = `<a href="#" data-vss-mention="version:2.0,guid:${identity.id}">
 
 // Step 4: Post comment
 mcp__azure-devops__wit_add_work_item_comment({
-  "project": "Relief Center",
+  "project": "Project Alpha",
   "workItemId": 1234,
   "comment": `Please review this. ${mention}`,
   "format": "html"  // REQUIRED for mentions
 });
 ```
 
-### TaqaTechno Team Members (Quick Reference)
+### Team Members Quick Reference (configure in data/team_members.json)
 
 | Name | Email | Search Terms |
 |------|-------|--------------|
-| Ahmed Abdelkhaleq | alakosha@pearlpixels.com | @ahmed, @alakosha |
-| Eslam Hafez Mohamed | ehafez@pearlpixels.com | @eslam, @ehafez |
-| Yussef Hussein | yhussein@pearlpixels.com | @yussef, @yhussein |
-| Sameh Abdlal | sabdlal@pearlpixels.com | @sameh, @sabdlal |
-| Mahmoud Elshahed | melshahed@pearlpixels.com | @mahmoud, @melshahed |
-| Mohamed Afifi | mafifi@pearlpixels.com | @mohamed, @mafifi |
-| Hossam Moussa | hmoussa@pearlpixels.com | @hossam, @hmoussa |
-| Amr Saber | asaber@pearlpixels.com | @amr, @asaber |
+| John Doe | user@company.com | @john, @jdoe |
+| Jane Smith | user@company.com | @jane, @jsmith |
+| Alice Johnson | user@company.com | @alice, @ajohnson |
+| Bob Williams | user@company.com | @bob, @bwilliams |
+| Carol Brown | user@company.com | @carol, @cbrown |
 
 **Note**: Always resolve via API - never assume GUIDs!
 
@@ -741,16 +738,16 @@ Claude maintains project context automatically so users don't need to specify pr
 │              SMART PROJECT CONTEXT                               │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                  │
-│  First query: "Show my tasks in Relief Center"                  │
-│    → Sets context: Relief Center                                │
+│  First query: "Show my tasks in Project Alpha"                  │
+│    → Sets context: Project Alpha                                │
 │                                                                  │
 │  Next query: "Show my tasks"                                    │
-│    → Uses context automatically: Relief Center                  │
+│    → Uses context automatically: Project Alpha                  │
 │                                                                  │
-│  Switch: "switch to KhairGate"                                  │
-│    → Updates context: KhairGate                                 │
+│  Switch: "switch to Project Beta"                                  │
+│    → Updates context: Project Beta                                 │
 │                                                                  │
-│  Override: "bugs in Property Management"                        │
+│  Override: "bugs in Project Gamma"                        │
 │    → One-time query (context unchanged)                         │
 │                                                                  │
 └─────────────────────────────────────────────────────────────────┘
@@ -765,7 +762,7 @@ IF no context set:
   1. List all projects via core_list_projects
   2. Check user's items in each via wit_my_work_items
   3. Find most active project
-  4. INFORM user: "Using Relief Center (8 active items)"
+  4. INFORM user: "Using Project Alpha (8 active items)"
   5. Set context and proceed
 ```
 
@@ -773,10 +770,10 @@ IF no context set:
 
 | Command | Effect |
 |---------|--------|
-| "switch to KhairGate" | Set new default |
-| "use Relief Center" | Set new default |
-| "work on Property Management" | Set new default |
-| "bugs in KhairGate" | One-time override (default unchanged) |
+| "switch to Project Beta" | Set new default |
+| "use Project Alpha" | Set new default |
+| "work on Project Gamma" | Set new default |
+| "bugs in Project Beta" | One-time override (default unchanged) |
 | "all my tasks across all projects" | Query all, aggregate |
 | "what project am I in?" | Show current context |
 
@@ -785,7 +782,7 @@ IF no context set:
 Always show current context in responses:
 
 ```
-📁 Project: Relief Center
+📁 Project: Project Alpha
 
 ## My Work Items (8)
 | ID | Type | Title |
@@ -794,18 +791,18 @@ Always show current context in responses:
 💡 Say "switch to [project]" to change
 ```
 
-#### Available Projects (TaqaTechno)
+#### Available Projects (YOUR-ORG)
 
 | Project | Aliases |
 |---------|---------|
-| Relief Center | relief, rc |
-| KhairGate | kg |
-| Property Management | pm, property |
-| TAQAT HR | hr |
-| Beneshty | beneshty |
-| OkSouq | souq |
-| Arcelia | arcelia |
-| Ittihad Club | ittihad |
+| Project Alpha | relief, rc |
+| Project Beta | kg |
+| Project Gamma | pm, property |
+| Project Theta | hr |
+| Project Delta | beneshty |
+| Project Epsilon | souq |
+| Project Zeta | arcelia |
+| Project Eta | ittihad |
 
 ### 🔗 Repository ID Resolution (AUTOMATIC)
 
@@ -826,7 +823,7 @@ Azure DevOps APIs require repository **GUIDs** (not names) for PR and branch ope
 │                                                                  │
 │  STEP 2: Resolve via API                                        │
 │    repo_get_repo_by_name_or_id({                                │
-│      project: "Relief Center",                                  │
+│      project: "Project Alpha",                                  │
 │      repositoryNameOrId: "relief-center-api"                    │
 │    })                                                           │
 │    → Returns: { id: "a1b2c3d4-...", name: "relief-center-api" } │
@@ -871,18 +868,18 @@ Input: "relief-center-api" or "relief" or "a1b2c3d4-..."
 | Search Commits | `repo_search_commits` | ✅ Yes |
 | Link WI to PR | `wit_link_work_item_to_pull_request` | ✅ Yes |
 
-#### Repository Aliases (TaqaTechno)
+#### Repository Aliases (YOUR-ORG)
 
 | Project | Repository | Common Aliases |
 |---------|------------|----------------|
-| Relief Center | relief-center-api | relief, relief-api, rc-api |
-| Relief Center | relief-center-web | relief-web, rc-web |
-| KhairGate | khairgate-backend | khairgate, kg, kg-backend |
-| KhairGate | khairgate-frontend | kg-frontend, kg-web |
-| Property Management | property-management | property, pm |
-| TAQAT HR | taqat-hr | hr, taqat-hr-backend |
-| Arcelia | arcelia | arcelia-crm, crm |
-| Ittihad Club | ittihadclub | ittihad, club |
+| Project Alpha | relief-center-api | relief, relief-api, rc-api |
+| Project Alpha | relief-center-web | relief-web, rc-web |
+| Project Beta | project-beta | khairgate, kg, kg-backend |
+| Project Beta | khairgate-frontend | kg-frontend, kg-web |
+| Project Gamma | property-management | property, pm |
+| Project Theta | taqat-hr | hr, taqat-hr-backend |
+| Project Zeta | arcelia | arcelia-crm, crm |
+| Project Eta | project-eta | ittihad, club |
 
 #### Example: Create PR with Resolution
 
@@ -899,7 +896,7 @@ Creating pull request...
 ```javascript
 // Step 1: Resolve repository
 const repo = await mcp__azure-devops__repo_get_repo_by_name_or_id({
-  "project": "Relief Center",
+  "project": "Project Alpha",
   "repositoryNameOrId": "relief-center-api"
 });
 
@@ -917,7 +914,7 @@ mcp__azure-devops__repo_create_pull_request({
 ```
 If repository not found:
 
-⚠️ Repository "myrepo" not found in Relief Center.
+⚠️ Repository "myrepo" not found in Project Alpha.
 
 Available repositories:
 • relief-center-api
@@ -1037,7 +1034,7 @@ STEP 4: Create and link
 
 **Claude**:
 ```
-📁 Project: Relief Center
+📁 Project: Project Alpha
 
 No parent specified. Searching for related User Stories...
 
@@ -1057,7 +1054,7 @@ Which User Story should this task be under?
 ```javascript
 // Step 1: Create task
 const task = await mcp__azure-devops__wit_create_work_item({
-  "project": "Relief Center",
+  "project": "Project Alpha",
   "workItemType": "Task",
   "fields": [
     { "name": "System.Title", "value": "Implement login form validation" }
@@ -1066,7 +1063,7 @@ const task = await mcp__azure-devops__wit_create_work_item({
 
 // Step 2: Link to parent
 await mcp__azure-devops__wit_work_items_link({
-  "project": "Relief Center",
+  "project": "Project Alpha",
   "updates": [{
     "id": task.id,
     "linkToId": 100,
@@ -2135,7 +2132,7 @@ Claude MUST:
 
 // Step 1: Get current state
 const item = await mcp__azure-devops__wit_get_work_item({
-  "project": "Relief Center",
+  "project": "Project Alpha",
   "id": 1234,
   "fields": [
     "System.State",
@@ -2375,7 +2372,7 @@ Claude loads these memories for intelligent routing and best practices:
 | `memories/mcp_best_practices.md` | MCP tool usage patterns |
 | `memories/automation_templates.md` | Reusable PowerShell/Bash/Python scripts |
 | `memories/wiql_queries.md` | 40+ WIQL query templates |
-| `memories/team_workflows.md` | TaqaTechno-specific workflows |
+| `memories/team_workflows.md` | organization-specific workflows |
 
 ### Available Commands
 
@@ -2398,7 +2395,7 @@ Claude loads these memories for intelligent routing and best practices:
 export AZURE_DEVOPS_EXT_PAT="your-pat-token"
 
 # Configure defaults
-az devops configure --defaults organization=https://dev.azure.com/TaqaTechno
+az devops configure --defaults organization=https://dev.azure.com/YOUR-ORG
 ```
 
 **MCP Authentication**:

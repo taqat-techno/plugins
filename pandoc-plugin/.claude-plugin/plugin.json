@@ -4,7 +4,7 @@
   "description": "Universal document conversion powered by Pandoc - Convert between 50+ input formats and 60+ output formats including PDF, Word, HTML, EPUB, LaTeX, Markdown, and presentations. Professional document transformation with templates, citations, and batch processing.",
   "author": {
     "name": "TAQAT Techno",
-    "email": "info@taqatechno.com",
+    "email": "support@example.com",
     "url": "https://github.com/taqat-techno"
   },
   "homepage": "https://github.com/taqat-techno/plugins/tree/main/pandoc-plugin",

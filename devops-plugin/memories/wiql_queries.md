@@ -96,7 +96,7 @@ ORDER BY [System.ChangedDate] DESC
 SELECT [System.Id], [System.Title], [System.State], [System.WorkItemType], [System.AssignedTo]
 FROM WorkItems
 WHERE [System.IterationPath] = @CurrentIteration
-  AND [System.TeamProject] = 'Relief Center'
+  AND [System.TeamProject] = 'Project Alpha'
 ORDER BY [System.WorkItemType], [System.State]
 ```
 
@@ -117,7 +117,7 @@ ORDER BY [Microsoft.VSTS.Common.Priority] ASC
 ```sql
 SELECT [System.Id], [System.Title], [System.State]
 FROM WorkItems
-WHERE [System.IterationPath] = 'Relief Center\\Sprint 15'
+WHERE [System.IterationPath] = 'Project Alpha\\Sprint 15'
 ORDER BY [System.State]
 ```
 
@@ -126,7 +126,7 @@ ORDER BY [System.State]
 ```sql
 SELECT [System.Id], [System.Title], [System.State]
 FROM WorkItems
-WHERE [System.IterationPath] UNDER 'Relief Center\\2025'
+WHERE [System.IterationPath] UNDER 'Project Alpha\\2025'
 ORDER BY [System.IterationPath], [System.Id]
 ```
 
@@ -141,7 +141,7 @@ SELECT [System.Id], [System.Title], [System.State], [Microsoft.VSTS.Common.Prior
 FROM WorkItems
 WHERE [System.WorkItemType] = 'Bug'
   AND [System.State] IN ('New', 'Active', 'In Progress')
-  AND [System.TeamProject] = 'Relief Center'
+  AND [System.TeamProject] = 'Project Alpha'
 ORDER BY [Microsoft.VSTS.Common.Priority] ASC
 ```
 
@@ -231,7 +231,7 @@ ORDER BY [Microsoft.VSTS.Scheduling.StoryPoints] DESC
 ```sql
 SELECT [System.Id], [System.Title], [System.AssignedTo], [System.State]
 FROM WorkItems
-WHERE [System.AreaPath] UNDER 'Relief Center\\Development Team'
+WHERE [System.AreaPath] UNDER 'Project Alpha\\Development Team'
   AND [System.State] IN ('Active', 'In Progress')
 ORDER BY [System.AssignedTo]
 ```
@@ -241,7 +241,7 @@ ORDER BY [System.AssignedTo]
 ```sql
 SELECT [System.Id], [System.Title], [System.WorkItemType]
 FROM WorkItems
-WHERE [System.AreaPath] = 'Relief Center\\Development Team'
+WHERE [System.AreaPath] = 'Project Alpha\\Development Team'
   AND [System.AssignedTo] = ''
   AND [System.State] <> 'Closed'
 ORDER BY [Microsoft.VSTS.Common.Priority]
@@ -401,7 +401,7 @@ WHERE [System.AssignedTo] = @Me
 az boards query --wiql "SELECT [System.Id], [System.Title] FROM WorkItems WHERE [System.AssignedTo] = @Me"
 
 # With project
-az boards query --wiql "SELECT * FROM WorkItems WHERE [System.State] = 'Active'" --project "Relief Center"
+az boards query --wiql "SELECT * FROM WorkItems WHERE [System.State] = 'Active'" --project "Project Alpha"
 
 # Output formats
 az boards query --wiql "SELECT [System.Id] FROM WorkItems" --output json
@@ -415,11 +415,11 @@ az boards query --wiql "SELECT [System.Id] FROM WorkItems" --output tsv
 az boards query --wiql "
 SELECT [System.Id], [System.Title], [System.State]
 FROM WorkItems
-WHERE [System.TeamProject] = 'Relief Center'
+WHERE [System.TeamProject] = 'Project Alpha'
   AND [System.State] = 'Active'
   AND [System.AssignedTo] = @Me
 ORDER BY [System.ChangedDate] DESC
-" --project "Relief Center" -o table
+" --project "Project Alpha" -o table
 ```
 
 ### Multi-line Query (PowerShell)
@@ -428,13 +428,13 @@ ORDER BY [System.ChangedDate] DESC
 $wiql = @"
 SELECT [System.Id], [System.Title], [System.State]
 FROM WorkItems
-WHERE [System.TeamProject] = 'Relief Center'
+WHERE [System.TeamProject] = 'Project Alpha'
   AND [System.State] = 'Active'
   AND [System.AssignedTo] = @Me
 ORDER BY [System.ChangedDate] DESC
 "@
 
-az boards query --wiql $wiql --project "Relief Center" -o table
+az boards query --wiql $wiql --project "Project Alpha" -o table
 ```
 
 ---

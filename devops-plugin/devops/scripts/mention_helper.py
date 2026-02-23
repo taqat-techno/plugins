@@ -10,278 +10,59 @@ Usage:
 
 Example:
     # Extract mentions from text
-    mentions = extract_mentions("Please review @mahmoud @eslam")
-    # Returns: ['mahmoud', 'eslam']
+    mentions = extract_mentions("Please review @john @eslam")
+    # Returns: ['john', 'eslam']
 
     # Format a single mention
-    html = format_mention_html("abc-123-guid", "Mahmoud Elshahed")
-    # Returns: '<a href="#" data-vss-mention="version:2.0,guid:abc-123-guid">@Mahmoud Elshahed</a>'
+    html = format_mention_html("abc-123-guid", "John Doe")
+    # Returns: '<a href="#" data-vss-mention="version:2.0,guid:abc-123-guid">@John Doe</a>'
 
     # Process full comment
     processed = process_comment_with_mentions(
-        "Please review @mahmoud",
-        {"mahmoud": ("abc-123-guid", "Mahmoud Elshahed")}
+        "Please review @john",
+        {"john": ("abc-123-guid", "John Doe")}
     )
     # Returns processed HTML with proper mention formatting
 """
 
+import json
+import os
 import re
 from typing import Dict, List, Tuple, Optional
 
 
-# TaqaTechno team members cache for quick lookup
-# GUIDs retrieved from Azure DevOps on 2024-12-24
-# This avoids repeated API calls for common team members
-#
-# Alias Strategy:
-# - First name: @eslam, @mahmoud, @sameh, @yussef, @shehab, @muram, @mostafa
-# - Last name for disambiguation: @lakosha (Ahmed L.), @abdelaleem (Ahmed A.)
-# - Email prefix: @alakosha, @ehafez, @melshahed, etc.
-#
-TEAM_CACHE = {
-    # ===== Ahmed Abdelkhaleq Lakosha - Senior Developer =====
-    # Use @lakosha or @alakosha to avoid confusion with other Ahmed
-    'lakosha': {
-        'email': 'alakosha@pearlpixels.com',
-        'display': 'Ahmed Abdelkhaleq Lakosha',
-        'guid': '1216c274-32ad-6e2c-80a4-6c0132e99fab'
-    },
-    'alakosha': {
-        'email': 'alakosha@pearlpixels.com',
-        'display': 'Ahmed Abdelkhaleq Lakosha',
-        'guid': '1216c274-32ad-6e2c-80a4-6c0132e99fab'
-    },
-    'ahmed.lakosha': {
-        'email': 'alakosha@pearlpixels.com',
-        'display': 'Ahmed Abdelkhaleq Lakosha',
-        'guid': '1216c274-32ad-6e2c-80a4-6c0132e99fab'
-    },
+def _load_team_cache() -> Dict:
+    """
+    Load team member cache from the team_members.json config file.
 
-    # ===== Ahmed Abdelaleem - Developer =====
-    # Use @abdelaleem or @aabdelalem to avoid confusion with other Ahmed
-    'abdelaleem': {
-        'email': 'aabdelalem@pearlpixels.com',
-        'display': 'Ahmed Abdelaleem',
-        'guid': '89cc2a81-1632-68e7-8a9b-5c0fa4eb003a'
-    },
-    'aabdelalem': {
-        'email': 'aabdelalem@pearlpixels.com',
-        'display': 'Ahmed Abdelaleem',
-        'guid': '89cc2a81-1632-68e7-8a9b-5c0fa4eb003a'
-    },
-    'ahmed.abdelaleem': {
-        'email': 'aabdelalem@pearlpixels.com',
-        'display': 'Ahmed Abdelaleem',
-        'guid': '89cc2a81-1632-68e7-8a9b-5c0fa4eb003a'
-    },
+    Configure your team's data in:
+        devops-plugin/data/team_members.json
 
-    # ===== Eslam Hafez Mohamed - Developer =====
-    'eslam': {
-        'email': 'ehafez@pearlpixels.com',
-        'display': 'Eslam Hafez Mohamed',
-        'guid': '2a53fa48-c275-6ca8-aae1-3b180c399a21'
-    },
-    'ehafez': {
-        'email': 'ehafez@pearlpixels.com',
-        'display': 'Eslam Hafez Mohamed',
-        'guid': '2a53fa48-c275-6ca8-aae1-3b180c399a21'
-    },
-    'hafez': {
-        'email': 'ehafez@pearlpixels.com',
-        'display': 'Eslam Hafez Mohamed',
-        'guid': '2a53fa48-c275-6ca8-aae1-3b180c399a21'
-    },
+    GUIDs are never stored here — they are always resolved via the
+    Azure DevOps API (core_get_identity_ids) at mention time.
+    """
+    config_path = os.path.join(
+        os.path.dirname(__file__), '..', '..', 'data', 'team_members.json'
+    )
+    try:
+        with open(config_path, encoding='utf-8') as f:
+            data = json.load(f)
+        cache = {}
+        for member in data.get('teamMembers', []):
+            entry = {
+                'email': member.get('email', ''),
+                'display': member.get('displayName', ''),
+                'guid': None,  # Always resolve via API — never hardcode
+            }
+            for term in member.get('searchTerms', []):
+                cache[term.lower()] = entry
+        return cache
+    except (FileNotFoundError, json.JSONDecodeError):
+        return {}
 
-    # ===== Mahmoud Elshahed - Developer =====
-    'mahmoud': {
-        'email': 'melshahed@pearlpixels.com',
-        'display': 'Mahmoud Elshahed',
-        'guid': '5849d7a6-36ba-6765-bbf4-d870d6e7bbca'
-    },
-    'melshahed': {
-        'email': 'melshahed@pearlpixels.com',
-        'display': 'Mahmoud Elshahed',
-        'guid': '5849d7a6-36ba-6765-bbf4-d870d6e7bbca'
-    },
-    'elshahed': {
-        'email': 'melshahed@pearlpixels.com',
-        'display': 'Mahmoud Elshahed',
-        'guid': '5849d7a6-36ba-6765-bbf4-d870d6e7bbca'
-    },
 
-    # ===== Sameh Abdlal Yussef Btaih - Developer =====
-    'sameh': {
-        'email': 'sabdlal@pearlpixels.com',
-        'display': 'Sameh Abdlal Yussef Btaih',
-        'guid': '1e49dcfd-57df-61c0-83cb-a163798f3617'
-    },
-    'sabdlal': {
-        'email': 'sabdlal@pearlpixels.com',
-        'display': 'Sameh Abdlal Yussef Btaih',
-        'guid': '1e49dcfd-57df-61c0-83cb-a163798f3617'
-    },
-
-    # ===== Yussef Hussein Hussein - Developer =====
-    'yussef': {
-        'email': 'yhussein@pearlpixels.com',
-        'display': 'Yussef Hussein Hussein',
-        'guid': '7ae5a9c0-6899-6f22-be7d-ceb72188e9d1'
-    },
-    'yhussein': {
-        'email': 'yhussein@pearlpixels.com',
-        'display': 'Yussef Hussein Hussein',
-        'guid': '7ae5a9c0-6899-6f22-be7d-ceb72188e9d1'
-    },
-
-    # ===== Shehab Gamal - Developer =====
-    'shehab': {
-        'email': 'sgamal@pearlpixels.com',
-        'display': 'Shehab Gamal',
-        'guid': '9aced8ab-b578-6aa7-8d55-85342116c08b'
-    },
-    'sgamal': {
-        'email': 'sgamal@pearlpixels.com',
-        'display': 'Shehab Gamal',
-        'guid': '9aced8ab-b578-6aa7-8d55-85342116c08b'
-    },
-    'gamal': {
-        'email': 'sgamal@pearlpixels.com',
-        'display': 'Shehab Gamal',
-        'guid': '9aced8ab-b578-6aa7-8d55-85342116c08b'
-    },
-
-    # ===== Mostafa Ahmed - QA/Tester =====
-    'mostafa': {
-        'email': 'mahmed@pearlpixels.com',
-        'display': 'Mostafa Ahmed',
-        'guid': '2a9b995c-4223-6b04-91a7-871a0949f83f'
-    },
-    'mahmed': {
-        'email': 'mahmed@pearlpixels.com',
-        'display': 'Mostafa Ahmed',
-        'guid': '2a9b995c-4223-6b04-91a7-871a0949f83f'
-    },
-
-    # ===== Muram Makawi Abuzaid - Property Management =====
-    'muram': {
-        'email': 'mmakkawi@Taqat.qa',
-        'display': 'Muram Makawi Abuzaid',
-        'guid': '9db8db2e-42b2-6bc7-a57b-8a1fdb257748'
-    },
-    'mmakkawi': {
-        'email': 'mmakkawi@Taqat.qa',
-        'display': 'Muram Makawi Abuzaid',
-        'guid': '9db8db2e-42b2-6bc7-a57b-8a1fdb257748'
-    },
-    'makawi': {
-        'email': 'mmakkawi@Taqat.qa',
-        'display': 'Muram Makawi Abuzaid',
-        'guid': '9db8db2e-42b2-6bc7-a57b-8a1fdb257748'
-    },
-
-    # ===== Hala Ibrahim - Developer (KhairGate) =====
-    'hala': {
-        'email': 'hibrahim@pearlpixels.com',
-        'display': 'Hala Ibrahim',
-        'guid': '5d49adc4-2483-6e8b-bccd-b450d5172fdf'
-    },
-    'hibrahim': {
-        'email': 'hibrahim@pearlpixels.com',
-        'display': 'Hala Ibrahim',
-        'guid': '5d49adc4-2483-6e8b-bccd-b450d5172fdf'
-    },
-    'ibrahim': {
-        'email': 'hibrahim@pearlpixels.com',
-        'display': 'Hala Ibrahim',
-        'guid': '5d49adc4-2483-6e8b-bccd-b450d5172fdf'
-    },
-
-    # ===== Mahmoud Abdelrahman Ameen El-afify - Developer =====
-    # Use @elafify or @melafify to distinguish from Mahmoud Elshahed
-    'elafify': {
-        'email': 'melafify@pearlpixels.com',
-        'display': 'Mahmoud Abdelrahman Ameen El-afify',
-        'guid': '0ede0b59-4487-64ae-b2ae-5737b813ef52'
-    },
-    'melafify': {
-        'email': 'melafify@pearlpixels.com',
-        'display': 'Mahmoud Abdelrahman Ameen El-afify',
-        'guid': '0ede0b59-4487-64ae-b2ae-5737b813ef52'
-    },
-    'mahmoud.elafify': {
-        'email': 'melafify@pearlpixels.com',
-        'display': 'Mahmoud Abdelrahman Ameen El-afify',
-        'guid': '0ede0b59-4487-64ae-b2ae-5737b813ef52'
-    },
-
-    # ===== Ajay Kuppakalathil - Project Manager (Taqat) =====
-    'ajay': {
-        'email': 'akuppakalathil@Taqat.qa',
-        'display': 'Ajay Kuppakalathil',
-        'guid': '75315053-b6f9-6ad6-bbb2-d824b0f4fbcd'
-    },
-    'akuppakalathil': {
-        'email': 'akuppakalathil@Taqat.qa',
-        'display': 'Ajay Kuppakalathil',
-        'guid': '75315053-b6f9-6ad6-bbb2-d824b0f4fbcd'
-    },
-    'kuppakalathil': {
-        'email': 'akuppakalathil@Taqat.qa',
-        'display': 'Ajay Kuppakalathil',
-        'guid': '75315053-b6f9-6ad6-bbb2-d824b0f4fbcd'
-    },
-
-    # ===== Semir Worku - Project Manager (Taqat) =====
-    'semir': {
-        'email': 'sworku@Taqat.qa',
-        'display': 'Semir Worku',
-        'guid': '8c68a911-8edf-6c0b-b7a3-0370fd6eff14'
-    },
-    'sworku': {
-        'email': 'sworku@Taqat.qa',
-        'display': 'Semir Worku',
-        'guid': '8c68a911-8edf-6c0b-b7a3-0370fd6eff14'
-    },
-    'worku': {
-        'email': 'sworku@Taqat.qa',
-        'display': 'Semir Worku',
-        'guid': '8c68a911-8edf-6c0b-b7a3-0370fd6eff14'
-    },
-
-    # ===== Hacene Meziani - Manager (KhairGate) =====
-    'hacene': {
-        'email': 'hmeziani@Taqat.qa',
-        'display': 'Hacene Meziani',
-        'guid': 'e10ce161-a043-6c10-89e6-a6dbad79ffaa'
-    },
-    'hmeziani': {
-        'email': 'hmeziani@Taqat.qa',
-        'display': 'Hacene Meziani',
-        'guid': 'e10ce161-a043-6c10-89e6-a6dbad79ffaa'
-    },
-    'meziani': {
-        'email': 'hmeziani@Taqat.qa',
-        'display': 'Hacene Meziani',
-        'guid': 'e10ce161-a043-6c10-89e6-a6dbad79ffaa'
-    },
-
-    # ===== Houssem Ben Mbarek - Developer (Property Management) =====
-    'houssem': {
-        'email': 'hbenmbarek@Taqat.qa',
-        'display': 'Houssem Ben Mbarek',
-        'guid': '67893817-0260-68eb-b57c-3e42ec51634a'
-    },
-    'hbenmbarek': {
-        'email': 'hbenmbarek@Taqat.qa',
-        'display': 'Houssem Ben Mbarek',
-        'guid': '67893817-0260-68eb-b57c-3e42ec51634a'
-    },
-    'benmbarek': {
-        'email': 'hbenmbarek@Taqat.qa',
-        'display': 'Houssem Ben Mbarek',
-        'guid': '67893817-0260-68eb-b57c-3e42ec51634a'
-    },
-}
+# Team cache loaded dynamically from config — no hardcoded credentials
+TEAM_CACHE = _load_team_cache()
 
 
 def extract_mentions(text: str) -> List[str]:
@@ -300,8 +81,8 @@ def extract_mentions(text: str) -> List[str]:
         List of usernames found (without the @ symbol)
 
     Example:
-        >>> extract_mentions("Please review @mahmoud and @eslam.hafez")
-        ['mahmoud', 'eslam.hafez']
+        >>> extract_mentions("Please review @john and @jane.smith")
+        ['john', 'jane.smith']
     """
     # Pattern matches:
     # - Word characters (a-z, A-Z, 0-9, _)
@@ -326,8 +107,8 @@ def format_mention_html(guid: str, display_name: str) -> str:
         HTML anchor tag with proper Azure DevOps mention format
 
     Example:
-        >>> format_mention_html("abc-123", "Mahmoud Elshahed")
-        '<a href="#" data-vss-mention="version:2.0,guid:abc-123">@Mahmoud Elshahed</a>'
+        >>> format_mention_html("abc-123", "John Doe")
+        '<a href="#" data-vss-mention="version:2.0,guid:abc-123">@John Doe</a>'
     """
     return f'<a href="#" data-vss-mention="version:2.0,guid:{guid}">@{display_name}</a>'
 
@@ -378,17 +159,17 @@ def process_comment_with_mentions(
     Args:
         text: Original comment text containing @mentions
         mention_guids: Dict mapping username -> (guid, display_name)
-                       Example: {"mahmoud": ("abc-123", "Mahmoud Elshahed")}
+                       Example: {"john": ("abc-123", "John Doe")}
 
     Returns:
         Processed text with HTML-formatted mentions
 
     Example:
         >>> process_comment_with_mentions(
-        ...     "Please review @mahmoud",
-        ...     {"mahmoud": ("abc-123-guid", "Mahmoud Elshahed")}
+        ...     "Please review @john",
+        ...     {"john": ("abc-123-guid", "John Doe")}
         ... )
-        'Please review <a href="#" data-vss-mention="version:2.0,guid:abc-123-guid">@Mahmoud Elshahed</a>'
+        'Please review <a href="#" data-vss-mention="version:2.0,guid:abc-123-guid">@John Doe</a>'
     """
     processed = text
 
@@ -448,13 +229,13 @@ When user's comment contains @mentions:
 Example API call sequence:
 ```
 # Step 1: Get GUID
-result = mcp__azure-devops__core_get_identity_ids(searchFilter="mahmoud")
-# Returns: {"id": "abc-123", "displayName": "Mahmoud Elshahed"}
+result = mcp__azure-devops__core_get_identity_ids(searchFilter="john")
+# Returns: {"id": "abc-123", "displayName": "John Doe"}
 
 # Step 2: Process comment
 processed = process_comment_with_mentions(
-    "Please review @mahmoud",
-    {"mahmoud": ("abc-123", "Mahmoud Elshahed")}
+    "Please review @john",
+    {"john": ("abc-123", "John Doe")}
 )
 
 # Step 3: Add comment
@@ -473,20 +254,20 @@ if __name__ == "__main__":
     print("Testing mention helper...")
 
     # Test extraction
-    test_text = "Please review this @mahmoud and check with @eslam.hafez"
+    test_text = "Please review this @john and check with @jane.smith"
     mentions = extract_mentions(test_text)
     print(f"Extracted mentions: {mentions}")
 
     # Test HTML formatting
-    html = format_mention_html("abc-123-guid", "Mahmoud Elshahed")
+    html = format_mention_html("abc-123-guid", "John Doe")
     print(f"HTML format: {html}")
 
     # Test full processing
     processed = process_comment_with_mentions(
         test_text,
         {
-            "mahmoud": ("guid-1", "Mahmoud Elshahed"),
-            "eslam.hafez": ("guid-2", "Eslam Hafez Mohamed")
+            "john": ("guid-1", "John Doe"),
+            "jane.smith": ("guid-2", "Jane Smith")
         }
     )
     print(f"Processed text:\n{processed}")

@@ -4,7 +4,7 @@
   "description": "Push notifications to your phone via ntfy.sh when Claude completes tasks, needs input, or encounters errors. 100% FREE - No account required!",
   "author": {
     "name": "TAQAT Techno",
-    "email": "contact@taqat-techno.com",
+    "email": "support@example.com",
     "url": "https://github.com/taqat-techno"
   },
   "homepage": "https://github.com/taqat-techno/plugins/tree/main/ntfy-plugin",

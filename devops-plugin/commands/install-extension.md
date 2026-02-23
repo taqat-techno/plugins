@@ -304,7 +304,7 @@ az devops extension request \
 
 ---
 
-## Recommended Extensions for TaqaTechno
+## Recommended Extensions
 
 Based on team workflows, consider installing:
 

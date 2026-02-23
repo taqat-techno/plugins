@@ -1,14 +1,14 @@
-# TaqaTechno Team Workflows
+# YOUR-ORG Team Workflows
 
-> **Purpose**: This memory provides TaqaTechno-specific workflows, conventions, and best practices for Azure DevOps usage. These patterns reflect how the team operates and should be followed for consistency.
+> **Purpose**: This memory provides organization-specific workflows, conventions, and best practices for Azure DevOps usage. These patterns reflect how the team operates and should be followed for consistency.
 
 ## Organization Overview
 
 | Property | Value |
 |----------|-------|
-| Organization | TaqaTechno |
-| URL | https://dev.azure.com/TaqaTechno |
-| Primary Projects | Relief Center, KhairGate, TAQAT Property |
+| Organization | YOUR-ORG |
+| URL | https://dev.azure.com/YOUR-ORG |
+| Primary Projects | Project Alpha, Project Beta, TAQAT Property |
 | Team Size | 5-15 members |
 | Methodology | Scrum (2-week sprints) |
 
@@ -426,22 +426,22 @@ The `/create-task` command processes @mentions automatically.
 
 ## 11. Project-Specific Settings
 
-### 11.1 Relief Center
+### 11.1 Project Alpha
 
 | Setting | Value |
 |---------|-------|
-| Default Team | Relief Center Team |
+| Default Team | Project Alpha Team |
 | Sprint Duration | 2 weeks |
-| Area Path | Relief Center\\Development |
-| Iteration Path | Relief Center\\2025\\Sprint [N] |
+| Area Path | Project Alpha\\Development |
+| Iteration Path | Project Alpha\\2025\\Sprint [N] |
 
-### 11.2 KhairGate
+### 11.2 Project Beta
 
 | Setting | Value |
 |---------|-------|
-| Default Team | KhairGate Team |
+| Default Team | Project Beta Team |
 | Sprint Duration | 2 weeks |
-| Area Path | KhairGate\\Development |
+| Area Path | Project Beta\\Development |
 | REST API Integration | Yes |
 
 ### 11.3 TAQAT Property
@@ -473,10 +473,10 @@ az boards query --wiql "SELECT * FROM WorkItems WHERE [System.WorkItemType] = 'B
 
 ```javascript
 // My work items
-wit_my_work_items({ project: "Relief Center" })
+wit_my_work_items({ project: "Project Alpha" })
 
 // Create task
-wit_create_work_item({ project: "Relief Center", workItemType: "Task", fields: [...] })
+wit_create_work_item({ project: "Project Alpha", workItemType: "Task", fields: [...] })
 
 // Update state
 wit_update_work_item({ id: 123, updates: [{ path: "/fields/System.State", value: "Done" }] })

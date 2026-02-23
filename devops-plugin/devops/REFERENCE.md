@@ -59,8 +59,8 @@ mcp_ado_core_get_identity_ids({
 # Returns:
 {
   "id": "6011f8b0-xxxx-xxxx-xxxx-xxxxxxxxxxxx",  // ← Use this GUID for @mentions
-  "displayName": "Mahmoud Elshahed",
-  "uniqueName": "melshahed@pearlpixels.com"
+  "displayName": "John Doe",
+  "uniqueName": "user@company.com"
 }
 ```
 

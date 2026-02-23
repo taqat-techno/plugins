@@ -1,120 +1,50 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$comment": "TaqaTechno team members cache for @mention suggestions - GUIDs must be resolved via API",
+  "$comment": "Team members cache for @mention suggestions. Edit with your team's real data. GUIDs must be resolved via API.",
   "version": "1.0.0",
-  "organization": "TaqaTechno",
-  "lastUpdated": "2025-12",
+  "organization": "YOUR-ORG",
+  "lastUpdated": "configure-me",
 
   "important": {
-    "notice": "GUIDs are NOT stored here - always resolve via core_get_identity_ids API",
-    "reason": "GUIDs may change, API ensures accuracy",
-    "usage": "Use this cache for SUGGESTIONS only, not for direct mention formatting"
+    "notice": "GUIDs are NOT stored here — always resolve via core_get_identity_ids API",
+    "reason": "GUIDs may change; API ensures accuracy",
+    "usage": "Replace example entries below with your team's real information. Use searchTerms for @mention aliases."
   },
 
   "teamMembers": [
     {
-      "displayName": "Ahmed Abdelkhaleq",
-      "searchTerms": ["ahmed", "alakosha", "abdelkhaleq"],
-      "email": "alakosha@pearlpixels.com",
+      "displayName": "John Doe",
+      "searchTerms": ["john", "jdoe", "doe"],
+      "email": "jdoe@company.com",
       "role": "Developer",
       "status": "active"
     },
     {
-      "displayName": "Eslam Hafez Mohamed",
-      "searchTerms": ["eslam", "ehafez", "hafez"],
-      "email": "ehafez@pearlpixels.com",
+      "displayName": "Jane Smith",
+      "searchTerms": ["jane", "jsmith", "smith"],
+      "email": "jsmith@company.com",
       "role": "Developer",
       "status": "active"
     },
     {
-      "displayName": "Yussef Hussein",
-      "searchTerms": ["yussef", "yhussein", "hussein"],
-      "email": "yhussein@pearlpixels.com",
-      "role": "Developer",
-      "status": "active"
-    },
-    {
-      "displayName": "Sameh Abdlal",
-      "searchTerms": ["sameh", "sabdlal", "abdlal"],
-      "email": "sabdlal@pearlpixels.com",
-      "role": "Developer",
-      "status": "active"
-    },
-    {
-      "displayName": "Mahmoud Elshahed",
-      "searchTerms": ["mahmoud", "melshahed", "elshahed"],
-      "email": "melshahed@pearlpixels.com",
-      "role": "Developer",
-      "status": "active"
-    },
-    {
-      "displayName": "Mohamed Afifi",
-      "searchTerms": ["mohamed", "mafifi", "afifi", "mo"],
-      "email": "mafifi@pearlpixels.com",
-      "role": "Developer",
-      "status": "active"
-    },
-    {
-      "displayName": "Hossam Moussa",
-      "searchTerms": ["hossam", "hmoussa", "moussa"],
-      "email": "hmoussa@pearlpixels.com",
-      "role": "Developer",
-      "status": "active"
-    },
-    {
-      "displayName": "Amr Saber",
-      "searchTerms": ["amr", "asaber", "saber"],
-      "email": "asaber@pearlpixels.com",
-      "role": "Developer",
-      "status": "active"
-    },
-    {
-      "displayName": "Sara Ahmed",
-      "searchTerms": ["sara", "sahmed"],
-      "email": "sahmed@pearlpixels.com",
-      "role": "Developer",
-      "status": "active"
-    },
-    {
-      "displayName": "Omar Khaled",
-      "searchTerms": ["omar", "okhaled", "khaled"],
-      "email": "okhaled@pearlpixels.com",
-      "role": "Developer",
-      "status": "active"
-    },
-    {
-      "displayName": "Khaled Ibrahim",
-      "searchTerms": ["khaled", "kibrahim", "ibrahim"],
-      "email": "kibrahim@pearlpixels.com",
+      "displayName": "Alice Johnson",
+      "searchTerms": ["alice", "ajohnson", "johnson"],
+      "email": "ajohnson@company.com",
       "role": "Team Lead",
       "status": "active"
     },
     {
-      "displayName": "Mona Hassan",
-      "searchTerms": ["mona", "mhassan", "hassan"],
-      "email": "mhassan@pearlpixels.com",
+      "displayName": "Bob Williams",
+      "searchTerms": ["bob", "bwilliams", "williams"],
+      "email": "bwilliams@company.com",
       "role": "QA Engineer",
       "status": "active"
     },
     {
-      "displayName": "Tamer Farouk",
-      "searchTerms": ["tamer", "tfarouk", "farouk"],
-      "email": "tfarouk@pearlpixels.com",
+      "displayName": "Carol Brown",
+      "searchTerms": ["carol", "cbrown", "brown"],
+      "email": "cbrown@company.com",
       "role": "DevOps Engineer",
-      "status": "active"
-    },
-    {
-      "displayName": "Nour El-Din",
-      "searchTerms": ["nour", "neldin", "eldin"],
-      "email": "neldin@pearlpixels.com",
-      "role": "Developer",
-      "status": "active"
-    },
-    {
-      "displayName": "Layla Mostafa",
-      "searchTerms": ["layla", "lmostafa", "mostafa"],
-      "email": "lmostafa@pearlpixels.com",
-      "role": "UI/UX Designer",
       "status": "active"
     }
   ],
@@ -136,18 +66,18 @@
     },
     "partialMatch": {
       "priority": 3,
-      "description": "Partial match - requires user confirmation"
+      "description": "Partial match — requires user confirmation"
     },
     "noMatch": {
       "priority": 4,
-      "description": "No match found - ask user for clarification",
+      "description": "No match found — ask user for clarification",
       "action": "DO_NOT_POST"
     }
   },
 
   "validationRules": {
     "mustResolveViaApi": true,
-    "neverGuesGuid": true,
+    "neverGuessGuid": true,
     "neverPostUnresolved": true,
     "confirmAmbiguous": true,
     "suggestAlternatives": true

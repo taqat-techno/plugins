@@ -88,7 +88,7 @@ Error: Repository not found (because "relief-center-api" is a NAME, not a GUID)
 ```javascript
 // Best method - direct lookup by name
 mcp__azure-devops__repo_get_repo_by_name_or_id({
-  "project": "Relief Center",
+  "project": "Project Alpha",
   "repositoryNameOrId": "relief-center-api"
 })
 ```
@@ -98,10 +98,10 @@ mcp__azure-devops__repo_get_repo_by_name_or_id({
 {
   "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
   "name": "relief-center-api",
-  "url": "https://dev.azure.com/TaqaTechno/Relief%20Center/_git/relief-center-api",
+  "url": "https://dev.azure.com/YOUR-ORG/Relief%20Center/_git/relief-center-api",
   "defaultBranch": "refs/heads/main",
   "size": 12345678,
-  "remoteUrl": "https://TaqaTechno@dev.azure.com/TaqaTechno/Relief%20Center/_git/relief-center-api"
+  "remoteUrl": "https://YOUR-ORG@dev.azure.com/YOUR-ORG/Relief%20Center/_git/relief-center-api"
 }
 ```
 
@@ -110,7 +110,7 @@ mcp__azure-devops__repo_get_repo_by_name_or_id({
 ```javascript
 // If direct lookup fails, list all repos
 mcp__azure-devops__repo_list_repos_by_project({
-  "project": "Relief Center",
+  "project": "Project Alpha",
   "repoNameFilter": "relief"  // Optional filter
 })
 ```
@@ -184,8 +184,8 @@ const fuzzyMatches = repos.filter(r =>
 const aliases = {
   "relief": "relief-center-api",
   "relief-api": "relief-center-api",
-  "khairgate": "khairgate-backend",
-  "kg-backend": "khairgate-backend"
+  "khairgate": "project-beta",
+  "kg-backend": "project-beta"
 };
 
 const resolvedName = aliases[input.toLowerCase()] || input;
@@ -209,7 +209,7 @@ Step 2: Calling API...
 
 ```javascript
 mcp__azure-devops__repo_get_repo_by_name_or_id({
-  "project": "Relief Center",
+  "project": "Project Alpha",
   "repositoryNameOrId": "relief-center-api"
 })
 // Returns: { id: "a1b2c3d4-...", name: "relief-center-api" }
@@ -244,7 +244,7 @@ Step 2: Searching for "relief"...
 
 ```javascript
 mcp__azure-devops__repo_list_repos_by_project({
-  "project": "Relief Center",
+  "project": "Project Alpha",
   "repoNameFilter": "relief"
 })
 // Returns: 2 matches
@@ -273,13 +273,13 @@ Step 2: Searching for "myrepo"...
 
 ```javascript
 mcp__azure-devops__repo_list_repos_by_project({
-  "project": "Relief Center"
+  "project": "Project Alpha"
 })
 // No match found
 ```
 
 ```
-⚠️ Repository "myrepo" not found in Relief Center.
+⚠️ Repository "myrepo" not found in Project Alpha.
 
 Available repositories:
 • relief-center-api
@@ -311,7 +311,7 @@ mcp__azure-devops__repo_list_branches_by_repo({
 ```javascript
 // Cache stored during conversation session
 const repositoryCache = {
-  "Relief Center": {
+  "Project Alpha": {
     // name -> { id, defaultBranch }
     "relief-center-api": {
       "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
@@ -322,8 +322,8 @@ const repositoryCache = {
       "defaultBranch": "refs/heads/main"
     }
   },
-  "KhairGate": {
-    "khairgate-backend": {
+  "Project Beta": {
+    "project-beta": {
       "id": "c3d4e5f6-a7b8-9012-cdef-345678901234",
       "defaultBranch": "refs/heads/develop"
     }
@@ -390,20 +390,20 @@ async function withResolvedRepository(repoNameOrId, project, operation) {
 
 ## Known Repository Mappings
 
-Pre-configured mappings for TaqaTechno projects:
+Pre-configured mappings for YOUR-ORG projects:
 
 | Project | Repository Name | Common Aliases |
 |---------|-----------------|----------------|
-| Relief Center | relief-center-api | relief, relief-api, rc-api |
-| Relief Center | relief-center-web | relief-web, rc-web |
-| KhairGate | khairgate-backend | khairgate, kg, kg-backend |
-| KhairGate | khairgate-frontend | kg-frontend, kg-web |
-| Property Management | property-management | property, pm |
-| TAQAT HR | taqat-hr | hr, taqat-hr-backend |
-| Beneshty | beneshty | children |
-| OkSouq | oksouq | souq, marketplace |
-| Arcelia | arcelia | arcelia-crm, crm |
-| Ittihad Club | ittihadclub | ittihad, club |
+| Project Alpha | relief-center-api | relief, relief-api, rc-api |
+| Project Alpha | relief-center-web | relief-web, rc-web |
+| Project Beta | project-beta | khairgate, kg, kg-backend |
+| Project Beta | khairgate-frontend | kg-frontend, kg-web |
+| Project Gamma | property-management | property, pm |
+| Project Theta | taqat-hr | hr, taqat-hr-backend |
+| Project Delta | beneshty | children |
+| Project Epsilon | oksouq | souq, marketplace |
+| Project Zeta | arcelia | arcelia-crm, crm |
+| Project Eta | project-eta | ittihad, club |
 
 ---
 

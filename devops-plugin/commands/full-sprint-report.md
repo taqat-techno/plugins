@@ -13,7 +13,7 @@ Generate a comprehensive sprint report using **both CLI and MCP** for optimal da
 
 ```
 /full-sprint-report [project] [team]
-/full-sprint-report "Relief Center" "Relief Center Team"
+/full-sprint-report "Project Alpha" "Project Alpha Team"
 ```
 
 ## Parameters
@@ -50,8 +50,8 @@ Claude will execute these steps using both CLI and MCP:
 ```bash
 # Fast CLI query for iteration details
 az boards iteration team list \
-    --project "Relief Center" \
-    --team "Relief Center Team" \
+    --project "Project Alpha" \
+    --team "Project Alpha Team" \
     --timeframe current \
     --output json
 ```
@@ -70,7 +70,7 @@ SELECT [System.Id], [System.Title], [System.State],
        [Microsoft.VSTS.Scheduling.StoryPoints]
 FROM WorkItems
 WHERE [System.IterationPath] = '$ITERATION_PATH'
-  AND [System.TeamProject] = 'Relief Center'
+  AND [System.TeamProject] = 'Project Alpha'
 " --output json
 ```
 
@@ -83,7 +83,7 @@ WHERE [System.IterationPath] = '$ITERATION_PATH'
 ```javascript
 // MCP for rich details on specific items
 mcp__azure-devops__wit_get_work_items_batch_by_ids({
-    project: "Relief Center",
+    project: "Project Alpha",
     ids: [/* item IDs from step 2 */],
     fields: ["System.Title", "System.State", "System.Description"]
 })
@@ -98,8 +98,8 @@ mcp__azure-devops__wit_get_work_items_batch_by_ids({
 ```javascript
 // MCP-only feature
 mcp__azure-devops__work_get_team_capacity({
-    project: "Relief Center",
-    team: "Relief Center Team",
+    project: "Project Alpha",
+    team: "Project Alpha Team",
     iterationId: "iteration-guid"
 })
 ```
@@ -113,7 +113,7 @@ mcp__azure-devops__work_get_team_capacity({
 ```bash
 # CLI for build history
 az pipelines runs list \
-    --project "Relief Center" \
+    --project "Project Alpha" \
     --top 10 \
     --output json
 ```
@@ -127,7 +127,7 @@ az pipelines runs list \
 ```javascript
 // MCP-only feature for test results
 mcp__azure-devops__testplan_show_test_results_from_build_id({
-    project: "Relief Center",
+    project: "Project Alpha",
     buildid: lastBuildId
 })
 ```
@@ -141,7 +141,7 @@ mcp__azure-devops__testplan_show_test_results_from_build_id({
 ```javascript
 // MCP for PR details with threads
 mcp__azure-devops__repo_list_pull_requests_by_repo_or_project({
-    project: "Relief Center",
+    project: "Project Alpha",
     status: "Active"
 })
 ```
@@ -155,7 +155,7 @@ mcp__azure-devops__repo_list_pull_requests_by_repo_or_project({
 ```javascript
 // MCP-only feature
 mcp__azure-devops__advsec_get_alerts({
-    project: "Relief Center",
+    project: "Project Alpha",
     repository: "main-repo",
     states: ["Active"],
     severities: ["High", "Critical"],
@@ -172,8 +172,8 @@ mcp__azure-devops__advsec_get_alerts({
 ```markdown
 # Sprint Report: Sprint 15
 
-**Project:** Relief Center
-**Team:** Relief Center Team
+**Project:** Project Alpha
+**Team:** Project Alpha Team
 **Period:** Dec 15 - Dec 28, 2025
 **Generated:** Dec 25, 2025
 

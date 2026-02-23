@@ -178,7 +178,7 @@ for task in "${TASKS[@]}"; do
     az boards work-item create \
         --title "$task" \
         --type Task \
-        --project "Relief Center" &
+        --project "Project Alpha" &
 done
 wait
 echo "All tasks created"
@@ -217,7 +217,7 @@ echo "All tasks created"
 Step 1 (CLI): Create iteration
 az boards iteration project create \
     --name "Sprint 15" \
-    --path "\\Relief Center\\Iteration" \
+    --path "\\Project Alpha\\Iteration" \
     --start-date 2025-01-01 \
     --finish-date 2025-01-14
 

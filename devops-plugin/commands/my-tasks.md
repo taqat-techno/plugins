@@ -47,7 +47,7 @@ mcp__azure-devops__core_list_projects()
 ```javascript
 // For each project (or user's default project):
 mcp__azure-devops__wit_my_work_items({
-  "project": "Relief Center",      // ← REQUIRED
+  "project": "Project Alpha",      // ← REQUIRED
   "type": "assignedtome",          // or "myactivity"
   "includeCompleted": false,       // Exclude Done/Closed
   "top": 50                        // Max items
@@ -60,7 +60,7 @@ The above returns IDs only. Get full details:
 
 ```javascript
 mcp__azure-devops__wit_get_work_items_batch_by_ids({
-  "project": "Relief Center",
+  "project": "Project Alpha",
   "ids": [1746, 1828, 1651],  // IDs from step 2
   "fields": [
     "System.Id",
@@ -98,7 +98,7 @@ az boards query --wiql "
   SELECT [System.Id], [System.Title], [System.State], [System.WorkItemType],
          [Microsoft.VSTS.Common.Priority], [System.IterationPath]
   FROM WorkItems
-  WHERE [System.TeamProject] = 'Relief Center'
+  WHERE [System.TeamProject] = 'Project Alpha'
     AND [System.AssignedTo] = @Me
     AND [System.State] <> 'Closed'
     AND [System.State] <> 'Removed'
@@ -111,7 +111,7 @@ az boards query --wiql "
 ```markdown
 ## My Work Items
 
-**Project**: Relief Center | **Total**: 12 items
+**Project**: Project Alpha | **Total**: 12 items
 
 ### Active (In Progress)
 | ID | Type | Title | Priority | Sprint |

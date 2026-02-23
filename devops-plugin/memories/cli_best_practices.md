@@ -22,8 +22,8 @@
 ```bash
 # Set organization and project defaults to avoid repeating in every command
 az devops configure --defaults \
-    organization=https://dev.azure.com/TaqaTechno \
-    project="Relief Center"
+    organization=https://dev.azure.com/YOUR-ORG \
+    project="Project Alpha"
 
 # Verify defaults
 az devops configure --list
@@ -38,8 +38,8 @@ az devops configure --list
 az devops configure --list
 
 # Expected output:
-# organization = https://dev.azure.com/TaqaTechno
-# project = Relief Center
+# organization = https://dev.azure.com/YOUR-ORG
+# project = Project Alpha
 ```
 
 ---
@@ -200,7 +200,7 @@ az boards work-item update --id 123 \
 
 # Add to iteration
 az boards work-item update --id 123 \
-    --iteration "Relief Center\\Sprint 15"
+    --iteration "Project Alpha\\Sprint 15"
 ```
 
 ### 5.3 Query Work Items (WIQL)
@@ -213,7 +213,7 @@ az boards query --wiql "SELECT [System.Id], [System.Title] FROM WorkItems WHERE 
 az boards query --wiql "
 SELECT [System.Id], [System.Title], [System.State]
 FROM WorkItems
-WHERE [System.TeamProject] = 'Relief Center'
+WHERE [System.TeamProject] = 'Project Alpha'
   AND [System.State] = 'Active'
   AND [System.AssignedTo] = @Me
 ORDER BY [System.ChangedDate] DESC

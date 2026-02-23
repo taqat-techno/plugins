@@ -57,7 +57,7 @@ This command implements a **two-layer protection system**:
 ```javascript
 mcp__azure-devops__wit_get_work_item({
   "id": 1234,
-  "project": "Relief Center",
+  "project": "Project Alpha",
   "fields": [
     "System.Id",
     "System.Title",
@@ -231,7 +231,7 @@ New ──► Active ──► Ready for QC ──► Done ──► Closed
 // Step 1: Verify task exists and get current state
 mcp__azure-devops__wit_get_work_item({
   "id": 1234,
-  "project": "Relief Center",
+  "project": "Project Alpha",
   "fields": ["System.State", "System.WorkItemType", "System.Title"]
 })
 

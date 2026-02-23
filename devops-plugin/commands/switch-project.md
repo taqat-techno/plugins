@@ -12,22 +12,22 @@ Change the default project context used for all subsequent Azure DevOps queries.
 ## Usage
 
 ```
-switch to Relief Center
-use KhairGate
-work on Property Management
-set project TAQAT HR
+switch to Project Alpha
+use Project Beta
+work on Project Gamma
+set project Project Theta
 ```
 
 ## Supported Trigger Phrases
 
 | Phrase | Example |
 |--------|---------|
-| `switch to [project]` | "switch to Relief Center" |
-| `use [project]` | "use KhairGate" |
-| `work on [project]` | "work on Property Management" |
-| `change project to [project]` | "change project to Beneshty" |
-| `set project [project]` | "set project TAQAT HR" |
-| `default project [project]` | "default project OkSouq" |
+| `switch to [project]` | "switch to Project Alpha" |
+| `use [project]` | "use Project Beta" |
+| `work on [project]` | "work on Project Gamma" |
+| `change project to [project]` | "change project to Project Delta" |
+| `set project [project]` | "set project Project Theta" |
+| `default project [project]` | "default project Project Epsilon" |
 
 ## Project Aliases
 
@@ -35,14 +35,14 @@ Users can use short names or aliases:
 
 | Full Name | Aliases |
 |-----------|---------|
-| Relief Center | `relief`, `rc`, `disaster` |
-| KhairGate | `kg`, `beneficiary` |
-| Property Management | `property`, `pm`, `real-estate` |
-| TAQAT HR | `hr`, `payroll` |
-| Beneshty | `children`, `charity` |
-| OkSouq | `souq`, `marketplace` |
-| Arcelia | `crm`, `real-estate-crm` |
-| Ittihad Club | `ittihad`, `club`, `sports` |
+| Project Alpha | `relief`, `rc`, `disaster` |
+| Project Beta | `kg`, `beneficiary` |
+| Project Gamma | `property`, `pm`, `real-estate` |
+| Project Theta | `hr`, `payroll` |
+| Project Delta | `children`, `charity` |
+| Project Epsilon | `souq`, `marketplace` |
+| Project Zeta | `crm`, `real-estate-crm` |
+| Project Eta | `ittihad`, `club`, `sports` |
 
 ## Workflow
 
@@ -54,8 +54,8 @@ const input = "relief";
 
 // Check against aliases in project_defaults.json
 const projects = [
-  { name: "Relief Center", aliases: ["relief", "relief-center", "rc", "disaster"] },
-  { name: "KhairGate", aliases: ["khairgate", "kg", "beneficiary"] },
+  { name: "Project Alpha", aliases: ["relief", "relief-center", "rc", "disaster"] },
+  { name: "Project Beta", aliases: ["khairgate", "kg", "beneficiary"] },
   // ...
 ];
 
@@ -65,7 +65,7 @@ const match = projects.find(p =>
   p.aliases.some(a => a.toLowerCase() === input.toLowerCase())
 );
 
-// Result: { name: "Relief Center", ... }
+// Result: { name: "Project Alpha", ... }
 ```
 
 ### Step 2: Validate Project Exists
@@ -73,7 +73,7 @@ const match = projects.find(p =>
 ```javascript
 // Optionally verify project exists in Azure DevOps
 mcp__azure-devops__core_list_projects({
-  "projectNameFilter": "Relief Center"
+  "projectNameFilter": "Project Alpha"
 })
 
 // Expected: Returns project with matching name
@@ -83,8 +83,8 @@ mcp__azure-devops__core_list_projects({
 
 ```javascript
 // Store new context
-const previousProject = getContext();  // e.g., "KhairGate"
-setContext("Relief Center");
+const previousProject = getContext();  // e.g., "Project Beta"
+setContext("Project Alpha");
 ```
 
 ### Step 4: Confirm to User
@@ -92,10 +92,10 @@ setContext("Relief Center");
 ```
 ✓ Switched project context
 
-Previous: KhairGate
-Current: Relief Center
+Previous: Project Beta
+Current: Project Alpha
 
-All subsequent commands will use Relief Center.
+All subsequent commands will use Project Alpha.
 Say "switch to [project]" to change again.
 ```
 
@@ -103,16 +103,16 @@ Say "switch to [project]" to change again.
 
 ### Example 1: Switch Using Full Name
 
-**User**: "switch to KhairGate"
+**User**: "switch to Project Beta"
 
 **Claude**:
 ```
 ✓ Switched project context
 
-Previous: Relief Center
-Current: KhairGate
+Previous: Project Alpha
+Current: Project Beta
 
-All subsequent commands will use KhairGate.
+All subsequent commands will use Project Beta.
 ```
 
 ### Example 2: Switch Using Alias
@@ -122,14 +122,14 @@ All subsequent commands will use KhairGate.
 **Claude**:
 ```
 Resolving "hr"...
-Found: TAQAT HR
+Found: Project Theta
 
 ✓ Switched project context
 
-Previous: KhairGate
-Current: TAQAT HR
+Previous: Project Beta
+Current: Project Theta
 
-All subsequent commands will use TAQAT HR.
+All subsequent commands will use Project Theta.
 ```
 
 ### Example 3: Ambiguous Input
@@ -138,12 +138,12 @@ All subsequent commands will use TAQAT HR.
 
 **Claude**:
 ```
-Found project: Property Management
+Found project: Project Gamma
 
 ✓ Switched project context
 
-Previous: TAQAT HR
-Current: Property Management
+Previous: Project Theta
+Current: Project Gamma
 ```
 
 ### Example 4: Unknown Project
@@ -155,29 +155,29 @@ Current: Property Management
 ⚠️ I couldn't find a project matching "xyz".
 
 Available projects:
-• Relief Center (aliases: relief, rc, disaster)
-• KhairGate (aliases: kg, beneficiary)
-• Property Management (aliases: property, pm)
-• TAQAT HR (aliases: hr, payroll)
-• Beneshty (aliases: children, charity)
-• OkSouq (aliases: souq, marketplace)
-• Arcelia (aliases: crm)
-• Ittihad Club (aliases: ittihad, club, sports)
+• Project Alpha (aliases: relief, rc, disaster)
+• Project Beta (aliases: kg, beneficiary)
+• Project Gamma (aliases: property, pm)
+• Project Theta (aliases: hr, payroll)
+• Project Delta (aliases: children, charity)
+• Project Epsilon (aliases: souq, marketplace)
+• Project Zeta (aliases: crm)
+• Project Eta (aliases: ittihad, club, sports)
 
 Please specify the correct project name or alias.
 ```
 
 ### Example 5: No Current Context
 
-**User**: "switch to Relief Center" (first time)
+**User**: "switch to Project Alpha" (first time)
 
 **Claude**:
 ```
 ✓ Project context set
 
-Current: Relief Center
+Current: Project Alpha
 
-All subsequent commands will use Relief Center.
+All subsequent commands will use Project Alpha.
 ```
 
 ## Query Current Context
@@ -193,9 +193,9 @@ Users can check their current context:
 
 **Response**:
 ```
-📁 Current Project: Relief Center
+📁 Current Project: Project Alpha
 
-You're working in Relief Center.
+You're working in Project Alpha.
 All queries use this project by default.
 
 Say "switch to [project]" to change.
@@ -206,16 +206,16 @@ Say "switch to [project]" to change.
 ### One-Time Override (Doesn't Change Context)
 
 ```
-User: "tasks in KhairGate"   ← Uses KhairGate once
-User: "my bugs"              ← Still uses Relief Center (context unchanged)
+User: "tasks in Project Beta"   ← Uses Project Beta once
+User: "my bugs"              ← Still uses Project Alpha (context unchanged)
 ```
 
 ### Permanent Switch (Changes Context)
 
 ```
-User: "switch to KhairGate"  ← Changes context
-User: "my bugs"              ← Uses KhairGate
-User: "create task"          ← Uses KhairGate
+User: "switch to Project Beta"  ← Changes context
+User: "my bugs"              ← Uses Project Beta
+User: "create task"          ← Uses Project Beta
 ```
 
 ## Multi-Project Queries
@@ -232,16 +232,16 @@ User: "all my tasks across all projects"
 
 ## My Work Items Across All Projects
 
-### Relief Center (8 items)
+### Project Alpha (8 items)
 | ID | Type | Title | State |
 ...
 
-### KhairGate (3 items)
+### Project Beta (3 items)
 | ID | Type | Title | State |
 ...
 
 📊 Total: 11 items across 2 projects
-📌 Default project: Relief Center (unchanged)
+📌 Default project: Project Alpha (unchanged)
 ```
 
 ## Context Persistence Rules
@@ -262,7 +262,7 @@ If project lookup fails:
 "I couldn't verify the project due to a connection issue.
 Do you want me to:
 1. Retry the lookup
-2. Use 'Relief Center' without verification
+2. Use 'Project Alpha' without verification
 3. Show available projects from cache"
 ```
 
@@ -274,9 +274,9 @@ If user doesn't have access to project:
 "⚠️ You don't appear to have access to 'XYZ Project'.
 
 Projects you have access to:
-• Relief Center
-• KhairGate
-• Property Management
+• Project Alpha
+• Project Beta
+• Project Gamma
 
 Please check your permissions or choose another project."
 ```

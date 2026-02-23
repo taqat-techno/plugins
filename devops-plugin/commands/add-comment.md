@@ -72,8 +72,8 @@ mcp__azure-devops__core_get_identity_ids({
 {
   "identities": [{
     "id": "6011f8b0-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
-    "displayName": "Mahmoud Elshahed",
-    "uniqueName": "melshahed@pearlpixels.com"
+    "displayName": "John Doe",
+    "uniqueName": "user@company.com"
   }]
 }
 ```
@@ -91,10 +91,10 @@ mcp__azure-devops__core_get_identity_ids({
 
 ```javascript
 // All resolved - format and post
-const htmlComment = `Please review <a href="#" data-vss-mention="version:2.0,guid:6011f8b0-...">@Mahmoud Elshahed</a>`;
+const htmlComment = `Please review <a href="#" data-vss-mention="version:2.0,guid:6011f8b0-...">@John Doe</a>`;
 
 mcp__azure-devops__wit_add_work_item_comment({
-  "project": "Relief Center",
+  "project": "Project Alpha",
   "workItemId": 1234,
   "comment": htmlComment,
   "format": "html"
@@ -109,11 +109,11 @@ mcp__azure-devops__wit_add_work_item_comment({
 ⚠️ I couldn't find a user matching "@bob" in Azure DevOps.
 
 Did you mean one of these team members?
-• Mahmoud Elshahed (@mahmoud)
-• Eslam Hafez (@eslam)
-• Ahmed Abdelkhaleq (@ahmed)
-• Mohamed Afifi (@mohamed)
-• Yussef Hussein (@yussef)
+• John Doe (@mahmoud)
+• Jane Smith (@eslam)
+• John Doe (@ahmed)
+• Bob Williams (@mohamed)
+• Alice Johnson (@yussef)
 
 Please provide the correct name or email address.
 ```
@@ -124,7 +124,7 @@ Please provide the correct name or email address.
 
 ```javascript
 mcp__azure-devops__wit_add_work_item_comment({
-  "project": "Relief Center",
+  "project": "Project Alpha",
   "workItemId": 1234,
   "comment": "...",
   "format": "html"  // REQUIRED for mentions to work
@@ -149,26 +149,26 @@ Step 2: Resolving @mahmoud...
 mcp__azure-devops__core_get_identity_ids({
   "searchFilter": "mahmoud"
 })
-// Returns: { id: "6011f8b0-...", displayName: "Mahmoud Elshahed" }
+// Returns: { id: "6011f8b0-...", displayName: "John Doe" }
 ```
 
 ```
-Step 3: ✅ Resolved: Mahmoud Elshahed
+Step 3: ✅ Resolved: John Doe
 Step 4: Posting comment...
 ```
 
 ```javascript
 mcp__azure-devops__wit_add_work_item_comment({
-  "project": "Relief Center",
+  "project": "Project Alpha",
   "workItemId": 1234,
-  "comment": "<a href=\"#\" data-vss-mention=\"version:2.0,guid:6011f8b0-...\">@Mahmoud Elshahed</a> please review this.",
+  "comment": "<a href=\"#\" data-vss-mention=\"version:2.0,guid:6011f8b0-...\">@John Doe</a> please review this.",
   "format": "html"
 })
 ```
 
 ```
 ✅ Comment added to #1234!
-   Mahmoud Elshahed will receive a notification.
+   John Doe will receive a notification.
 ```
 
 ### Example 2: Failed Resolution - Ask User
@@ -201,12 +201,12 @@ Did you mean one of these team members?
 
 | Name | Search Terms |
 |------|--------------|
-| Mahmoud Elshahed | @mahmoud |
-| Eslam Hafez | @eslam |
-| Ahmed Abdelkhaleq | @ahmed |
-| Mohamed Afifi | @mohamed |
-| Yussef Hussein | @yussef |
-| Hossam Moussa | @hossam |
+| John Doe | @john |
+| Jane Smith | @jane |
+| Alice Johnson | @alice |
+| Bob Williams | @bob |
+| Carol Brown | @carol |
+| David Lee | @david |
 
 Or provide:
 • Full name (e.g., "John Smith")
@@ -218,12 +218,12 @@ Or provide:
 **Claude**:
 ```
 Resolving @mahmoud...
-✅ Found: Mahmoud Elshahed
+✅ Found: John Doe
 
 Posting comment...
 
 ✅ Comment added to #1234!
-   Mahmoud Elshahed will receive a notification.
+   John Doe will receive a notification.
 ```
 
 ### Example 3: Multiple Mentions (Mixed Results)
@@ -236,7 +236,7 @@ Processing comment for #1234...
 
 Step 1: Found mentions: @mahmoud, @xyz
 Step 2: Resolving mentions...
-  • @mahmoud → ✅ Mahmoud Elshahed
+  • @mahmoud → ✅ John Doe
   • @xyz → ❌ No user found
 
 ⚠️ I resolved 1 of 2 mentions, but couldn't find "@xyz".
@@ -244,8 +244,8 @@ Step 2: Resolving mentions...
 I won't post the comment until all mentions are resolved.
 
 For @xyz, did you mean:
-• Eslam Hafez (@eslam)
-• Ahmed Abdelkhaleq (@ahmed)
+• Jane Smith (@eslam)
+• John Doe (@ahmed)
 • Or someone else?
 ```
 
@@ -263,7 +263,7 @@ Posting comment...
 
 ```javascript
 mcp__azure-devops__wit_add_work_item_comment({
-  "project": "Relief Center",
+  "project": "Project Alpha",
   "workItemId": 1234,
   "comment": "The fix looks good, merging now",
   "format": "html"
@@ -278,14 +278,11 @@ mcp__azure-devops__wit_add_work_item_comment({
 
 | Name | Email | Common Search Terms |
 |------|-------|---------------------|
-| Ahmed Abdelkhaleq | alakosha@pearlpixels.com | @ahmed, @alakosha |
-| Eslam Hafez | ehafez@pearlpixels.com | @eslam, @ehafez |
-| Mahmoud Elshahed | melshahed@pearlpixels.com | @mahmoud, @melshahed |
-| Mohamed Afifi | mafifi@pearlpixels.com | @mohamed, @mafifi |
-| Yussef Hussein | yhussein@pearlpixels.com | @yussef, @yhussein |
-| Sameh Abdlal | sabdlal@pearlpixels.com | @sameh, @sabdlal |
-| Hossam Moussa | hmoussa@pearlpixels.com | @hossam, @hmoussa |
-| Amr Saber | asaber@pearlpixels.com | @amr, @asaber |
+| John Doe | user@company.com | @john, @jdoe |
+| Jane Smith | user@company.com | @jane, @jsmith |
+| Alice Johnson | user@company.com | @alice, @ajohnson |
+| Bob Williams | user@company.com | @bob, @bwilliams |
+| Carol Brown | user@company.com | @carol, @cbrown |
 
 ## HTML Mention Format
 
@@ -295,7 +292,7 @@ mcp__azure-devops__wit_add_work_item_comment({
 
 **Example**:
 ```html
-<a href="#" data-vss-mention="version:2.0,guid:6011f8b0-1234-5678-9abc-def012345678">@Mahmoud Elshahed</a>
+<a href="#" data-vss-mention="version:2.0,guid:6011f8b0-1234-5678-9abc-def012345678">@John Doe</a>
 ```
 
 ## Validation Checklist
@@ -332,8 +329,8 @@ Would you like me to:
 If API returns multiple identities:
 
 "Found multiple users matching '@mo':
-1. Mohamed Afifi (mafifi@pearlpixels.com)
-2. Mona Hassan (mhassan@pearlpixels.com)
+1. Bob Williams (user@company.com)
+2. Grace Kim (user@company.com)
 
 Which one did you mean?"
 ```

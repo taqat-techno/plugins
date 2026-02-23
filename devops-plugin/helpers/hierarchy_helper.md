@@ -31,7 +31,7 @@ This causes:
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│              WORK ITEM HIERARCHY (TaqaTechno Standard)           │
+│              WORK ITEM HIERARCHY (YOUR-ORG Standard)           │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                  │
 │  Epic (Strategic Initiative)                                    │
@@ -258,7 +258,7 @@ async function findRecentParents(project, childType) {
 
 **Claude**:
 ```
-📁 Project: Relief Center
+📁 Project: Project Alpha
 
 No parent specified. Searching for related User Stories...
 
@@ -284,17 +284,17 @@ Creating task under User Story #100...
 ```javascript
 // Step 1: Create task
 const task = await mcp__azure-devops__wit_create_work_item({
-  "project": "Relief Center",
+  "project": "Project Alpha",
   "workItemType": "Task",
   "fields": [
     { "name": "System.Title", "value": "Implement login form validation" },
-    { "name": "System.IterationPath", "value": "Relief Center\\Sprint 15" }
+    { "name": "System.IterationPath", "value": "Project Alpha\\Sprint 15" }
   ]
 });
 
 // Step 2: Link to parent
 await mcp__azure-devops__wit_work_items_link({
-  "project": "Relief Center",
+  "project": "Project Alpha",
   "updates": [{
     "id": task.id,
     "linkToId": 100,
@@ -319,7 +319,7 @@ Feature #50: Authentication Module
 
 **Claude**:
 ```
-📁 Project: Relief Center
+📁 Project: Project Alpha
 
 Parent specified: #100
 Verifying parent exists and is correct type...
@@ -331,7 +331,7 @@ Creating task...
 ```javascript
 // Parent already specified, skip search
 const task = await mcp__azure-devops__wit_create_work_item({
-  "project": "Relief Center",
+  "project": "Project Alpha",
   "workItemType": "Task",
   "fields": [
     { "name": "System.Title", "value": "Add password strength indicator" }
@@ -339,7 +339,7 @@ const task = await mcp__azure-devops__wit_create_work_item({
 });
 
 await mcp__azure-devops__wit_work_items_link({
-  "project": "Relief Center",
+  "project": "Project Alpha",
   "updates": [{
     "id": task.id,
     "linkToId": 100,
@@ -358,7 +358,7 @@ await mcp__azure-devops__wit_work_items_link({
 
 **Claude**:
 ```
-📁 Project: Relief Center
+📁 Project: Project Alpha
 
 Bugs must be linked to a Task. Searching for related tasks...
 
@@ -392,7 +392,7 @@ Consider reopening or creating a follow-up task.
 
 **Claude**:
 ```
-📁 Project: Relief Center
+📁 Project: Project Alpha
 
 No parent specified. Searching for related User Stories...
 
@@ -432,7 +432,7 @@ Confirm?
 
 **Claude**:
 ```
-📁 Project: Relief Center
+📁 Project: Project Alpha
 
 I'll create the full hierarchy:
 
@@ -510,7 +510,7 @@ Epic #10: Platform Modernization
                     └── Bug #200: Login fails on Safari
 
 State: Active
-Assigned: Ahmed Abdelkhaleq
+Assigned: User One
 Sprint: Sprint 15
 ```
 
@@ -547,7 +547,7 @@ Progress: 1/4 tasks done (25%)
 ```javascript
 // Add child link (Task under Story)
 mcp__azure-devops__wit_work_items_link({
-  "project": "Relief Center",
+  "project": "Project Alpha",
   "updates": [{
     "id": childId,      // The new Task
     "linkToId": parentId,  // The User Story
@@ -557,7 +557,7 @@ mcp__azure-devops__wit_work_items_link({
 
 // Add related link
 mcp__azure-devops__wit_work_items_link({
-  "project": "Relief Center",
+  "project": "Project Alpha",
   "updates": [{
     "id": itemA,
     "linkToId": itemB,
