@@ -67,7 +67,7 @@ After deep research, **MCP is the ONLY reliable way** to handle mentions:
 │    → WAIT for user clarification                                │
 │    → RETRY resolution                                           │
 │                                                                  │
-│  NEVER post "@mahmoud" as plain text hoping it works!           │
+│  NEVER post "@john" as plain text hoping it works!           │
 │  Plain text mentions DO NOT send notifications!                 │
 │                                                                  │
 └─────────────────────────────────────────────────────────────────┘
@@ -90,12 +90,12 @@ After deep research, **MCP is the ONLY reliable way** to handle mentions:
 ```javascript
 // Try with email if name fails
 mcp__azure-devops__core_get_identity_ids({
-  "searchFilter": "redacted@example.com"  // Try full email
+  "searchFilter": "user@company.com"  // Try full email
 })
 
 // Or try with full name
 mcp__azure-devops__core_get_identity_ids({
-  "searchFilter": "Team Member"  // Try display name
+  "searchFilter": "John Doe"  // Try display name
 })
 ```
 
@@ -107,8 +107,8 @@ mcp__azure-devops__core_get_identity_ids({
 
 ```
 Found multiple users matching "ahmed":
-1. Team Member (redacted@example.com)
-2. Ahmed Mohamed (redacted@example.com)
+1. User One (user@company.com)
+2. Ahmed Mohamed (user@company.com)
 
 Which one did you mean?
 ```
@@ -120,7 +120,7 @@ Which one did you mean?
 **Fix**: Ensure `format: "html"` is specified:
 ```javascript
 mcp__azure-devops__wit_add_work_item_comment({
-  "project": "Relief Center",
+  "project": "Project Alpha",
   "workItemId": 1234,
   "comment": "<a href=\"#\" data-vss-mention=\"version:2.0,guid:xxx\">@Name</a>",
   "format": "html"  // ← REQUIRED!
@@ -138,26 +138,26 @@ mcp__azure-devops__wit_add_work_item_comment({
 │                    MENTION PROCESSING WORKFLOW                   │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                  │
-│  INPUT: "Hey @mahmoud, please review. Also @eslam"              │
+│  INPUT: "Hey @john, please review. Also @eslam"              │
 │                                                                  │
 │  STEP 1: EXTRACT MENTIONS                                       │
 │  ┌─────────────────────────────────────────────────────────┐    │
 │  │ Pattern: @([a-zA-Z0-9._-]+)                             │    │
-│  │ Found: ["mahmoud", "eslam"]                             │    │
+│  │ Found: ["john", "eslam"]                             │    │
 │  └─────────────────────────────────────────────────────────┘    │
 │                                                                  │
 │  STEP 2: RESOLVE EACH TO GUID (parallel API calls)              │
 │  ┌─────────────────────────────────────────────────────────┐    │
-│  │ core_get_identity_ids({ searchFilter: "mahmoud" })      │    │
+│  │ core_get_identity_ids({ searchFilter: "john" })      │    │
 │  │   → Found: { id: "6011f8b0-...", name: "Mahmoud E." }   │    │
 │  │                                                         │    │
 │  │ core_get_identity_ids({ searchFilter: "eslam" })        │    │
-│  │   → Found: { id: "7022g9c1-...", name: "Eslam Hafez" }  │    │
+│  │   → Found: { id: "7022g9c1-...", name: "Jane Smith" }  │    │
 │  └─────────────────────────────────────────────────────────┘    │
 │                                                                  │
 │  STEP 3: VALIDATE ALL RESOLUTIONS                               │
 │  ┌─────────────────────────────────────────────────────────┐    │
-│  │ mahmoud → ✅ Resolved (GUID found)                       │    │
+│  │ john → ✅ Resolved (GUID found)                       │    │
 │  │ eslam   → ✅ Resolved (GUID found)                       │    │
 │  │                                                         │    │
 │  │ ALL RESOLVED? → Proceed to Step 4                       │    │
@@ -167,7 +167,7 @@ mcp__azure-devops__wit_add_work_item_comment({
 │  STEP 3b: HANDLE FAILED RESOLUTION (if any)                     │
 │  ┌─────────────────────────────────────────────────────────┐    │
 │  │ "I couldn't find user '@unknown'. Did you mean:         │    │
-│  │  • Team Member (@mahmoud)                          │    │
+│  │  • John Doe (@john)                          │    │
 │  │  • Team Member (@mohamed)                             │    │
 │  │  • [Someone else - please provide full name/email]"     │    │
 │  │                                                         │    │
@@ -176,14 +176,14 @@ mcp__azure-devops__wit_add_work_item_comment({
 │                                                                  │
 │  STEP 4: CONVERT TO HTML FORMAT                                 │
 │  ┌─────────────────────────────────────────────────────────┐    │
-│  │ @mahmoud → <a href="#" data-vss-mention="version:2.0,   │    │
-│  │            guid:6011f8b0-...">@Team Member</a>     │    │
+│  │ @john → <a href="#" data-vss-mention="version:2.0,   │    │
+│  │            guid:6011f8b0-...">@John Doe</a>     │    │
 │  └─────────────────────────────────────────────────────────┘    │
 │                                                                  │
 │  STEP 5: POST COMMENT                                           │
 │  ┌─────────────────────────────────────────────────────────┐    │
 │  │ wit_add_work_item_comment({                             │    │
-│  │   project: "Relief Center",                             │    │
+│  │   project: "Project Alpha",                             │    │
 │  │   workItemId: 1234,                                     │    │
 │  │   comment: processedHtml,                               │    │
 │  │   format: "html"                                        │    │
@@ -204,14 +204,14 @@ mcp__azure-devops__wit_add_work_item_comment({
 const mentionPattern = /@([a-zA-Z0-9._-]+)/g;
 
 // Example
-const text = "Hey @mahmoud, please review. Also @eslam";
+const text = "Hey @john, please review. Also @eslam";
 const mentions = [...text.matchAll(mentionPattern)].map(m => m[1]);
-// Result: ["mahmoud", "eslam"]
+// Result: ["john", "eslam"]
 ```
 
 **Detected Patterns**:
-- `@mahmoud` → Extract "mahmoud"
-- `@eslam.hafez` → Extract "eslam.hafez"
+- `@john` → Extract "john"
+- `@jane.smith` → Extract "jane.smith"
 - `@ahmed_tech` → Extract "ahmed_tech"
 - `@user123` → Extract "user123"
 
@@ -222,7 +222,7 @@ const mentions = [...text.matchAll(mentionPattern)].map(m => m[1]);
 ```javascript
 // For EACH extracted mention, call the API
 mcp__azure-devops__core_get_identity_ids({
-  "searchFilter": "mahmoud"  // Use extracted username
+  "searchFilter": "john"  // Use extracted username
 })
 
 // Expected Response (SUCCESS):
@@ -230,8 +230,8 @@ mcp__azure-devops__core_get_identity_ids({
   "identities": [
     {
       "id": "6011f8b0-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
-      "displayName": "Team Member",
-      "uniqueName": "redacted@example.com"
+      "displayName": "John Doe",
+      "uniqueName": "user@company.com"
     }
   ]
 }
@@ -245,13 +245,13 @@ mcp__azure-devops__core_get_identity_ids({
 **Fallback Strategy if First Attempt Fails**:
 
 ```
-1. Try with username: @mahmoud → searchFilter: "mahmoud"
+1. Try with username: @john → searchFilter: "john"
 2. If fails, try with FULL EMAIL from team_members.json  ← MOST RELIABLE!
 3. If fails, try with full display name
 4. If all fail → ASK USER (do not post!)
 
 IMPORTANT: Full email (user@domain.com) has highest success rate!
-Tested: "alakosha" failed, "redacted@example.com" succeeded
+Tested: "jdoe" failed, "user@company.com" succeeded
 ```
 
 ### Step 3: Validate ALL Resolutions
@@ -285,10 +285,10 @@ Claude (after failed resolution):
 │                                                                  │
 │ Did you mean one of these team members?                         │
 │                                                                  │
-│ • Team Member (@mahmoud, redacted@example.com)        │
-│ • Eslam Hafez (@eslam, redacted@example.com)                  │
-│ • Team Member (@ahmed, redacted@example.com)          │
-│ • Team Member (@yussef, redacted@example.com)            │
+│ • John Doe (@john, user@company.com)        │
+│ • Jane Smith (@eslam, user@company.com)                  │
+│ • User One (@ahmed, user@company.com)          │
+│ • Team Member (@yussef, user@company.com)            │
 │ • Team Member (@mohamed)                                      │
 │                                                                  │
 │ Or please provide:                                              │
@@ -313,40 +313,35 @@ function formatMention(guid, displayName) {
 // Example
 const html = formatMention(
   "6011f8b0-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
-  "Team Member"
+  "John Doe"
 );
-// Result: <a href="#" data-vss-mention="version:2.0,guid:6011f8b0-...">@Team Member</a>
+// Result: <a href="#" data-vss-mention="version:2.0,guid:6011f8b0-...">@John Doe</a>
 ```
 
 ### Step 5: Post Comment with HTML
 
 ```javascript
 mcp__azure-devops__wit_add_work_item_comment({
-  "project": "Relief Center",
+  "project": "Project Alpha",
   "workItemId": 1234,
-  "comment": "Hey <a href=\"#\" data-vss-mention=\"version:2.0,guid:6011f8b0-xxxx\">@Team Member</a>, please review.",
+  "comment": "Hey <a href=\"#\" data-vss-mention=\"version:2.0,guid:6011f8b0-xxxx\">@John Doe</a>, please review.",
   "format": "html"  // IMPORTANT: Must specify html format
 })
 ```
 
 ---
 
-## Team Members Cache (TaqaTechno)
+## Team Members Cache (configure in data/team_members.json)
 
 Pre-defined team members for faster resolution and suggestion:
 
 | Display Name | Search Terms | Email | Status |
 |--------------|--------------|-------|--------|
-| Team Member | ahmed, alakosha | redacted@example.com | Active |
-| Team Member | eslam, ehafez | redacted@example.com | Active |
-| Team Member | yussef, yhussein | redacted@example.com | Active |
-| Team Member | sameh, sabdlal | redacted@example.com | Active |
-| Team Member | mahmoud, melshahed | redacted@example.com | Active |
-| Team Member | mohamed, mafifi | redacted@example.com | Active |
-| Team Member | hossam, hmoussa | redacted@example.com | Active |
-| Team Member | amr, asaber | redacted@example.com | Active |
-| Team Member | sara, sahmed | redacted@example.com | Active |
-| Team Member | omar, okhaled | redacted@example.com | Active |
+| John Doe | john, jdoe | user@company.com | Active |
+| Jane Smith | jane, jsmith | user@company.com | Active |
+| Team Member | alice, ajohnson | user@company.com | Active |
+| Team Member | bob, bwilliams | user@company.com | Active |
+| Team Member | carol, cbrown | user@company.com | Active |
 
 **Note**: GUIDs are NOT cached - always resolve via API to ensure accuracy.
 
@@ -380,7 +375,7 @@ IF resolution returns multiple matches:
 
 ```
 IF user provides partial name and match is uncertain:
-  → "I found 'Team Member'. Is this correct?"
+  → "I found 'John Doe'. Is this correct?"
   → WAIT for confirmation
   → Only then proceed with comment
 ```
@@ -402,40 +397,40 @@ IF API call fails (network error, timeout):
 
 ### Successful Flow
 
-**User**: "Add a comment on #1234 mentioning @mahmoud to review"
+**User**: "Add a comment on #1234 mentioning @john to review"
 
 **Claude**:
 ```
-Step 1: Extracting mentions... found: @mahmoud
+Step 1: Extracting mentions... found: @john
 
-Step 2: Resolving @mahmoud...
+Step 2: Resolving @john...
 ```
 
 ```javascript
 mcp__azure-devops__core_get_identity_ids({
-  "searchFilter": "mahmoud"
+  "searchFilter": "john"
 })
-// Returns: { id: "6011f8b0-...", displayName: "Team Member" }
+// Returns: { id: "6011f8b0-...", displayName: "John Doe" }
 ```
 
 ```
-Step 3: ✅ @mahmoud resolved to Team Member
+Step 3: ✅ @john resolved to John Doe
 
 Step 4: Posting comment...
 ```
 
 ```javascript
 mcp__azure-devops__wit_add_work_item_comment({
-  "project": "Relief Center",
+  "project": "Project Alpha",
   "workItemId": 1234,
-  "comment": "<a href=\"#\" data-vss-mention=\"version:2.0,guid:6011f8b0-xxxx\">@Team Member</a> please review this.",
+  "comment": "<a href=\"#\" data-vss-mention=\"version:2.0,guid:6011f8b0-xxxx\">@John Doe</a> please review this.",
   "format": "html"
 })
 ```
 
 ```
 ✅ Comment added to #1234!
-   Team Member will receive a notification.
+   John Doe will receive a notification.
 ```
 
 ### Failed Flow (Unresolved Mention)
@@ -460,26 +455,26 @@ mcp__azure-devops__core_get_identity_ids({
 ⚠️ I couldn't find a user matching "@bob" in Azure DevOps.
 
 Did you mean one of these team members?
-• Team Member (@ahmed)
-• Eslam Hafez (@eslam)
-• Team Member (@mahmoud)
+• User One (@ahmed)
+• Jane Smith (@eslam)
+• John Doe (@john)
 • Team Member (@mohamed)
 • Team Member (@yussef)
 
 Please provide the correct name or email, and I'll add the comment.
 ```
 
-**User**: "I meant @mahmoud"
+**User**: "I meant @john"
 
 **Claude**:
 ```
-Step 2: Resolving @mahmoud...
-✅ Found: Team Member
+Step 2: Resolving @john...
+✅ Found: John Doe
 
 Posting comment...
 
 ✅ Comment added to #1234!
-   Team Member will receive a notification.
+   John Doe will receive a notification.
 ```
 
 ---
@@ -577,4 +572,4 @@ This processor integrates with:
 
 *Mention Processor v2.0 - Strict Enforcement*
 *Part of DevOps Plugin v3.0 Enhancement*
-*TaqaTechno - December 2025*
+*YOUR-ORG - December 2025*

@@ -4,7 +4,7 @@
   "description": "Create professional videos with smooth voice narration using Remotion and Claude Code. Features continuous audio pipeline that prevents voice cutting between slides, free edge-tts voice generation, and full video creation from text prompts.",
   "author": {
     "name": "TAQAT Techno",
-    "email": "info@taqatechno.com",
+    "email": "support@example.com",
     "url": "https://github.com/taqat-techno"
   },
   "homepage": "https://github.com/taqat-techno/plugins/tree/main/remotion-plugin",

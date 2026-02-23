@@ -1,10 +1,10 @@
 {
   "name": "devops",
   "version": "2.0.0",
-  "description": "Azure DevOps HYBRID integration for TaqaTechno - combines CLI power with MCP convenience. Features: unified setup with CLI installation + MCP configuration, intelligent routing between CLI and MCP, automation templates, predefined memories, and 100+ MCP tools. Best of both worlds for maximum DevOps productivity.",
+  "description": "Azure DevOps HYBRID integration — - combines CLI power with MCP convenience. Features: unified setup with CLI installation + MCP configuration, intelligent routing between CLI and MCP, automation templates, predefined memories, and 100+ MCP tools. Best of both worlds for maximum DevOps productivity.",
   "author": {
     "name": "TAQAT Techno",
-    "email": "info@taqatechno.com",
+    "email": "support@example.com",
     "url": "https://github.com/taqat-techno"
   },
   "homepage": "https://github.com/taqat-techno/plugins",
@@ -34,7 +34,7 @@
   "hooks": "./hooks/hooks.json",
   "scripts": "./devops/scripts/",
   "metadata": {
-    "organization": "TaqaTechno",
+    "organization": "YOUR-ORG",
     "release-date": "2025-12",
     "mode": "hybrid",
     "commands-count": 12,

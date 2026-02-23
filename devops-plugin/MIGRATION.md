@@ -140,7 +140,7 @@ Azure DevOps Integration Status
 CLI Status:     ✅ Installed (v2.65.0)
 MCP Status:     ✅ Connected
 Hybrid Mode:    ✅ Enabled
-Organization:   TaqaTechno
+Organization:   YOUR-ORG
 ```
 
 ---
@@ -256,7 +256,7 @@ v2.0 introduces predefined memories in the `memories/` directory. These are auto
 | `mcp_best_practices.md` | MCP tool patterns |
 | `automation_templates.md` | Reusable scripts |
 | `wiql_queries.md` | 40+ WIQL query templates |
-| `team_workflows.md` | TaqaTechno conventions |
+| `team_workflows.md` | YOUR-ORG conventions |
 | `hybrid_routing.md` | CLI vs MCP decisions |
 
 No action required - these are loaded automatically.
@@ -376,8 +376,8 @@ git checkout v1.3.0
 ## Support
 
 - **Documentation**: See README.md for full documentation
-- **Organization**: TaqaTechno
-- **Email**: info@taqatechno.com
+- **Organization**: YOUR-ORG
+- **Email**: support@example.com
 
 ---
 

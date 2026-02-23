@@ -39,7 +39,7 @@ winget install -e --id Microsoft.AzureCLI
 az extension add --name azure-devops
 
 # Configure defaults
-az devops configure --defaults organization=https://dev.azure.com/TaqaTechno
+az devops configure --defaults organization=https://dev.azure.com/YOUR-ORG
 ```
 
 ### For Python Scripts
@@ -57,10 +57,10 @@ Install and configure Azure DevOps CLI.
 
 ```powershell
 # Windows
-.\install_cli.ps1 -Organization "TaqaTechno"
+.\install_cli.ps1 -Organization "YOUR-ORG"
 
 # Unix/Linux
-./install_cli.sh --org TaqaTechno
+./install_cli.sh --org YOUR-ORG
 ```
 
 ### configure_defaults.ps1
@@ -69,7 +69,7 @@ Set up CLI defaults for your organization and project.
 
 ```powershell
 # Set defaults with project selection
-.\configure_defaults.ps1 -Project "Relief Center"
+.\configure_defaults.ps1 -Project "Project Alpha"
 
 # List available projects first
 .\configure_defaults.ps1 -ListProjects
@@ -87,7 +87,7 @@ Set up CLI defaults for your organization and project.
 **Parameters:**
 | Parameter | Description | Default |
 |-----------|-------------|---------|
-| `-Organization` | DevOps organization name | TaqaTechno |
+| `-Organization` | DevOps organization name | YOUR-ORG |
 | `-Project` | Default project name | (prompts) |
 | `-PAT` | Personal Access Token | (env var) |
 | `-ListProjects` | List available projects | false |
@@ -135,16 +135,16 @@ Generate comprehensive sprint reports.
 
 ```powershell
 # Console output
-.\sprint_report.ps1 -Project "Relief Center" -Team "Relief Center Team"
+.\sprint_report.ps1 -Project "Project Alpha" -Team "Project Alpha Team"
 
 # Markdown format
-.\sprint_report.ps1 -Project "Relief Center" -OutputFormat Markdown
+.\sprint_report.ps1 -Project "Project Alpha" -OutputFormat Markdown
 
 # Save to file
-.\sprint_report.ps1 -Project "Relief Center" -OutputFormat Markdown -OutputFile "sprint_report.md"
+.\sprint_report.ps1 -Project "Project Alpha" -OutputFormat Markdown -OutputFile "sprint_report.md"
 
 # Include build status
-.\sprint_report.ps1 -Project "Relief Center" -IncludeBuilds
+.\sprint_report.ps1 -Project "Project Alpha" -IncludeBuilds
 ```
 
 **Output includes:**
@@ -198,22 +198,22 @@ Generate daily standup notes.
 
 ```bash
 # Basic usage
-python standup_generator.py "Relief Center"
+python standup_generator.py "Project Alpha"
 
 # With specific format
-python standup_generator.py "Relief Center" --format markdown
+python standup_generator.py "Project Alpha" --format markdown
 
 # Save to file
-python standup_generator.py "Relief Center" --output standup.md
+python standup_generator.py "Project Alpha" --output standup.md
 
 # Copy to clipboard (Windows)
-python standup_generator.py "Relief Center" --copy
+python standup_generator.py "Project Alpha" --copy
 ```
 
 **Output format:**
 ```markdown
 # Daily Standup - 2025-12-25
-**Project:** Relief Center
+**Project:** Project Alpha
 
 ## Yesterday
 - [#1234] Completed login feature ✅
@@ -233,16 +233,16 @@ Sprint planning with capacity analysis.
 
 ```bash
 # Basic planning
-python sprint_planner.py "Relief Center"
+python sprint_planner.py "Project Alpha"
 
 # With custom capacity
-python sprint_planner.py "Relief Center" --capacity 200 --velocity 40
+python sprint_planner.py "Project Alpha" --capacity 200 --velocity 40
 
 # Specific team
-python sprint_planner.py "Relief Center" --team "Backend Team"
+python sprint_planner.py "Project Alpha" --team "Backend Team"
 
 # Save plan
-python sprint_planner.py "Relief Center" --output sprint_plan.md
+python sprint_planner.py "Project Alpha" --output sprint_plan.md
 ```
 
 **Features:**
@@ -257,16 +257,16 @@ Generate release notes from completed work.
 
 ```bash
 # Generate from last 2 weeks
-python release_notes.py "Relief Center"
+python release_notes.py "Project Alpha"
 
 # Specific date range
-python release_notes.py "Relief Center" --since 2025-12-01
+python release_notes.py "Project Alpha" --since 2025-12-01
 
 # Include PR analysis
-python release_notes.py "Relief Center" --repository "main-repo"
+python release_notes.py "Project Alpha" --repository "main-repo"
 
 # With version number
-python release_notes.py "Relief Center" --version "2.0.0" --output CHANGELOG.md
+python release_notes.py "Project Alpha" --version "2.0.0" --output CHANGELOG.md
 ```
 
 **Output includes:**
@@ -314,10 +314,10 @@ MCP-based standup notes helper.
 Claude can execute these scripts directly:
 
 ```
-User: "Generate a sprint report for Relief Center"
+User: "Generate a sprint report for Project Alpha"
 
 Claude: I'll run the sprint report script for you.
-[Executes: .\scripts\cli\sprint_report.ps1 -Project "Relief Center"]
+[Executes: .\scripts\cli\sprint_report.ps1 -Project "Project Alpha"]
 ```
 
 ### Batch Operations

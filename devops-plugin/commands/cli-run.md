@@ -100,7 +100,7 @@ Execute Azure DevOps CLI commands directly through Claude for powerful automatio
 /cli-run az devops project create --name "New Project" --description "Project description"
 
 # Show project details
-/cli-run az devops project show --project "Relief Center"
+/cli-run az devops project show --project "Project Alpha"
 ```
 
 ---

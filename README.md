@@ -390,7 +390,7 @@ TAQAT Techno is an Odoo development and consulting firm specializing in enterpri
 
 **Contact:**
 - GitHub: [@taqat-techno](https://github.com/taqat-techno)
-- Email: redacted@example.com
+- Email: support@example.com
 - Website: [taqatechno.com](https://www.taqatechno.com)
 
 ---

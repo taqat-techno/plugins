@@ -469,7 +469,7 @@ odoo-security-plugin/
 ## Author & License
 
 **Author**: TAQAT Techno
-**Email**: redacted@example.com
+**Email**: support@example.com
 **GitHub**: https://github.com/taqat-techno
 **License**: MIT
 

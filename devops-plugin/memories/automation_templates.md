@@ -21,7 +21,7 @@
 ```powershell
 # standup.ps1 - Generate daily standup notes
 param(
-    [string]$Project = "Relief Center",
+    [string]$Project = "Project Alpha",
     [string]$OutputFormat = "markdown"
 )
 
@@ -104,7 +104,7 @@ if ($blocked.Count -gt 0) {
 #!/bin/bash
 # standup.sh - Generate daily standup notes
 
-PROJECT="${1:-Relief Center}"
+PROJECT="${1:-Project Alpha}"
 YESTERDAY=$(date -d "yesterday" +%Y-%m-%d 2>/dev/null || date -v-1d +%Y-%m-%d)
 TODAY=$(date +%Y-%m-%d)
 
@@ -160,8 +160,8 @@ echo "- None"
 ```powershell
 # sprint_report.ps1 - Generate sprint progress report
 param(
-    [string]$Project = "Relief Center",
-    [string]$Team = "Relief Center Team"
+    [string]$Project = "Project Alpha",
+    [string]$Team = "Project Alpha Team"
 )
 
 # Get current iteration
@@ -249,7 +249,7 @@ param(
     [Parameter(Mandatory=$true)]
     [string[]]$Tasks,
 
-    [string]$Project = "Relief Center",
+    [string]$Project = "Project Alpha",
     [string]$AssignedTo = ""
 )
 
@@ -295,7 +295,7 @@ Write-Host "`nCreated $($created.Count) tasks under parent #$ParentId"
 # bulk_create_tasks.sh - Create multiple tasks under a parent
 
 PARENT_ID=$1
-PROJECT="${2:-Relief Center}"
+PROJECT="${2:-Project Alpha}"
 shift 2
 TASKS=("$@")
 
@@ -327,7 +327,7 @@ for TASK in "${TASKS[@]}"; do
 done
 
 # Usage:
-# ./bulk_create_tasks.sh 1234 "Relief Center" "Design UI" "Implement API" "Write Tests"
+# ./bulk_create_tasks.sh 1234 "Project Alpha" "Design UI" "Implement API" "Write Tests"
 ```
 
 ---
@@ -339,7 +339,7 @@ done
 ```powershell
 # close_done_items.ps1 - Close all items in Done state
 param(
-    [string]$Project = "Relief Center",
+    [string]$Project = "Project Alpha",
     [switch]$WhatIf = $false
 )
 
@@ -389,7 +389,7 @@ Write-Host "`nClosed $closed of $($items.Count) items"
 # auto_merge_approved.sh - Merge all approved PRs
 
 REPO="${1:-my-repo}"
-PROJECT="${2:-Relief Center}"
+PROJECT="${2:-Project Alpha}"
 
 echo "Checking approved PRs in $REPO..."
 
@@ -526,7 +526,7 @@ def monitor_builds(project, pipeline_id=None, interval=60, create_bugs=False):
         time.sleep(interval)
 
 if __name__ == '__main__':
-    project = sys.argv[1] if len(sys.argv) > 1 else 'Relief Center'
+    project = sys.argv[1] if len(sys.argv) > 1 else 'Project Alpha'
     pipeline_id = sys.argv[2] if len(sys.argv) > 2 else None
 
     monitor_builds(project, pipeline_id, interval=60, create_bugs=True)
@@ -549,8 +549,8 @@ param(
 
     [int]$DurationDays = 14,
 
-    [string]$Project = "Relief Center",
-    [string]$Team = "Relief Center Team"
+    [string]$Project = "Project Alpha",
+    [string]$Team = "Project Alpha Team"
 )
 
 $endDate = $StartDate.AddDays($DurationDays - 1)
@@ -707,7 +707,7 @@ def generate_release_notes(project, iteration_path, version):
 if __name__ == '__main__':
     if len(sys.argv) < 3:
         print("Usage: python release_notes.py <project> <iteration_path> [version]")
-        print("Example: python release_notes.py 'Relief Center' 'Relief Center\\Sprint 15' 'v1.2.0'")
+        print("Example: python release_notes.py 'Project Alpha' 'Project Alpha\\Sprint 15' 'v1.2.0'")
         sys.exit(1)
 
     project = sys.argv[1]

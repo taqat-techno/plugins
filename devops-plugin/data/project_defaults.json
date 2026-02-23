@@ -1,99 +1,44 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$comment": "TaqaTechno Azure DevOps projects configuration",
+  "$comment": "Azure DevOps projects configuration. Edit with your organization and project names.",
   "version": "1.0.0",
-  "organization": "TaqaTechno",
-  "organizationUrl": "https://dev.azure.com/TaqaTechno",
-  "lastUpdated": "2025-12",
+  "organization": "YOUR-ORG",
+  "organizationUrl": "https://dev.azure.com/YOUR-ORG",
+  "lastUpdated": "configure-me",
 
   "projects": [
     {
-      "name": "Relief Center",
+      "name": "Project Alpha",
       "id": null,
-      "description": "Disaster management and relief coordination system",
-      "aliases": ["relief", "relief-center", "rc", "disaster"],
-      "defaultTeam": "Relief Center Team",
-      "primaryRepo": "relief-center-api",
-      "urlPath": "Relief%20Center",
+      "description": "Primary project — replace with your project description",
+      "aliases": ["alpha", "project-alpha", "pa"],
+      "defaultTeam": "Project Alpha Team",
+      "primaryRepo": "project-alpha",
+      "urlPath": "Project%20Alpha",
       "active": true,
       "priority": 1
     },
     {
-      "name": "KhairGate",
+      "name": "Project Beta",
       "id": null,
-      "description": "Enterprise beneficiary management with Eurasia wallet integration",
-      "aliases": ["khairgate", "kg", "beneficiary"],
-      "defaultTeam": "KhairGate Team",
-      "primaryRepo": "khairgate-backend",
-      "urlPath": "KhairGate",
+      "description": "Secondary project — replace with your project description",
+      "aliases": ["beta", "project-beta", "pb"],
+      "defaultTeam": "Project Beta Team",
+      "primaryRepo": "project-beta",
+      "urlPath": "Project%20Beta",
       "active": true,
       "priority": 2
     },
     {
-      "name": "Property Management",
+      "name": "Project Gamma",
       "id": null,
-      "description": "Real estate and property management system",
-      "aliases": ["property", "pm", "taqat-property", "real-estate"],
-      "defaultTeam": "Property Management Team",
-      "primaryRepo": "property-management",
-      "urlPath": "Property%20Management",
+      "description": "Third project — replace with your project description",
+      "aliases": ["gamma", "project-gamma", "pg"],
+      "defaultTeam": "Project Gamma Team",
+      "primaryRepo": "project-gamma",
+      "urlPath": "Project%20Gamma",
       "active": true,
       "priority": 3
-    },
-    {
-      "name": "TAQAT HR",
-      "id": null,
-      "description": "Human resources and payroll management",
-      "aliases": ["hr", "taqat-hr", "payroll"],
-      "defaultTeam": "TAQAT HR Team",
-      "primaryRepo": "taqat-hr",
-      "urlPath": "TAQAT%20HR",
-      "active": true,
-      "priority": 4
-    },
-    {
-      "name": "Beneshty",
-      "id": null,
-      "description": "Child-focused charity platform",
-      "aliases": ["beneshty", "children", "charity"],
-      "defaultTeam": "Beneshty Team",
-      "primaryRepo": "beneshty",
-      "urlPath": "Beneshty",
-      "active": true,
-      "priority": 5
-    },
-    {
-      "name": "OkSouq",
-      "id": null,
-      "description": "Marketplace and e-commerce platform",
-      "aliases": ["oksouq", "souq", "marketplace"],
-      "defaultTeam": "OkSouq Team",
-      "primaryRepo": "oksouq",
-      "urlPath": "OkSouq",
-      "active": true,
-      "priority": 6
-    },
-    {
-      "name": "Arcelia",
-      "id": null,
-      "description": "Real estate CRM system",
-      "aliases": ["arcelia", "crm", "real-estate-crm"],
-      "defaultTeam": "Arcelia Team",
-      "primaryRepo": "arcelia",
-      "urlPath": "Arcelia",
-      "active": true,
-      "priority": 7
-    },
-    {
-      "name": "Ittihad Club",
-      "id": null,
-      "description": "Sports club event management",
-      "aliases": ["ittihad", "club", "ittihadclub", "sports"],
-      "defaultTeam": "Ittihad Team",
-      "primaryRepo": "ittihadclub",
-      "urlPath": "Ittihad%20Club",
-      "active": true,
-      "priority": 8
     }
   ],
 
@@ -160,14 +105,14 @@
   },
 
   "urlTemplates": {
-    "workItem": "https://dev.azure.com/TaqaTechno/{projectUrlPath}/_workitems/edit/{workItemId}",
-    "board": "https://dev.azure.com/TaqaTechno/{projectUrlPath}/_boards/board",
-    "backlog": "https://dev.azure.com/TaqaTechno/{projectUrlPath}/_backlogs/backlog",
-    "sprint": "https://dev.azure.com/TaqaTechno/{projectUrlPath}/_sprints/taskboard",
-    "repo": "https://dev.azure.com/TaqaTechno/{projectUrlPath}/_git/{repoName}",
-    "pr": "https://dev.azure.com/TaqaTechno/{projectUrlPath}/_git/{repoName}/pullrequest/{prId}",
-    "pipeline": "https://dev.azure.com/TaqaTechno/{projectUrlPath}/_build?definitionId={pipelineId}",
-    "wiki": "https://dev.azure.com/TaqaTechno/{projectUrlPath}/_wiki/wikis"
+    "workItem": "https://dev.azure.com/YOUR-ORG/{projectUrlPath}/_workitems/edit/{workItemId}",
+    "board": "https://dev.azure.com/YOUR-ORG/{projectUrlPath}/_boards/board",
+    "backlog": "https://dev.azure.com/YOUR-ORG/{projectUrlPath}/_backlogs/backlog",
+    "sprint": "https://dev.azure.com/YOUR-ORG/{projectUrlPath}/_sprints/taskboard",
+    "repo": "https://dev.azure.com/YOUR-ORG/{projectUrlPath}/_git/{repoName}",
+    "pr": "https://dev.azure.com/YOUR-ORG/{projectUrlPath}/_git/{repoName}/pullrequest/{prId}",
+    "pipeline": "https://dev.azure.com/YOUR-ORG/{projectUrlPath}/_build?definitionId={pipelineId}",
+    "wiki": "https://dev.azure.com/YOUR-ORG/{projectUrlPath}/_wiki/wikis"
   },
 
   "aliasResolution": {
@@ -175,11 +120,9 @@
     "caseSensitive": false,
     "matchPartial": true,
     "examples": {
-      "relief": "Relief Center",
-      "rc": "Relief Center",
-      "kg": "KhairGate",
-      "pm": "Property Management",
-      "hr": "TAQAT HR"
+      "alpha": "Project Alpha",
+      "beta": "Project Beta",
+      "gamma": "Project Gamma"
     }
   }
 }

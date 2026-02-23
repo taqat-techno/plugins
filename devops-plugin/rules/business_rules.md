@@ -1,4 +1,4 @@
-# TaqaTechno Business Rules
+# YOUR-ORG Business Rules
 
 ## Purpose
 
@@ -440,5 +440,5 @@ If no sprint matches today's date:
 
 ---
 
-*TaqaTechno Business Rules v1.1*
+*YOUR-ORG Business Rules v1.1*
 *December 2025*

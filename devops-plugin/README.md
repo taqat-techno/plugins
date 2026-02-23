@@ -2,11 +2,11 @@
 
 A comprehensive Azure DevOps integration plugin for Claude Code, enabling natural language interaction with your DevOps workflows through **HYBRID** CLI + MCP architecture.
 
-**Version**: 2.0.0 | **Organization**: TaqaTechno | **Mode**: Hybrid (CLI + MCP)
+**Version**: 2.0.0 | **Organization**: YOUR-ORG | **Mode**: Hybrid (CLI + MCP)
 
 ---
 
-## TaqaTechno Business Rules
+## YOUR-ORG Business Rules
 
 The plugin enforces mandatory business rules for work item management. Full documentation: `rules/business_rules.md`
 
@@ -94,8 +94,8 @@ This installs both CLI and MCP:
 
 ## Support
 
-- **Organization**: TaqaTechno
-- **Email**: info@taqatechno.com
+- **Organization**: YOUR-ORG
+- **Email**: support@example.com
 - **Repository**: https://github.com/taqat-techno-eg/plugins
 
 ## License

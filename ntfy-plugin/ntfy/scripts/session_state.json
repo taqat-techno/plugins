@@ -1,11 +1,11 @@
 {
-  "notification_mode": false,
+  "notification_mode": true,
   "session_topic": null,
-  "session_start": null,
+  "session_start": "2026-02-13T14:57:20.521300",
   "auto_notify_complete": true,
   "auto_notify_action": true,
   "auto_notify_error": true,
   "auto_notify_progress": true,
-  "task_count": 0,
-  "notification_count": 0
+  "task_count": 2,
+  "notification_count": 2
 }

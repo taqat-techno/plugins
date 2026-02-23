@@ -23,7 +23,7 @@ This validator **PREVENTS** state transition failures by checking required field
 │  ┌─────────────────────────────────────────────────────────┐    │
 │  │ wit_get_work_item({                                     │    │
 │  │   id: 1234,                                             │    │
-│  │   project: "Relief Center",                             │    │
+│  │   project: "Project Alpha",                             │    │
 │  │   fields: [                                             │    │
 │  │     "System.State",                                     │    │
 │  │     "System.WorkItemType",                              │    │
@@ -245,7 +245,7 @@ Example for Bug → Resolved:
 // Get current state and all potentially required fields
 mcp__azure-devops__wit_get_work_item({
   "id": 1234,
-  "project": "Relief Center",
+  "project": "Project Alpha",
   "fields": [
     "System.Id",
     "System.Title",
@@ -458,4 +458,4 @@ This validator integrates with:
 
 *State Transition Validator v1.0*
 *Part of DevOps Plugin v3.0 Enhancement*
-*TaqaTechno - December 2025*
+*YOUR-ORG - December 2025*

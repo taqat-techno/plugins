@@ -189,7 +189,7 @@ jobs:
             -H "Authorization: Basic $(echo -n :${{ secrets.AZURE_DEVOPS_PAT }} | base64)" \
             -H "Content-Type: application/json" \
             -d '{"resources": {"repositories": {"self": {"refName": "refs/heads/main"}}}}' \
-            "https://dev.azure.com/TaqaTechno/MyProject/_apis/pipelines/1/runs?api-version=6.0"
+            "https://dev.azure.com/YOUR-ORG/MyProject/_apis/pipelines/1/runs?api-version=6.0"
 ```
 
 ---
@@ -209,4 +209,4 @@ jobs:
 
 ---
 
-*Part of devops-plugin v2.0 — TaqaTechno*
+*Part of devops-plugin v2.0 — YOUR-ORG*

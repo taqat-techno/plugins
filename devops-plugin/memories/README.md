@@ -9,7 +9,7 @@ Memories are markdown files that Claude loads to understand:
 - **Best practices** for each tool
 - **Reusable templates** for common workflows
 - **WIQL patterns** for work item queries
-- **Team-specific workflows** for TaqaTechno
+- **Team-specific workflows** for YOUR-ORG
 
 ## Memory Files
 
@@ -20,7 +20,7 @@ Memories are markdown files that Claude loads to understand:
 | `mcp_best_practices.md` | MEDIUM | MCP tool usage patterns |
 | `automation_templates.md` | MEDIUM | Reusable scripts (PowerShell, Bash, Python) |
 | `wiql_queries.md` | LOW | Common Work Item Query Language patterns |
-| `team_workflows.md` | LOW | TaqaTechno-specific workflows |
+| `team_workflows.md` | LOW | organization-specific workflows |
 
 ---
 

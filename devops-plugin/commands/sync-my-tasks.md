@@ -20,7 +20,7 @@ Synchronize Azure DevOps work items assigned to you with Claude Code's TODO list
 
 ```
 /sync-my-tasks                           # Sync ALL your tasks across all projects (recommended)
-/sync-my-tasks --project "Relief Center" # Filter to specific project only
+/sync-my-tasks --project "Project Alpha" # Filter to specific project only
 ```
 
 ## 🛡️ TOOL SELECTION GUARD (MANDATORY)
@@ -62,7 +62,7 @@ mcp__azure-devops__search_workitem({
 ```javascript
 // ✅ CORRECT - This WORKS!
 mcp__azure-devops__wit_my_work_items({
-  "project": "Relief Center",    // ← REQUIRED
+  "project": "Project Alpha",    // ← REQUIRED
   "type": "assignedtome",
   "includeCompleted": false,
   "top": 100
@@ -86,17 +86,17 @@ mcp__azure-devops__wit_my_work_items({
 **For each active project, call `wit_my_work_items`:**
 
 ```javascript
-// Relief Center
+// Project Alpha
 mcp__azure-devops__wit_my_work_items({
-  "project": "Relief Center",
+  "project": "Project Alpha",
   "type": "assignedtome",
   "includeCompleted": false,
   "top": 100
 })
 
-// Property Management
+// Project Gamma
 mcp__azure-devops__wit_my_work_items({
-  "project": "Property Management",
+  "project": "Project Gamma",
   "type": "assignedtome",
   "includeCompleted": false,
   "top": 100
@@ -107,7 +107,7 @@ mcp__azure-devops__wit_my_work_items({
 
 ```javascript
 mcp__azure-devops__wit_get_work_items_batch_by_ids({
-  "project": "Relief Center",
+  "project": "Project Alpha",
   "ids": [1746, 1828, 1651, ...],  // IDs from previous call
   "fields": ["System.Id", "System.Title", "System.State", "System.WorkItemType", "System.TeamProject"]
 })
@@ -136,7 +136,7 @@ mcp__azure-devops__core_list_projects({})
 **TODO Format (MUST include project name and link):**
 ```json
 {
-  "content": "[Relief Center] #1234 Task: Fix login bug | https://dev.azure.com/TaqaTechno/Relief%20Center/_workitems/edit/1234",
+  "content": "[Project Alpha] #1234 Task: Fix login bug | https://dev.azure.com/YOUR-ORG/Relief%20Center/_workitems/edit/1234",
   "status": "in_progress",
   "activeForm": "Fixing login bug (#1234)"
 }
@@ -144,10 +144,10 @@ mcp__azure-devops__core_list_projects({})
 
 **URL Format:**
 ```
-https://dev.azure.com/TaqaTechno/{PROJECT_NAME_URL_ENCODED}/_workitems/edit/{WORK_ITEM_ID}
+https://dev.azure.com/YOUR-ORG/{PROJECT_NAME_URL_ENCODED}/_workitems/edit/{WORK_ITEM_ID}
 ```
 
-**Important**: URL-encode project names with spaces (e.g., "Relief Center" → "Relief%20Center")
+**Important**: URL-encode project names with spaces (e.g., "Project Alpha" → "Relief%20Center")
 
 ### Step 3: Smart Update Logic
 
@@ -166,9 +166,9 @@ TodoWrite({
     {"content": "Manual todo item", "status": "pending", "activeForm": "Working on manual item"},
 
     // Synced Azure DevOps items (with project name and link)
-    {"content": "[Relief Center] #1234 Task: Fix login bug | https://dev.azure.com/TaqaTechno/Relief%20Center/_workitems/edit/1234", "status": "in_progress", "activeForm": "Fixing login bug (#1234)"},
-    {"content": "[Relief Center] #1235 Bug: UI alignment issue | https://dev.azure.com/TaqaTechno/Relief%20Center/_workitems/edit/1235", "status": "pending", "activeForm": "Fixing UI alignment (#1235)"},
-    {"content": "[Property Management] #1236 PBI: Add dark mode | https://dev.azure.com/TaqaTechno/Property%20Management/_workitems/edit/1236", "status": "pending", "activeForm": "Implementing dark mode (#1236)"}
+    {"content": "[Project Alpha] #1234 Task: Fix login bug | https://dev.azure.com/YOUR-ORG/Relief%20Center/_workitems/edit/1234", "status": "in_progress", "activeForm": "Fixing login bug (#1234)"},
+    {"content": "[Project Alpha] #1235 Bug: UI alignment issue | https://dev.azure.com/YOUR-ORG/Relief%20Center/_workitems/edit/1235", "status": "pending", "activeForm": "Fixing UI alignment (#1235)"},
+    {"content": "[Project Gamma] #1236 PBI: Add dark mode | https://dev.azure.com/YOUR-ORG/Property%20Management/_workitems/edit/1236", "status": "pending", "activeForm": "Implementing dark mode (#1236)"}
   ]
 })
 ```
@@ -181,17 +181,17 @@ TodoWrite({
 ### Summary by Project
 | Project | Active | New | Total |
 |---------|--------|-----|-------|
-| Relief Center | 3 | 2 | 5 |
-| Property Management | 1 | 2 | 3 |
+| Project Alpha | 3 | 2 | 5 |
+| Project Gamma | 1 | 2 | 3 |
 | **Total** | **4** | **4** | **8** |
 
 ### Work Items (8)
 | Project | ID | Type | Title | Status | Link |
 |---------|-----|------|-------|--------|------|
-| Relief Center | #1636 | Bug | Broken Checksum Validation | 🔄 in_progress | [Open](https://dev.azure.com/TaqaTechno/Relief%20Center/_workitems/edit/1636) |
-| Relief Center | #1629 | Bug | SQL Injection in Email | ⏳ pending | [Open](https://dev.azure.com/TaqaTechno/Relief%20Center/_workitems/edit/1629) |
-| Relief Center | #1828 | Task | Investigate map duration | 🔄 in_progress | [Open](https://dev.azure.com/TaqaTechno/Relief%20Center/_workitems/edit/1828) |
-| Property Management | #1230 | Task | Update user profile | ⏳ pending | [Open](https://dev.azure.com/TaqaTechno/Property%20Management/_workitems/edit/1230) |
+| Project Alpha | #1636 | Bug | Broken Checksum Validation | 🔄 in_progress | [Open](https://dev.azure.com/YOUR-ORG/Relief%20Center/_workitems/edit/1636) |
+| Project Alpha | #1629 | Bug | SQL Injection in Email | ⏳ pending | [Open](https://dev.azure.com/YOUR-ORG/Relief%20Center/_workitems/edit/1629) |
+| Project Alpha | #1828 | Task | Investigate map duration | 🔄 in_progress | [Open](https://dev.azure.com/YOUR-ORG/Relief%20Center/_workitems/edit/1828) |
+| Project Gamma | #1230 | Task | Update user profile | ⏳ pending | [Open](https://dev.azure.com/YOUR-ORG/Property%20Management/_workitems/edit/1230) |
 
 ### Changes
 - **Added**: 5 new items
@@ -217,16 +217,16 @@ Found 8 work items in 2 projects.
 ### Summary by Project
 | Project | Items |
 |---------|-------|
-| Relief Center | 5 |
-| Property Management | 3 |
+| Project Alpha | 5 |
+| Project Gamma | 3 |
 | **Total** | **8** |
 
 ### Work Items
 | Project | ID | Type | Title | Link |
 |---------|-----|------|-------|------|
-| Relief Center | #1636 | Bug | Broken Checksum Validation | [Open](https://dev.azure.com/TaqaTechno/Relief%20Center/_workitems/edit/1636) |
-| Relief Center | #1629 | Bug | SQL Injection in Email | [Open](https://dev.azure.com/TaqaTechno/Relief%20Center/_workitems/edit/1629) |
-| Property Management | #1837 | Task | Deploy to Production | [Open](https://dev.azure.com/TaqaTechno/Property%20Management/_workitems/edit/1837) |
+| Project Alpha | #1636 | Bug | Broken Checksum Validation | [Open](https://dev.azure.com/YOUR-ORG/Relief%20Center/_workitems/edit/1636) |
+| Project Alpha | #1629 | Bug | SQL Injection in Email | [Open](https://dev.azure.com/YOUR-ORG/Relief%20Center/_workitems/edit/1629) |
+| Project Gamma | #1837 | Task | Deploy to Production | [Open](https://dev.azure.com/YOUR-ORG/Property%20Management/_workitems/edit/1837) |
 ...
 
 Your TODO list has been updated with 8 Azure DevOps items!
@@ -248,7 +248,7 @@ ORDER BY [System.ChangedDate] DESC
 SELECT [System.Id], [System.Title], [System.State], [System.WorkItemType], [System.TeamProject]
 FROM WorkItems
 WHERE [System.AssignedTo] = @Me
-  AND [System.TeamProject] IN ('Relief Center', 'Property Management')
+  AND [System.TeamProject] IN ('Project Alpha', 'Project Gamma')
   AND [System.State] NOT IN ('Done', 'Closed', 'Removed')
 ORDER BY [System.TeamProject], [System.ChangedDate] DESC
 ```

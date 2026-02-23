@@ -154,7 +154,7 @@ az extension show --name azure-devops
 **Ask user for required information:**
 
 1. **Organization Name** (required)
-   - Example: `TaqaTechno`, `MyCompany`
+   - Example: `YOUR-ORG`, `MyCompany`
    - Used for both CLI and MCP configuration
 
 2. **Personal Access Token (PAT)** (required)
@@ -163,7 +163,7 @@ az extension show --name azure-devops
 
 3. **Default Project** (optional)
    - Sets default project for CLI commands
-   - Example: `Relief Center`, `My Project`
+   - Example: `Project Alpha`, `My Project`
 
 **How to create a PAT:**
 
@@ -332,13 +332,13 @@ mcp__azure-devops__core_list_projects({})
 CLI STATUS:
   Azure CLI Version:     2.65.0
   DevOps Extension:      1.0.1
-  Organization:          TaqaTechno
-  Default Project:       Relief Center
+  Organization:          YOUR-ORG
+  Default Project:       Project Alpha
   Authentication:        PAT via AZURE_DEVOPS_EXT_PAT
 
 MCP STATUS:
   Package:               @anthropic-ai/azure-devops-mcp
-  Organization:          TaqaTechno
+  Organization:          YOUR-ORG
   Authentication:        PAT via ADO_PAT_TOKEN
   Tools Available:       100+
 
@@ -429,15 +429,15 @@ CLI STATUS:
   Installed:             YES
   Azure CLI Version:     2.65.0
   DevOps Extension:      1.0.1 (azure-devops)
-  Organization Default:  https://dev.azure.com/TaqaTechno
-  Project Default:       Relief Center
+  Organization Default:  https://dev.azure.com/YOUR-ORG
+  Project Default:       Project Alpha
   PAT Configured:        YES (via AZURE_DEVOPS_EXT_PAT)
   Connection Test:       SUCCESS (5 projects found)
 
 MCP STATUS:
   Configured:            YES
   Server Package:        @anthropic-ai/azure-devops-mcp
-  Organization:          TaqaTechno
+  Organization:          YOUR-ORG
   PAT Configured:        YES (via ADO_PAT_TOKEN)
   Connection Test:       SUCCESS (5 projects found)
   Tools Available:       100+ across 10 domains
@@ -554,15 +554,15 @@ Extension installed successfully (version 1.0.1)
 
 I need some information to complete setup:
 
-1. Organization name: (e.g., TaqaTechno)
+1. Organization name: (e.g., YOUR-ORG)
 2. Personal Access Token (PAT)
    - Create at: https://dev.azure.com/_usersSettings/tokens
    - Required scopes: Code, Work Items, Build, Wiki, Test Management
 
-3. Default project (optional): (e.g., Relief Center)
+3. Default project (optional): (e.g., Project Alpha)
 ```
 
-**User:** Organization is TaqaTechno, project is Relief Center, PAT is [token]
+**User:** Organization is YOUR-ORG, project is Project Alpha, PAT is [token]
 
 **Claude:**
 ```

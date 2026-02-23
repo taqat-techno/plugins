@@ -201,4 +201,4 @@ This command follows rules from:
 
 *User Story Command v2.0*
 *How -> What -> Why Format*
-*TaqaTechno - December 2025*
+*YOUR-ORG - December 2025*

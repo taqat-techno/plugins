@@ -72,7 +72,7 @@ Created Bug #1234: [Login] - Login button not working on mobile
 - Severity: 2 - High
 - Priority: 2 - Should fix
 - State: New
-- URL: https://dev.azure.com/TaqaTechno/Project/_workitems/edit/1234
+- URL: https://dev.azure.com/YOUR-ORG/Project/_workitems/edit/1234
 
 Would you like to:
 1. Add more details

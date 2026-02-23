@@ -40,7 +40,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `mcp_best_practices.md` - MCP tool patterns organized by domain
 - `automation_templates.md` - Reusable PowerShell/Bash/Python automation templates
 - `wiql_queries.md` - 40+ WIQL query templates for common scenarios
-- `team_workflows.md` - TaqaTechno-specific conventions and standards
+- `team_workflows.md` - organization-specific conventions and standards
 - `hybrid_routing.md` - CLI vs MCP decision matrix for intelligent routing
 
 #### Documentation
@@ -111,7 +111,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Initial release of DevOps Plugin for Claude Code
 - **100+ MCP Tools**: Full Azure DevOps integration via MCP server
-- **Organization**: TaqaTechno
+- **Organization**: YOUR-ORG
 
 #### Slash Commands
 - `/devops` - Main skill invocation
@@ -182,4 +182,4 @@ All upgrades to v2.0 are backward compatible. No breaking changes.
 
 ---
 
-*Maintained by TaqaTechno*
+*Maintained by your organization*

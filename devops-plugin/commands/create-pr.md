@@ -42,7 +42,7 @@ This command automatically resolves repository names to GUIDs before creating th
 
 ```
 "Create a PR in relief-center-api from feature/login to main"
-"Create PR for my feature branch in KhairGate backend"
+"Create PR for my feature branch in Project Beta backend"
 "Open a pull request from develop to main in the relief repo"
 ```
 
@@ -133,7 +133,7 @@ Repository: ${repoName} (${repositoryId})
 Source: ${sourceBranch} → Target: ${targetBranch}
 Status: Active
 
-🔗 Link: https://dev.azure.com/TaqaTechno/${project}/_git/${repoName}/pullrequest/${pr.pullRequestId}
+🔗 Link: https://dev.azure.com/YOUR-ORG/${project}/_git/${repoName}/pullrequest/${pr.pullRequestId}
 
 Next steps:
 • Add reviewers: "add @mahmoud as reviewer to PR #${pr.pullRequestId}"
@@ -149,7 +149,7 @@ Next steps:
 
 **Claude**:
 ```
-📁 Project: Relief Center
+📁 Project: Project Alpha
 
 Resolving repository "relief-center-api"...
 ✅ Resolved: a1b2c3d4-e5f6-7890-abcd-ef1234567890
@@ -178,7 +178,7 @@ Repository: relief-center-api
 Source: feature/login → Target: main
 Status: Active
 
-🔗 https://dev.azure.com/TaqaTechno/Relief%20Center/_git/relief-center-api/pullrequest/123
+🔗 https://dev.azure.com/YOUR-ORG/Relief%20Center/_git/relief-center-api/pullrequest/123
 ```
 
 ### Example 2: Using Alias
@@ -187,10 +187,10 @@ Status: Active
 
 **Claude**:
 ```
-📁 Project: KhairGate
+📁 Project: Project Beta
 
 Resolving repository "kg"...
-Alias "kg" → "khairgate-backend"
+Alias "kg" → "project-beta"
 ✅ Resolved: b2c3d4e5-f6a7-8901-bcde-f23456789012
 
 Creating pull request...
@@ -202,10 +202,10 @@ Creating pull request...
 
 **Claude**:
 ```
-📁 Project: Relief Center
+📁 Project: Project Alpha
 
 Resolving repository "myrepo"...
-⚠️ Repository "myrepo" not found in Relief Center.
+⚠️ Repository "myrepo" not found in Project Alpha.
 
 Available repositories:
 • relief-center-api (aliases: relief, relief-api)
@@ -221,7 +221,7 @@ Please specify the correct repository name.
 
 **Claude**:
 ```
-📁 Project: Relief Center
+📁 Project: Project Alpha
 
 Resolving repository...
 ✅ Resolved: a1b2c3d4-e5f6-7890-abcd-ef1234567890

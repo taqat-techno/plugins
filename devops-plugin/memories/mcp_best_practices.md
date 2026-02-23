@@ -90,7 +90,7 @@
 ```javascript
 // Get active tasks assigned to current user
 mcp__azure-devops__wit_my_work_items({
-    project: "Relief Center",
+    project: "Project Alpha",
     type: "assignedtome",
     includeCompleted: false,
     top: 50
@@ -102,7 +102,7 @@ mcp__azure-devops__wit_my_work_items({
 ```javascript
 // Get work item with child items
 mcp__azure-devops__wit_get_work_item({
-    project: "Relief Center",
+    project: "Project Alpha",
     id: 123,
     expand: "relations"
 })
@@ -113,7 +113,7 @@ mcp__azure-devops__wit_get_work_item({
 ```javascript
 // Create a task with all required fields
 mcp__azure-devops__wit_create_work_item({
-    project: "Relief Center",
+    project: "Project Alpha",
     workItemType: "Task",
     fields: [
         { name: "System.Title", value: "Implement login feature" },
@@ -238,7 +238,7 @@ mcp__azure-devops__repo_update_pull_request({
 // Search for code patterns
 mcp__azure-devops__search_code({
     searchText: "async function authenticate",
-    project: ["Relief Center"],
+    project: ["Project Alpha"],
     repository: ["relief-center-api"],
     top: 10
 })
@@ -250,7 +250,7 @@ mcp__azure-devops__search_code({
 // Search work items by text
 mcp__azure-devops__search_workitem({
     searchText: "login bug",
-    project: ["Relief Center"],
+    project: ["Project Alpha"],
     state: ["Active", "New"],
     workItemType: ["Bug"],
     top: 20
@@ -263,7 +263,7 @@ mcp__azure-devops__search_workitem({
 // Search wiki pages
 mcp__azure-devops__search_wiki({
     searchText: "API documentation",
-    project: ["Relief Center"],
+    project: ["Project Alpha"],
     top: 10
 })
 ```
@@ -277,9 +277,9 @@ mcp__azure-devops__search_wiki({
 ```javascript
 // Create test plan for sprint
 mcp__azure-devops__testplan_create_test_plan({
-    project: "Relief Center",
+    project: "Project Alpha",
     name: "Sprint 15 Test Plan",
-    iteration: "Relief Center\\Sprint 15",
+    iteration: "Project Alpha\\Sprint 15",
     description: "Test plan for sprint 15 features"
 })
 ```
@@ -289,7 +289,7 @@ mcp__azure-devops__testplan_create_test_plan({
 ```javascript
 // Create test case with steps
 mcp__azure-devops__testplan_create_test_case({
-    project: "Relief Center",
+    project: "Project Alpha",
     title: "Verify user login",
     steps: "1. Navigate to login page|Login page displayed\n2. Enter valid credentials|Fields accept input\n3. Click login button|User redirected to dashboard",
     priority: 1
@@ -301,7 +301,7 @@ mcp__azure-devops__testplan_create_test_case({
 ```javascript
 // Get test results from build
 mcp__azure-devops__testplan_show_test_results_from_build_id({
-    project: "Relief Center",
+    project: "Project Alpha",
     buildid: 456
 })
 ```
@@ -315,7 +315,7 @@ mcp__azure-devops__testplan_show_test_results_from_build_id({
 ```javascript
 // Get security alerts for repository
 mcp__azure-devops__advsec_get_alerts({
-    project: "Relief Center",
+    project: "Project Alpha",
     repository: "relief-center-api",
     alertType: "Dependency",
     severities: ["High", "Critical"],
@@ -329,7 +329,7 @@ mcp__azure-devops__advsec_get_alerts({
 ```javascript
 // Get specific alert details
 mcp__azure-devops__advsec_get_alert_details({
-    project: "Relief Center",
+    project: "Project Alpha",
     repository: "relief-center-api",
     alertId: 123
 })
@@ -344,8 +344,8 @@ mcp__azure-devops__advsec_get_alert_details({
 ```javascript
 // Get current iteration
 mcp__azure-devops__work_list_team_iterations({
-    project: "Relief Center",
-    team: "Relief Center Team",
+    project: "Project Alpha",
+    team: "Project Alpha Team",
     timeframe: "current"
 })
 ```
@@ -355,8 +355,8 @@ mcp__azure-devops__work_list_team_iterations({
 ```javascript
 // Get team capacity for iteration
 mcp__azure-devops__work_get_team_capacity({
-    project: "Relief Center",
-    team: "Relief Center Team",
+    project: "Project Alpha",
+    team: "Project Alpha Team",
     iterationId: "sprint-15-guid"
 })
 ```
@@ -366,8 +366,8 @@ mcp__azure-devops__work_get_team_capacity({
 ```javascript
 // Update capacity for team member
 mcp__azure-devops__work_update_team_capacity({
-    project: "Relief Center",
-    team: "Relief Center Team",
+    project: "Project Alpha",
+    team: "Project Alpha Team",
     teamMemberId: "member-guid",
     iterationId: "sprint-15-guid",
     activities: [
@@ -418,7 +418,7 @@ mcp__azure-devops__wit_update_work_items_batch({
 ```javascript
 // Only request what you need
 mcp__azure-devops__wit_get_work_item({
-    project: "Relief Center",
+    project: "Project Alpha",
     id: 123,
     expand: "none"  // Fastest
     // expand: "fields"  // Include all fields
@@ -435,7 +435,7 @@ mcp__azure-devops__wit_get_work_item({
 repositoryId: "my-repo"
 
 // CORRECT: Get ID first
-const repos = await mcp__azure-devops__repo_list_repos_by_project({ project: "Relief Center" })
+const repos = await mcp__azure-devops__repo_list_repos_by_project({ project: "Project Alpha" })
 const repoId = repos.find(r => r.name === "my-repo").id
 // Then use: repositoryId: repoId
 ```
@@ -445,7 +445,7 @@ const repoId = repos.find(r => r.name === "my-repo").id
 ```javascript
 // Use Html format for rich descriptions
 mcp__azure-devops__wit_create_work_item({
-    project: "Relief Center",
+    project: "Project Alpha",
     workItemType: "Bug",
     fields: [
         { name: "System.Title", value: "Login fails on mobile" },
@@ -488,7 +488,7 @@ When MCP calls fail:
 ```javascript
 // Always use top parameter for large queries
 mcp__azure-devops__wit_my_work_items({
-    project: "Relief Center",
+    project: "Project Alpha",
     top: 50  // Don't fetch all items
 })
 ```
@@ -505,9 +505,9 @@ Claude can make multiple independent MCP calls in parallel:
 ```javascript
 // These can run in parallel
 Promise.all([
-    mcp__azure-devops__wit_my_work_items({ project: "Relief Center" }),
-    mcp__azure-devops__pipelines_get_builds({ project: "Relief Center", top: 5 }),
-    mcp__azure-devops__search_code({ searchText: "TODO", project: ["Relief Center"] })
+    mcp__azure-devops__wit_my_work_items({ project: "Project Alpha" }),
+    mcp__azure-devops__pipelines_get_builds({ project: "Project Alpha", top: 5 }),
+    mcp__azure-devops__search_code({ searchText: "TODO", project: ["Project Alpha"] })
 ])
 ```
 
