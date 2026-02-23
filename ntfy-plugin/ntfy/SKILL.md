@@ -920,6 +920,76 @@ $notify.Dispose()
 
 ---
 
+## GitHub Actions Integration
+
+Send ntfy notifications from GitHub Actions workflows (CI/CD Stage 5).
+
+### Basic Notification Step
+
+```yaml
+# Add at the end of any deploy/test job
+- name: Notify via ntfy
+  if: always()
+  run: |
+    STATUS="${{ job.status }}"
+    if [ "$STATUS" = "success" ]; then
+      ICON="✅"; PRIORITY="default"; TAGS="white_check_mark"
+    else
+      ICON="❌"; PRIORITY="high"; TAGS="x"
+    fi
+    curl -s \
+      -H "Title: $ICON Odoo CI $STATUS" \
+      -H "Priority: $PRIORITY" \
+      -H "Tags: odoo,$TAGS" \
+      -H "Click: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+      -d "Branch: ${{ github.ref_name }} | Job: ${{ github.job }}" \
+      https://ntfy.sh/${{ secrets.NTFY_TOPIC }}
+```
+
+**Required GitHub Secret**: Add `NTFY_TOPIC` in repo → Settings → Secrets → Actions.
+
+### Cross-Workflow Notification
+
+```yaml
+# Notify when another workflow (like "Automated Tests") completes
+name: Notify on CI Complete
+on:
+  workflow_run:
+    workflows: ["Automated Tests", "Deploy to Staging"]
+    types: [completed]
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send notification
+        run: |
+          CONCLUSION="${{ github.event.workflow_run.conclusion }}"
+          WORKFLOW="${{ github.event.workflow_run.name }}"
+          ICON=$([ "$CONCLUSION" = "success" ] && echo "✅" || echo "❌")
+          curl -s \
+            -H "Title: $ICON $WORKFLOW — $CONCLUSION" \
+            -H "Priority: $([ "$CONCLUSION" = "success" ] && echo 'low' || echo 'high')" \
+            -H "Tags: odoo,github" \
+            -d "Branch: ${{ github.event.workflow_run.head_branch }}" \
+            https://ntfy.sh/${{ secrets.NTFY_TOPIC }}
+```
+
+### Production Deployment Approval Notification
+
+```yaml
+- name: Notify approval required
+  run: |
+    curl -s \
+      -H "Title: ⏳ Production Deploy Awaiting Approval" \
+      -H "Priority: high" \
+      -H "Tags: odoo,eyes" \
+      -H "Actions: view, Approve in GitHub, ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+      -d "Tag ${{ github.ref_name }} is ready to deploy to production. Approve or reject." \
+      https://ntfy.sh/${{ secrets.NTFY_TOPIC }}
+```
+
+---
+
 ## CRITICAL REMINDER
 
 **Sending notifications is MANDATORY, not optional.**

@@ -209,4 +209,98 @@ jobs:
 
 ---
 
+## GitHub Actions CI/CD Integration for Odoo Projects
+
+### PR Status Badge in README
+
+```markdown
+![CI](https://github.com/YOUR-ORG/your-repo/actions/workflows/1-lint.yml/badge.svg)
+![Tests](https://github.com/YOUR-ORG/your-repo/actions/workflows/2-test.yml/badge.svg)
+```
+
+### Require CI to Pass Before Merge
+
+In GitHub repo → Settings → Branches → Branch protection rules → `main`:
+- ✓ Require status checks to pass before merging
+- Status checks to require: `Lint & Code Quality`, `Automated Tests`
+- ✓ Require branches to be up to date before merging
+
+### Trigger Azure DevOps Pipeline from GitHub Actions
+
+```yaml
+# .github/workflows/trigger-devops.yml
+name: Trigger Azure DevOps Build
+on:
+  push:
+    branches: [main]
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Azure DevOps Pipeline
+        run: |
+          curl -s -X POST \
+            -H "Authorization: Basic $(echo -n :${{ secrets.AZURE_DEVOPS_PAT }} | base64)" \
+            -H "Content-Type: application/json" \
+            -d '{"resources": {"repositories": {"self": {"refName": "refs/heads/main"}}}}' \
+            "https://dev.azure.com/YOUR-ORG/MyProject/_apis/pipelines/1/runs?api-version=6.0"
+```
+
+### Odoo-Specific Branch Naming for CI Triggers
+
+```bash
+# Feature branch linked to work item
+git checkout -b feature/AB1234-payment-gateway
+
+# Bug fix branch
+git checkout -b fix/AB1235-invoice-generation-error
+
+# Release branch (triggers production deploy)
+git checkout -b release/v17.1.0  # Creates tag → triggers production pipeline
+
+# Hotfix
+git checkout -b hotfix/AB1236-critical-settlement-bug
+```
+
+### Auto-Update DevOps Work Item When GitHub Actions Completes
+
+```yaml
+# Add to end of deploy workflow
+      - name: Update Azure DevOps Work Item
+        if: success()
+        run: |
+          # Extract work item from branch name (AB#1234)
+          WORK_ITEM=$(echo "${{ github.ref_name }}" | grep -oP '(?<=AB)\d+' || echo "")
+          if [ -n "$WORK_ITEM" ]; then
+            az boards work-item update \
+              --id "$WORK_ITEM" \
+              --state "Done" \
+              --discussion "Deployed via GitHub Actions: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+              --org https://dev.azure.com/YOUR-ORG
+          fi
+        env:
+          AZURE_DEVOPS_EXT_PAT: ${{ secrets.AZURE_DEVOPS_PAT }}
+```
+
+### View GitHub Actions Status from CLI
+
+```bash
+# List recent CI runs
+gh run list --workflow="1-lint.yml" --limit 10
+
+# Watch a running workflow
+gh run watch
+
+# View failed run logs
+gh run view --log-failed
+
+# Re-run failed jobs only
+gh run rerun --failed
+
+# Check PR CI status
+gh pr checks 42
+```
+
+---
+
 *Part of devops-plugin v2.0 — YOUR-ORG*
