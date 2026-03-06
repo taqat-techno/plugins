@@ -15,6 +15,33 @@ Generate a formatted daily standup report based on your Azure DevOps work items.
 - Use `mcp_ado_workitems_query_workitems` tool (NOT `search_work_items`)
 - **ALWAYS query by project** - Never query without project scope
 
+### Step 0: Read Work Tracker for Context (Optional Enrichment)
+
+Before querying the API, check if local time tracking data is available:
+
+```
+1. Try to Read ~/.claude/work-tracker-data.json
+2. If found:
+   a. Get yesterday's date (YYYY-MM-DD) and today's date
+   b. Read timeLog[yesterday] entries → use for "Completed" section
+      - These entries have descriptions and hours spent
+      - Richer context than API state changes alone
+   c. Read timeLog[today] entries → use for "In Progress" section
+      - Shows what work has already been logged today
+   d. Use this data to SUPPLEMENT (not replace) the API query results
+   e. Show hours spent alongside work items
+3. If NOT found: skip this step, proceed with API-only standup
+```
+
+**Enriched output example**:
+```
+### Completed (Yesterday) - 6.5h logged
+- [Task] #1828: Map duration investigation (3.0h)
+- [Bug] #1636: Checksum debugging (1.5h)
+- Meeting: Sprint planning (1.0h)
+- Research: MapTiler 3D performance docs (1.0h)
+```
+
 ### Step-by-Step:
 
 1. **First, list all projects** using `mcp_ado_core_list_projects`

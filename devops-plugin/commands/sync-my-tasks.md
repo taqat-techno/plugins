@@ -173,7 +173,39 @@ TodoWrite({
 })
 ```
 
-### Step 5: Report Results
+### Step 5: Update Persistent Work Tracker
+
+After syncing to TodoWrite, also update the persistent local tracker files:
+
+```
+1. Read existing ~/.claude/work-tracker-data.json (or create from defaults if missing)
+   - If missing: read data/work_tracker_defaults.json from plugin directory
+   - Initialize with empty arrays: cachedWorkItems=[], timeLog={}, timeOff=[]
+2. Transform fetched work items to cached format:
+   {
+     "id": <System.Id>,
+     "project": "<System.TeamProject>",
+     "type": "<System.WorkItemType>",
+     "title": "<System.Title>",
+     "state": "<System.State>",
+     "priority": <Microsoft.VSTS.Common.Priority>,
+     "iterationPath": "<System.IterationPath>",
+     "url": "https://dev.azure.com/{ORG}/{PROJECT_URL_ENCODED}/_workitems/edit/{ID}",
+     "lastFetched": "<current ISO-8601 timestamp>"
+   }
+3. REPLACE cachedWorkItems array entirely
+4. Update lastSync to current ISO-8601 timestamp
+5. PRESERVE existing timeLog and timeOff data (do NOT overwrite)
+6. Write updated work-tracker-data.json
+7. Regenerate ~/.claude/work-tracker.md from the JSON data:
+   - Sync Status section (lastSync, item count, projects)
+   - Current Sprint section (active items table)
+   - Time Log sections (from existing timeLog data)
+   - Compliance Dashboard (from timeLog + timeOff + settings)
+8. Report: "Persistent work tracker updated at ~/.claude/work-tracker.md"
+```
+
+### Step 6: Report Results
 
 ```markdown
 ## Tasks Synced ✓
@@ -285,6 +317,9 @@ ORDER BY [Microsoft.VSTS.Common.Priority], [System.ChangedDate] DESC
 
 ## Related Commands
 
-- `/my-tasks` - View Azure DevOps tasks (read-only, no TODO sync)
+- `/workday` - Full daily dashboard with time tracking
+- `/work-sync` - Dedicated persistent sync command
+- `/my-tasks` - View Azure DevOps tasks (cache-first)
+- `/log-time` - Log hours against work items
 - `/standup` - Generate standup notes from recent activity
 - `/sprint` - View sprint progress

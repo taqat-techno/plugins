@@ -17,6 +17,7 @@ Memories are markdown files that Claude loads to understand:
 |------|----------|-------------|
 | `hybrid_routing.md` | HIGH | Decision matrix for CLI vs MCP routing |
 | `cli_best_practices.md` | HIGH | Azure DevOps CLI patterns and tips |
+| `work_tracking.md` | HIGH | Work tracker file patterns, time logging, compliance checks |
 | `mcp_best_practices.md` | MEDIUM | MCP tool usage patterns |
 | `automation_templates.md` | MEDIUM | Reusable scripts (PowerShell, Bash, Python) |
 | `wiql_queries.md` | LOW | Common Work Item Query Language patterns |

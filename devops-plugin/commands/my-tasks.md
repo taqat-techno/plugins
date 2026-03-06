@@ -32,6 +32,31 @@ Display all active work items assigned to the current user.
 
 ## Instructions
 
+### Step 0: Check Local Cache (Work Tracker)
+
+Before making API calls, check if cached data in the work tracker is fresh:
+
+```
+1. Try to Read ~/.claude/work-tracker-data.json
+2. If found AND lastSync is not null:
+   a. Calculate hours since lastSync
+   b. If hours <= stalenessThresholdHours (default 4):
+      → Data is FRESH - display from cachedWorkItems
+      → Show "Source: Local cache (synced Xh ago) | Run /work-sync --force to refresh"
+      → Group by project, sort by priority
+      → Use the same Output Format below
+      → STOP (no API calls needed)
+   c. If hours > threshold:
+      → Data is STALE - proceed to Step 1 (API fetch)
+3. If NOT found or lastSync is null:
+   → No cache available - proceed to Step 1 (API fetch)
+4. After API fetch completes (Steps 1-3):
+   a. Update cachedWorkItems in work-tracker-data.json
+   b. Update lastSync timestamp
+   c. Write updated work-tracker-data.json
+   d. Show "Source: Azure DevOps API (cache updated)"
+```
+
 ### Step 1: Get Projects (Optional Context)
 
 If user hasn't specified a project:
@@ -139,8 +164,17 @@ Before executing, verify:
 - [ ] Project parameter is provided
 - [ ] `includeCompleted` set based on user preference
 - [ ] Will use `wit_get_work_items_batch_by_ids` for full details
+- [ ] Check local cache first (Step 0) before API calls
+
+## Related Commands
+
+- `/workday` - Full daily dashboard with time tracking
+- `/work-sync` - Force sync work items to local cache
+- `/sync-my-tasks` - Sync tasks to Claude TODO list
+- `/log-time` - Log hours against work items
 
 ---
 
-*Part of DevOps Plugin v3.0*
+*Part of DevOps Plugin v3.0 - Work Tracking System*
 *Tool Selection Guard: Enabled*
+*Cache-First: Enabled*

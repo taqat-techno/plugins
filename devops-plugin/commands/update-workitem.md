@@ -408,17 +408,64 @@ Before any state change, verify:
 └─────────────────────────────────────────────────────────────────┘
 ```
 
+## Step 5: Auto-Prompt Time Logging (Work Tracker Integration)
+
+When a work item state changes to **Done**, **Closed**, or **Resolved**, automatically offer to log the hours in the persistent work tracker:
+
+```
+1. Check if state was changed to Done/Closed/Resolved
+2. If YES:
+   a. Note the CompletedWork hours from the update (already collected in Step 3)
+   b. Ask the user:
+      "Would you like me to log {CompletedWork}h for #{id} in your work tracker?"
+   c. If user agrees (or doesn't object):
+      - Read ~/.claude/work-tracker-data.json
+      - Add entry to timeLog[today]:
+        {
+          "hours": <CompletedWork>,
+          "type": "task",
+          "workItemId": <id>,
+          "description": "Completed: <title>"
+        }
+      - Recalculate today's total
+      - Write updated work-tracker-data.json
+      - Regenerate work-tracker.md day section
+      - Run compliance check:
+        If total < minHoursPerDay:
+          "Today: {total}h / {min}h logged. {remaining}h remaining."
+        Else:
+          "Today: {total}h / {min}h logged. Target met!"
+      - Report: "Logged {hours}h in work tracker for #{id}"
+3. If state NOT changed to completion state: skip this step
+4. If work-tracker-data.json doesn't exist: skip (user hasn't set up work tracking)
+```
+
+**Example output after marking task Done**:
+```
+Task #1234 "Fix login bug" marked as Done
+
+- Original Estimate: 8 hours
+- Completed Work: 6 hours
+- Remaining Work: 0 hours
+
+Logged 6.0h in work tracker for #1234
+Today: 7.5h / 6.0h logged. Target met!
+```
+
 ## Related Commands
 
 | Command | Description |
 |---------|-------------|
 | `/create-task` | Create task with hierarchy |
 | `/create-bug` | Create bug with parent task |
-| `/show-workitem` | View work item details |
-| `/my-tasks` | List assigned work items |
+| `/my-tasks` | List assigned work items (cache-first) |
+| `/workday` | Daily dashboard with time tracking |
+| `/log-time` | Manually log hours |
+| `/timesheet` | View time tracking status |
 
 ---
 
-*Part of DevOps Plugin v3.0*
+*Part of DevOps Plugin v3.0 - Work Tracking System*
 *Pre-Flight Validation: Enabled*
 *Error Recovery System: Enabled*
+*Auto Time Logging: Enabled*
