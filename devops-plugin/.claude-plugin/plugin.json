@@ -1,7 +1,7 @@
 {
   "name": "devops",
-  "version": "2.0.0",
-  "description": "Azure DevOps HYBRID integration — - combines CLI power with MCP convenience. Features: unified setup with CLI installation + MCP configuration, intelligent routing between CLI and MCP, automation templates, predefined memories, and 100+ MCP tools. Best of both worlds for maximum DevOps productivity.",
+  "version": "3.0.0",
+  "description": "Azure DevOps HYBRID integration with Work Tracking System. Features: workday dashboard, time logging with compliance enforcement, persistent work item cache, unified setup with CLI + MCP, intelligent routing, automation templates, predefined memories, and 100+ MCP tools.",
   "author": {
     "name": "TAQAT Techno",
     "email": "support@example.com",
@@ -27,7 +27,11 @@
     "scrum",
     "sprint",
     "taqatechno",
-    "project-management"
+    "project-management",
+    "time-tracking",
+    "work-tracking",
+    "timesheet",
+    "compliance"
   ],
   "skills": "./devops/",
   "commands": "./commands/",
@@ -37,9 +41,9 @@
     "organization": "YOUR-ORG",
     "release-date": "2025-12",
     "mode": "hybrid",
-    "commands-count": 12,
+    "commands-count": 17,
     "scripts-count": 10,
-    "memory-files-count": 6,
+    "memory-files-count": 7,
     "mcp-server": "@anthropic-ai/azure-devops-mcp",
     "mcp-version": "latest",
     "cli-extension": "azure-devops",
@@ -128,9 +132,16 @@
       "test-plan-management",
       "security-alerts",
       "automation-scripts",
-      "predefined-memories"
+      "predefined-memories",
+      "work-tracking",
+      "time-compliance",
+      "workday-dashboard",
+      "persistent-work-cache",
+      "time-logging",
+      "timesheet-reports"
     ],
     "version-history": [
+      "3.0.0",
       "2.0.0",
       "1.3.0",
       "1.2.0",
