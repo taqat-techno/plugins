@@ -11,7 +11,7 @@ python C:\tmp\plugins\odoo-upgrade-plugin\odoo-upgrade\scripts\odoo19_precheck.p
 
 **Example**:
 ```bash
-python odoo19_precheck.py C:\odoo\odoo17\projects\my_project
+python odoo19_precheck.py C:\TQ-WorkSpace\odoo\odoo17\projects\my_project
 ```
 
 **Output**:
@@ -53,7 +53,7 @@ python C:\tmp\plugins\odoo-upgrade-plugin\odoo-upgrade\scripts\upgrade_to_odoo19
 ### Step 1: Pre-Check
 Always start with a pre-check to understand what needs fixing:
 ```bash
-python odoo19_precheck.py C:\odoo\odoo17\projects\my_project
+python odoo19_precheck.py C:\TQ-WorkSpace\odoo\odoo17\projects\my_project
 ```
 
 ### Step 2: Quick Fix or Full Upgrade
@@ -61,13 +61,13 @@ python odoo19_precheck.py C:\odoo\odoo17\projects\my_project
 **Option A: Quick Fix (Faster)**
 If you only have common issues:
 ```bash
-python quick_fix_odoo19.py C:\odoo\odoo17\projects\my_project
+python quick_fix_odoo19.py C:\TQ-WorkSpace\odoo\odoo17\projects\my_project
 ```
 
 **Option B: Full Upgrade (Comprehensive)**
 For complete migration with backup:
 ```bash
-python upgrade_to_odoo19.py C:\odoo\odoo17\projects\my_project
+python upgrade_to_odoo19.py C:\TQ-WorkSpace\odoo\odoo17\projects\my_project
 ```
 
 ### Step 3: Test Installation
@@ -82,7 +82,7 @@ python -m odoo -d test_db_19 -i your_module --stop-after-init
 ### Step 4: Verify
 Run pre-check again to confirm all issues are resolved:
 ```bash
-python odoo19_precheck.py C:\odoo\odoo19\projects\my_project
+python odoo19_precheck.py C:\TQ-WorkSpace\odoo\odoo19\projects\my_project
 ```
 
 ## Common Issues and Solutions
@@ -127,7 +127,7 @@ done
 @echo off
 for %%p in (project1 project2 project3) do (
     echo Upgrading %%p...
-    python upgrade_to_odoo19.py "C:\odoo\odoo17\projects\%%p"
+    python upgrade_to_odoo19.py "C:\TQ-WorkSpace\odoo\odoo17\projects\%%p"
 )
 ```
 

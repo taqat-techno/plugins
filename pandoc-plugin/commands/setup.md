@@ -46,13 +46,13 @@ This will:
 ### Windows (PowerShell)
 ```powershell
 # Full setup (Pandoc + LaTeX)
-powershell -ExecutionPolicy Bypass -File "C:\odoo\tmp\plugins\pandoc-plugin\pandoc\scripts\setup.ps1"
+powershell -ExecutionPolicy Bypass -File "C:\TQ-WorkSpace\odoo\tmp\plugins\pandoc-plugin\pandoc\scripts\setup.ps1"
 
 # Skip LaTeX (Pandoc only)
-powershell -ExecutionPolicy Bypass -File "C:\odoo\tmp\plugins\pandoc-plugin\pandoc\scripts\setup.ps1" -SkipLatex
+powershell -ExecutionPolicy Bypass -File "C:\TQ-WorkSpace\odoo\tmp\plugins\pandoc-plugin\pandoc\scripts\setup.ps1" -SkipLatex
 
 # Quiet mode
-powershell -ExecutionPolicy Bypass -File "C:\odoo\tmp\plugins\pandoc-plugin\pandoc\scripts\setup.ps1" -Quiet
+powershell -ExecutionPolicy Bypass -File "C:\TQ-WorkSpace\odoo\tmp\plugins\pandoc-plugin\pandoc\scripts\setup.ps1" -Quiet
 ```
 
 ### Linux/macOS (Bash)

@@ -127,7 +127,7 @@ You can force an environment by passing flags:
 
 ```powershell
 # Step 1: Navigate to your Odoo version directory
-cd C:\odoo\odoo17
+cd C:\TQ-WorkSpace\odoo\odoo17
 
 # Step 2: Create virtual environment
 python -m venv .venv
@@ -214,10 +214,10 @@ if not check_python_compatibility(17):
 
 ```bash
 # Separate venv per Odoo version
-C:\odoo\odoo14\.venv\   # Python 3.8
-C:\odoo\odoo15\.venv\   # Python 3.9
-C:\odoo\odoo17\.venv\   # Python 3.11
-C:\odoo\odoo18\.venv\   # Python 3.11
+C:\TQ-WorkSpace\odoo\odoo14\.venv\   # Python 3.8
+C:\TQ-WorkSpace\odoo\odoo15\.venv\   # Python 3.9
+C:\TQ-WorkSpace\odoo\odoo17\.venv\   # Python 3.11
+C:\TQ-WorkSpace\odoo\odoo18\.venv\   # Python 3.11
 
 # Each has its own requirements installed independently
 # Never share venvs across Odoo versions
@@ -276,7 +276,7 @@ $job.Id  # Save this to stop later
 Start-Process python -ArgumentList "-m odoo -c conf\myproject.conf" -WindowStyle Hidden -RedirectStandardOutput "logs\odoo.log" -RedirectStandardError "logs\odoo_err.log"
 
 # Method 4: Windows service (nssm recommended for production)
-nssm install OdooService "python" "-m odoo -c C:\odoo\odoo17\conf\myproject.conf"
+nssm install OdooService "python" "-m odoo -c C:\TQ-WorkSpace\odoo\odoo17\conf\myproject.conf"
 nssm start OdooService
 ```
 

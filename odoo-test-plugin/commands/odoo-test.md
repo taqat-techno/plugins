@@ -57,7 +57,7 @@ import glob
 from pathlib import Path
 
 module_name = "${ARGS}".split()[0]
-odoo_root = Path(r"C:\odoo")
+odoo_root = Path(r"C:\TQ-WorkSpace\odoo")
 
 # Search for module across all Odoo versions
 found_modules = list(odoo_root.glob(f"odoo*/projects/*/{module_name}"))

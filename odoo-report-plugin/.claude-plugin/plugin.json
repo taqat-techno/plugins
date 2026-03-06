@@ -28,7 +28,7 @@
     "optional_modules": ["sale", "purchase", "account", "hr_recruitment", "calendar", "event"]
   },
   "configuration": {
-    "default_odoo_path": "C:\\odoo",
+    "default_odoo_path": "C:\\TQ-WorkSpace\\odoo",
     "version_detection": "auto",
     "template_output_format": "xml"
   }

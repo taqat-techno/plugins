@@ -60,7 +60,7 @@ Run this Python code to handle the command:
 
 ```python
 import sys
-PLUGIN_PATH = r"C:\odoo\tmp\plugins\ntfy-plugin\ntfy\scripts"
+PLUGIN_PATH = r"C:\TQ-WorkSpace\odoo\tmp\plugins\ntfy-plugin\ntfy\scripts"
 sys.path.insert(0, PLUGIN_PATH)
 
 from session import cli_handler

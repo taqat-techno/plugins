@@ -236,9 +236,9 @@ python -m odoo -c conf/projectB17.conf  # dbfilter=projectB17.*
 ### Windows Task Scheduler
 
 ```powershell
-# Create backup script: C:\odoo\backup_all.ps1
+# Create backup script: C:\TQ-WorkSpace\odoo\backup_all.ps1
 $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
-$backupDir = "C:\odoo\backups"
+$backupDir = "C:\TQ-WorkSpace\odoo\backups"
 
 # Create backup directory
 New-Item -ItemType Directory -Force -Path $backupDir | Out-Null
@@ -256,7 +256,7 @@ Write-Host "Backup complete: $timestamp"
 
 ```powershell
 # Schedule via Task Scheduler
-schtasks /create /tn "OdooBackup" /tr "powershell -File C:\odoo\backup_all.ps1" /sc daily /st 02:00
+schtasks /create /tn "OdooBackup" /tr "powershell -File C:\TQ-WorkSpace\odoo\backup_all.ps1" /sc daily /st 02:00
 ```
 
 ### Linux Cron Job

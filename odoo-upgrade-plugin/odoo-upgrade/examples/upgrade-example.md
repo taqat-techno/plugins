@@ -20,7 +20,7 @@ Module Name: custom_inventory
 Project: warehouse_management
 Source Version: 17
 Target Version: 18
-Source Path: C:\odoo\odoo17\projects\warehouse_management\custom_inventory
+Source Path: C:\TQ-WorkSpace\odoo\odoo17\projects\warehouse_management\custom_inventory
 ```
 
 **2. Analysis Results**
@@ -62,7 +62,7 @@ JavaScript:
 
 **5. Output**
 ```
-📁 Upgraded: C:\odoo\odoo18\projects\warehouse_management\custom_inventory
+📁 Upgraded: C:\TQ-WorkSpace\odoo\odoo18\projects\warehouse_management\custom_inventory
 💾 Backup: custom_inventory.backup_from_v17
 📄 Report: custom_inventory_UPGRADE_REPORT.md
 ```
@@ -281,7 +281,7 @@ probability = fields.Float(string='Success Rate')
 **Recovery Instructions**:
 ```bash
 # Restore from backup
-cd C:\odoo\odoo17\projects\crm_custom
+cd C:\TQ-WorkSpace\odoo\odoo17\projects\crm_custom
 rm -rf custom_crm
 cp -r custom_crm.backup_from_v15 custom_crm
 

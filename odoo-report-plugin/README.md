@@ -129,7 +129,7 @@ The plugin handles automatic migration between versions:
 
 ## Documentation
 
-- **Full Research**: `C:\odoo\researches\ODOO_EMAIL_TEMPLATES_COMPLETE_RESEARCH.md`
+- **Full Research**: `C:\TQ-WorkSpace\odoo\researches\ODOO_EMAIL_TEMPLATES_COMPLETE_RESEARCH.md`
 - **SKILL Reference**: `odoo-report/SKILL.md`
 - **Pattern Library**: `templates/email/*.xml`, `templates/qweb/*.xml`
 

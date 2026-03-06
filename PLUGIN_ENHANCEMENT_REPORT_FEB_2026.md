@@ -1,6 +1,6 @@
 # Plugin Enhancement Report — February 2026
 **Author**: Deep analysis across all sessions, MD files, SKILL files, changelogs, session learnings, memory files, pattern libraries, and error catalogs
-**Scope**: `C:\odoo\tmp\plugins` — 8 active plugins
+**Scope**: `C:\TQ-WorkSpace\odoo\tmp\plugins` — 8 active plugins
 **Status**: Actionable enhancements + 8 new plugin proposals
 
 ---

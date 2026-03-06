@@ -98,7 +98,7 @@ The plugin automatically detects Odoo version from:
 
 ## Documentation
 
-- **Full Research**: `C:\odoo\researches\ODOO_EMAIL_TEMPLATES_COMPLETE_RESEARCH.md`
+- **Full Research**: `C:\TQ-WorkSpace\odoo\researches\ODOO_EMAIL_TEMPLATES_COMPLETE_RESEARCH.md`
 - **Plugin SKILL**: `odoo-report/SKILL.md`
 - **Pattern Library**: `templates/email/*.xml`, `templates/qweb/*.xml`
 

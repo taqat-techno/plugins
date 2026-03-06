@@ -1,7 +1,7 @@
 # Odoo-Upgrade Plugin Enhancement Summary
 ## Your Plugin Upgraded: v3.0 → v3.1
 
-**Location**: `C:\odoo\tmp\plugins\odoo-upgrade-plugin\odoo-upgrade`
+**Location**: `C:\TQ-WorkSpace\odoo\tmp\plugins\odoo-upgrade-plugin\odoo-upgrade`
 **Date**: 2025-11-03
 **Status**: ✅ **COMPLETE - READY TO USE**
 
@@ -111,8 +111,8 @@ return {'view_mode': 'list,form'}  ✅ WORKS
 
 ### Pre-Check (Now Detects All Issues)
 ```bash
-cd C:\odoo\tmp\plugins\odoo-upgrade-plugin\odoo-upgrade
-python scripts/odoo19_precheck.py C:\odoo\odoo19\projects\relief_center
+cd C:\TQ-WorkSpace\odoo\tmp\plugins\odoo-upgrade-plugin\odoo-upgrade
+python scripts/odoo19_precheck.py C:\TQ-WorkSpace\odoo\odoo19\projects\relief_center
 
 # Will now report:
 # - CRITICAL: Found 2 xpath expression(s) with '//tree' - must be '//list'
@@ -122,7 +122,7 @@ python scripts/odoo19_precheck.py C:\odoo\odoo19\projects\relief_center
 
 ### Auto-Upgrade (Now Fixes All Issues)
 ```bash
-python scripts/upgrade_to_odoo19.py C:\odoo\odoo19\projects\relief_center 19
+python scripts/upgrade_to_odoo19.py C:\TQ-WorkSpace\odoo\odoo19\projects\relief_center 19
 
 # Will automatically fix:
 # ✅ All XPath expressions (//tree → //list)
@@ -132,10 +132,10 @@ python scripts/upgrade_to_odoo19.py C:\odoo\odoo19\projects\relief_center 19
 
 ### Quick Fix (Fast Mode)
 ```bash
-python scripts/quick_fix_odoo19.py C:\odoo\odoo19\projects\relief_center
+python scripts/quick_fix_odoo19.py C:\TQ-WorkSpace\odoo\odoo19\projects\relief_center
 
 # Dry-run mode to preview fixes
-python scripts/quick_fix_odoo19.py C:\odoo\odoo19\projects\relief_center --dry-run
+python scripts/quick_fix_odoo19.py C:\TQ-WorkSpace\odoo\odoo19\projects\relief_center --dry-run
 ```
 
 ---
@@ -163,7 +163,7 @@ python scripts/quick_fix_odoo19.py C:\odoo\odoo19\projects\relief_center --dry-r
 
 1. **Try it now** on your relief_center project:
    ```bash
-   python scripts/odoo19_precheck.py C:\odoo\odoo19\projects\relief_center
+   python scripts/odoo19_precheck.py C:\TQ-WorkSpace\odoo\odoo19\projects\relief_center
    ```
 
 2. **See the enhanced detection** in action with comprehensive reports
@@ -189,7 +189,7 @@ python scripts/quick_fix_odoo19.py C:\odoo\odoo19\projects\relief_center --dry-r
 ## Files Location
 
 ```
-C:\odoo\tmp\plugins\odoo-upgrade-plugin\odoo-upgrade\
+C:\TQ-WorkSpace\odoo\tmp\plugins\odoo-upgrade-plugin\odoo-upgrade\
 ├── scripts\
 │   ├── odoo19_precheck.py        # ✅ Enhanced detection
 │   ├── upgrade_to_odoo19.py      # ✅ Enhanced auto-fixes

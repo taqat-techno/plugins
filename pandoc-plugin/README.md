@@ -76,7 +76,7 @@ brew install pandoc && brew install --cask mactex
 
 1. Copy the `pandoc-plugin` folder to your Claude Code plugins directory:
    ```
-   C:\odoo\tmp\plugins\pandoc-plugin\
+   C:\TQ-WorkSpace\odoo\tmp\plugins\pandoc-plugin\
    ```
 
 2. The plugin will be automatically detected by Claude Code.
