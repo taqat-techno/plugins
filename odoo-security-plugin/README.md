@@ -57,8 +57,8 @@ python odoo-security/scripts/security_auditor.py /path/to/your/module
 python odoo-security/scripts/security_auditor.py /path/to/odoo17/projects/my_project/my_module
 
 # Example with a real Odoo installation on Windows
-python "C:\odoo\tmp\plugins\odoo-security-plugin\odoo-security\scripts\security_auditor.py" \
-    "C:\odoo\odoo17\projects\my_project\my_module"
+python "C:\TQ-WorkSpace\odoo\tmp\plugins\odoo-security-plugin\odoo-security\scripts\security_auditor.py" \
+    "C:\TQ-WorkSpace\odoo\odoo17\projects\my_project\my_module"
 ```
 
 ### Run Individual Auditors

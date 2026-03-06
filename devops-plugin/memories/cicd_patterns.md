@@ -352,7 +352,7 @@ repos:
 ## Repository Structure for Monorepo CI/CD
 
 ```
-C:\odoo\  (or your repo root)
+C:\TQ-WorkSpace\odoo\  (or your repo root)
 ├── .github\
 │   ├── workflows\
 │   │   ├── 1-lint.yml

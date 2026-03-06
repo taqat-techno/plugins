@@ -1444,7 +1444,7 @@ odoo/addons/account/
 
 | Document | Path | Purpose |
 |----------|------|---------|
-| Email Research | `C:\odoo\researches\ODOO_EMAIL_TEMPLATES_COMPLETE_RESEARCH.md` | Full research documentation |
+| Email Research | `C:\TQ-WorkSpace\odoo\researches\ODOO_EMAIL_TEMPLATES_COMPLETE_RESEARCH.md` | Full research documentation |
 | Odoo 17 CLAUDE.md | `odoo17\CLAUDE.md` | Development commands |
 | Design System | `odoo17\DESIGN_SYSTEM_RULES.md` | Theme styling rules |
 

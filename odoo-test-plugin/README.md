@@ -23,7 +23,7 @@ Comprehensive Odoo testing toolkit for Claude Code. Generates test skeletons, ru
 
 Place this plugin directory at:
 ```
-C:\odoo\tmp\plugins\odoo-test-plugin\
+C:\TQ-WorkSpace\odoo\tmp\plugins\odoo-test-plugin\
 ```
 
 The plugin is auto-loaded by Claude Code when the `.claude-plugin/plugin.json` is detected.

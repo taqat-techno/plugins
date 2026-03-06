@@ -43,7 +43,7 @@ A powerful MCP (Model Context Protocol) server that provides Claude with compreh
 
 1. **Navigate to the plugin directory**:
 ```bash
-cd C:\odoo\tmp\odoo-claude-plugins\codex
+cd C:\TQ-WorkSpace\odoo\tmp\odoo-claude-plugins\codex
 ```
 
 2. **Install dependencies**:

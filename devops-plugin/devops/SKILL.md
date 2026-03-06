@@ -2357,8 +2357,8 @@ This skill works with **BOTH** Azure DevOps CLI and MCP server in hybrid mode.
 | Resource | Path | Purpose |
 |----------|------|---------|
 | MCP Settings | `C:\Users\ahmed\.claude\settings.json` | MCP server config |
-| Claude Guide | `C:\odoo\AZURE_DEVOPS_MCP_CLAUDE_GUIDE.md` | Developer reference |
-| User Guide | `C:\odoo\AZURE_DEVOPS_USER_GUIDE.md` | End-user documentation |
+| Claude Guide | `C:\TQ-WorkSpace\odoo\AZURE_DEVOPS_MCP_CLAUDE_GUIDE.md` | Developer reference |
+| User Guide | `C:\TQ-WorkSpace\odoo\AZURE_DEVOPS_USER_GUIDE.md` | End-user documentation |
 | Hybrid Routing | `hybrid_routing.md` | CLI vs MCP decision guide |
 | Plugin Config | `plugin.json` | Plugin metadata (v2.0.0) |
 
