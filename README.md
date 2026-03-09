@@ -1,25 +1,31 @@
 # TAQAT Techno Plugins - Claude Code Skills Marketplace
 
-![Plugins](https://img.shields.io/badge/plugins-7-blue.svg)
+![Plugins](https://img.shields.io/badge/plugins-13-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 ![Odoo](https://img.shields.io/badge/Odoo-14--19-purple.svg)
 ![Azure DevOps](https://img.shields.io/badge/Azure_DevOps-Integrated-0078D7.svg)
 
-Production-ready Claude Code plugins for professional development - Odoo ERP, Azure DevOps, universal code assistance, and push notifications.
+Production-ready Claude Code plugins for professional development - Odoo ERP, Azure DevOps, UI/UX Design, Video Creation, Document Conversion, and more.
 
 ---
 
 ## Available Plugins
 
-| Plugin | Description | Version |
-|--------|-------------|---------|
-| [**odoo-upgrade**](./odoo-upgrade-plugin/README.md) | Odoo module upgrade assistant (v14-19) | 1.0.0 |
-| [**odoo-frontend**](./odoo-frontend-plugin/README.md) | Website theme development with Bootstrap | 1.0.0 |
-| [**odoo-report**](./odoo-report-plugin/README.md) | Email templates & QWeb reports (v14-19) | 1.0.0 |
-| [**codex**](./codex-plugin/README.md) | Universal code analysis & generation | 1.0.0 |
-| [**devops**](./devops-plugin/README.md) | Azure DevOps integration via MCP | 1.0.0 |
-| [**ntfy-notifications**](./ntfy-plugin/README.md) | Push notifications to your phone | 2.0.0 |
-| [**pandoc**](./pandoc-plugin/README.md) | Universal document conversion (50+ formats) | 1.0.0 |
+| # | Plugin | Description | Version |
+|---|--------|-------------|---------|
+| 1 | [**odoo-upgrade**](./odoo-upgrade-plugin/README.md) | Odoo module upgrade assistant (v14-19) | 1.0.0 |
+| 2 | [**odoo-frontend**](./odoo-frontend-plugin/README.md) | Website theme development with Bootstrap | 1.0.0 |
+| 3 | [**codex**](./codex-plugin/README.md) | Universal code analysis & generation | 1.0.0 |
+| 4 | [**devops**](./devops-plugin/README.md) | Azure DevOps integration via MCP | 1.0.0 |
+| 5 | [**ntfy-notifications**](./ntfy-plugin/README.md) | Push notifications to your phone | 2.0.0 |
+| 6 | [**odoo-report**](./odoo-report-plugin/README.md) | Email templates & QWeb reports (v14-19) | 1.0.0 |
+| 7 | [**pandoc**](./pandoc-plugin/README.md) | Universal document conversion (50+ formats) | 1.0.0 |
+| 8 | [**remotion**](./remotion-plugin/README.md) | Video creation with voice narration | 1.0.0 |
+| 9 | [**odoo-test**](./odoo-test-plugin/README.md) | Odoo testing toolkit & coverage analysis | 1.0.0 |
+| 10 | [**odoo-security**](./odoo-security-plugin/README.md) | Security audit & risk scoring | 1.0.0 |
+| 11 | [**odoo-i18n**](./odoo-i18n-plugin/README.md) | Internationalization & translation management | 1.0.0 |
+| 12 | [**odoo-service**](./odoo-service-plugin/README.md) | Server lifecycle manager (venv, Docker, IDE) | 1.0.0 |
+| 13 | [**paper**](./paper-plugin/README.md) | UI/UX design specialist with Figma MCP | 1.0.0 |
 
 ---
 
@@ -59,7 +65,7 @@ Ask Claude:
 "Show me available skills"
 ```
 
-You should see all 7 plugins listed.
+You should see all 13 plugins listed.
 
 ---
 
@@ -73,7 +79,7 @@ You should see all 7 plugins listed.
 Automatically upgrade custom Odoo modules across major versions with intelligent code transformations.
 
 **Features:**
-- Multi-version jumps (14 → 19)
+- Multi-version jumps (14 -> 19)
 - Python, XML, JavaScript, SCSS transformations
 - 100+ upgrade patterns
 - Safe migration with backups
@@ -163,7 +169,7 @@ Complete Azure DevOps integration for TaqaTechno organization via MCP server.
 
 ### ntfy Push Notifications
 
-[![Docs](https://img.shields.io/badge/docs-README-blue)](./ntfy-notifications/README.md)
+[![Docs](https://img.shields.io/badge/docs-README-blue)](./ntfy-plugin/README.md)
 [![Free](https://img.shields.io/badge/cost-FREE-brightgreen.svg)]()
 [![ntfy](https://img.shields.io/badge/ntfy.sh-v2.0-orange.svg)]()
 
@@ -186,12 +192,6 @@ Push notifications to your phone when Claude completes tasks, needs input, or en
 | `/ntfy-status` | Check configuration |
 | `/ntfy-history` | View notification history |
 | `/ntfy-config` | Update settings |
-
-**Quick Setup:**
-1. Install **ntfy** app on your phone
-2. Create a unique topic (e.g., `claude-john-x7k9m2`)
-3. Run `/ntfy-setup` in Claude Code
-4. Done! Claude will now notify you automatically
 
 [**Read Full Documentation**](./ntfy-plugin/README.md)
 
@@ -251,15 +251,181 @@ Universal document conversion powered by Pandoc. Transform documents between 50+
 | `/pandoc-slides` | Create presentations |
 | `/pandoc-convert` | General conversion |
 
-**Quick Examples:**
-```bash
-/pandoc-pdf document.md                    # Create PDF
-/pandoc-docx report.md --toc               # Word with TOC
-/pandoc-slides talk.md --theme=moon        # reveal.js slides
-/pandoc-epub book.md --cover=cover.jpg     # eBook with cover
-```
-
 [**Read Full Documentation**](./pandoc-plugin/README.md)
+
+---
+
+### Remotion - Video Creation
+
+[![Docs](https://img.shields.io/badge/docs-README-blue)](./remotion-plugin/README.md)
+[![Remotion](https://img.shields.io/badge/Remotion-4.0-blue.svg)]()
+[![TTS](https://img.shields.io/badge/TTS-edge--tts-green.svg)]()
+
+Create professional videos with smooth voice narration using Remotion and Claude Code.
+
+**Features:**
+- Full video creation from text prompts
+- Free edge-tts voices (200+ voices, 75+ languages)
+- Continuous audio pipeline (no voice cutting)
+- TailwindCSS for visual styling
+- MP4, WebM, and GIF output
+
+**Commands:**
+| Command | Description |
+|---------|-------------|
+| `/remotion` | Status & quick start |
+| `/remotion:create-video` | Full video pipeline |
+| `/remotion:add-voice` | Add narration to existing composition |
+| `/remotion:render-video` | Render to MP4/WebM/GIF |
+| `/remotion:remotion-setup` | Set up new project |
+
+[**Read Full Documentation**](./remotion-plugin/README.md)
+
+---
+
+### Odoo Testing Toolkit
+
+[![Docs](https://img.shields.io/badge/docs-README-blue)](./odoo-test-plugin/README.md)
+[![Odoo](https://img.shields.io/badge/Odoo-14--19-purple.svg)]()
+
+Comprehensive testing toolkit for Odoo modules - generate, run, and analyze tests.
+
+**Features:**
+- Generate test skeletons from model definitions
+- Run tests with formatted, colored output
+- Create realistic mock data for any model
+- Analyze test coverage gaps
+- Tag filtering and JUnit XML reports
+
+**Commands:**
+| Command | Description |
+|---------|-------------|
+| `/odoo-test` | Full testing workflow |
+| `/odoo-test:test-generate` | Generate test skeleton |
+| `/odoo-test:test-run` | Run test suite |
+| `/odoo-test:test-data` | Generate mock data |
+| `/odoo-test:test-coverage` | Analyze coverage |
+| `/odoo-test:e2e-test` | Playwright E2E tests |
+
+[**Read Full Documentation**](./odoo-test-plugin/README.md)
+
+---
+
+### Odoo Security Audit
+
+[![Docs](https://img.shields.io/badge/docs-README-blue)](./odoo-security-plugin/README.md)
+[![Odoo](https://img.shields.io/badge/Odoo-14--19-purple.svg)]()
+[![Security](https://img.shields.io/badge/audit-security-red.svg)]()
+
+Security audit toolkit for Odoo modules with risk scoring and actionable recommendations.
+
+**Features:**
+- Model access rule completeness checks
+- HTTP route authentication audit
+- sudo() usage analysis with context classification
+- Detailed security reports with severity ratings
+- Actionable fix suggestions
+
+**Commands:**
+| Command | Description |
+|---------|-------------|
+| `/odoo-security` | Full security audit |
+| `/odoo-security:check-access` | Check model access rules |
+| `/odoo-security:check-routes` | Audit HTTP routes |
+| `/odoo-security:find-sudo` | Analyze sudo() calls |
+| `/odoo-security:security-audit` | Targeted audit with filtering |
+
+[**Read Full Documentation**](./odoo-security-plugin/README.md)
+
+---
+
+### Odoo Internationalization (i18n)
+
+[![Docs](https://img.shields.io/badge/docs-README-blue)](./odoo-i18n-plugin/README.md)
+[![Odoo](https://img.shields.io/badge/Odoo-14--19-purple.svg)]()
+[![i18n](https://img.shields.io/badge/i18n-RTL%20support-orange.svg)]()
+
+Internationalization toolkit for Odoo modules - extract, validate, and manage translations.
+
+**Features:**
+- Extract translatable strings to .pot/.po files
+- Validate translation completeness by language
+- Find missing translations
+- Arabic/RTL localization support
+- Full Odoo 14-19 version support
+
+**Commands:**
+| Command | Description |
+|---------|-------------|
+| `/odoo-i18n` | Main i18n workflow |
+
+[**Read Full Documentation**](./odoo-i18n-plugin/README.md)
+
+---
+
+### Odoo Server Manager
+
+[![Docs](https://img.shields.io/badge/docs-README-blue)](./odoo-service-plugin/README.md)
+[![Odoo](https://img.shields.io/badge/Odoo-14--19-purple.svg)]()
+[![Docker](https://img.shields.io/badge/Docker-supported-2496ED.svg)]()
+
+Complete Odoo server lifecycle manager - start, stop, deploy, initialize across local venv, Docker, and IDEs.
+
+**Features:**
+- Server startup/shutdown management
+- Environment initialization (venv, PostgreSQL, configs)
+- Database operations (backup, restore, create, drop)
+- Docker orchestration (build, run, logs)
+- IDE config generation (PyCharm, VSCode)
+
+**Commands:**
+| Command | Description |
+|---------|-------------|
+| `/odoo-service` | Main entry point |
+| `/odoo-start` | Start Odoo server |
+| `/odoo-stop` | Stop Odoo server |
+| `/odoo-init` | Initialize environment |
+| `/odoo-db` | Database operations |
+| `/odoo-docker` | Docker management |
+| `/odoo-ide` | Generate IDE configs |
+
+[**Read Full Documentation**](./odoo-service-plugin/README.md)
+
+---
+
+### Paper - UI/UX Design Specialist
+
+[![Docs](https://img.shields.io/badge/docs-README-blue)](./paper-plugin/README.md)
+[![Figma](https://img.shields.io/badge/Figma-MCP%20integrated-F24E1E.svg)]()
+[![WCAG](https://img.shields.io/badge/WCAG-2.1%20AA-green.svg)]()
+
+UI/UX design specialist that transforms Claude into a professional designer. Works with Figma MCP for design-to-code and code-to-design workflows.
+
+**Features:**
+- Multi-platform design (web, iOS, Android, desktop)
+- Figma MCP integration (13 tools)
+- Design system generation & analysis
+- Color theory, typography scales, spacing grids
+- WCAG 2.1 AA accessibility compliance
+- Odoo/Bootstrap theme support
+- ASCII wireframes + HTML/CSS prototypes
+
+**Commands:**
+| Command | Description |
+|---------|-------------|
+| `/design` | Design a screen or component |
+| `/design-review` | Review UI for quality |
+| `/design-system` | Generate or analyze design system |
+| `/figma-sync` | Sync Figma designs with code |
+| `/wireframe` | Quick wireframe generation |
+
+**Agents:**
+| Agent | Description |
+|-------|-------------|
+| `design-reviewer` | Systematic 6-dimension UI review |
+| `wireframe-builder` | ASCII wireframes + HTML prototypes |
+
+[**Read Full Documentation**](./paper-plugin/README.md)
 
 ---
 
@@ -285,44 +451,20 @@ git pull
 ```
 taqat-techno-plugins/
 ├── .claude-plugin/
-│   └── marketplace.json           # Marketplace metadata
+│   └── marketplace.json           # Marketplace metadata (13 plugins)
 ├── odoo-upgrade-plugin/           # Odoo version migration
-│   ├── odoo-upgrade/
-│   │   ├── SKILL.md
-│   │   ├── scripts/
-│   │   ├── patterns/
-│   │   └── fixes/
-│   └── README.md
 ├── odoo-frontend-plugin/          # Website theme development
-│   ├── odoo-frontend/
-│   │   └── SKILL.md
-│   └── README.md
 ├── codex-plugin/                  # Universal code assistant
-│   ├── codex/
-│   │   └── SKILL.md
-│   └── README.md
 ├── devops-plugin/                 # Azure DevOps integration
-│   ├── devops/
-│   │   └── SKILL.md
-│   ├── commands/
-│   └── README.md
 ├── ntfy-plugin/                   # Push notifications
-│   ├── ntfy/
-│   │   └── SKILL.md
-│   ├── commands/
-│   └── README.md
 ├── odoo-report-plugin/            # Email templates & QWeb reports
-│   ├── odoo-report/
-│   │   └── SKILL.md
-│   ├── commands/
-│   └── README.md
 ├── pandoc-plugin/                 # Universal document conversion
-│   ├── pandoc/
-│   │   ├── SKILL.md
-│   │   └── scripts/
-│   ├── commands/
-│   ├── memories/
-│   └── README.md
+├── remotion-plugin/               # Video creation with narration
+├── odoo-test-plugin/              # Odoo testing toolkit
+├── odoo-security-plugin/          # Security audit toolkit
+├── odoo-i18n-plugin/              # Internationalization & i18n
+├── odoo-service-plugin/           # Server lifecycle manager
+├── paper-plugin/                  # UI/UX design specialist
 ├── agent_skills_spec.md           # Skills specification
 ├── CONTRIBUTING.md                # Contribution guidelines
 ├── LICENSE                        # MIT License
@@ -401,4 +543,4 @@ MIT License - Free to use, modify, and distribute.
 
 ---
 
-**Plugins**: 7 | **Version**: 1.2.0 | **Maintainer**: TAQAT Techno
+**Plugins**: 13 | **Version**: 1.6.0 | **Maintainer**: TAQAT Techno
