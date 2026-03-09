@@ -1,6 +1,6 @@
 # TAQAT Techno Plugins - Claude Code Skills Marketplace
 
-![Plugins](https://img.shields.io/badge/plugins-13-blue.svg)
+![Plugins](https://img.shields.io/badge/plugins-12-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 ![Odoo](https://img.shields.io/badge/Odoo-14--19-purple.svg)
 ![Azure DevOps](https://img.shields.io/badge/Azure_DevOps-Integrated-0078D7.svg)
@@ -15,17 +15,16 @@ Production-ready Claude Code plugins for professional development - Odoo ERP, Az
 |---|--------|-------------|---------|
 | 1 | [**odoo-upgrade**](./odoo-upgrade-plugin/README.md) | Odoo module upgrade assistant (v14-19) | 1.0.0 |
 | 2 | [**odoo-frontend**](./odoo-frontend-plugin/README.md) | Website theme development with Bootstrap | 1.0.0 |
-| 3 | [**codex**](./codex-plugin/README.md) | Universal code analysis & generation | 1.0.0 |
-| 4 | [**devops**](./devops-plugin/README.md) | Azure DevOps integration via MCP | 1.0.0 |
-| 5 | [**ntfy-notifications**](./ntfy-plugin/README.md) | Push notifications to your phone | 2.0.0 |
-| 6 | [**odoo-report**](./odoo-report-plugin/README.md) | Email templates & QWeb reports (v14-19) | 1.0.0 |
-| 7 | [**pandoc**](./pandoc-plugin/README.md) | Universal document conversion (50+ formats) | 1.0.0 |
-| 8 | [**remotion**](./remotion-plugin/README.md) | Video creation with voice narration | 1.0.0 |
-| 9 | [**odoo-test**](./odoo-test-plugin/README.md) | Odoo testing toolkit & coverage analysis | 1.0.0 |
-| 10 | [**odoo-security**](./odoo-security-plugin/README.md) | Security audit & risk scoring | 1.0.0 |
-| 11 | [**odoo-i18n**](./odoo-i18n-plugin/README.md) | Internationalization & translation management | 1.0.0 |
-| 12 | [**odoo-service**](./odoo-service-plugin/README.md) | Server lifecycle manager (venv, Docker, IDE) | 1.0.0 |
-| 13 | [**paper**](./paper-plugin/README.md) | UI/UX design specialist with Figma MCP | 1.0.0 |
+| 3 | [**devops**](./devops-plugin/README.md) | Azure DevOps integration via MCP | 1.0.0 |
+| 4 | [**ntfy-notifications**](./ntfy-plugin/README.md) | Push notifications to your phone | 2.0.0 |
+| 5 | [**odoo-report**](./odoo-report-plugin/README.md) | Email templates & QWeb reports (v14-19) | 1.0.0 |
+| 6 | [**pandoc**](./pandoc-plugin/README.md) | Universal document conversion (50+ formats) | 1.0.0 |
+| 7 | [**remotion**](./remotion-plugin/README.md) | Video creation with voice narration | 1.0.0 |
+| 8 | [**odoo-test**](./odoo-test-plugin/README.md) | Odoo testing toolkit & coverage analysis | 1.0.0 |
+| 9 | [**odoo-security**](./odoo-security-plugin/README.md) | Security audit & risk scoring | 1.0.0 |
+| 10 | [**odoo-i18n**](./odoo-i18n-plugin/README.md) | Internationalization & translation management | 1.0.0 |
+| 11 | [**odoo-service**](./odoo-service-plugin/README.md) | Server lifecycle manager (venv, Docker, IDE) | 1.0.0 |
+| 12 | [**paper**](./paper-plugin/README.md) | UI/UX design specialist with Figma MCP | 1.0.0 |
 
 ---
 
@@ -65,7 +64,7 @@ Ask Claude:
 "Show me available skills"
 ```
 
-You should see all 13 plugins listed.
+You should see all 12 plugins listed.
 
 ---
 
@@ -113,30 +112,6 @@ Comprehensive website theme development with auto-detection, MCP integration, an
 ```
 
 [**Read Full Documentation**](./odoo-frontend-plugin/README.md)
-
----
-
-### Codex - Universal Code Assistant
-
-[![Docs](https://img.shields.io/badge/docs-README-blue)](./codex-plugin/README.md)
-[![Languages](https://img.shields.io/badge/languages-All-green.svg)]()
-
-Universal development assistant with comprehensive code analysis, generation, refactoring, and optimization.
-
-**Features:**
-- Multi-language support
-- Code analysis & refactoring
-- Pattern detection
-- Best practices enforcement
-- Documentation generation
-
-**Usage:**
-```
-"Analyze this Python file for improvements"
-"Refactor this function to be more efficient"
-```
-
-[**Read Full Documentation**](./codex-plugin/README.md)
 
 ---
 
@@ -451,10 +426,9 @@ git pull
 ```
 taqat-techno-plugins/
 ├── .claude-plugin/
-│   └── marketplace.json           # Marketplace metadata (13 plugins)
+│   └── marketplace.json           # Marketplace metadata (12 plugins)
 ├── odoo-upgrade-plugin/           # Odoo version migration
 ├── odoo-frontend-plugin/          # Website theme development
-├── codex-plugin/                  # Universal code assistant
 ├── devops-plugin/                 # Azure DevOps integration
 ├── ntfy-plugin/                   # Push notifications
 ├── odoo-report-plugin/            # Email templates & QWeb reports
@@ -543,4 +517,4 @@ MIT License - Free to use, modify, and distribute.
 
 ---
 
-**Plugins**: 13 | **Version**: 1.6.0 | **Maintainer**: TAQAT Techno
+**Plugins**: 12 | **Version**: 1.7.0 | **Maintainer**: TAQAT Techno

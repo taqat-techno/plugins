@@ -7,7 +7,7 @@
   "metadata": {
     "description": "Professional development skills for Claude Code - Odoo, DevOps, Document Conversion & more",
     "version": "1.6.0",
-    "plugins_count": 13
+    "plugins_count": 12
   },
   "plugins": [
     {
@@ -29,15 +29,6 @@
       ],
       "commands": [
         "./odoo-frontend-plugin/commands"
-      ]
-    },
-    {
-      "name": "codex",
-      "description": "Universal development assistant with comprehensive code analysis, generation, refactoring, and optimization tools for all languages and frameworks",
-      "source": "./",
-      "strict": false,
-      "skills": [
-        "./codex-plugin/codex"
       ]
     },
     {
