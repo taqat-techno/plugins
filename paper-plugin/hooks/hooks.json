@@ -1,0 +1,30 @@
+{
+  "hooks": [
+    {
+      "type": "PostToolUse",
+      "matcher": {
+        "tool": ["Write", "Edit"],
+        "file_pattern": "**/*.{html,xml}"
+      },
+      "hooks": [
+        {
+          "type": "command",
+          "command": "echo '📐 Paper Design Check: HTML/XML modified. Verify: ✓ Semantic tags (header/main/nav/section/footer) ✓ Alt text on images ✓ ARIA labels on interactive elements ✓ Heading hierarchy (h1>h2>h3) ✓ Touch targets >= 44x44px ✓ Form labels associated with inputs'"
+        }
+      ]
+    },
+    {
+      "type": "PostToolUse",
+      "matcher": {
+        "tool": ["Write", "Edit"],
+        "file_pattern": "**/*.{css,scss,sass}"
+      },
+      "hooks": [
+        {
+          "type": "command",
+          "command": "echo '🎨 Paper Design Check: Stylesheet modified. Verify: ✓ Color contrast >= 4.5:1 for text ✓ Use relative units (rem/em/%) over fixed px ✓ Use max-width not width for containers ✓ Consistent spacing (4px/8px grid) ✓ Focus styles on interactive elements ✓ prefers-reduced-motion for animations'"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,39 @@
+{
+  "name": "paper",
+  "version": "1.0.0",
+  "description": "UI/UX design specialist plugin that transforms Claude into a professional designer for websites, mobile apps, desktop apps, and any application UI. Leverages Figma MCP for design-to-code and code-to-design workflows. Includes design system knowledge, responsive patterns, accessibility compliance, platform-specific guidelines (iOS HIG, Material Design 3, Fluent, Web), color theory, typography, and layout patterns.",
+  "author": {
+    "name": "TaqaTechno",
+    "email": "info@taqatechno.com",
+    "url": "https://www.taqatechno.com"
+  },
+  "license": "MIT",
+  "keywords": [
+    "ui-design",
+    "ux-design",
+    "figma",
+    "wireframe",
+    "prototype",
+    "responsive-design",
+    "accessibility",
+    "wcag",
+    "design-system",
+    "color-theory",
+    "typography",
+    "layout",
+    "mobile-design",
+    "web-design",
+    "desktop-design",
+    "ios",
+    "material-design",
+    "bootstrap",
+    "odoo-theme",
+    "screen-design",
+    "figma-mcp",
+    "design-to-code"
+  ],
+  "skills": "./skills",
+  "commands": "./commands",
+  "agents": "./agents",
+  "hooks": "./hooks/hooks.json"
+}
