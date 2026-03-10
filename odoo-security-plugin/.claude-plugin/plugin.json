@@ -8,30 +8,12 @@
     "url": "https://github.com/taqat-techno"
   },
   "license": "MIT",
+  "homepage": "https://github.com/taqat-techno/plugins",
   "skills": [
-    "../odoo-security"
+    "./odoo-security"
   ],
   "commands": [
-    "../commands"
+    "./commands"
   ],
-  "scripts": "../odoo-security/scripts/",
-  "hooks": "../hooks/hooks.json",
-  "metadata": {
-    "mode": "codebase",
-    "supported-versions": [
-      "14",
-      "15",
-      "16",
-      "17",
-      "18",
-      "19"
-    ],
-    "categories": [
-      "security",
-      "audit",
-      "access-control",
-      "authentication"
-    ]
-  },
-  "homepage": "https://github.com/taqat-techno/plugins"
+  "hooks": "./hooks/hooks.json"
 }

@@ -28,60 +28,10 @@
     "motion-graphics"
   ],
   "skills": [
-    "../remotion"
+    "./remotion"
   ],
   "commands": [
-    "../commands"
+    "./commands"
   ],
-  "hooks": "../hooks/hooks.json",
-  "scripts": "../remotion/scripts/",
-  "metadata": {
-    "category": "video-creation",
-    "mode": "cli-tool",
-    "supported-platforms": [
-      "windows",
-      "macos",
-      "linux"
-    ],
-    "node-min-version": "18.0.0",
-    "python-min-version": "3.8.0",
-    "remotion-version": "4.0.0+",
-    "commands-count": 5,
-    "scripts-count": 4,
-    "features": [
-      "video-creation-from-prompts",
-      "free-voice-narration-edge-tts",
-      "continuous-audio-pipeline",
-      "multi-scene-compositions",
-      "spring-physics-animations",
-      "timeline-driven-videos",
-      "cross-platform-setup",
-      "quality-preset-rendering",
-      "audio-duration-validation",
-      "tailwindcss-styling"
-    ],
-    "voice-engines": {
-      "free": "edge-tts (Microsoft Neural, 300+ voices, 70+ languages)",
-      "paid": "ElevenLabs (realistic voices, character-level timestamps)"
-    },
-    "output-formats": [
-      "mp4",
-      "webm",
-      "gif",
-      "png-sequence"
-    ],
-    "dependencies": {
-      "required": [
-        "node",
-        "python",
-        "edge-tts",
-        "mutagen"
-      ],
-      "optional": [
-        "pydub",
-        "ffmpeg",
-        "elevenlabs"
-      ]
-    }
-  }
+  "hooks": "./hooks/hooks.json"
 }

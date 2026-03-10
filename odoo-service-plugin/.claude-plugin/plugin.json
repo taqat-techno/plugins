@@ -20,38 +20,10 @@
     "devops"
   ],
   "skills": [
-    "../odoo-service"
+    "./odoo-service"
   ],
   "commands": [
-    "../commands"
+    "./commands"
   ],
-  "hooks": "../hooks/hooks.json",
-  "metadata": {
-    "mode": "codebase",
-    "odoo-versions": [
-      "14",
-      "15",
-      "16",
-      "17",
-      "18",
-      "19"
-    ],
-    "environments": [
-      "local-venv",
-      "docker",
-      "bare-python"
-    ],
-    "ide-support": [
-      "pycharm",
-      "vscode",
-      "any"
-    ],
-    "categories": [
-      "server-management",
-      "deployment",
-      "database",
-      "docker",
-      "ide-integration"
-    ]
-  }
+  "hooks": "./hooks/hooks.json"
 }

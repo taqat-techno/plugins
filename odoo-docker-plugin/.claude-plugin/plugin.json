@@ -24,30 +24,10 @@
     "multi-version"
   ],
   "skills": [
-    "../odoo-docker"
+    "./odoo-docker"
   ],
   "commands": [
-    "../commands"
+    "./commands"
   ],
-  "hooks": "../hooks/hooks.json",
-  "metadata": {
-    "mode": "codebase",
-    "odoo-versions": [
-      "14",
-      "15",
-      "16",
-      "17",
-      "18",
-      "19"
-    ],
-    "categories": [
-      "docker",
-      "infrastructure",
-      "deployment",
-      "nginx",
-      "ci-cd",
-      "performance-tuning",
-      "troubleshooting"
-    ]
-  }
+  "hooks": "./hooks/hooks.json"
 }

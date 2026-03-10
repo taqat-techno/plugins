@@ -32,87 +32,9 @@
     "technical-writing"
   ],
   "skills": [
-    "../pandoc"
+    "./pandoc"
   ],
   "commands": [
-    "../commands"
-  ],
-  "scripts": "../pandoc/scripts/",
-  "metadata": {
-    "pandoc-min-version": "3.0.0",
-    "supported-platforms": [
-      "windows",
-      "macos",
-      "linux"
-    ],
-    "commands-count": 9,
-    "input-formats": "50+",
-    "output-formats": "60+",
-    "features": [
-      "pdf-generation",
-      "word-docx-conversion",
-      "html-generation",
-      "epub-ebook-creation",
-      "slide-presentations",
-      "latex-output",
-      "markdown-conversion",
-      "citation-processing",
-      "bibliography-management",
-      "custom-templates",
-      "batch-conversion",
-      "format-detection",
-      "table-of-contents",
-      "numbered-sections",
-      "math-rendering",
-      "syntax-highlighting"
-    ],
-    "primary-formats": {
-      "input": [
-        "markdown",
-        "docx",
-        "html",
-        "latex",
-        "rst",
-        "org",
-        "epub",
-        "csv"
-      ],
-      "output": [
-        "pdf",
-        "docx",
-        "html",
-        "epub",
-        "latex",
-        "beamer",
-        "revealjs",
-        "pptx"
-      ]
-    },
-    "dependencies": {
-      "required": [
-        "pandoc"
-      ],
-      "optional-for-pdf": [
-        "texlive",
-        "miktex",
-        "tinytext"
-      ],
-      "optional-for-citations": [
-        "pandoc-crossref"
-      ]
-    },
-    "installation": {
-      "windows": [
-        "choco install pandoc",
-        "winget install JohnMacFarlane.Pandoc"
-      ],
-      "macos": [
-        "brew install pandoc"
-      ],
-      "linux": [
-        "apt install pandoc",
-        "dnf install pandoc"
-      ]
-    }
-  }
+    "./commands"
+  ]
 }

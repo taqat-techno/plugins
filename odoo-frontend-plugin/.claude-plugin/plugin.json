@@ -46,76 +46,10 @@
     "odoo19"
   ],
   "skills": [
-    "../odoo-frontend"
+    "./odoo-frontend"
   ],
   "commands": [
-    "../commands"
+    "./commands"
   ],
-  "hooks": "../hooks/hooks.json",
-  "scripts": "../odoo-frontend/scripts/",
-  "metadata": {
-    "odoo-versions": [
-      "14",
-      "15",
-      "16",
-      "17",
-      "18",
-      "19"
-    ],
-    "bootstrap-versions": [
-      "4.x",
-      "5.1.3"
-    ],
-    "javascript-features": [
-      "ES2020+",
-      "TypeScript",
-      "Owl v1/v2",
-      "Web Components",
-      "publicWidget"
-    ],
-    "testing-frameworks": [
-      "Jest",
-      "Cypress",
-      "BackstopJS"
-    ],
-    "performance-tools": [
-      "Core Web Vitals",
-      "Lighthouse",
-      "Vite"
-    ],
-    "accessibility": [
-      "WCAG 2.1 AA",
-      "ARIA",
-      "Screen Readers"
-    ],
-    "real-time": [
-      "WebSockets",
-      "SSE",
-      "Push Notifications"
-    ],
-    "mcp-tools": [
-      "claude-in-chrome",
-      "figma",
-      "chrome-devtools",
-      "filesystem"
-    ],
-    "figma-integration": {
-      "browser-automation": true,
-      "color-extraction": true,
-      "typography-extraction": true,
-      "display-sizes": true,
-      "auto-palette-generation": true
-    },
-    "theme-features": {
-      "website-values-palettes": true,
-      "color-semantic-structure": true,
-      "mirror-model-architecture": true,
-      "individual-page-files": true,
-      "publicWidget-editableMode": true,
-      "snippet-groups": true,
-      "figma-to-theme": true
-    },
-    "theme-scaffolding": true,
-    "auto-detection": true
-  }
+  "hooks": "./hooks/hooks.json"
 }
