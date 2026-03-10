@@ -23,30 +23,9 @@
     "background-tasks"
   ],
   "skills": [
-    "../ntfy"
+    "./ntfy"
   ],
-  "scripts": "../ntfy/scripts/",
   "commands": [
-    "../commands"
-  ],
-  "metadata": {
-    "notification-service": "ntfy.sh",
-    "platforms": [
-      "iOS",
-      "Android",
-      "Desktop",
-      "Web"
-    ],
-    "features": [
-      "automatic-retry",
-      "deduplication",
-      "rate-limiting",
-      "history-logging",
-      "context-managers",
-      "decorators"
-    ],
-    "priority-levels": 5,
-    "requires-account": false,
-    "self-hosted-support": true
-  }
+    "./commands"
+  ]
 }

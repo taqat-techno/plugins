@@ -33,23 +33,14 @@
     "design-to-code"
   ],
   "skills": [
-    "../skills/paper"
+    "./skills/paper"
   ],
   "commands": [
-    "../commands"
+    "./commands"
   ],
   "agents": [
-    "../agents"
+    "./agents"
   ],
-  "hooks": "../hooks/hooks.json",
-  "homepage": "https://github.com/taqat-techno/plugins",
-  "metadata": {
-    "mcp-tools": ["figma"],
-    "mcp-optional": true,
-    "figma-integration": {
-      "design-to-code": true,
-      "code-to-design": true,
-      "design-system-extraction": true
-    }
-  }
+  "hooks": "./hooks/hooks.json",
+  "homepage": "https://github.com/taqat-techno/plugins"
 }

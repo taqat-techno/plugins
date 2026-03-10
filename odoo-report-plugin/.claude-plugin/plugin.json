@@ -8,53 +8,12 @@
     "url": "https://taqatechno.com"
   },
   "license": "MIT",
+  "homepage": "https://github.com/taqat-techno/plugins",
   "skills": [
-    "../odoo-report"
+    "./odoo-report"
   ],
   "commands": [
-    "../commands"
+    "./commands"
   ],
-  "hooks": "../hooks/hooks.json",
-  "scripts": "../odoo-report/scripts/",
-  "metadata": {
-    "mode": "codebase",
-    "supported_versions": [
-      "14",
-      "15",
-      "16",
-      "17",
-      "18",
-      "19"
-    ],
-    "primary_version": "17",
-    "commands_count": 15,
-    "template_patterns": "50+",
-    "qweb_patterns": "30+",
-    "categories": [
-      "email-templates",
-      "qweb-reports",
-      "pdf-generation",
-      "mail-template",
-      "notification-layouts"
-    ]
-  },
-  "dependencies": {
-    "odoo_modules": [
-      "mail",
-      "base"
-    ],
-    "optional_modules": [
-      "sale",
-      "purchase",
-      "account",
-      "hr_recruitment",
-      "calendar",
-      "event"
-    ]
-  },
-  "configuration": {
-    "version_detection": "auto",
-    "template_output_format": "xml"
-  },
-  "homepage": "https://github.com/taqat-techno/plugins"
+  "hooks": "./hooks/hooks.json"
 }

@@ -10,8 +10,6 @@
   "homepage": "https://github.com/taqat-techno/plugins",
   "repository": "https://github.com/taqat-techno/plugins",
   "license": "MIT",
-  "changelog": "./CHANGELOG.md",
-  "migration": "./MIGRATION.md",
   "keywords": [
     "azure-devops",
     "devops",
@@ -34,127 +32,10 @@
     "compliance"
   ],
   "skills": [
-    "../devops"
+    "./devops"
   ],
   "commands": [
-    "../commands"
+    "./commands"
   ],
-  "hooks": "../hooks/hooks.json",
-  "scripts": "../devops/scripts/",
-  "metadata": {
-    "organization": "YOUR-ORG",
-    "release-date": "2025-12",
-    "mode": "hybrid",
-    "commands-count": 18,
-    "scripts-count": 10,
-    "memory-files-count": 7,
-    "mcp-server": "@anthropic-ai/azure-devops-mcp",
-    "mcp-version": "latest",
-    "cli-extension": "azure-devops",
-    "cli-min-version": "2.30.0",
-    "tools-count": "100+",
-    "domains": [
-      "core",
-      "work",
-      "work-items",
-      "repositories",
-      "pipelines",
-      "test-plans",
-      "wiki",
-      "search",
-      "advanced-security"
-    ],
-    "cli-exclusive-features": [
-      "project-creation",
-      "repository-creation",
-      "service-connections",
-      "extensions",
-      "variable-groups",
-      "pipeline-variables",
-      "batch-scripting",
-      "parallel-execution",
-      "pipeline-creation"
-    ],
-    "mcp-exclusive-features": [
-      "test-plans",
-      "test-cases",
-      "test-results",
-      "search-code",
-      "search-wiki",
-      "search-workitems",
-      "security-alerts",
-      "pr-threads",
-      "pr-comments",
-      "team-capacity",
-      "batch-work-item-updates"
-    ],
-    "hybrid-features": [
-      "work-items",
-      "pull-requests",
-      "pipelines",
-      "wiki",
-      "repositories",
-      "iterations"
-    ],
-    "authentication": {
-      "cli": {
-        "method": "PAT",
-        "env_var": "AZURE_DEVOPS_EXT_PAT",
-        "alternative": "az devops login"
-      },
-      "mcp": {
-        "method": "PAT",
-        "env_var": "ADO_PAT_TOKEN"
-      }
-    },
-    "supported-platforms": [
-      "windows",
-      "macos",
-      "linux"
-    ],
-    "supported-features": [
-      "unified-setup",
-      "cli-installation",
-      "mcp-configuration",
-      "hybrid-routing",
-      "intelligent-tool-selection",
-      "cross-platform-setup",
-      "environment-variable-tokens",
-      "claude-assisted-configuration",
-      "work-item-management",
-      "work-item-hierarchy-enforcement",
-      "required-field-validation",
-      "state-transition-validation",
-      "auto-mention-processing",
-      "todo-sync",
-      "what-how-why-stories",
-      "pull-request-workflows",
-      "pipeline-operations",
-      "repository-browsing",
-      "wiki-management",
-      "code-search",
-      "test-plan-management",
-      "security-alerts",
-      "automation-scripts",
-      "predefined-memories",
-      "work-tracking",
-      "time-compliance",
-      "workday-dashboard",
-      "persistent-work-cache",
-      "time-logging",
-      "timesheet-reports",
-      "task-monitor",
-      "loop-based-alerts",
-      "periodic-work-item-monitoring"
-    ],
-    "version-history": [
-      "3.1.0",
-      "3.0.0",
-      "2.0.0",
-      "1.3.0",
-      "1.2.0",
-      "1.1.0",
-      "1.0.0"
-    ]
-  }
+  "hooks": "./hooks/hooks.json"
 }
