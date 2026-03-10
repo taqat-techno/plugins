@@ -154,17 +154,7 @@
     {
       "name": "paper",
       "description": "UI/UX design specialist - design screens, wireframes, and design systems for web, mobile (iOS/Android), and desktop. Includes Figma MCP integration, color theory, typography scales, WCAG accessibility, responsive patterns, and Odoo/Bootstrap theme support",
-      "source": "./",
-      "strict": false,
-      "skills": [
-        "./paper-plugin/skills/paper"
-      ],
-      "commands": [
-        "./paper-plugin/commands"
-      ],
-      "agents": [
-        "./paper-plugin/agents"
-      ]
+      "source": "./paper-plugin"
     }
   ]
 }
