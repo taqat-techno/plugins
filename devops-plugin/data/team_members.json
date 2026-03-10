@@ -6,7 +6,7 @@
   "lastUpdated": "configure-me",
 
   "important": {
-    "notice": "GUIDs are NOT stored here — always resolve via core_get_identity_ids API",
+    "notice": "GUIDs are NOT stored here  -  always resolve via core_get_identity_ids API",
     "reason": "GUIDs may change; API ensures accuracy",
     "usage": "Replace example entries below with your team's real information. Use searchTerms for @mention aliases."
   },
@@ -66,11 +66,11 @@
     },
     "partialMatch": {
       "priority": 3,
-      "description": "Partial match — requires user confirmation"
+      "description": "Partial match  -  requires user confirmation"
     },
     "noMatch": {
       "priority": 4,
-      "description": "No match found — ask user for clarification",
+      "description": "No match found  -  ask user for clarification",
       "action": "DO_NOT_POST"
     }
   },

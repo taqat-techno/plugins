@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "Universal document conversion powered by Pandoc - Convert between 50+ input formats and 60+ output formats including PDF, Word, HTML, EPUB, LaTeX, Markdown, and presentations. Professional document transformation with templates, citations, and batch processing.",
   "author": {
-    "name": "TAQAT Techno",
+    "name": "TaqaTechno",
     "email": "support@example.com",
     "url": "https://github.com/taqat-techno"
   },
@@ -31,12 +31,20 @@
     "documentation",
     "technical-writing"
   ],
-  "skills": "./pandoc/",
-  "commands": "./commands/",
+  "skills": [
+    "./pandoc"
+  ],
+  "commands": [
+    "./commands"
+  ],
   "scripts": "./pandoc/scripts/",
   "metadata": {
     "pandoc-min-version": "3.0.0",
-    "supported-platforms": ["windows", "macos", "linux"],
+    "supported-platforms": [
+      "windows",
+      "macos",
+      "linux"
+    ],
     "commands-count": 9,
     "input-formats": "50+",
     "output-formats": "60+",
@@ -59,18 +67,52 @@
       "syntax-highlighting"
     ],
     "primary-formats": {
-      "input": ["markdown", "docx", "html", "latex", "rst", "org", "epub", "csv"],
-      "output": ["pdf", "docx", "html", "epub", "latex", "beamer", "revealjs", "pptx"]
+      "input": [
+        "markdown",
+        "docx",
+        "html",
+        "latex",
+        "rst",
+        "org",
+        "epub",
+        "csv"
+      ],
+      "output": [
+        "pdf",
+        "docx",
+        "html",
+        "epub",
+        "latex",
+        "beamer",
+        "revealjs",
+        "pptx"
+      ]
     },
     "dependencies": {
-      "required": ["pandoc"],
-      "optional-for-pdf": ["texlive", "miktex", "tinytext"],
-      "optional-for-citations": ["pandoc-crossref"]
+      "required": [
+        "pandoc"
+      ],
+      "optional-for-pdf": [
+        "texlive",
+        "miktex",
+        "tinytext"
+      ],
+      "optional-for-citations": [
+        "pandoc-crossref"
+      ]
     },
     "installation": {
-      "windows": ["choco install pandoc", "winget install JohnMacFarlane.Pandoc"],
-      "macos": ["brew install pandoc"],
-      "linux": ["apt install pandoc", "dnf install pandoc"]
+      "windows": [
+        "choco install pandoc",
+        "winget install JohnMacFarlane.Pandoc"
+      ],
+      "macos": [
+        "brew install pandoc"
+      ],
+      "linux": [
+        "apt install pandoc",
+        "dnf install pandoc"
+      ]
     }
   }
 }

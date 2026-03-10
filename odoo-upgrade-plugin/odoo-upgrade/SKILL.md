@@ -1,6 +1,29 @@
 ---
 name: odoo-upgrade
-description: "Comprehensive Odoo ERP upgrade assistant for migrating modules between Odoo versions (14-19). Handles XML views, Python API changes, JavaScript/OWL components, theme SCSS variables, manifest updates, security implementations, and database migrations. Use when user asks to upgrade Odoo modules, fix version compatibility issues, migrate themes between versions, or resolve Odoo 17/18/19 migration errors. Specializes in frontend RPC service migrations, view XML transformations, theme variable restructuring, and portal template XPath fixes."
+description: |
+  Comprehensive Odoo ERP upgrade assistant for migrating modules between Odoo versions (14-19). Handles XML views, Python API changes, JavaScript/OWL components, theme SCSS variables, manifest updates, security implementations, and database migrations. Use when user asks to upgrade Odoo modules, fix version compatibility issues, migrate themes between versions, or resolve Odoo 17/18/19 migration errors. Specializes in frontend RPC service migrations, view XML transformations, theme variable restructuring, and portal template XPath fixes.
+
+
+  <example>
+  Context: User wants to upgrade an Odoo module to a newer version
+  user: "Upgrade my Odoo 16 module to Odoo 17"
+  assistant: "I will use the odoo-upgrade skill to analyze your module, apply XML view transformations, update Python API decorators, and fix manifest version strings for Odoo 17 compatibility."
+  <commentary>Core trigger - version migration request with module in scope.</commentary>
+  </example>
+
+  <example>
+  Context: User hits migration errors after an Odoo version change
+  user: "My module breaks with tree views in Odoo 19 - how do I fix it?"
+  assistant: "I will use the odoo-upgrade skill to convert all tree views to list views, update attrs expressions to inline invisible, and fix any other Odoo 19 breaking changes."
+  <commentary>Error-driven trigger - fix specific migration breakage.</commentary>
+  </example>
+
+  <example>
+  Context: User needs to migrate JavaScript RPC calls
+  user: "Migrate the RPC service calls in my JS files to Odoo 18 format"
+  assistant: "I will use the odoo-upgrade skill to convert legacy rpc.query() calls to the fetch-based JSON-RPC pattern required in Odoo 18+."
+  <commentary>Frontend-specific migration trigger.</commentary>
+  </example>
 version: "4.0.0"
 author: "TAQAT Techno"
 license: "MIT"

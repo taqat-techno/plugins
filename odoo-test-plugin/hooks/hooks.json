@@ -14,7 +14,7 @@
     {
       "name": "Suggest test creation for new models directory",
       "matcher": "(Write).*/models/\\w+\\.py$",
-      "description": "New model file created — suggest the test-generate command with detected filename.",
+      "description": "New model file created  -  suggest the test-generate command with detected filename.",
       "hooks": [
         {
           "type": "suggestion",

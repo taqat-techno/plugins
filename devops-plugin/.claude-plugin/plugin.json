@@ -3,7 +3,7 @@
   "version": "3.0.0",
   "description": "Azure DevOps HYBRID integration with Work Tracking System. Features: workday dashboard, time logging with compliance enforcement, persistent work item cache, unified setup with CLI + MCP, intelligent routing, automation templates, predefined memories, and 100+ MCP tools.",
   "author": {
-    "name": "TAQAT Techno",
+    "name": "TaqaTechno",
     "email": "support@example.com",
     "url": "https://github.com/taqat-techno"
   },
@@ -33,8 +33,12 @@
     "timesheet",
     "compliance"
   ],
-  "skills": "./devops/",
-  "commands": "./commands/",
+  "skills": [
+    "./devops"
+  ],
+  "commands": [
+    "./commands"
+  ],
   "hooks": "./hooks/hooks.json",
   "scripts": "./devops/scripts/",
   "metadata": {

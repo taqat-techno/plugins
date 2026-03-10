@@ -42,7 +42,7 @@
         {
           "type": "check",
           "pattern": "<tree[^>]*>|</tree>",
-          "message": "Deprecated <tree> tag detected. For Odoo 19, change to <list>. Also update XPath expressions: //tree → //list"
+          "message": "Deprecated <tree> tag detected. For Odoo 19, change to <list>. Also update XPath expressions: //tree ? //list"
         }
       ]
     },
@@ -150,7 +150,7 @@
       "hooks": [
         {
           "type": "suggestion",
-          "message": "This looks like a version compatibility issue. Try using the odoo-upgrade skill to fix it. Common Odoo 19 issues: tree→list, search groups, RPC service, kanban-box→card."
+          "message": "This looks like a version compatibility issue. Try using the odoo-upgrade skill to fix it. Common Odoo 19 issues: tree?list, search groups, RPC service, kanban-box?card."
         }
       ]
     },

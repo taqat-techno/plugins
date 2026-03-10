@@ -10,7 +10,7 @@
     {
       "name": "Project Alpha",
       "id": null,
-      "description": "Primary project — replace with your project description",
+      "description": "Primary project  -  replace with your project description",
       "aliases": ["alpha", "project-alpha", "pa"],
       "defaultTeam": "Project Alpha Team",
       "primaryRepo": "project-alpha",
@@ -21,7 +21,7 @@
     {
       "name": "Project Beta",
       "id": null,
-      "description": "Secondary project — replace with your project description",
+      "description": "Secondary project  -  replace with your project description",
       "aliases": ["beta", "project-beta", "pb"],
       "defaultTeam": "Project Beta Team",
       "primaryRepo": "project-beta",
@@ -32,7 +32,7 @@
     {
       "name": "Project Gamma",
       "id": null,
-      "description": "Third project — replace with your project description",
+      "description": "Third project  -  replace with your project description",
       "aliases": ["gamma", "project-gamma", "pg"],
       "defaultTeam": "Project Gamma Team",
       "primaryRepo": "project-gamma",
@@ -98,10 +98,10 @@
   },
 
   "outputFormat": {
-    "contextIndicator": "📁 Project: {projectName}",
-    "tempOverride": "📁 Querying: {tempProject} (one-time)\n📌 Default: {defaultProject}",
-    "multiProject": "📁 Querying all projects...",
-    "switchConfirm": "✓ Switched to {newProject}\n\nPrevious: {oldProject}\nCurrent: {newProject}"
+    "contextIndicator": " Project: {projectName}",
+    "tempOverride": " Querying: {tempProject} (one-time)\n Default: {defaultProject}",
+    "multiProject": " Querying all projects...",
+    "switchConfirm": "? Switched to {newProject}\n\nPrevious: {oldProject}\nCurrent: {newProject}"
   },
 
   "urlTemplates": {

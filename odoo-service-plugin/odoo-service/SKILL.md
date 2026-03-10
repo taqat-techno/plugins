@@ -1,6 +1,29 @@
 ---
 name: odoo-service
-description: "Complete Odoo server lifecycle manager — run, deploy, initialize, and manage Odoo across local venv, Docker, and any IDE. Handles server startup/shutdown, environment initialization, database management, Docker orchestration, and IDE configuration for Odoo 14-19."
+description: |
+  Complete Odoo server lifecycle manager — run, deploy, initialize, and manage Odoo across local venv, Docker, and any IDE. Handles server startup/shutdown, environment initialization, database management, Docker orchestration, and IDE configuration for Odoo 14-19.
+
+
+  <example>
+  Context: User wants to start the Odoo server
+  user: "Start the Odoo 17 server for my TAQAT project"
+  assistant: "I will use the odoo-service skill to activate the virtual environment, locate the TAQAT17.conf config, and start the server with the correct addons path."
+  <commentary>Core trigger - server startup request.</commentary>
+  </example>
+
+  <example>
+  Context: User wants to initialize a new database
+  user: "Initialize a new Odoo 17 database called taqat_dev and install my module"
+  assistant: "I will use the odoo-service skill to run the init command with --stop-after-init, create the database, and install the specified module."
+  <commentary>Database init trigger - new environment setup.</commentary>
+  </example>
+
+  <example>
+  Context: User wants IDE run configuration
+  user: "Set up a PyCharm run configuration for my Odoo 17 project"
+  assistant: "I will use the odoo-service skill to generate a .run/odoo-service.xml run configuration pointing to the correct Python interpreter and config file."
+  <commentary>IDE integration trigger - run config generation.</commentary>
+  </example>
 version: "1.0.0"
 author: "TaqaTechno"
 license: "MIT"

@@ -1,6 +1,29 @@
 ---
 name: odoo-security
-description: "Comprehensive Odoo security auditor for model access rules, HTTP route authentication, sudo() usage, SQL injection risks, and record rule completeness across Odoo 14-19."
+description: |
+  Comprehensive Odoo security auditor for model access rules, HTTP route authentication, sudo() usage, SQL injection risks, and record rule completeness across Odoo 14-19.
+
+
+  <example>
+  Context: User wants a security audit of their module
+  user: "Audit the security of my custom Odoo HR module"
+  assistant: "I will use the odoo-security skill to check ir.model.access.csv completeness, audit @http.route auth parameters, analyze sudo() usage, and generate a risk report."
+  <commentary>Core trigger - full security audit request.</commentary>
+  </example>
+
+  <example>
+  Context: User wants to check access rules
+  user: "Check if all my models have proper access rules in ir.model.access.csv"
+  assistant: "I will use the odoo-security skill to scan all Python model definitions and compare them against the access CSV to find models missing read/write/create/unlink rules."
+  <commentary>Specific audit trigger - access rule completeness check.</commentary>
+  </example>
+
+  <example>
+  Context: User wants to find risky sudo() usage
+  user: "Find all places where sudo() is used without proper context in my module"
+  assistant: "I will use the odoo-security skill to scan for sudo() calls, categorize them by context (controller, compute, action), and flag any that expose privilege escalation risks."
+  <commentary>Code review trigger - sudo() usage analysis with risk scoring.</commentary>
+  </example>
 version: "1.0.0"
 author: "TaqaTechno"
 license: "MIT"

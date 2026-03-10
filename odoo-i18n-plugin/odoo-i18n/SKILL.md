@@ -1,6 +1,29 @@
 ---
 name: odoo-i18n
-description: "Comprehensive Odoo i18n toolkit for extracting translatable strings, validating .po files, generating translation reports, managing Arabic/RTL layouts, and handling multilingual deployments across Odoo 14-19."
+description: |
+  Comprehensive Odoo i18n toolkit for extracting translatable strings, validating .po files, generating translation reports, managing Arabic/RTL layouts, and handling multilingual deployments across Odoo 14-19.
+
+
+  <example>
+  Context: User wants to extract translatable strings
+  user: "Extract all translatable strings from my Odoo 17 module to a .pot file"
+  assistant: "I will use the odoo-i18n skill to scan Python _() calls, XML translate attributes, and field strings, then generate a properly structured .pot template file."
+  <commentary>Core trigger - translation extraction workflow.</commentary>
+  </example>
+
+  <example>
+  Context: User wants Arabic translation
+  user: "Generate an Arabic .po file for my Odoo module"
+  assistant: "I will use the odoo-i18n skill to create an ar.po file with RTL-aware formatting and placeholder translations for all extractable strings."
+  <commentary>Language-specific trigger - Arabic/RTL translation generation.</commentary>
+  </example>
+
+  <example>
+  Context: User wants to find missing translations
+  user: "Find all strings in my module that are missing Arabic translation"
+  assistant: "I will use the odoo-i18n skill to compare the ar.po file against the .pot template and report all untranslated or fuzzy entries with their source context."
+  <commentary>Validation trigger - finding translation completeness gaps.</commentary>
+  </example>
 version: "1.0.0"
 author: "TaqaTechno"
 license: "MIT"

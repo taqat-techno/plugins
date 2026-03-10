@@ -1,6 +1,29 @@
 ---
 name: remotion
-description: "Create professional videos with smooth voice narration using Remotion and Claude Code. Complete video creation pipeline from text prompts to rendered MP4 with free edge-tts voice generation and continuous audio that never cuts between slides."
+description: |
+  Create professional videos with smooth voice narration using Remotion and Claude Code. Complete video creation pipeline from text prompts to rendered MP4 with free edge-tts voice generation and continuous audio that never cuts between slides.
+
+
+  <example>
+  Context: User wants to create a video with narration
+  user: "Create a product demo video with voice narration explaining our features"
+  assistant: "I will use the remotion skill to scaffold a Remotion composition, generate edge-tts voice narration for each scene, and produce a continuous audio pipeline without voice cutting."
+  <commentary>Core trigger - video creation from text prompts with AI narration.</commentary>
+  </example>
+
+  <example>
+  Context: User wants to add voice to an existing composition
+  user: "Add professional voice narration to my existing Remotion video"
+  assistant: "I will use the remotion skill to analyze the scene timing, generate synchronized edge-tts audio tracks, and integrate them into the Remotion Audio component with proper offsets."
+  <commentary>Audio integration trigger - adding voice to existing video.</commentary>
+  </example>
+
+  <example>
+  Context: User wants to render the final video
+  user: "Render my Remotion video in 1080p as an MP4 file"
+  assistant: "I will use the remotion skill to run the Remotion render command with 1920x1080 resolution, H.264 codec, and optimal quality settings for the final MP4 output."
+  <commentary>Rendering trigger - final video export command.</commentary>
+  </example>
 version: "1.0.0"
 author: "TaqaTechno"
 license: "MIT"

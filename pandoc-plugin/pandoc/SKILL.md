@@ -1,6 +1,29 @@
 ---
 name: pandoc
-description: "Universal document conversion skill powered by Pandoc - Convert between 50+ input formats and 60+ output formats. Professional document transformation with templates, citations, math rendering, and batch processing for PDF, Word, HTML, EPUB, LaTeX, and presentations."
+description: |
+  Universal document conversion skill powered by Pandoc - Convert between 50+ input formats and 60+ output formats. Professional document transformation with templates, citations, math rendering, and batch processing for PDF, Word, HTML, EPUB, LaTeX, and presentations.
+
+
+  <example>
+  Context: User wants to convert a Markdown file to PDF
+  user: "Convert my README.md to a professional PDF document"
+  assistant: "I will use the pandoc skill to convert the Markdown file to PDF via LaTeX, applying a clean template with proper fonts, margins, and code block formatting."
+  <commentary>Core trigger - Markdown to PDF conversion.</commentary>
+  </example>
+
+  <example>
+  Context: User wants to convert a Word document
+  user: "Convert this Word document to clean Markdown"
+  assistant: "I will use the pandoc skill to convert the .docx file to Markdown, preserving headings, lists, tables, and images while stripping Word-specific formatting."
+  <commentary>Format migration trigger - docx to Markdown.</commentary>
+  </example>
+
+  <example>
+  Context: User wants to create a presentation
+  user: "Create a reveal.js slide presentation from my Markdown outline"
+  assistant: "I will use the pandoc skill to convert the Markdown outline to a reveal.js HTML presentation with section separators, speaker notes, and a clean theme."
+  <commentary>Presentation trigger - Markdown to slides conversion.</commentary>
+  </example>
 version: "1.0.0"
 author: "TaqaTechno"
 license: "MIT"

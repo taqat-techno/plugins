@@ -90,7 +90,7 @@
     {
       "id": "error-address-in-use",
       "type": "OnError",
-      "description": "Port already in use error — suggest /odoo-stop",
+      "description": "Port already in use error  -  suggest /odoo-stop",
       "matcher": {
         "pattern": "Address already in use|Only one usage of each socket address|WinError 10048|OSError: \\[Errno 98\\]"
       },
@@ -102,7 +102,7 @@
     {
       "id": "error-postgresql-connection",
       "type": "OnError",
-      "description": "PostgreSQL connection refused — suggest starting PostgreSQL",
+      "description": "PostgreSQL connection refused  -  suggest starting PostgreSQL",
       "matcher": {
         "pattern": "could not connect to server: Connection refused|Is the server running|FATAL: role .* does not exist|pg_isready.*no response"
       },
@@ -114,7 +114,7 @@
     {
       "id": "error-no-module-named",
       "type": "OnError",
-      "description": "Python import error — suggest pip install",
+      "description": "Python import error  -  suggest pip install",
       "matcher": {
         "pattern": "No module named '([^']+)'|ModuleNotFoundError: No module named|ImportError: cannot import name"
       },
@@ -126,19 +126,19 @@
     {
       "id": "error-access-denied",
       "type": "OnError",
-      "description": "Odoo AccessDenied — check admin_passwd in config",
+      "description": "Odoo AccessDenied  -  check admin_passwd in config",
       "matcher": {
         "pattern": "AccessDenied|Access Denied|odoo\\.exceptions\\.AccessDenied|Invalid database name or password"
       },
       "action": {
         "type": "suggest",
-        "message": "Access denied. Possible causes:\n\n1. Wrong master password (admin_passwd in .conf)\n   ```bash\n   # Check your .conf file\n   grep admin_passwd conf/[CONFIG].conf\n   ```\n\n2. Wrong database user password\n   ```bash\n   grep db_password conf/[CONFIG].conf\n   ```\n\n3. Odoo user password forgotten — reset via SQL:\n   ```bash\n   psql -U odoo -d [DATABASE] -c \"UPDATE res_users SET password='admin' WHERE login='admin';\"\n   ```\n\n4. Or use /odoo-db reset-admin:\n   ```\n   /odoo-db reset-admin --db [DATABASE] --password newpassword\n   ```"
+        "message": "Access denied. Possible causes:\n\n1. Wrong master password (admin_passwd in .conf)\n   ```bash\n   # Check your .conf file\n   grep admin_passwd conf/[CONFIG].conf\n   ```\n\n2. Wrong database user password\n   ```bash\n   grep db_password conf/[CONFIG].conf\n   ```\n\n3. Odoo user password forgotten  -  reset via SQL:\n   ```bash\n   psql -U odoo -d [DATABASE] -c \"UPDATE res_users SET password='admin' WHERE login='admin';\"\n   ```\n\n4. Or use /odoo-db reset-admin:\n   ```\n   /odoo-db reset-admin --db [DATABASE] --password newpassword\n   ```"
       }
     },
     {
       "id": "error-database-not-exist",
       "type": "OnError",
-      "description": "Database does not exist — suggest creating it",
+      "description": "Database does not exist  -  suggest creating it",
       "matcher": {
         "pattern": "database .* does not exist|FATAL: database .* does not exist|OperationalError: FATAL"
       },

@@ -8,6 +8,28 @@ description: >-
   "design a page", "create a screen", "wireframe", "mockup", "UI layout",
   "color palette", "typography", "responsive design", "accessibility check",
   "Figma sync", "design system", or "design review".
+
+
+  <example>
+  Context: User wants to design a UI screen
+  user: "Design a login screen for my mobile app"
+  assistant: "I will use the paper skill to create a login screen with proper spacing, typography hierarchy, accessible color contrast, and platform-specific patterns (iOS HIG / Material Design 3)."
+  <commentary>Core trigger - UI screen design request.</commentary>
+  </example>
+
+  <example>
+  Context: User wants a design system
+  user: "Create a design system for my web application with colors and typography"
+  assistant: "I will use the paper skill to define a complete design system with color palette, typography scale, spacing tokens, component specifications, and WCAG contrast ratios."
+  <commentary>Design system trigger - establishing visual foundations.</commentary>
+  </example>
+
+  <example>
+  Context: User wants a design review
+  user: "Review this UI design for accessibility and usability issues"
+  assistant: "I will use the paper skill to evaluate the design against WCAG 2.1 AA standards, check touch target sizes, heading hierarchy, color contrast, and form label associations."
+  <commentary>Review trigger - accessibility and usability audit.</commentary>
+  </example>
 ---
 
 # Paper - UI/UX Design Specialist

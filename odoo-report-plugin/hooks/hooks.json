@@ -1,95 +1,69 @@
 {
-  "description": "Event-driven hooks for Odoo Report Plugin",
-  "hooks": {
-    "on_file_create": {
-      "triggers": [
-        {
-          "pattern": "*/data/mail_template*.xml",
-          "suggestion": "New email template file detected. Would you like me to validate the template syntax?",
-          "actions": ["/validate-template {file}"]
-        },
-        {
-          "pattern": "*/reports/*.xml",
-          "suggestion": "New report file detected. Would you like me to check the QWeb structure?",
-          "actions": ["/validate-template {file}"]
-        }
-      ]
+  "hooks": [
+    {
+      "id": "email-template-created",
+      "type": "PostToolUse",
+      "description": "Remind about template best practices when a mail template XML file is written",
+      "matcher": {
+        "tool": ["Write"],
+        "file_pattern": "**/data/mail_template*.xml"
+      },
+      "action": {
+        "type": "suggest",
+        "message": "[odoo-report] Email template file created. Verify:\n- mail.template record has body_html (not body)\n- subtype_id references mail.mt_comment for Chatter integration\n- email_to uses dynamic field (e.g. ${object.partner_id.email})\n- Run /validate-template to check for QWeb syntax errors"
+      }
     },
-    "on_file_edit": {
-      "triggers": [
-        {
-          "pattern": "*/data/mail_template*.xml",
-          "condition": "body_html modified",
-          "suggestion": "Email template body modified. Run validation to check for issues?",
-          "actions": ["/analyze-template {file}"]
-        }
-      ]
+    {
+      "id": "email-template-modified",
+      "type": "PostToolUse",
+      "description": "Remind about QWeb rendering checks when a mail template XML file is edited",
+      "matcher": {
+        "tool": ["Write", "Edit"],
+        "file_pattern": "**/data/mail_template*.xml"
+      },
+      "action": {
+        "type": "suggest",
+        "message": "[odoo-report] Email template modified. Check:\n- body_html field uses t-esc or t-out (not t-raw in Odoo 16+)\n- Conditional blocks use t-if not attrs\n- Dynamic fields wrapped in <span t-esc=\"object.field\"/>\n- Test render via Settings > Technical > Email Templates > Send Test"
+      }
     },
-    "on_error": {
-      "triggers": [
-        {
-          "pattern": "AttributeError: 'NoneType'",
-          "suggestion": "This error typically means a null check is missing. Would you like me to suggest fixes?",
-          "actions": ["/debug-template", "/fix-template"]
-        },
-        {
-          "pattern": "QWebException",
-          "suggestion": "QWeb rendering error detected. Let me analyze the template.",
-          "actions": ["/debug-template"]
-        },
-        {
-          "pattern": "t-esc is deprecated",
-          "suggestion": "Deprecated syntax detected. I can migrate to t-out syntax.",
-          "actions": ["/migrate-template --to-current"]
-        }
-      ]
+    {
+      "id": "qweb-report-created",
+      "type": "PostToolUse",
+      "description": "Remind about QWeb report structure when a report XML file is written",
+      "matcher": {
+        "tool": ["Write"],
+        "file_pattern": "**/reports/*.xml"
+      },
+      "action": {
+        "type": "suggest",
+        "message": "[odoo-report] QWeb report file created. Verify:\n- ir.actions.report record has report_type=\"qweb-pdf\" or \"qweb-html\"\n- Report template id matches report_name in ir.actions.report\n- Page layout uses t-call=\"web.external_layout\" for header/footer\n- Report is listed in __manifest__.py under 'data'"
+      }
     },
-    "on_command": {
-      "triggers": [
-        {
-          "command": "/create-email-template",
-          "post_action": "After creation, would you like to preview the template?",
-          "actions": ["/preview-template {created_template}"]
-        },
-        {
-          "command": "/migrate-template",
-          "post_action": "Migration complete. Run validation to verify?",
-          "actions": ["/validate-template {file}"]
-        }
-      ]
+    {
+      "id": "qweb-report-modified",
+      "type": "PostToolUse",
+      "description": "Remind about QWeb page layout checks when a report XML file is edited",
+      "matcher": {
+        "tool": ["Write", "Edit"],
+        "file_pattern": "**/reports/*.xml"
+      },
+      "action": {
+        "type": "suggest",
+        "message": "[odoo-report] QWeb report modified. Check:\n- t-foreach loops use t-as to alias the current record\n- Currency/amount fields use res-lang's format_currency or monetary widget\n- Page breaks use <div style=\"page-break-after: always\"/>\n- Paper format declared via report_paperformat_id in ir.actions.report"
+      }
     },
-    "on_model_mention": {
-      "triggers": [
-        {
-          "models": ["sale.order", "purchase.order", "account.move"],
-          "context": "email template",
-          "suggestion": "I can show you existing templates for this model or create a new one.",
-          "actions": ["/list-templates {model}"]
-        }
-      ]
-    },
-    "on_version_detect": {
-      "triggers": [
-        {
-          "condition": "version_mismatch",
-          "suggestion": "Template syntax may not be compatible with detected Odoo version. Would you like me to check?",
-          "actions": ["/analyze-template --version"]
-        }
-      ]
+    {
+      "id": "manifest-report-check",
+      "type": "PostToolUse",
+      "description": "Remind to include report files in manifest data array when manifest is edited",
+      "matcher": {
+        "tool": ["Write", "Edit"],
+        "file_pattern": "**/__manifest__.py"
+      },
+      "action": {
+        "type": "suggest",
+        "message": "[odoo-report] Manifest modified. Verify report/email template files are in 'data' array:\n- 'data/mail_template_*.xml' (email templates)\n- 'reports/*.xml' (QWeb report actions + templates)\n- Order matters: security XML before access CSV before data files"
+      }
     }
-  },
-  "proactive_suggestions": {
-    "template_creation": {
-      "trigger": "user mentions 'email', 'notification', 'template' for a model",
-      "suggestion": "I can help you create an email template for this. Use /create-email-template {model} {purpose}"
-    },
-    "report_creation": {
-      "trigger": "user mentions 'report', 'PDF', 'print' for a model",
-      "suggestion": "I can help you create a QWeb PDF report. Use /create-qweb-report {model} {name}"
-    },
-    "migration": {
-      "trigger": "user mentions upgrading Odoo version",
-      "suggestion": "Don't forget to migrate your email templates! Use /migrate-template to update syntax."
-    }
-  }
+  ]
 }
