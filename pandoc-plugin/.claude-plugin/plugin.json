@@ -32,12 +32,12 @@
     "technical-writing"
   ],
   "skills": [
-    "./pandoc"
+    "../pandoc"
   ],
   "commands": [
-    "./commands"
+    "../commands"
   ],
-  "scripts": "./pandoc/scripts/",
+  "scripts": "../pandoc/scripts/",
   "metadata": {
     "pandoc-min-version": "3.0.0",
     "supported-platforms": [

@@ -9,13 +9,13 @@
   },
   "license": "MIT",
   "skills": [
-    "./odoo-report"
+    "../odoo-report"
   ],
   "commands": [
-    "./commands"
+    "../commands"
   ],
-  "hooks": "./hooks/hooks.json",
-  "scripts": "./odoo-report/scripts/",
+  "hooks": "../hooks/hooks.json",
+  "scripts": "../odoo-report/scripts/",
   "metadata": {
     "mode": "codebase",
     "supported_versions": [
@@ -53,7 +53,6 @@
     ]
   },
   "configuration": {
-    "default_odoo_path": "C:\\TQ-WorkSpace\\odoo",
     "version_detection": "auto",
     "template_output_format": "xml"
   },

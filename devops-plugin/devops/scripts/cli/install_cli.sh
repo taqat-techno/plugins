@@ -7,23 +7,23 @@
 #   ./install_cli.sh [OPTIONS]
 #
 # Options:
-#   -o, --organization NAME    Azure DevOps organization (default: TaqaTechno)
+#   -o, --organization NAME    Azure DevOps organization name (required)
 #   -p, --project NAME         Default project name (optional)
 #   -t, --pat TOKEN            Personal Access Token
 #   -s, --skip-cli             Skip Azure CLI installation
 #   -h, --help                 Show this help
 #
 # Examples:
-#   ./install_cli.sh -o TaqaTechno -p "Relief Center"
-#   ./install_cli.sh -o TaqaTechno -t "your-pat-token"
+#   ./install_cli.sh -o my-org -p "MyProject"
+#   ./install_cli.sh -o my-org -t "your-pat-token"
 #
-# Author: TAQAT Techno
+# Author: Plugin Author
 # Version: 2.0.0
 
 set -e
 
 # Default values
-ORGANIZATION="TaqaTechno"
+ORGANIZATION="YOUR-ORG"
 PROJECT=""
 PAT=""
 SKIP_CLI=false
@@ -49,15 +49,15 @@ show_help() {
     echo "Usage: $0 [OPTIONS]"
     echo ""
     echo "Options:"
-    echo "  -o, --organization NAME    Azure DevOps organization (default: TaqaTechno)"
+    echo "  -o, --organization NAME    Azure DevOps organization name (required)"
     echo "  -p, --project NAME         Default project name (optional)"
     echo "  -t, --pat TOKEN            Personal Access Token"
     echo "  -s, --skip-cli             Skip Azure CLI installation"
     echo "  -h, --help                 Show this help"
     echo ""
     echo "Examples:"
-    echo "  $0 -o TaqaTechno -p \"Relief Center\""
-    echo "  $0 -o TaqaTechno -t \"your-pat-token\""
+    echo "  $0 -o my-org -p \"MyProject\""
+    echo "  $0 -o my-org -t \"your-pat-token\""
     exit 0
 }
 

@@ -1,13 +1,13 @@
 <#
 .SYNOPSIS
-    Configure Azure DevOps CLI defaults for TaqaTechno organization.
+    Configure Azure DevOps CLI defaults.
 
 .DESCRIPTION
     Sets default organization, project, and other CLI configurations.
     Also validates the configuration by testing connectivity.
 
 .PARAMETER Organization
-    The Azure DevOps organization name. Default: TaqaTechno
+    The Azure DevOps organization name. Required - no default (must be provided by user).
 
 .PARAMETER Project
     The default project name. Default: None (will prompt)
@@ -16,19 +16,19 @@
     Personal Access Token. If not provided, will check environment variable.
 
 .EXAMPLE
-    .\configure_defaults.ps1 -Project "Relief Center"
+    .\configure_defaults.ps1 -Organization "my-org" -Project "MyProject"
 
 .EXAMPLE
-    .\configure_defaults.ps1 -Organization "TaqaTechno" -Project "KhairGate"
+    .\configure_defaults.ps1 -Organization "my-org"
 
 .NOTES
-    Author: TAQAT Techno
+    Author: Plugin Author
     Version: 2.0.0
     Requires: Azure CLI with azure-devops extension
 #>
 
 param(
-    [string]$Organization = "TaqaTechno",
+    [string]$Organization = "YOUR-ORG",
     [string]$Project = "",
     [string]$PAT = "",
     [switch]$ListProjects,

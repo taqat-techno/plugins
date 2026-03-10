@@ -5,7 +5,7 @@
     Installs Azure CLI, Azure DevOps extension, and configures authentication.
     Part of the DevOps Plugin for Claude Code.
 .PARAMETER Organization
-    Azure DevOps organization name (e.g., TaqaTechno)
+    Azure DevOps organization name (e.g., my-org)
 .PARAMETER Project
     Default project name (optional)
 .PARAMETER Pat
@@ -15,18 +15,18 @@
 .PARAMETER SkipCliInstall
     Skip Azure CLI installation if already installed
 .EXAMPLE
-    .\install_cli.ps1 -Organization "TaqaTechno" -Project "Relief Center"
+    .\install_cli.ps1 -Organization "my-org" -Project "MyProject"
 .EXAMPLE
-    .\install_cli.ps1 -Organization "TaqaTechno" -Pat "your-pat-token"
+    .\install_cli.ps1 -Organization "my-org" -Pat "your-pat-token"
 .NOTES
-    Author: TAQAT Techno
+    Author: Plugin Author
     Version: 2.0.0
     Requires: Windows PowerShell 5.1 or PowerShell 7+
 #>
 
 param(
     [Parameter(Mandatory=$false)]
-    [string]$Organization = "TaqaTechno",
+    [string]$Organization = "YOUR-ORG",
 
     [Parameter(Mandatory=$false)]
     [string]$Project = "",

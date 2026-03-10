@@ -1,8 +1,8 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$comment": "TaqaTechno work item hierarchy rules and parent-child relationships",
+  "$comment": "Azure DevOps work item hierarchy rules and parent-child relationships",
   "version": "1.0.0",
-  "organization": "TaqaTechno",
+  "organization": "YOUR-ORG",
   "lastUpdated": "2025-12",
 
   "hierarchyStructure": {

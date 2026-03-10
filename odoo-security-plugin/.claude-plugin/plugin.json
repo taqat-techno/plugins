@@ -9,13 +9,13 @@
   },
   "license": "MIT",
   "skills": [
-    "./odoo-security"
+    "../odoo-security"
   ],
   "commands": [
-    "./commands"
+    "../commands"
   ],
-  "scripts": "./odoo-security/scripts/",
-  "hooks": "./hooks/hooks.json",
+  "scripts": "../odoo-security/scripts/",
+  "hooks": "../hooks/hooks.json",
   "metadata": {
     "mode": "codebase",
     "supported-versions": [

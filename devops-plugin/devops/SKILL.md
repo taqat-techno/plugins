@@ -24,6 +24,20 @@ description: |
   assistant: "I will use the devops skill to record a time entry against work item 1234, update remaining hours, and confirm the log in the timesheet summary."
   <commentary>Time tracking trigger - logging work hours to Azure DevOps.</commentary>
   </example>
+
+  <example>
+  Context: User wants automated periodic monitoring of new work assignments
+  user: "Start monitoring my tasks every 15 minutes and alert me when I get new work items assigned"
+  assistant: "I will run /task-monitor to set the current work item baseline, then you can use /loop 15m /task-monitor to get automatic alerts whenever a new item is assigned to you in Azure DevOps."
+  <commentary>Loop-based task monitor trigger - periodic new assignment alerts.</commentary>
+  </example>
+
+  <example>
+  Context: User wants to check if any new Azure DevOps tasks were assigned since they last checked
+  user: "Any new tasks assigned to me since this morning?"
+  assistant: "I will use the devops skill to run /task-monitor which fetches a live snapshot from Azure DevOps and shows only items assigned since the last check."
+  <commentary>On-demand new assignment diff trigger - task monitor single run.</commentary>
+  </example>
 version: "2.0.0"
 author: "TAQAT Techno"
 license: "MIT"

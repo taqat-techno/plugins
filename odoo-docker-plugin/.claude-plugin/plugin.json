@@ -23,12 +23,23 @@
     "debugging",
     "multi-version"
   ],
-  "skills": ["./odoo-docker"],
-  "commands": ["./commands"],
-  "hooks": "./hooks/hooks.json",
+  "skills": [
+    "../odoo-docker"
+  ],
+  "commands": [
+    "../commands"
+  ],
+  "hooks": "../hooks/hooks.json",
   "metadata": {
     "mode": "codebase",
-    "odoo-versions": ["14", "15", "16", "17", "18", "19"],
+    "odoo-versions": [
+      "14",
+      "15",
+      "16",
+      "17",
+      "18",
+      "19"
+    ],
     "categories": [
       "docker",
       "infrastructure",

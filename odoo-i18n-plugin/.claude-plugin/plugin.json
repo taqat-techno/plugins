@@ -8,13 +8,13 @@
   },
   "license": "MIT",
   "skills": [
-    "./odoo-i18n"
+    "../odoo-i18n"
   ],
   "commands": [
-    "./commands"
+    "../commands"
   ],
-  "scripts": "./odoo-i18n/scripts/",
-  "hooks": "./hooks/hooks.json",
+  "scripts": "../odoo-i18n/scripts/",
+  "hooks": "../hooks/hooks.json",
   "metadata": {
     "mode": "codebase",
     "supported-versions": [

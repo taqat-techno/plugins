@@ -33,14 +33,14 @@
     "design-to-code"
   ],
   "skills": [
-    "./skills/paper"
+    "../skills/paper"
   ],
   "commands": [
-    "./commands"
+    "../commands"
   ],
   "agents": [
-    "./agents"
+    "../agents"
   ],
-  "hooks": "./hooks/hooks.json",
+  "hooks": "../hooks/hooks.json",
   "homepage": "https://github.com/taqat-techno/plugins"
 }

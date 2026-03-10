@@ -23,11 +23,11 @@
     "background-tasks"
   ],
   "skills": [
-    "./ntfy"
+    "../ntfy"
   ],
-  "scripts": "./ntfy/scripts/",
+  "scripts": "../ntfy/scripts/",
   "commands": [
-    "./commands"
+    "../commands"
   ],
   "metadata": {
     "notification-service": "ntfy.sh",
