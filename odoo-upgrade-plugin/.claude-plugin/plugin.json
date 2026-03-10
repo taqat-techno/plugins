@@ -31,10 +31,10 @@
     "odoo19"
   ],
   "skills": [
-    "./odoo-upgrade"
+    "../odoo-upgrade"
   ],
-  "scripts": "./odoo-upgrade/scripts/",
-  "hooks": "./hooks/hooks.json",
+  "scripts": "../odoo-upgrade/scripts/",
+  "hooks": "../hooks/hooks.json",
   "metadata": {
     "odoo-versions": [
       "14",

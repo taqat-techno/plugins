@@ -2,7 +2,7 @@
 
 A comprehensive Azure DevOps integration plugin for Claude Code, enabling natural language interaction with your DevOps workflows through **HYBRID** CLI + MCP architecture.
 
-**Version**: 2.0.0 | **Organization**: YOUR-ORG | **Mode**: Hybrid (CLI + MCP)
+**Version**: 3.1.0 | **Organization**: YOUR-ORG | **Mode**: Hybrid (CLI + MCP)
 
 ---
 
@@ -38,6 +38,14 @@ See `rules/business_rules.md` for complete documentation.
 - **Code Search** - Search across repositories and work items
 - **Test Plans** - Manage test plans, cases, and results
 - **Security Alerts** - Monitor and analyze security vulnerabilities
+
+### v3.1.0 Features
+- **Task Monitor** - `/task-monitor` with loop support for periodic new assignment alerts
+- **Loop Integration** - Use `/loop 15m /task-monitor` for cron-like monitoring
+
+### v3.0.0 Features
+- **Work Tracking System** - Workday dashboard, time logging, compliance enforcement
+- **Persistent Cache** - Work item cache with staleness detection
 
 ### v2.0.0 Features
 - **Hybrid Mode** - CLI + MCP for optimal performance
@@ -76,11 +84,21 @@ This installs both CLI and MCP:
 
 | Command | Description |
 |---------|-------------|
-| `/my-tasks` | List your active work items |
+| `/my-tasks` | List your active work items (cache-first) |
+| `/task-monitor` | Periodic monitor - alerts on NEW assignments only |
 | `/create-task` | Create task (with parent enforcement + naming conventions) |
 | `/create-bug` | Create a new bug |
 | `/create-user-story` | Create story with How/What/Why format |
 | `/sync-my-tasks` | Sync tasks to Claude TODO list |
+
+### Automatic Monitoring
+
+```
+/loop 15m /task-monitor      # Alert me every 15 minutes on new Azure DevOps assignments
+/loop 30m /task-monitor      # Alert me every 30 minutes
+/task-monitor                # Single check (run once)
+/task-monitor --reset        # Re-baseline (treat all current items as known)
+```
 
 ### Sprint & Standup
 

@@ -1,8 +1,8 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$comment": "Required fields lookup for Azure DevOps work item state transitions - TaqaTechno",
+  "$comment": "Required fields lookup for Azure DevOps work item state transitions",
   "version": "1.0.0",
-  "organization": "TaqaTechno",
+  "organization": "YOUR-ORG",
   "lastUpdated": "2025-12",
 
   "fieldPaths": {

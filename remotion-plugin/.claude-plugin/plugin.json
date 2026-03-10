@@ -28,13 +28,13 @@
     "motion-graphics"
   ],
   "skills": [
-    "./remotion"
+    "../remotion"
   ],
   "commands": [
-    "./commands"
+    "../commands"
   ],
-  "hooks": "./hooks/hooks.json",
-  "scripts": "./remotion/scripts/",
+  "hooks": "../hooks/hooks.json",
+  "scripts": "../remotion/scripts/",
   "metadata": {
     "category": "video-creation",
     "mode": "cli-tool",

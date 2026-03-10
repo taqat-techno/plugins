@@ -64,7 +64,7 @@
       "hooks": [
         {
           "type": "suggestion",
-          "message": "Authentication error detected. Your Personal Access Token (PAT) may have expired. Generate a new PAT at: https://dev.azure.com/TaqaTechno/_usersSettings/tokens"
+          "message": "Authentication error detected. Your Personal Access Token (PAT) may have expired. Generate a new PAT at: https://dev.azure.com/YOUR-ORG/_usersSettings/tokens (replace YOUR-ORG with your Azure DevOps organization name)"
         }
       ]
     },

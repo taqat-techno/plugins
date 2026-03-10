@@ -31,13 +31,13 @@
     "odoo19"
   ],
   "skills": [
-    "./odoo-test"
+    "../odoo-test"
   ],
   "commands": [
-    "./commands"
+    "../commands"
   ],
-  "scripts": "./odoo-test/scripts/",
-  "hooks": "./hooks/hooks.json",
+  "scripts": "../odoo-test/scripts/",
+  "hooks": "../hooks/hooks.json",
   "metadata": {
     "mode": "codebase",
     "supported-versions": [
@@ -80,7 +80,6 @@
     ]
   },
   "configuration": {
-    "default_odoo_path": "C:\\TQ-WorkSpace\\odoo",
     "version_detection": "auto",
     "output_format": "python",
     "default_tags": [
