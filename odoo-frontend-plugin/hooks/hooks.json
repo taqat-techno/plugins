@@ -65,7 +65,7 @@
         {
           "type": "check",
           "pattern": "\\b(ml-|mr-|pl-|pr-|text-left|text-right|float-left|float-right|font-weight-bold|sr-only)",
-          "message": "Bootstrap 4 classes detected. For Odoo 16+, use Bootstrap 5: ml→ms, mr→me, text-left→text-start, font-weight-bold→fw-bold, sr-only→visually-hidden"
+          "message": "Bootstrap 4 classes detected. For Odoo 16+, use Bootstrap 5: ml?ms, mr?me, text-left?text-start, font-weight-bold?fw-bold, sr-only?visually-hidden"
         }
       ]
     },

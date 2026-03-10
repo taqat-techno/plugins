@@ -1,6 +1,29 @@
 ---
 name: devops
-description: "Azure DevOps HYBRID integration skill for YOUR-ORG organization. Combines CLI power with MCP convenience for optimal performance. Uses CLI for automation, batch operations, variables, and extensions. Uses MCP for interactive queries, code reviews, test plans, search, and security alerts. Intelligent routing automatically selects the best tool for each task."
+description: |
+  Azure DevOps HYBRID integration skill for YOUR-ORG organization. Combines CLI power with MCP convenience for optimal performance. Uses CLI for automation, batch operations, variables, and extensions. Uses MCP for interactive queries, code reviews, test plans, search, and security alerts. Intelligent routing automatically selects the best tool for each task.
+
+
+  <example>
+  Context: User wants to create a work item in Azure DevOps
+  user: "Create a user story for the login feature in Azure DevOps"
+  assistant: "I will use the devops skill with the Azure DevOps MCP server to create a User Story work item under the correct epic with title, description, and acceptance criteria."
+  <commentary>Core trigger - work item creation via Azure DevOps MCP.</commentary>
+  </example>
+
+  <example>
+  Context: User wants to view their sprint tasks
+  user: "Show me my active sprint tasks and their status"
+  assistant: "I will use the devops skill to query the current sprint via MCP, filter by assigned user, and display a formatted task board with status and remaining hours."
+  <commentary>Sprint management trigger - task visibility.</commentary>
+  </example>
+
+  <example>
+  Context: User wants to log time on a work item
+  user: "Log 3 hours on work item #1234 for today"
+  assistant: "I will use the devops skill to record a time entry against work item 1234, update remaining hours, and confirm the log in the timesheet summary."
+  <commentary>Time tracking trigger - logging work hours to Azure DevOps.</commentary>
+  </example>
 version: "2.0.0"
 author: "TAQAT Techno"
 license: "MIT"

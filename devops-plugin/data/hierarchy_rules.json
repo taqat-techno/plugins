@@ -291,17 +291,17 @@
   "outputFormats": {
     "hierarchyTree": {
       "prefix": {
-        "branch": "├── ",
-        "lastBranch": "└── ",
-        "vertical": "│   ",
+        "branch": "??? ",
+        "lastBranch": "??? ",
+        "vertical": "?   ",
         "empty": "    "
       },
       "itemFormat": "{type} #{id}: {title} [{state}]",
-      "currentMarker": " ← YOU ARE HERE"
+      "currentMarker": " ? YOU ARE HERE"
     },
     "creationConfirmation": {
-      "success": "✅ {type} #{id} created: \"{title}\"",
-      "parentLink": "   └── Parent: {parentType} #{parentId} - {parentTitle}",
+      "success": "? {type} #{id} created: \"{title}\"",
+      "parentLink": "   ??? Parent: {parentType} #{parentId} - {parentTitle}",
       "hierarchyHeader": "\nHierarchy:"
     }
   }

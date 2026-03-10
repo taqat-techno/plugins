@@ -32,8 +32,15 @@
     "figma-mcp",
     "design-to-code"
   ],
-  "skills": ["./skills/paper"],
-  "commands": ["./commands"],
-  "agents": ["./agents"],
-  "hooks": "./hooks/hooks.json"
+  "skills": [
+    "./skills/paper"
+  ],
+  "commands": [
+    "./commands"
+  ],
+  "agents": [
+    "./agents"
+  ],
+  "hooks": "./hooks/hooks.json",
+  "homepage": "https://github.com/taqat-techno/plugins"
 }

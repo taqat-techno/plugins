@@ -1,6 +1,29 @@
 ---
 name: odoo-test
-description: "Comprehensive Odoo testing toolkit for generating test skeletons, running test suites, creating mock data, and analyzing test coverage across Odoo 14-19. Supports TransactionCase, HttpCase, SavepointCase, and integrates with Azure DevOps for CI/CD test result reporting."
+description: |
+  Comprehensive Odoo testing toolkit for generating test skeletons, running test suites, creating mock data, and analyzing test coverage across Odoo 14-19. Supports TransactionCase, HttpCase, SavepointCase, and integrates with Azure DevOps for CI/CD test result reporting.
+
+
+  <example>
+  Context: User wants test cases for a custom model
+  user: "Generate test cases for my custom sale.order extension module"
+  assistant: "I will use the odoo-test skill to analyze the model definition and generate TransactionCase test skeletons covering CRUD operations, computed fields, and business logic."
+  <commentary>Core trigger - test skeleton generation from model definition.</commentary>
+  </example>
+
+  <example>
+  Context: User wants mock data for testing
+  user: "Create realistic mock data for testing my inventory module"
+  assistant: "I will use the odoo-test skill to generate a mock data factory with realistic product, partner, and stock.move records using Odoo demo data patterns."
+  <commentary>Test data creation trigger.</commentary>
+  </example>
+
+  <example>
+  Context: User wants to analyze test coverage
+  user: "Show me which parts of my module have no test coverage"
+  assistant: "I will use the odoo-test skill to scan the module for untested models, methods, and views, then generate a coverage report with priority recommendations."
+  <commentary>Coverage analysis trigger - finding gaps in the test suite.</commentary>
+  </example>
 version: "1.0.0"
 author: "TaqaTechno"
 license: "MIT"

@@ -1,6 +1,29 @@
 ---
 name: odoo-report
-description: "Professional Odoo Email Templates & QWeb Reports - Complete toolkit for creating, managing, and debugging email templates and PDF reports across Odoo 14-19. Includes wkhtmltopdf setup, Arabic/RTL support, bilingual patterns, and comprehensive validation."
+description: |
+  Professional Odoo Email Templates & QWeb Reports - Complete toolkit for creating, managing, and debugging email templates and PDF reports across Odoo 14-19. Includes wkhtmltopdf setup, Arabic/RTL support, bilingual patterns, and comprehensive validation.
+
+
+  <example>
+  Context: User wants to create an email template
+  user: "Create an invoice confirmation email template in Odoo 17"
+  assistant: "I will use the odoo-report skill to create a mail.template record with QWeb body, dynamic fields, and correct ir.attachment handling."
+  <commentary>Core trigger - new email template creation.</commentary>
+  </example>
+
+  <example>
+  Context: User wants a PDF report
+  user: "Design a QWeb PDF report for purchase orders"
+  assistant: "I will use the odoo-report skill to create a report action, QWeb template with page layout, header/footer, and register it in the module manifest."
+  <commentary>PDF report workflow trigger.</commentary>
+  </example>
+
+  <example>
+  Context: User has a broken email template
+  user: "My email template is sending plain text instead of HTML"
+  assistant: "I will use the odoo-report skill to diagnose the template body_html field, check subtype_id, and verify the mail.template arch is structured correctly for HTML rendering."
+  <commentary>Debugging trigger - email template not rendering correctly.</commentary>
+  </example>
 version: "2.0.0"
 author: "TaqaTechno"
 license: "LGPL-3"

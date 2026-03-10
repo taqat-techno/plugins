@@ -81,7 +81,7 @@
     {
       "id": "error-port-allocated",
       "type": "OnError",
-      "description": "Port already allocated — suggest stopping conflicting containers",
+      "description": "Port already allocated  -  suggest stopping conflicting containers",
       "matcher": {
         "pattern": "port is already allocated|Bind for.*failed.*port is already allocated|address already in use|Error starting userland proxy"
       },
@@ -93,7 +93,7 @@
     {
       "id": "error-no-space",
       "type": "OnError",
-      "description": "No space left on device — suggest Docker cleanup",
+      "description": "No space left on device  -  suggest Docker cleanup",
       "matcher": {
         "pattern": "no space left on device|ENOSPC|disk space|No space left"
       },
@@ -105,19 +105,19 @@
     {
       "id": "error-502-bad-gateway",
       "type": "OnError",
-      "description": "502 Bad Gateway — check Odoo container health and nginx upstream",
+      "description": "502 Bad Gateway  -  check Odoo container health and nginx upstream",
       "matcher": {
         "pattern": "502 Bad Gateway|upstream.*connect.*refused|no live upstreams"
       },
       "action": {
         "type": "suggest",
-        "message": "502 Bad Gateway — nginx cannot reach Odoo.\n\nDebug:\n```bash\n# 1. Check if Odoo container is running\ndocker ps | grep web\n\n# 2. Check Odoo health\ndocker exec {container} curl -sf http://localhost:8069/web/health\n\n# 3. Check Odoo logs for errors\ndocker logs {odoo_container} --tail 50\n\n# 4. Check nginx upstream config\ndocker exec {nginx_container} cat /etc/nginx/conf.d/default.conf | grep upstream\n\n# 5. Ensure containers are on same network\ndocker network inspect {network}\n```\n\nCommon causes:\n- Odoo still starting (check start_period in healthcheck)\n- Odoo crashed (check logs for Python errors)\n- Wrong upstream name in nginx.conf"
+        "message": "502 Bad Gateway  -  nginx cannot reach Odoo.\n\nDebug:\n```bash\n# 1. Check if Odoo container is running\ndocker ps | grep web\n\n# 2. Check Odoo health\ndocker exec {container} curl -sf http://localhost:8069/web/health\n\n# 3. Check Odoo logs for errors\ndocker logs {odoo_container} --tail 50\n\n# 4. Check nginx upstream config\ndocker exec {nginx_container} cat /etc/nginx/conf.d/default.conf | grep upstream\n\n# 5. Ensure containers are on same network\ndocker network inspect {network}\n```\n\nCommon causes:\n- Odoo still starting (check start_period in healthcheck)\n- Odoo crashed (check logs for Python errors)\n- Wrong upstream name in nginx.conf"
       }
     },
     {
       "id": "error-oom-killed",
       "type": "OnError",
-      "description": "Container killed by OOM — suggest increasing resource limits",
+      "description": "Container killed by OOM  -  suggest increasing resource limits",
       "matcher": {
         "pattern": "OOMKilled|Out of memory|Killed|memory limit|oom-kill"
       },

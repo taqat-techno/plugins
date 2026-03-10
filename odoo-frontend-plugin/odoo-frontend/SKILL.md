@@ -1,6 +1,29 @@
 ---
 name: odoo-frontend
-description: "Advanced Odoo frontend development with comprehensive theme development, /create-theme command, theme.utils activation system, complete dynamic page reference (headers, footers, shop, blog), design workflow methodology, PWA support, modern JavaScript/TypeScript, testing frameworks, performance optimization, accessibility compliance, and real-time features. Features complete $o-website-values-palettes reference, theme mirror model architecture, publicWidget patterns with editableMode handling, and MCP integration. Supports Odoo 14-19 with auto-detection."
+description: |
+  Advanced Odoo frontend development with comprehensive theme development, /create-theme command, theme.utils activation system, complete dynamic page reference (headers, footers, shop, blog), design workflow methodology, PWA support, modern JavaScript/TypeScript, testing frameworks, performance optimization, accessibility compliance, and real-time features. Features complete $o-website-values-palettes reference, theme mirror model architecture, publicWidget patterns with editableMode handling, and MCP integration. Supports Odoo 14-19 with auto-detection.
+
+
+  <example>
+  Context: User wants to create a new Odoo website theme
+  user: "Create a new website theme for Odoo 17"
+  assistant: "I will use the odoo-frontend skill to scaffold a complete theme module with primary_variables.scss, Bootstrap overrides, and mirror model page definitions."
+  <commentary>Core trigger - new theme creation from scratch.</commentary>
+  </example>
+
+  <example>
+  Context: User wants to add a section to an existing theme
+  user: "Add a hero section to my Odoo website homepage"
+  assistant: "I will use the odoo-frontend skill to create a publicWidget-based hero snippet with SCSS styling that follows Bootstrap 5.1.3 grid conventions."
+  <commentary>Incremental theme work - adding components.</commentary>
+  </example>
+
+  <example>
+  Context: User wants to implement a Figma design in Odoo
+  user: "Implement this Figma design as an Odoo 17 theme"
+  assistant: "I will use the odoo-frontend skill with Figma MCP to extract design tokens and convert them into Odoo theme SCSS variables and Bootstrap-compatible layouts."
+  <commentary>Design-to-code workflow with Figma MCP integration.</commentary>
+  </example>
 version: "7.0.0"
 author: "TAQAT Techno"
 license: "MIT"

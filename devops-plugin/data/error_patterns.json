@@ -388,20 +388,20 @@
 
   "errorMessageTemplates": {
     "standard": "{emoji} {shortSummary}\n\n**Reason**: {reason}\n\n**Details**:\n{details}\n\n**To fix**:\n{fixSteps}",
-    "permission": "🔒 Permission Denied\n\n**Operation**: {operation}\n**Reason**: {reason}\n\n**Required Scopes**:\n{scopes}\n\n**How to Fix**:\n{fixSteps}\n\n**Help**: {helpUrl}",
-    "notFound": "🔍 Not Found\n\n**Looking for**: {resource}\n**In**: {location}\n\n**Possible reasons**:\n{reasons}\n\n**Actions**:\n{actions}",
-    "validation": "⚠️ Validation Error\n\n**Field**: {field}\n**Provided**: {value}\n**Expected**: {expected}\n\n**To fix**:\n{fixSteps}"
+    "permission": " Permission Denied\n\n**Operation**: {operation}\n**Reason**: {reason}\n\n**Required Scopes**:\n{scopes}\n\n**How to Fix**:\n{fixSteps}\n\n**Help**: {helpUrl}",
+    "notFound": " Not Found\n\n**Looking for**: {resource}\n**In**: {location}\n\n**Possible reasons**:\n{reasons}\n\n**Actions**:\n{actions}",
+    "validation": "?? Validation Error\n\n**Field**: {field}\n**Provided**: {value}\n**Expected**: {expected}\n\n**To fix**:\n{fixSteps}"
   },
 
   "emojis": {
-    "error": "❌",
-    "warning": "⚠️",
-    "permission": "🔒",
-    "notFound": "🔍",
-    "timeout": "⏳",
-    "conflict": "🔄",
-    "success": "✅",
-    "info": "ℹ️",
-    "question": "❓"
+    "error": "?",
+    "warning": "??",
+    "permission": "",
+    "notFound": "",
+    "timeout": "?",
+    "conflict": "",
+    "success": "?",
+    "info": "??",
+    "question": "?"
   }
 }

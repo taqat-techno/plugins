@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "Create professional videos with smooth voice narration using Remotion and Claude Code. Features continuous audio pipeline that prevents voice cutting between slides, free edge-tts voice generation, and full video creation from text prompts.",
   "author": {
-    "name": "TAQAT Techno",
+    "name": "TaqaTechno",
     "email": "support@example.com",
     "url": "https://github.com/taqat-techno"
   },
@@ -27,14 +27,22 @@
     "gif",
     "motion-graphics"
   ],
-  "skills": "./remotion/",
-  "commands": "./commands/",
+  "skills": [
+    "./remotion"
+  ],
+  "commands": [
+    "./commands"
+  ],
   "hooks": "./hooks/hooks.json",
   "scripts": "./remotion/scripts/",
   "metadata": {
     "category": "video-creation",
     "mode": "cli-tool",
-    "supported-platforms": ["windows", "macos", "linux"],
+    "supported-platforms": [
+      "windows",
+      "macos",
+      "linux"
+    ],
     "node-min-version": "18.0.0",
     "python-min-version": "3.8.0",
     "remotion-version": "4.0.0+",
@@ -56,10 +64,24 @@
       "free": "edge-tts (Microsoft Neural, 300+ voices, 70+ languages)",
       "paid": "ElevenLabs (realistic voices, character-level timestamps)"
     },
-    "output-formats": ["mp4", "webm", "gif", "png-sequence"],
+    "output-formats": [
+      "mp4",
+      "webm",
+      "gif",
+      "png-sequence"
+    ],
     "dependencies": {
-      "required": ["node", "python", "edge-tts", "mutagen"],
-      "optional": ["pydub", "ffmpeg", "elevenlabs"]
+      "required": [
+        "node",
+        "python",
+        "edge-tts",
+        "mutagen"
+      ],
+      "optional": [
+        "pydub",
+        "ffmpeg",
+        "elevenlabs"
+      ]
     }
   }
 }

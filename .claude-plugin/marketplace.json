@@ -6,8 +6,8 @@
   },
   "metadata": {
     "description": "Professional development skills for Claude Code - Odoo, DevOps, Document Conversion & more",
-    "version": "1.6.0",
-    "plugins_count": 12
+    "version": "1.7.0",
+    "plugins_count": 13
   },
   "plugins": [
     {
@@ -137,6 +137,18 @@
       ],
       "commands": [
         "./odoo-service-plugin/commands"
+      ]
+    },
+    {
+      "name": "odoo-docker",
+      "description": "Docker infrastructure manager for Odoo - production deployment with nginx, CI/CD pipelines, performance tuning, multi-version image management, container debugging, and centralized workspace orchestration for Odoo 14-19 Enterprise.",
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./odoo-docker-plugin/odoo-docker"
+      ],
+      "commands": [
+        "./odoo-docker-plugin/commands"
       ]
     },
     {

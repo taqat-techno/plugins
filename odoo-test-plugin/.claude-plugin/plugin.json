@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "Comprehensive Odoo testing toolkit - generate test skeletons, run test suites, create mock data, and analyze test coverage across Odoo 14-19. Integrates with Azure DevOps for test result reporting.",
   "author": {
-    "name": "TAQAT Techno",
+    "name": "TaqaTechno",
     "email": "support@example.com",
     "url": "https://github.com/taqat-techno"
   },
@@ -30,13 +30,24 @@
     "odoo18",
     "odoo19"
   ],
-  "skills": "./odoo-test/",
-  "commands": "./commands/",
+  "skills": [
+    "./odoo-test"
+  ],
+  "commands": [
+    "./commands"
+  ],
   "scripts": "./odoo-test/scripts/",
   "hooks": "./hooks/hooks.json",
   "metadata": {
     "mode": "codebase",
-    "supported-versions": ["14", "15", "16", "17", "18", "19"],
+    "supported-versions": [
+      "14",
+      "15",
+      "16",
+      "17",
+      "18",
+      "19"
+    ],
     "primary-version": "17",
     "commands_count": 5,
     "test-patterns": "80+",
@@ -51,14 +62,30 @@
     ]
   },
   "dependencies": {
-    "odoo_modules": ["base"],
-    "optional_modules": ["sale", "purchase", "account", "hr", "stock", "website"],
-    "python_packages": ["coverage", "pytest", "colorama"]
+    "odoo_modules": [
+      "base"
+    ],
+    "optional_modules": [
+      "sale",
+      "purchase",
+      "account",
+      "hr",
+      "stock",
+      "website"
+    ],
+    "python_packages": [
+      "coverage",
+      "pytest",
+      "colorama"
+    ]
   },
   "configuration": {
     "default_odoo_path": "C:\\TQ-WorkSpace\\odoo",
     "version_detection": "auto",
     "output_format": "python",
-    "default_tags": ["post_install", "-at_install"]
+    "default_tags": [
+      "post_install",
+      "-at_install"
+    ]
   }
 }

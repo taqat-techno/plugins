@@ -1,6 +1,6 @@
 # TAQAT Techno Plugins - Claude Code Skills Marketplace
 
-![Plugins](https://img.shields.io/badge/plugins-12-blue.svg)
+![Plugins](https://img.shields.io/badge/plugins-13-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 ![Odoo](https://img.shields.io/badge/Odoo-14--19-purple.svg)
 ![Azure DevOps](https://img.shields.io/badge/Azure_DevOps-Integrated-0078D7.svg)
@@ -24,7 +24,8 @@ Production-ready Claude Code plugins for professional development - Odoo ERP, Az
 | 9 | [**odoo-security**](./odoo-security-plugin/README.md) | Security audit & risk scoring | 1.0.0 |
 | 10 | [**odoo-i18n**](./odoo-i18n-plugin/README.md) | Internationalization & translation management | 1.0.0 |
 | 11 | [**odoo-service**](./odoo-service-plugin/README.md) | Server lifecycle manager (venv, Docker, IDE) | 1.0.0 |
-| 12 | [**paper**](./paper-plugin/README.md) | UI/UX design specialist with Figma MCP | 1.0.0 |
+| 12 | [**odoo-docker**](./odoo-docker-plugin/README.md) | Docker infrastructure manager (nginx, CI/CD, production) | 1.0.0 |
+| 13 | [**paper**](./paper-plugin/README.md) | UI/UX design specialist with Figma MCP | 1.0.0 |
 
 ---
 
@@ -517,4 +518,4 @@ MIT License - Free to use, modify, and distribute.
 
 ---
 
-**Plugins**: 12 | **Version**: 1.7.0 | **Maintainer**: TAQAT Techno
+**Plugins**: 13 | **Version**: 1.7.0 | **Maintainer**: TAQAT Techno

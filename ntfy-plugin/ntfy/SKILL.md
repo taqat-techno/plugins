@@ -1,6 +1,29 @@
 ---
 name: ntfy-notifications
-description: "Push notifications to your phone via ntfy.sh when Claude completes tasks, needs input, or encounters errors. Sends real-time alerts for task completion, action required, blocking issues, and long-running tasks. Supports automatic retry, deduplication, rate limiting, and notification history. 100% FREE - No account required!"
+description: |
+  Push notifications to your phone via ntfy.sh when Claude completes tasks, needs input, or encounters errors. Sends real-time alerts for task completion, action required, blocking issues, and long-running tasks. Supports automatic retry, deduplication, rate limiting, and notification history. 100% FREE - No account required!
+
+
+  <example>
+  Context: User wants notifications when Claude finishes tasks
+  user: "Set up notifications to my phone when Claude finishes a long task"
+  assistant: "I will use the ntfy skill to configure a SessionEnd hook that sends a push notification via ntfy.sh to your subscribed topic when Claude completes a session."
+  <commentary>Core trigger - automatic task completion notification setup.</commentary>
+  </example>
+
+  <example>
+  Context: User wants to configure ntfy settings
+  user: "Configure ntfy to send alerts to my custom topic on my self-hosted server"
+  assistant: "I will use the ntfy skill to update the ntfy config with your server URL, topic name, and optional authentication credentials."
+  <commentary>Configuration trigger - custom ntfy server setup.</commentary>
+  </example>
+
+  <example>
+  Context: User wants to test the notification system
+  user: "Test if ntfy notifications are working and send me a test message"
+  assistant: "I will use the ntfy skill to send a test notification with priority 3 to your configured topic and verify the delivery response."
+  <commentary>Testing trigger - verifying notification delivery.</commentary>
+  </example>
 version: "2.0.0"
 author: "TAQAT Techno"
 license: "MIT"

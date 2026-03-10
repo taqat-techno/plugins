@@ -1,6 +1,29 @@
 ---
 name: odoo-docker
-description: "Docker infrastructure manager for Odoo — production deployment, nginx proxy, CI/CD pipelines, performance tuning, multi-version image management, container debugging, and centralized workspace orchestration for Odoo 14-19 Enterprise."
+description: |
+  Docker infrastructure manager for Odoo — production deployment, nginx proxy, CI/CD pipelines, performance tuning, multi-version image management, container debugging, and centralized workspace orchestration for Odoo 14-19 Enterprise.
+
+
+  <example>
+  Context: User wants to deploy Odoo to production with Docker
+  user: "Deploy my Odoo 17 project to production using Docker"
+  assistant: "I will use the odoo-docker skill to generate a production docker-compose.yml with Odoo, PostgreSQL, and nginx containers, with proper volume mounts and restart policies."
+  <commentary>Core trigger - production Docker deployment.</commentary>
+  </example>
+
+  <example>
+  Context: User wants nginx reverse proxy configuration
+  user: "Set up nginx as a reverse proxy in front of my Odoo Docker container"
+  assistant: "I will use the odoo-docker skill to generate an nginx.conf with SSL termination, WebSocket longpolling proxy, and proper cache headers for Odoo static assets."
+  <commentary>Infrastructure trigger - nginx configuration for Odoo.</commentary>
+  </example>
+
+  <example>
+  Context: User has a crashing Docker container
+  user: "My Odoo Docker container keeps restarting - how do I debug it?"
+  assistant: "I will use the odoo-docker skill to check container logs, verify environment variables, inspect the Odoo config, and identify the startup failure cause."
+  <commentary>Debugging trigger - container crash diagnosis.</commentary>
+  </example>
 version: "1.0.0"
 author: "TaqaTechno"
 license: "MIT"
