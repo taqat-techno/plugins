@@ -18,6 +18,25 @@ Install extensions from the Azure DevOps Marketplace using CLI. Extension manage
 /install-extension info <publisher>.<extension-id>
 ```
 
+## WRITE OPERATION GATE
+
+**Reference**: `guards/write_operation_guard.md`
+
+For write sub-commands (`install`, `uninstall`, `enable`, `disable`), you MUST present a confirmation summary and wait for explicit user approval before executing the CLI command. The `search`, `list`, and `info` sub-commands are read-only and do not require confirmation.
+
+```
+READY TO {INSTALL/UNINSTALL}: Extension
+─────────────────────────────────────────
+Action:    {install/uninstall/enable/disable}
+Extension: {publisher}.{extension-id}
+Name:      {extension name}
+
+This affects the entire organization.
+Proceed? (yes/no)
+```
+
+**Only execute the CLI command after the user explicitly says "yes".**
+
 ## Sub-Commands
 
 | Sub-Command | Description |

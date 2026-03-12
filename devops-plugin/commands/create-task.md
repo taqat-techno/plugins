@@ -294,6 +294,28 @@ if (!currentIterationPath) {
 }
 ```
 
+### Step 4.5: MANDATORY Confirmation (WRITE OPERATION GATE)
+
+**Reference**: `guards/write_operation_guard.md`
+
+Before calling `wit_create_work_item`, present a confirmation summary and **wait for explicit user approval**. NEVER skip this step.
+
+```
+READY TO CREATE: Task
+─────────────────────
+Title:     [PREFIX] {title}
+Project:   {project}
+Parent:    #{parentId} - {parentTitle}
+Sprint:    {currentIterationPath}
+Estimate:  {hours}h (if provided)
+
+Proceed? (yes/no)
+```
+
+**Only proceed to Step 5 after the user explicitly says "yes".**
+
+If in Plan Mode: STOP HERE. Only describe what would be created. Do not call any write tools.
+
 ### Step 5: Create Task with Sprint
 
 ```javascript
