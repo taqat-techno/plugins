@@ -91,6 +91,27 @@ Ask user for information in this SPECIFIC order:
 2. **WHAT**: "What needs to be done? (requirements, acceptance criteria)"
 3. **WHY**: "Why is this important? (business value)"
 
+### Step 2.5: MANDATORY Confirmation (WRITE OPERATION GATE)
+
+**Reference**: `guards/write_operation_guard.md`
+
+Before calling `wit_create_work_item`, present a confirmation summary and **wait for explicit user approval**. NEVER skip this step.
+
+```
+READY TO CREATE: User Story / PBI
+──────────────────────────────────
+Title:     {title}
+Project:   {project}
+Parent:    Feature #{featureId} - {featureTitle}
+Format:    How/What/Why (structured)
+
+Proceed? (yes/no)
+```
+
+**Only proceed to Step 3 after the user explicitly says "yes".**
+
+If in Plan Mode: STOP HERE. Only describe what would be created. Do not call any write tools.
+
 ### Step 3: Create User Story
 ```
 mcp__azure-devops__wit_create_work_item({

@@ -9,6 +9,12 @@ description: 'Create a new bug work item in Azure DevOps'
 
 Create a new bug work item with proper fields.
 
+## WRITE OPERATION GATE
+
+**Reference**: `guards/write_operation_guard.md`
+
+**Before creating the bug**, you MUST present a confirmation summary and wait for explicit user approval. NEVER call `wit_create_work_item` without the user saying "yes".
+
 ## Instructions
 
 1. Gather bug information from user:
@@ -19,9 +25,22 @@ Create a new bug work item with proper fields.
    - Severity (1-4)
    - Priority (1-4)
 2. Ask for project if not specified
-3. Create the bug work item
-4. Optionally link to related items
-5. Return bug ID and URL
+3. **MANDATORY: Present confirmation summary and wait for approval**:
+   ```
+   READY TO CREATE: Bug
+   ─────────────────────
+   Title:     {title}
+   Project:   {project}
+   Severity:  {severity}
+   Priority:  {priority}
+   Parent:    #{parentId} (if specified)
+
+   Proceed? (yes/no)
+   ```
+   **Only proceed after explicit "yes" from user.**
+4. Create the bug work item
+5. Optionally link to related items
+6. Return bug ID and URL
 
 ## Required Fields
 

@@ -137,9 +137,29 @@ Would you like to use a different reason?
 • Obsolete
 ```
 
+### Step 3.5: MANDATORY Confirmation (WRITE OPERATION GATE)
+
+**Reference**: `guards/write_operation_guard.md`
+
+After collecting all required field values (Step 3) and before executing the update, present a confirmation summary and **wait for explicit user approval**. NEVER skip this step.
+
+```
+READY TO UPDATE: #{id} {title}
+─────────────────────────────────
+State:     {currentState} → {newState}
+Fields:    {list of fields being set with values}
+Hours:     Est: {orig}h / Done: {comp}h (if applicable)
+
+Proceed? (yes/no)
+```
+
+**Only proceed to Step 4 after the user explicitly says "yes".**
+
+If in Plan Mode: STOP HERE. Only describe what would be updated. Do not call any write tools.
+
 ### Step 4: Execute Update with All Fields
 
-After user provides missing values:
+After user provides missing values AND explicitly approves:
 
 ```javascript
 mcp__azure-devops__wit_update_work_item({

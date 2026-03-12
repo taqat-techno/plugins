@@ -15,6 +15,26 @@ Manage pipeline variables and variable groups using Azure DevOps CLI. Variable m
 /setup-pipeline-vars <sub-command> [options]
 ```
 
+## WRITE OPERATION GATE
+
+**Reference**: `guards/write_operation_guard.md`
+
+For ALL write sub-commands (`create`, `add`, `secret`, `update`, `delete`, `pipeline-var`), you MUST present a confirmation summary and wait for explicit user approval before executing the CLI command. The `list`, `show`, and `info` sub-commands are read-only and do not require confirmation.
+
+```
+READY TO {ACTION}: Pipeline Variable
+──────────────────────────────────────
+Action:    {create/add/update/delete}
+Group:     {group-name}
+Variable:  {key} = {value} (or [SECRET])
+Pipeline:  {pipeline-name} (if pipeline-var)
+
+This affects shared infrastructure.
+Proceed? (yes/no)
+```
+
+**Only execute the CLI command after the user explicitly says "yes".**
+
 ## Sub-Commands
 
 | Sub-Command | Description |

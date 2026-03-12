@@ -118,9 +118,29 @@ Did you mean one of these team members?
 Please provide the correct name or email address.
 ```
 
+### Step 3.5: MANDATORY Confirmation (WRITE OPERATION GATE)
+
+**Reference**: `guards/write_operation_guard.md`
+
+Before calling `wit_add_work_item_comment`, present a confirmation summary and **wait for explicit user approval**. NEVER skip this step.
+
+```
+READY TO ADD COMMENT: #{workItemId}
+────────────────────────────────────
+Target:    #{id} - {workItemTitle}
+Content:   {first 150 chars of comment}...
+Mentions:  {resolved @mentions or "None"}
+
+Proceed? (yes/no)
+```
+
+**Only proceed to Step 4 after the user explicitly says "yes".**
+
+If in Plan Mode: STOP HERE. Only describe what would be posted. Do not call any write tools.
+
 ### Step 4: Post with HTML Format
 
-**Only after ALL mentions validated!**
+**Only after ALL mentions validated AND user approved!**
 
 ```javascript
 mcp__azure-devops__wit_add_work_item_comment({

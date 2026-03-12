@@ -109,6 +109,29 @@ if (!targetBranch) {
 }
 ```
 
+### Step 3.5: MANDATORY Confirmation (WRITE OPERATION GATE)
+
+**Reference**: `guards/write_operation_guard.md`
+
+Before calling `repo_create_pull_request`, present a confirmation summary and **wait for explicit user approval**. NEVER skip this step.
+
+```
+READY TO CREATE: Pull Request
+──────────────────────────────
+Title:     {prTitle}
+Repo:      {repoName} ({repositoryId})
+Source:    {sourceBranch}
+Target:    {targetBranch}
+Draft:     {isDraft}
+Work Items: {linked IDs or "None"}
+
+Proceed? (yes/no)
+```
+
+**Only proceed to Step 4 after the user explicitly says "yes".**
+
+If in Plan Mode: STOP HERE. Only describe what would be created. Do not call any write tools.
+
 ### Step 4: Create Pull Request
 
 ```javascript

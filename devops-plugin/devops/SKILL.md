@@ -77,6 +77,28 @@ A comprehensive skill for managing Azure DevOps resources through natural langua
 
 ---
 
+## WRITE OPERATION GATE (MANDATORY — READ THIS FIRST)
+
+**Reference**: `guards/write_operation_guard.md`
+
+**CRITICAL**: Before executing ANY operation that creates, updates, or deletes resources in Azure DevOps, you **MUST**:
+
+1. **Gather** all required information (title, parent, sprint, fields)
+2. **Investigate** freely using READ operations (queries, fetches, searches)
+3. **Present** a confirmation summary showing exactly what will be created/modified
+4. **Wait** for explicit user approval ("yes", "go ahead", "create it", etc.)
+5. **Only then** execute the MCP/CLI write command
+
+This applies to ALL write commands: `/create-task`, `/create-bug`, `/create-user-story`, `/create-pr`, `/add-comment`, `/update-workitem`, `/setup-pipeline-vars`, `/install-extension`.
+
+**In Plan Mode**: NEVER execute write operations — only describe what will be created. Investigate, research, and validate freely, but do NOT call any write MCP tool or CLI command. Plan Mode means research and plan only.
+
+**NO EXCEPTIONS.** Even if the user says "create task X" in one sentence — gather the details, present the summary, and get their explicit "yes" before executing.
+
+See `guards/write_operation_guard.md` for the full list of classified operations and confirmation summary templates.
+
+---
+
 ## Hybrid Mode: CLI + MCP Integration
 
 This skill leverages **BOTH** Azure DevOps CLI and MCP Server for optimal performance. Claude automatically routes tasks to the best tool based on task characteristics.
