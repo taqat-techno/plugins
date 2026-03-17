@@ -1,4 +1,4 @@
-# Remotion Video Creator - Claude Code Plugin
+# Remotion Video Creator - Claude Code Plugin v2.0.0
 
 Create professional videos with smooth voice narration using [Remotion](https://remotion.dev) and Claude Code. Describe your video in plain English, get a rendered MP4 with free voice narration.
 
@@ -9,28 +9,41 @@ The #1 problem with video narration in Remotion is **voice cutting between slide
 ## Quick Start
 
 ```bash
-# 1. Set up a new project
-/remotion-setup
+# 1. Set up a new Remotion project
+/remotion setup
 
-# 2. Create a video with voice narration
-/create-video
+# 2. Describe your video in natural language
+"Create a 60-second product demo with voice narration about our new feature"
 
 # 3. Preview in browser
 npm run dev
 
 # 4. Render final video
-/render-video
+/remotion render
 ```
 
-## Commands
+## Command
 
 | Command | Description |
 |---------|-------------|
-| `/remotion` | Status, help, and quick start guide |
-| `/remotion-setup` | Create a new Remotion project with all dependencies |
-| `/create-video` | Full pipeline: text prompt to video with voice narration |
-| `/render-video` | Render composition to MP4/WebM/GIF with quality presets |
-| `/add-voice` | Add voice narration to an existing composition |
+| `/remotion` | Unified entry point with sub-commands: `setup`, `render`, and natural language video creation |
+
+### Sub-commands
+
+| Sub-command | Description |
+|-------------|-------------|
+| `/remotion setup` | Create a new Remotion project with all dependencies |
+| `/remotion render` | Render composition to MP4/WebM/GIF with quality presets |
+
+### Natural Language Workflows
+
+Video creation and voice narration are handled through natural language -- no dedicated command needed. Simply describe what you want:
+
+- **"Create a 5-scene explainer video about our API with voice-over"** -- full pipeline from prompt to video
+- **"Add professional voice narration to my existing composition"** -- voice integration into existing project
+- **"Make a product demo video with animated transitions"** -- scene breakdown and composition building
+
+> **Migration note**: In v2.0, 5 commands (`/remotion`, `/remotion-setup`, `/create-video`, `/render-video`, `/add-voice`) were consolidated into 1 unified `/remotion` command with sub-commands. Video creation and voice workflows are now triggered via natural language.
 
 ## Prerequisites
 

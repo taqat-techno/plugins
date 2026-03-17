@@ -1,7 +1,7 @@
 ---
 name: remotion
 description: |
-  Create professional videos with smooth voice narration using Remotion and Claude Code. Complete video creation pipeline from text prompts to rendered MP4 with free edge-tts voice generation and continuous audio that never cuts between slides.
+  Create professional videos with smooth voice narration using Remotion and Claude Code. Complete video creation pipeline: describe scenes in natural language, generate free edge-tts narration (300+ voices), build React compositions with continuous audio that never cuts between slides, and render production-quality MP4/WebM/GIF output. Handles project setup, scene breakdown, voice generation, audio synchronization, and final rendering.
 
 
   <example>
@@ -24,7 +24,35 @@ description: |
   assistant: "I will use the remotion skill to run the Remotion render command with 1920x1080 resolution, H.264 codec, and optimal quality settings for the final MP4 output."
   <commentary>Rendering trigger - final video export command.</commentary>
   </example>
-version: "1.0.0"
+
+  <example>
+  Context: User wants a product demo video
+  user: "Create a 60-second product demo video with voice narration"
+  assistant: "I will use the remotion skill to break down scenes, generate edge-tts narration, and build a React composition with continuous audio."
+  <commentary>Full pipeline trigger - create video from description.</commentary>
+  </example>
+
+  <example>
+  Context: User wants to add narration to existing video
+  user: "Add professional voice narration to my existing Remotion composition"
+  assistant: "I will analyze the scene timing, generate synchronized edge-tts audio, and integrate using the continuous audio pattern."
+  <commentary>Voice addition trigger - add narration to existing composition.</commentary>
+  </example>
+
+  <example>
+  Context: User wants an explainer video
+  user: "Make an animated explainer video about our API with voice-over"
+  assistant: "I will create scene breakdowns with narration scripts, generate voice tracks, and produce a multi-scene composition."
+  <commentary>Explainer video trigger - full pipeline with technical content.</commentary>
+  </example>
+
+  <example>
+  Context: User wants to render the final output
+  user: "Render my video as 1080p MP4"
+  assistant: "I will use the remotion skill to render the composition with H.264 codec at 1920x1080."
+  <commentary>Render trigger - final video export.</commentary>
+  </example>
+version: "2.0.0"
 author: "TaqaTechno"
 license: "MIT"
 category: "video-creation"
@@ -69,6 +97,9 @@ Activate when you need to:
 - **Build animated presentations** - Multi-scene videos with smooth transitions
 - **Render video content** - MP4, WebM, GIF from React components
 - **Fix audio cutting issues** - Continuous audio pipeline prevents voice gaps between slides
+
+> **v2.0 Architecture**: Video creation and voice narration are handled via natural language.
+> For project setup and rendering, use `/remotion setup` and `/remotion render`.
 
 ---
 
@@ -936,6 +967,13 @@ Config.overrideWebpackConfig((currentConfiguration) => {
 ---
 
 ## Changelog
+
+### v2.0.0 (2026-03-17)
+- Consolidated 5 commands into 1 unified `/remotion` command with sub-commands
+- Enhanced natural language video creation and voice narration workflows
+- Added additional trigger examples for product demos, explainers, and rendering
+- Updated skill description to be more comprehensive
+- Architecture note for v2.0 consolidation
 
 ### v1.0.0 (2026-02-16)
 - Initial release
