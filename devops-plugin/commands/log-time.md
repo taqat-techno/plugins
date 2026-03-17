@@ -154,9 +154,9 @@ User: "I spent 3h on #1828, 1h in a meeting, and 1.5h on research today"
 
 - `/workday` - See full daily dashboard with time log
 - `/timesheet` - View time tracking by week or month
-- `/time-off` - Mark a day as time-off
-- `/work-sync` - Refresh work item cache
+- `/timesheet --off` - Mark a day as time-off
+- `/workday --sync` - Refresh work item cache
 
 ---
 
-*Part of DevOps Plugin v3.0 - Work Tracking System*
+*Part of DevOps Plugin v4.0 - Work Tracking System*

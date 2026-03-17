@@ -2,7 +2,7 @@
 title: 'CLI Run'
 read_only: false
 type: 'command'
-description: 'Execute Azure DevOps CLI commands directly from Claude. Use for automation, batch operations, and CLI-only features like variables, extensions, and service connections.'
+description: 'Execute Azure DevOps CLI commands directly from Claude. Use for automation, batch operations, and CLI-only features like variables, extensions, and service connections. Includes pipeline variable management and extension installation recipes.'
 ---
 
 # CLI Run - Execute Azure DevOps CLI Commands
@@ -260,7 +260,7 @@ Check current defaults:
 
 | Error | Cause | Solution |
 |-------|-------|----------|
-| `'az' is not recognized` | CLI not installed | Run `/devops setup --cli` |
+| `'az' is not recognized` | CLI not installed | Run `/init setup --cli` |
 | `Please run 'az login'` | Not authenticated | Set `AZURE_DEVOPS_EXT_PAT` or run `az devops login` |
 | `TF400813: Resource not available` | Wrong org/project | Check `az devops configure --list` |
 | `TF401019: Work item does not exist` | Invalid ID | Verify work item ID exists |
@@ -290,9 +290,407 @@ Check current defaults:
 
 ---
 
+## Pipeline Variables Recipe (formerly /setup-pipeline-vars)
+
+Manage pipeline variables and variable groups using Azure DevOps CLI. Variable management is a **CLI-only feature** - MCP does not support this.
+
+### WRITE OPERATION GATE
+
+**Reference**: `guards/write_operation_guard.md`
+
+For ALL write sub-commands (`create`, `add`, `secret`, `update`, `delete`, `pipeline-var`), you MUST present a confirmation summary and wait for explicit user approval before executing the CLI command. The `list`, `show`, and `info` sub-commands are read-only and do not require confirmation.
+
+```
+READY TO {ACTION}: Pipeline Variable
+──────────────────────────────────────
+Action:    {create/add/update/delete}
+Group:     {group-name}
+Variable:  {key} = {value} (or [SECRET])
+Pipeline:  {pipeline-name} (if pipeline-var)
+
+This affects shared infrastructure.
+Proceed? (yes/no)
+```
+
+**Only execute the CLI command after the user explicitly says "yes".**
+
+### Sub-Commands
+
+| Sub-Command | Description |
+|-------------|-------------|
+| `list` | List all variable groups |
+| `show <group-name>` | Show variables in a group |
+| `create <group-name>` | Create new variable group |
+| `add <group-name> <key> <value>` | Add variable to group |
+| `secret <group-name> <key>` | Add secret variable (prompts for value) |
+| `update <group-name> <key> <value>` | Update existing variable |
+| `delete <group-name> <key>` | Delete variable from group |
+| `pipeline-var <pipeline> <key> <value>` | Set pipeline-specific variable |
+
+### Examples
+
+#### List Variable Groups
+
+```
+/cli-run az pipelines variable-group list --output table
+```
+
+**Sample Output:**
+```
+ID    Name                  Variables
+----  --------------------  -----------
+1     Common-Settings       3
+2     Production-Secrets    5
+3     Staging-Settings      4
+```
+
+#### Show Variables in Group
+
+```bash
+az pipelines variable-group show --group-id <id> --output table
+```
+
+**Sample Output:**
+```
+Name           Value                    IsSecret
+-------------  -----------------------  --------
+API_URL        https://api.example.com  False
+API_KEY        ****                     True
+DATABASE_URL   ****                     True
+```
+
+#### Create Variable Group
+
+```bash
+az pipelines variable-group create \
+    --name "My-Variables" \
+    --variables placeholder=temp \
+    --authorize true \
+    --output json
+```
+
+**Notes:**
+- Creates a new variable group with a placeholder variable
+- `--authorize true` allows all pipelines to use this group
+- The placeholder can be deleted after adding real variables
+
+#### Add Variable to Group
+
+```bash
+# First, get group ID
+GROUP_ID=$(az pipelines variable-group list --query "[?name=='Production-Secrets'].id" -o tsv)
+
+# Then add variable
+az pipelines variable-group variable create \
+    --group-id $GROUP_ID \
+    --name API_URL \
+    --value "https://api.example.com"
+```
+
+#### Add Secret Variable
+
+```bash
+# Get group ID
+GROUP_ID=$(az pipelines variable-group list --query "[?name=='Production-Secrets'].id" -o tsv)
+
+# Add secret variable (prompts for value or uses provided value securely)
+az pipelines variable-group variable create \
+    --group-id $GROUP_ID \
+    --name API_KEY \
+    --secret true
+```
+
+**Important:**
+- Secret variables are encrypted at rest
+- Values are never displayed in logs or UI
+- Claude will prompt for the secret value or you can provide it
+
+#### Update Variable
+
+```bash
+# Get group ID
+GROUP_ID=$(az pipelines variable-group list --query "[?name=='Production-Secrets'].id" -o tsv)
+
+# Update variable
+az pipelines variable-group variable update \
+    --group-id $GROUP_ID \
+    --name API_URL \
+    --value "https://new-api.example.com"
+```
+
+#### Delete Variable
+
+```bash
+# Get group ID
+GROUP_ID=$(az pipelines variable-group list --query "[?name=='Production-Secrets'].id" -o tsv)
+
+# Delete variable
+az pipelines variable-group variable delete \
+    --group-id $GROUP_ID \
+    --name OLD_VAR \
+    --yes
+```
+
+#### Set Pipeline-Specific Variable
+
+```bash
+az pipelines variable create \
+    --name ENVIRONMENT \
+    --value "staging" \
+    --pipeline-name "CI-Build"
+```
+
+**Notes:**
+- Pipeline variables are specific to one pipeline
+- Use variable groups for shared variables across pipelines
+
+### Variable Group Best Practices
+
+#### Naming Convention
+
+| Environment | Group Name Pattern |
+|-------------|-------------------|
+| Common | `Common-Settings` |
+| Development | `Dev-Settings`, `Dev-Secrets` |
+| Staging | `Staging-Settings`, `Staging-Secrets` |
+| Production | `Prod-Settings`, `Prod-Secrets` |
+
+#### Separate Settings from Secrets
+
+```bash
+# Settings (non-sensitive)
+az pipelines variable-group create --name "Prod-Settings" --variables placeholder=temp --authorize true
+# Then add: API_URL, LOG_LEVEL
+
+# Secrets (sensitive)
+az pipelines variable-group create --name "Prod-Secrets" --variables placeholder=temp --authorize true
+# Then add with --secret true: API_KEY, DATABASE_PASSWORD
+```
+
+### Using Variable Groups in Pipelines
+
+#### YAML Pipeline
+
+```yaml
+variables:
+  - group: Common-Settings
+  - group: Prod-Secrets
+
+stages:
+  - stage: Deploy
+    jobs:
+      - job: DeployApp
+        steps:
+          - script: |
+              echo "Deploying to $(API_URL)"
+              # $(API_KEY) is available but hidden in logs
+```
+
+#### Classic Pipeline
+
+1. Go to Pipeline > Edit > Variables
+2. Click "Variable groups"
+3. Link the desired groups
+4. Variables are automatically available
+
+### Security Considerations
+
+1. **Never log secret values** - They are automatically masked
+2. **Use secret type for sensitive data** - Passwords, keys, tokens
+3. **Rotate secrets regularly** - Update via variable update commands
+4. **Limit group authorization** - Only authorize needed pipelines
+5. **Audit variable access** - Check Azure DevOps audit logs
+
+---
+
+## Extension Management Recipe (formerly /install-extension)
+
+Install extensions from the Azure DevOps Marketplace using CLI. Extension management is a **CLI-only feature** - MCP does not support this.
+
+### WRITE OPERATION GATE
+
+**Reference**: `guards/write_operation_guard.md`
+
+For write sub-commands (`install`, `uninstall`, `enable`, `disable`), you MUST present a confirmation summary and wait for explicit user approval before executing the CLI command. The `search`, `list`, and `info` sub-commands are read-only and do not require confirmation.
+
+```
+READY TO {INSTALL/UNINSTALL}: Extension
+─────────────────────────────────────────
+Action:    {install/uninstall/enable/disable}
+Extension: {publisher}.{extension-id}
+Name:      {extension name}
+
+This affects the entire organization.
+Proceed? (yes/no)
+```
+
+**Only execute the CLI command after the user explicitly says "yes".**
+
+### Sub-Commands
+
+| Sub-Command | Description |
+|-------------|-------------|
+| `install <publisher>.<extension-id>` | Install specific extension |
+| `search <query>` | Search marketplace for extensions |
+| `list` | List installed extensions |
+| `info <publisher>.<extension-id>` | Get extension details |
+| `uninstall <publisher>.<extension-id>` | Remove extension |
+| `enable <publisher>.<extension-id>` | Enable disabled extension |
+| `disable <publisher>.<extension-id>` | Disable extension |
+
+### Examples
+
+#### Install Extension
+
+```bash
+az devops extension install \
+    --publisher-id ms-devlabs \
+    --extension-id workitem-feature-timeline-extension
+```
+
+#### Search Extensions
+
+```bash
+az devops extension search --search-query "time tracker" --output table
+```
+
+**Sample Output:**
+```
+Publisher       Extension ID              Name                    Version
+--------------  -----------------------  ----------------------  --------
+ms-devlabs      timetracker              Time Tracker            1.5.0
+7pace           Timetracker              7pace Timetracker       5.1.0
+techtalk        timelog                  TimeLog                 2.3.1
+```
+
+#### List Installed Extensions
+
+```bash
+az devops extension list --output table
+```
+
+#### Get Extension Info
+
+```bash
+az devops extension show \
+    --publisher-id ms-devlabs \
+    --extension-id workitem-feature-timeline-extension \
+    --output yaml
+```
+
+#### Uninstall Extension
+
+```bash
+az devops extension uninstall \
+    --publisher-id ms-devlabs \
+    --extension-id workitem-feature-timeline-extension \
+    --yes
+```
+
+#### Enable/Disable Extensions
+
+```bash
+# Disable extension temporarily
+az devops extension disable --publisher-id ms-devlabs --extension-id timetracker
+
+# Re-enable extension
+az devops extension enable --publisher-id ms-devlabs --extension-id timetracker
+```
+
+### Popular Extensions
+
+#### Work Item Enhancements
+
+| Extension | Publisher.ID | Description |
+|-----------|--------------|-------------|
+| Feature Timeline | `ms-devlabs.workitem-feature-timeline-extension` | Visualize features on timeline |
+| Work Item Visualization | `ms-devlabs.vsts-extensions-workitem-vis` | Visualize work item relationships |
+| Estimate | `ms-devlabs.estimate` | Planning poker for estimation |
+| Retrospectives | `ms-devlabs.team-retrospectives` | Sprint retrospective tool |
+
+#### Pipeline Enhancements
+
+| Extension | Publisher.ID | Description |
+|-----------|--------------|-------------|
+| GitFlow | `ms.vss-services-gitflow` | GitFlow branching visualization |
+| Pull Request Manager | `ms-devlabs.pull-request-manager` | Advanced PR management |
+| Build Quality Checks | `ms-devlabs.vss-extensions-buildqualitychecks` | Quality gates for builds |
+
+#### Time Tracking
+
+| Extension | Publisher.ID | Description |
+|-----------|--------------|-------------|
+| 7pace Timetracker | `7pace.Timetracker` | Enterprise time tracking |
+| Time Tracker | `ms-devlabs.timetracker` | Simple time tracking |
+
+#### Testing & Quality
+
+| Extension | Publisher.ID | Description |
+|-----------|--------------|-------------|
+| Test & Feedback | `ms.vss-exploratorytesting-web` | Exploratory testing |
+| Code Coverage | `ms-devlabs.codecoveragesummary` | Code coverage summary |
+
+### Bulk Installation
+
+```bash
+# DevOps essentials bundle
+EXTENSIONS=(
+    "ms-devlabs.workitem-feature-timeline-extension"
+    "ms-devlabs.estimate"
+    "ms-devlabs.team-retrospectives"
+    "ms-devlabs.vss-extensions-buildqualitychecks"
+)
+
+for EXT in "${EXTENSIONS[@]}"; do
+    PUBLISHER=$(echo $EXT | cut -d. -f1)
+    EXTID=$(echo $EXT | cut -d. -f2-)
+    echo "Installing $EXT..."
+    az devops extension install --publisher-id $PUBLISHER --extension-id $EXTID
+done
+```
+
+### Extension Discovery Workflow
+
+1. **Search** for extensions matching your need:
+   ```bash
+   az devops extension search --search-query "retrospective" --output table
+   ```
+
+2. **Get info** on promising extensions:
+   ```bash
+   az devops extension show --publisher-id ms-devlabs --extension-id team-retrospectives --output yaml
+   ```
+
+3. **Check reviews** in Azure DevOps Marketplace web UI
+
+4. **Install** the extension:
+   ```bash
+   az devops extension install --publisher-id ms-devlabs --extension-id team-retrospectives
+   ```
+
+5. **Verify** installation:
+   ```bash
+   az devops extension list --output table
+   ```
+
+### Permission Requirements
+
+| Permission | Level |
+|------------|-------|
+| Organization Owner | Full access |
+| Project Collection Admin | Full access |
+| Extension Manager | Can install/uninstall |
+| Regular User | Can request extensions |
+
+---
+
 ## Related Commands
 
-- `/devops setup` - Install and configure CLI
-- `/devops status` - Check CLI status
-- `/setup-pipeline-vars` - Manage pipeline variables
-- `/install-extension` - Install marketplace extensions
+- `/init setup` - Install and configure CLI
+- `/init status` - Check CLI status
+
+> Previously: /setup-pipeline-vars, /install-extension
+
+---
+
+*Part of DevOps Plugin v4.0*

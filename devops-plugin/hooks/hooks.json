@@ -7,7 +7,7 @@
       "hooks": [
         {
           "type": "suggestion",
-          "message": "Consider running /sync-my-tasks to sync your Azure DevOps work items with your TODO list."
+          "message": "Consider running /workday to sync your Azure DevOps work items and view your dashboard."
         }
       ]
     },

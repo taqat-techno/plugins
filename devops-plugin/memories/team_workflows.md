@@ -44,7 +44,7 @@ Epic
 | User Story | Feature |
 | Feature | Epic |
 
-**Enforcement**: The `/create-task` and `/create-bug` commands enforce parent links.
+**Enforcement**: The `/create` command enforces parent links for all work item types.
 
 ---
 
@@ -321,7 +321,7 @@ Use @mentions to notify team members:
 @eslam - Ready for testing
 ```
 
-The `/create-task` command processes @mentions automatically.
+The skill processes @mentions automatically when adding comments (see devops/workflows.md Workflow 2).
 
 ### 7.2 Discussion Threads
 
@@ -382,7 +382,7 @@ The `/create-task` command processes @mentions automatically.
 |--------|-----------|--------------|
 | Daily Standup | Daily | `/standup` command |
 | Sprint Progress | Weekly | `/sprint` command |
-| Build Status | On demand | `/build-status` command |
+| Build Status | On demand | Skill-handled (say "check builds") |
 | Sprint Report | End of sprint | Manual |
 
 ### 9.2 Sprint Metrics
@@ -402,25 +402,36 @@ The `/create-task` command processes @mentions automatically.
 
 | Command | Purpose |
 |---------|---------|
-| `/my-tasks` | List my active work items |
+| `/workday` | Daily dashboard with auto-sync |
+| `/workday --tasks` | List my active work items |
 | `/standup` | Generate standup notes |
 | `/sprint` | Sprint progress summary |
-| `/build-status` | Recent build status |
+| `/log-time` | Log hours against work items |
 
 ### 10.2 Creation
 
 | Command | Purpose |
 |---------|---------|
-| `/create-task` | Create task with parent validation |
-| `/create-bug` | Create bug with template |
-| `/create-user-story` | Create story with What/How/Why |
+| `/create --task` | Create task with parent validation |
+| `/create --bug` | Create bug with template |
+| `/create --story` | Create story with How/What/Why |
 
 ### 10.3 Management
 
 | Command | Purpose |
 |---------|---------|
-| `/sync-my-tasks` | Sync tasks to TODO list |
-| `/devops status` | Check CLI + MCP status |
+| `/workday --todo` | Sync tasks to TODO list |
+| `/init status` | Check CLI + MCP status |
+
+### 10.4 Skill-Handled (Natural Language)
+
+| Say this | What happens |
+|----------|-------------|
+| "mark #1234 as done" | Update work item with validation |
+| "comment on #1234" | Add comment with @mention resolution |
+| "switch to relief" | Change project context |
+| "any failing builds?" | Check build/pipeline status |
+| "create PR from feature to main" | Create pull request |
 
 ---
 

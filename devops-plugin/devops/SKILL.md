@@ -38,17 +38,53 @@ description: |
   assistant: "I will use the devops skill to run /task-monitor which fetches a live snapshot from Azure DevOps and shows only items assigned since the last check."
   <commentary>On-demand new assignment diff trigger - task monitor single run.</commentary>
   </example>
-version: "2.0.0"
-author: "TAQAT Techno"
+
+  <example>
+  Context: User wants to update a work item state
+  user: "Mark task #1234 as done, I spent 6 hours on it"
+  assistant: "I will use the devops skill to validate the state transition, check required fields (OriginalEstimate, CompletedWork), and update the work item with pre-flight validation."
+  <commentary>Update work item trigger - state change with required field validation. See devops/workflows.md Workflow 1.</commentary>
+  </example>
+
+  <example>
+  Context: User wants to add a comment with mentions
+  user: "Comment on #1234 telling @mahmoud to review this"
+  assistant: "I will use the devops skill to resolve the @mention to a GUID via API, format as HTML, and post the comment so the mentioned user receives a notification."
+  <commentary>Add comment trigger - mention resolution and validated comment posting. See devops/workflows.md Workflow 2.</commentary>
+  </example>
+
+  <example>
+  Context: User wants to switch project context
+  user: "Switch to relief center project"
+  assistant: "I will use the devops skill to resolve the project alias and update the session context for all subsequent queries."
+  <commentary>Project context switch trigger. See devops/workflows.md Workflow 3.</commentary>
+  </example>
+
+  <example>
+  Context: User asks about build or CI status
+  user: "Any failing builds in our pipeline?"
+  assistant: "I will use the devops skill to check recent build status, list successes and failures, and provide quick actions for any failed builds."
+  <commentary>Build status trigger - pipeline health check. See devops/workflows.md Workflow 4.</commentary>
+  </example>
+
+  <example>
+  Context: User wants to create a pull request
+  user: "Create a PR from feature/login to main in the relief repo"
+  assistant: "I will use the devops skill to resolve the repository name to a GUID, validate both branches exist, and create the pull request."
+  <commentary>PR creation trigger - repository resolution and PR creation. See devops/workflows.md Workflow 5.</commentary>
+  </example>
+
+  <example>
+  Context: User wants to set up CI/CD pipelines
+  user: "Set up GitHub Actions for our Odoo project"
+  assistant: "I will use the devops skill to determine deployment target (Odoo.sh or self-hosted), then generate the appropriate GitHub Actions workflow files."
+  <commentary>CI/CD setup trigger - workflow generation. See devops/workflows.md Workflow 6.</commentary>
+  </example>
 license: "MIT"
-allowed-tools:
-  - Read
-  - Write
-  - Bash
-  - WebFetch
-  - Glob
-  - Grep
 metadata:
+  version: "3.0.0"
+  author: "TAQAT Techno"
+  allowed-tools: "Read, Write, Bash, WebFetch, Glob, Grep"
   organization: "YOUR-ORG"
   mode: "hybrid"
   mcp-server: "@anthropic-ai/azure-devops-mcp"
@@ -77,6 +113,41 @@ A comprehensive skill for managing Azure DevOps resources through natural langua
 
 ---
 
+## STEP 0: LOAD USER PROFILE (AUTO — EVERY SESSION)
+
+Before any DevOps operation, check for the user's profile:
+
+```
+1. Try to Read ~/.claude/devops.md
+2. If found:
+   a. Parse YAML frontmatter
+   b. Extract: identity (name, email, guid), role, taskPrefix, defaultProject, team
+   c. Build team member lookup: Map(alias → {name, email, guid})
+      - Include "me", "myself", "I" → current user's identity
+   d. Set session context: currentProject = profile.defaultProject
+   e. Load statePermissions from profile YAML
+      - These permissions are checked BEFORE any state transition
+        (see validators/state_transition_validator.md)
+   f. Log: "Profile loaded: {displayName} ({role}) — {defaultProject}"
+3. If NOT found:
+   a. Show suggestion: "No DevOps profile found. Run /init profile for faster operations."
+   b. Fall back to API-based resolution (existing behavior)
+   c. Continue with the requested operation
+```
+
+**Reference**: `devops/profile_generator.md` for full profile structure.
+
+### Profile-Aware Shortcuts
+
+| User Says | Without Profile | With Profile |
+|-----------|----------------|--------------|
+| "assign to me" | API call to resolve identity | Instant: use `identity.guid` |
+| "@mahmoud" | API call to resolve GUID | Cache lookup → instant if found |
+| /create "Fix bug" | Infer prefix from keywords | Use `preferences.taskPrefix` from role |
+| (session start) | Auto-detect project via API | Use `defaultProject` from profile |
+
+---
+
 ## WRITE OPERATION GATE (MANDATORY — READ THIS FIRST)
 
 **Reference**: `guards/write_operation_guard.md`
@@ -89,7 +160,7 @@ A comprehensive skill for managing Azure DevOps resources through natural langua
 4. **Wait** for explicit user approval ("yes", "go ahead", "create it", etc.)
 5. **Only then** execute the MCP/CLI write command
 
-This applies to ALL write commands: `/create-task`, `/create-bug`, `/create-user-story`, `/create-pr`, `/add-comment`, `/update-workitem`, `/setup-pipeline-vars`, `/install-extension`.
+This applies to ALL write operations: `/create` command, "update work item" (skill), "add comment" (skill), "create PR" (skill), pipeline variables via `/cli-run`, extension management via `/cli-run`.
 
 **In Plan Mode**: NEVER execute write operations — only describe what will be created. Investigate, research, and validate freely, but do NOT call any write MCP tool or CLI command. Plan Mode means research and plan only.
 
@@ -219,7 +290,7 @@ Quick reference for common CLI commands. Use these when Claude selects CLI for a
 az boards work-item create --title "Task Title" --type Task --project "Project"
 
 # Update work item
-az boards work-item update --id 123 --state Active
+az boards work-item update --id 123 --state "In Progress"
 
 # Query work items (WIQL)
 az boards query --wiql "SELECT [System.Id], [System.Title] FROM WorkItems WHERE [System.AssignedTo] = @Me"
@@ -354,9 +425,9 @@ done
 wait
 
 # Query and pipe to another command
-az boards query --wiql "SELECT [System.Id] FROM WorkItems WHERE [System.State] = 'New'" \
+az boards query --wiql "SELECT [System.Id] FROM WorkItems WHERE [System.State] = 'To Do'" \
   --query "[].id" -o tsv | while read id; do
-    az boards work-item update --id $id --state Active
+    az boards work-item update --id $id --state "In Progress"
   done
 ```
 
@@ -715,22 +786,34 @@ Claude MUST validate **BEFORE** executing any state change on work items:
 |----------------|----------|-----------------|----------|
 | **Task** | Done | `OriginalEstimate`, `CompletedWork` | `RemainingWork=0` |
 | **Bug** | Resolved | `ResolvedReason` (default: "Fixed") | - |
-| **User Story** | Done | - | **BLOCKED from Active** → Must go through "Ready for QC" |
+| **PBI** | Done | - | **BLOCKED unless "Ready For QC"** → Must go through QC checkpoint |
 
-#### State Machine Enforcement (User Stories)
+#### State Machine Enforcement — TaqaTechno Real States
+
+All work item types follow TaqaTechno's actual Azure DevOps process template states:
 
 ```
-User Story CANNOT go directly from Active → Done!
+WORK ITEM STATE MACHINES (with role annotations):
 
-Required path: Active → Ready for QC → Done
-                            ↑
-                            │ MANDATORY QC CHECKPOINT
-                            │
-If user tries Active → Done:
-  → BLOCK the transition
-  → EXPLAIN: "User Stories must pass through Ready for QC"
-  → OFFER: "Move to Ready for QC first?"
+Task:          To Do → In Progress (any) → Done (dev only) → Closed (PM only) → Removed (PM only)
+Bug:           New → Approved (QA) → In Progress (dev) → Resolved (dev) → Done (QA) → Closed (PM) → Removed (PM)
+                     └→ Return (QA) → In Progress (dev) [rejection loop]
+PBI:           New → Approved (PM) → Committed (PM) → In Progress (dev) → Ready For QC (dev) → Done (QA) → Removed (PM)
+                     └→ Return (QA) → In Progress (dev) [rejection loop]
+User Story:    New → Committed (PM) → Done (PM/QA)
+Enhancement:   New → Committed (PM) → Return (QA) → Done (PM/QA) → Closed (PM)
+Feature:       New → In Progress (PM) → Done (PM) → Removed (PM)
+Epic:          New → In Progress (PM) → Done (PM) → Removed (PM)
 ```
+
+**Role Legend**: any = any team member, dev = developer, QA = tester/QC, PM = project manager/lead
+
+**Key Rules**:
+- PBI CANNOT go directly to Done — must pass through "Ready For QC" first
+- Bug has a Return rejection loop (QA sends back to dev)
+- PBI has a Return rejection loop (QA sends back to dev)
+- Only PM can close Tasks, Bugs, and Enhancements
+- Only PM can remove any work item type
 
 #### Example: Task → Done Pre-Flight
 
@@ -768,21 +851,39 @@ mcp__azure-devops__wit_update_work_item({
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                 STATE TRANSITION RULES                           │
+│            TAQATECHNO STATE TRANSITION RULES                     │
 ├─────────────────────────────────────────────────────────────────┤
 │  TASK → Done                                                    │
+│  ├── Path: To Do → In Progress → Done → Closed → Removed       │
 │  ├── REQUIRES: OriginalEstimate (hours)                         │
 │  ├── REQUIRES: CompletedWork (hours)                            │
-│  └── AUTO-SET: RemainingWork = 0                                │
+│  ├── AUTO-SET: RemainingWork = 0                                │
+│  └── Done (dev only), Closed (PM only)                          │
 ├─────────────────────────────────────────────────────────────────┤
 │  BUG → Resolved                                                 │
-│  └── REQUIRES: ResolvedReason (default: "Fixed")                │
-│      Options: Fixed, As Designed, Cannot Reproduce,             │
-│               Deferred, Duplicate, Not a Bug, Obsolete          │
+│  ├── Path: New → Approved → In Progress → Resolved → Done       │
+│  │         → Closed → Removed                                   │
+│  │         └→ Return → In Progress [rejection loop]             │
+│  ├── REQUIRES: ResolvedReason (default: "Fixed")                │
+│  │   Options: Fixed, As Designed, Cannot Reproduce,             │
+│  │            Deferred, Duplicate, Not a Bug, Obsolete          │
+│  └── Approved (QA), Resolved (dev), Done (QA), Closed (PM)     │
 ├─────────────────────────────────────────────────────────────────┤
-│  USER STORY → Done                                              │
-│  └── ⚠️ BLOCKED if current state is "Active"                    │
-│      MUST go: Active → Ready for QC → Done                      │
+│  PBI → Done                                                     │
+│  ├── Path: New → Approved → Committed → In Progress             │
+│  │         → Ready For QC → Done → Removed                      │
+│  │         └→ Return → In Progress [rejection loop]             │
+│  └── ⚠️ BLOCKED unless current state is "Ready For QC"          │
+│      Approved (PM), Committed (PM), In Progress (dev),          │
+│      Ready For QC (dev), Done (QA)                              │
+├─────────────────────────────────────────────────────────────────┤
+│  USER STORY: New → Committed (PM) → Done (PM/QA)               │
+├─────────────────────────────────────────────────────────────────┤
+│  ENHANCEMENT: New → Committed (PM) → Return (QA) → Done (PM)   │
+│               → Closed (PM)                                     │
+├─────────────────────────────────────────────────────────────────┤
+│  FEATURE / EPIC: New → In Progress (PM) → Done (PM)            │
+│                  → Removed (PM)                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -1031,11 +1132,13 @@ Claude automatically finds or creates parent work items when creating child item
 │  Epic (Strategic Initiative)                                    │
 │    └── Feature (Functional Area)                                │
 │          └── User Story / PBI (Requirement)                     │
-│                └── Task (Technical Work)                        │
-│                      └── Bug (Defect)                           │
+│                ├── Task (Technical Work)                        │
+│                ├── Bug (Defect)                                 │
+│                └── Enhancement (Improvement)                    │
 │                                                                  │
 │  RULES:                                                         │
-│  • Bug MUST have parent Task                                    │
+│  • Bug MUST have parent User Story/PBI                          │
+│  • Enhancement MUST have parent User Story/PBI                  │
 │  • Task MUST have parent User Story/PBI                         │
 │  • User Story SHOULD have parent Feature                        │
 │  • Feature SHOULD have parent Epic                              │
@@ -1047,7 +1150,8 @@ Claude automatically finds or creates parent work items when creating child item
 
 | Creating | Required Parent | Requirement Level |
 |----------|-----------------|-------------------|
-| **Bug** | Task | MUST (enforced) |
+| **Bug** | User Story / PBI | MUST (enforced) |
+| **Enhancement** | User Story / PBI | MUST (enforced) |
 | **Task** | User Story / PBI | MUST (enforced) |
 | User Story | Feature | SHOULD (prompted) |
 | Feature | Epic | SHOULD (prompted) |
@@ -1083,7 +1187,7 @@ STEP 4: Create and link
 |---------|---------|
 | `under #ID` | "Create task under #123" |
 | `for story #ID` | "Create task for story #456" |
-| `for task #ID` | "Create bug for task #789" |
+| `for story #ID` | "Create bug for story #789" |
 | `parent #ID` | "Create bug parent #100" |
 | `linked to #ID` | "Create task linked to #200" |
 
@@ -1101,8 +1205,8 @@ Found potential parent stories:
 
 | # | ID | Title | State |
 |---|-----|-------|-------|
-| 1 | #100 | User Authentication Feature | Active |
-| 2 | #105 | Login Page Implementation | Active |
+| 1 | #100 | User Authentication Feature | In Progress |
+| 2 | #105 | Login Page Implementation | In Progress |
 
 Which User Story should this task be under?
 ```
@@ -1144,7 +1248,7 @@ Feature #50: Authentication Module
 #### Error Handling
 
 ```
-If no parent specified for Bug/Task:
+If no parent specified for Bug/Enhancement/Task:
 
 ⚠️ Tasks MUST be linked to a User Story.
 No parent specified.
@@ -1163,7 +1267,7 @@ If wrong parent type:
 ⚠️ Cannot create Task under Bug #200.
 
 Tasks can only be children of User Stories or PBIs.
-Bug #200 is a Bug, which cannot be a parent of Task.
+Bug #200 is a Bug, which cannot be a parent of a Task.
 
 Please specify a User Story as the parent.
 ```
@@ -1179,10 +1283,11 @@ Hierarchy:
 Epic #10: Platform Modernization
   └── Feature #50: Authentication Module
         └── User Story #100: User Authentication Feature
-              └── Task #150: Implement login form validation ← YOU ARE HERE
-                    └── Bug #200: Login fails on Safari
+              ├── Task #150: Implement login form validation ← YOU ARE HERE
+              ├── Bug #200: Login fails on Safari
+              └── Enhancement #210: Improve login form UX
 
-State: Active | Sprint: Sprint 15
+State: In Progress | Sprint: Sprint 15
 ```
 
 #### Quick Reference
@@ -1193,21 +1298,22 @@ State: Active | Sprint: Sprint 15
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                  │
 │  PARENT REQUIREMENTS:                                           │
-│  • Bug MUST have parent Task                                    │
+│  • Bug MUST have parent User Story/PBI                          │
+│  • Enhancement MUST have parent User Story/PBI                  │
 │  • Task MUST have parent User Story/PBI                         │
 │  • User Story SHOULD have parent Feature                        │
 │                                                                  │
 │  SPECIFY PARENT:                                                │
 │  • "Create task under #123"                                     │
-│  • "Create bug for task #456"                                   │
-│  • "Add task to story #789"                                     │
+│  • "Create bug for story #456"                                  │
+│  • "Create enhancement under #789"                              │
 │                                                                  │
 │  AUTO-DETECTION:                                                │
 │  • Keywords from title searched                                 │
 │  • Sprint items checked                                         │
 │  • Options presented to user                                    │
 │                                                                  │
-│  NEVER create orphan Tasks or Bugs!                             │
+│  NEVER create orphan Tasks, Bugs, or Enhancements!              │
 │                                                                  │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -1332,19 +1438,19 @@ Claude Response:
 
 **Invalid State Transition:**
 ```
-Error: TF401347 - Invalid state transition from 'Active' to 'Done'
+Error: TF401347 - Invalid state transition from 'In Progress' to 'Done'
 
 Claude Response:
 ┌────────────────────────────────────────────────────────────────┐
-│ ⚠️ Cannot move User Story #1000 directly to Done                │
+│ ⚠️ Cannot move PBI #1000 directly to Done                       │
 │                                                                │
-│ **Reason**: User Stories must pass through QC                  │
+│ **Reason**: PBIs must pass through Ready For QC                │
 │                                                                │
 │ **Required Path**:                                             │
-│ Active → Ready for QC → Done                                   │
+│ In Progress → Ready For QC → Done                              │
 │                                                                │
 │ **Options**:                                                   │
-│ 1. Move to "Ready for QC" first (recommended)                  │
+│ 1. Move to "Ready For QC" first (recommended)                  │
 │ 2. Move through both states now                                │
 │                                                                │
 │ Which would you like to do?                                    │
@@ -1413,13 +1519,20 @@ Before executing operations, validate to prevent errors:
 
 | Operation | Pre-Flight Checks |
 |-----------|-------------------|
-| **Task → Done** | OriginalEstimate set? CompletedWork set? |
-| **Bug → Resolved** | ResolvedReason selected? |
-| **User Story → Done** | Current state is "Ready for QC"? |
+| **Task → Done** | OriginalEstimate set? CompletedWork set? Role is dev? |
+| **Bug → Approved** | Role is QA? |
+| **Bug → Resolved** | ResolvedReason selected? Role is dev? |
+| **Bug → Done** | Role is QA? |
+| **Bug → Closed** | Role is PM? |
+| **PBI → Done** | Current state is "Ready For QC"? Role is QA? |
+| **PBI → Return** | Role is QA? Rejection reason provided? |
+| **Enhancement → Done** | Role is PM/QA? |
+| **Enhancement → Closed** | Role is PM? |
 | **Create PR** | Source branch exists? Target branch exists? Different branches? |
 | **Link to PR** | Repository GUID resolved? PR exists? |
-| **Create Task** | Parent User Story specified? |
-| **Create Bug** | Parent Task specified? |
+| **Create Task** | Parent User Story/PBI specified? |
+| **Create Bug** | Parent User Story/PBI specified? |
+| **Create Enhancement** | Parent User Story/PBI specified? |
 
 #### Quick Reference
 
@@ -1435,7 +1548,7 @@ Before executing operations, validate to prevent errors:
 │  → Update all fields in single call                             │
 │                                                                  │
 │  "Invalid state transition" (TF401347)                          │
-│  → Show required intermediate states                            │
+│  → Show required intermediate states (see TaqaTechno states)    │
 │  → Offer to do multi-step transition                            │
 │                                                                  │
 │  "Not found" (TF401019)                                         │
@@ -1728,6 +1841,7 @@ ORDER BY [Microsoft.VSTS.Common.Priority]
 | **User Story** | User requirements | Title, Description, Acceptance Criteria |
 | **Task** | Technical work | Title, Description, Remaining Work |
 | **Bug** | Defects | Title, Repro Steps, Severity, Priority |
+| **Enhancement** | Improvements | Title, Description (Current/Proposed/Benefit) |
 | **Issue** | Blockers | Title, Description, Resolution |
 | **Test Case** | Test scenarios | Title, Steps, Expected Results |
 
@@ -1739,31 +1853,34 @@ ORDER BY [Microsoft.VSTS.Common.Priority]
 Epic (Strategic Initiative)
   └── Feature (Functional Area)
         └── User Story / PBI (Requirement)
-              └── Task (Technical Work)
-                    └── Bug (Defect found during task)
+              ├── Task (Technical Work)
+              ├── Bug (Defect)
+              └── Enhancement (Improvement)
 ```
 
 ### Creation Rules
 
 | Creating | Must Have Parent | Parent Type |
 |----------|-----------------|-------------|
-| **Bug** | **REQUIRED** | Task (bug found while working on task) |
+| **Bug** | **REQUIRED** | User Story/PBI |
+| **Enhancement** | **REQUIRED** | User Story/PBI |
 | **Task** | **REQUIRED** | User Story/PBI |
 | **User Story/PBI** | REQUIRED | Feature |
 | **Feature** | REQUIRED | Epic |
 | **Epic** | None | Top-level |
 
-### Bug Hierarchy Rule
+### Bug & Enhancement Hierarchy Rule
 
-**Bugs MUST be linked to a Task** - This ensures:
-- Traceability: Know which task introduced or discovered the bug
-- Context: Bug is related to specific technical work
-- Accountability: Task owner is aware of related bugs
+**Bugs and Enhancements MUST be linked to a User Story/PBI** - This ensures:
+- Traceability: Know which requirement the bug or enhancement relates to
+- Context: Bug/Enhancement is tied to a specific user-facing requirement
+- Visibility: PBI owner and team see all related work items as siblings
 
 ```
 User Story #100: "Add login feature"
-  └── Task #101: "Implement login form"
-        └── Bug #102: "Login button not responding" ← Bug under Task
+  ├── Task #101: "Implement login form"
+  ├── Bug #102: "Login button not responding" ← Bug under User Story
+  └── Enhancement #103: "Improve login form UX" ← Enhancement under User Story
 ```
 
 ### Validation Before Creation
@@ -1771,25 +1888,32 @@ User Story #100: "Add login feature"
 Before creating a work item, ALWAYS:
 
 1. **For Bug**:
-   - Ask: "Which Task is this bug related to?"
-   - If no parent Task specified, prompt user to:
-     a) Select existing Task
-     b) Create new Task first
-   - NEVER create orphan bugs - they must be under a Task
+   - Ask: "Which User Story or PBI is this bug related to?"
+   - If no parent User Story/PBI specified, prompt user to:
+     a) Select existing User Story/PBI
+     b) Create new User Story/PBI first
+   - NEVER create orphan bugs - they must be under a User Story/PBI
 
-2. **For Task**:
+2. **For Enhancement**:
+   - Ask: "Which User Story or PBI should this enhancement be under?"
+   - If no parent specified, prompt user to:
+     a) Select existing User Story/PBI
+     b) Create new User Story/PBI first
+   - NEVER create orphan enhancements - they must be under a User Story/PBI
+
+3. **For Task**:
    - Ask: "Which User Story or PBI should this task be under?"
    - If no parent specified, prompt user to:
      a) Select existing PBI
      b) Create new PBI first
    - NEVER create orphan tasks
 
-3. **For User Story/PBI**:
+4. **For User Story/PBI**:
    - Ask: "Which Feature should this story be under?"
    - If no Feature exists, prompt to create one
    - If no Feature specified, list available Features
 
-4. **For Feature**:
+5. **For Feature**:
    - Ask: "Which Epic should this feature be under?"
    - List available Epics in project
    - Create Epic first if needed
@@ -1827,19 +1951,32 @@ Claude:
 User: "Create bug: Login button not responding"
 
 Claude:
-1. Ask: "Which Task is this bug related to?"
-2. User provides Task ID (e.g., #1234)
+1. Ask: "Which User Story or PBI is this bug related to?"
+2. User provides User Story/PBI ID (e.g., #1000)
 3. Create bug with details
-4. Link bug to parent Task
-5. Confirm: "Bug #1235 created under Task #1234"
+4. Link bug to parent User Story/PBI
+5. Confirm: "Bug #1235 created under User Story #1000"
 
-If user doesn't know the Task:
-1. Ask: "What feature/area were you working on when you found this bug?"
-2. Search for related tasks
-3. Present options: "Found these tasks in that area:
-   - Task #1234: Implement login form
-   - Task #1235: Add password validation
+If user doesn't know the User Story/PBI:
+1. Ask: "What feature/area is this bug related to?"
+2. Search for related User Stories/PBIs
+3. Present options: "Found these stories in that area:
+   - User Story #1000: Add login feature
+   - User Story #1001: User authentication flow
    Which one is related to this bug?"
+```
+
+### Example Workflow: Creating an Enhancement
+
+```
+User: "Create enhancement: Improve login form validation UX"
+
+Claude:
+1. Ask: "Which User Story or PBI should this enhancement be under?"
+2. User provides User Story/PBI ID (e.g., #1000)
+3. Create enhancement with details
+4. Link enhancement to parent User Story/PBI
+5. Confirm: "Enhancement #1236 created under User Story #1000"
 ```
 
 ### User Story Format (What? How? Why?)
@@ -1933,28 +2070,33 @@ Before ANY `wit_create_work_item` or `wit_update_work_item` call:
 #### Task State Transitions
 
 ```
-┌──────┐     ┌────────┐     ┌──────┐
-│ New  │ ──► │ Active │ ──► │ Done │
-└──────┘     └────────┘     └──────┘
-                              ▲
-                              │ REQUIRES:
-                              │ - Original Estimate
-                              │ - Completed Work
+┌────────┐     ┌─────────────┐     ┌──────┐     ┌────────┐     ┌─────────┐
+│ To Do  │ ──► │ In Progress │ ──► │ Done │ ──► │ Closed │ ──► │ Removed │
+└────────┘     └─────────────┘     └──────┘     └────────┘     └─────────┘
+                                     ▲
+                                     │ REQUIRES:
+                                     │ - Original Estimate
+                                     │ - Completed Work
 ```
 
-| From State | To State | Required Fields | Ask User If Missing |
-|------------|----------|-----------------|---------------------|
-| New | Active | None | - |
-| Active | Done | `OriginalEstimate`, `CompletedWork` | **YES - ALWAYS ASK!** |
-| New | Done | `OriginalEstimate`, `CompletedWork` | **YES - ALWAYS ASK!** |
-| Any | Removed | None | - |
+| From State | To State | Required Fields | Ask User If Missing | Role |
+|------------|----------|-----------------|---------------------|------|
+| To Do | In Progress | None | - | any |
+| In Progress | Done | `OriginalEstimate`, `CompletedWork` | **YES - ALWAYS ASK!** | dev |
+| To Do | Done | `OriginalEstimate`, `CompletedWork` | **YES - ALWAYS ASK!** | dev |
+| Done | Closed | None | - | PM only |
+| Any | Removed | None | - | PM only |
 
 **Example Validation for Task → Done:**
 ```
 User: "Set task #1234 to Done"
 
 Claude MUST:
-1. Get current work item details:
+1. Check statePermissions from profile:
+   - If user role is PM → BLOCKED (only devs can move Task to Done)
+   - Show: "Your role (PM) cannot move Tasks to Done. Only developers can."
+
+2. Get current work item details:
    mcp__azure-devops__wit_get_work_item({
      "project": "ProjectName",
      "id": 1234,
@@ -1962,16 +2104,18 @@ Claude MUST:
                 "Microsoft.VSTS.Scheduling.CompletedWork"]
    })
 
-2. Check if OriginalEstimate and CompletedWork have values
+3. Check current state is "In Progress" (not "To Do" — must be In Progress first)
 
-3. IF MISSING - ASK USER:
+4. Check if OriginalEstimate and CompletedWork have values
+
+5. IF MISSING - ASK USER:
    "To mark task #1234 as Done, I need:
    - Original Estimate (hours): [currently not set]
    - Completed Work (hours): [currently not set]
 
    Please provide these values."
 
-4. ONLY after user provides values, make the update:
+6. ONLY after user provides values, make the update:
    mcp__azure-devops__wit_update_work_item({
      "id": 1234,
      "updates": [
@@ -1985,59 +2129,116 @@ Claude MUST:
 #### Bug State Transitions
 
 ```
-┌──────┐     ┌────────┐     ┌──────────┐     ┌────────┐
-│ New  │ ──► │ Active │ ──► │ Resolved │ ──► │ Closed │
-└──────┘     └────────┘     └──────────┘     └────────┘
-                              ▲
-                              │ REQUIRES:
-                              │ - Resolution
+┌──────┐     ┌──────────┐     ┌─────────────┐     ┌──────────┐     ┌──────┐     ┌───────────┐     ┌──────┐     ┌────────┐     ┌─────────┐
+│ New  │ ──► │ Approved │ ──► │ In Progress │ ──► │ Resolved │ ──► │ Done │ ──► │ Committed │ ──► │ Done │ ──► │ Closed │ ──► │ Removed │
+└──────┘     └──────────┘     └─────────────┘     └──────────┘     └──────┘     └───────────┘     └──────┘     └────────┘     └─────────┘
+                                     ▲                                │
+                                     │          ┌────────┐            │
+                                     └──────────│ Return │◄───────────┘
+                                                └────────┘
+                                              [rejection loop]
 ```
 
-| From State | To State | Required Fields | Ask User If Missing |
-|------------|----------|-----------------|---------------------|
-| New | Active | None | - |
-| Active | Resolved | `Microsoft.VSTS.Common.ResolvedReason` | **YES** |
-| Resolved | Closed | None | - |
+Full Bug path: New → Approved → In Progress → Resolved → Return → Committed → Done → Closed → Removed
 
-#### User Story / PBI State Transitions
+| From State | To State | Required Fields | Ask User If Missing | Role |
+|------------|----------|-----------------|---------------------|------|
+| New | Approved | None | - | QA |
+| Approved | In Progress | None | - | dev |
+| In Progress | Resolved | `Microsoft.VSTS.Common.ResolvedReason` | **YES** | dev |
+| Resolved | Return | Rejection reason | **YES** | QA |
+| Return | In Progress | None | - | dev |
+| Resolved | Done | None | - | QA |
+| Done | Closed | None | - | PM |
+| Any | Removed | None | - | PM |
 
-```
-┌──────┐     ┌────────┐     ┌──────────────┐     ┌──────┐     ┌────────┐
-│ New  │ ──► │ Active │ ──► │ Ready for QC │ ──► │ Done │ ──► │ Closed │
-└──────┘     └────────┘     └──────────────┘     └──────┘     └────────┘
-                                   ▲
-                                   │ REQUIRED before Done:
-                                   │ - Must pass through "Ready for QC"
-                                   │ - All child Tasks must be Done
-```
-
-| From State | To State | Required/Recommended | Ask User If Missing |
-|------------|----------|---------------------|---------------------|
-| New | Active | None | - |
-| Active | Ready for QC | All child Tasks must be Done | **WARN if tasks incomplete** |
-| Ready for QC | Done | Acceptance Criteria verified | **ASK for confirmation** |
-| Done | Closed | QA sign-off | - |
-| **Active** | **Done** | **❌ NOT ALLOWED DIRECTLY** | **ENFORCE Ready for QC first** |
-| **New** | **Done** | **❌ NOT ALLOWED DIRECTLY** | **ENFORCE Ready for QC first** |
-
-### ⚠️ CRITICAL RULE: User Story → Done Requires Ready for QC
-
-**MANDATORY**: User Stories CANNOT transition directly to "Done" from any state other than "Ready for QC"!
+#### User Story State Transitions
 
 ```
-User Story State Machine (ENFORCED):
+┌──────┐     ┌───────────┐     ┌──────┐
+│ New  │ ──► │ Committed │ ──► │ Done │
+└──────┘     └───────────┘     └──────┘
+```
 
-┌──────────────────────────────────────────────────────────────────────┐
-│                    USER STORY STATE TRANSITIONS                       │
-├──────────────────────────────────────────────────────────────────────┤
-│                                                                       │
-│   New  ──►  Active  ──►  Ready for QC  ──►  Done  ──►  Closed       │
-│                              ▲                                        │
-│                              │                                        │
-│            ⚠️ MANDATORY CHECKPOINT                                    │
-│            Cannot skip to Done!                                       │
-│                                                                       │
-└──────────────────────────────────────────────────────────────────────┘
+| From State | To State | Required/Recommended | Ask User If Missing | Role |
+|------------|----------|---------------------|---------------------|------|
+| New | Committed | None | - | PM |
+| Committed | Done | All child PBIs must be Done | **WARN if PBIs incomplete** | PM/QA |
+
+#### PBI (Product Backlog Item) State Transitions
+
+```
+┌──────┐     ┌──────────┐     ┌───────────┐     ┌─────────────┐     ┌───────────────┐     ┌──────┐     ┌─────────┐
+│ New  │ ──► │ Approved │ ──► │ Committed │ ──► │ In Progress │ ──► │ Ready For QC  │ ──► │ Done │ ──► │ Removed │
+└──────┘     └──────────┘     └───────────┘     └─────────────┘     └───────────────┘     └──────┘     └─────────┘
+                                                        ▲                   │
+                                                        │     ┌────────┐    │
+                                                        └─────│ Return │◄───┘
+                                                              └────────┘
+                                                            [rejection loop]
+```
+
+| From State | To State | Required/Recommended | Ask User If Missing | Role |
+|------------|----------|---------------------|---------------------|------|
+| New | Approved | None | - | PM |
+| Approved | Committed | None | - | PM |
+| Committed | In Progress | None | - | dev |
+| In Progress | Ready For QC | All child Tasks must be Done | **WARN if tasks incomplete** | dev |
+| Ready For QC | Done | Acceptance Criteria verified | **ASK for confirmation** | QA |
+| Ready For QC | Return | Rejection reason | **YES** | QA |
+| Return | In Progress | None | - | dev |
+| **In Progress** | **Done** | **NOT ALLOWED DIRECTLY** | **ENFORCE Ready For QC first** | - |
+| **New/Approved/Committed** | **Done** | **NOT ALLOWED DIRECTLY** | **ENFORCE Ready For QC first** | - |
+| Any | Removed | None | - | PM |
+
+#### Enhancement State Transitions
+
+```
+┌──────┐     ┌───────────┐     ┌────────┐     ┌──────┐     ┌────────┐
+│ New  │ ──► │ Committed │ ──► │ Return │ ──► │ Done │ ──► │ Closed │
+└──────┘     └───────────┘     └────────┘     └──────┘     └────────┘
+```
+
+| From State | To State | Required/Recommended | Ask User If Missing | Role |
+|------------|----------|---------------------|---------------------|------|
+| New | Committed | None | - | PM |
+| Committed | Return | Rejection reason | **YES** | QA |
+| Committed | Done | None | - | PM/QA |
+| Return | Done | None | - | PM/QA |
+| Done | Closed | None | - | PM |
+
+#### Feature / Epic State Transitions
+
+```
+┌──────┐     ┌─────────────┐     ┌──────┐     ┌─────────┐
+│ New  │ ──► │ In Progress │ ──► │ Done │ ──► │ Removed │
+└──────┘     └─────────────┘     └──────┘     └─────────┘
+```
+
+| From State | To State | Required/Recommended | Ask User If Missing | Role |
+|------------|----------|---------------------|---------------------|------|
+| New | In Progress | None | - | PM |
+| In Progress | Done | All child items should be Done | **WARN if children incomplete** | PM |
+| Any | Removed | None | - | PM |
+
+### CRITICAL RULE: PBI → Done Requires Ready For QC
+
+**MANDATORY**: PBIs CANNOT transition directly to "Done" from any state other than "Ready For QC"!
+
+```
+PBI State Machine (ENFORCED):
+
+┌──────────────────────────────────────────────────────────────────────────────────┐
+│                         PBI STATE TRANSITIONS                                     │
+├──────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                   │
+│  New → Approved → Committed → In Progress → Ready For QC → Done → Removed        │
+│                                      ▲            │                               │
+│                                      └── Return ◄─┘  [rejection loop]            │
+│                                                                                   │
+│  ⚠️ MANDATORY QC CHECKPOINT: Cannot skip Ready For QC to reach Done!             │
+│                                                                                   │
+└──────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 **Why This Rule Exists:**
@@ -2046,43 +2247,49 @@ User Story State Machine (ENFORCED):
 - Prevents accidental completion without testing
 - Maintains proper workflow discipline
 
-**Example Validation for User Story → Done:**
+**Example Validation for PBI → Done:**
 ```
-User: "Set user story #1000 to Done"
+User: "Set PBI #1000 to Done"
 
 Claude MUST:
-1. Get current work item details:
+1. Check statePermissions from profile:
+   - If user role is dev → BLOCKED (only QA can move PBI to Done)
+   - Show: "Your role (developer) cannot move PBIs to Done. Only QA can."
+
+2. Get current work item details:
    mcp__azure-devops__wit_get_work_item({
      "project": "ProjectName",
      "id": 1000,
      "fields": ["System.State", "System.WorkItemType"]
    })
 
-2. Check current state:
-   - If state is "Ready for QC" → Proceed to Done
-   - If state is NOT "Ready for QC" → MUST transition to Ready for QC first
+3. Check current state:
+   - If state is "Ready For QC" → Proceed to Done (QA role required)
+   - If state is NOT "Ready For QC" → MUST transition through intermediate states first
 
-3. IF NOT "Ready for QC" - ENFORCE INTERMEDIATE STATE:
-   "⚠️ User Story #1000 is currently in '{currentState}' state.
+4. IF NOT "Ready For QC" - ENFORCE INTERMEDIATE STATES:
+   "⚠️ PBI #1000 is currently in '{currentState}' state.
 
-   Before marking as Done, it must pass through 'Ready for QC' for quality review.
+   Before marking as Done, it must pass through 'Ready For QC' for quality review.
+
+   Required path: {currentState} → ... → Ready For QC → Done
 
    Shall I:
-   1. Move it to 'Ready for QC' now (you can then mark it Done after QA)
-   2. Move it to 'Ready for QC' AND then to 'Done' in one workflow?
+   1. Move it to 'Ready For QC' now (you can then mark it Done after QA review)
+   2. Move it through all intermediate states now?
 
    Please confirm the approach."
 
-4. If user confirms option 2 (both transitions):
-   // First transition: Current → Ready for QC
+5. If user confirms option 2 (all transitions):
+   // Walk through each required intermediate state
+   // e.g., if currently "In Progress":
    await mcp__azure-devops__wit_update_work_item({
      "id": 1000,
      "updates": [
-       {"path": "/fields/System.State", "value": "Ready for QC"}
+       {"path": "/fields/System.State", "value": "Ready For QC"}
      ]
    });
 
-   // Second transition: Ready for QC → Done
    await mcp__azure-devops__wit_update_work_item({
      "id": 1000,
      "updates": [
@@ -2090,24 +2297,26 @@ Claude MUST:
      ]
    });
 
-5. Confirm to user:
-   "✅ User Story #1000 has been moved:
+6. Confirm to user:
+   "PBI #1000 has been moved:
     - From: {originalState}
-    - Through: Ready for QC (QA checkpoint)
+    - Through: Ready For QC (QA checkpoint)
     - To: Done
 
-    The story passed through the required QA checkpoint."
+    The PBI passed through the required QA checkpoint."
 ```
 
-**Quick Reference - User Story State Rule:**
+**Quick Reference - PBI State Rule:**
 
 | Current State | User Wants "Done" | Action Required |
 |---------------|------------------|-----------------|
-| New | ❌ Block | Transition: New → Active → Ready for QC → Done |
-| Active | ❌ Block | Transition: Active → Ready for QC → Done |
-| Ready for QC | ✅ Allow | Direct transition to Done |
+| New | Block | Transition: New → Approved → Committed → In Progress → Ready For QC → Done |
+| Approved | Block | Transition: Approved → Committed → In Progress → Ready For QC → Done |
+| Committed | Block | Transition: Committed → In Progress → Ready For QC → Done |
+| In Progress | Block | Transition: In Progress → Ready For QC → Done |
+| Ready For QC | Allow | Direct transition to Done (QA role only) |
 | Done | N/A | Already Done |
-| Closed | N/A | Reopen first |
+| Return | Block | Transition: Return → In Progress → Ready For QC → Done |
 
 ### Pre-Update Validation Workflow
 
@@ -2202,7 +2411,7 @@ const item = await mcp__azure-devops__wit_get_work_item({
 });
 
 // Step 2: Check required fields
-// Current: OriginalEstimate = null, CompletedWork = null, State = "Active"
+// Current: OriginalEstimate = null, CompletedWork = null, State = "In Progress"
 
 // Step 3: User provided CompletedWork (6), but OriginalEstimate missing
 // ASK: "What was the original estimate for this task?"
@@ -2254,7 +2463,7 @@ When presenting Azure DevOps data, use consistent formatting:
 ### Work Items
 ```
 [Bug] #1234: Fix login button not responding
-   State: Active | Priority: 2 | Severity: 2
+   State: In Progress | Priority: 2 | Severity: 2
    Assigned: Ahmed | Sprint: Sprint 15
 ```
 
@@ -2322,14 +2531,17 @@ WRONG RESPONSE:
 
 | When User Says | Check Before Proceeding |
 |----------------|------------------------|
-| "Mark task as done" | OriginalEstimate, CompletedWork |
-| "Close this bug" | ResolvedReason (if not Resolved yet) |
-| "Create a bug" | **Parent Task specified** |
+| "Mark task as done" | OriginalEstimate, CompletedWork, role is dev |
+| "Approve this bug" | Role is QA |
+| "Resolve this bug" | ResolvedReason, role is dev |
+| "Close this bug" | Role is PM, bug must be in Done state |
+| "Create a bug" | **Parent User Story/PBI specified** |
 | "Create a task" | Parent User Story/PBI specified |
-| "Move story to resolved" | All child tasks are Done |
 | "Create user story" | AcceptanceCriteria, Description, Parent Feature |
-| **"Mark story as done"** | **Current state MUST be "Ready for QC" - enforce intermediate state!** |
-| **"Set user story to done"** | **If not "Ready for QC", transition to "Ready for QC" first** |
+| **"Mark PBI as done"** | **Current state MUST be "Ready For QC" - enforce intermediate state! Role must be QA** |
+| **"Set PBI to done"** | **If not "Ready For QC", transition through intermediate states first** |
+| "Return this PBI" | Role is QA, rejection reason provided |
+| "Close enhancement" | Role is PM |
 
 ### Proactive Validation Example
 
@@ -2392,10 +2604,14 @@ async function validateTaskDone(project, taskId) {
    - Acceptance Criteria (for stories)
    - **OriginalEstimate** (for tasks you expect to close)
 
-6. **Validate state transitions**
+6. **Validate state transitions (TaqaTechno states)**
+   - Task: To Do → In Progress → Done (dev) → Closed (PM)
+   - Bug: New → Approved (QA) → In Progress (dev) → Resolved (dev) → Done (QA) → Closed (PM)
+   - PBI: New → Approved (PM) → Committed → In Progress → Ready For QC → Done (QA)
+   - Check user role permissions from statePermissions before any transition
    - Task → Done: Needs OriginalEstimate + CompletedWork
    - Bug → Resolved: Needs ResolvedReason
-   - Story → Resolved: Check all tasks are Done first
+   - PBI → Done: Must be in Ready For QC first, check all child tasks are Done
 
 7. **Use WIQL for complex queries**
    - More powerful than simple filters
@@ -2433,18 +2649,19 @@ Claude loads these memories for intelligent routing and best practices:
 | `memories/wiql_queries.md` | 40+ WIQL query templates |
 | `memories/team_workflows.md` | organization-specific workflows |
 
-### Available Commands
+### Available Commands (v4.0)
 
 | Command | Type | Description |
 |---------|------|-------------|
-| `/devops setup` | Hybrid | Install CLI and configure MCP |
-| `/cli-run <command>` | CLI | Execute any CLI command |
-| `/setup-pipeline-vars` | CLI | Manage pipeline variables |
-| `/install-extension` | CLI | Install marketplace extensions |
-| `/full-sprint-report` | Hybrid | Comprehensive sprint report |
-| `/standup` | MCP | Generate standup notes |
-| `/my-tasks` | MCP | List assigned work items |
-| `/sprint` | MCP | Sprint progress summary |
+| `/init` | Hybrid | Install CLI, configure MCP, check status |
+| `/workday` | Hybrid | Daily dashboard with auto-sync, time log, compliance |
+| `/create` | MCP | Create work item (task, bug, story) with auto-detection |
+| `/log-time` | Local | Log hours against work items or categories |
+| `/timesheet` | Local | View time tracking, manage time-off |
+| `/standup` | MCP | Generate daily standup notes |
+| `/sprint` | Hybrid | Sprint summary (use --full for comprehensive report) |
+| `/task-monitor` | MCP | Periodic new assignment alerts (use with /loop) |
+| `/cli-run` | CLI | Execute any CLI command (includes vars & extensions recipes) |
 
 ### Authentication
 
@@ -2461,9 +2678,30 @@ az devops configure --defaults organization=https://dev.azure.com/YOUR-ORG
 - PAT stored in `ADO_PAT_TOKEN` environment variable
 - Server configured in Claude Code settings
 
+---
+
+## Skill-Handled Workflows
+
+The following workflows are handled directly by this skill through natural language detection. They do not require slash commands — the skill detects intent and executes the appropriate workflow.
+
+For full instructions, see `devops/workflows.md`.
+
+| Workflow | Trigger Patterns | Guards |
+|----------|-----------------|--------|
+| **Update Work Item** | "mark #ID as done", "resolve bug #ID", "close #ID" | write_operation_guard, state_transition_validator |
+| **Add Comment** | "comment on #ID", "tell @name about #ID" | write_operation_guard, mention_processor |
+| **Switch Project** | "switch to PROJECT", "use PROJECT", "work on PROJECT" | (none — read-only) |
+| **Build Status** | "any failing builds?", "check CI", "pipeline health" | (none — read-only) |
+| **Create PR** | "create PR from BRANCH to BRANCH", "open pull request" | write_operation_guard, repository_resolver |
+| **CI/CD Setup** | "set up CI/CD", "generate GitHub Actions" | write_operation_guard |
+
+**Previously**: These were standalone commands (`/update-workitem`, `/add-comment`, `/switch-project`, `/build-status`, `/create-pr`, `/ci-setup`). They are now triggered contextually through natural language.
+
+---
+
 ### Version Information
 
-- **Skill Version**: 2.0.0 (Hybrid Mode)
+- **Skill Version**: 3.0.0 (Hybrid Mode + Skill-Handled Workflows)
 - **CLI Version Required**: Azure CLI 2.30.0+ with azure-devops extension
 - **MCP Server**: @anthropic-ai/azure-devops-mcp (Official Anthropic)
 

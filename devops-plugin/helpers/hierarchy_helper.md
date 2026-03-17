@@ -37,11 +37,13 @@ This causes:
 │  Epic (Strategic Initiative)                                    │
 │    └── Feature (Functional Area)                                │
 │          └── User Story / PBI (Requirement)                     │
-│                └── Task (Technical Work)                        │
-│                      └── Bug (Defect found during task)         │
+│                ├── Task (Technical Work)                        │
+│                ├── Bug (Defect)                                 │
+│                └── Enhancement (Improvement)                    │
 │                                                                  │
 │  RULES:                                                         │
-│  • Bug MUST have parent Task                                    │
+│  • Bug MUST have parent User Story/PBI                          │
+│  • Enhancement MUST have parent User Story/PBI                  │
 │  • Task MUST have parent User Story/PBI                         │
 │  • User Story MUST have parent Feature                          │
 │  • Feature MUST have parent Epic                                │
@@ -54,7 +56,8 @@ This causes:
 
 | Creating | Required Parent | Parent Type |
 |----------|-----------------|-------------|
-| **Bug** | **REQUIRED** | Task |
+| **Bug** | **REQUIRED** | User Story / PBI |
+| **Enhancement** | **REQUIRED** | User Story / PBI |
 | **Task** | **REQUIRED** | User Story / PBI |
 | **User Story / PBI** | REQUIRED | Feature |
 | **Feature** | REQUIRED | Epic |
@@ -143,7 +146,7 @@ const patterns = [
   /for pbi #(\d+)/i,         // "for PBI #789"
   /parent #(\d+)/i,          // "parent #100"
   /linked to #(\d+)/i,       // "linked to #200"
-  /for task #(\d+)/i,        // "for task #300" (bug parent)
+  /for task #(\d+)/i,        // "for task #300"
   /related to #(\d+)/i       // "related to #400"
 ];
 
@@ -185,7 +188,8 @@ async function findRelatedParents(title, workItemType, project) {
 
 function getParentType(childType) {
   const parentMap = {
-    "Bug": "Task",
+    "Bug": ["User Story", "Product Backlog Item"],
+    "Enhancement": ["User Story", "Product Backlog Item"],
     "Task": "User Story",
     "User Story": "Feature",
     "Feature": "Epic"
@@ -352,7 +356,7 @@ await mcp__azure-devops__wit_work_items_link({
 ✅ Task #151 created under User Story #100
 ```
 
-### Example 3: Creating Bug with Parent Task
+### Example 3: Creating Bug with Parent User Story
 
 **User**: "Create bug: Login button not responding on mobile"
 
@@ -360,30 +364,27 @@ await mcp__azure-devops__wit_work_items_link({
 ```
 📁 Project: Project Alpha
 
-Bugs must be linked to a Task. Searching for related tasks...
+Bugs must be linked to a User Story/PBI. Searching for related stories...
 
-Found tasks related to "login" or "button":
+Found User Stories related to "login" or "button":
 
 | # | ID | Title | State | Assigned |
 |---|-----|-------|-------|----------|
-| 1 | #150 | Implement login form validation | Active | Ahmed |
-| 2 | #151 | Add password strength indicator | Active | Eslam |
-| 3 | #145 | Create login button component | Done | Ahmed |
+| 1 | #100 | User Authentication Feature | Active | Ahmed |
+| 2 | #105 | Login Page Implementation | Active | Eslam |
+| 3 | #110 | Form Validation System | Active | Ahmed |
 
-Which Task is this bug related to?
+Which User Story is this bug related to?
 ```
 
-**User**: "3" or "#145"
+**User**: "2" or "#105"
 
 **Claude**:
 ```
-Creating bug under Task #145...
+Creating bug under User Story #105...
 
 ✅ Bug #200 created: "Login button not responding on mobile"
-   └── Parent: Task #145 - Create login button component
-
-Note: Task #145 was Done but this bug was found in that work.
-Consider reopening or creating a follow-up task.
+   └── Parent: User Story #105 - Login Page Implementation
 ```
 
 ### Example 4: No Parents Found
@@ -506,8 +507,8 @@ Hierarchy:
 Epic #10: Platform Modernization
   └── Feature #50: Authentication Module
         └── User Story #100: User Authentication Feature
-              └── Task #150: Implement login form validation ← YOU ARE HERE
-                    └── Bug #200: Login fails on Safari
+              ├── Task #150: Implement login form validation ← YOU ARE HERE
+              └── Bug #200: Login fails on Safari
 
 State: Active
 Assigned: User One
@@ -521,10 +522,11 @@ Sprint: Sprint 15
 
 Child Items:
 ├── Task #150: Implement login form validation [Active]
-│     └── Bug #200: Login fails on Safari [New]
 ├── Task #151: Add password strength indicator [Active]
 ├── Task #152: Implement remember me feature [New]
-└── Task #153: Add OAuth integration [Done]
+├── Task #153: Add OAuth integration [Done]
+├── Bug #200: Login fails on Safari [New]
+└── Enhancement #210: Improve login page UX [New]
 
 Progress: 1/4 tasks done (25%)
 ```
@@ -578,8 +580,12 @@ mcp__azure-devops__wit_work_items_link({
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                  │
 │  Creating a BUG?                                                │
-│  ├── Parent Task specified? → Proceed                           │
-│  └── No parent? → MUST find/create parent Task first            │
+│  ├── Parent User Story/PBI specified? → Proceed                 │
+│  └── No parent? → MUST find/create parent User Story/PBI first  │
+│                                                                  │
+│  Creating an ENHANCEMENT?                                       │
+│  ├── Parent User Story/PBI specified? → Proceed                 │
+│  └── No parent? → MUST find/create parent User Story/PBI first  │
 │                                                                  │
 │  Creating a TASK?                                               │
 │  ├── Parent Story specified? → Proceed                          │
@@ -605,7 +611,8 @@ mcp__azure-devops__wit_work_items_link({
 // Ensure correct parent type
 function validateParentType(childType, parentItem) {
   const validParents = {
-    "Bug": ["Task"],
+    "Bug": ["User Story", "Product Backlog Item"],
+    "Enhancement": ["User Story", "Product Backlog Item"],
     "Task": ["User Story", "Product Backlog Item"],
     "User Story": ["Feature"],
     "Product Backlog Item": ["Feature"],
@@ -648,7 +655,8 @@ Tasks must be under a User Story or Product Backlog Item.
 Bug #200 is a Bug, which cannot be a parent of Task.
 
 Correct hierarchy:
-• Bug → under Task
+• Bug → under User Story/PBI
+• Enhancement → under User Story/PBI
 • Task → under User Story/PBI
 • User Story → under Feature
 
@@ -679,14 +687,15 @@ Please choose a different parent.
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                  │
 │  PARENT REQUIREMENTS:                                           │
-│  • Bug MUST have parent Task                                    │
+│  • Bug MUST have parent User Story/PBI                          │
+│  • Enhancement MUST have parent User Story/PBI                  │
 │  • Task MUST have parent User Story/PBI                         │
 │  • User Story SHOULD have parent Feature                        │
 │  • Feature SHOULD have parent Epic                              │
 │                                                                  │
 │  SPECIFY PARENT:                                                │
 │  • "Create task under #123"                                     │
-│  • "Create bug for task #456"                                   │
+│  • "Create bug for story #456"                                  │
 │  • "Add task to story #789"                                     │
 │                                                                  │
 │  AUTO-DETECTION:                                                │

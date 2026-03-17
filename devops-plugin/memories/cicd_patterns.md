@@ -519,7 +519,7 @@ jobs:
 
 ## Related Commands & Memories
 
-- `/ci-setup` — Generate complete `.github/workflows/` for an Odoo project
+- CI/CD setup (skill-handled, say "set up CI/CD") — Generate complete `.github/workflows/` for an Odoo project
 - `/e2e-test` — Generate Playwright test scaffolds for an Odoo module
 - `automation_templates.md` — Build monitor, PR auto-merge, release notes scripts
 - `github_integration.md` — GitHub + Azure DevOps bidirectional linking

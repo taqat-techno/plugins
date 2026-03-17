@@ -160,6 +160,6 @@ These memories reference environment variables:
 
 ## Related Files
 
-- `../commands/devops.md` - Setup command documentation
+- `../commands/init.md` - Setup command documentation (formerly devops.md)
 - `../devops/SKILL.md` - Main skill definition
 - `../.claude-plugin/plugin.json` - Plugin configuration

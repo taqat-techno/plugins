@@ -1,8 +1,8 @@
 ---
 title: 'Timesheet'
-read_only: true
+read_only: false
 type: 'command'
-description: 'View time tracking status - daily, weekly, or monthly (local only, no API calls)'
+description: 'View time tracking status and manage time-off. Flags: --week, --month, --date, --off, --off-list, --off-remove. Local only, no API calls.'
 ---
 
 # Timesheet
@@ -16,6 +16,11 @@ View your time tracking status with compliance checks. This command reads only f
 /timesheet --week               # Current week summary with per-day breakdown
 /timesheet --month              # Monthly rollup with weekly totals
 /timesheet --date 2026-03-02    # Specific day's details
+/timesheet --off today "Personal day"
+/timesheet --off 2026-03-21 "Eid holiday"
+/timesheet --off 2026-03-24 2026-03-28 "Vacation"
+/timesheet --off-remove 2026-03-21
+/timesheet --off-list
 ```
 
 ## Workflow
@@ -188,13 +193,160 @@ For each day in the period:
 | No entries for period | Show empty report with guidance |
 | Invalid date format | "Invalid date. Use format: YYYY-MM-DD" |
 
+## Time-Off Management (--off)
+
+Mark specific days as time-off so they are excluded from the daily minimum hours requirement. Time-off days show as "TIME-OFF" in timesheets and compliance checks.
+
+### Step 1: Parse Input
+
+```
+1. Determine action:
+   - --off-list: show all time-off entries
+   - --off-remove DATE: remove a specific entry
+   - --off + single date + reason: mark one day
+   - --off + two dates + reason: mark date range (inclusive)
+2. Parse dates:
+   - "today" → current date as YYYY-MM-DD
+   - "tomorrow" → next day as YYYY-MM-DD
+   - YYYY-MM-DD → use as-is
+3. Parse reason (quoted string or remaining text)
+```
+
+### Step 2: Read Tracker Data
+
+```
+1. Read ~/.claude/work-tracker-data.json
+2. If NOT found: bootstrap from defaults (same as /workday Step 0)
+3. Parse JSON, access timeOff array
+```
+
+### Step 3: Execute Action
+
+#### Add Time-Off (Single Day)
+
+```
+1. Check if date already exists in timeOff array
+   - If YES: "Date {date} is already marked as time-off ({existing reason}). Update reason? (y/n)"
+2. Add entry: { "date": "YYYY-MM-DD", "reason": "description" }
+3. If timeLog[date] has entries:
+   - Mark timeLog[date].isTimeOff = true
+   - Mark timeLog[date].timeOffReason = reason
+4. Write work-tracker-data.json
+5. Regenerate affected sections in work-tracker.md
+```
+
+#### Add Time-Off (Date Range)
+
+```
+1. Calculate all dates from startDate to endDate (inclusive)
+2. Filter to only working days (skip weekends per settings.workingDays)
+3. For each working day in range:
+   - Add to timeOff array (skip if already exists)
+   - Update timeLog if entries exist
+4. Write work-tracker-data.json
+5. Regenerate work-tracker.md
+6. Report: "Marked {N} working days as time-off ({startDate} to {endDate})"
+```
+
+#### Remove Time-Off
+
+```
+1. Find entry in timeOff array matching the date
+2. If NOT found: "No time-off entry for {date}"
+3. Remove from timeOff array
+4. If timeLog[date] exists:
+   - Set isTimeOff = false
+   - Remove timeOffReason
+5. Write work-tracker-data.json
+6. Regenerate work-tracker.md
+7. Report: "Removed time-off for {date}. This day now requires {min}h minimum."
+```
+
+#### List Time-Off
+
+```
+1. Read timeOff array
+2. Sort by date
+3. Display table
+```
+
+### Step 4: Report
+
+#### Add Confirmation
+
+```markdown
+## Time-Off Marked
+
+| Date | Day | Reason |
+|------|-----|--------|
+| 2026-03-21 | Fri | Eid holiday |
+
+This day is now excluded from the {minHoursPerDay}h daily requirement.
+
+### Updated Week Status
+| Day | Status | Hours |
+|-----|--------|-------|
+| Mon | OK | 6.5h |
+| Tue | OK | 6.0h |
+| Wed | OK | 6.0h |
+| Thu | OK | 6.0h |
+| Fri | TIME-OFF | Eid holiday |
+
+Week requirement adjusted: {adjustedRequired}h ({workingDays} working days)
+```
+
+#### Range Confirmation
+
+```markdown
+## Time-Off Period Marked
+
+| # | Date | Day | Reason |
+|---|------|-----|--------|
+| 1 | 2026-03-24 | Mon | Vacation |
+| 2 | 2026-03-25 | Tue | Vacation |
+| 3 | 2026-03-26 | Wed | Vacation |
+| 4 | 2026-03-27 | Thu | Vacation |
+| 5 | 2026-03-28 | Fri | Vacation |
+
+5 working days marked as time-off.
+Week 13 requirement adjusted: 0h (0 working days)
+```
+
+#### List View
+
+```markdown
+## Registered Time-Off Days
+
+| # | Date | Day | Reason |
+|---|------|-----|--------|
+| 1 | 2026-03-04 | Tue | Personal day |
+| 2 | 2026-03-21 | Fri | Eid holiday |
+| 3 | 2026-03-24 | Mon | Vacation |
+| 4 | 2026-03-25 | Tue | Vacation |
+| 5 | 2026-03-26 | Wed | Vacation |
+| 6 | 2026-03-27 | Thu | Vacation |
+| 7 | 2026-03-28 | Fri | Vacation |
+
+Total: 7 time-off days registered
+```
+
+### Time-Off Error Handling
+
+| Error | Recovery |
+|-------|----------|
+| Invalid date format | "Invalid date. Use YYYY-MM-DD or 'today'" |
+| End date before start date | "End date must be after start date" |
+| Date already marked | Ask to update reason |
+| Tracker file missing | Bootstrap from defaults |
+
 ## Related Commands
 
 - `/workday` - Full daily dashboard with sync
 - `/log-time` - Add time entries
-- `/time-off` - Mark time-off days
-- `/work-sync` - Refresh work item cache
+- `/workday --sync` - Refresh work item cache
+
+> Previously available as /time-off
 
 ---
 
-*Part of DevOps Plugin v3.0 - Work Tracking System*
+*Part of DevOps Plugin v4.0 - Work Tracking System*

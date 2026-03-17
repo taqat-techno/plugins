@@ -1,8 +1,8 @@
 ---
-title: 'DevOps'
+title: 'Init'
 read_only: false
 type: 'command'
-description: 'Complete Azure DevOps integration - installs CLI, configures MCP, and enables hybrid mode for best performance. Use when user asks about DevOps setup, configuration, or status.'
+description: 'Complete Azure DevOps integration - installs CLI, configures MCP, and enables hybrid mode for best performance. Use when user asks about DevOps setup, configuration, or status via /init.'
 ---
 
 # Azure DevOps Integration - Unified Setup
@@ -13,16 +13,20 @@ Complete Azure DevOps integration with BOTH CLI and MCP for optimal performance.
 
 | Sub-Command | Description |
 |-------------|-------------|
-| `/devops setup` | **Full setup**: CLI installation + MCP configuration |
-| `/devops setup --cli` | Install Azure DevOps CLI only |
-| `/devops setup --mcp` | Configure MCP server only |
-| `/devops status` | Check both CLI and MCP connection status |
-| `/devops upgrade` | Upgrade CLI and MCP to latest versions |
-| `/devops help` | Show available DevOps capabilities |
+| `/init setup` | **Full setup**: CLI installation + MCP configuration |
+| `/init setup --cli` | Install Azure DevOps CLI only |
+| `/init setup --mcp` | Configure MCP server only |
+| `/init status` | Check both CLI and MCP connection status |
+| `/init upgrade` | Upgrade CLI and MCP to latest versions |
+| `/init profile` | Build/refresh user profile (DevOps.md) |
+| `/init profile --refresh` | Re-fetch all data from Azure DevOps |
+| `/init profile --role` | Change your role only |
+| `/init profile --team` | Refresh team members only |
+| `/init help` | Show available DevOps capabilities |
 
 ---
 
-## `/devops setup` - Complete Installation
+## `/init setup` - Complete Installation
 
 ### Overview
 
@@ -347,7 +351,7 @@ HYBRID MODE:             ENABLED
 NEXT STEPS:
   1. Restart Claude Code to activate MCP
   2. Test with: "List my projects"
-  3. Use /devops status to check anytime
+  3. Use /init status to check anytime
 
 ====================================================
 ```
@@ -367,31 +371,180 @@ To complete setup:
 
 ---
 
-## `/devops setup --cli` - CLI Only Installation
+## `/init profile` - Build User Profile
+
+Create or refresh your personal DevOps profile at `~/.claude/devops.md`. This file caches your identity, projects, team members, and preferences for instant resolution.
+
+### Why This Matters
+
+Without a profile:
+- "assign to me" requires an API call to resolve your identity every time
+- "@mahmoud" requires an API call to resolve the GUID every time
+- Your role/task prefix must be inferred from keywords
+- Project context is lost between sessions
+
+With a profile:
+- "assign to me" → instant (cached GUID)
+- "@mahmoud" → instant (cached GUID from team members)
+- Task prefix auto-applied from your role
+- Project context persists across sessions
+
+### Profile Generation Workflow
+
+**Reference**: `devops/profile_generator.md`
+
+#### Step 1: Resolve Your Identity
+
+```javascript
+// Get current authenticated user
+mcp__azure-devops__core_get_connection_data({})
+// Returns: authenticatedUser with id, displayName, uniqueName
+
+// Get full identity details
+mcp__azure-devops__core_get_identity_ids({
+  "searchFilter": authenticatedUser.uniqueName
+})
+```
+
+#### Step 2: Fetch Your Projects & Teams
+
+```javascript
+// List all projects
+const projects = await mcp__azure-devops__core_list_projects({})
+
+// For each project, find teams you belong to
+for (const project of projects) {
+  const teams = await mcp__azure-devops__work_list_teams({ "project": project.name })
+  // Check membership in each team
+}
+```
+
+#### Step 3: Fetch Team Members
+
+```javascript
+// For each of your teams, get all members with GUIDs
+for (const team of userTeams) {
+  const members = await mcp__azure-devops__work_get_team_members({
+    "project": team.project,
+    "team": team.name
+  })
+  // Resolve each member's GUID via core_get_identity_ids
+}
+```
+
+#### Step 4: Ask for Your Role
+
+```
+What is your primary role?
+
+| # | Role | Task Prefix | Description |
+|---|------|-------------|-------------|
+| 1 | Backend Developer | [DEV] | APIs, database, server-side |
+| 2 | Frontend Developer | [FRONT] | UI, CSS, JavaScript |
+| 3 | Full-Stack Developer | [DEV] | Both backend and frontend |
+| 4 | QA / Tester | [QA] | Testing, verification |
+| 5 | DevOps Engineer | [IMP] | Infrastructure, CI/CD |
+| 6 | Project Manager | [IMP] | Planning, coordination |
+| 7 | Team Lead | [IMP] | Technical leadership |
+```
+
+#### Step 5: Generate ~/.claude/devops.md
+
+Use the template from `data/profile_template.md` and fill with collected data.
+
+#### Step 6: Confirm
+
+```
+User Profile created at ~/.claude/devops.md
+
+Identity: Ahmed Mohamed (ahmed@company.com)
+Role: Developer → Task prefix: [DEV]
+Projects: 2 (Project Alpha, Project Beta)
+Team Members: 5 cached with GUIDs
+
+This file is used as context for all DevOps operations.
+- "assign to me" → uses your cached GUID
+- "@teammate" → uses cached team member GUIDs
+- /create tasks → auto-applies your [DEV] prefix
+```
+
+### Refresh Options
+
+| Flag | What It Does |
+|------|-------------|
+| `--refresh` | Re-fetch everything from Azure DevOps (identity, projects, teams, repos) |
+| `--role` | Change your role and task prefix only (no API calls) |
+| `--team` | Refresh team members only (fetch latest from Azure DevOps) |
+
+### Example Session
+
+**User**: `/init profile`
+
+**Claude**:
+```
+Building your DevOps profile...
+
+Step 1: Resolving your identity...
+  Found: Ahmed Mohamed (ahmed@company.com)
+
+Step 2: Fetching your projects...
+  Found 2 projects: Project Alpha, Project Beta
+
+Step 3: Fetching team members...
+  Found 5 team members across 2 teams
+
+Step 4: What is your primary role?
+  1. Backend Developer [DEV]
+  2. Frontend Developer [FRONT]
+  3. Full-Stack Developer [DEV]
+  4. QA / Tester [QA]
+  5. DevOps Engineer [IMP]
+  6. Project Manager [IMP]
+  7. Team Lead [IMP]
+```
+
+**User**: 1
+
+**Claude**:
+```
+Profile created at ~/.claude/devops.md
+
+Identity: Ahmed Mohamed (ahmed@company.com)
+Role: Backend Developer → [DEV]
+Default Project: Project Alpha
+Team: Project Alpha Team
+Team Members: 5 cached
+
+Your profile will be loaded automatically at session start.
+```
+
+---
+
+## `/init setup --cli` - CLI Only Installation
 
 Run only the CLI installation phases (2-5) without MCP configuration.
 
 **Use case**: When MCP is already configured but CLI is missing.
 
 ```
-/devops setup --cli
+/init setup --cli
 ```
 
 ---
 
-## `/devops setup --mcp` - MCP Only Configuration
+## `/init setup --mcp` - MCP Only Configuration
 
 Run only the MCP configuration phases (6) without CLI installation.
 
 **Use case**: When CLI is already installed but MCP needs configuration.
 
 ```
-/devops setup --mcp
+/init setup --mcp
 ```
 
 ---
 
-## `/devops status` - Check Status
+## `/init status` - Check Status
 
 **Comprehensive status check for both CLI and MCP:**
 
@@ -458,7 +611,7 @@ RECOMMENDATIONS:
 
 ---
 
-## `/devops upgrade` - Upgrade Components
+## `/init upgrade` - Upgrade Components
 
 **Upgrade both CLI extension and MCP package:**
 
@@ -491,7 +644,7 @@ az extension show --name azure-devops --query "version"
 
 ---
 
-## `/devops help` - Capabilities Overview
+## `/init help` - Capabilities Overview
 
 ### Available Tool Categories
 
@@ -514,14 +667,15 @@ az extension show --name azure-devops --query "version"
 
 | Command | Description |
 |---------|-------------|
-| `/my-tasks` | List your active work items |
+| `/workday` | Daily dashboard with tasks, time log, compliance |
+| `/workday --tasks` | List your active work items |
+| `/create` | Create work item (task, bug, story) |
 | `/standup` | Generate daily standup notes |
-| `/sprint` | Sprint progress summary |
-| `/create-task` | Create new task (with hierarchy) |
-| `/create-user-story` | Create story with What/How/Why |
-| `/create-bug` | Create new bug |
-| `/sync-my-tasks` | Sync tasks to TODO list |
-| `/build-status` | Check recent builds |
+| `/sprint` | Sprint progress summary (`--full` for comprehensive) |
+| `/log-time` | Log hours against work items |
+| `/timesheet` | Time tracking views (`--off` for time-off) |
+| `/task-monitor` | Periodic new assignment alerts |
+| `/cli-run` | Execute CLI commands (includes vars & extensions) |
 
 ### Hybrid Mode Benefits
 
@@ -534,7 +688,7 @@ When hybrid mode is enabled:
 
 ## Example Setup Session
 
-**User:** `/devops setup`
+**User:** `/init setup`
 
 **Claude:**
 ```
@@ -597,7 +751,7 @@ Hybrid Mode: ENABLED
 NEXT STEPS:
 1. Restart Claude Code to activate MCP
 2. Test with: "List my projects"
-3. Use /devops status to verify
+3. Use /init status to verify
 
 Your PAT has been stored securely as environment variables:
 - AZURE_DEVOPS_EXT_PAT (for CLI)
@@ -634,7 +788,7 @@ Your PAT has been stored securely as environment variables:
 |-------|----------|
 | `CLI commands not working` | Verify `AZURE_DEVOPS_EXT_PAT` is set |
 | `Slow batch operations` | Ensure CLI is being used (check logs) |
-| `Some features missing` | Run `/devops status` to diagnose |
+| `Some features missing` | Run `/init status` to diagnose |
 
 ### Common Fixes
 
@@ -675,3 +829,7 @@ echo $ADO_PAT_TOKEN
 | `~/.claude/settings.json` | MCP server configuration added |
 | User environment | `AZURE_DEVOPS_EXT_PAT`, `ADO_PAT_TOKEN`, `DEVOPS_HYBRID_MODE` |
 | Azure CLI config | Organization and project defaults |
+
+---
+
+*Part of DevOps Plugin v4.0*

@@ -1,7 +1,7 @@
 {
   "name": "devops",
-  "version": "3.1.0",
-  "description": "Azure DevOps HYBRID integration with Work Tracking System. Features: workday dashboard, time logging with compliance enforcement, persistent work item cache, unified setup with CLI + MCP, intelligent routing, task monitor with loop-based alerts, automation templates, predefined memories, and 100+ MCP tools.",
+  "version": "4.1.0",
+  "description": "Azure DevOps HYBRID integration with Work Tracking System. Features: persistent user profile (DevOps.md) with cached identity and team GUIDs, unified /create command with auto-type detection, /workday dashboard with auto-sync, time logging with compliance, /init setup with CLI + MCP + profile generation, intelligent routing, task monitor with loop-based alerts, 6 skill-handled workflows, and 100+ MCP tools.",
   "author": {
     "name": "TaqaTechno",
     "email": "support@example.com",
