@@ -1,8 +1,10 @@
 # ntfy Notifications Plugin for Claude Code
 
-> **Push notifications to your phone whenever Claude Code completes tasks, needs your input, or encounters errors.**
+> **Push notifications to your phone whenever Claude Code completes tasks, needs your input, or encounters errors. Two-way Q&A lets Claude ask questions and wait for your phone response.**
 
-**100% FREE** - Uses [ntfy.sh](https://ntfy.sh), an open-source push notification service that requires no account.
+**v3.0.0** | **100% FREE** - Uses [ntfy.sh](https://ntfy.sh), an open-source push notification service that requires no account.
+
+> **Migration Note**: In v3.0, 8 commands consolidated into 2. Two-way Q&A is skill-driven.
 
 ---
 
@@ -28,62 +30,41 @@ Claude Code often works autonomously on complex tasks. Without notifications:
 
 ## Quick Start (5 Minutes)
 
-### Step 1: Install the ntfy App
+```
+1. Install ntfy app on your phone (iOS App Store / Google Play)
+2. Subscribe to a unique topic (e.g., claude-yourname-abc123)
+3. Run:  /ntfy setup
+4. Test:  /ntfy test
+5. Done! Claude will notify you automatically.
+```
 
-**iOS (iPhone/iPad):**
-1. Open App Store
-2. Search for "ntfy"
-3. Install the app by Philipp Heckel
-4. Open the app
+### Detailed Setup
 
-**Android:**
-1. Open Google Play Store (or F-Droid)
-2. Search for "ntfy"
-3. Install the app
-4. Open the app
+**Step 1: Install the ntfy App**
 
-**Desktop (Optional):**
-- Visit [ntfy.sh/app](https://ntfy.sh/app) in your browser
-- Or install the PWA for desktop notifications
+| Platform | Instructions |
+|----------|-------------|
+| **iOS** | App Store > Search "ntfy" > Install (by Philipp Heckel) |
+| **Android** | Google Play / F-Droid > Search "ntfy" > Install |
+| **Desktop** | Visit [ntfy.sh/app](https://ntfy.sh/app) or install the PWA |
 
-### Step 2: Create Your Topic
+**Step 2: Create Your Topic**
 
 A "topic" is like a private channel for your notifications.
 
 1. Open the ntfy app
 2. Tap the **+** button
-3. Create a **unique, hard-to-guess** topic name:
-   ```
-   Examples:
-   - claude-john-x7k9m2
-   - my-alerts-abc123xyz
-   - devnotify-random789
-   ```
+3. Create a **unique, hard-to-guess** topic name (e.g., `claude-john-x7k9m2`)
 
 > **IMPORTANT:** Topic names act like passwords. Anyone who knows your topic can send you notifications. Make it unique!
 
 4. Tap **Subscribe**
 
-### Step 3: Configure the Plugin
-
-Run the setup command in Claude Code:
-```
-/ntfy-setup
-```
-
-Or configure manually:
-```python
-import sys
-sys.path.insert(0, r'C:\path\to\ntfy-notifications')
-from notify import setup_topic
-
-setup_topic("your-topic-name")
-```
-
-### Step 4: Test It!
+**Step 3: Configure & Test**
 
 ```
-/ntfy-test
+/ntfy setup          # Interactive setup wizard
+/ntfy test           # Send a test notification
 ```
 
 You should receive a push notification on your phone within seconds!
@@ -135,16 +116,32 @@ Notifications include visual emoji indicators:
 
 ---
 
-## Slash Commands
+## Commands
 
 | Command | Description |
 |---------|-------------|
-| `/ntfy <message>` | Quick send a notification |
-| `/ntfy-setup` | Interactive setup wizard |
-| `/ntfy-test` | Send test notification |
-| `/ntfy-status` | Check configuration and connection |
-| `/ntfy-history` | View notification history |
-| `/ntfy-config` | Update settings |
+| `/ntfy <sub-command>` | Unified command — sub-commands: `send`, `setup`, `test`, `status`, `history`, `config` |
+| `/ntfy-mode` | Toggle session auto-notify on/off (with optional custom topic) |
+
+### /ntfy Sub-Commands
+
+| Sub-Command | Usage | Description |
+|-------------|-------|-------------|
+| `send` | `/ntfy send <message>` | Quick send a notification |
+| `setup` | `/ntfy setup` | Interactive setup wizard |
+| `test` | `/ntfy test` | Send test notification |
+| `status` | `/ntfy status` | Check configuration and connection |
+| `history` | `/ntfy history` | View notification history |
+| `config` | `/ntfy config` | Update settings |
+
+### Two-Way Q&A (Skill-Driven)
+
+Two-way phone Q&A is handled automatically by the ntfy skill — no command needed. Just ask Claude naturally:
+
+- *"Ask me on my phone whether to deploy to production"*
+- *"Send a notification asking which database to use"*
+
+Claude will send an interactive notification and wait for your response.
 
 ---
 
@@ -263,20 +260,19 @@ ntfy-plugin/
 ├── .claude-plugin/
 │   └── plugin.json              # Plugin metadata
 ├── ntfy/                        # Skill folder
-│   ├── SKILL.md                 # Main skill with YAML frontmatter
+│   ├── SKILL.md                 # Main skill with YAML frontmatter (two-way Q&A)
 │   ├── config.json              # User configuration
 │   └── scripts/                 # Python utilities
 │       ├── notify.py            # Core notification functions
+│       ├── interactive.py       # Two-way Q&A (ask_user, ask_choice, etc.)
 │       ├── notification_checker.py  # Retry logic and fail-safe
 │       ├── notification_logger.py   # History and analytics
+│       ├── claude_actions.py    # High-level action helpers
+│       ├── session.py           # Session state for ntfy-mode
 │       └── hooks.py             # Automatic triggers and decorators
-├── commands/                    # Slash commands
-│   ├── ntfy.md                  # /ntfy <message> - Quick send
-│   ├── setup.md                 # /ntfy-setup - Interactive setup
-│   ├── test.md                  # /ntfy-test - Test notification
-│   ├── status.md                # /ntfy-status - Check config
-│   ├── history.md               # /ntfy-history - View history
-│   └── config.md                # /ntfy-config - Update settings
+├── commands/                    # Slash commands (2 commands)
+│   ├── ntfy.md                  # /ntfy — unified command with sub-commands
+│   └── ntfy-mode.md             # /ntfy-mode — session auto-notify toggle
 └── README.md                    # This documentation
 ```
 
@@ -473,7 +469,15 @@ MIT License - Free to use, modify, and distribute.
 
 ## Version History
 
-### 2.0.0 (Current)
+### 3.0.0 (Current)
+- Consolidated 8 commands into 2 (`/ntfy` with sub-commands, `/ntfy-mode`)
+- Two-way phone Q&A is now skill-driven (natural language triggers)
+- Interactive notifications: `ask_user()`, `ask_choice()`, `ask_confirm()`, `ask_approval()`
+- Cross-platform support (Android action buttons + iOS text replies)
+- Session-based notification mode with `/ntfy-mode`
+- Claude actions API (`claude_actions.py`) for high-level workflows
+
+### 2.0.0
 - Complete rewrite with modular architecture
 - Automatic retry with exponential backoff
 - Deduplication to prevent spam

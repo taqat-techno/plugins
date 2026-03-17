@@ -1,7 +1,7 @@
 ---
 name: ntfy-notifications
 description: |
-  Push notifications to your phone via ntfy.sh when Claude completes tasks, needs input, or encounters errors. Sends real-time alerts for task completion, action required, blocking issues, and long-running tasks. Supports automatic retry, deduplication, rate limiting, and notification history. 100% FREE - No account required!
+  Push notifications to your phone via ntfy.sh when Claude completes tasks, needs input, or encounters errors. Supports two-way phone Q&A — send interactive questions and wait for user responses. Sends real-time alerts for task completion, action required, blocking issues, and long-running tasks. Supports automatic retry, deduplication, rate limiting, and notification history. 100% FREE - No account required!
 
 
   <example>
@@ -24,7 +24,21 @@ description: |
   assistant: "I will use the ntfy skill to send a test notification with priority 3 to your configured topic and verify the delivery response."
   <commentary>Testing trigger - verifying notification delivery.</commentary>
   </example>
-version: "2.0.0"
+
+  <example>
+  Context: Claude needs user approval before proceeding
+  user: "Ask me on my phone whether to deploy to production"
+  assistant: "I'll send an interactive notification to your phone and wait for your response."
+  <commentary>Two-way notification trigger — uses interactive.py for phone-based Q&A.</commentary>
+  </example>
+
+  <example>
+  Context: Claude needs a choice from user who stepped away
+  user: "Send a notification asking which database to use"
+  assistant: "I'll send a choice notification to your phone with the options."
+  <commentary>Interactive choice trigger — uses ask_choice() from interactive.py.</commentary>
+  </example>
+version: "3.0.0"
 author: "TAQAT Techno"
 license: "MIT"
 allowed-tools:
@@ -44,6 +58,10 @@ metadata:
 ---
 
 # ntfy Notifications Skill
+
+> **v3.0 Architecture**: This skill handles two-way phone Q&A via natural language.
+> For sending notifications, setup, and management, use the `/ntfy` command.
+> For session auto-notify toggle, use `/ntfy-mode`.
 
 A comprehensive push notification system for Claude Code that sends real-time alerts to your phone when tasks complete, input is needed, or errors occur.
 
@@ -496,12 +514,8 @@ export_to_csv("notification_history.csv")
 
 | Command | Description |
 |---------|-------------|
-| `/ntfy <message>` | Quick send a notification |
-| `/ntfy-setup` | Interactive setup wizard |
-| `/ntfy-test` | Send test notification |
-| `/ntfy-status` | Check configuration |
-| `/ntfy-history` | View notification history |
-| `/ntfy-config` | Update settings |
+| `/ntfy <sub-command>` | Unified command: send, setup, test, status, history, config |
+| `/ntfy-mode` | Toggle session auto-notify on/off |
 
 ---
 
@@ -1026,4 +1040,4 @@ Every significant event MUST trigger a notification.
 
 ---
 
-*Part of TAQAT Techno Plugins v2.0*
+*Part of TAQAT Techno Plugins v3.0*
