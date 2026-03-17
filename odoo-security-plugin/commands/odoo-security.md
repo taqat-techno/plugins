@@ -18,7 +18,7 @@ Parse `$ARGUMENTS` for:
 |-------|------|---------|-------------|
 | First positional | path/name | _(required)_ | Module path or name |
 | `--severity=` | enum | `low` | Minimum severity to report: `critical`, `high`, `medium`, `low` |
-| `--layer=` | enum | `all` | Which audit layer to run: `access`, `routes`, `sudo`, `all` |
+| `--layer=` | enum | `all` | Which audit layer to run: `access`, `routes`, `sudo`, `sql`, `all` |
 | `--fix` | flag | off | Generate and apply safe remediations after review |
 | `--json` | flag | off | Output as machine-readable JSON |
 
@@ -48,6 +48,7 @@ LAYERS (--layer=)
   access    Model access rules — ir.model.access.csv completeness
   routes    HTTP route auth, CSRF, data exposure
   sudo      .sudo() usage — privilege escalation, loops, unscoped
+  sql       SQL injection — unsafe cr.execute(), string formatting in queries
 
 SEVERITY LEVELS (--severity=)
   critical  Immediate vulnerability — fix before deployment
@@ -61,6 +62,7 @@ EXAMPLES
   /odoo-security my_module --layer=access --fix   Check access rules, apply fixes
   /odoo-security my_module --layer=sudo           Find risky sudo() calls
   /odoo-security my_module --layer=routes         Audit HTTP route security
+  /odoo-security my_module --layer=sql            Scan for SQL injection risks
 
 PREVIOUSLY SEPARATE COMMANDS (now unified here)
   /security-audit   -> /odoo-security --severity=<level>
@@ -329,6 +331,28 @@ Generally safe (e.g., `ir.config_parameter.sudo().get_param()`).
 | sudo() in portal controller | `_document_check_access()` from CustomerPortal |
 | sudo() in loop | Batched `read_group()` before the loop |
 | Full sudo() for single op | `with_user(specific_user)` for scoped elevation |
+
+---
+
+## Layer: SQL Injection (`--layer=sql`)
+
+Scans all Python files for unsafe SQL patterns.
+
+### What It Detects
+
+| Risk | Pattern | Example | Fix |
+|------|---------|---------|-----|
+| CRITICAL | f-string in cr.execute | `cr.execute(f"SELECT * WHERE id={val}")` | Use `cr.execute("SELECT * WHERE id=%s", (val,))` |
+| CRITICAL | .format() in cr.execute | `cr.execute("...{}".format(val))` | Use parameterized `%s` |
+| HIGH | String concat in cr.execute | `cr.execute("SELECT " + field)` | Whitelist field names |
+| HIGH | % formatting in cr.execute | `cr.execute("... %s" % val)` | Use tuple: `(val,)` as second arg |
+| MEDIUM | cr.execute without params | `cr.execute(query)` where query is variable | Ensure query is constant or parameterized |
+| LOW | _where_calc override | Custom `_where_calc` without `_apply_ir_rules` | Always call `_apply_ir_rules` |
+
+### Safe Patterns (no alert)
+- `cr.execute("SELECT ... WHERE id = %s", (record_id,))` -- parameterized
+- `cr.execute("SELECT ... WHERE id IN %s", (tuple(ids),))` -- tuple param
+- `cr.execute(constant_query)` where query is a module-level string constant
 
 ---
 

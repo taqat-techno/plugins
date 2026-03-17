@@ -135,6 +135,21 @@
       ]
     }
   ],
+  "SessionStart": [
+    {
+      "name": "DevOps profile check",
+      "matcher": "startup|resume",
+      "description": "Check if DevOps user profile exists on session start",
+      "hooks": [
+        {
+          "type": "prompt",
+          "id": "devops-profile-check",
+          "description": "Check if DevOps user profile exists on session start",
+          "content": "Check if the file ~/.claude/devops.md exists (use Read tool on the absolute path for the current OS).\n\nIf the file EXISTS:\n- Say nothing. Do not mention the profile. Silently continue.\n\nIf the file DOES NOT EXIST:\n- Display this message:\n  \"\u2699 DevOps profile not configured. Run /init profile to set up your identity, role, team members, and state permissions for faster Azure DevOps operations.\"\n- Do NOT run /init profile automatically \u2014 just inform the user."
+        }
+      ]
+    }
+  ],
   "PreCommit": [
     {
       "name": "Remind to link work item",

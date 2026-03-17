@@ -59,6 +59,20 @@ description: |
   assistant: "I will create a venv, install requirements, configure PostgreSQL, generate .conf, and create the database."
   <commentary>Environment init trigger.</commentary>
   </example>
+
+  <example>
+  Context: User wants to create a new module
+  user: "Create a new module called hr_overtime in the TAQAT project"
+  assistant: "I will scaffold a complete TaqaTechno-standard module with models, views, security, and tests."
+  <commentary>Module scaffold trigger.</commentary>
+  </example>
+
+  <example>
+  Context: User wants to check if module is production-ready
+  user: "Is my module ready for production?"
+  assistant: "I will run tests, security audit, translation validation, and template checks to generate a GO/NO-GO verdict."
+  <commentary>Quality gate trigger — orchestrates multiple plugin skills.</commentary>
+  </example>
 version: "2.0.0"
 author: "TaqaTechno"
 license: "MIT"

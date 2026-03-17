@@ -3,7 +3,7 @@ title: 'Odoo Service Manager'
 read_only: false
 type: 'command'
 description: 'Odoo server lifecycle — start, stop, init, database, Docker, and IDE configuration'
-argument-hint: '[start|stop|init|db|docker|ide] [args...]'
+argument-hint: '[start|stop|init|db|docker|ide|scaffold|ready] [args...]'
 ---
 
 # /odoo-service — Unified Odoo Service Manager
@@ -25,8 +25,10 @@ Parse the first argument after `/odoo-service` and dispatch:
 | `db` | **Database Operations** |
 | `docker` | **Docker Management** |
 | `ide` | **IDE Configuration** |
+| `scaffold` | **Scaffold Module** |
+| `ready` | **Production Readiness Check** |
 
-Natural language also routes: "start odoo" -> `start`, "backup database" -> `db backup`, "generate vscode config" -> `ide vscode`, etc.
+Natural language also routes: "start odoo" -> `start`, "backup database" -> `db backup`, "generate vscode config" -> `ide vscode`, "create new module" -> `scaffold`, "is it production ready" -> `ready`, etc.
 
 ---
 
@@ -76,12 +78,16 @@ Sub-commands:
   /odoo-service db [operation]               Database operations
   /odoo-service docker [operation]           Docker management
   /odoo-service ide [vscode|pycharm|all]     Generate IDE configs
+  /odoo-service scaffold <name> <project>    Scaffold new module
+  /odoo-service ready <module>               Production readiness check
 
 Examples:
   /odoo-service start TAQAT17.conf --dev
   /odoo-service stop
   /odoo-service db backup --db TAQAT17
   /odoo-service ide vscode
+  /odoo-service scaffold hr_overtime TAQAT
+  /odoo-service ready hr_overtime
 ```
 
 ---
@@ -650,6 +656,180 @@ Files created:
 
 ---
 
+## 7. scaffold — Scaffold Module
+
+```
+/odoo-service scaffold <module_name> <project> [--version=17]
+```
+
+Generate a complete TaqaTechno-standard Odoo module with all required files.
+
+### Arguments
+
+| Argument | Required | Description |
+|----------|----------|-------------|
+| `module_name` | Yes | Module name in `snake_case` |
+| `project` | Yes | Project directory name under `projects/` |
+| `--version` | No | Odoo version (14-19). Auto-detected from project path if omitted |
+
+### Generated Structure
+
+```
+projects/<project>/<module_name>/
+├── __init__.py                    # imports models, controllers
+├── __manifest__.py                # TaqaTechno boilerplate
+├── models/
+│   ├── __init__.py
+│   └── <module_name>.py           # Base model with _name, _description, name field
+├── views/
+│   └── <module_name>_views.xml    # Form + list/tree + search + action + menu
+├── security/
+│   ├── ir.model.access.csv        # CRUD access for base.group_user
+│   └── <module_name>_groups.xml   # Manager group stub
+├── data/
+├── static/src/
+│   ├── js/
+│   ├── scss/
+│   └── img/
+├── i18n/
+├── controllers/
+│   └── __init__.py
+└── tests/
+    ├── __init__.py
+    └── test_<module_name>.py      # TransactionCase skeleton
+```
+
+### `__manifest__.py` Template
+
+Always include:
+- `author`: `'TaqaTechno'`
+- `website`: `'https://www.taqatechno.com/'`
+- `support`: `'info@taqatechno.com'`
+- `license`: `'LGPL-3'`
+- `version`: `'{odoo_version}.1.0.0'`
+- `depends`: `['base']`
+- `data` files list (security CSV, groups XML, views XML)
+
+### Version-Specific View Generation
+
+| Odoo Version | List View Tag | Visibility Syntax | Notes |
+|--------------|---------------|-------------------|-------|
+| 19 | `<list>` | Inline `invisible="expr"` | No `attrs` dict |
+| 17-18 | `<tree>` | `attrs="{'invisible': [(...)]}"` | Standard syntax |
+| 14-16 | `<tree>` | `attrs` dict | Older field patterns |
+
+### Behavior
+
+1. **Validate `module_name`**: Must be `snake_case`, no hyphens, no uppercase
+2. **Detect Odoo version**: From directory name (`odoo17/` → 17) or `--version` flag
+3. **Create directory tree**: All folders and files from the structure above
+4. **Generate `__manifest__.py`**: With TaqaTechno authorship and correct version prefix
+5. **Generate base model**: `models/<module_name>.py` with `_name`, `_description`, `name` field
+6. **Generate views XML**: Form view + list/tree view + search view + action + root menu item
+7. **Generate security**: `ir.model.access.csv` with CRUD for `base.group_user`, plus a manager group stub
+8. **Generate test skeleton**: `tests/test_<module_name>.py` with `TransactionCase` and a basic create test
+9. **Check addons_path**: Verify `projects/<project>` is in the active `.conf` file's `addons_path`
+
+### Post-Scaffold Output
+
+```
+Module Scaffolded: <module_name>
+=================================
+Location: projects/<project>/<module_name>/
+Version:  {odoo_version}.1.0.0
+Files:    12 created
+
+Next steps:
+  1. Update module list:  python -m odoo -c conf/<CONFIG>.conf -d <DB> --update-list
+  2. Install module:      python -m odoo -c conf/<CONFIG>.conf -d <DB> -i <module_name> --stop-after-init
+  3. Start development:   Edit models/<module_name>.py and views/<module_name>_views.xml
+```
+
+---
+
+## 8. ready — Production Readiness Check
+
+```
+/odoo-service ready <module> [--config CONFIG] [--db DATABASE] [--skip CHECKS] [--strict]
+```
+
+Run a comprehensive quality gate before deploying a module to production.
+
+### Arguments
+
+| Argument | Required | Description |
+|----------|----------|-------------|
+| `module` | Yes | Module name to check |
+| `--config` | No | Config file (auto-detected) |
+| `--db` | No | Database name (from config) |
+| `--skip` | No | Comma-separated checks to skip (e.g., `--skip i18n,templates`) |
+| `--strict` | No | Treat YELLOW warnings as RED failures |
+
+### Checks (in order)
+
+1. **Tests** — Run module tests via `--test-enable`
+   - PASS: all tests pass → GREEN
+   - FAIL: any test fails → RED (blocks deployment)
+
+2. **Security** — Audit security files and patterns
+   - Check `ir.model.access.csv` exists and covers all models
+   - Check record rules exist for multi-user models
+   - Check `sudo()` usage is justified (no unnecessary privilege escalation)
+   - PASS: no critical/high issues → GREEN
+   - WARN: medium issues found → YELLOW (review recommended)
+   - FAIL: critical/high issues (missing access rights, open SQL injection) → RED (blocks deployment)
+
+3. **Translations** — Validate `.po` files in `i18n/`
+   - Check translation coverage percentage per language
+   - PASS: >90% translated → GREEN
+   - WARN: 70-90% translated → YELLOW
+   - FAIL: <70% translated → RED (for production with i18n requirements)
+
+4. **Templates** — Validate email/QWeb templates
+   - Parse all XML files for well-formedness
+   - Check `t-call`, `t-foreach`, `t-if` syntax
+   - PASS: no syntax errors → GREEN
+   - FAIL: syntax errors found → RED
+
+5. **Manifest** — Check `__manifest__.py` completeness
+   - `author` field present (must be `'TaqaTechno'`)
+   - `website` field present
+   - `license` field present (must be `'LGPL-3'`)
+   - `version` field matches `{odoo_version}.X.X.X` format
+   - `depends` list is non-empty
+   - All files in `data` list actually exist on disk
+
+### Output Format
+
+```
+Production Readiness Report: <module>
+==========================================
+Tests:        ✅ PASS (12/12 passed)
+Security:     ⚠️  WARN (2 medium issues)
+Translations: ✅ PASS (ar: 95%, fr: 88%)
+Templates:    ✅ PASS (3 email, 2 QWeb valid)
+Manifest:     ✅ PASS (all fields present)
+------------------------------------------
+Verdict: ⚠️  CONDITIONAL GO — review 2 medium security issues
+```
+
+### Verdict Logic
+
+| Condition | Verdict | Action |
+|-----------|---------|--------|
+| All GREEN | ✅ **GO** | Safe to deploy |
+| Any YELLOW, no RED | ⚠️ **CONDITIONAL GO** | Deploy after reviewing warnings |
+| Any RED | ❌ **NO-GO** | Fix all blockers before deploying |
+
+When verdict is NO-GO, list each blocker with actionable fix instructions:
+```
+Blockers:
+  1. [Tests] 2 test failures — run tests locally and fix assertions
+  2. [Security] Missing ir.model.access.csv for model 'my.model'
+```
+
+---
+
 ## Supported Odoo Versions
 
 | Version | Python | Longpolling Key | Extra Deps |
@@ -674,6 +854,8 @@ Located in `odoo-service/scripts/`:
 | `db_manager.py` | `db` |
 | `docker_manager.py` | `docker` |
 | `ide_configurator.py` | `ide` |
+| `module_scaffolder.py` | `scaffold` |
+| `readiness_checker.py` | `ready` |
 
 ---
 
@@ -689,3 +871,5 @@ The following commands are now unified under `/odoo-service`:
 | `/odoo-db` | `/odoo-service db` |
 | `/odoo-docker` | `/odoo-service docker` |
 | `/odoo-ide` | `/odoo-service ide` |
+| `/odoo-scaffold` | `/odoo-service scaffold` |
+| `/odoo-ready` | `/odoo-service ready` |
