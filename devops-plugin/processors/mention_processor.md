@@ -215,6 +215,30 @@ const mentions = [...text.matchAll(mentionPattern)].map(m => m[1]);
 - `@ahmed_tech` → Extract "ahmed_tech"
 - `@user123` → Extract "user123"
 
+### Step 1.5: Check Profile Cache (FAST PATH)
+
+Before calling the API, check if the mention can be resolved from the user's profile:
+
+```
+1. Read ~/.claude/devops.md (if not already loaded in session)
+2. Parse teamMembers from YAML frontmatter
+3. For each extracted @mention:
+   a. Check if mention matches any alias in teamMembers[].aliases
+   b. Check if mention matches any teamMembers[].name (case-insensitive)
+   c. Check if mention matches any teamMembers[].email prefix
+   d. If "me", "myself", "I" → return identity from profile
+4. If found in cache:
+   → Use cached {name, email, guid} — SKIP API call
+   → Format HTML mention with cached GUID
+5. If NOT found in cache:
+   → Proceed to Step 2 (API resolution) as before
+   → After successful API resolution, SUGGEST:
+     "User '{name}' is not in your DevOps.md profile.
+      Run /init profile --team to add them for faster resolution next time."
+```
+
+**Why cache-first?**: Eliminates API roundtrip for known team members. The profile is updated via `/init profile --team` when team membership changes.
+
 ### Step 2: Resolve Each Mention to GUID
 
 **MUST use API to resolve - never guess!**

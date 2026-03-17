@@ -2,7 +2,7 @@
 title: 'Workday Dashboard'
 read_only: false
 type: 'command'
-description: 'Daily login dashboard - see your work items, log hours, track compliance'
+description: 'Daily login dashboard - see your work items, log hours, track compliance. Flags: --sync (force API sync), --tasks (work items table), --todo (sync to Claude TODO list)'
 ---
 
 # Workday Dashboard
@@ -12,8 +12,11 @@ Your daily "login" command. One command to see everything: what you're working o
 ## Usage
 
 ```
-/workday                    # Full daily dashboard
+/workday                    # Full daily dashboard (default)
 /workday --quick            # Just compliance status + alerts (no sync)
+/workday --sync             # Force sync with Azure DevOps API (ignores staleness)
+/workday --tasks            # Show only work items table (cache-first)
+/workday --todo             # Sync work items to Claude TODO list
 ```
 
 ## Tool Selection Guard
@@ -95,6 +98,8 @@ Check if the work tracker files exist:
 
 **For `--quick` mode**: Skip sync entirely, use whatever data exists.
 
+**For `--sync` mode**: Skip staleness check, always fetch from API (replaces `/work-sync --force`).
+
 ### Step 2: Build Today's Dashboard
 
 Read the work-tracker-data.json and compute:
@@ -134,7 +139,7 @@ Read the work-tracker-data.json and compute:
 
 ### Sync Status
 Data synced [X hours ago] | [N] active work items across [M] projects
-[Run /work-sync --force to refresh]
+[Run /workday --sync to refresh]
 
 ---
 
@@ -186,7 +191,7 @@ Data synced [X hours ago] | [N] active work items across [M] projects
 - `/log-time 2h #1234 "description"` - Log hours
 - `/timesheet --week` - Full weekly view
 - `/time-off today "reason"` - Mark today as time-off
-- `/work-sync --force` - Refresh work items
+- `/workday --sync` - Refresh work items
 ```
 
 ### Step 4: Interactive Prompt (Full Mode Only)
@@ -201,6 +206,134 @@ After displaying the dashboard, ask:
 > Or just start working on a task and I'll help track it!"
 
 If the user provides time logging info, execute the `/log-time` workflow inline.
+
+## --tasks Mode (replaces /my-tasks)
+
+Display all active work items assigned to the current user, using cache-first strategy.
+
+### Step 0: Check Local Cache
+
+```
+1. Try to Read ~/.claude/work-tracker-data.json
+2. If found AND lastSync is not null:
+   a. Calculate hours since lastSync
+   b. If hours <= stalenessThresholdHours (default 4):
+      → Data is FRESH - display from cachedWorkItems
+      → Show "Source: Local cache (synced Xh ago) | Run /workday --sync to refresh"
+      → Group by project, sort by priority
+      → STOP (no API calls needed)
+   c. If hours > threshold:
+      → Data is STALE - proceed to API fetch
+3. If NOT found or lastSync is null:
+   → No cache available - proceed to API fetch
+4. After API fetch completes:
+   a. Update cachedWorkItems in work-tracker-data.json
+   b. Update lastSync timestamp
+   c. Write updated work-tracker-data.json
+   d. Show "Source: Azure DevOps API (cache updated)"
+```
+
+### Step 1: Query Work Items (if cache is stale/missing)
+
+**Use `wit_my_work_items` - this is the CORRECT tool (never `search_workitem`)!**
+
+```javascript
+// For each project:
+mcp__azure-devops__wit_my_work_items({
+  "project": "Project Alpha",
+  "type": "assignedtome",
+  "includeCompleted": false,
+  "top": 50
+})
+```
+
+### Step 2: Get Full Details
+
+```javascript
+mcp__azure-devops__wit_get_work_items_batch_by_ids({
+  "project": "Project Alpha",
+  "ids": [1746, 1828, 1651],
+  "fields": [
+    "System.Id",
+    "System.Title",
+    "System.State",
+    "System.WorkItemType",
+    "Microsoft.VSTS.Common.Priority",
+    "System.IterationPath",
+    "System.TeamProject"
+  ]
+})
+```
+
+### Output Format
+
+```markdown
+## My Work Items
+
+**Project**: Project Alpha | **Total**: 12 items
+
+### Active (In Progress)
+| ID | Type | Title | Priority | Sprint |
+|----|------|-------|----------|--------|
+| #1234 | Bug | Fix login issue | P1 | Sprint 15 |
+| #1235 | Task | Add validation | P2 | Sprint 15 |
+
+### New (Not Started)
+| ID | Type | Title | Priority | Sprint |
+|----|------|-------|----------|--------|
+| #1240 | Task | Write unit tests | P2 | Sprint 15 |
+
+### Summary
+- **Total**: 12 items
+- **Active**: 5
+- **New**: 7
+- **High Priority (P1-P2)**: 8
+```
+
+## --todo Mode (replaces /sync-my-tasks)
+
+Sync Azure DevOps work items to Claude Code's built-in TODO list.
+
+### Step 1: Fetch Work Items
+
+Use the same fetch logic as `--tasks` mode (cache-first with staleness check, then `wit_my_work_items` + `wit_get_work_items_batch_by_ids` if needed).
+
+### Step 2: State Mapping
+
+| Azure DevOps State | TODO Status |
+|-------------------|-------------|
+| New, To Do | pending |
+| Active, In Progress | in_progress |
+| Done, Closed, Resolved | completed |
+| Removed | (skip - don't add) |
+
+### Step 3: Smart Update Logic
+
+1. **Read existing TODOs** (if any)
+2. **Match by work item ID** - Look for `#1234` pattern in content
+3. **For existing items**: Update status if changed
+4. **For new items**: Add to TODO list
+5. **Preserve non-DevOps TODOs** - Don't remove manually added items (items without `#` prefix)
+
+### Step 4: Use TodoWrite Tool
+
+```
+TodoWrite({
+  "todos": [
+    // Existing non-DevOps todos (preserved - no # pattern)
+    {"content": "Manual todo item", "status": "pending", "activeForm": "Working on manual item"},
+
+    // Synced Azure DevOps items (with project name and link)
+    {"content": "[Project Alpha] #1234 Task: Fix login bug | https://dev.azure.com/YOUR-ORG/Relief%20Center/_workitems/edit/1234", "status": "in_progress", "activeForm": "Fixing login bug (#1234)"},
+    {"content": "[Project Alpha] #1235 Bug: UI alignment issue | https://dev.azure.com/YOUR-ORG/Relief%20Center/_workitems/edit/1235", "status": "pending", "activeForm": "Fixing UI alignment (#1235)"},
+    {"content": "[Project Gamma] #1236 PBI: Add dark mode | https://dev.azure.com/YOUR-ORG/Property%20Management/_workitems/edit/1236", "status": "pending", "activeForm": "Implementing dark mode (#1236)"}
+  ]
+})
+```
+
+### Step 5: Update Persistent Cache
+
+Also update `~/.claude/work-tracker-data.json` with the fetched work items (same as sync workflow - update `cachedWorkItems` and `lastSync`).
 
 ## --quick Mode Output
 
@@ -236,12 +369,11 @@ For `--quick` mode, show only:
 ## Related Commands
 
 - `/log-time` - Log hours against work items
-- `/timesheet` - Detailed time tracking views
-- `/time-off` - Mark days as time-off
-- `/work-sync` - Force sync with Azure DevOps
-- `/my-tasks` - View work items (cache-first)
+- `/timesheet` - Detailed time tracking views (includes `--off` for time-off)
 - `/standup` - Generate standup notes (enriched with time data)
+
+> **Note**: `/my-tasks`, `/work-sync`, and `/sync-my-tasks` have been absorbed into this command as `--tasks`, `--sync`, and `--todo` flags respectively. Previously available as `/my-tasks`, `/work-sync`, `/sync-my-tasks`.
 
 ---
 
-*Part of DevOps Plugin v3.0 - Work Tracking System*
+*Part of DevOps Plugin v4.0 - Work Tracking System*

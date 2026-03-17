@@ -1,3 +1,51 @@
+# Migration Guide
+
+## v3.1 to v4.0 — Plugin Consolidation
+
+24 commands consolidated to 9 commands + enhanced skill. Zero functionality lost.
+
+### Command Mapping
+
+| Old Command | New Equivalent |
+|-------------|---------------|
+| `/devops` | **`/init`** |
+| `/devops setup` | `/init setup` |
+| `/devops status` | `/init status` |
+| `/my-tasks` | `/workday --tasks` |
+| `/work-sync` | `/workday --sync` |
+| `/work-sync --force` | `/workday --sync` |
+| `/sync-my-tasks` | `/workday --todo` |
+| `/create-task` | `/create --task` or `/create "title" under #ID` |
+| `/create-bug` | `/create --bug` |
+| `/create-user-story` | `/create --story` |
+| `/full-sprint-report` | `/sprint --full` |
+| `/time-off` | `/timesheet --off` |
+| `/setup-pipeline-vars` | `/cli-run` (see Pipeline Variables Recipe section) |
+| `/install-extension` | `/cli-run` (see Extension Management Recipe section) |
+| `/update-workitem` | Say "mark #1234 as done" (skill-handled) |
+| `/add-comment` | Say "comment on #1234" (skill-handled) |
+| `/switch-project` | Say "switch to relief" (skill-handled) |
+| `/build-status` | Say "any failing builds?" (skill-handled) |
+| `/create-pr` | Say "create PR from X to Y" (skill-handled) |
+| `/ci-setup` | Say "set up CI/CD" (skill-handled) |
+
+### Unchanged Commands
+
+These commands work exactly as before:
+- `/workday` (enhanced with new flags)
+- `/log-time`
+- `/standup`
+- `/sprint` (enhanced with `--full`)
+- `/task-monitor`
+- `/cli-run` (enhanced with recipes)
+- `/timesheet` (enhanced with `--off`)
+
+### No Configuration Changes Required
+
+The plugin.json paths, hooks, and infrastructure layer are unchanged. Just update the plugin files and the new commands are available immediately.
+
+---
+
 # Migration Guide: v1.3 to v2.0
 
 This guide helps you upgrade from DevOps Plugin v1.3.x to v2.0.0 (Hybrid Mode).

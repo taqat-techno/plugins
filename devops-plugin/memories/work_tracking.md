@@ -12,7 +12,7 @@
 
 ## First-Run Bootstrapping
 
-On first use of `/workday`, `/work-sync`, or `/log-time`:
+On first use of `/workday`, `/workday --sync`, or `/log-time`:
 
 1. Check if `~/.claude/work-tracker-data.json` exists
 2. If NOT: read `data/work_tracker_defaults.json` from plugin directory
@@ -29,7 +29,7 @@ On first use of `/workday`, `/work-sync`, or `/log-time`:
      "timeLog": {}
    }
    ```
-4. Trigger a `/work-sync` to populate `cachedWorkItems`
+4. Trigger a `/workday --sync` to populate `cachedWorkItems`
 5. Generate `work-tracker.md` from the JSON data
 
 ## Staleness Check Pattern
@@ -105,7 +105,7 @@ On first use of `/workday`, `/work-sync`, or `/log-time`:
 
 ## Cache Update Pattern
 
-### After API Fetch (used by /work-sync, /sync-my-tasks)
+### After API Fetch (used by /workday --sync, /workday --todo)
 ```
 1. Receive work items from wit_my_work_items + wit_get_work_items_batch_by_ids
 2. Transform each item to cached format:
@@ -140,14 +140,14 @@ Always regenerate the ENTIRE file from JSON — do not try to patch individual s
 
 ## Related Commands
 
-| Command | Reads JSON | Writes JSON | Reads MD | Writes MD |
-|---------|-----------|------------|---------|----------|
+| Command / Workflow | Reads JSON | Writes JSON | Reads MD | Writes MD |
+|-------------------|-----------|------------|---------|----------|
 | `/workday` | YES | YES (if stale) | NO | YES (if stale) |
-| `/work-sync` | YES | YES | NO | YES |
+| `/workday --sync` | YES | YES | NO | YES |
+| `/workday --tasks` | YES | YES (if stale) | NO | NO |
+| `/workday --todo` | YES | YES | NO | YES |
 | `/log-time` | YES | YES | NO | YES |
 | `/timesheet` | YES | NO | NO | NO |
-| `/time-off` | YES | YES | NO | YES |
-| `/my-tasks` | YES | YES (if stale) | NO | NO |
-| `/sync-my-tasks` | YES | YES | NO | YES |
+| `/timesheet --off` | YES | YES | NO | YES |
 | `/standup` | YES | NO | NO | NO |
-| `/update-workitem` | YES | YES (if auto-log) | NO | YES (if auto-log) |
+| Update work item (skill) | YES | YES (if auto-log) | NO | YES (if auto-log) |

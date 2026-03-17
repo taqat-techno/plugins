@@ -38,22 +38,41 @@
         "validParents": ["User Story", "Product Backlog Item"]
       },
       {
-        "level": 5,
+        "level": 4,
         "type": "Bug",
         "description": "Defects found during development or testing",
         "parentRequired": true,
-        "validParents": ["Task"]
+        "validParents": ["User Story", "Product Backlog Item"]
+      },
+      {
+        "level": 4,
+        "type": "Enhancement",
+        "description": "Improvements and refinements to existing functionality",
+        "parentRequired": true,
+        "validParents": ["User Story", "Product Backlog Item"]
       }
     ]
   },
 
   "parentChildRules": {
     "Bug": {
-      "validParents": ["Task"],
+      "validParents": ["User Story", "Product Backlog Item"],
       "parentRequired": true,
       "requirementLevel": "MUST",
-      "noParentMessage": "Bugs MUST be linked to a Task. Which task is this bug related to?",
-      "wrongParentMessage": "Bugs can only be children of Tasks, not {parentType}.",
+      "noParentMessage": "Bugs MUST be linked to a User Story or PBI. Which story is this bug related to?",
+      "wrongParentMessage": "Bugs can only be children of User Stories or PBIs, not {parentType}.",
+      "searchStrategy": {
+        "primary": "keyword_search",
+        "secondary": "sprint_items",
+        "tertiary": "recent_activity"
+      }
+    },
+    "Enhancement": {
+      "validParents": ["User Story", "Product Backlog Item"],
+      "parentRequired": true,
+      "requirementLevel": "MUST",
+      "noParentMessage": "Enhancements MUST be linked to a User Story or PBI. Which story is this enhancement related to?",
+      "wrongParentMessage": "Enhancements can only be children of User Stories or PBIs, not {parentType}.",
       "searchStrategy": {
         "primary": "keyword_search",
         "secondary": "sprint_items",
@@ -239,7 +258,7 @@
   "validationRules": {
     "preventOrphans": {
       "enabled": true,
-      "strictTypes": ["Bug", "Task"],
+      "strictTypes": ["Bug", "Enhancement", "Task"],
       "warnTypes": ["User Story", "Product Backlog Item", "Feature"],
       "allowTypes": ["Epic"]
     },

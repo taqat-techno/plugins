@@ -1,4 +1,4 @@
-# YOUR-ORG Business Rules
+# TaqaTechno Business Rules
 
 ## Purpose
 
@@ -18,19 +18,24 @@ This document defines mandatory business rules for the DevOps plugin that Claude
              +--- User Story / PBI (Requirement)
                     |
                     +--- Task (Technical Work)
-                           |
-                           +--- Bug (Defect found during task)
+                    |
+                    +--- Bug (Defect identified by QA)
+                    |
+                    +--- Enhancement (Improvement to existing functionality)
 ```
 
 ### Enforcement Rules
 
 | Creating | MUST Have Parent | Parent Type |
 |----------|------------------|-------------|
-| **Bug** | YES (MANDATORY) | Task |
 | **Task** | YES (MANDATORY) | User Story / PBI |
+| **Bug** | YES (MANDATORY) | User Story / PBI |
+| **Enhancement** | YES (MANDATORY) | User Story / PBI |
 | **User Story / PBI** | YES (MANDATORY) | Feature |
 | **Feature** | YES (MANDATORY) | Epic |
 | **Epic** | NO | Top-level |
+
+> **Note**: Task, Bug, and Enhancement are **siblings** — all are children of User Story/PBI at the same level.
 
 ### Before Creating Work Item
 
@@ -47,19 +52,33 @@ STEP 3: Create work item
 STEP 4: Link to parent (IMMEDIATELY after creation)
 ```
 
-### Example: Creating a Bug
+### Example: Creating a Bug (QA only — see Rule 8)
 
 ```
-User: "Create bug: Login button not working"
+User (QA role): "Create bug: Login button not working"
 
 Claude MUST:
-1. Ask: "Which Task is this bug related to?"
-2. If user doesn't know:
-   - Search for related tasks: "What feature/area were you working on?"
-   - Present task options
-3. Create bug
-4. Link bug as child of the task
-5. Confirm: "Bug #1234 created under Task #100"
+1. Check user role from profile → QA → ALLOWED
+2. Ask: "Which User Story / PBI is this bug related to?"
+3. If user doesn't know:
+   - Search for related stories: "What feature/area is affected?"
+   - Present User Story options
+4. Create bug
+5. Link bug as child of the User Story
+6. Confirm: "Bug #1234 created under User Story #100"
+```
+
+### Example: Creating an Enhancement
+
+```
+User: "Create enhancement: Improve search performance on product listing"
+
+Claude MUST:
+1. Any role → ALLOWED (no restriction)
+2. Ask: "Which User Story / PBI is this enhancement for?"
+3. Create Enhancement (no prefix required)
+4. Link as child of the User Story
+5. Confirm: "Enhancement #1235 created under User Story #100"
 ```
 
 ---
@@ -145,41 +164,90 @@ Improves accessibility and user experience in low-light environments.
 
 ---
 
-## Rule 3: State Transitions (Ready for QC Gate)
+## Rule 3: State Transitions (TaqaTechno Scrum Process)
 
-### User Story State Flow
+### Complete State Flows by Work Item Type
 
+**Task**:
 ```
-New → Active → Ready for QC → Done → Closed
-                    ↑
-                    |
-            MANDATORY GATE
-            Cannot skip!
+To Do → In Progress → Done → Closed → Removed
 ```
 
-### Enforcement Rules
+**Bug**:
+```
+New → Approved → In Progress → Resolved → Done → Closed → Removed
+                      ↑                       |
+                      |       Return ←--------+
+                      +--------→ In Progress (fix & retry)
+```
+
+**PBI (Product Backlog Item)**:
+```
+New → Approved → Committed → In Progress → Ready For QC → Done → Removed
+                                   ↑                        |
+                                   |        Return ←-------+
+                                   +--------→ In Progress (fix & retry)
+```
+
+**User Story**:
+```
+New → Committed → Done
+```
+
+**Enhancement**:
+```
+New → Committed → Done → Closed
+          ↑          |
+          | Return ←-+
+          +---→ Committed (fix & retry)
+```
+
+### PBI Ready For QC Gate (MANDATORY)
 
 | Current State | User Wants | Action |
 |---------------|------------|--------|
-| New | Done | BLOCK → Move to Active → Ready for QC → Done |
-| Active | Done | BLOCK → Move to Ready for QC first |
-| Ready for QC | Done | ALLOW |
+| New | Done | BLOCK → Must go through Approved → Committed → In Progress → Ready For QC → Done |
+| In Progress | Done | BLOCK → Move to Ready For QC first |
+| Ready For QC | Done | ALLOW |
+| Done | Done | Already Done |
+
+### User Story Committed Gate (MANDATORY)
+
+| Current State | User Wants | Action |
+|---------------|------------|--------|
+| New | Done | BLOCK → Must go through Committed first |
+| Committed | Done | ALLOW |
 | Done | Done | Already Done |
 
 ### Implementation
 
 ```
-User: "Mark story #1000 as done"
+User: "Mark PBI #1000 as done"
 
 Claude:
 1. Get current state via API
-2. IF state is "Ready for QC":
+2. IF state is "Ready For QC":
    - Proceed to Done
-3. IF state is NOT "Ready for QC":
-   - Message: "User Stories must pass through 'Ready for QC' for QA review."
+3. IF state is NOT "Ready For QC":
+   - Message: "PBIs must pass through 'Ready For QC' for QA review."
    - Ask: "Would you like me to:
-           1. Move to 'Ready for QC' now
-           2. Move through both states (Ready for QC → Done)?"
+           1. Move to 'Ready For QC' now
+           2. Move through both states (Ready For QC → Done)?"
+4. Execute based on user choice
+```
+
+```
+User: "Mark User Story #1001 as done"
+
+Claude:
+1. Get current state via API
+2. IF state is "Committed":
+   - Proceed to Done
+3. IF state is "New":
+   - Message: "User Stories must pass through 'Committed' before Done."
+   - Ask: "Would you like me to:
+           1. Move to 'Committed' now
+           2. Move through both states (Committed → Done)?"
 4. Execute based on user choice
 ```
 
@@ -189,13 +257,20 @@ Claude:
 
 ### MANDATORY Prefixes
 
-All Task titles MUST start with a type prefix:
+All Task titles MUST start with a template prefix from the project's Task Templates.
+
+**Source of truth**: Project Settings → Boards → Templates → Task
+
+These templates are fetched during `/init profile` and cached in `~/.claude/devops.md` under `taskTemplates`. If no profile exists, use the defaults below.
+
+### Default Templates (TaqaTechno Scrum Process)
 
 | Prefix | Role | Description |
 |--------|------|-------------|
-| `[DEV]` | Backend Developer | Server-side, database, APIs |
-| `[FRONT]` | Frontend Developer | UI, client-side, JavaScript |
-| `[QA]` | Tester/QA | Testing, test cases, bug verification |
+| `[Dev]` | Backend / Full-Stack Developer | Server-side, database, APIs |
+| `[Front]` | Frontend Developer | UI, client-side, JavaScript |
+| `[QC Bug Fixing]` | QA — Bug Fixing | Bug fixes, patches, verification |
+| `[QC Test Execution]` | QA — Test Execution | Test cases, regression, scenarios |
 | `[IMP]` | Implementation | Configuration, deployment, setup |
 
 ### Format
@@ -207,9 +282,10 @@ All Task titles MUST start with a type prefix:
 ### Examples
 
 ```
-[DEV] Implement user authentication API
-[FRONT] Create login form component
-[QA] Write test cases for login flow
+[Dev] Implement user authentication API
+[Front] Create login form component
+[QC Bug Fixing] Fix and verify login timeout issue
+[QC Test Execution] Execute test cases for login flow
 [IMP] Configure OAuth2 settings in production
 ```
 
@@ -217,23 +293,23 @@ All Task titles MUST start with a type prefix:
 
 When creating a task:
 
-1. **Detect task type** from context or ask user:
-   - "Is this a backend [DEV], frontend [FRONT], testing [QA], or implementation [IMP] task?"
-
-2. **Add prefix** if not provided:
+1. **Check profile for templates**: Read `taskTemplates` from `~/.claude/devops.md`
+2. **Detect task type** from context, keywords, or user's role prefix
+3. **Add prefix** if not provided:
    - User says: "Create task: Implement login API"
-   - Claude adds: "[DEV] Implement login API"
-
-3. **Validate prefix** on existing tasks:
-   - If task has no prefix, suggest adding one
+   - Claude adds: "[Dev] Implement login API"
+4. **For QC tasks**, distinguish between bug fixing and test execution:
+   - Bug-related keywords → `[QC Bug Fixing]`
+   - Test-related keywords → `[QC Test Execution]`
 
 ### Auto-Detection Rules
 
 | Keywords in Title | Suggested Prefix |
 |-------------------|------------------|
-| API, endpoint, database, model, backend, server | `[DEV]` |
-| UI, component, form, page, style, CSS, frontend, client | `[FRONT]` |
-| test, QA, verify, validate, check, bug fix verification | `[QA]` |
+| API, endpoint, database, model, backend, server, implement | `[Dev]` |
+| UI, component, form, page, style, CSS, frontend, client | `[Front]` |
+| fix, bug, patch, hotfix, debug, resolve, reproduce, verify bug | `[QC Bug Fixing]` |
+| test, execute, test case, regression, scenario, validate, check | `[QC Test Execution]` |
 | deploy, config, setup, install, migration, infrastructure | `[IMP]` |
 
 ---
@@ -406,6 +482,255 @@ If no sprint matches today's date:
 
 ---
 
+## Rule 8: Bug Creation Authority & Developer Internal Fix SOP
+
+### Policy Statement
+
+**Bugs are reserved exclusively for defects identified by QA/QC.**
+
+When a developer identifies and fixes an issue in their own code, the effort MUST be logged as a **Task**, not a Bug. This ensures accurate bug metrics and clear separation of Dev/QA responsibilities.
+
+### Role-Based Bug Creation Gate
+
+```
++---------------------------------------------------------------+
+|           BUG CREATION AUTHORITY (MANDATORY)                   |
++---------------------------------------------------------------+
+|                                                                |
+|  CHECK user's role from ~/.claude/devops.md profile:          |
+|                                                                |
+|  role = "tester" / "qa" / "qc-bugfix" / "qc-test"           |
+|    → ALLOWED to create Bugs                                   |
+|    → Standard bug creation flow applies                       |
+|                                                                |
+|  role = "developer" / "frontend" / "fullstack" / "devops"    |
+|  role = "pm" / "lead" / ANY non-QA role                      |
+|    → BLOCKED from creating Bugs                               |
+|    → REDIRECT to Task creation with [Dev-Internal-fix]        |
+|    → Show: "As a {role}, you should create a Task instead.   |
+|       Bugs are reserved for QA/QC-identified defects.         |
+|       I'll create a [Dev-Internal-fix] Task for you."        |
+|                                                                |
+|  role = not set / profile missing                             |
+|    → ASK: "Are you QA/QC? Only QA can create Bugs.           |
+|       If you're a developer, I'll create a Task instead."    |
+|                                                                |
++---------------------------------------------------------------+
+```
+
+### Developer Internal Fix — Process Scenarios
+
+#### Scenario A: Issue Found During a PBI still In Progress
+
+```
+Developer: "I found a bug in the login code, need to fix it"
+
+Claude checks profile → role: developer → CANNOT create Bug
+
+Claude response:
+  "Since the PBI is still in progress, log the fix on the existing Task.
+
+   I'll add a comment to your current Task describing:
+   - The issue found
+   - The fix applied
+
+   No new work item needed. Log your fix time on the existing Task."
+
+Actions:
+1. Find the developer's active Task under the PBI
+2. Add a comment with issue description using the Bug Report Template format (data/bug_report_template.md)
+3. Log time on the existing Task
+4. ALWAYS mention QC member as FYI (see Auto-Mention rule below)
+```
+
+#### Scenario B: Issue Found After the PBI Is Done
+
+```
+Developer: "I found an issue in the login module but the PBI is already done"
+
+Claude checks profile → role: developer → CANNOT create Bug
+
+Claude response:
+  "Since the PBI is already Done, I'll create a [Dev-Internal-fix] Task
+   under the original PBI and move the PBI back to In Progress."
+
+Actions:
+1. Create a new Task under the original User Story / PBI (as Child)
+2. Title format: [Dev-Internal-fix] [Module/Feature] - [What is broken] - [Where]
+3. Use Bug Report Template for description body (data/bug_report_template.md)
+4. Move parent PBI back to In Progress
+5. ALWAYS mention QC member as FYI (see Auto-Mention rule below)
+6. Developer applies fix, logs time, closes Task
+```
+
+**Task creation for Scenario B**:
+```javascript
+// Step 1: Create [Dev-Internal-fix] Task
+const task = await mcp__azure-devops__wit_create_work_item({
+  "project": currentProject,
+  "workItemType": "Task",
+  "fields": [
+    { "name": "System.Title", "value": "[Dev-Internal-fix] " + description },
+    { "name": "System.Description", "value": issueAndFixDescription },
+    { "name": "System.IterationPath", "value": currentSprintPath }
+  ]
+});
+
+// Step 2: Link to parent PBI
+await mcp__azure-devops__wit_work_items_link({
+  "project": currentProject,
+  "updates": [{ "id": task.id, "linkToId": pbiId, "type": "child" }]
+});
+
+// Step 3: Move parent PBI back to In Progress
+await mcp__azure-devops__wit_update_work_item({
+  "id": pbiId,
+  "updates": [
+    { "path": "/fields/System.State", "value": "In Progress" }
+  ]
+});
+
+// Step 4: Add comment mentioning QA Lead
+// Use profile teamMembers to find QA lead, resolve GUID, format HTML mention
+```
+
+### Auto-Mention QC Rule (MANDATORY — Every [Dev-Internal-fix])
+
+**EVERY** `[Dev-Internal-fix]` Task must notify QC — this is NOT conditional.
+
+```
++---------------------------------------------------------------+
+|           AUTO-MENTION QC RULE (MANDATORY)                     |
++---------------------------------------------------------------+
+|                                                                |
+|  AFTER creating any [Dev-Internal-fix] Task:                  |
+|                                                                |
+|  1. Find QC/QA member from profile teamMembers               |
+|     (where role = "tester" or "qa")                           |
+|  2. Resolve GUID from profile cache                           |
+|  3. Post FYI comment with HTML mention:                       |
+|                                                                |
+|     "@{QC_Member} FYI: Developer-identified fix created.      |
+|     [Dev-Internal-fix] {title}                                |
+|     Parent PBI: #{pbiId} - {pbiTitle}                         |
+|     Please monitor for any QC implications."                  |
+|                                                                |
++---------------------------------------------------------------+
+```
+
+### Raise Flag Rule (Escalation — User-Facing Changes)
+
+**In addition** to the mandatory FYI mention, if the fix changes user-facing behavior:
+
+```
++---------------------------------------------------------------+
+|           RAISE FLAG ESCALATION                                |
++---------------------------------------------------------------+
+|                                                                |
+|  BEFORE closing the [Dev-Internal-fix] Task, ASK:            |
+|                                                                |
+|  "Does this fix change any user-facing behavior?"             |
+|                                                                |
+|  If YES → ESCALATE (in addition to the FYI):                 |
+|  1. Post ATTENTION comment to QA Lead:                        |
+|     "@{QA_Lead} ATTENTION: This [Dev-Internal-fix] changes   |
+|     user-facing behavior: {description}.                      |
+|     Please assess if regression testing is needed."           |
+|  2. QA Lead decides — involvement is decision-based          |
+|                                                                |
+|  If NO → FYI mention was already posted, no escalation       |
+|                                                                |
++---------------------------------------------------------------+
+```
+
+### Enforcement in `/create` Command
+
+When a user requests bug creation:
+
+```
+1. Load user profile (role from ~/.claude/devops.md)
+2. IF role is QA/QC:
+   → Proceed with standard Bug creation
+3. IF role is NOT QA/QC:
+   → BLOCK Bug creation
+   → Ask: "Is the parent PBI still In Progress or already Done?"
+     - In Progress → Scenario A (log on existing Task)
+     - Done → Scenario B (create [Dev-Internal-fix] Task)
+   → Ask: "Does this fix change user-facing behavior?" (Raise Flag)
+4. IF no profile:
+   → Ask: "Are you QA/QC? Only QA can create Bugs."
+```
+
+### Roles & Responsibilities
+
+| Role | Responsibility |
+|------|---------------|
+| **Developer** | Create/use Task with `[Dev-Internal-fix]`, fix code, log time, close Task |
+| **QA/QC** | Create Bugs for defects they identify. No action on dev fixes unless flagged. |
+| **Project Manager** | Monitor `[Dev-Internal-fix]` volume and trends in sprint reports |
+| **QA Lead** | Assess flagged fixes for regression testing need (decision-based) |
+
+### Definitions
+
+| Term | Definition |
+|------|-----------|
+| **Bug** | A defect identified and logged by QA/QC, owned by Quality |
+| **Task** | A development work item, including internal fixes by developers |
+| **[Dev-Internal-fix]** | Special Task prefix for developer self-identified fixes |
+| **PBI** | Product Backlog Item — a business requirement being delivered |
+
+---
+
+## Rule 9: Role-Based State Transition Permissions (MANDATORY)
+
+BEFORE any state transition, check user's role from `~/.claude/devops.md` profile.
+
+### Permission Matrix
+
+| Role | Task | Bug | PBI | User Story | Enhancement |
+|------|------|-----|-----|------------|-------------|
+| **Developer/Frontend** | To Do→In Progress→Done | Approved→In Progress→Resolved, Return→In Progress | Committed→In Progress→Ready For QC, Return→In Progress | (none) | New→Committed→Done, Return→Committed |
+| **QA/QC** | To Do→In Progress | New→Approved, Resolved→Done/Return | Ready For QC→Done/Return | Committed→Done | Committed→Return |
+| **PM/Lead** | To Do→In Progress, Done→Closed | New→Approved, Done→Closed | New→Approved→Committed, Committed→In Progress | New→Committed, Committed→Done | New→Committed→Done→Closed |
+
+### Universal Rules
+
+- Only PM/Lead can **Close** (Done → Closed) for any work item type
+- Only PM/Lead can **Remove** (→ Removed) for any work item type
+- Only PM/Lead can **Approve** PBI (New → Approved) and Bug (New → Approved)
+- QA initiates all **Return** transitions (with mandatory comment)
+- Return always goes back to the developer's working state
+- No profile = all transitions allowed with warning
+
+### Return Transition Details
+
+| Work Item | QA Returns From | Developer Resumes At | Developer Targets |
+|-----------|----------------|---------------------|-------------------|
+| Bug | Resolved → Return | Return → In Progress | In Progress → Resolved |
+| PBI | Ready For QC → Return | Return → In Progress | In Progress → Ready For QC |
+| Enhancement | Committed → Return | Return → Committed | Committed → Done |
+
+### Enforcement Flow
+
+```
+1. Load user profile from ~/.claude/devops.md
+2. Extract role (developer, frontend, qa, qc, pm, lead, etc.)
+3. Look up statePermissions.{WorkItemType} for the user's role
+4. Check: is "{currentState} → {targetState}" in allowed transitions?
+   - YES → proceed with the state change
+   - BLOCKED → show message: "Your role ({role}) cannot transition {type} from {current} to {target}."
+              suggest: "This transition requires {requiredRole} role."
+   - NO PROFILE → warn: "No profile found. Allowing transition but role verification is recommended."
+                  allow the transition (graceful fallback)
+```
+
+### Reference Files
+
+- `data/state_permissions.json` — Complete role→permission mapping
+- `validators/state_transition_validator.md` — Step 0 validation logic
+
+---
+
 ## Quick Reference Card
 
 ```
@@ -414,17 +739,32 @@ If no sprint matches today's date:
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                  │
 │  HIERARCHY:                                                      │
-│  Epic → Feature → User Story → Task → Bug                       │
-│  (Every item MUST have parent except Epic)                      │
+│  Epic → Feature → User Story → Task / Bug / Enhancement         │
+│  (Task, Bug, Enhancement are siblings under User Story)         │
+│                                                                  │
+│  STATE FLOWS:                                                   │
+│  Task:        To Do → In Progress → Done → Closed → Removed    │
+│  Bug:         New → Approved → In Progress → Resolved →         │
+│               Return → Committed → Done → Closed → Removed     │
+│  PBI:         New → Approved → Committed → In Progress →        │
+│               Ready For QC → Return → Done → Removed            │
+│  User Story:  New → Committed → Done                            │
+│  Enhancement: New → Committed → Return → Done → Closed          │
+│                                                                  │
+│  PBI GATE: Must go through "Ready For QC" before "Done"         │
+│  USER STORY GATE: Must go through "Committed" before "Done"     │
+│                                                                  │
+│  ROLE-BASED PERMISSIONS (Rule 9):                               │
+│  Developer: work transitions (In Progress, Resolved, etc.)      │
+│  QA/QC: approval + Return transitions (with mandatory comment)  │
+│  PM/Lead: Close, Remove, Approve                                │
 │                                                                  │
 │  USER STORY FORMAT:                                             │
 │  How? (approach) → What? (requirements) → Why? (value)          │
 │                                                                  │
-│  STORY STATE FLOW:                                              │
-│  Must go through "Ready for QC" before "Done"                   │
-│                                                                  │
 │  TASK PREFIXES:                                                 │
-│  [DEV] backend | [FRONT] frontend | [QA] test | [IMP] deploy    │
+│  [Dev] backend | [Front] frontend | [QC Bug Fixing] fix |      │
+│  [QC Test Execution] test | [IMP] deploy                        │
 │                                                                  │
 │  AUTO-SPRINT:                                                   │
 │  Tasks auto-assigned to current sprint by date                  │
@@ -435,10 +775,15 @@ If no sprint matches today's date:
 │  BUG → RESOLVED/DONE:                                           │
 │  Requires: Completed Work                                       │
 │                                                                  │
+│  BUG CREATION AUTHORITY:                                        │
+│  QA/QC role → CAN create Bugs                                  │
+│  Developer role → BLOCKED → use [Dev-Internal-fix] Task         │
+│  User-facing fix → Flag QA Lead for regression assessment       │
+│                                                                  │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-*YOUR-ORG Business Rules v1.1*
-*December 2025*
+*TaqaTechno Business Rules v1.2*
+*March 2026*

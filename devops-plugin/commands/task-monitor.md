@@ -216,21 +216,21 @@ Write("~/.claude/task-monitor-state.json", {
 The task monitor is intentionally separate from the work-tracker cache:
 
 - `/task-monitor` - Always fetches live (for alert accuracy)
-- `/my-tasks` - Uses 4-hour cache (for speed)
-- `/work-sync` - Refreshes the cache (for other commands)
+- `/workday --tasks` - Uses 4-hour cache (for speed)
+- `/workday --sync` - Refreshes the cache (for other commands)
 
-After an alert, you can run `/work-sync --force` to refresh the main cache too.
+After an alert, you can run `/workday --sync` to refresh the main cache too.
 
 ## Related Commands
 
-- `/my-tasks` - View all assigned tasks (cache-first)
+- `/workday --tasks` - View all assigned tasks (cache-first)
 - `/workday` - Full daily dashboard with time tracking
-- `/work-sync` - Force-sync work items to local cache
+- `/workday --sync` - Force-sync work items to local cache
 - `/log-time` - Log hours against a work item
 - `/loop 15m /task-monitor` - Start automatic monitoring
 
 ---
 
-*Part of DevOps Plugin v3.1 - Task Monitor System*
+*Part of DevOps Plugin v4.0 - Task Monitor System*
 *Tool Selection Guard: Enabled*
 *State: ~/.claude/task-monitor-state.json*

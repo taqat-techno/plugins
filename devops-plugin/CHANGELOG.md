@@ -7,6 +7,57 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [4.1.0] - 2026-03 - User Profile System
+
+### Added
+- **`/init profile`** — New sub-command to generate persistent user profile at `~/.claude/devops.md`
+- **DevOps.md user profile** — Caches user identity (GUID, email, role), projects, and team members with GUIDs
+- **Cache-first @mention resolution** — Resolves team members from profile before calling API
+- **Profile-aware task creation** — Auto-applies task prefix from user's role, auto-assigns to current user
+- **Session persistence** — Default project and user context restored from profile across sessions
+- **`devops/profile_generator.md`** — Full reference for profile generation workflow
+- **`data/profile_template.md`** — Template structure for DevOps.md generation
+
+### Changed
+- **SKILL.md** — Added Step 0: Load User Profile preamble (runs before all operations)
+- **mention_processor.md** — Added Step 1.5: cache-first resolution from profile teamMembers
+- **create.md** — Added Step 0: profile-aware defaults (prefix, assignee, project)
+- **workflows.md** — Added profile-aware preamble and assignment resolution
+
+---
+
+## [4.0.0] - 2026-03 - Plugin Consolidation
+
+### Changed - Command Consolidation (24 → 9 commands)
+
+#### Merged Commands
+- **`/create`** — Unified work item creation (replaces `/create-task`, `/create-bug`, `/create-user-story`). Auto-detects type from context, supports explicit `--task`, `--bug`, `--story` flags.
+- **`/workday`** — Absorbs `/my-tasks` (`--tasks` flag), `/work-sync` (`--sync` flag), `/sync-my-tasks` (`--todo` flag).
+- **`/timesheet`** — Absorbs `/time-off` (`--off`, `--off-list`, `--off-remove` flags).
+- **`/sprint`** — Absorbs `/full-sprint-report` (`--full` flag).
+- **`/cli-run`** — Absorbs `/setup-pipeline-vars` and `/install-extension` as documented recipes.
+
+#### Renamed Commands
+- **`/init`** — Renamed from `/devops`. Sub-commands: `/init setup`, `/init status`, `/init upgrade`, `/init help`.
+
+#### Moved to Skill (Natural Language)
+- `/update-workitem` → Say "mark #1234 as done"
+- `/add-comment` → Say "comment on #1234"
+- `/switch-project` → Say "switch to relief center"
+- `/build-status` → Say "any failing builds?"
+- `/create-pr` → Say "create PR from feature/login to main"
+- `/ci-setup` → Say "set up CI/CD for my project"
+
+### Added
+- `devops/workflows.md` — Full workflow documentation for 6 skill-handled operations
+- Auto-type detection in `/create` command (keywords, structural cues, explicit flags)
+- 6 new trigger examples in SKILL.md frontmatter
+
+### Removed
+- 17 command files (functionality preserved in merged commands and skill workflows)
+
+---
+
 ## [2.0.0] - 2025-12 - Hybrid Mode Release
 
 ### Added
