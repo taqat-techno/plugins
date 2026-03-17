@@ -24,6 +24,62 @@ description: |
   assistant: "I will use the pandoc skill to convert the Markdown outline to a reveal.js HTML presentation with section separators, speaker notes, and a clean theme."
   <commentary>Presentation trigger - Markdown to slides conversion.</commentary>
   </example>
+
+  <example>
+  Context: User wants to create an eBook
+  user: "Turn my chapters into an EPUB with a cover image"
+  assistant: "I will use the pandoc skill to combine the chapter files into an EPUB eBook, attaching the cover image, generating a table of contents, and embedding metadata."
+  <commentary>eBook trigger - Markdown to EPUB conversion.</commentary>
+  </example>
+
+  <example>
+  Context: User wants to convert between arbitrary formats
+  user: "Convert this Word document to LaTeX"
+  assistant: "I will use the pandoc skill to convert the .docx file to LaTeX, extracting images and preserving table structures."
+  <commentary>General conversion trigger - docx to LaTeX.</commentary>
+  </example>
+
+  <example>
+  Context: User wants a styled HTML page
+  user: "Generate a documentation website from my Markdown files with syntax highlighting"
+  assistant: "I will use the pandoc skill to produce standalone HTML5 with a table of contents, syntax highlighting, and MathJax support."
+  <commentary>HTML generation trigger - Markdown to styled HTML.</commentary>
+  </example>
+
+  <example>
+  Context: User needs to install Pandoc or fix PDF generation
+  user: "I keep getting pdflatex not found when converting to PDF"
+  assistant: "I will use the pandoc skill's setup workflow to install MiKTeX, enable auto-install for LaTeX packages, and pre-install all required packages so PDF generation works without popups."
+  <commentary>Setup trigger - installation and configuration.</commentary>
+  </example>
+
+  <example>
+  Context: User wants academic PDF output
+  user: "Generate a PDF of my thesis with citations, numbered sections, and double spacing"
+  assistant: "I will use the pandoc skill with the academic preset to produce a PDF via XeLaTeX with citeproc, TOC, numbered sections, and 1.5 line spacing."
+  <commentary>Academic PDF trigger - citations and formatting.</commentary>
+  </example>
+
+  <example>
+  Context: User wants batch conversion
+  user: "Convert all the .docx files in this folder to Markdown"
+  assistant: "I will use the pandoc skill to batch-convert every .docx file in the directory to Markdown, extracting images into a media folder."
+  <commentary>Batch processing trigger - multiple file conversion.</commentary>
+  </example>
+
+  <example>
+  Context: User wants Beamer slides
+  user: "Create PDF slides for my conference talk using the Warsaw theme"
+  assistant: "I will use the pandoc skill to produce Beamer PDF slides with the Warsaw theme, dolphin color theme, and 16:9 aspect ratio."
+  <commentary>Beamer slides trigger - academic presentations.</commentary>
+  </example>
+
+  <example>
+  Context: User wants a PowerPoint
+  user: "Make a PowerPoint presentation from my outline"
+  assistant: "I will use the pandoc skill to convert the Markdown outline to a .pptx file, optionally using a reference template for corporate branding."
+  <commentary>PowerPoint trigger - PPTX generation.</commentary>
+  </example>
 version: "1.0.0"
 author: "TaqaTechno"
 license: "MIT"
@@ -228,6 +284,140 @@ pandoc -V classoption=twocolumn input.md -o output.pdf
 | `--pdf-engine=ENGINE` | xelatex, lualatex, pdflatex |
 | `--template=FILE` | Custom LaTeX template |
 
+### PDF Page Layout Options
+
+| Option | Description | Example |
+|--------|-------------|---------|
+| `-V geometry:top=X` | Top margin | `-V geometry:top=2cm` |
+| `-V geometry:bottom=X` | Bottom margin | `-V geometry:bottom=2cm` |
+| `-V geometry:left=X` | Left margin | `-V geometry:left=2.5cm` |
+| `-V geometry:right=X` | Right margin | `-V geometry:right=2.5cm` |
+
+### PDF Typography Options
+
+| Option | Description | Example |
+|--------|-------------|---------|
+| `-V mainfont=FONT` | Main font (requires XeLaTeX) | `-V mainfont="Times New Roman"` |
+| `-V sansfont=FONT` | Sans-serif font | `-V sansfont="Arial"` |
+| `-V monofont=FONT` | Monospace font | `-V monofont="Consolas"` |
+| `-V linestretch=N` | Line spacing | `-V linestretch=1.5` |
+
+### PDF Document Classes
+
+| Class | Use Case |
+|-------|----------|
+| `article` | Short documents (default) |
+| `report` | Longer documents with chapters |
+| `book` | Books with front/back matter |
+| `memoir` | Flexible document class |
+| `scrartcl` | KOMA-Script article |
+
+### PDF Engine Options
+
+| Engine | Use Case |
+|--------|----------|
+| `--pdf-engine=pdflatex` | Standard LaTeX (default, fast) |
+| `--pdf-engine=xelatex` | Unicode support, custom fonts |
+| `--pdf-engine=lualatex` | Advanced features |
+| `--pdf-engine=tectonic` | Minimal setup |
+| `--pdf-engine=wkhtmltopdf` | Via HTML, no LaTeX needed |
+
+### PDF Presets
+
+#### Academic Preset
+
+```bash
+pandoc document.md \
+  --toc \
+  --toc-depth=3 \
+  -N \
+  --citeproc \
+  --bibliography=references.bib \
+  -V geometry:margin=1in \
+  -V fontsize=12pt \
+  -V linestretch=1.5 \
+  --pdf-engine=xelatex \
+  -o document.pdf
+```
+
+#### Report Preset
+
+```bash
+pandoc document.md \
+  -V documentclass=report \
+  --toc \
+  -N \
+  -V geometry:margin=1in \
+  -V fontsize=11pt \
+  -o document.pdf
+```
+
+#### Article Preset
+
+```bash
+pandoc document.md \
+  -V documentclass=article \
+  -V fontsize=11pt \
+  -V geometry:margin=1in \
+  -o document.pdf
+```
+
+#### Book Preset
+
+```bash
+pandoc document.md \
+  -V documentclass=book \
+  --toc \
+  -N \
+  -V geometry:margin=1in \
+  -V fontsize=11pt \
+  -V classoption=openright \
+  -o document.pdf
+```
+
+#### Minimal Preset
+
+```bash
+pandoc document.md -o document.pdf
+```
+
+### YAML Front Matter for PDF
+
+Include in your Markdown file for full control:
+
+```yaml
+---
+title: "Document Title"
+author: "Author Name"
+date: "January 15, 2025"
+abstract: |
+  This is the abstract of the document.
+
+# PDF Options
+geometry:
+  - margin=1in
+fontsize: 12pt
+linestretch: 1.5
+documentclass: article
+
+# Table of Contents
+toc: true
+toc-depth: 3
+numbersections: true
+
+# Bibliography
+bibliography: references.bib
+csl: ieee.csl
+
+# Header/Footer
+header-includes:
+  - \usepackage{fancyhdr}
+  - \pagestyle{fancy}
+  - \fancyhead[L]{My Document}
+  - \fancyhead[R]{\thepage}
+---
+```
+
 ---
 
 ### `/pandoc-docx` - Word Document Generation
@@ -260,6 +450,41 @@ pandoc chapter1.md chapter2.md chapter3.md -o book.docx
 2. Open in Word and modify styles (Heading 1, Normal, etc.)
 3. Use as template with `--reference-doc`
 
+### DOCX Style Mapping
+
+| Markdown Element | Word Style |
+|------------------|------------|
+| `# Heading` | Heading 1 |
+| `## Heading` | Heading 2 |
+| `### Heading` | Heading 3 |
+| Normal text | Normal |
+| `> Quote` | Block Text |
+| `` `code` `` | Verbatim Char |
+| Code block | Source Code |
+| `**bold**` | Strong |
+| `*italic*` | Emphasis |
+
+### Converting FROM Word
+
+```bash
+# Word to Markdown (extract images)
+pandoc input.docx --extract-media=./images -o output.md
+
+# Word to HTML
+pandoc input.docx -o output.html
+
+# Word to LaTeX
+pandoc input.docx -o output.tex
+
+# Extract text only
+pandoc input.docx -t plain -o output.txt
+
+# Handle track changes
+pandoc input.docx --track-changes=accept -o output.md   # Accept all
+pandoc input.docx --track-changes=reject -o output.md   # Reject all
+pandoc input.docx --track-changes=all -o output.md      # Show all
+```
+
 ---
 
 ### `/pandoc-html` - HTML Generation
@@ -290,6 +515,134 @@ pandoc -s -t html5 input.md -o output.html
 ```
 
 **Highlight Styles**: `pygments`, `tango`, `espresso`, `zenburn`, `kate`, `monochrome`, `breezeDark`, `haddock`
+
+### HTML Math Rendering Options
+
+| Option | Description |
+|--------|-------------|
+| `--mathjax` | Use MathJax (CDN) |
+| `--katex` | Use KaTeX (faster) |
+| `--mathml` | Native MathML |
+| `--webtex` | Convert to images |
+
+### HTML Resource Options
+
+| Option | Description |
+|--------|-------------|
+| `--embed-resources` | Embed all resources into single file |
+| `--self-contained` | Alias for embed-resources |
+| `--resource-path=DIR` | Resource search path |
+| `-H, --include-in-header=FILE` | Include in `<head>` |
+| `-B, --include-before-body=FILE` | Include at start of body |
+| `-A, --include-after-body=FILE` | Include at end of body |
+
+### HTML Presets
+
+#### Blog Preset
+
+```bash
+pandoc -s \
+  -t html5 \
+  --toc \
+  -c style.css \
+  --highlight-style=tango \
+  --metadata title="Blog Post" \
+  document.md -o document.html
+```
+
+#### Documentation Preset
+
+```bash
+pandoc -s \
+  -t html5 \
+  --toc \
+  --toc-depth=3 \
+  -N \
+  --highlight-style=kate \
+  --template=docs-template.html \
+  document.md -o document.html
+```
+
+#### Email Preset (self-contained)
+
+```bash
+pandoc -s \
+  --embed-resources \
+  document.md -o document.html
+```
+
+#### Minimal Preset
+
+```bash
+pandoc document.md -o document.html
+```
+
+### Custom HTML Template
+
+Save as `template.html` and use with `--template=template.html`:
+
+```html
+<!DOCTYPE html>
+<html lang="$lang$">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>$title$</title>
+    $for(css)$
+    <link rel="stylesheet" href="$css$">
+    $endfor$
+    $if(math)$
+    <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    $endif$
+    $for(header-includes)$
+    $header-includes$
+    $endfor$
+</head>
+<body>
+    <header>
+        <h1>$title$</h1>
+        $if(subtitle)$<p class="subtitle">$subtitle$</p>$endif$
+        $if(author)$<p class="author">$author$</p>$endif$
+        $if(date)$<p class="date">$date$</p>$endif$
+    </header>
+    <nav id="toc">
+        $if(toc)$
+        <h2>Contents</h2>
+        $toc$
+        $endif$
+    </nav>
+    <main>
+        $body$
+    </main>
+    <footer>
+        <p>Generated with Pandoc</p>
+    </footer>
+</body>
+</html>
+```
+
+### CSS Styling Tips
+
+A basic stylesheet for Pandoc HTML output:
+
+```css
+body {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 2rem;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    line-height: 1.6;
+    color: #333;
+}
+h1, h2, h3 { color: #2c3e50; margin-top: 1.5em; }
+code { background: #f4f4f4; padding: 0.2em 0.4em; border-radius: 3px; font-size: 0.9em; }
+pre { background: #f4f4f4; padding: 1rem; border-radius: 5px; overflow-x: auto; }
+blockquote { border-left: 4px solid #3498db; margin: 1em 0; padding-left: 1em; color: #666; }
+table { border-collapse: collapse; width: 100%; margin: 1em 0; }
+th, td { border: 1px solid #ddd; padding: 0.5em; text-align: left; }
+th { background: #f4f4f4; }
+#toc { background: #f9f9f9; padding: 1rem; border-radius: 5px; margin-bottom: 2rem; }
+```
 
 ---
 
@@ -324,12 +677,120 @@ pandoc -t epub3 input.md -o output.epub
 
 ```xml
 <dc:title>Book Title</dc:title>
-<dc:creator>Author Name</dc:creator>
+<dc:creator opf:role="aut">Author Name</dc:creator>
 <dc:language>en-US</dc:language>
 <dc:date>2025-01-15</dc:date>
 <dc:publisher>Publisher Name</dc:publisher>
-<dc:rights>Copyright 2025</dc:rights>
+<dc:rights>Copyright 2025 Author Name</dc:rights>
+<dc:description>
+A compelling description of the book that will
+appear in e-reader libraries and stores.
+</dc:description>
+<dc:subject>Fiction</dc:subject>
+<dc:subject>Adventure</dc:subject>
 ```
+
+### EPUB Cover Image Specifications
+
+**Recommended**:
+
+| Property | Recommendation |
+|----------|----------------|
+| **Dimensions** | 1600 x 2400 pixels (2:3 ratio) |
+| **Format** | JPEG or PNG |
+| **File Size** | Under 5 MB |
+| **Color Mode** | RGB |
+| **DPI** | 72-300 |
+
+**Minimum by Platform**:
+
+| Platform | Minimum Size |
+|----------|--------------|
+| Kindle | 625 x 1000 pixels |
+| Apple Books | 1400 x 2100 pixels |
+| Kobo | 1072 x 1448 pixels |
+| General | 800 x 1200 pixels |
+
+### EPUB Chapter and Styling Options
+
+| Option | Description | Example |
+|--------|-------------|---------|
+| `--epub-chapter-level=N` | Chapter heading level | `--epub-chapter-level=1` |
+| `--split-level=N` | Split at heading level | `--split-level=1` |
+| `--epub-embed-font=FILE` | Embed custom font | `--epub-embed-font=font.ttf` |
+
+### eBook Stylesheet
+
+Save as `ebook.css` and use with `--epub-stylesheet=ebook.css`:
+
+```css
+body { font-family: Georgia, serif; font-size: 1em; line-height: 1.6; margin: 0; padding: 0; }
+h1 { font-size: 2em; margin-top: 2em; text-align: center; page-break-before: always; }
+h2 { font-size: 1.5em; margin-top: 1.5em; }
+p { text-indent: 1.5em; margin: 0; text-align: justify; }
+p.first, h1 + p, h2 + p, h3 + p { text-indent: 0; }
+blockquote { margin: 1em 2em; font-style: italic; }
+.scene-break { text-align: center; margin: 2em 0; }
+.scene-break::before { content: "* * *"; }
+img { max-width: 100%; height: auto; }
+code { font-family: monospace; font-size: 0.9em; background: #f4f4f4; }
+pre { white-space: pre-wrap; background: #f4f4f4; padding: 0.5em; font-size: 0.85em; }
+```
+
+### eBook Project Structure and Build Script
+
+Recommended file organization:
+
+```
+book-project/
+├── manuscript/
+│   ├── 00-frontmatter.md
+│   ├── 01-chapter-one.md
+│   ├── 02-chapter-two.md
+│   └── 99-backmatter.md
+├── images/
+│   ├── cover.jpg
+│   └── illustrations/
+├── styles/
+│   └── ebook.css
+├── metadata.xml
+└── build.sh
+```
+
+Build script (`build.sh`):
+
+```bash
+#!/bin/bash
+pandoc \
+  manuscript/*.md \
+  --epub-cover-image=images/cover.jpg \
+  --epub-stylesheet=styles/ebook.css \
+  --epub-metadata=metadata.xml \
+  --toc \
+  --toc-depth=1 \
+  -t epub3 \
+  -o output/my-book.epub
+echo "eBook created: output/my-book.epub"
+```
+
+### Converting to Kindle (MOBI/AZW3)
+
+Use Calibre (free software):
+
+```bash
+ebook-convert book.epub book.mobi
+ebook-convert book.epub book.azw3
+```
+
+### EPUB Validation
+
+Use [EPUBCheck](https://www.w3.org/publishing/epubcheck/):
+
+```bash
+java -jar epubcheck.jar book.epub
+```
+
+Or online validator: https://validator.idpf.org/
 
 ---
 
@@ -355,7 +816,33 @@ pandoc -t revealjs -s \
   slides.md -o presentation.html
 ```
 
-**reveal.js Themes**: `black`, `white`, `league`, `beige`, `sky`, `night`, `serif`, `simple`, `solarized`, `moon`, `dracula`
+**reveal.js Themes**:
+
+| Theme | Style |
+|-------|-------|
+| `black` | Black background, white text |
+| `white` | White background, black text |
+| `league` | Gray background, subtle |
+| `beige` | Cream background, warm |
+| `sky` | Blue gradient |
+| `night` | Dark blue |
+| `serif` | Classic serif fonts |
+| `simple` | Minimal, clean |
+| `solarized` | Solarized colors |
+| `moon` | Dark, purple accents |
+| `dracula` | Dracula color scheme |
+
+**reveal.js Options**:
+
+| Option | Values | Description |
+|--------|--------|-------------|
+| `controls` | true/false | Navigation controls |
+| `progress` | true/false | Progress bar |
+| `slideNumber` | true/false | Slide numbers |
+| `hash` | true/false | URL hashes |
+| `center` | true/false | Center content |
+| `width` | pixels | Slide width |
+| `height` | pixels | Slide height |
 
 **Transitions**: `none`, `fade`, `slide`, `convex`, `concave`, `zoom`
 
@@ -375,7 +862,35 @@ pandoc -t beamer -V theme:Madrid -V colortheme:dolphin slides.md -o presentation
 pandoc -t beamer -V aspectratio=169 slides.md -o presentation.pdf
 ```
 
-**Beamer Themes**: `AnnArbor`, `Berlin`, `Copenhagen`, `Madrid`, `Warsaw`, `Singapore`, `Boadilla`, `Montpellier`
+**Beamer Themes**:
+
+| Theme | Style |
+|-------|-------|
+| `AnnArbor` | Yellow/blue corporate |
+| `Antibes` | Tree navigation |
+| `Berlin` | Structured sections |
+| `Boadilla` | Clean, minimal |
+| `Copenhagen` | Blue header |
+| `Darmstadt` | Navigation dots |
+| `Dresden` | Compact navigation |
+| `Frankfurt` | Dot navigation |
+| `Goettingen` | Sidebar TOC |
+| `Hannover` | Sidebar navigation |
+| `Ilmenau` | Three-line header |
+| `JuanLesPins` | Tree-like |
+| `Luebeck` | Corporate style |
+| `Madrid` | Clean, modern |
+| `Malmoe` | Simple structure |
+| `Marburg` | Sidebar |
+| `Montpellier` | Tree navigation |
+| `PaloAlto` | Stanford style |
+| `Pittsburgh` | Simple headers |
+| `Rochester` | Cornell style |
+| `Singapore` | Compact |
+| `Szeged` | Simple sections |
+| `Warsaw` | Blue blocks |
+
+**Beamer Color Themes**: `albatross`, `beaver`, `beetle`, `crane`, `default`, `dolphin`, `dove`, `fly`, `lily`, `monarca`, `orchid`, `rose`, `seagull`, `seahorse`, `sidebartab`, `spruce`, `structure`, `whale`, `wolverine`
 
 #### PowerPoint
 
@@ -423,6 +938,94 @@ This appears after a pause (incremental)
 Speaker notes go here
 ```
 
+#### Incremental Lists
+
+```markdown
+## Incremental Bullets
+
+::: incremental
+
+- First item (appears first)
+- Second item (appears second)
+- Third item (appears third)
+
+:::
+```
+
+#### Two-Column Layout
+
+```markdown
+## Two Columns
+
+:::::::::::::: {.columns}
+::: {.column width="50%"}
+
+Left column content
+
+:::
+::: {.column width="50%"}
+
+Right column content
+
+:::
+::::::::::::::
+```
+
+#### Speaker Notes
+
+```markdown
+## Slide with Notes
+
+Content visible to audience.
+
+::: notes
+
+These are speaker notes.
+Only visible in presenter view.
+
+:::
+```
+
+#### Background Images (reveal.js)
+
+```markdown
+## {data-background-image="background.jpg"}
+
+Content on custom background
+```
+
+#### YAML Front Matter for reveal.js
+
+```yaml
+---
+title: "My Presentation"
+author: "Author Name"
+date: "January 2025"
+theme: moon
+transition: slide
+controls: true
+progress: true
+slideNumber: true
+hash: true
+center: true
+---
+```
+
+#### YAML Front Matter for Beamer
+
+```yaml
+---
+title: "My Presentation"
+author: "Author Name"
+date: "January 2025"
+theme: Warsaw
+colortheme: dolphin
+fonttheme: structurebold
+aspectratio: 169
+toc: true
+---
+```
+
 ---
 
 ### `/pandoc-convert` - General Conversion
@@ -441,6 +1044,35 @@ pandoc -f org -t html input.org -o output.html
 pandoc -f csv -t html data.csv -o table.html
 ```
 
+### Quick Conversion Matrix
+
+| From | To | Command |
+|------|-----|---------|
+| Word to Markdown | `pandoc input.docx -o output.md` |
+| Markdown to Word | `pandoc input.md -o output.docx` |
+| HTML to Markdown | `pandoc input.html -o output.md` |
+| Markdown to HTML | `pandoc -s input.md -o output.html` |
+| Word to HTML | `pandoc input.docx -o output.html` |
+| HTML to Word | `pandoc input.html -o output.docx` |
+| LaTeX to Word | `pandoc input.tex -o output.docx` |
+| Word to LaTeX | `pandoc input.docx -o output.tex` |
+| RST to Markdown | `pandoc input.rst -o output.md` |
+| Org to Markdown | `pandoc input.org -o output.md` |
+| AsciiDoc to HTML | `pandoc input.adoc -o output.html` |
+| Jupyter to Markdown | `pandoc notebook.ipynb --extract-media=./media -o output.md` |
+| MediaWiki to Markdown | `pandoc -f mediawiki wiki.txt -o output.md` |
+
+### Conversion Quality Matrix
+
+| From to To | Quality | Notes |
+|-----------|---------|-------|
+| Word to Markdown | Good | Tables and basic formatting preserved |
+| Markdown to Word | Excellent | Full fidelity |
+| HTML to Markdown | Good | Complex layouts may simplify |
+| LaTeX to Word | Good | Math may need adjustment |
+| Word to LaTeX | Good | May need manual cleanup |
+| PDF to Markdown | N/A | PDF is not a supported input |
+
 **Format Codes**:
 
 | Code | Format |
@@ -448,7 +1080,13 @@ pandoc -f csv -t html data.csv -o table.html
 | `markdown` | Pandoc Markdown |
 | `gfm` | GitHub Flavored Markdown |
 | `commonmark` | CommonMark |
+| `commonmark_x` | CommonMark with extensions |
+| `markdown_strict` | Original Markdown |
+| `markdown_phpextra` | PHP Markdown Extra |
+| `markdown_mmd` | MultiMarkdown |
 | `docx` | Microsoft Word |
+| `odt` | OpenDocument Text |
+| `rtf` | Rich Text Format |
 | `html` / `html5` | HTML |
 | `latex` | LaTeX |
 | `pdf` | PDF |
@@ -457,7 +1095,30 @@ pandoc -f csv -t html data.csv -o table.html
 | `org` | Org Mode |
 | `asciidoc` | AsciiDoc |
 | `mediawiki` | MediaWiki |
+| `dokuwiki` | DokuWiki |
+| `jira` | Jira markup |
 | `docbook` | DocBook XML |
+| `jats` | JATS XML |
+| `ipynb` | Jupyter Notebook |
+| `csv` / `tsv` | Tabular data |
+| `typst` | Typst |
+| `fb2` | FictionBook 2 |
+| `man` | Man page |
+
+### Conversion-Specific Options
+
+```bash
+# Extract images when converting from Word
+pandoc --extract-media=./images input.docx -o output.md
+
+# Control text wrapping
+pandoc --wrap=none input.docx -o output.md      # No wrapping
+pandoc --wrap=auto input.html -o output.md       # Auto wrap
+pandoc --wrap=preserve input.md -o output.html   # Preserve original
+
+# Set line width for wrapping
+pandoc --columns=80 input.md -o output.txt
+```
 
 ---
 
@@ -587,7 +1248,7 @@ pandoc -f markdown-smart-raw_html input.md -o output.pdf
 
 Convert multiple files efficiently.
 
-**Shell Script (Bash/PowerShell)**:
+**Bash Scripts**:
 
 ```bash
 # Convert all .md files to .pdf
@@ -595,9 +1256,29 @@ for f in *.md; do
     pandoc "$f" -o "${f%.md}.pdf"
 done
 
-# PowerShell
+# Convert all .docx to .md (with image extraction)
+for f in *.docx; do
+    echo "Converting: $f"
+    pandoc "$f" --extract-media="./media" -o "${f%.docx}.md"
+done
+
+# Convert all .md to .html
+for f in *.md; do
+    pandoc -s "$f" -o "${f%.md}.html"
+done
+```
+
+**PowerShell Scripts**:
+
+```powershell
+# Convert all .md to .pdf
 Get-ChildItem *.md | ForEach-Object {
     pandoc $_.Name -o ($_.BaseName + ".pdf")
+}
+
+# Convert all .docx to .md
+Get-ChildItem *.docx | ForEach-Object {
+    pandoc $_.Name -o ($_.BaseName + ".md")
 }
 ```
 
@@ -640,6 +1321,104 @@ metadata:
 ```bash
 pandoc -d defaults.yaml input.md -o output.html
 ```
+
+---
+
+## Setup & Installation
+
+### Automated Setup
+
+Run the setup script for one-click installation:
+
+**Windows (PowerShell)**:
+```powershell
+# Full setup (Pandoc + LaTeX)
+powershell -ExecutionPolicy Bypass -File "pandoc-plugin/pandoc/scripts/setup.ps1"
+
+# Skip LaTeX (Pandoc only)
+powershell -ExecutionPolicy Bypass -File "pandoc-plugin/pandoc/scripts/setup.ps1" -SkipLatex
+
+# Quiet mode
+powershell -ExecutionPolicy Bypass -File "pandoc-plugin/pandoc/scripts/setup.ps1" -Quiet
+```
+
+**Linux/macOS (Bash)**:
+```bash
+# Full setup
+bash pandoc-plugin/pandoc/scripts/setup.sh
+
+# Skip LaTeX
+bash pandoc-plugin/pandoc/scripts/setup.sh --skip-latex
+```
+
+### What the Setup Script Does
+
+1. Installs Pandoc (if not installed)
+2. Installs MiKTeX/LaTeX (for PDF generation)
+3. Enables auto-install for LaTeX packages (no more popups)
+4. Pre-installs all required LaTeX packages
+5. Configures PATH automatically
+
+### Manual Quick Setup
+
+#### Windows
+
+```powershell
+# 1. Install Pandoc
+winget install JohnMacFarlane.Pandoc --accept-package-agreements --accept-source-agreements
+
+# 2. Install MiKTeX (for PDF)
+winget install MiKTeX.MiKTeX --accept-package-agreements --accept-source-agreements
+
+# 3. Enable auto-install (prevents popup dialogs!)
+& "$env:LOCALAPPDATA\Programs\MiKTeX\miktex\bin\x64\initexmf.exe" --set-config-value="[MPM]AutoInstall=1"
+
+# 4. Install required packages
+$packages = @('parskip','geometry','fancyvrb','framed','booktabs','longtable','upquote','microtype','bookmark','etoolbox','hyperref','ulem','listings','caption','float','setspace','amsmath','lm','xcolor')
+foreach ($p in $packages) { & "$env:LOCALAPPDATA\Programs\MiKTeX\miktex\bin\x64\miktex.exe" packages install $p }
+```
+
+#### Linux (Ubuntu/Debian)
+
+```bash
+sudo apt install pandoc
+sudo apt install texlive texlive-latex-extra texlive-fonts-recommended
+```
+
+#### macOS
+
+```bash
+brew install pandoc
+brew install --cask mactex
+# Or smaller: brew install basictex
+```
+
+### Pre-installed LaTeX Packages
+
+The setup pre-installs these packages to prevent MiKTeX popup dialogs:
+
+| Package | Purpose |
+|---------|---------|
+| `parskip` | Paragraph spacing |
+| `geometry` | Page margins |
+| `fancyvrb` | Verbatim/code blocks |
+| `framed` | Framed boxes |
+| `booktabs` | Professional tables |
+| `longtable` | Multi-page tables |
+| `hyperref` | PDF links |
+| `listings` | Code listings |
+| `amsmath` | Math formulas |
+| `xcolor` | Colors |
+| `graphicx` | Images |
+| `upquote` | Straight quotes in verbatim |
+| `microtype` | Microtypography |
+| `bookmark` | PDF bookmarks |
+| `etoolbox` | Programming tools |
+| `ulem` | Underline/strikeout |
+| `caption` | Figure/table captions |
+| `float` | Float placement |
+| `setspace` | Line spacing |
+| `lm` | Latin Modern fonts |
 
 ---
 

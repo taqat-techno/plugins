@@ -1,7 +1,7 @@
 {
   "name": "pandoc",
-  "version": "1.0.0",
-  "description": "Universal document conversion powered by Pandoc - Convert between 50+ input formats and 60+ output formats including PDF, Word, HTML, EPUB, LaTeX, Markdown, and presentations. Professional document transformation with templates, citations, and batch processing.",
+  "version": "2.0.0",
+  "description": "Universal document conversion powered by Pandoc — 1 unified command + skill-driven natural language for 50+ input and 60+ output formats. PDF, Word, HTML, EPUB, presentations, citations, batch processing, and Arabic/RTL support.",
   "author": {
     "name": "TaqaTechno",
     "email": "support@example.com",
