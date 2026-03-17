@@ -1,6 +1,6 @@
 {
   "name": "ntfy-notifications",
-  "version": "2.0.0",
+  "version": "3.0.0",
   "description": "Push notifications to your phone via ntfy.sh when Claude completes tasks, needs input, or encounters errors. 100% FREE - No account required!",
   "author": {
     "name": "TaqaTechno",
