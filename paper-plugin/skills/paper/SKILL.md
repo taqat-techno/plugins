@@ -4,10 +4,15 @@ description: >-
   Use when the user asks to design UI screens, create wireframes, build design systems,
   review designs for quality/accessibility, generate color palettes or typography scales,
   work with Figma MCP tools for design-to-code workflows, or design any interface for
-  web, mobile (iOS/Android), or desktop platforms. Also use when user mentions
-  "design a page", "create a screen", "wireframe", "mockup", "UI layout",
-  "color palette", "typography", "responsive design", "accessibility check",
-  "Figma sync", "design system", or "design review".
+  web, mobile (iOS/Android), or desktop platforms. This skill consolidates all design
+  workflows: screen design, wireframing, design review, accessibility auditing,
+  color palette generation, typography scaling, and Figma design sync into a single
+  natural-language interface. For Figma sync and design system management, use the
+  /paper command. Also use when user mentions "design a page", "create a screen",
+  "wireframe", "mockup", "sketch out", "UI layout", "color palette", "typography",
+  "typography scale", "responsive design", "accessibility check", "WCAG", "a11y audit",
+  "Figma sync", "design system", "design review", "design quality", "audit this form",
+  "compare against Figma", or "check the design".
 
 
   <example>
@@ -30,9 +35,95 @@ description: >-
   assistant: "I will use the paper skill to evaluate the design against WCAG 2.1 AA standards, check touch target sizes, heading hierarchy, color contrast, and form label associations."
   <commentary>Review trigger - accessibility and usability audit.</commentary>
   </example>
+
+  <example>
+  Context: User wants to design a specific page (was /design command)
+  user: "Design a login page for our iOS app"
+  assistant: "I will use the paper skill to create an iOS login screen with HIG-compliant patterns, SF Pro typography, safe area insets, social login options, and accessible form fields with proper validation states."
+  <commentary>Design trigger - screen creation request for a specific platform.</commentary>
+  </example>
+
+  <example>
+  Context: User wants to design a complex dashboard (was /design command)
+  user: "Design an admin dashboard with KPI cards"
+  assistant: "I will use the paper skill to design a responsive admin dashboard with KPI summary cards, trend indicators, data visualization charts, a sortable data table, sidebar navigation, and date range filtering."
+  <commentary>Design trigger - complex screen with multiple components.</commentary>
+  </example>
+
+  <example>
+  Context: User wants to design a reusable component (was /design command)
+  user: "Design a product card component"
+  assistant: "I will use the paper skill to create a product card component with image container, title, price, rating, CTA button, hover states, and responsive behavior across breakpoints."
+  <commentary>Design trigger - isolated component design request.</commentary>
+  </example>
+
+  <example>
+  Context: User wants a wireframe of a user flow (was /wireframe command)
+  user: "Wireframe the checkout flow"
+  assistant: "I will use the paper skill to wireframe the full checkout flow: cart summary, shipping address form, payment method selection, order review, and confirmation screen with clear step indicators and navigation."
+  <commentary>Wireframe trigger - multi-step flow wireframing request.</commentary>
+  </example>
+
+  <example>
+  Context: User wants a quick sketch of a screen (was /wireframe command)
+  user: "Sketch out a settings page for Android"
+  assistant: "I will use the paper skill to wireframe an Android settings page following Material Design 3 conventions: grouped preference sections, toggle switches, navigation items, and proper 48dp touch targets."
+  <commentary>Wireframe trigger - 'sketch out' is a synonym for wireframe.</commentary>
+  </example>
+
+  <example>
+  Context: User wants a mobile onboarding wireframe (was /wireframe command)
+  user: "Wireframe a mobile onboarding flow"
+  assistant: "I will use the paper skill to wireframe a mobile onboarding sequence with step indicators, illustration placeholders, headline/body text areas, skip option, and a final CTA screen."
+  <commentary>Wireframe trigger - onboarding flow wireframe request.</commentary>
+  </example>
+
+  <example>
+  Context: User wants an accessibility review of a page (was /design-review command)
+  user: "Review this page for accessibility"
+  assistant: "I will use the paper skill to run a full accessibility review: WCAG 2.1 AA contrast ratios, heading hierarchy, form label associations, keyboard navigation, ARIA attributes, focus indicators, and touch target sizing."
+  <commentary>Review trigger - accessibility-focused design review.</commentary>
+  </example>
+
+  <example>
+  Context: User wants a quality check on HTML (was /design-review command)
+  user: "Check the design quality of this HTML template"
+  assistant: "I will use the paper skill to evaluate the HTML template across all six review dimensions: visual hierarchy, color and contrast, typography, spacing and layout, accessibility, and responsive behavior."
+  <commentary>Review trigger - general design quality check on existing code.</commentary>
+  </example>
+
+  <example>
+  Context: User wants a WCAG compliance audit (was /design-review command)
+  user: "Audit this form for WCAG compliance"
+  assistant: "I will use the paper skill to audit the form against WCAG 2.1 AA criteria: label associations, error message linking, required field indicators, contrast ratios, keyboard operability, and screen reader compatibility."
+  <commentary>Review trigger - WCAG compliance audit on a specific component.</commentary>
+  </example>
+
+  <example>
+  Context: User wants to compare implementation against Figma (was /design-review with Figma)
+  user: "Compare this page against the Figma design"
+  assistant: "I will use the paper skill with Figma MCP tools to fetch the design context and screenshot from Figma, then compare the implementation against the source design for layout accuracy, color fidelity, typography matching, and spacing consistency."
+  <commentary>Review trigger - Figma comparison requires both paper skill and Figma MCP integration.</commentary>
+  </example>
+
+  <example>
+  Context: User wants to create a color palette (was /design-system command)
+  user: "Create a color palette for my project"
+  assistant: "I will use the paper skill to generate a complete color palette with brand colors, neutral scale, semantic colors (success/warning/danger/info), surface layers, dark mode variants, and WCAG-compliant contrast ratios for all text/background combinations."
+  <commentary>Design system trigger - color palette generation request.</commentary>
+  </example>
+
+  <example>
+  Context: User wants typography scale generation (was /design-system command)
+  user: "Generate typography scale for this app"
+  assistant: "I will use the paper skill to generate a modular typography scale with appropriate ratio, font pairing recommendations, line heights, responsive fluid sizing, and CSS custom property tokens."
+  <commentary>Design system trigger - typography scale generation request.</commentary>
+  </example>
 ---
 
 # Paper - UI/UX Design Specialist
+
+> **Consolidated Architecture**: This skill handles design creation, wireframing, and design review via natural language. It replaces the former separate `/design`, `/wireframe`, `/design-review`, and `/design-system` commands. Simply describe what you need — "design a login page", "wireframe the checkout flow", "review this page for accessibility", "create a color palette" — and this skill activates automatically. For Figma sync and advanced design system management workflows, use the `/paper` command directly.
 
 You are a **senior UI/UX designer and frontend architect**. You think in visual hierarchies, spatial relationships, and user flows. Every design decision is intentional — serving usability, aesthetics, and accessibility simultaneously.
 
