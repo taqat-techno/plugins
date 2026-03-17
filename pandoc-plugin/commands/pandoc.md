@@ -1,477 +1,504 @@
 ---
-title: 'Pandoc'
-read_only: false
-type: 'command'
-description: 'Universal document converter - Convert between 50+ input formats and 60+ output formats. Main entry point with help and status.'
+description: 'Universal document converter — setup, convert, status, and help for 50+ formats'
+argument-hint: '[setup|status|convert|formats|help] [args...]'
 ---
 
-# Pandoc - Universal Document Converter
+# /pandoc - Universal Document Converter
 
-Main entry point for the Pandoc plugin. Provides help, status, and quick conversion capabilities.
+Single entry point for all Pandoc operations: setup, conversion, status checks, and help.
 
 ---
 
-## FIRST TIME? Run Setup First!
+## Routing
 
-Before using Pandoc commands, run the automated setup:
+Parse `$ARGUMENTS` and dispatch:
+
+| Input | Sub-command |
+|-------|-------------|
+| *(empty)* | [help](#no-args--help) |
+| `help [topic]` | [help](#no-args--help) |
+| `setup` | [setup](#setup) |
+| `status` | [status](#status) |
+| `convert <file> <fmt> [opts]` | [convert](#convert) |
+| `formats` | [formats](#formats) |
+
+---
+
+## No args / help
+
+When the user runs `/pandoc` or `/pandoc help [topic]`, do the following:
+
+### Step 1: Quick status probe
+
+```bash
+pandoc --version 2>/dev/null | head -1 || echo "NOT INSTALLED"
+pdflatex --version 2>/dev/null | head -1 || echo "NOT INSTALLED"
+```
+
+### Step 2: Display overview
 
 ```
-/pandoc-setup
-```
+==========================================================
+          PANDOC - UNIVERSAL DOCUMENT CONVERTER
+==========================================================
 
-This one command will:
-- Install Pandoc (if needed)
-- Install LaTeX/MiKTeX (for PDF generation)
-- Configure auto-install (no popup dialogs!)
-- Pre-install all required packages
+Status:  Pandoc ............. {version or NOT INSTALLED}
+         LaTeX .............. {version or NOT INSTALLED}
 
-**Without setup, you may encounter:**
-- `pandoc: command not found`
-- MiKTeX popup dialogs asking to install packages
-- `parskip.sty not found` errors
-
----
-
-## Sub-Commands
-
-| Sub-Command | Description |
-|-------------|-------------|
-| `/pandoc` | Show capabilities overview and quick help |
-| `/pandoc-setup` | **One-click install & configure (RUN FIRST!)** |
-| `/pandoc status` | Check Pandoc installation and version |
-| `/pandoc help [topic]` | Detailed help on specific topics |
-| `/pandoc formats` | List all supported formats |
-| `/pandoc quick <file>` | Quick convert with auto-detected output |
-
----
-
-## `/pandoc` - Capabilities Overview
-
-When user runs `/pandoc` without arguments, display:
-
-```
-============================================================
-            PANDOC - UNIVERSAL DOCUMENT CONVERTER
-============================================================
-
-Pandoc converts documents between virtually ANY format.
-50+ input formats | 60+ output formats | Professional quality
-
-QUICK CONVERSIONS:
-  /pandoc-pdf <file>        Convert to PDF (requires LaTeX)
-  /pandoc-docx <file>       Convert to Microsoft Word
-  /pandoc-html <file>       Convert to HTML web page
-  /pandoc-epub <file>       Create EPUB eBook
-  /pandoc-slides <file>     Create presentation slides
-  /pandoc-convert           General format conversion
+SUB-COMMANDS:
+  /pandoc setup            Install & configure Pandoc + LaTeX
+  /pandoc status           Detailed installation report
+  /pandoc convert F FMT    Convert file F to format FMT
+  /pandoc formats          List all supported formats
+  /pandoc help <topic>     Deep-dive on a topic
 
 POPULAR CONVERSIONS:
-  Markdown → PDF            pandoc input.md -o output.pdf
-  Markdown → Word           pandoc input.md -o output.docx
-  Word → Markdown           pandoc input.docx -o output.md
-  Markdown → HTML           pandoc -s input.md -o output.html
-  Markdown → EPUB           pandoc input.md -o output.epub
+  /pandoc convert report.md pdf
+  /pandoc convert report.md docx
+  /pandoc convert doc.docx md
+  /pandoc convert slides.md revealjs --theme=moon
+  /pandoc convert book.md epub --cover=cover.jpg
 
-FEATURES:
-  • Table of Contents       --toc
-  • Numbered Sections       -N, --number-sections
-  • Citations               --citeproc --bibliography=refs.bib
-  • Custom Templates        --template=template.tex
-  • Math Rendering          --mathjax, --katex
-  • Syntax Highlighting     --highlight-style=tango
+COMMON OPTIONS:
+  --toc                    Table of contents
+  -N, --number-sections    Numbered headings
+  --citeproc               Process citations
+  --bibliography=refs.bib  Bibliography file
+  --template=FILE          Custom template
+  --highlight-style=NAME   Code highlighting (tango, kate, ...)
+  --mathjax / --katex      Math rendering
 
-TYPE /pandoc help <topic> FOR DETAILED HELP:
-  formats   - All supported formats
-  pdf       - PDF generation options
-  templates - Using custom templates
-  citations - Bibliography and citations
-  slides    - Presentation creation
-  batch     - Batch processing
-
-============================================================
+HELP TOPICS (/pandoc help <topic>):
+  pdf        PDF generation & LaTeX engines
+  docx       Word document options
+  html       Standalone HTML pages
+  epub       eBook creation
+  slides     Reveal.js, Beamer, PPTX presentations
+  citations  Bibliography & citeproc
+  batch      Converting multiple files at once
+  arabic     RTL / Arabic document tips
+==========================================================
 ```
+
+### Step 3: Topic-specific help
+
+If a topic is given (`/pandoc help pdf`, etc.), provide focused guidance:
+
+**pdf** - Engines (`--pdf-engine=xelatex|lualatex|pdflatex`), margins (`-V geometry:margin=1in`), fonts (`-V mainfont="..."`), TOC, page breaks.
+
+**docx** - Reference doc (`--reference-doc=template.docx`), styles, metadata (`-M title="..."`).
+
+**html** - Standalone (`-s`), CSS (`--css=style.css`), self-contained (`--embed-resources --standalone`), math.
+
+**epub** - Cover image (`--epub-cover-image=cover.jpg`), metadata (`--epub-metadata=meta.xml`), CSS, chapters.
+
+**slides** - Reveal.js (`-t revealjs -V theme=moon`), Beamer (`-t beamer`), PPTX (`-o slides.pptx`), slide level (`--slide-level=2`).
+
+**citations** - `--citeproc --bibliography=refs.bib --csl=style.csl`, inline `[@cite]` syntax.
+
+**batch** - Shell loops, glob patterns, Makefile examples for multi-file projects.
+
+**arabic** - XeLaTeX engine required, `polyglossia` or `babel-arabic`, RTL with `\setmainlanguage{arabic}`, font selection (`-V mainfont="Amiri"`).
 
 ---
 
-## `/pandoc status` - Installation Check
+## setup
 
-### Implementation
+Full automated installation of Pandoc and LaTeX.
 
-**Step 1: Check Pandoc Installation**
-
-```bash
-pandoc --version
-```
-
-**Step 2: Parse and Report**
-
-```
-============================================================
-                  PANDOC INSTALLATION STATUS
-============================================================
-
-PANDOC:
-  Installed:           YES
-  Version:             3.7.0.1
-  Location:            C:\Users\ahmed\AppData\Local\Pandoc
-  Compiled with:       ghc-9.4.8
-
-PDF SUPPORT:
-  LaTeX Engine:        pdflatex (MiKTeX 24.1)
-  XeLaTeX:             Available
-  LuaLaTeX:            Available
-
-OPTIONAL TOOLS:
-  pandoc-crossref:     Not Installed
-  pandoc-citeproc:     Built-in (--citeproc)
-
-CAPABILITIES:
-  Input Formats:       52
-  Output Formats:      65
-  Extensions:          80+
-  Highlight Styles:    12
-
-RECOMMENDATIONS:
-  ✓ Pandoc is ready for document conversion
-  ✓ PDF generation available (LaTeX installed)
-  ○ Consider installing pandoc-crossref for
-    advanced cross-references
-
-============================================================
-```
-
-### Status When Not Installed
-
-```
-============================================================
-                  PANDOC INSTALLATION STATUS
-============================================================
-
-PANDOC:
-  Installed:           NO
-
-To install Pandoc, run:
-
-  Windows (Chocolatey):
-    choco install pandoc
-
-  Windows (Winget):
-    winget install JohnMacFarlane.Pandoc
-
-  macOS (Homebrew):
-    brew install pandoc
-
-  Linux (Debian/Ubuntu):
-    sudo apt install pandoc
-
-  Linux (Fedora):
-    sudo dnf install pandoc
-
-Or download from: https://github.com/jgm/pandoc/releases
-
-============================================================
-```
-
----
-
-## `/pandoc setup` - Installation
-
-### Implementation
-
-**Step 1: Detect Platform**
+### Step 1: Detect platform
 
 ```bash
-# Windows
-echo $env:OS
-# or
-echo %OS%
-
-# macOS/Linux
-uname -s
+uname -s 2>/dev/null || echo "Windows"
 ```
 
-**Step 2: Install Based on Platform**
+### Step 2: Check what is already installed
 
-#### Windows Installation
+```bash
+pandoc --version 2>/dev/null | head -1
+pdflatex --version 2>/dev/null | head -1
+```
+
+### Step 3: Run platform-specific installer
+
+#### Windows
+
+Run the setup PowerShell script:
 
 ```powershell
-# Try winget first (Windows 10/11)
-winget install --source winget --exact --id JohnMacFarlane.Pandoc
-
-# Or Chocolatey
-choco install pandoc -y
-
-# For PDF support
-choco install miktex -y
+powershell -ExecutionPolicy Bypass -File "C:\TQ-WorkSpace\odoo\tmp\plugins\pandoc-plugin\pandoc\scripts\setup.ps1"
 ```
 
-#### macOS Installation
+The script handles:
+1. Install Pandoc via winget (fallback: Chocolatey)
+2. Install MiKTeX for PDF support
+3. **Enable MiKTeX auto-install** (`AutoInstall=1`) so LaTeX packages install silently -- no popup dialogs
+4. Pre-install 30+ required LaTeX packages (parskip, geometry, fancyvrb, framed, booktabs, longtable, hyperref, listings, amsmath, xcolor, graphicx, etc.)
+5. Configure PATH
+
+If the script is unavailable, fall back to manual commands:
+
+```powershell
+# 1. Pandoc
+winget install JohnMacFarlane.Pandoc --accept-package-agreements --accept-source-agreements
+
+# 2. MiKTeX
+winget install MiKTeX.MiKTeX --accept-package-agreements --accept-source-agreements
+
+# 3. Enable auto-install (CRITICAL -- prevents popup dialogs)
+& "$env:LOCALAPPDATA\Programs\MiKTeX\miktex\bin\x64\initexmf.exe" --set-config-value="[MPM]AutoInstall=1"
+
+# 4. Pre-install packages
+$pkgs = @('parskip','geometry','fancyvrb','framed','booktabs','longtable',
+          'upquote','microtype','bookmark','etoolbox','hyperref','ulem',
+          'listings','caption','float','setspace','amsmath','lm','xcolor',
+          'graphicx','adjustbox','collectbox','enumitem','footmisc',
+          'mdframed','needspace','pagecolor','sourcecodepro','sourcesanspro',
+          'titling','zref')
+foreach ($p in $pkgs) {
+    & "$env:LOCALAPPDATA\Programs\MiKTeX\miktex\bin\x64\miktex.exe" packages install $p
+}
+```
+
+#### Linux (Debian/Ubuntu)
 
 ```bash
-# Homebrew
+bash "C:/TQ-WorkSpace/odoo/tmp/plugins/pandoc-plugin/pandoc/scripts/setup.sh"
+```
+
+Or manually:
+
+```bash
+sudo apt update && sudo apt install -y pandoc texlive texlive-latex-extra texlive-fonts-recommended texlive-xetex
+```
+
+#### Linux (Fedora)
+
+```bash
+sudo dnf install -y pandoc texlive-xetex texlive-collection-latexextra
+```
+
+#### macOS
+
+```bash
 brew install pandoc
-
-# For PDF support
-brew install --cask basictex
+brew install --cask mactex   # Full LaTeX -- or basictex for minimal
 ```
 
-#### Linux Installation
+### Step 4: Verify installation
 
 ```bash
-# Debian/Ubuntu
-sudo apt update && sudo apt install -y pandoc texlive-xetex
-
-# Fedora
-sudo dnf install -y pandoc texlive-xetex
+pandoc --version | head -1
+pdflatex --version 2>/dev/null | head -1
+echo "# Test" | pandoc -o /tmp/_pandoc_test.pdf && echo "PDF OK" && rm /tmp/_pandoc_test.pdf
 ```
 
-**Step 3: Verify Installation**
+### Step 5: Report result
+
+```
+==========================================================
+              PANDOC SETUP COMPLETE
+==========================================================
+
+Pandoc:    {version}
+LaTeX:     {version}
+Auto-install: Enabled (no popup dialogs)
+
+Next steps:
+  /pandoc convert yourfile.md pdf
+  /pandoc status    (detailed report)
+==========================================================
+```
+
+### Troubleshooting
+
+| Symptom | Fix |
+|---------|-----|
+| `pandoc: command not found` | Restart terminal, or add to PATH: `$env:LOCALAPPDATA\Pandoc` |
+| `pdflatex: command not found` | Add MiKTeX to PATH: `$env:LOCALAPPDATA\Programs\MiKTeX\miktex\bin\x64` |
+| MiKTeX popup still appears | Re-run: `initexmf.exe --set-config-value="[MPM]AutoInstall=1"` |
+| `parskip.sty not found` | Install package: `miktex packages install parskip` |
+
+---
+
+## status
+
+Detailed installation and capability report.
+
+### Step 1: Gather info
 
 ```bash
-pandoc --version
+# Pandoc
+pandoc --version 2>/dev/null
+which pandoc 2>/dev/null || where pandoc 2>/dev/null
+
+# LaTeX engines
+pdflatex --version 2>/dev/null | head -1
+xelatex --version 2>/dev/null | head -1
+lualatex --version 2>/dev/null | head -1
+
+# MiKTeX auto-install (Windows)
+initexmf --show-config-value="[MPM]AutoInstall" 2>/dev/null
+
+# Format counts
+pandoc --list-input-formats 2>/dev/null | wc -l
+pandoc --list-output-formats 2>/dev/null | wc -l
+pandoc --list-highlight-styles 2>/dev/null | wc -l
 ```
 
-**Step 4: Report Success**
+### Step 2: Display report
 
 ```
-============================================================
-              PANDOC INSTALLATION COMPLETE
-============================================================
+==========================================================
+              PANDOC INSTALLATION STATUS
+==========================================================
 
-Pandoc has been successfully installed!
+PANDOC:
+  Installed:        {YES/NO}
+  Version:          {x.x.x}
+  Location:         {path}
 
-Version:    3.7.0.1
-Location:   [PATH]
+PDF ENGINES:
+  pdflatex:         {Available / Not found}
+  xelatex:          {Available / Not found}
+  lualatex:         {Available / Not found}
 
-NEXT STEPS:
+MIKTEX (Windows):
+  Auto-install:     {Enabled (1) / Disabled (0) / N/A}
 
-1. Test with a simple conversion:
-   pandoc --version
+CAPABILITIES:
+  Input Formats:    {count}
+  Output Formats:   {count}
+  Highlight Styles: {count}
 
-2. Try converting a file:
-   /pandoc-pdf your-document.md
+OPTIONAL TOOLS:
+  pandoc-crossref:  {version / Not installed}
+  citeproc:         Built-in (--citeproc)
 
-3. For PDF generation, ensure LaTeX is installed:
-   - Windows: choco install miktex
-   - macOS: brew install --cask basictex
-   - Linux: apt install texlive-xetex
+RECOMMENDATIONS:
+  {Contextual advice based on what is missing}
+==========================================================
+```
 
-============================================================
+If Pandoc is not installed, show install instructions and suggest `/pandoc setup`.
+
+---
+
+## convert
+
+Explicit file conversion: `/pandoc convert <file> <format> [options]`
+
+### Step 1: Parse arguments
+
+Extract from `$ARGUMENTS` (after stripping the `convert` keyword):
+- `<file>` -- input file path (required, supports globs like `chapters/*.md`)
+- `<format>` -- target format (required): `pdf`, `docx`, `html`, `epub`, `revealjs`, `beamer`, `pptx`, `md`, `rst`, `latex`, `plain`, `odt`, `rtf`, etc.
+- `[options]` -- any remaining flags passed through to pandoc
+
+### Step 2: Validate
+
+```bash
+# Check pandoc exists
+pandoc --version > /dev/null 2>&1 || { echo "[ERROR] Pandoc not installed. Run: /pandoc setup"; exit 1; }
+
+# Check input file exists
+[ -f "$INPUT_FILE" ] || { echo "[ERROR] File not found: $INPUT_FILE"; exit 1; }
+
+# For PDF: check LaTeX
+if [ "$FORMAT" = "pdf" ]; then
+    pdflatex --version > /dev/null 2>&1 || echo "[WARN] LaTeX not found. PDF may fail. Run: /pandoc setup"
+fi
+```
+
+### Step 3: Build and run command
+
+Map format to output extension and pandoc flags:
+
+| Format | Extension | Extra flags |
+|--------|-----------|-------------|
+| `pdf` | `.pdf` | *(none, or `--pdf-engine=xelatex` for Unicode/Arabic)* |
+| `docx` | `.docx` | |
+| `html` | `.html` | `-s` (standalone) |
+| `epub` | `.epub` | |
+| `revealjs` | `.html` | `-t revealjs -s` |
+| `beamer` | `.pdf` | `-t beamer` |
+| `pptx` | `.pptx` | |
+| `md` | `.md` | `-t gfm` |
+| `rst` | `.rst` | |
+| `latex` / `tex` | `.tex` | `-s` |
+| `odt` | `.odt` | |
+| `rtf` | `.rtf` | |
+| `plain` / `txt` | `.txt` | `-t plain` |
+
+Construct the output filename by replacing the input extension with the target extension. Then run:
+
+```bash
+pandoc "$INPUT_FILE" -o "$OUTPUT_FILE" $USER_OPTIONS
+```
+
+Append any user-provided options (`--toc`, `--citeproc`, `--bibliography=...`, `--theme=...`, `--cover=...`, `-N`, etc.) verbatim.
+
+### Step 4: Report
+
+```
+Converted: report.md -> report.pdf
+Size:      142 KB
+Command:   pandoc report.md -o report.pdf --toc -N
+```
+
+### Examples
+
+```
+/pandoc convert report.md pdf
+/pandoc convert report.md pdf --toc --citeproc --bibliography=refs.bib
+/pandoc convert slides.md revealjs --theme=moon
+/pandoc convert chapters/*.md epub --cover=cover.jpg
+/pandoc convert document.docx md
+/pandoc convert paper.md pdf --pdf-engine=xelatex -V mainfont="Amiri"
+/pandoc convert notes.md html --css=style.css --embed-resources --standalone
+/pandoc convert thesis.md latex -s --toc -N
+```
+
+### Multi-file input
+
+When a glob or multiple files are provided, concatenate them:
+
+```bash
+pandoc chapters/01.md chapters/02.md chapters/03.md -o book.pdf --toc
 ```
 
 ---
 
-## `/pandoc help <topic>` - Detailed Help
+## formats
 
-### Topics
-
-**`/pandoc help formats`** - Show all formats:
-
-```
-============================================================
-                  PANDOC SUPPORTED FORMATS
-============================================================
-
-INPUT FORMATS (52):
-  Markdown:    markdown, gfm, commonmark, commonmark_x
-  Documents:   docx, odt, rtf, epub
-  Web:         html, html5
-  Technical:   latex, rst, asciidoc, docbook, jats
-  Wiki:        mediawiki, dokuwiki, tikiwiki, twiki, jira
-  Data:        csv, tsv, json
-  Other:       org, textile, haddock, creole, vimwiki,
-               ipynb (Jupyter), fb2, man, muse, typst
-
-OUTPUT FORMATS (65):
-  Documents:   docx, odt, rtf, pdf (via LaTeX)
-  Web:         html, html5, epub, epub3
-  Technical:   latex, context, rst, asciidoc, docbook, jats
-  Slides:      beamer, revealjs, pptx, slidy, s5, dzslides
-  Wiki:        mediawiki, dokuwiki, jira, xwiki
-  Other:       plain, markdown, gfm, org, texinfo, man,
-               ms, icml, tei, typst, opml
-
-============================================================
-```
-
-**`/pandoc help pdf`** - PDF-specific help
-**`/pandoc help templates`** - Template customization
-**`/pandoc help citations`** - Bibliography handling
-**`/pandoc help slides`** - Presentation creation
-
----
-
-## `/pandoc formats` - Quick Format List
-
-```bash
-# List input formats
-pandoc --list-input-formats
-
-# List output formats
-pandoc --list-output-formats
-```
-
-Display organized by category (see above).
-
----
-
-## `/pandoc quick <file>` - Smart Quick Conversion
-
-Automatically detect input format and suggest appropriate output.
+List all supported input and output formats.
 
 ### Implementation
 
-**Step 1: Detect Input Format**
-
-```python
-import os
-
-file = "${ARGS}"  # User provided file
-ext = os.path.splitext(file)[1].lower()
-
-format_map = {
-    '.md': 'markdown',
-    '.markdown': 'markdown',
-    '.txt': 'plain',
-    '.html': 'html',
-    '.htm': 'html',
-    '.docx': 'docx',
-    '.doc': 'docx',
-    '.tex': 'latex',
-    '.rst': 'rst',
-    '.org': 'org',
-    '.adoc': 'asciidoc',
-    '.epub': 'epub',
-    '.json': 'json',
-    '.csv': 'csv',
-}
-
-input_format = format_map.get(ext, 'markdown')
+```bash
+echo "INPUT FORMATS:"
+pandoc --list-input-formats 2>/dev/null | column
+echo ""
+echo "OUTPUT FORMATS:"
+pandoc --list-output-formats 2>/dev/null | column
 ```
 
-**Step 2: Suggest Output Options**
+Display as a categorized table:
 
 ```
-============================================================
-               QUICK CONVERSION: input.md
-============================================================
+==========================================================
+                PANDOC SUPPORTED FORMATS
+==========================================================
 
-Detected Format: Markdown
+INPUT FORMATS:
+  Markdown:   commonmark, commonmark_x, gfm, markdown,
+              markdown_mmd, markdown_phpextra, markdown_strict
+  Documents:  docx, odt, rtf, epub
+  Web:        html, html5
+  Technical:  latex, rst, asciidoc, asciidoctor, docbook,
+              jats, t2t, typst
+  Wiki:       mediawiki, dokuwiki, tikiwiki, twiki, jira,
+              vimwiki
+  Data:       csv, tsv, json, bibtex, biblatex, endnotexml,
+              ris
+  Notebook:   ipynb (Jupyter)
+  Other:      creole, fb2, haddock, man, muse, org, textile
 
-RECOMMENDED CONVERSIONS:
+OUTPUT FORMATS:
+  Documents:  docx, odt, rtf, pdf (via LaTeX/engine)
+  Web:        html, html5, epub, epub2, epub3
+  Slides:     beamer, revealjs, pptx, slidy, s5, dzslides
+  Technical:  latex, context, rst, asciidoc, asciidoctor,
+              docbook4, docbook5, jats, jats_archiving,
+              jats_articleauthoring, jats_publishing, tei,
+              typst, texinfo
+  Wiki:       mediawiki, dokuwiki, jira, xwiki, zimwiki
+  Plain:      plain, gfm, commonmark, markdown, org, man, ms
+  Other:      icml, opml, fb2, haddock, ipynb, markua,
+              textile, slideous, chunkedhtml
 
-  [1] PDF Document
-      pandoc input.md -o input.pdf
-
-  [2] Word Document
-      pandoc input.md -o input.docx
-
-  [3] HTML Page
-      pandoc -s input.md -o input.html
-
-  [4] EPUB eBook
-      pandoc input.md -o input.epub
-
-Select an option or specify custom output format:
-============================================================
+==========================================================
 ```
-
-**Step 3: Execute User Choice**
-
----
-
-## Natural Language Support
-
-The `/pandoc` command understands natural language requests:
-
-| User Says | Action |
-|-----------|--------|
-| "Convert report.md to PDF" | Run `/pandoc-pdf report.md` |
-| "Turn this Word doc into Markdown" | Run `/pandoc-convert input.docx output.md` |
-| "Make slides from presentation.md" | Run `/pandoc-slides presentation.md` |
-| "Create an eBook from chapters" | Run `/pandoc-epub` with multiple files |
-| "Is Pandoc installed?" | Run `/pandoc status` |
-| "Help me with citations" | Run `/pandoc help citations` |
 
 ---
 
 ## Error Handling
 
-### Pandoc Not Installed
+All sub-commands share these error patterns:
+
+### Pandoc not installed
 
 ```
-[ERROR] Pandoc is not installed on this system.
+[ERROR] Pandoc is not installed.
 
-To install, run: /pandoc setup
+Run:  /pandoc setup
 
-Or manually install from:
-https://github.com/jgm/pandoc/releases
+Or install manually:
+  Windows:  winget install JohnMacFarlane.Pandoc
+  macOS:    brew install pandoc
+  Linux:    sudo apt install pandoc
 ```
 
-### File Not Found
+### File not found
 
 ```
-[ERROR] File not found: document.md
+[ERROR] File not found: {path}
 
-Please check:
-1. The file path is correct
-2. The file exists in the current directory
-3. You have read permissions
-
-Current directory: C:\Users\ahmed\Documents
+Current directory: {cwd}
+Check the path and try again.
 ```
 
-### LaTeX Not Installed (for PDF)
+### LaTeX not installed (PDF only)
 
 ```
-[ERROR] PDF generation requires LaTeX.
+[ERROR] PDF generation requires a LaTeX engine.
 
-LaTeX is not installed. To generate PDFs, install:
+Run:  /pandoc setup
 
-  Windows:  choco install miktex
-  macOS:    brew install --cask basictex
-  Linux:    apt install texlive-xetex
+Or install manually:
+  Windows:  winget install MiKTeX.MiKTeX
+  macOS:    brew install --cask mactex
+  Linux:    sudo apt install texlive-xetex
 
-Alternative: Use HTML output instead:
-  pandoc input.md -o output.html
+Alternative: convert to HTML instead:
+  /pandoc convert {file} html
+```
+
+### Missing LaTeX package
+
+```
+[ERROR] LaTeX package missing: {package}.sty
+
+Fix:
+  Windows (MiKTeX):  miktex packages install {package}
+  Linux (TeX Live):  tlmgr install {package}
+
+Or run /pandoc setup to pre-install all common packages.
 ```
 
 ---
 
-## Examples
+## Natural Language Support
 
-### Basic Usage
+The `/pandoc` command understands natural language. Map intent to sub-commands:
 
-**User**: `/pandoc`
-**Claude**: Shows capabilities overview
-
-**User**: `/pandoc status`
-**Claude**: Checks and reports installation status
-
-**User**: `/pandoc setup`
-**Claude**: Guides through installation process
-
-**User**: `/pandoc quick report.md`
-**Claude**: Suggests conversion options for the file
-
-**User**: "Convert my document to PDF"
-**Claude**: Identifies file and runs appropriate conversion
+| User says | Action |
+|-----------|--------|
+| "Convert report.md to PDF" | `/pandoc convert report.md pdf` |
+| "Turn this docx into markdown" | `/pandoc convert file.docx md` |
+| "Make slides from presentation.md" | `/pandoc convert presentation.md revealjs` |
+| "Create an eBook" | `/pandoc convert file.md epub` |
+| "Is pandoc installed?" | `/pandoc status` |
+| "Install pandoc" | `/pandoc setup` |
+| "What formats are supported?" | `/pandoc formats` |
+| "Help with citations" | `/pandoc help citations` |
 
 ---
 
-## Related Commands
-
-| Command | Description |
-|---------|-------------|
-| `/pandoc-pdf` | Specialized PDF conversion |
-| `/pandoc-docx` | Word document conversion |
-| `/pandoc-html` | HTML generation |
-| `/pandoc-epub` | eBook creation |
-| `/pandoc-slides` | Presentation creation |
-| `/pandoc-convert` | General format conversion |
-| `/pandoc-batch` | Batch file conversion |
+> Previously available as separate commands: `/pandoc-pdf`, `/pandoc-docx`, `/pandoc-html`,
+> `/pandoc-epub`, `/pandoc-slides`, `/pandoc-convert`, `/pandoc-setup`.
+> All functionality is now in `/pandoc` or handled by the skill via natural language.
 
 ---
 
-*Pandoc Plugin v1.0*
-*Universal Document Conversion for Claude Code*
+*Pandoc Plugin v2.0 - Unified Command Interface*
