@@ -52,6 +52,13 @@ description: |
   assistant: "I will audit access rules, HTTP routes, sudo usage, and SQL injection risks across all files in the module."
   <commentary>Full audit trigger - comprehensive security review.</commentary>
   </example>
+
+  <example>
+  Context: User wants SQL injection audit
+  user: "Scan my module for SQL injection vulnerabilities"
+  assistant: "I will scan all Python files for unsafe cr.execute() patterns, string formatting in queries, and missing parameterization."
+  <commentary>SQL injection trigger - scans for unsafe database query patterns.</commentary>
+  </example>
 version: "2.0.0"
 author: "TaqaTechno"
 license: "MIT"
