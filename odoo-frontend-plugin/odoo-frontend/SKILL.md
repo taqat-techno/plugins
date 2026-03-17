@@ -24,6 +24,20 @@ description: |
   assistant: "I will use the odoo-frontend skill with Figma MCP to extract design tokens and convert them into Odoo theme SCSS variables and Bootstrap-compatible layouts."
   <commentary>Design-to-code workflow with Figma MCP integration.</commentary>
   </example>
+
+  <example>
+  Context: User needs theme mirror models for website pages
+  user: "Create theme mirror models for my website pages"
+  assistant: "I will use the odoo-frontend skill to generate theme.ir.ui.view and theme.website.page records following Odoo core patterns."
+  <commentary>Mirror model trigger - theme record generation for multi-website support.</commentary>
+  </example>
+
+  <example>
+  Context: User wants to create a theme from Figma
+  user: "Build an Odoo 17 theme from this Figma design"
+  assistant: "I will use the odoo-frontend skill to extract design tokens from Figma and generate a complete theme module with SCSS variables, mirror models, and page templates."
+  <commentary>Theme creation trigger - Figma-to-Odoo pipeline. Use /odoo-frontend create-theme for the guided workflow.</commentary>
+  </example>
 version: "7.0.0"
 author: "TAQAT Techno"
 license: "MIT"
@@ -47,7 +61,10 @@ metadata:
   theme-features: ["o-website-values-palettes", "mirror-models", "snippet-groups", "color-palettes"]
 ---
 
-# Odoo Frontend Development Skill v6.0
+# Odoo Frontend Development Skill v5.0
+
+> **v5.0 Architecture**: Theme mirror model creation is handled via natural language.
+> For the guided Figma-to-Odoo theme pipeline, use `/odoo-frontend create-theme`.
 
 ## Overview
 
