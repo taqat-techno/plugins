@@ -24,7 +24,42 @@ description: |
   assistant: "I will use the odoo-service skill to generate a .run/odoo-service.xml run configuration pointing to the correct Python interpreter and config file."
   <commentary>IDE integration trigger - run config generation.</commentary>
   </example>
-version: "1.0.0"
+
+  <example>
+  Context: User wants to start the Odoo server
+  user: "Start the Odoo 17 server for my TAQAT project"
+  assistant: "I will activate the virtual environment, locate the TAQAT17.conf config, and start the server with the correct addons path."
+  <commentary>Server start trigger.</commentary>
+  </example>
+
+  <example>
+  Context: User wants to stop the server
+  user: "Stop the Odoo server"
+  assistant: "I will find and kill the process on port 8069/8072."
+  <commentary>Server stop trigger.</commentary>
+  </example>
+
+  <example>
+  Context: User wants database backup
+  user: "Backup the taqat17 database"
+  assistant: "I will use pg_dump to create a backup of the taqat17 database with custom format."
+  <commentary>Database operation trigger.</commentary>
+  </example>
+
+  <example>
+  Context: User wants IDE configuration
+  user: "Set up VSCode for my Odoo 17 project with debug configs"
+  assistant: "I will generate .vscode/launch.json, tasks.json, settings.json, and extensions.json with Odoo-specific configurations."
+  <commentary>IDE config trigger - generates full VSCode workspace setup.</commentary>
+  </example>
+
+  <example>
+  Context: User wants to initialize a new environment
+  user: "Initialize a new Odoo 17 environment with database"
+  assistant: "I will create a venv, install requirements, configure PostgreSQL, generate .conf, and create the database."
+  <commentary>Environment init trigger.</commentary>
+  </example>
+version: "2.0.0"
 author: "TaqaTechno"
 license: "MIT"
 allowed-tools:
@@ -41,6 +76,9 @@ metadata:
   ide-support: ["pycharm", "vscode", "any"]
   categories: [server-management, deployment, database, docker, ide-integration]
 ---
+
+> **v2.0 Architecture**: All operations available via `/odoo-service` sub-commands or natural language.
+> Enhanced IDE config: generates VSCode (launch+tasks+settings+extensions) + PyCharm + .editorconfig.
 
 # Odoo Service Skill
 
