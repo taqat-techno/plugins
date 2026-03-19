@@ -125,10 +125,7 @@ Before any DevOps operation, check for the user's profile:
    c. Build team member lookup: Map(alias → {name, email, guid})
       - Include "me", "myself", "I" → current user's identity
    d. Set session context: currentProject = profile.defaultProject
-   e. Load statePermissions from profile YAML
-      - These permissions are checked BEFORE any state transition
-        (see validators/state_transition_validator.md)
-   f. Log: "Profile loaded: {displayName} ({role}) — {defaultProject}"
+   e. Log: "Profile loaded: {displayName} ({role}) — {defaultProject}"
 3. If NOT found:
    a. Show suggestion: "No DevOps profile found. Run /init profile for faster operations."
    b. Fall back to API-based resolution (existing behavior)
@@ -290,7 +287,7 @@ Quick reference for common CLI commands. Use these when Claude selects CLI for a
 az boards work-item create --title "Task Title" --type Task --project "Project"
 
 # Update work item
-az boards work-item update --id 123 --state "In Progress"
+az boards work-item update --id 123 --state Active
 
 # Query work items (WIQL)
 az boards query --wiql "SELECT [System.Id], [System.Title] FROM WorkItems WHERE [System.AssignedTo] = @Me"
@@ -425,9 +422,9 @@ done
 wait
 
 # Query and pipe to another command
-az boards query --wiql "SELECT [System.Id] FROM WorkItems WHERE [System.State] = 'To Do'" \
+az boards query --wiql "SELECT [System.Id] FROM WorkItems WHERE [System.State] = 'New'" \
   --query "[].id" -o tsv | while read id; do
-    az boards work-item update --id $id --state "In Progress"
+    az boards work-item update --id $id --state Active
   done
 ```
 
@@ -786,34 +783,22 @@ Claude MUST validate **BEFORE** executing any state change on work items:
 |----------------|----------|-----------------|----------|
 | **Task** | Done | `OriginalEstimate`, `CompletedWork` | `RemainingWork=0` |
 | **Bug** | Resolved | `ResolvedReason` (default: "Fixed") | - |
-| **PBI** | Done | - | **BLOCKED unless "Ready For QC"** → Must go through QC checkpoint |
+| **User Story** | Done | - | **BLOCKED from Active** → Must go through "Ready for QC" |
 
-#### State Machine Enforcement — TaqaTechno Real States
-
-All work item types follow TaqaTechno's actual Azure DevOps process template states:
+#### State Machine Enforcement (User Stories)
 
 ```
-WORK ITEM STATE MACHINES (with role annotations):
+User Story CANNOT go directly from Active → Done!
 
-Task:          To Do → In Progress (any) → Done (dev only) → Closed (PM only) → Removed (PM only)
-Bug:           New → Approved (QA) → In Progress (dev) → Resolved (dev) → Done (QA) → Closed (PM) → Removed (PM)
-                     └→ Return (QA) → In Progress (dev) [rejection loop]
-PBI:           New → Approved (PM) → Committed (PM) → In Progress (dev) → Ready For QC (dev) → Done (QA) → Removed (PM)
-                     └→ Return (QA) → In Progress (dev) [rejection loop]
-User Story:    New → Committed (PM) → Done (PM/QA)
-Enhancement:   New → Committed (PM) → Return (QA) → Done (PM/QA) → Closed (PM)
-Feature:       New → In Progress (PM) → Done (PM) → Removed (PM)
-Epic:          New → In Progress (PM) → Done (PM) → Removed (PM)
+Required path: Active → Ready for QC → Done
+                            ↑
+                            │ MANDATORY QC CHECKPOINT
+                            │
+If user tries Active → Done:
+  → BLOCK the transition
+  → EXPLAIN: "User Stories must pass through Ready for QC"
+  → OFFER: "Move to Ready for QC first?"
 ```
-
-**Role Legend**: any = any team member, dev = developer, QA = tester/QC, PM = project manager/lead
-
-**Key Rules**:
-- PBI CANNOT go directly to Done — must pass through "Ready For QC" first
-- Bug has a Return rejection loop (QA sends back to dev)
-- PBI has a Return rejection loop (QA sends back to dev)
-- Only PM can close Tasks, Bugs, and Enhancements
-- Only PM can remove any work item type
 
 #### Example: Task → Done Pre-Flight
 
@@ -851,39 +836,21 @@ mcp__azure-devops__wit_update_work_item({
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│            TAQATECHNO STATE TRANSITION RULES                     │
+│                 STATE TRANSITION RULES                           │
 ├─────────────────────────────────────────────────────────────────┤
 │  TASK → Done                                                    │
-│  ├── Path: To Do → In Progress → Done → Closed → Removed       │
 │  ├── REQUIRES: OriginalEstimate (hours)                         │
 │  ├── REQUIRES: CompletedWork (hours)                            │
-│  ├── AUTO-SET: RemainingWork = 0                                │
-│  └── Done (dev only), Closed (PM only)                          │
+│  └── AUTO-SET: RemainingWork = 0                                │
 ├─────────────────────────────────────────────────────────────────┤
 │  BUG → Resolved                                                 │
-│  ├── Path: New → Approved → In Progress → Resolved → Done       │
-│  │         → Closed → Removed                                   │
-│  │         └→ Return → In Progress [rejection loop]             │
-│  ├── REQUIRES: ResolvedReason (default: "Fixed")                │
-│  │   Options: Fixed, As Designed, Cannot Reproduce,             │
-│  │            Deferred, Duplicate, Not a Bug, Obsolete          │
-│  └── Approved (QA), Resolved (dev), Done (QA), Closed (PM)     │
+│  └── REQUIRES: ResolvedReason (default: "Fixed")                │
+│      Options: Fixed, As Designed, Cannot Reproduce,             │
+│               Deferred, Duplicate, Not a Bug, Obsolete          │
 ├─────────────────────────────────────────────────────────────────┤
-│  PBI → Done                                                     │
-│  ├── Path: New → Approved → Committed → In Progress             │
-│  │         → Ready For QC → Done → Removed                      │
-│  │         └→ Return → In Progress [rejection loop]             │
-│  └── ⚠️ BLOCKED unless current state is "Ready For QC"          │
-│      Approved (PM), Committed (PM), In Progress (dev),          │
-│      Ready For QC (dev), Done (QA)                              │
-├─────────────────────────────────────────────────────────────────┤
-│  USER STORY: New → Committed (PM) → Done (PM/QA)               │
-├─────────────────────────────────────────────────────────────────┤
-│  ENHANCEMENT: New → Committed (PM) → Return (QA) → Done (PM)   │
-│               → Closed (PM)                                     │
-├─────────────────────────────────────────────────────────────────┤
-│  FEATURE / EPIC: New → In Progress (PM) → Done (PM)            │
-│                  → Removed (PM)                                 │
+│  USER STORY → Done                                              │
+│  └── ⚠️ BLOCKED if current state is "Active"                    │
+│      MUST go: Active → Ready for QC → Done                      │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -1205,8 +1172,8 @@ Found potential parent stories:
 
 | # | ID | Title | State |
 |---|-----|-------|-------|
-| 1 | #100 | User Authentication Feature | In Progress |
-| 2 | #105 | Login Page Implementation | In Progress |
+| 1 | #100 | User Authentication Feature | Active |
+| 2 | #105 | Login Page Implementation | Active |
 
 Which User Story should this task be under?
 ```
@@ -1287,7 +1254,7 @@ Epic #10: Platform Modernization
               ├── Bug #200: Login fails on Safari
               └── Enhancement #210: Improve login form UX
 
-State: In Progress | Sprint: Sprint 15
+State: Active | Sprint: Sprint 15
 ```
 
 #### Quick Reference
@@ -1438,19 +1405,19 @@ Claude Response:
 
 **Invalid State Transition:**
 ```
-Error: TF401347 - Invalid state transition from 'In Progress' to 'Done'
+Error: TF401347 - Invalid state transition from 'Active' to 'Done'
 
 Claude Response:
 ┌────────────────────────────────────────────────────────────────┐
-│ ⚠️ Cannot move PBI #1000 directly to Done                       │
+│ ⚠️ Cannot move User Story #1000 directly to Done                │
 │                                                                │
-│ **Reason**: PBIs must pass through Ready For QC                │
+│ **Reason**: User Stories must pass through QC                  │
 │                                                                │
 │ **Required Path**:                                             │
-│ In Progress → Ready For QC → Done                              │
+│ Active → Ready for QC → Done                                   │
 │                                                                │
 │ **Options**:                                                   │
-│ 1. Move to "Ready For QC" first (recommended)                  │
+│ 1. Move to "Ready for QC" first (recommended)                  │
 │ 2. Move through both states now                                │
 │                                                                │
 │ Which would you like to do?                                    │
@@ -1519,18 +1486,12 @@ Before executing operations, validate to prevent errors:
 
 | Operation | Pre-Flight Checks |
 |-----------|-------------------|
-| **Task → Done** | OriginalEstimate set? CompletedWork set? Role is dev? |
-| **Bug → Approved** | Role is QA? |
-| **Bug → Resolved** | ResolvedReason selected? Role is dev? |
-| **Bug → Done** | Role is QA? |
-| **Bug → Closed** | Role is PM? |
-| **PBI → Done** | Current state is "Ready For QC"? Role is QA? |
-| **PBI → Return** | Role is QA? Rejection reason provided? |
-| **Enhancement → Done** | Role is PM/QA? |
-| **Enhancement → Closed** | Role is PM? |
+| **Task → Done** | OriginalEstimate set? CompletedWork set? |
+| **Bug → Resolved** | ResolvedReason selected? |
+| **User Story → Done** | Current state is "Ready for QC"? |
 | **Create PR** | Source branch exists? Target branch exists? Different branches? |
 | **Link to PR** | Repository GUID resolved? PR exists? |
-| **Create Task** | Parent User Story/PBI specified? |
+| **Create Task** | Parent User Story specified? |
 | **Create Bug** | Parent User Story/PBI specified? |
 | **Create Enhancement** | Parent User Story/PBI specified? |
 
@@ -1548,7 +1509,7 @@ Before executing operations, validate to prevent errors:
 │  → Update all fields in single call                             │
 │                                                                  │
 │  "Invalid state transition" (TF401347)                          │
-│  → Show required intermediate states (see TaqaTechno states)    │
+│  → Show required intermediate states                            │
 │  → Offer to do multi-step transition                            │
 │                                                                  │
 │  "Not found" (TF401019)                                         │
@@ -2070,33 +2031,28 @@ Before ANY `wit_create_work_item` or `wit_update_work_item` call:
 #### Task State Transitions
 
 ```
-┌────────┐     ┌─────────────┐     ┌──────┐     ┌────────┐     ┌─────────┐
-│ To Do  │ ──► │ In Progress │ ──► │ Done │ ──► │ Closed │ ──► │ Removed │
-└────────┘     └─────────────┘     └──────┘     └────────┘     └─────────┘
-                                     ▲
-                                     │ REQUIRES:
-                                     │ - Original Estimate
-                                     │ - Completed Work
+┌──────┐     ┌────────┐     ┌──────┐
+│ New  │ ──► │ Active │ ──► │ Done │
+└──────┘     └────────┘     └──────┘
+                              ▲
+                              │ REQUIRES:
+                              │ - Original Estimate
+                              │ - Completed Work
 ```
 
-| From State | To State | Required Fields | Ask User If Missing | Role |
-|------------|----------|-----------------|---------------------|------|
-| To Do | In Progress | None | - | any |
-| In Progress | Done | `OriginalEstimate`, `CompletedWork` | **YES - ALWAYS ASK!** | dev |
-| To Do | Done | `OriginalEstimate`, `CompletedWork` | **YES - ALWAYS ASK!** | dev |
-| Done | Closed | None | - | PM only |
-| Any | Removed | None | - | PM only |
+| From State | To State | Required Fields | Ask User If Missing |
+|------------|----------|-----------------|---------------------|
+| New | Active | None | - |
+| Active | Done | `OriginalEstimate`, `CompletedWork` | **YES - ALWAYS ASK!** |
+| New | Done | `OriginalEstimate`, `CompletedWork` | **YES - ALWAYS ASK!** |
+| Any | Removed | None | - |
 
 **Example Validation for Task → Done:**
 ```
 User: "Set task #1234 to Done"
 
 Claude MUST:
-1. Check statePermissions from profile:
-   - If user role is PM → BLOCKED (only devs can move Task to Done)
-   - Show: "Your role (PM) cannot move Tasks to Done. Only developers can."
-
-2. Get current work item details:
+1. Get current work item details:
    mcp__azure-devops__wit_get_work_item({
      "project": "ProjectName",
      "id": 1234,
@@ -2104,18 +2060,16 @@ Claude MUST:
                 "Microsoft.VSTS.Scheduling.CompletedWork"]
    })
 
-3. Check current state is "In Progress" (not "To Do" — must be In Progress first)
+2. Check if OriginalEstimate and CompletedWork have values
 
-4. Check if OriginalEstimate and CompletedWork have values
-
-5. IF MISSING - ASK USER:
+3. IF MISSING - ASK USER:
    "To mark task #1234 as Done, I need:
    - Original Estimate (hours): [currently not set]
    - Completed Work (hours): [currently not set]
 
    Please provide these values."
 
-6. ONLY after user provides values, make the update:
+4. ONLY after user provides values, make the update:
    mcp__azure-devops__wit_update_work_item({
      "id": 1234,
      "updates": [
@@ -2129,116 +2083,59 @@ Claude MUST:
 #### Bug State Transitions
 
 ```
-┌──────┐     ┌──────────┐     ┌─────────────┐     ┌──────────┐     ┌──────┐     ┌───────────┐     ┌──────┐     ┌────────┐     ┌─────────┐
-│ New  │ ──► │ Approved │ ──► │ In Progress │ ──► │ Resolved │ ──► │ Done │ ──► │ Committed │ ──► │ Done │ ──► │ Closed │ ──► │ Removed │
-└──────┘     └──────────┘     └─────────────┘     └──────────┘     └──────┘     └───────────┘     └──────┘     └────────┘     └─────────┘
-                                     ▲                                │
-                                     │          ┌────────┐            │
-                                     └──────────│ Return │◄───────────┘
-                                                └────────┘
-                                              [rejection loop]
+┌──────┐     ┌────────┐     ┌──────────┐     ┌────────┐
+│ New  │ ──► │ Active │ ──► │ Resolved │ ──► │ Closed │
+└──────┘     └────────┘     └──────────┘     └────────┘
+                              ▲
+                              │ REQUIRES:
+                              │ - Resolution
 ```
 
-Full Bug path: New → Approved → In Progress → Resolved → Return → Committed → Done → Closed → Removed
+| From State | To State | Required Fields | Ask User If Missing |
+|------------|----------|-----------------|---------------------|
+| New | Active | None | - |
+| Active | Resolved | `Microsoft.VSTS.Common.ResolvedReason` | **YES** |
+| Resolved | Closed | None | - |
 
-| From State | To State | Required Fields | Ask User If Missing | Role |
-|------------|----------|-----------------|---------------------|------|
-| New | Approved | None | - | QA |
-| Approved | In Progress | None | - | dev |
-| In Progress | Resolved | `Microsoft.VSTS.Common.ResolvedReason` | **YES** | dev |
-| Resolved | Return | Rejection reason | **YES** | QA |
-| Return | In Progress | None | - | dev |
-| Resolved | Done | None | - | QA |
-| Done | Closed | None | - | PM |
-| Any | Removed | None | - | PM |
-
-#### User Story State Transitions
+#### User Story / PBI State Transitions
 
 ```
-┌──────┐     ┌───────────┐     ┌──────┐
-│ New  │ ──► │ Committed │ ──► │ Done │
-└──────┘     └───────────┘     └──────┘
+┌──────┐     ┌────────┐     ┌──────────────┐     ┌──────┐     ┌────────┐
+│ New  │ ──► │ Active │ ──► │ Ready for QC │ ──► │ Done │ ──► │ Closed │
+└──────┘     └────────┘     └──────────────┘     └──────┘     └────────┘
+                                   ▲
+                                   │ REQUIRED before Done:
+                                   │ - Must pass through "Ready for QC"
+                                   │ - All child Tasks must be Done
 ```
 
-| From State | To State | Required/Recommended | Ask User If Missing | Role |
-|------------|----------|---------------------|---------------------|------|
-| New | Committed | None | - | PM |
-| Committed | Done | All child PBIs must be Done | **WARN if PBIs incomplete** | PM/QA |
+| From State | To State | Required/Recommended | Ask User If Missing |
+|------------|----------|---------------------|---------------------|
+| New | Active | None | - |
+| Active | Ready for QC | All child Tasks must be Done | **WARN if tasks incomplete** |
+| Ready for QC | Done | Acceptance Criteria verified | **ASK for confirmation** |
+| Done | Closed | QA sign-off | - |
+| **Active** | **Done** | **❌ NOT ALLOWED DIRECTLY** | **ENFORCE Ready for QC first** |
+| **New** | **Done** | **❌ NOT ALLOWED DIRECTLY** | **ENFORCE Ready for QC first** |
 
-#### PBI (Product Backlog Item) State Transitions
+### ⚠️ CRITICAL RULE: User Story → Done Requires Ready for QC
 
-```
-┌──────┐     ┌──────────┐     ┌───────────┐     ┌─────────────┐     ┌───────────────┐     ┌──────┐     ┌─────────┐
-│ New  │ ──► │ Approved │ ──► │ Committed │ ──► │ In Progress │ ──► │ Ready For QC  │ ──► │ Done │ ──► │ Removed │
-└──────┘     └──────────┘     └───────────┘     └─────────────┘     └───────────────┘     └──────┘     └─────────┘
-                                                        ▲                   │
-                                                        │     ┌────────┐    │
-                                                        └─────│ Return │◄───┘
-                                                              └────────┘
-                                                            [rejection loop]
-```
-
-| From State | To State | Required/Recommended | Ask User If Missing | Role |
-|------------|----------|---------------------|---------------------|------|
-| New | Approved | None | - | PM |
-| Approved | Committed | None | - | PM |
-| Committed | In Progress | None | - | dev |
-| In Progress | Ready For QC | All child Tasks must be Done | **WARN if tasks incomplete** | dev |
-| Ready For QC | Done | Acceptance Criteria verified | **ASK for confirmation** | QA |
-| Ready For QC | Return | Rejection reason | **YES** | QA |
-| Return | In Progress | None | - | dev |
-| **In Progress** | **Done** | **NOT ALLOWED DIRECTLY** | **ENFORCE Ready For QC first** | - |
-| **New/Approved/Committed** | **Done** | **NOT ALLOWED DIRECTLY** | **ENFORCE Ready For QC first** | - |
-| Any | Removed | None | - | PM |
-
-#### Enhancement State Transitions
+**MANDATORY**: User Stories CANNOT transition directly to "Done" from any state other than "Ready for QC"!
 
 ```
-┌──────┐     ┌───────────┐     ┌────────┐     ┌──────┐     ┌────────┐
-│ New  │ ──► │ Committed │ ──► │ Return │ ──► │ Done │ ──► │ Closed │
-└──────┘     └───────────┘     └────────┘     └──────┘     └────────┘
-```
+User Story State Machine (ENFORCED):
 
-| From State | To State | Required/Recommended | Ask User If Missing | Role |
-|------------|----------|---------------------|---------------------|------|
-| New | Committed | None | - | PM |
-| Committed | Return | Rejection reason | **YES** | QA |
-| Committed | Done | None | - | PM/QA |
-| Return | Done | None | - | PM/QA |
-| Done | Closed | None | - | PM |
-
-#### Feature / Epic State Transitions
-
-```
-┌──────┐     ┌─────────────┐     ┌──────┐     ┌─────────┐
-│ New  │ ──► │ In Progress │ ──► │ Done │ ──► │ Removed │
-└──────┘     └─────────────┘     └──────┘     └─────────┘
-```
-
-| From State | To State | Required/Recommended | Ask User If Missing | Role |
-|------------|----------|---------------------|---------------------|------|
-| New | In Progress | None | - | PM |
-| In Progress | Done | All child items should be Done | **WARN if children incomplete** | PM |
-| Any | Removed | None | - | PM |
-
-### CRITICAL RULE: PBI → Done Requires Ready For QC
-
-**MANDATORY**: PBIs CANNOT transition directly to "Done" from any state other than "Ready For QC"!
-
-```
-PBI State Machine (ENFORCED):
-
-┌──────────────────────────────────────────────────────────────────────────────────┐
-│                         PBI STATE TRANSITIONS                                     │
-├──────────────────────────────────────────────────────────────────────────────────┤
-│                                                                                   │
-│  New → Approved → Committed → In Progress → Ready For QC → Done → Removed        │
-│                                      ▲            │                               │
-│                                      └── Return ◄─┘  [rejection loop]            │
-│                                                                                   │
-│  ⚠️ MANDATORY QC CHECKPOINT: Cannot skip Ready For QC to reach Done!             │
-│                                                                                   │
-└──────────────────────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────┐
+│                    USER STORY STATE TRANSITIONS                       │
+├──────────────────────────────────────────────────────────────────────┤
+│                                                                       │
+│   New  ──►  Active  ──►  Ready for QC  ──►  Done  ──►  Closed       │
+│                              ▲                                        │
+│                              │                                        │
+│            ⚠️ MANDATORY CHECKPOINT                                    │
+│            Cannot skip to Done!                                       │
+│                                                                       │
+└──────────────────────────────────────────────────────────────────────┘
 ```
 
 **Why This Rule Exists:**
@@ -2247,49 +2144,43 @@ PBI State Machine (ENFORCED):
 - Prevents accidental completion without testing
 - Maintains proper workflow discipline
 
-**Example Validation for PBI → Done:**
+**Example Validation for User Story → Done:**
 ```
-User: "Set PBI #1000 to Done"
+User: "Set user story #1000 to Done"
 
 Claude MUST:
-1. Check statePermissions from profile:
-   - If user role is dev → BLOCKED (only QA can move PBI to Done)
-   - Show: "Your role (developer) cannot move PBIs to Done. Only QA can."
-
-2. Get current work item details:
+1. Get current work item details:
    mcp__azure-devops__wit_get_work_item({
      "project": "ProjectName",
      "id": 1000,
      "fields": ["System.State", "System.WorkItemType"]
    })
 
-3. Check current state:
-   - If state is "Ready For QC" → Proceed to Done (QA role required)
-   - If state is NOT "Ready For QC" → MUST transition through intermediate states first
+2. Check current state:
+   - If state is "Ready for QC" → Proceed to Done
+   - If state is NOT "Ready for QC" → MUST transition to Ready for QC first
 
-4. IF NOT "Ready For QC" - ENFORCE INTERMEDIATE STATES:
-   "⚠️ PBI #1000 is currently in '{currentState}' state.
+3. IF NOT "Ready for QC" - ENFORCE INTERMEDIATE STATE:
+   "⚠️ User Story #1000 is currently in '{currentState}' state.
 
-   Before marking as Done, it must pass through 'Ready For QC' for quality review.
-
-   Required path: {currentState} → ... → Ready For QC → Done
+   Before marking as Done, it must pass through 'Ready for QC' for quality review.
 
    Shall I:
-   1. Move it to 'Ready For QC' now (you can then mark it Done after QA review)
-   2. Move it through all intermediate states now?
+   1. Move it to 'Ready for QC' now (you can then mark it Done after QA)
+   2. Move it to 'Ready for QC' AND then to 'Done' in one workflow?
 
    Please confirm the approach."
 
-5. If user confirms option 2 (all transitions):
-   // Walk through each required intermediate state
-   // e.g., if currently "In Progress":
+4. If user confirms option 2 (both transitions):
+   // First transition: Current → Ready for QC
    await mcp__azure-devops__wit_update_work_item({
      "id": 1000,
      "updates": [
-       {"path": "/fields/System.State", "value": "Ready For QC"}
+       {"path": "/fields/System.State", "value": "Ready for QC"}
      ]
    });
 
+   // Second transition: Ready for QC → Done
    await mcp__azure-devops__wit_update_work_item({
      "id": 1000,
      "updates": [
@@ -2297,26 +2188,24 @@ Claude MUST:
      ]
    });
 
-6. Confirm to user:
-   "PBI #1000 has been moved:
+5. Confirm to user:
+   "✅ User Story #1000 has been moved:
     - From: {originalState}
-    - Through: Ready For QC (QA checkpoint)
+    - Through: Ready for QC (QA checkpoint)
     - To: Done
 
-    The PBI passed through the required QA checkpoint."
+    The story passed through the required QA checkpoint."
 ```
 
-**Quick Reference - PBI State Rule:**
+**Quick Reference - User Story State Rule:**
 
 | Current State | User Wants "Done" | Action Required |
 |---------------|------------------|-----------------|
-| New | Block | Transition: New → Approved → Committed → In Progress → Ready For QC → Done |
-| Approved | Block | Transition: Approved → Committed → In Progress → Ready For QC → Done |
-| Committed | Block | Transition: Committed → In Progress → Ready For QC → Done |
-| In Progress | Block | Transition: In Progress → Ready For QC → Done |
-| Ready For QC | Allow | Direct transition to Done (QA role only) |
+| New | ❌ Block | Transition: New → Active → Ready for QC → Done |
+| Active | ❌ Block | Transition: Active → Ready for QC → Done |
+| Ready for QC | ✅ Allow | Direct transition to Done |
 | Done | N/A | Already Done |
-| Return | Block | Transition: Return → In Progress → Ready For QC → Done |
+| Closed | N/A | Reopen first |
 
 ### Pre-Update Validation Workflow
 
@@ -2411,7 +2300,7 @@ const item = await mcp__azure-devops__wit_get_work_item({
 });
 
 // Step 2: Check required fields
-// Current: OriginalEstimate = null, CompletedWork = null, State = "In Progress"
+// Current: OriginalEstimate = null, CompletedWork = null, State = "Active"
 
 // Step 3: User provided CompletedWork (6), but OriginalEstimate missing
 // ASK: "What was the original estimate for this task?"
@@ -2463,7 +2352,7 @@ When presenting Azure DevOps data, use consistent formatting:
 ### Work Items
 ```
 [Bug] #1234: Fix login button not responding
-   State: In Progress | Priority: 2 | Severity: 2
+   State: Active | Priority: 2 | Severity: 2
    Assigned: Ahmed | Sprint: Sprint 15
 ```
 
@@ -2531,17 +2420,14 @@ WRONG RESPONSE:
 
 | When User Says | Check Before Proceeding |
 |----------------|------------------------|
-| "Mark task as done" | OriginalEstimate, CompletedWork, role is dev |
-| "Approve this bug" | Role is QA |
-| "Resolve this bug" | ResolvedReason, role is dev |
-| "Close this bug" | Role is PM, bug must be in Done state |
-| "Create a bug" | **Parent User Story/PBI specified** |
+| "Mark task as done" | OriginalEstimate, CompletedWork |
+| "Close this bug" | ResolvedReason (if not Resolved yet) |
+| "Create a bug" | **Parent Task specified** |
 | "Create a task" | Parent User Story/PBI specified |
+| "Move story to resolved" | All child tasks are Done |
 | "Create user story" | AcceptanceCriteria, Description, Parent Feature |
-| **"Mark PBI as done"** | **Current state MUST be "Ready For QC" - enforce intermediate state! Role must be QA** |
-| **"Set PBI to done"** | **If not "Ready For QC", transition through intermediate states first** |
-| "Return this PBI" | Role is QA, rejection reason provided |
-| "Close enhancement" | Role is PM |
+| **"Mark story as done"** | **Current state MUST be "Ready for QC" - enforce intermediate state!** |
+| **"Set user story to done"** | **If not "Ready for QC", transition to "Ready for QC" first** |
 
 ### Proactive Validation Example
 
@@ -2604,14 +2490,10 @@ async function validateTaskDone(project, taskId) {
    - Acceptance Criteria (for stories)
    - **OriginalEstimate** (for tasks you expect to close)
 
-6. **Validate state transitions (TaqaTechno states)**
-   - Task: To Do → In Progress → Done (dev) → Closed (PM)
-   - Bug: New → Approved (QA) → In Progress (dev) → Resolved (dev) → Done (QA) → Closed (PM)
-   - PBI: New → Approved (PM) → Committed → In Progress → Ready For QC → Done (QA)
-   - Check user role permissions from statePermissions before any transition
+6. **Validate state transitions**
    - Task → Done: Needs OriginalEstimate + CompletedWork
    - Bug → Resolved: Needs ResolvedReason
-   - PBI → Done: Must be in Ready For QC first, check all child tasks are Done
+   - Story → Resolved: Check all tasks are Done first
 
 7. **Use WIQL for complex queries**
    - More powerful than simple filters

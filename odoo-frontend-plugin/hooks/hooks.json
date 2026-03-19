@@ -1,5 +1,6 @@
 {
-  "PostToolUse": [
+  "hooks": {
+    "PostToolUse": [
     {
       "name": "SCSS compilation reminder",
       "matcher": "(Write|Edit).*\\.(scss|sass)$",
@@ -184,4 +185,5 @@
       ]
     }
   ]
+  }
 }

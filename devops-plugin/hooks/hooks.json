@@ -1,5 +1,6 @@
 {
-  "PostToolUse": [
+  "hooks": {
+    "PostToolUse": [
     {
       "name": "Suggest task sync on session start",
       "matcher": "session.*start|context.*load|Read.*CLAUDE\\.md",
@@ -162,4 +163,5 @@
       ]
     }
   ]
+  }
 }

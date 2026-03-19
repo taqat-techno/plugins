@@ -1,5 +1,6 @@
 {
-  "PostToolUse": [
+  "hooks": {
+    "PostToolUse": [
     {
       "name": "Auto-detect upgrade needs",
       "matcher": "(Write|Edit).*__manifest__\\.py",
@@ -177,4 +178,5 @@
       ]
     }
   ]
+  }
 }

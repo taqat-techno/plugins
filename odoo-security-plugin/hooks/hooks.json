@@ -1,95 +1,83 @@
 {
-  "hooks": [
-    {
-      "id": "new-model-file",
-      "type": "PostToolUse",
-      "description": "Remind about access rules when a new Python model file is created",
-      "matcher": {
-        "tool": ["Write"],
-        "file_pattern": "**/models/**/*.py"
+  "hooks": {
+    "PostToolUse": [
+      {
+        "name": "new-model-file",
+        "description": "Remind about access rules when a new Python model file is created",
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "suggestion",
+            "message": "[odoo-security] New model file created. Verify security:\n- Every model class needs a row in security/ir.model.access.csv\n- Format: access_mymodel_user,my.model.user,model_my_model,base.group_user,1,1,1,0\n- TransientModel (wizards) also need access rules (perm_create=1, perm_unlink=1)\n- Run /check-access to audit all models automatically"
+          }
+        ]
       },
-      "action": {
-        "type": "suggest",
-        "message": "[odoo-security] New model file created. Verify security:\n- Every model class needs a row in security/ir.model.access.csv\n- Format: access_mymodel_user,my.model.user,model_my_model,base.group_user,1,1,1,0\n- TransientModel (wizards) also need access rules (perm_create=1, perm_unlink=1)\n- Run /check-access to audit all models automatically"
-      }
-    },
-    {
-      "id": "model-file-modified",
-      "type": "PostToolUse",
-      "description": "Remind to check sudo() usage when a model file is modified",
-      "matcher": {
-        "tool": ["Write", "Edit"],
-        "file_pattern": "**/models/**/*.py"
+      {
+        "name": "model-file-modified",
+        "description": "Remind to check sudo() usage when a model file is modified",
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "suggestion",
+            "message": "[odoo-security] Model file modified. Check:\n- New sudo() calls are justified with a comment explaining why\n- Computed fields with sudo() store=True expose data in reports\n- Use sudo().with_context() to limit the scope of privilege escalation\n- Run /find-sudo to classify all sudo() calls by risk level"
+          }
+        ]
       },
-      "action": {
-        "type": "suggest",
-        "message": "[odoo-security] Model file modified. Check:\n- New sudo() calls are justified with a comment explaining why\n- Computed fields with sudo() store=True expose data in reports\n- Use sudo().with_context() to limit the scope of privilege escalation\n- Run /find-sudo to classify all sudo() calls by risk level"
-      }
-    },
-    {
-      "id": "new-controller-file",
-      "type": "PostToolUse",
-      "description": "Remind about route authentication when a new controller file is created",
-      "matcher": {
-        "tool": ["Write"],
-        "file_pattern": "**/controllers/**/*.py"
+      {
+        "name": "new-controller-file",
+        "description": "Remind about route authentication when a new controller file is created",
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "suggestion",
+            "message": "[odoo-security] New controller file created. Verify routes:\n- Every @http.route() has explicit auth= parameter (public, user, or none)\n- State-changing routes (POST) have csrf=True (default) or are API routes\n- Sensitive data routes use auth='user' not auth='public'\n- Run /check-routes to audit all route authentication"
+          }
+        ]
       },
-      "action": {
-        "type": "suggest",
-        "message": "[odoo-security] New controller file created. Verify routes:\n- Every @http.route() has explicit auth= parameter (public, user, or none)\n- State-changing routes (POST) have csrf=True (default) or are API routes\n- Sensitive data routes use auth='user' not auth='public'\n- Run /check-routes to audit all route authentication"
-      }
-    },
-    {
-      "id": "controller-file-modified",
-      "type": "PostToolUse",
-      "description": "Remind about CSRF and auth when a controller file is modified",
-      "matcher": {
-        "tool": ["Write", "Edit"],
-        "file_pattern": "**/controllers/**/*.py"
+      {
+        "name": "controller-file-modified",
+        "description": "Remind about CSRF and auth when a controller file is modified",
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "suggestion",
+            "message": "[odoo-security] Controller file modified. Check new/modified routes:\n- auth='public' endpoints must not expose private user data\n- csrf=False requires explicit justification (REST APIs use type='json')\n- Rate limiting: consider sudo() + domain check for public POST endpoints\n- Run /check-routes for a full route audit report"
+          }
+        ]
       },
-      "action": {
-        "type": "suggest",
-        "message": "[odoo-security] Controller file modified. Check new/modified routes:\n- auth='public' endpoints must not expose private user data\n- csrf=False requires explicit justification (REST APIs use type='json')\n- Rate limiting: consider sudo() + domain check for public POST endpoints\n- Run /check-routes for a full route audit report"
-      }
-    },
-    {
-      "id": "access-csv-changed",
-      "type": "PostToolUse",
-      "description": "Remind to validate access CSV completeness after any change",
-      "matcher": {
-        "tool": ["Write", "Edit"],
-        "file_pattern": "**/security/ir.model.access.csv"
+      {
+        "name": "access-csv-changed",
+        "description": "Remind to validate access CSV completeness after any change",
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "suggestion",
+            "message": "[odoo-security] ir.model.access.csv modified. Validate:\n- model_id:id format: model_my_model_name (replace dots with underscores, prepend model_)\n- group_id:id must reference an existing group or be empty (allows all authenticated users)\n- Permissions: perm_read, perm_write, perm_create, perm_unlink (1 or 0)\n- Run /check-access to find any models still missing access rules"
+          }
+        ]
       },
-      "action": {
-        "type": "suggest",
-        "message": "[odoo-security] ir.model.access.csv modified. Validate:\n- model_id:id format: model_my_model_name (replace dots with underscores, prepend model_)\n- group_id:id must reference an existing group or be empty (allows all authenticated users)\n- Permissions: perm_read, perm_write, perm_create, perm_unlink (1 or 0)\n- Run /check-access to find any models still missing access rules"
-      }
-    },
-    {
-      "id": "new-wizard-file",
-      "type": "PostToolUse",
-      "description": "Remind about TransientModel access rules when a wizard file is created",
-      "matcher": {
-        "tool": ["Write"],
-        "file_pattern": "**/wizard/**/*.py"
+      {
+        "name": "new-wizard-file",
+        "description": "Remind about TransientModel access rules when a wizard file is created",
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "suggestion",
+            "message": "[odoo-security] New wizard file created. TransientModel access rules:\n- Wizards (TransientModel) require ir.model.access.csv entries\n- Minimum: perm_read=1, perm_write=1, perm_create=1, perm_unlink=1\n- Add entry BEFORE the group that uses the wizard action\n- Run /check-access to verify the wizard is covered"
+          }
+        ]
       },
-      "action": {
-        "type": "suggest",
-        "message": "[odoo-security] New wizard file created. TransientModel access rules:\n- Wizards (TransientModel) require ir.model.access.csv entries\n- Minimum: perm_read=1, perm_write=1, perm_create=1, perm_unlink=1\n- Add entry BEFORE the group that uses the wizard action\n- Run /check-access to verify the wizard is covered"
+      {
+        "name": "manifest-security-check",
+        "description": "Remind about security file ordering in manifest data array",
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "suggestion",
+            "message": "[odoo-security] Manifest modified. Verify security file order in 'data' array:\n1. security/group_*.xml (user groups, must be first)\n2. security/ir.model.access.csv (model permissions)\n3. security/rules_*.xml (record-level rules)\n- Wrong order causes install errors: 'group referenced before it is defined'\n- Run /security-audit for a full security analysis"
+          }
+        ]
       }
-    },
-    {
-      "id": "manifest-security-check",
-      "type": "PostToolUse",
-      "description": "Remind about security file ordering in manifest data array",
-      "matcher": {
-        "tool": ["Write", "Edit"],
-        "file_pattern": "**/__manifest__.py"
-      },
-      "action": {
-        "type": "suggest",
-        "message": "[odoo-security] Manifest modified. Verify security file order in 'data' array:\n1. security/group_*.xml (user groups, must be first)\n2. security/ir.model.access.csv (model permissions)\n3. security/rules_*.xml (record-level rules)\n- Wrong order causes install errors: 'group referenced before it is defined'\n- Run /security-audit for a full security analysis"
-      }
-    }
-  ]
+    ]
+  }
 }
