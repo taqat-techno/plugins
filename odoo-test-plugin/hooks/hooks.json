@@ -1,5 +1,6 @@
 {
-  "PostToolUse": [
+  "hooks": {
+    "PostToolUse": [
     {
       "name": "Suggest test file when model created",
       "matcher": "(Write|Edit).*models/\\w+\\.py$",
@@ -227,23 +228,6 @@
         }
       ]
     }
-  ],
-  "proactive_suggestions": {
-    "test_generation": {
-      "trigger": "user adds a new model class or mentions 'new model'",
-      "suggestion": "Use /test-generate to create a test skeleton automatically: /test-generate <model.name> --module /path/to/module"
-    },
-    "test_running": {
-      "trigger": "user makes changes to model methods or business logic",
-      "suggestion": "Run tests to verify your changes: /test-run <module> --config conf/project17.conf --database db"
-    },
-    "coverage_check": {
-      "trigger": "user completes module development or asks about test quality",
-      "suggestion": "Check coverage to find untested methods: /test-coverage /path/to/module --threshold 80"
-    },
-    "mock_data": {
-      "trigger": "user is writing setUp or needs test fixtures",
-      "suggestion": "Generate realistic test fixtures: /test-data --model <model.name> --count 5 --format setup_method"
-    }
+  ]
   }
 }

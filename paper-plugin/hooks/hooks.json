@@ -1,30 +1,28 @@
 {
-  "hooks": [
-    {
-      "id": "html-design-check",
-      "type": "PostToolUse",
-      "description": "Remind about design best practices when HTML/XML is modified",
-      "matcher": {
-        "tool": ["Write", "Edit"],
-        "file_pattern": "**/*.{html,xml}"
+  "hooks": {
+    "PostToolUse": [
+      {
+        "name": "html-design-check",
+        "matcher": "Write|Edit",
+        "description": "Remind about design best practices when HTML/XML is modified",
+        "hooks": [
+          {
+            "type": "suggestion",
+            "message": "[Paper] HTML/XML modified. Verify:\n- Semantic tags (header/main/nav/section/footer)\n- Alt text on images\n- ARIA labels on interactive elements\n- Heading hierarchy (h1>h2>h3)\n- Touch targets >= 44x44px\n- Form labels associated with inputs"
+          }
+        ]
       },
-      "action": {
-        "type": "suggest",
-        "message": "[Paper] HTML/XML modified. Verify:\n- Semantic tags (header/main/nav/section/footer)\n- Alt text on images\n- ARIA labels on interactive elements\n- Heading hierarchy (h1>h2>h3)\n- Touch targets >= 44x44px\n- Form labels associated with inputs"
+      {
+        "name": "css-design-check",
+        "matcher": "Write|Edit",
+        "description": "Remind about design best practices when CSS/SCSS is modified",
+        "hooks": [
+          {
+            "type": "suggestion",
+            "message": "[Paper] Stylesheet modified. Verify:\n- Color contrast >= 4.5:1 for text\n- Use relative units (rem/em) over fixed px\n- Use max-width not width for containers\n- Consistent spacing (4px/8px grid)\n- Focus styles on interactive elements\n- prefers-reduced-motion for animations"
+          }
+        ]
       }
-    },
-    {
-      "id": "css-design-check",
-      "type": "PostToolUse",
-      "description": "Remind about design best practices when CSS/SCSS is modified",
-      "matcher": {
-        "tool": ["Write", "Edit"],
-        "file_pattern": "**/*.{css,scss,sass}"
-      },
-      "action": {
-        "type": "suggest",
-        "message": "[Paper] Stylesheet modified. Verify:\n- Color contrast >= 4.5:1 for text\n- Use relative units (rem/em) over fixed px\n- Use max-width not width for containers\n- Consistent spacing (4px/8px grid)\n- Focus styles on interactive elements\n- prefers-reduced-motion for animations"
-      }
-    }
-  ]
+    ]
+  }
 }
