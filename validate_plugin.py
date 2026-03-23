@@ -349,7 +349,11 @@ class PluginValidator:
             return
 
         # Check hook structure
-        valid_events = ["PostToolUse", "PreCommit", "PostCommit", "OnError"]
+        valid_events = [
+            "PreToolUse", "PostToolUse", "Stop", "SubagentStop",
+            "SessionStart", "SessionEnd", "UserPromptSubmit",
+            "PreCompact", "Notification"
+        ]
         for event in hooks.keys():
             if event not in valid_events:
                 self.warnings.append(f"Unknown hook event '{event}' in {file_path.name}")

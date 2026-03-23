@@ -52,10 +52,12 @@ except ImportError:
 # CONFIGURATION
 # =============================================================================
 
-PLUGIN_DIR = Path(__file__).parent
-CONFIG_FILE = PLUGIN_DIR / "config.json"
-HISTORY_FILE = PLUGIN_DIR / "notification_history.json"
-FAILED_LOG = PLUGIN_DIR / "failed_notifications.log"
+SCRIPTS_DIR = Path(__file__).parent
+SKILL_DIR = SCRIPTS_DIR.parent                    # ntfy/
+CONFIG_FILE = SKILL_DIR / "config.json"           # ntfy/config.json
+CONFIG_DEFAULT = SKILL_DIR / "config.default.json"
+HISTORY_FILE = SCRIPTS_DIR / "notification_history.json"
+FAILED_LOG = SCRIPTS_DIR / "failed_notifications.log"
 
 # Rate limiting state
 _last_send_time = 0
@@ -114,12 +116,22 @@ DEFAULT_CONFIG = {
 # =============================================================================
 
 def load_config() -> dict:
-    """Load configuration from config.json with defaults."""
+    """Load configuration from config.json with defaults.
+
+    Searches for config in order:
+    1. ntfy/config.json (user-specific, gitignored)
+    2. ntfy/config.default.json (template shipped with plugin)
+    3. Built-in DEFAULT_CONFIG
+    """
     config = DEFAULT_CONFIG.copy()
 
-    if CONFIG_FILE.exists():
+    config_path = CONFIG_FILE if CONFIG_FILE.exists() else (
+        CONFIG_DEFAULT if CONFIG_DEFAULT.exists() else None
+    )
+
+    if config_path:
         try:
-            with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
+            with open(config_path, 'r', encoding='utf-8') as f:
                 user_config = json.load(f)
                 # Deep merge
                 for key, value in user_config.items():
@@ -128,7 +140,7 @@ def load_config() -> dict:
                     else:
                         config[key] = value
         except Exception as e:
-            print(f"[ERROR] Failed to load config: {e}")
+            print(f"[ERROR] Failed to load config from {config_path}: {e}")
 
     return config
 
@@ -395,7 +407,6 @@ def send_notification(
 
         if response.status_code == 200:
             _update_rate_limit()
-            _log_notification(title, message, priority, tags, True)
 
             return {
                 'success': True,
@@ -404,7 +415,6 @@ def send_notification(
             }
         else:
             error_msg = f"HTTP {response.status_code}: {response.text}"
-            _log_notification(title, message, priority, tags, False, error_msg)
 
             return {
                 'success': False,
@@ -413,15 +423,12 @@ def send_notification(
             }
 
     except requests.exceptions.Timeout:
-        _log_notification(title, message, priority, tags, False, "Timeout")
         return {'success': False, 'message': "Request timed out", 'response': None}
 
     except requests.exceptions.ConnectionError:
-        _log_notification(title, message, priority, tags, False, "Connection error")
         return {'success': False, 'message': "Could not connect to server", 'response': None}
 
     except Exception as e:
-        _log_notification(title, message, priority, tags, False, str(e))
         return {'success': False, 'message': str(e), 'response': None}
 
 
@@ -472,225 +479,6 @@ def send_json_notification(payload: dict) -> dict:
 
     except Exception as e:
         return {'success': False, 'message': str(e), 'response': None}
-
-
-# =============================================================================
-# CONVENIENCE FUNCTIONS
-# =============================================================================
-
-def notify_task_complete(
-    task_name: str,
-    details: str = "",
-    duration: str = None,
-    click_url: str = None
-) -> dict:
-    """
-    Send task completion notification.
-
-    Args:
-        task_name: Name of the completed task
-        details: Additional details about what was done
-        duration: How long the task took (e.g., "2m 30s")
-        click_url: URL to open when notification clicked
-    """
-    config = load_config()
-    priority = config.get('priorities', {}).get('task_complete', 'high')
-    tags = config.get('tags', {}).get('task_complete', ['white_check_mark', 'computer'])
-
-    message = details if details else "Task completed successfully."
-    if duration:
-        message += f"\n\nDuration: {duration}"
-
-    return send_notification(
-        title=f"Task Complete: {task_name}",
-        message=message,
-        priority=priority,
-        tags=tags,
-        click=click_url
-    )
-
-
-def notify_action_required(
-    action_name: str,
-    details: str = "",
-    options: List[str] = None,
-    click_url: str = None
-) -> dict:
-    """
-    Send action required notification (highest priority).
-
-    Args:
-        action_name: What action/input is needed
-        details: Details about what is required
-        options: List of options to choose from
-        click_url: URL to open when notification clicked
-    """
-    config = load_config()
-    priority = config.get('priorities', {}).get('action_required', 'urgent')
-    tags = config.get('tags', {}).get('action_required', ['warning', 'bell'])
-
-    message = details
-    if options:
-        message += "\n\nOptions:\n" + "\n".join(f"  {i+1}. {opt}" for i, opt in enumerate(options))
-    message += "\n\nPlease respond in Claude Code."
-
-    return send_notification(
-        title=f"ACTION REQUIRED: {action_name}",
-        message=message,
-        priority=priority,
-        tags=tags,
-        click=click_url,
-        bypass_rate_limit=True  # Action required is always critical
-    )
-
-
-def notify_blocked(
-    blocker_name: str,
-    details: str = "",
-    suggestion: str = None
-) -> dict:
-    """
-    Send blocked/stuck notification.
-
-    Args:
-        blocker_name: What is blocking progress
-        details: Error details or what user needs to do
-        suggestion: Suggested fix
-    """
-    config = load_config()
-    priority = config.get('priorities', {}).get('blocked', 'high')
-    tags = config.get('tags', {}).get('blocked', ['x', 'stop_sign'])
-
-    message = details
-    if suggestion:
-        message += f"\n\nSuggested fix:\n{suggestion}"
-
-    return send_notification(
-        title=f"BLOCKED: {blocker_name}",
-        message=message,
-        priority=priority,
-        tags=tags,
-        bypass_rate_limit=True
-    )
-
-
-def notify_error(
-    error_type: str,
-    details: str = "",
-    traceback: str = None
-) -> dict:
-    """
-    Send error notification.
-
-    Args:
-        error_type: Type of error
-        details: Error message
-        traceback: Optional traceback (will be truncated)
-    """
-    config = load_config()
-    priority = config.get('priorities', {}).get('error', 'high')
-    tags = config.get('tags', {}).get('error', ['rotating_light', 'skull'])
-
-    message = details
-    if traceback:
-        # Truncate traceback to last 500 chars
-        message += f"\n\nTraceback:\n{traceback[-500:]}"
-
-    return send_notification(
-        title=f"ERROR: {error_type}",
-        message=message,
-        priority=priority,
-        tags=tags,
-        bypass_rate_limit=True
-    )
-
-
-def notify_info(title: str, message: str) -> dict:
-    """Send informational notification."""
-    config = load_config()
-    priority = config.get('priorities', {}).get('info', 'default')
-    tags = config.get('tags', {}).get('info', ['information_source'])
-
-    return send_notification(
-        title=title,
-        message=message,
-        priority=priority,
-        tags=tags
-    )
-
-
-def notify_success(title: str, message: str) -> dict:
-    """Send success/celebration notification."""
-    config = load_config()
-    priority = config.get('priorities', {}).get('success', 'default')
-    tags = config.get('tags', {}).get('success', ['tada', 'rocket'])
-
-    return send_notification(
-        title=title,
-        message=message,
-        priority=priority,
-        tags=tags
-    )
-
-
-# =============================================================================
-# LOGGING
-# =============================================================================
-
-def _log_notification(
-    title: str,
-    message: str,
-    priority: str,
-    tags: List[str],
-    success: bool,
-    error: str = None
-):
-    """Log notification to history file."""
-    config = load_config()
-
-    if not config.get('logging', {}).get('enabled', True):
-        return
-
-    try:
-        # Load existing history
-        history = []
-        if HISTORY_FILE.exists():
-            with open(HISTORY_FILE, 'r', encoding='utf-8') as f:
-                history = json.load(f)
-
-        # Add new entry
-        entry = {
-            'timestamp': datetime.now().isoformat(),
-            'date': datetime.now().strftime('%Y-%m-%d'),
-            'time': datetime.now().strftime('%H:%M:%S'),
-            'title': title,
-            'message': message[:500],  # Truncate for storage
-            'priority': priority,
-            'tags': tags,
-            'success': success,
-            'error': error
-        }
-        history.append(entry)
-
-        # Trim to max size
-        max_history = config.get('logging', {}).get('max_history', 1000)
-        if len(history) > max_history:
-            history = history[-max_history:]
-
-        # Save
-        with open(HISTORY_FILE, 'w', encoding='utf-8') as f:
-            json.dump(history, f, indent=2, ensure_ascii=False)
-
-    except Exception as e:
-        # Fallback to failed log
-        try:
-            with open(FAILED_LOG, 'a', encoding='utf-8') as f:
-                f.write(f"\n{'='*60}\n")
-                f.write(f"[{datetime.now().isoformat()}] Logging failed: {e}\n")
-                f.write(f"Title: {title}\n")
-                f.write(f"Success: {success}\n")
-        except:
-            pass
 
 
 # =============================================================================
@@ -768,20 +556,6 @@ def check_connection() -> dict:
             'latency_ms': None,
             'status': str(e)
         }
-
-
-# =============================================================================
-# ALIASES
-# =============================================================================
-
-# Short aliases for common operations
-notify = notify_task_complete
-complete = notify_task_complete
-action = notify_action_required
-blocked = notify_blocked
-error = notify_error
-info = notify_info
-success = notify_success
 
 
 # =============================================================================

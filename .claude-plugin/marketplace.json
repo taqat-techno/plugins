@@ -25,7 +25,11 @@
       "source": "./",
       "strict": false,
       "skills": [
-        "./odoo-frontend-plugin/odoo-frontend"
+        "./odoo-frontend-plugin/skills/theme-create",
+        "./odoo-frontend-plugin/skills/theme-scss",
+        "./odoo-frontend-plugin/skills/theme-design",
+        "./odoo-frontend-plugin/skills/theme-snippets",
+        "./odoo-frontend-plugin/skills/frontend-js"
       ],
       "commands": [
         "./odoo-frontend-plugin/commands"
@@ -62,9 +66,6 @@
       "strict": false,
       "skills": [
         "./odoo-report-plugin/odoo-report"
-      ],
-      "commands": [
-        "./odoo-report-plugin/commands"
       ]
     },
     {

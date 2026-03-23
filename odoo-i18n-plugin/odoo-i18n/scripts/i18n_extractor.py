@@ -26,6 +26,17 @@ except ImportError:
     import xml.etree.ElementTree as ET
     HAS_LXML = False
 
+try:
+    from ._common import (
+        PLURAL_FORMS, DEFAULT_PLURAL_FORMS, escape_po_string,
+        PO_COPYRIGHT_HOLDER, PO_BUGS_ADDRESS,
+    )
+except ImportError:
+    from _common import (
+        PLURAL_FORMS, DEFAULT_PLURAL_FORMS, escape_po_string,
+        PO_COPYRIGHT_HOLDER, PO_BUGS_ADDRESS,
+    )
+
 
 # ---------------------------------------------------------------------------
 # Data structures
@@ -385,40 +396,14 @@ class ModuleScanner:
 class PoFileGenerator:
     """Generate .pot (template) and .po (language-specific) files."""
 
-    # Language-specific plural forms
-    PLURAL_FORMS = {
-        "ar": "nplurals=6; plural=n==0 ? 0 : n==1 ? 1 : n==2 ? 2 : n%100>=3 && n%100<=10 ? 3 : n%100>=11 && n%100<=99 ? 4 : 5;",
-        "ar_SA": "nplurals=6; plural=n==0 ? 0 : n==1 ? 1 : n==2 ? 2 : n%100>=3 && n%100<=10 ? 3 : n%100>=11 && n%100<=99 ? 4 : 5;",
-        "fr": "nplurals=2; plural=(n > 1);",
-        "fr_FR": "nplurals=2; plural=(n > 1);",
-        "tr": "nplurals=2; plural=(n != 1);",
-        "en": "nplurals=2; plural=(n != 1);",
-        "en_US": "nplurals=2; plural=(n != 1);",
-        "en_GB": "nplurals=2; plural=(n != 1);",
-        "de": "nplurals=2; plural=(n != 1);",
-        "es": "nplurals=2; plural=(n != 1);",
-        "ru": "nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2);",
-    }
-
-    DEFAULT_PLURAL_FORMS = "nplurals=2; plural=(n != 1);"
-
     def __init__(self, module_name: str, strings: List[TranslatableString]):
         self.module_name = module_name
         self.strings = strings
         self.now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M+0000")
 
-    def _escape_po_string(self, s: str) -> str:
-        """Escape special characters for .po format."""
-        s = s.replace("\\", "\\\\")
-        s = s.replace('"', '\\"')
-        s = s.replace("\n", "\\n")
-        s = s.replace("\r", "\\r")
-        s = s.replace("\t", "\\t")
-        return s
-
     def _format_msgid(self, s: str) -> str:
         """Format msgid with possible multiline."""
-        escaped = self._escape_po_string(s)
+        escaped = escape_po_string(s)
         if "\\n" in escaped:
             # Multiline: use empty first line, then continuation
             lines = escaped.split("\\n")
@@ -433,13 +418,13 @@ class PoFileGenerator:
         """Generate the .pot template file content."""
         lines = [
             f"# Translation template for {self.module_name}",
-            f"# Copyright (C) {datetime.now().year} TaqaTechno",
-            "# This file is distributed under the MIT license.",
+            f"# Copyright (C) {datetime.now().year} {PO_COPYRIGHT_HOLDER}",
+            "# This file is distributed under the same license as the module.",
             "#",
             'msgid ""',
             'msgstr ""',
             f'"Project-Id-Version: Odoo Module {self.module_name}\\n"',
-            '"Report-Msgid-Bugs-To: support@example.com\\n"',
+            f'"Report-Msgid-Bugs-To: {PO_BUGS_ADDRESS}\\n"',
             f'"POT-Creation-Date: {self.now}\\n"',
             '"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\\n"',
             '"Last-Translator: FULL NAME <EMAIL@ADDRESS>\\n"',
@@ -465,19 +450,19 @@ class PoFileGenerator:
 
     def generate_po(self, lang: str) -> str:
         """Generate a language-specific .po file with empty translations."""
-        plural_forms = self.PLURAL_FORMS.get(lang, self.DEFAULT_PLURAL_FORMS)
+        plural_forms = PLURAL_FORMS.get(lang, DEFAULT_PLURAL_FORMS)
         lang_display = lang.replace("_", " ")
 
         lines = [
             f"# {lang_display} translation of {self.module_name}",
-            f"# Copyright (C) {datetime.now().year} TaqaTechno",
-            "# This file is distributed under the MIT license.",
+            f"# Copyright (C) {datetime.now().year} {PO_COPYRIGHT_HOLDER}",
+            "# This file is distributed under the same license as the module.",
             "# Translator: FULL NAME <EMAIL@ADDRESS>, YEAR",
             "#",
             'msgid ""',
             'msgstr ""',
             f'"Project-Id-Version: Odoo Module {self.module_name}\\n"',
-            '"Report-Msgid-Bugs-To: support@example.com\\n"',
+            f'"Report-Msgid-Bugs-To: {PO_BUGS_ADDRESS}\\n"',
             f'"POT-Creation-Date: {self.now}\\n"',
             f'"PO-Revision-Date: {self.now}\\n"',
             '"Last-Translator: FULL NAME <EMAIL@ADDRESS>\\n"',

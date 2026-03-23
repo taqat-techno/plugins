@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$comment": "Team members cache for @mention suggestions. Edit with your team's real data. GUIDs must be resolved via API.",
   "version": "1.0.0",
-  "organization": "YOUR-ORG",
+  "organization": "CONFIGURE_VIA_INIT_PROFILE",
   "lastUpdated": "configure-me",
 
   "important": {
@@ -13,38 +13,10 @@
 
   "teamMembers": [
     {
-      "displayName": "John Doe",
-      "searchTerms": ["john", "jdoe", "doe"],
-      "email": "jdoe@company.com",
+      "displayName": "Example User",
+      "searchTerms": ["example", "euser"],
+      "email": "example@company.com",
       "role": "Developer",
-      "status": "active"
-    },
-    {
-      "displayName": "Jane Smith",
-      "searchTerms": ["jane", "jsmith", "smith"],
-      "email": "jsmith@company.com",
-      "role": "Developer",
-      "status": "active"
-    },
-    {
-      "displayName": "Alice Johnson",
-      "searchTerms": ["alice", "ajohnson", "johnson"],
-      "email": "ajohnson@company.com",
-      "role": "Team Lead",
-      "status": "active"
-    },
-    {
-      "displayName": "Bob Williams",
-      "searchTerms": ["bob", "bwilliams", "williams"],
-      "email": "bwilliams@company.com",
-      "role": "QA Engineer",
-      "status": "active"
-    },
-    {
-      "displayName": "Carol Brown",
-      "searchTerms": ["carol", "cbrown", "brown"],
-      "email": "cbrown@company.com",
-      "role": "DevOps Engineer",
       "status": "active"
     }
   ],

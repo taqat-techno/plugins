@@ -466,4 +466,4 @@ save_config(config)
 
 ---
 
-*Part of ntfy-notifications Plugin v2.0*
+*Part of ntfy-notifications Plugin v3.0*

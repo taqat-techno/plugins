@@ -228,6 +228,30 @@ def generate_remediation(issue):
             "Replace string formatting with parameterized queries: "
             "self.env.cr.execute('SELECT ... WHERE x = %s', (value,)) — note the tuple."
         ),
+        'sql_fstring': (
+            "Replace f-string with parameterized query: "
+            "cr.execute('SELECT ... WHERE x = %s', (value,))"
+        ),
+        'sql_format': (
+            "Replace .format() with parameterized query: "
+            "cr.execute('SELECT ... WHERE x = %s', (value,))"
+        ),
+        'sql_concat': (
+            "Replace string concatenation with parameterized query or "
+            "psycopg2.sql.Identifier() for dynamic column/table names."
+        ),
+        'sql_percent': (
+            "Replace % operator with parameterized query: "
+            "cr.execute('...%s...', (value,)) — second arg must be a tuple."
+        ),
+        'sql_variable_query': (
+            "Verify the query variable contains a constant string, not user input. "
+            "Prefer inline string literals for SQL in cr.execute()."
+        ),
+        'sql_where_calc_no_rules': (
+            "Add self._apply_ir_rules(query, 'read') after _where_calc() "
+            "to enforce record-level security rules."
+        ),
         'missing_record_rule': (
             "Add record rules to security/rules_[module].xml. For multi-company models, "
             "add a company_id domain rule. For user-specific models, add user_id scoping."
@@ -416,7 +440,7 @@ def main():
     parser.add_argument(
         '--skip-auditor',
         action='append',
-        choices=['access', 'routes', 'sudo'],
+        choices=['access', 'routes', 'sudo', 'sql'],
         default=[],
         metavar='AUDITOR',
         help='Skip a specific auditor (can be used multiple times)'
@@ -444,6 +468,7 @@ def main():
         ('access_checker', 'access_checker.py', 'access' not in args.skip_auditor),
         ('route_auditor', 'route_auditor.py', 'routes' not in args.skip_auditor),
         ('sudo_finder', 'sudo_finder.py', 'sudo' not in args.skip_auditor),
+        ('sql_scanner', 'sql_scanner.py', 'sql' not in args.skip_auditor),
     ]
 
     if not args.json:

@@ -1,5 +1,32 @@
 # Migration Guide
 
+## v4.2 to v5.0 — Plugin Structure Refactor
+
+### Breaking Changes
+
+1. **plugin.json paths fixed** — `./` changed to `../` for skills, commands, hooks. If you manually patched paths, revert your patches.
+2. **hooks.json completely rewritten** — Old format (OnError, PreCommit, suggestion type) was invalid Claude Code syntax. Replaced with official 3-level format using command hooks and proper event names (SessionStart, PreToolUse, PostToolUse, PostToolUseFailure).
+3. **`memories/` renamed to `references/`** — Same 10 files, new directory name. Update any custom references.
+4. **`YOUR-ORG` removed from data files** — Replaced with `CONFIGURE_VIA_INIT_PROFILE` markers. Run `/init profile` to populate.
+
+### New Files
+
+| File | Purpose |
+|------|---------|
+| `hooks/check-profile.sh` | SessionStart: check if `~/.claude/devops.md` exists |
+| `hooks/pre-bash-check.sh` | PreToolUse/Bash: work item ID in commit message reminder |
+| `hooks/post-bash-suggest.sh` | PostToolUse/Bash: contextual git operation suggestions |
+| `hooks/error-recovery.sh` | PostToolUseFailure: Azure DevOps error recovery guidance |
+| `.local.md.template` | Local configuration template for user-specific settings |
+
+### Action Required
+
+1. Run `/init profile` to refresh your profile with real organization data
+2. Copy `.local.md.template` to `.claude/devops-plugin.local.md` and configure
+3. Old `memories/` directory can be deleted (content is now in `references/`)
+
+---
+
 ## v3.1 to v4.0 — Plugin Consolidation
 
 24 commands consolidated to 9 commands + enhanced skill. Zero functionality lost.
@@ -245,7 +272,7 @@ All v1.3 commands work exactly as before:
 | Extension management | `/install-extension` command |
 | Batch updates | `batch_update.ps1` script |
 | Parallel operations | Scripts with `-Parallel` flag |
-| Predefined memories | Auto-loaded by Claude |
+| Predefined references | Auto-loaded by Claude |
 
 ---
 
@@ -296,7 +323,7 @@ Located in `devops/scripts/`:
 
 ## Memory Files
 
-v2.0 introduces predefined memories in the `memories/` directory. These are automatically loaded by Claude for reference:
+v2.0 introduces predefined references in the `references/` directory. These are automatically loaded by Claude for reference:
 
 | Memory File | Purpose |
 |-------------|---------|

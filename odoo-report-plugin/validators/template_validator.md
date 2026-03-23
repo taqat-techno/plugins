@@ -213,11 +213,11 @@ Errors (2):
 Template cannot be deployed. Fix errors first.
 ```
 
-## Integration with Commands
+## Integration with Skill Workflows
 
 ```
-/create-email-template → validate_template()
-/fix-template → validate_template() before and after
-/migrate-template → validate_template() for target version
-/validate-template → Full validation report
+Creating email templates → validate_template() before writing
+Fixing templates → validate_template() before and after applying fixes
+Migrating templates → validate_template() for target version compatibility
+Validating templates → Full validation report on demand
 ```

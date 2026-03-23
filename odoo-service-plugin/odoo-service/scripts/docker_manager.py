@@ -548,59 +548,9 @@ def status(compose_file: Optional[str] = None) -> int:
     return _run(_compose_cmd(compose_file) + ["ps"])
 
 
-def db_backup_docker(
-    container_name: str,
-    database: str,
-    output_path: str,
-    user: str = "odoo",
-) -> bool:
-    """Backup PostgreSQL database from Docker container."""
-    out = Path(output_path)
-    out.parent.mkdir(parents=True, exist_ok=True)
-
-    print(f"[INFO] Backing up '{database}' from container '{container_name}'...")
-    with open(out, "wb") as f:
-        result = subprocess.run(
-            ["docker", "exec", container_name, "pg_dump", "-U", user, "-Fc", database],
-            stdout=f,
-            stderr=subprocess.PIPE,
-        )
-
-    if result.returncode == 0:
-        size = out.stat().st_size / (1024 * 1024)
-        print(f"[OK] Backup: {out} ({size:.1f} MB)")
-        return True
-    else:
-        print(f"[ERROR] Backup failed")
-        return False
-
-
-def db_restore_docker(
-    container_name: str,
-    database: str,
-    backup_file: str,
-    user: str = "odoo",
-) -> bool:
-    """Restore database into Docker PostgreSQL container."""
-    bp = Path(backup_file)
-    if not bp.exists():
-        print(f"[ERROR] Backup file not found: {backup_file}")
-        return False
-
-    with open(bp, "rb") as f:
-        result = subprocess.run(
-            ["docker", "exec", "-i", container_name,
-             "pg_restore", "-U", user, "-d", database],
-            stdin=f,
-            capture_output=True,
-        )
-
-    if result.returncode in (0, 1):
-        print(f"[OK] Restore complete: {database}")
-        return True
-    else:
-        print(f"[ERROR] Restore failed")
-        return False
+# Docker DB backup/restore are in db_manager.py to avoid duplication.
+# Use: python db_manager.py backup --docker CONTAINER --db DBNAME
+# Use: python db_manager.py restore --docker CONTAINER --file FILE --db DBNAME
 
 
 # ---------------------------------------------------------------------------

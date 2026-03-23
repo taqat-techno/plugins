@@ -49,15 +49,27 @@
 | "Database does not exist" | DB not created | Create via API or `createdb -U odoo {name}` |
 | Can't connect from host | Port not exposed | Add `ports: - "5433:5432"` to db service |
 
+### Error Patterns & Auto-Diagnosis
+
+These error patterns commonly appear in Docker logs or CLI output. When you see them, apply the fix:
+
+| Error Pattern | Diagnosis | Fix |
+|---------------|-----------|-----|
+| `port is already allocated` / `address already in use` | Another container or host process on the same port | `docker compose down`, or kill process: `netstat -ano \| findstr :8069` |
+| `no space left on device` / `ENOSPC` | Docker disk full | `docker system prune -af` (aggressive), or `docker system df` to investigate |
+| `502 Bad Gateway` / `upstream connect refused` | Nginx can't reach Odoo | Check: Odoo running? Same network? Health check passing? |
+| `OOMKilled` / `Out of memory` | Container memory limit too low | Increase `deploy.resources.limits.memory` and check `limit_memory_hard` in odoo.conf |
+| `Odoo source not found` / `No such file.*odoo-bin` | Source not mounted into container | Fix volume path in docker-compose to point to your Odoo source |
+
 ## Diagnostic Commands
 
 ```bash
 # Check container status
-docker-compose ps
+docker compose ps
 
 # Check logs
-docker-compose logs --tail=100 odoo
-docker-compose logs --tail=50 db
+docker compose logs --tail=100 odoo
+docker compose logs --tail=50 db
 
 # Check health
 docker exec {container} curl -sf http://localhost:8069/web/health

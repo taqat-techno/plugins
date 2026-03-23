@@ -435,6 +435,3 @@ module/i18n/
 3. Import back into Odoo using CLI above
 
 ---
-
-> Previously available as separate commands: /i18n-extract, /i18n-validate, /i18n-missing, /i18n-export.
-> All functionality is now unified under /odoo-i18n or handled by the skill via natural language.

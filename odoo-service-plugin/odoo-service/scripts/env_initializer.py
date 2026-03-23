@@ -44,7 +44,7 @@ PYTHON_VERSION_REQUIREMENTS: Dict[int, Tuple[Tuple[int, int], Tuple[int, int]]] 
 
 DEFAULT_CONF_TEMPLATE = """\
 [options]
-addons_path = odoo\\addons,projects\\{project}
+addons_path = odoo/addons,projects/{project}
 admin_passwd = 123
 db_host = localhost
 db_port = 5432
@@ -108,34 +108,24 @@ desktop.ini
 
 
 # ---------------------------------------------------------------------------
-# Environment Detection
+# Environment Detection (delegated to shared module)
 # ---------------------------------------------------------------------------
 
-def detect_environment(path: str = ".") -> str:
-    """
-    Detect the current Odoo environment type.
-    Returns: 'venv', 'docker', or 'bare'
-    """
-    root = Path(path).resolve()
-
-    # Docker detection (highest priority)
-    if (root / "docker-compose.yml").exists():
-        return "docker"
-    if (root / "docker-compose.yaml").exists():
-        return "docker"
-    if (root / "Dockerfile").exists():
-        return "docker"
-
-    # Venv detection
-    for venv_dir in [".venv", "venv", "env"]:
-        venv_path = root / venv_dir
-        if venv_path.is_dir():
-            if (venv_path / "Scripts" / "python.exe").exists():
+try:
+    from shared import detect_environment
+except ImportError:
+    def detect_environment(path: str = ".") -> str:
+        """Detect the current Odoo environment type. Returns: 'venv', 'docker', or 'bare'"""
+        root = Path(path).resolve()
+        if (root / "docker-compose.yml").exists() or (root / "docker-compose.yaml").exists():
+            return "docker"
+        if (root / "Dockerfile").exists():
+            return "docker"
+        for venv_dir in [".venv", "venv", "env"]:
+            venv_path = root / venv_dir
+            if (venv_path / "Scripts" / "python.exe").exists() or (venv_path / "bin" / "python").exists():
                 return "venv"
-            if (venv_path / "bin" / "python").exists():
-                return "venv"
-
-    return "bare"
+        return "bare"
 
 
 def detect_python_version(odoo_version: int) -> Tuple[Tuple[int, int], Tuple[int, int]]:
@@ -360,7 +350,7 @@ def create_conf_file(
 
     # Build addons path
     if not addons_path:
-        addons_path = f"odoo\\addons,projects\\{project}"
+        addons_path = f"odoo/addons,projects/{project}"
 
     # Determine the gevent/longpolling port name by version
     longpolling_key = "gevent_port" if version >= 17 else "longpolling_port"

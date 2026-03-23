@@ -348,7 +348,7 @@ This guard integrates with:
 1. **SKILL.md** - Main skill file references this guard
 2. **commands/my-tasks.md** - Uses guard for task queries
 3. **commands/sync-my-tasks.md** - Uses guard for TODO sync
-4. **memories/mcp_best_practices.md** - Documents correct patterns
+4. **references/mcp_best_practices.md** - Documents correct patterns
 
 ---
 

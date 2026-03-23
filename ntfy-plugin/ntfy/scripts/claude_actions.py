@@ -67,45 +67,12 @@ def should_notify() -> bool:
     return is_notification_mode_on()
 
 
-def _get_web_url() -> str:
-    """Get the web URL for the current session topic."""
+def _get_web_url(topic: str = None) -> str:
+    """Get the web URL for the given or current session topic."""
     config = load_config()
     server = config.get('server', 'https://ntfy.sh')
-    topic = get_session_topic()
-    return f"{server.rstrip('/')}/{topic}"
-
-
-def _override_topic_temporarily():
-    """Context manager to use session topic."""
-    import json
-    config_file = PLUGIN_DIR / "config.json"
-
-    # Load current config
-    with open(config_file, 'r') as f:
-        config = json.load(f)
-
-    original_topic = config.get('topic')
-    session_topic = get_session_topic()
-
-    # Update to session topic
-    config['topic'] = session_topic
-    with open(config_file, 'w') as f:
-        json.dump(config, f, indent=2)
-
-    return original_topic, session_topic
-
-
-def _restore_topic(original_topic: str):
-    """Restore original topic after notification."""
-    import json
-    config_file = PLUGIN_DIR / "config.json"
-
-    with open(config_file, 'r') as f:
-        config = json.load(f)
-
-    config['topic'] = original_topic
-    with open(config_file, 'w') as f:
-        json.dump(config, f, indent=2)
+    effective_topic = topic or get_session_topic()
+    return f"{server.rstrip('/')}/{effective_topic}"
 
 # =============================================================================
 # MANDATORY ACTION NOTIFICATIONS
@@ -151,35 +118,29 @@ def need_action(
     if options is None:
         options = ["Continue", "Cancel"]
 
-    # Use session topic
-    original_topic, session_topic = _override_topic_temporarily()
-    web_url = _get_web_url()
+    session_topic = get_session_topic()
+    web_url = _get_web_url(session_topic)
 
-    try:
-        increment_notification_count()
+    increment_notification_count()
 
-        # Add web URL instruction to message
-        full_message = message
-        if allow_text:
-            full_message += f"\n\n(You can also type a custom response)"
+    # Add web URL instruction to message
+    full_message = message
+    if allow_text:
+        full_message += f"\n\n(You can also type a custom response)"
 
-        print(f"\n[CLAUDE] Waiting for user action: {title}")
-        print(f"[CLAUDE] Topic: {session_topic}")
-        print(f"[CLAUDE] Respond at: {web_url}")
+    print(f"\n[CLAUDE] Waiting for user action: {title}")
+    print(f"[CLAUDE] Topic: {session_topic}")
+    print(f"[CLAUDE] Respond at: {web_url}")
 
-        response = ask_user(
-            title=f"Action Required: {title}",
-            message=full_message,
-            options=options,
-            timeout=timeout,
-            priority="urgent",
-            tags=["bell", "warning"],
-            platform="ios"
-        )
-
-        return response
-    finally:
-        _restore_topic(original_topic)
+    return ask_user(
+        title=f"Action Required: {title}",
+        message=full_message,
+        options=options,
+        timeout=timeout,
+        priority="urgent",
+        tags=["bell", "warning"],
+        topic=session_topic
+    )
 
 
 def task_done(
@@ -224,56 +185,53 @@ def task_done(
         print(f"[CLAUDE] Task complete: {task_name} (notification mode OFF)")
         return "done"
 
-    # Use session topic
-    original_topic, session_topic = _override_topic_temporarily()
-    web_url = _get_web_url()
+    session_topic = get_session_topic()
+    web_url = _get_web_url(session_topic)
 
-    try:
-        increment_task_count()
-        increment_notification_count()
+    increment_task_count()
+    increment_notification_count()
 
-        if next_steps and len(next_steps) > 0:
-            # Interactive notification with next step options
-            options = next_steps + ["Done (no more actions)"]
+    if next_steps and len(next_steps) > 0:
+        # Interactive notification with next step options
+        options = next_steps + ["Done (no more actions)"]
 
-            message = f"{summary}\n\nSuggested next steps available."
+        message = f"{summary}\n\nSuggested next steps available."
 
-            print(f"\n[CLAUDE] Task complete: {task_name}")
-            print(f"[CLAUDE] Topic: {session_topic}")
-            print(f"[CLAUDE] Next steps available - waiting for choice")
-            print(f"[CLAUDE] Respond at: {web_url}")
+        print(f"\n[CLAUDE] Task complete: {task_name}")
+        print(f"[CLAUDE] Topic: {session_topic}")
+        print(f"[CLAUDE] Next steps available - waiting for choice")
+        print(f"[CLAUDE] Respond at: {web_url}")
 
-            response = ask_user(
-                title=f"Complete: {task_name}",
-                message=message,
-                options=options,
-                timeout=timeout,
-                priority="high",
-                tags=["white_check_mark", "arrow_right"],
-                platform="ios"
-            )
+        response = ask_user(
+            title=f"Complete: {task_name}",
+            message=message,
+            options=options,
+            timeout=timeout,
+            priority="high",
+            tags=["white_check_mark", "arrow_right"],
+            topic=session_topic
+        )
 
-            if response is None and auto_proceed:
-                print(f"[CLAUDE] No response, auto-proceeding with: {next_steps[0]}")
-                return next_steps[0]
+        if response is None and auto_proceed:
+            print(f"[CLAUDE] No response, auto-proceeding with: {next_steps[0]}")
+            return next_steps[0]
 
-            if response and "Done" in response:
-                return "done"
-
-            return response
-        else:
-            # Simple completion notification (no interaction needed)
-            send_notification(
-                title=f"Complete: {task_name}",
-                message=summary,
-                priority="high",
-                tags=["white_check_mark", "tada"]
-            )
-            print(f"\n[CLAUDE] Task complete: {task_name}")
-            print(f"[CLAUDE] Topic: {session_topic}")
+        if response and "Done" in response:
             return "done"
-    finally:
-        _restore_topic(original_topic)
+
+        return response
+    else:
+        # Simple completion notification (no interaction needed)
+        send_notification(
+            title=f"Complete: {task_name}",
+            message=summary,
+            priority="high",
+            tags=["white_check_mark", "tada"],
+            topic=session_topic
+        )
+        print(f"\n[CLAUDE] Task complete: {task_name}")
+        print(f"[CLAUDE] Topic: {session_topic}")
+        return "done"
 
 
 def ask_proceed(

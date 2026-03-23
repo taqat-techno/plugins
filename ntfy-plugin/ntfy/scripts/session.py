@@ -26,9 +26,12 @@ from datetime import datetime
 from typing import Optional, Dict, Any
 
 # Session state file location
-PLUGIN_DIR = Path(__file__).parent
-SESSION_FILE = PLUGIN_DIR / "session_state.json"
-CONFIG_FILE = PLUGIN_DIR / "config.json"
+SCRIPTS_DIR = Path(__file__).parent
+SKILL_DIR = SCRIPTS_DIR.parent
+SESSION_FILE = SCRIPTS_DIR / "session_state.json"
+CONFIG_FILE = SKILL_DIR / "config.json"
+
+SESSION_EXPIRY_SECONDS = 86400  # 24 hours
 
 # =============================================================================
 # SESSION STATE MANAGEMENT
@@ -160,14 +163,31 @@ def disable_notification_mode() -> Dict[str, Any]:
     return state
 
 
+def _is_session_expired(state: dict) -> bool:
+    """Check if the session has expired (older than 24 hours)."""
+    start = state.get("session_start")
+    if not start:
+        return False
+    try:
+        started = datetime.fromisoformat(start)
+        return (datetime.now() - started).total_seconds() > SESSION_EXPIRY_SECONDS
+    except (ValueError, TypeError):
+        return True
+
+
 def is_notification_mode_on() -> bool:
     """
     Check if notification mode is currently enabled.
+    Auto-resets if the session has expired (>24 hours).
 
     Returns:
         True if notification mode is ON
     """
     state = _load_session()
+    if state.get("notification_mode") and _is_session_expired(state):
+        # Auto-reset expired session
+        _save_session(_default_session())
+        return False
     return state.get("notification_mode", False)
 
 
@@ -294,30 +314,20 @@ def session_notify(
         return False
 
     import sys
-    sys.path.insert(0, str(PLUGIN_DIR))
+    sys.path.insert(0, str(SCRIPTS_DIR))
     from notify import send_notification
 
     topic = get_session_topic()
     increment_notification_count()
 
-    # Temporarily override topic
-    from notify import load_config
-    config = load_config()
-    original_topic = config.get('topic')
-
-    try:
-        # Use session topic
-        config['topic'] = topic
-        result = send_notification(
-            title=title,
-            message=message,
-            priority=priority,
-            tags=tags or ["bell"]
-        )
-        return result
-    finally:
-        # Restore original
-        config['topic'] = original_topic
+    result = send_notification(
+        title=title,
+        message=message,
+        priority=priority,
+        tags=tags or ["bell"],
+        topic=topic
+    )
+    return result
 
 
 def session_ask(
@@ -336,43 +346,19 @@ def session_ask(
         return None
 
     import sys
-    sys.path.insert(0, str(PLUGIN_DIR))
+    sys.path.insert(0, str(SCRIPTS_DIR))
+    from interactive import ask_user
 
     topic = get_session_topic()
     increment_notification_count()
 
-    # Import and use interactive with session topic
-    from interactive import ask_user, load_config
-
-    config = load_config()
-    original_topic = config.get('topic')
-
-    try:
-        config['topic'] = topic
-
-        # Update config file temporarily
-        with open(CONFIG_FILE, 'r') as f:
-            file_config = json.load(f)
-        file_config['topic'] = topic
-        with open(CONFIG_FILE, 'w') as f:
-            json.dump(file_config, f, indent=2)
-
-        response = ask_user(
-            title=title,
-            message=message,
-            options=options,
-            timeout=timeout,
-            platform="ios"
-        )
-
-        return response
-    finally:
-        # Restore original topic
-        with open(CONFIG_FILE, 'r') as f:
-            file_config = json.load(f)
-        file_config['topic'] = original_topic
-        with open(CONFIG_FILE, 'w') as f:
-            json.dump(file_config, f, indent=2)
+    return ask_user(
+        title=title,
+        message=message,
+        options=options,
+        timeout=timeout,
+        topic=topic
+    )
 
 
 # =============================================================================

@@ -13,13 +13,17 @@
 
 ## Docker Hub Image Tags
 
+Image tag pattern: `{image_prefix}:{version}.0-enterprise`
+
+Configure `image_prefix` in `~/.claude/odoo-docker.local.md`. Example tags:
+
 ```
-taqatechno/odoo:14.0-enterprise
-taqatechno/odoo:15.0-enterprise
-taqatechno/odoo:16.0-enterprise
-taqatechno/odoo:17.0-enterprise
-taqatechno/odoo:18.0-enterprise
-taqatechno/odoo:19.0-enterprise
+{image_prefix}:14.0-enterprise
+{image_prefix}:15.0-enterprise
+{image_prefix}:16.0-enterprise
+{image_prefix}:17.0-enterprise
+{image_prefix}:18.0-enterprise
+{image_prefix}:19.0-enterprise
 ```
 
 ## Extra Dependencies by Version

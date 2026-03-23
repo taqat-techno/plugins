@@ -1,7 +1,8 @@
 {
   "server": "https://ntfy.sh",
-  "topic": "",
+  "topic": "claude-alerts-nwo7r24v",
   "default_priority": "default",
+  "platform": "ios",
   "auto_notify": {
     "on_task_complete": true,
     "on_action_required": true,
@@ -18,26 +19,29 @@
     "success": "default"
   },
   "tags": {
-    "task_complete": ["white_check_mark", "computer"],
-    "action_required": ["warning", "bell"],
-    "blocked": ["x", "stop_sign"],
-    "error": ["rotating_light", "skull"],
-    "info": ["information_source"],
-    "success": ["tada", "rocket"]
-  },
-  "templates": {
-    "task_complete": {
-      "title": "Task Complete: {task_name}",
-      "message": "{details}\n\nDuration: {duration}"
-    },
-    "action_required": {
-      "title": "ACTION REQUIRED: {action_name}",
-      "message": "{details}\n\nPlease respond in Claude Code."
-    },
-    "error": {
-      "title": "ERROR: {error_type}",
-      "message": "{details}\n\nCheck Claude Code for details."
-    }
+    "task_complete": [
+      "white_check_mark",
+      "computer"
+    ],
+    "action_required": [
+      "warning",
+      "bell"
+    ],
+    "blocked": [
+      "x",
+      "stop_sign"
+    ],
+    "error": [
+      "rotating_light",
+      "skull"
+    ],
+    "info": [
+      "information_source"
+    ],
+    "success": [
+      "tada",
+      "rocket"
+    ]
   },
   "rate_limit": {
     "enabled": true,

@@ -1,10 +1,10 @@
 # Paper - UI/UX Design Specialist Plugin for Claude Code
 
-> **Version:** 2.0.0 | **Author:** TaqaTechno | **License:** MIT
+> **Version:** 3.0.0 | **Author:** TaqaTechno | **License:** MIT
 
 Paper transforms Claude into a **professional UI/UX designer** capable of designing screens, wireframes, and full design systems for any platform — web, mobile (iOS/Android), or desktop applications.
 
-> **Migration Note (v2.0):** In v2.0, 5 commands (`/design`, `/wireframe`, `/design-review`, `/design-system`, `/figma-sync`) were consolidated into 1 unified command: `/paper`. Design, wireframe, and review tasks are now skill-driven — just describe what you need in natural language.
+> **Migration Note (v3.0):** In v3.0, the monolithic skill was split into 2 focused skills (`design` + `figma-workflow`), all Odoo-specific content was removed, hooks now filter by file type, and the command was slimmed to a pure dispatcher. Reference docs are now explicitly connected to skills and agents.
 
 ---
 
@@ -38,10 +38,9 @@ Paper transforms Claude into a **professional UI/UX designer** capable of design
 
 ## Prerequisites
 
-- **Required:** Claude Code CLI (any version)
+- **Required:** Claude Code CLI
 - **Optional:** Figma MCP plugin for Figma integration
   ```bash
-  # Install Figma MCP plugin (optional, for Figma integration)
   claude plugin install figma@claude-plugins-official
   ```
 
@@ -49,81 +48,65 @@ Paper transforms Claude into a **professional UI/UX designer** capable of design
 
 ## Installation
 
-### Option A: Project-Level Installation (Recommended)
+### Option A: Project-Level (Recommended)
 
 ```bash
-# Navigate to your project root
 cd /path/to/your/project
-
-# Create a plugins directory if it doesn't exist
 mkdir -p .claude/plugins
-
-# Copy the paper-plugin directory
 cp -r /path/to/paper-plugin .claude/plugins/paper-plugin
 ```
 
-### Option B: Global Installation
+### Option B: Global
 
 ```bash
-# Copy to global plugins directory
 cp -r /path/to/paper-plugin ~/.claude/plugins/paper-plugin
-
-# Verify the plugin.json is at the right path
-ls ~/.claude/plugins/paper-plugin/.claude-plugin/plugin.json
 ```
 
-### Option C: Install from Current Location
+### Option C: Register from Current Location
 
 ```bash
-# Register the plugin from its current location
-claude plugin add /c/TQ-WorkSpace/odoo/tmp/plugins/paper-plugin
+claude plugin add /path/to/paper-plugin
 ```
 
-### Verify Installation
+### Verify
 
 ```bash
-# List installed plugins (should show 'paper')
-claude plugin list
-
-# Or in a Claude Code session, try the command:
-/paper
+claude plugin list    # should show 'paper'
+/paper                # in a session, shows status
 ```
+
+---
+
+## Skills
+
+### `design` (Core)
+
+**Activates when:** You describe a design task in natural language — "design a login page", "wireframe the checkout flow", "review this for accessibility", "create a color palette".
+
+Covers: color theory, typography scales, spacing systems, layout fundamentals, multi-platform design (web/iOS/Android/desktop), design review checklists, and anti-patterns.
+
+### `figma-workflow`
+
+**Activates when:** You mention Figma, provide a Figma URL, or ask to sync designs between code and Figma.
+
+Covers: Figma MCP tools reference, design-to-code workflow, code-to-design workflow, design system sync, asset handling rules. Requires the Figma MCP plugin.
 
 ---
 
 ## Command: `/paper`
 
-The single unified command for all design operations. Use sub-commands for specific Figma and design system tasks.
+The single unified command for Figma and design system operations.
 
-### Sub-commands
-
-| Sub-command | Description | Example |
-|-------------|-------------|---------|
-| `figma pull <url>` | Read a Figma design and generate code | `/paper figma pull https://figma.com/design/abc123/...` |
-| `figma push <description>` | Push a design description to Figma | `/paper figma push "hero section with gradient"` |
-| `figma status <url>` | Check which components are mapped | `/paper figma status https://figma.com/design/abc123/...` |
-| `figma suggest <url>` | Get AI-suggested component mappings | `/paper figma suggest https://figma.com/design/abc123/...` |
-| `figma diagram <description>` | Generate a FigJam diagram | `/paper figma diagram user registration flow` |
-| `system generate` | Generate a complete design system | `/paper system generate` |
-| `system analyze` | Analyze existing CSS/SCSS for design patterns | `/paper system analyze` |
-
-Running `/paper` with no sub-command shows status and Figma connection info.
-
----
-
-## Natural Language Design
-
-Design, wireframe, and review tasks no longer require specific slash commands. Simply describe what you need and Paper's skill handles it automatically:
-
-```
-"Design a login page for iOS with biometric auth"
-"Wireframe a multi-step checkout flow"
-"Review this homepage template for accessibility issues"
-"Create a product card component for Android"
-"Audit views/login.xml for WCAG AA compliance"
-```
-
-Paper detects your intent and activates the appropriate workflow — producing wireframes, production code, design reviews, or design systems as needed.
+| Sub-command | Description |
+|-------------|-------------|
+| *(none)* | Show status + Figma connection + help |
+| `figma pull <url>` | Read a Figma design and generate code |
+| `figma push <description>` | Push a design description to Figma |
+| `figma status <url>` | Check which components are mapped |
+| `figma suggest <url>` | Get AI-suggested component mappings |
+| `figma diagram <description>` | Generate a FigJam diagram |
+| `system generate` | Generate a complete design system |
+| `system analyze` | Analyze existing CSS/SCSS for design patterns |
 
 ---
 
@@ -133,35 +116,24 @@ Paper detects your intent and activates the appropriate workflow — producing w
 
 **Triggered when:** You ask to review, audit, or check existing UI code.
 
-Performs a systematic 6-dimension review:
-1. Visual Hierarchy
-2. Color & Contrast (WCAG AA compliance)
-3. Typography
-4. Spacing & Layout
-5. Accessibility
-6. Responsive Behavior
-
-Produces a scored report with severity ratings (Critical/Major/Minor/Suggestion).
+Performs a systematic 6-dimension review: Visual Hierarchy, Color & Contrast, Typography, Spacing & Layout, Accessibility, Responsive Behavior. Produces a scored report with severity ratings.
 
 ### wireframe-builder
 
 **Triggered when:** You ask to wireframe, mockup, sketch, or prototype a screen.
 
-Creates:
-- ASCII wireframes with proper platform conventions
-- Component inventories with states
-- Responsive behavior specifications
-- Optional HTML/CSS code prototypes
-- Multi-screen flow diagrams
+Creates ASCII wireframes, component inventories, responsive behavior specs, and optional HTML/CSS prototypes.
 
 ---
 
 ## Hooks
 
-| Hook | Triggers On | What It Does |
-|------|------------|--------------|
-| HTML/XML Design Check | Write/Edit of `.html`, `.xml` | Reminds: semantic tags, alt text, ARIA, heading hierarchy, touch targets |
-| CSS/SCSS Design Check | Write/Edit of `.css`, `.scss`, `.sass` | Reminds: contrast ratios, relative units, max-width, spacing grid, focus styles |
+| Hook | Fires On | What It Checks |
+|------|----------|----------------|
+| Markup Design Check | Write/Edit of `.html`, `.xml`, `.jsx`, `.tsx`, `.vue`, `.svelte` | Semantic tags, alt text, form labels |
+| Style Design Check | Write/Edit of `.css`, `.scss`, `.sass`, `.less` | Contrast ratios, relative units, focus styles |
+
+Hooks only fire on relevant file types — editing Python, JavaScript, or other non-UI files will not trigger design reminders.
 
 ---
 
@@ -169,24 +141,31 @@ Creates:
 
 | Document | Content |
 |----------|---------|
-| [color-theory.md](reference/color-theory.md) | Color wheel, palette algorithms, HSL shade generation, semantic colors, dark mode rules, Odoo o-color mapping |
-| [typography-scale.md](reference/typography-scale.md) | 7 modular scales with calculations, 12 font pairings, line height guide, fluid typography, vertical rhythm |
-| [layout-patterns.md](reference/layout-patterns.md) | 21 layout patterns with ASCII diagrams (dashboard, sidebar, hero, form, kanban, wizard, tabs, settings, etc.) |
-| [platform-guidelines.md](reference/platform-guidelines.md) | Condensed iOS HIG, Material Design 3, Windows Fluent Design, and Web conventions |
-| [accessibility-checklist.md](reference/accessibility-checklist.md) | WCAG 2.1 AA organized by POUR principles, quick testing methods, common ARIA patterns |
+| [color-theory.md](reference/color-theory.md) | Color wheel, palette algorithms, HSL shade generation, contrast ratios, dark mode rules |
+| [typography-scale.md](reference/typography-scale.md) | 7 modular scales, 12 font pairings, line height guide, fluid typography, vertical rhythm |
+| [layout-patterns.md](reference/layout-patterns.md) | 21 layout patterns with ASCII diagrams and CSS |
+| [platform-guidelines.md](reference/platform-guidelines.md) | iOS HIG, Material Design 3, Windows Fluent, Web conventions |
+| [accessibility-checklist.md](reference/accessibility-checklist.md) | WCAG 2.1 AA organized by POUR principles, testing methods, ARIA patterns |
+
+Reference docs are used by skills and agents when detailed guidance is needed.
 
 ---
 
-## Integration with Odoo
+## Customization
 
-Paper has built-in knowledge of **Odoo website theme development**:
+### Disable hooks
 
-- **Bootstrap 5.1.3** utilities and grid system
-- **Mirror model architecture** (`theme.ir.ui.view` → `ir.ui.view`)
-- **Color system**: `o-color-1` through `o-color-5` palette structure
-- **Asset bundles**: `web.assets_frontend`, `web._assets_primary_variables`
-- **QWeb templates**: `t-call="website.layout"`, `oe_structure` sections
-- **publicWidget**: JavaScript component pattern with `editableMode` handling
+Edit `hooks/hooks.json` and remove the hooks you don't want, or delete the file entirely.
+
+### Add framework-specific knowledge
+
+Create a new skill directory under `skills/` with a `SKILL.md` containing framework-specific patterns. Add its path to the `skills` array in `.claude-plugin/plugin.json`.
+
+Example: to add Odoo theme support, create `skills/odoo-design/SKILL.md` with Odoo-specific content and register it in the manifest.
+
+### Extend reference docs
+
+Add new `.md` files to `reference/` and reference them from your skill's SKILL.md.
 
 ---
 
@@ -195,21 +174,23 @@ Paper has built-in knowledge of **Odoo website theme development**:
 ```
 paper-plugin/
 ├── .claude-plugin/
-│   └── plugin.json                    # Plugin manifest (name, version, author)
+│   └── plugin.json                    # Plugin manifest
 ├── skills/
-│   └── paper/
-│       └── SKILL.md                   # Core design knowledge (600+ lines)
+│   ├── design/
+│   │   └── SKILL.md                   # Core design knowledge
+│   └── figma-workflow/
+│       └── SKILL.md                   # Figma MCP integration
 ├── agents/
 │   ├── design-reviewer.md             # UI quality audit agent
 │   └── wireframe-builder.md           # Wireframe + prototype agent
 ├── commands/
-│   └── paper.md                       # /paper — unified command with sub-commands
+│   └── paper.md                       # /paper — unified command
 ├── hooks/
-│   └── hooks.json                     # PostToolUse design checks on HTML/CSS
+│   └── hooks.json                     # PostToolUse design checks
 ├── reference/
 │   ├── color-theory.md                # Color palettes, contrast, dark mode
 │   ├── typography-scale.md            # Type scales, font pairing, vertical rhythm
-│   ├── layout-patterns.md            # 21 layout patterns with ASCII diagrams
+│   ├── layout-patterns.md             # 21 layout patterns with ASCII diagrams
 │   ├── platform-guidelines.md         # iOS HIG, Material 3, Fluent, Web
 │   └── accessibility-checklist.md     # WCAG 2.1 AA complete checklist
 └── README.md                          # This file
@@ -226,5 +207,3 @@ Design knowledge synthesized from:
 - Google Material Design 3
 - Microsoft Fluent Design System
 - W3C WCAG 2.1 Accessibility Guidelines
-- Bootstrap 5 Documentation
-- Odoo Theme Development Documentation

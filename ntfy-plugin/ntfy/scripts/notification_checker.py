@@ -37,16 +37,7 @@ from typing import Optional, List, Dict
 PLUGIN_DIR = Path(__file__).parent
 sys.path.insert(0, str(PLUGIN_DIR))
 
-from notify import (
-    send_notification,
-    notify_task_complete,
-    notify_action_required,
-    notify_blocked,
-    notify_error,
-    notify_info,
-    notify_success,
-    load_config
-)
+from notify import send_notification, load_config
 
 
 # =============================================================================
@@ -161,9 +152,6 @@ def ensure_notification(
         else:
             tags = ["computer"]
 
-    # Log to local history first (even if network fails)
-    log_notification(title, message, priority, tags)
-
     # Retry loop with exponential backoff
     last_error = None
 
@@ -183,6 +171,8 @@ def ensure_notification(
             if result['success']:
                 if not silent:
                     print(f"[SUCCESS] Notification sent on attempt {attempt}")
+                # Log successful send
+                log_notification(title, message, priority, tags, success=True)
                 return {
                     'success': True,
                     'message': result['message'],
@@ -205,7 +195,9 @@ def ensure_notification(
                 print(f"[RETRY] Waiting {wait_time} seconds...")
             time.sleep(wait_time)
 
-    # All retries failed
+    # All retries failed — log the failure
+    log_notification(title, message, priority, tags, success=False, error=last_error)
+
     if not silent:
         print(f"\n[FAILED] All {max_retries} attempts failed")
         print(f"[ERROR] Last error: {last_error}")

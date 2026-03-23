@@ -1,0 +1,19 @@
+# DevOps Plugin - Local Configuration
+# Copy this file to `.claude/devops-plugin.local.md` and fill in your values.
+# This file is gitignored and never committed.
+
+## Organization
+- Name: YOUR-ORG-HERE
+- URL: https://dev.azure.com/YOUR-ORG-HERE
+
+## Default Project
+- Name:
+- Team:
+
+## Authentication
+- PAT Environment Variable: AZURE_DEVOPS_EXT_PAT
+
+## Notes
+- Run `/init profile` after configuring to auto-populate `~/.claude/devops.md`
+- The profile caches your identity, team members, and state permissions
+- See `data/project_defaults.json` for project alias configuration

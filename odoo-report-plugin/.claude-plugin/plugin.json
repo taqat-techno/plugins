@@ -1,19 +1,16 @@
 {
   "name": "odoo-report",
-  "version": "2.0.0",
-  "description": "Professional Odoo Email Templates & QWeb Reports - Complete toolkit with wkhtmltopdf setup, Arabic/RTL support, bilingual patterns, and PDF report generation across Odoo 14-19",
+  "version": "2.1.0",
+  "description": "Odoo Email Templates & QWeb Reports — create, validate, migrate, and debug across Odoo 14-19",
   "author": {
     "name": "TaqaTechno",
-    "email": "support@example.com",
+    "email": "info@taqatechno.com",
     "url": "https://taqatechno.com"
   },
-  "license": "MIT",
+  "license": "LGPL-3",
   "homepage": "https://github.com/taqat-techno/plugins",
   "skills": [
     "./odoo-report"
-  ],
-  "commands": [
-    "./commands"
   ],
   "hooks": "./hooks/hooks.json"
 }

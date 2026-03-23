@@ -51,7 +51,7 @@ except ImportError:
     requests = None
     print("[WARNING] 'requests' module not installed. Run: pip install requests")
 
-from notify import load_config, get_topic
+from notify import load_config, save_config, get_topic
 
 # =============================================================================
 # CONFIGURATION
@@ -80,7 +80,8 @@ def ask_user(
     priority: str = "high",
     tags: List[str] = None,
     silent: bool = False,
-    platform: str = None
+    platform: str = None,
+    topic: str = None
 ) -> Optional[str]:
     """
     Send notification with action buttons and wait for user response.
@@ -116,7 +117,7 @@ def ask_user(
         return None
 
     config = load_config()
-    topic = get_topic()
+    topic = topic or get_topic()
 
     if not topic:
         print("[ERROR] No ntfy topic configured. Run /ntfy-setup first.")
@@ -196,16 +197,16 @@ def ask_yes_no(
     message: str,
     timeout: int = DEFAULT_TIMEOUT,
     silent: bool = False,
-    platform: str = None
+    platform: str = None,
+    topic: str = None
 ) -> Optional[str]:
     """
     Send a Yes/No question and wait for response.
-    Works on both iOS and Android!
 
     Returns:
         "Yes", "No", or None if timeout
     """
-    response = ask_user(
+    return ask_user(
         title=title,
         message=message,
         options=["Yes", "No"],
@@ -213,9 +214,9 @@ def ask_yes_no(
         priority="high",
         tags=["question", "white_check_mark", "x"],
         silent=silent,
-        platform=platform
+        platform=platform,
+        topic=topic
     )
-    return response
 
 
 def ask_choice(
@@ -224,11 +225,11 @@ def ask_choice(
     choices: List[str],
     timeout: int = DEFAULT_TIMEOUT,
     silent: bool = False,
-    platform: str = None
+    platform: str = None,
+    topic: str = None
 ) -> Optional[str]:
     """
     Present multiple choices and wait for selection.
-    Works on both iOS and Android!
 
     Returns:
         Selected choice string, or None if timeout
@@ -241,7 +242,8 @@ def ask_choice(
         priority="high",
         tags=["question", "thinking"],
         silent=silent,
-        platform=platform
+        platform=platform,
+        topic=topic
     )
 
 
@@ -250,11 +252,11 @@ def ask_confirm(
     details: str = "",
     timeout: int = DEFAULT_TIMEOUT,
     silent: bool = False,
-    platform: str = None
+    platform: str = None,
+    topic: str = None
 ) -> bool:
     """
     Ask for confirmation before proceeding.
-    Works on both iOS and Android!
 
     Returns:
         True if confirmed, False otherwise
@@ -271,7 +273,8 @@ def ask_confirm(
         priority="urgent",
         tags=["warning", "bell"],
         silent=silent,
-        platform=platform
+        platform=platform,
+        topic=topic
     )
 
     return response == "Confirm"
@@ -282,11 +285,11 @@ def ask_approval(
     description: str,
     timeout: int = DEFAULT_TIMEOUT,
     silent: bool = False,
-    platform: str = None
+    platform: str = None,
+    topic: str = None
 ) -> Optional[str]:
     """
     Request approval with Approve/Reject/Later options.
-    Works on both iOS and Android!
 
     Returns:
         "Approve", "Reject", "Later", or None if timeout
@@ -299,7 +302,8 @@ def ask_approval(
         priority="urgent",
         tags=["clipboard", "bell"],
         silent=silent,
-        platform=platform
+        platform=platform,
+        topic=topic
     )
 
 
@@ -609,12 +613,10 @@ def set_platform(platform: str) -> bool:
     config = load_config()
     config['platform'] = platform
 
-    config_path = PLUGIN_DIR / 'config.json'
-    with open(config_path, 'w') as f:
-        json.dump(config, f, indent=2)
-
-    print(f"[OK] Platform set to: {platform}")
-    return True
+    if save_config(config):
+        print(f"[OK] Platform set to: {platform}")
+        return True
+    return False
 
 
 def get_platform() -> str:

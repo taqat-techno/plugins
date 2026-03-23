@@ -129,8 +129,6 @@ You can also trigger i18n operations via natural language. The skill responds to
 - "Generate an Arabic .po file for my module"
 - "Check translation coverage for my module"
 
-> **v2.0 Migration Note**: The separate `/i18n-extract`, `/i18n-missing`, `/i18n-validate`, and `/i18n-export` commands from v1.x have been consolidated into `/odoo-i18n` sub-commands. Use `/odoo-i18n extract` instead of `/i18n-extract`, etc.
-
 ---
 
 ## Scripts Reference
@@ -471,8 +469,10 @@ odoo-i18n-plugin/
 ├── .claude-plugin/
 │   └── plugin.json                    <- Plugin metadata and configuration
 ├── odoo-i18n/
-│   ├── SKILL.md                       <- Main skill documentation (700+ lines)
+│   ├── SKILL.md                       <- Skill instructions (concise, ~150 lines)
 │   └── scripts/
+│       ├── __init__.py                <- Package marker
+│       ├── _common.py                 <- Shared: PoEntry, PoParser, escape, plural forms
 │       ├── i18n_extractor.py          <- Extract strings -> generate .pot/.po
 │       ├── i18n_validator.py          <- Validate .po file correctness
 │       ├── i18n_reporter.py           <- Translation coverage reports
@@ -480,11 +480,11 @@ odoo-i18n-plugin/
 ├── commands/
 │   └── odoo-i18n.md                   <- /odoo-i18n command (with sub-commands)
 ├── memories/
-│   ├── translation_patterns.md        <- Python/XML/JS translation patterns
-│   ├── rtl_patterns.md                <- RTL/Arabic layout patterns
+│   ├── translation_patterns.md        <- Python/XML/JS translation patterns (detailed)
+│   ├── rtl_patterns.md                <- RTL/Arabic layout patterns (detailed)
 │   └── language_codes.md              <- Language codes, formats, currencies
 ├── hooks/
-│   └── hooks.json                     <- File event triggers
+│   └── hooks.json                     <- File event triggers (2 hooks)
 └── README.md                          <- This file
 ```
 
@@ -548,6 +548,23 @@ msgstr "تم العثور على %s سجل"   <- missing second specifier
 # CORRECT:
 msgstr "تم العثور على %s سجل في %d ملفات"
 ```
+
+---
+
+## Customization
+
+### Branding in Generated Files
+
+By default, generated `.pot`/`.po` files use generic branding. Customize via environment variables:
+
+```bash
+export ODOO_I18N_COPYRIGHT="Your Company Name"
+export ODOO_I18N_BUGS_EMAIL="translations@yourcompany.com"
+```
+
+### Extending Plural Forms
+
+The plugin supports 30+ language codes out of the box. To add more, edit `odoo-i18n/scripts/_common.py` and add entries to the `PLURAL_FORMS` dict.
 
 ---
 

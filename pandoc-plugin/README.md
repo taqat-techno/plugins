@@ -2,8 +2,6 @@
 
 A document conversion plugin powered by [Pandoc](https://pandoc.org/). Convert between 50+ input formats and 60+ output formats with intelligent automation.
 
-> **Migration note**: Previously, this plugin had 8 separate commands. In v2.0, all functionality is unified into `/pandoc` and the enhanced skill.
-
 ---
 
 ## Quick Start
@@ -51,48 +49,51 @@ The skill detects the input format, chooses the right output engine, and applies
 - **eBook Publishing** -- EPUB with covers, metadata, and custom styling
 - **Smart Defaults** -- Automatic format detection and best-practice options
 - **Batch Processing** -- Convert multiple files in one go
+- **Auto-detection Hooks** -- Session startup checks and format-aware tips
 
-## Supported Formats
+## Hooks
 
-### Input (50+)
+The plugin includes two hooks that run automatically:
 
-| Category | Formats |
-|----------|---------|
-| **Markdown** | markdown, gfm, commonmark, markdown_strict, markdown_mmd |
-| **Documents** | docx, odt, rtf, epub |
-| **Web** | html, html5 |
-| **Technical** | latex, rst, asciidoc, org, docbook |
-| **Wiki** | mediawiki, dokuwiki, tikiwiki, jira |
-| **Data** | csv, tsv, json |
-| **Other** | ipynb (Jupyter), fb2, man, typst |
-
-### Output (60+)
-
-All input formats plus:
-
-| Category | Formats |
-|----------|---------|
-| **Print** | pdf |
-| **Presentations** | revealjs, beamer, pptx, slidy, dzslides |
-| **Publishing** | epub, epub3, icml |
-| **Technical** | context, texinfo, ms |
-| **Other** | plain, ansi, chunkedhtml |
+| Hook | Event | Purpose |
+|------|-------|---------|
+| `session-check.sh` | SessionStart | Checks if Pandoc and LaTeX are installed, warns if missing |
+| `pandoc-context.sh` | PreToolUse (Bash) | Injects format-specific tips when running pandoc commands |
 
 ## Plugin Structure
 
 ```
 pandoc-plugin/
+├── .claude-plugin/
+│   └── plugin.json              # Plugin manifest with hooks
 ├── commands/
-│   └── pandoc.md              # Unified command entry point
+│   └── pandoc.md                # Unified /pandoc command
+├── hooks/
+│   ├── hooks.json               # Hook registry
+│   ├── session-check.sh         # Check pandoc/latex on startup
+│   └── pandoc-context.sh        # Inject tips for pandoc commands
 ├── pandoc/
-│   ├── SKILL.md               # Skill definition
+│   ├── SKILL.md                 # Skill definition
 │   └── scripts/
-│       └── pandoc_utils.py    # Helper utilities
-├── templates/                 # Custom templates
-├── memories/
-│   └── format_best_practices.md
+│       ├── setup.ps1            # Windows installer
+│       └── setup.sh             # Linux/macOS installer
+├── reference/
+│   └── format_guide.md          # Format-specific best practices
+├── test/
+│   └── sample.md                # Test input file
 └── README.md
 ```
+
+## Extending the Plugin
+
+### Adding a custom template
+Place template files (LaTeX, HTML, DOCX reference docs) in a `templates/` directory and reference them in your pandoc commands with `--template` or `--reference-doc`.
+
+### Customizing hooks
+Edit `hooks/pandoc-context.sh` to add your own format-specific tips or warnings. The hook reads the Bash command from stdin JSON and outputs tips to stdout.
+
+### Adding format-specific guidance
+Extend `reference/format_guide.md` with best practices for your specific use cases (corporate templates, language-specific PDF settings, etc.).
 
 ## Troubleshooting
 
@@ -115,4 +116,4 @@ MIT License
 
 ---
 
-*Pandoc Plugin v2.0.0 -- Universal Document Conversion for Claude Code*
+*Pandoc Plugin v2.1.0 -- Universal Document Conversion for Claude Code*

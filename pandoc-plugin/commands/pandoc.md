@@ -126,7 +126,7 @@ pdflatex --version 2>/dev/null | head -1
 Run the setup PowerShell script:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File "C:\TQ-WorkSpace\odoo\tmp\plugins\pandoc-plugin\pandoc\scripts\setup.ps1"
+powershell -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/pandoc/scripts/setup.ps1"
 ```
 
 The script handles:
@@ -163,7 +163,7 @@ foreach ($p in $pkgs) {
 #### Linux (Debian/Ubuntu)
 
 ```bash
-bash "C:/TQ-WorkSpace/odoo/tmp/plugins/pandoc-plugin/pandoc/scripts/setup.sh"
+bash "${CLAUDE_PLUGIN_ROOT}/pandoc/scripts/setup.sh"
 ```
 
 Or manually:
