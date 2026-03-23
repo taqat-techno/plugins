@@ -30,15 +30,22 @@ import argparse
 from pathlib import Path
 from typing import List, Dict, Optional, Tuple
 
-
-# Models considered sensitive — accessing them without proper auth is a risk
-SENSITIVE_MODELS = {
-    'res.partner', 'res.users', 'hr.employee', 'hr.payslip',
-    'account.move', 'account.payment', 'sale.order', 'purchase.order',
-    'stock.picking', 'stock.move', 'ir.config_parameter',
-    'ir.attachment', 'base.automation', 'ir.rule', 'ir.model.access',
-    'mail.message', 'mail.thread', 'res.bank', 'res.partner.bank',
-}
+try:
+    from _common import (
+        SENSITIVE_MODELS, SEVERITY_ORDER, SEVERITY_WEIGHTS,
+        count_by_severity, format_text_report as _format_report,
+        load_config, get_sensitive_models,
+    )
+except ImportError:
+    SENSITIVE_MODELS = {
+        'res.partner', 'res.users', 'hr.employee', 'hr.payslip',
+        'account.move', 'account.payment', 'sale.order', 'purchase.order',
+        'stock.picking', 'stock.move', 'ir.config_parameter',
+        'ir.attachment', 'base.automation', 'ir.rule', 'ir.model.access',
+        'mail.message', 'mail.thread', 'res.bank', 'res.partner.bank',
+    }
+    SEVERITY_ORDER = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW']
+    SEVERITY_WEIGHTS = {'CRITICAL': 4, 'HIGH': 3, 'MEDIUM': 2, 'LOW': 1}
 
 # Route path patterns that suggest sensitive operations
 SENSITIVE_PATH_PATTERNS = [
@@ -431,35 +438,6 @@ def audit_routes(module_path: Path) -> List[Dict]:
     for controller_file in controller_files:
         file_issues = analyze_controller_file(controller_file, module_path)
         issues.extend(file_issues)
-
-    # Check for inherited controllers from common modules
-    # Look for website controller patterns in all Python files
-    for py_file in module_path.rglob('*.py'):
-        if 'controllers' not in str(py_file) and 'wizard' not in str(py_file):
-            continue
-        try:
-            content = py_file.read_text(encoding='utf-8', errors='replace')
-            # Check for request.env.cr.execute with string formatting (SQL injection in controllers)
-            sqli_pattern = re.compile(
-                r"(?:request\.)?env\.cr\.execute\s*\(\s*(?:['\"].*%[^s]|f['\"]|.*%\s*\()",
-                re.MULTILINE
-            )
-            for match in sqli_pattern.finditer(content):
-                line = content[:match.start()].count('\n') + 1
-                rel_path = py_file.relative_to(module_path) if module_path in py_file.parents else py_file
-                issues.append({
-                    'severity': 'HIGH',
-                    'type': 'sql_injection',
-                    'file': str(rel_path),
-                    'line': line,
-                    'message': (
-                        f"Potential SQL injection in controller: env.cr.execute() with "
-                        f"string formatting detected. Use parameterized queries: "
-                        f"self.env.cr.execute('SELECT ... WHERE x = %s', (value,))"
-                    ),
-                })
-        except (OSError, IOError):
-            continue
 
     return issues
 

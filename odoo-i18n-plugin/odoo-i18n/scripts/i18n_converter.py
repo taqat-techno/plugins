@@ -21,147 +21,14 @@ import argparse
 import re
 import shutil
 import sys
-from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
-
-# ---------------------------------------------------------------------------
-# Data structures
-# ---------------------------------------------------------------------------
-
-@dataclass
-class PoEntry:
-    """A single .po file entry."""
-    msgid: str
-    msgstr: str
-    comments: List[str] = field(default_factory=list)
-    extracted_comments: List[str] = field(default_factory=list)
-    locations: List[str] = field(default_factory=list)
-    flags: List[str] = field(default_factory=list)
-    is_fuzzy: bool = False
-    is_obsolete: bool = False
-    is_header: bool = False
-    line_start: int = 0
-
-    @property
-    def is_translated(self) -> bool:
-        return bool(self.msgstr) and not self.is_fuzzy
-
-    def clone_empty(self) -> "PoEntry":
-        """Return a copy of this entry with empty msgstr."""
-        return PoEntry(
-            msgid=self.msgid,
-            msgstr="",
-            comments=list(self.comments),
-            extracted_comments=list(self.extracted_comments),
-            locations=list(self.locations),
-            flags=[f for f in self.flags if f != "fuzzy"],
-            is_fuzzy=False,
-            is_obsolete=self.is_obsolete,
-            is_header=self.is_header,
-        )
-
-
-# ---------------------------------------------------------------------------
-# Parser
-# ---------------------------------------------------------------------------
-
-class PoParser:
-    """Full-fidelity .po file parser preserving comments and structure."""
-
-    def __init__(self, content: str):
-        self.content = content
-        self.lines = content.splitlines()
-        self._entries: List[PoEntry] = []
-        self._errors: List[str] = []
-
-    def parse(self) -> List[PoEntry]:
-        entries = []
-        current: Optional[PoEntry] = None
-        mode: Optional[str] = None
-
-        def flush():
-            nonlocal current, mode
-            if current is not None:
-                if current.is_header or current.msgid:
-                    entries.append(current)
-                current = None
-                mode = None
-
-        for i, raw_line in enumerate(self.lines):
-            lineno = i + 1
-            line = raw_line.strip()
-
-            if not line:
-                flush()
-                continue
-
-            # Comments
-            if line.startswith("#"):
-                if current is None:
-                    current = PoEntry(msgid="", msgstr="", line_start=lineno)
-
-                if line.startswith("#,"):
-                    flags = [f.strip() for f in line[2:].split(",")]
-                    current.flags = flags
-                    if "fuzzy" in flags:
-                        current.is_fuzzy = True
-                elif line.startswith("#:"):
-                    current.locations.extend(line[2:].strip().split())
-                elif line.startswith("#."):
-                    current.extracted_comments.append(line[2:].strip())
-                elif line.startswith("#~"):
-                    current.is_obsolete = True
-                    current.comments.append(line)
-                else:
-                    current.comments.append(line)
-                continue
-
-            if line.startswith("msgid "):
-                if current is not None and mode is not None:
-                    flush()
-                if current is None:
-                    current = PoEntry(msgid="", msgstr="", line_start=lineno)
-                val = self._parse_string(line[6:])
-                current.msgid = val
-                if val == "":
-                    current.is_header = True
-                mode = "msgid"
-                continue
-
-            if line.startswith("msgstr "):
-                current.msgstr = self._parse_string(line[7:])
-                mode = "msgstr"
-                continue
-
-            if line.startswith('"') and mode:
-                chunk = self._parse_string(line)
-                if mode == "msgid":
-                    current.msgid += chunk
-                    if current.msgid == "":
-                        current.is_header = True
-                else:
-                    current.msgstr += chunk
-                continue
-
-        flush()
-        self._entries = entries
-        return entries
-
-    @staticmethod
-    def _parse_string(raw: str) -> str:
-        raw = raw.strip()
-        if raw.startswith('"') and raw.endswith('"'):
-            inner = raw[1:-1]
-            inner = inner.replace('\\"', '"')
-            inner = inner.replace("\\n", "\n")
-            inner = inner.replace("\\t", "\t")
-            inner = inner.replace("\\r", "\r")
-            inner = inner.replace("\\\\", "\\")
-            return inner
-        return ""
+try:
+    from ._common import PoEntry, PoParser, escape_po_string
+except ImportError:
+    from _common import PoEntry, PoParser, escape_po_string
 
 
 # ---------------------------------------------------------------------------
@@ -173,12 +40,7 @@ class PoSerializer:
 
     @staticmethod
     def escape(s: str) -> str:
-        s = s.replace("\\", "\\\\")
-        s = s.replace('"', '\\"')
-        s = s.replace("\n", "\\n")
-        s = s.replace("\r", "\\r")
-        s = s.replace("\t", "\\t")
-        return s
+        return escape_po_string(s)
 
     def serialize_entry(self, entry: PoEntry, obsolete: bool = False) -> str:
         parts = []

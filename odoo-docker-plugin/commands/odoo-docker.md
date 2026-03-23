@@ -10,6 +10,8 @@ argument-hint: '[init|compose|deploy|build] [args...]'
 
 Complete Docker infrastructure management for Odoo projects. Handles project initialization, compose generation, production deployment, and image building.
 
+> **User config**: Check `~/.claude/odoo-docker.local.md` for customized `image_prefix`, `default_version`, and other settings. Replace `{image_prefix}` in generated configs with the user's value (or ask on first use).
+
 ## Argument Routing
 
 Parse `$ARGUMENTS` and route to the appropriate section:
@@ -18,7 +20,7 @@ Parse `$ARGUMENTS` and route to the appropriate section:
 |----------------|----------|---------|
 | `init` | [Project Init](#section-init) | `/odoo-docker init --project relief_center` |
 | `compose` | [Compose Generator](#section-compose) | `/odoo-docker compose dev --version 19` |
-| `deploy` | [Production Deploy](#section-deploy) | `/odoo-docker deploy --domain relief.taqatechno.com` |
+| `deploy` | [Production Deploy](#section-deploy) | `/odoo-docker deploy --domain myproject.example.com` |
 | `build` | [Image Builder](#section-build) | `/odoo-docker build 19` or `/odoo-docker build --all` |
 | *(none)* | [Status + Help](#section-status) | `/odoo-docker` |
 
@@ -58,14 +60,14 @@ Examples:
   /odoo-docker init --project relief_center --version 19
   /odoo-docker compose dev
   /odoo-docker compose prod --version 17 --project almajal
-  /odoo-docker deploy --domain relief.taqatechno.com
+  /odoo-docker deploy --domain myproject.example.com
   /odoo-docker build 19
   /odoo-docker build --all --push
 
-Related skills (separate commands):
-  /docker-perf     Performance analysis & tuning
-  /docker-debug    Container troubleshooting
-  /docker-nginx    Nginx config generation
+Natural language triggers (no command needed):
+  "Analyze my Docker performance"    Performance analysis & tuning
+  "Debug my Odoo container"          Container troubleshooting
+  "Generate nginx config for Odoo"   Nginx config generation
 ```
 
 ---
@@ -101,7 +103,7 @@ If no projects found:
 ```
 No projects found.
 Clone your project first:
-  gh repo clone taqat-techno/my-project projects/my-project
+  gh repo clone your-org/my-project projects/my-project
 ```
 
 Use `AskUserQuestion` to let user pick a project.
@@ -161,7 +163,7 @@ Ask user: "Pull the Docker image and start containers now?"
 
 If yes:
 1. `docker-compose -f docker-compose.{project}.yml down 2>/dev/null`
-2. `docker pull taqatechno/odoo:{version}.0-enterprise` (or `alakosha/odoo-image:{version}.0`)
+2. `docker pull {image_prefix}:{version}.0-enterprise` (or `{image_prefix}:{version}.0`)
 3. `docker-compose -f docker-compose.{project}.yml up -d`
 
 ### Step 10: Display Summary
@@ -355,7 +357,7 @@ Display security checklist:
 ### Step 5: Deploy (Optional)
 
 Ask user if they want to deploy now:
-1. Pull image: `docker pull taqatechno/odoo:{version}.0-enterprise`
+1. Pull image: `docker pull {image_prefix}:{version}.0-enterprise`
 2. Start: `docker-compose -f docker-compose.{project}.prod.yml up -d`
 3. Verify health: check all containers are healthy
 4. Run warm-up: wait for asset compilation
@@ -400,8 +402,8 @@ Parse remaining arguments:
 ```
 
 1. Locate or generate Dockerfile using version matrix (SKILL.md section 3)
-2. Build image: `docker build --build-arg PYTHON_VERSION=3.12 --build-arg ODOO_VERSION=19 -t taqatechno/odoo:19.0-enterprise .`
-3. Tag with SHA: `docker tag taqatechno/odoo:19.0-enterprise taqatechno/odoo:19.0-enterprise-$(git rev-parse --short HEAD)`
+2. Build image: `docker build --build-arg PYTHON_VERSION=3.12 --build-arg ODOO_VERSION=19 -t {image_prefix}:19.0-enterprise .`
+3. Tag with SHA: `docker tag {image_prefix}:19.0-enterprise {image_prefix}:19.0-enterprise-$(git rev-parse --short HEAD)`
 
 ### Build All Versions
 
@@ -413,12 +415,12 @@ Builds all 6 versions sequentially using the version matrix:
 
 | Version | Python | Tag |
 |---------|--------|-----|
-| 14 | 3.10 | `taqatechno/odoo:14.0-enterprise` |
-| 15 | 3.10 | `taqatechno/odoo:15.0-enterprise` |
-| 16 | 3.10 | `taqatechno/odoo:16.0-enterprise` |
-| 17 | 3.12 | `taqatechno/odoo:17.0-enterprise` |
-| 18 | 3.12 | `taqatechno/odoo:18.0-enterprise` |
-| 19 | 3.12 | `taqatechno/odoo:19.0-enterprise` |
+| 14 | 3.10 | `{image_prefix}:14.0-enterprise` |
+| 15 | 3.10 | `{image_prefix}:15.0-enterprise` |
+| 16 | 3.10 | `{image_prefix}:16.0-enterprise` |
+| 17 | 3.12 | `{image_prefix}:17.0-enterprise` |
+| 18 | 3.12 | `{image_prefix}:18.0-enterprise` |
+| 19 | 3.12 | `{image_prefix}:19.0-enterprise` |
 
 ### Push to Docker Hub
 
@@ -429,7 +431,7 @@ Builds all 6 versions sequentially using the version matrix:
 
 Requires Docker Hub login:
 ```bash
-docker login -u taqatechno
+docker login -u {your_dockerhub_username}
 ```
 
 ### Generate GitHub Actions CI/CD
@@ -472,27 +474,15 @@ Version-specific issues handled per SKILL.md section 17:
 
 ---
 
-## Previously Available Commands
-
-This unified command replaces the following individual commands. They continue to work but route through `/odoo-docker`:
-
-| Old Command | New Equivalent |
-|-------------|---------------|
-| `/docker-init-project` | `/odoo-docker init` |
-| `/docker-compose-gen` | `/odoo-docker compose` |
-| `/docker-deploy` | `/odoo-docker deploy` |
-| `/docker-build` | `/odoo-docker build` |
-| `/odoo-docker-infra` | `/odoo-docker` (no args) |
-
-The following remain as separate commands (specialized tools):
-- `/docker-perf` — Performance analysis and tuning
-- `/docker-debug` — Container troubleshooting
-- `/docker-nginx` — Nginx config generation
-
 ## Natural Language Triggers
+
+In addition to sub-commands, the skill responds to natural language for nginx, debugging, and performance:
 
 - "set up docker for this project", "initialize docker", "docker setup"
 - "generate docker-compose", "create compose file", "compose for dev/staging/prod"
 - "deploy to production", "production docker setup", "deploy odoo with nginx"
 - "build docker image", "push to docker hub", "ci/cd pipeline", "github actions"
 - "docker status", "what docker projects exist"
+- "analyze my Docker performance", "tune workers", "optimize PostgreSQL"
+- "debug my Odoo container", "container keeps restarting", "500 errors"
+- "generate nginx config", "add reverse proxy", "enable gzip"

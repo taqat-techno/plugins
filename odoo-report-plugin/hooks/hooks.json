@@ -2,57 +2,38 @@
   "hooks": {
     "PostToolUse": [
       {
-        "name": "email-template-created",
-        "description": "Remind about template best practices when a mail template XML file is written",
-        "matcher": "Write",
-        "hooks": [
-          {
-            "type": "suggestion",
-            "message": "[odoo-report] Email template file created. Verify:\n- mail.template record has body_html (not body)\n- subtype_id references mail.mt_comment for Chatter integration\n- email_to uses dynamic field (e.g. ${object.partner_id.email})\n- Run /validate-template to check for QWeb syntax errors"
-          }
-        ]
-      },
-      {
-        "name": "email-template-modified",
-        "description": "Remind about QWeb rendering checks when a mail template XML file is edited",
+        "name": "email-template-check",
+        "description": "Remind about mail.template best practices when email template XML is written or edited",
         "matcher": "Write|Edit",
+        "filePattern": "**/data/mail_template*.xml",
         "hooks": [
           {
             "type": "suggestion",
-            "message": "[odoo-report] Email template modified. Check:\n- body_html field uses t-esc or t-out (not t-raw in Odoo 16+)\n- Conditional blocks use t-if not attrs\n- Dynamic fields wrapped in <span t-esc=\"object.field\"/>\n- Test render via Settings > Technical > Email Templates > Send Test"
+            "message": "[odoo-report] Email template file changed. Verify:\n- mail.template record has body_html (not body)\n- subject uses inline_template syntax: {{ object.name }}\n- body_html uses QWeb: <t t-out=\"object.field\"/>\n- email_to or partner_to is set with dynamic expression\n- For Odoo 17+: use report_template_ids (M2M) not report_template\n- For Odoo 15+: use t-out (not t-esc)\n- File is listed in __manifest__.py under 'data'"
           }
         ]
       },
       {
-        "name": "qweb-report-created",
-        "description": "Remind about QWeb report structure when a report XML file is written",
-        "matcher": "Write",
-        "hooks": [
-          {
-            "type": "suggestion",
-            "message": "[odoo-report] QWeb report file created. Verify:\n- ir.actions.report record has report_type=\"qweb-pdf\" or \"qweb-html\"\n- Report template id matches report_name in ir.actions.report\n- Page layout uses t-call=\"web.external_layout\" for header/footer\n- Report is listed in __manifest__.py under 'data'"
-          }
-        ]
-      },
-      {
-        "name": "qweb-report-modified",
-        "description": "Remind about QWeb page layout checks when a report XML file is edited",
+        "name": "qweb-report-check",
+        "description": "Remind about QWeb report structure when report XML is written or edited",
         "matcher": "Write|Edit",
+        "filePattern": "**/report*/**/*.xml",
         "hooks": [
           {
             "type": "suggestion",
-            "message": "[odoo-report] QWeb report modified. Check:\n- t-foreach loops use t-as to alias the current record\n- Currency/amount fields use res-lang's format_currency or monetary widget\n- Page breaks use <div style=\"page-break-after: always\"/>\n- Paper format declared via report_paperformat_id in ir.actions.report"
+            "message": "[odoo-report] QWeb report file changed. Verify:\n- ir.actions.report has report_type=\"qweb-pdf\" and report_name matching template id\n- Template uses t-call=\"web.html_container\" as outermost wrapper\n- Then t-call=\"web.external_layout\" for header/footer and UTF-8 encoding\n- Content inside <div class=\"page\">\n- Currency uses t-options='{\"widget\": \"monetary\"}'\n- Page breaks: <div style=\"page-break-before: always;\"/>\n- For Arabic/RTL: web.html_container is MANDATORY for UTF-8"
           }
         ]
       },
       {
-        "name": "manifest-report-check",
-        "description": "Remind to include report files in manifest data array when manifest is edited",
+        "name": "manifest-report-data",
+        "description": "Remind to include report and template files in manifest data array",
         "matcher": "Write|Edit",
+        "filePattern": "**/__manifest__.py",
         "hooks": [
           {
             "type": "suggestion",
-            "message": "[odoo-report] Manifest modified. Verify report/email template files are in 'data' array:\n- 'data/mail_template_*.xml' (email templates)\n- 'reports/*.xml' (QWeb report actions + templates)\n- Order matters: security XML before access CSV before data files"
+            "message": "[odoo-report] Manifest modified. If adding reports or templates, verify:\n- 'data/mail_template_*.xml' entries in 'data' list\n- 'reports/*.xml' entries in 'data' list (action before template)\n- Report SCSS in 'assets' under 'web.report_assets_common'\n- Order: security files before data files"
           }
         ]
       }

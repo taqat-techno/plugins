@@ -2,79 +2,24 @@
   "hooks": {
     "PostToolUse": [
       {
-        "name": "po-file-written",
-        "description": "Remind about .po file validation when a translation file is created or modified",
+        "name": "po-file-validation",
+        "description": "Remind about .po/.pot validation when a translation file is written or edited",
         "matcher": "Write|Edit",
         "hooks": [
           {
-            "type": "suggestion",
-            "message": "[odoo-i18n] Translation (.po) file changed. Verify:\n- msgstr entries do not have extra newlines or mismatched plural forms\n- Run /i18n-validate to check for syntax errors and encoding issues\n- Run /i18n-missing to find untranslated entries by language\n- Load into Odoo: python -m odoo -c conf/project.conf -d db -u module --stop-after-init"
+            "type": "prompt",
+            "message": "Check the file_path of the tool call. If the file ends in .po or .pot, remind the user:\n\n[odoo-i18n] Translation file changed. Consider running:\n- /odoo-i18n validate — check for syntax errors, encoding issues, and format specifier mismatches\n- /odoo-i18n missing — find untranslated entries\n- Load into Odoo: python -m odoo -c conf/project.conf -d db -u module --stop-after-init\n\nIf the file does NOT end in .po or .pot, say nothing about i18n — this hook is not relevant."
           }
         ]
       },
       {
-        "name": "pot-file-created",
-        "description": "Remind about generating language .po files when a .pot template is created",
+        "name": "i18n-general-reminder",
+        "description": "Brief i18n reminder when new Python, XML, JS, or SCSS files are created in an Odoo module",
         "matcher": "Write",
         "hooks": [
           {
             "type": "suggestion",
-            "message": "[odoo-i18n] Translation template (.pot) created. Next steps:\n- Copy to language file: cp module/i18n/module.pot module/i18n/ar.po\n- Update 'Language' header in the .po file (e.g. ar_AE)\n- Run /i18n-extract to regenerate from source if strings have changed\n- Use /i18n-missing to compare coverage across languages"
-          }
-        ]
-      },
-      {
-        "name": "python-model-created",
-        "description": "Remind about _() and _lt() usage when a new Python model file is created",
-        "matcher": "Write",
-        "hooks": [
-          {
-            "type": "suggestion",
-            "message": "[odoo-i18n] New model file created. i18n reminders:\n- Use _() for runtime strings: raise ValidationError(_(\"Invalid value\"))\n- Use _lt() for class-level strings: selection=[('draft', _lt('Draft'))]\n- Do NOT wrap string= attributes in _(): string='My Field' is auto-translated\n- Run /i18n-extract after adding strings to update .po files"
-          }
-        ]
-      },
-      {
-        "name": "xml-view-created",
-        "description": "Remind about XML translation attributes when a view file is created",
-        "matcher": "Write",
-        "hooks": [
-          {
-            "type": "suggestion",
-            "message": "[odoo-i18n] New view file created. Translation reminders:\n- string= attributes on <field> elements are auto-translated\n- Text nodes in templates are translatable by default\n- Use t-translation=\"off\" to exclude technical/code content from extraction\n- Run /i18n-extract to update .po files with new strings"
-          }
-        ]
-      },
-      {
-        "name": "js-file-created",
-        "description": "Remind about _t() import for JavaScript i18n when a JS file is created",
-        "matcher": "Write",
-        "hooks": [
-          {
-            "type": "suggestion",
-            "message": "[odoo-i18n] New JavaScript file created. i18n in JS:\n\n// Odoo 16 / 17 / 18 / 19\nimport { _t } from \"@web/core/l10n/translation\";\nconst msg = _t(\"Hello World\");\n\n// Odoo 14 / 15 (legacy)\nimport { _t } from \"web.core\";\n\n- Do NOT use f-strings or concatenation inside _t()\n- Run /i18n-extract after adding _t() calls to update .po files"
-          }
-        ]
-      },
-      {
-        "name": "scss-created-rtl",
-        "description": "Remind about RTL CSS patterns when a new SCSS file is created in a theme",
-        "matcher": "Write",
-        "hooks": [
-          {
-            "type": "suggestion",
-            "message": "[odoo-i18n] New SCSS file created. RTL support reminders:\n- Use [dir=\"rtl\"] selectors for RTL overrides: [dir=\"rtl\"] .my-class { text-align: right; }\n- Prefer CSS logical properties: margin-inline-start over margin-left\n- Use logical shorthands: border-inline, padding-block, inset-inline\n- Test layout with Arabic in Odoo: Settings > Languages > Arabic"
-          }
-        ]
-      },
-      {
-        "name": "manifest-i18n-check",
-        "description": "Remind to create the i18n/ directory when a new module manifest is created",
-        "matcher": "Write",
-        "hooks": [
-          {
-            "type": "suggestion",
-            "message": "[odoo-i18n] New module manifest created. Translation setup:\n- Create i18n/ directory: mkdir -p module_name/i18n/\n- Odoo auto-reads .po files from i18n/ on install/update (no manifest entry needed)\n- Run /i18n-extract to generate the initial .pot template\n- Add languages: copy .pot to ar.po, fr.po, etc. and translate"
+            "message": "[odoo-i18n] New file created. Quick i18n checklist:\n- Python: use _('text') for runtime strings, _lt('text') for class-level\n- XML: string= attributes are auto-translated (no _() needed)\n- JS (16+): import { _t } from '@web/core/l10n/translation'\n- SCSS: use CSS logical properties (margin-inline-start) for RTL support\n- Run /odoo-i18n extract after adding translatable strings"
           }
         ]
       }

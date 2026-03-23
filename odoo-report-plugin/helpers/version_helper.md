@@ -165,10 +165,10 @@ def requires_migration(from_ver, to_ver):
     return migrations
 ```
 
-## Usage in Commands
+## Usage Example
 
 ```python
-# In create-email-template command:
+# When creating an email template:
 version = detect_odoo_version(context)
 output_tag = get_output_tag(version)
 attachment_field = get_report_attachment_field(version)

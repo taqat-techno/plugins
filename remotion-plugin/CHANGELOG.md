@@ -1,5 +1,38 @@
 # Changelog
 
+## v2.1.0 (2026-03-23)
+
+### Architecture Revision
+
+**Hooks:**
+- Fixed broken hook #2 (Audio-inside-Sequence guard) — old matcher tried to match file content which PostToolUse never sees. Now matches `.tsx`/`.jsx` file writes.
+- Improved render hook matcher to catch both `npx remotion render` and `npm run render`.
+- Added new hook: Timeline JSON validation reminder on write.
+- Updated all hook messages to remove hardcoded script paths.
+
+**Scripts:**
+- Created `scripts/_common.py` — shared dependency checker and audio duration utility, eliminating duplication across 3 scripts.
+- Fixed `generate_voice.py`: added `--fps` parameter (was hardcoded to 30), added retry logic with exponential backoff for edge-tts network failures.
+- Moved `scripts/` and `templates/` from `remotion/` to plugin root for clearer separation of concerns.
+
+**Skill:**
+- Trimmed SKILL.md from 980 lines to ~200 lines (79% reduction).
+- Removed: generic Remotion API docs, composition patterns, voice tables, troubleshooting, TailwindCSS integration, changelog — all moved to memory files or removed.
+- Kept: continuous audio pattern, frame formula, prerequisites, project structure.
+- Added: render and voice workflow instructions (absorbed from removed command sub-routes).
+- Removed unsupported frontmatter attributes (version, author, category, tags, allowed-tools).
+
+**Commands:**
+- Simplified `/remotion` to init/setup only (~120 lines, down from ~400).
+- Removed `render` and `voices` sub-commands — now handled by skill via natural language.
+
+**Memory files:**
+- Created `memories/troubleshooting.md` — common issues, audio debugging checklist, performance tips.
+- Created `memories/voice_reference.md` — voice tables, rate/pitch control, SSML, script writing tips.
+
+**Documentation:**
+- Updated README.md with new structure, extension guide, and natural language workflow examples.
+
 ## v1.0.0 (2026-02-16)
 
 ### Initial Release

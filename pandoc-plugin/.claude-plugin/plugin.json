@@ -1,10 +1,10 @@
 {
   "name": "pandoc",
-  "version": "2.0.0",
-  "description": "Universal document conversion powered by Pandoc — 1 unified command + skill-driven natural language for 50+ input and 60+ output formats. PDF, Word, HTML, EPUB, presentations, citations, batch processing, and Arabic/RTL support.",
+  "version": "2.1.0",
+  "description": "Universal document conversion powered by Pandoc — convert between 50+ input and 60+ output formats. PDF, Word, HTML, EPUB, presentations, citations, and Arabic/RTL support.",
   "author": {
     "name": "TaqaTechno",
-    "email": "support@example.com",
+    "email": "info@taqatechno.com",
     "url": "https://github.com/taqat-techno"
   },
   "homepage": "https://github.com/taqat-techno/plugins/tree/main/pandoc-plugin",
@@ -15,26 +15,20 @@
     "document-conversion",
     "pdf",
     "docx",
-    "word",
-    "markdown",
     "html",
     "epub",
-    "ebook",
     "latex",
     "slides",
     "presentations",
-    "reveal.js",
-    "beamer",
     "citations",
-    "bibliography",
     "academic",
-    "documentation",
-    "technical-writing"
+    "documentation"
   ],
   "skills": [
     "./pandoc"
   ],
   "commands": [
     "./commands"
-  ]
+  ],
+  "hooks": "./hooks/hooks.json"
 }

@@ -1,6 +1,6 @@
 # odoo-docker Plugin
 
-> **v2.0.0** — Consolidated architecture with unified command + natural language triggers
+> **v2.1.0** — Path-scoped hooks, user configuration, slimmed skill, extensible templates
 
 Docker infrastructure manager for Odoo — production deployment, nginx proxy, CI/CD pipelines, performance tuning, multi-version image management, and container debugging for Odoo 14-19 Enterprise.
 
@@ -13,26 +13,29 @@ Add to your Claude Code settings:
 }
 ```
 
-## Command
+## First-Time Setup
 
-v2.0 consolidates all functionality into a single command with sub-commands:
+After installation, copy the configuration example and customize it:
+
+```bash
+cp <plugin-path>/odoo-docker.local.md.example ~/.claude/odoo-docker.local.md
+```
+
+Edit `~/.claude/odoo-docker.local.md` to set your Docker Hub org, default version, and other preferences. The plugin will use these values when generating configs.
+
+## Command
 
 | Command | Description |
 |---------|-------------|
-| `/odoo-docker` | Unified Docker infrastructure command |
-
-### Sub-Commands
-
-| Sub-Command | Description |
-|-------------|-------------|
-| `/odoo-docker deploy` | Generate production deployment (nginx, SSL, workers, resource limits) |
-| `/odoo-docker build` | Build and push Docker images (single version or all) |
+| `/odoo-docker` | Show status + help |
 | `/odoo-docker init` | Interactive project setup with auto-detection |
 | `/odoo-docker compose` | Generate docker-compose for dev/staging/production |
+| `/odoo-docker deploy` | Production deployment (nginx, SSL, workers, resource limits) |
+| `/odoo-docker build` | Build and push Docker images (single version or all) |
 
 ## Natural Language Triggers
 
-In addition to the `/odoo-docker` command, the skill responds to natural language requests for nginx, debugging, and performance tuning. No slash command needed — just describe what you need:
+No slash command needed — just describe what you need:
 
 | Category | Example Prompts |
 |----------|----------------|
@@ -42,21 +45,77 @@ In addition to the `/odoo-docker` command, the skill responds to natural languag
 | **Build** | "Build Docker image for Odoo 17 with my custom modules" |
 | **Deploy** | "Deploy my Odoo 17 project to production using Docker" |
 
-## Migration from v1.x
+## Architecture
 
-v1.x had 7 separate slash commands (`/docker-deploy`, `/docker-build`, `/docker-init-project`, `/docker-perf`, `/docker-compose-gen`, `/docker-debug`, `/docker-nginx`). In v2.0:
+```
+One base image --> Many containers --> No rebuilding per project
 
-- **`/docker-deploy`** → `/odoo-docker deploy`
-- **`/docker-build`** → `/odoo-docker build`
-- **`/docker-init-project`** → `/odoo-docker init`
-- **`/docker-compose-gen`** → `/odoo-docker compose`
-- **`/docker-perf`** → Natural language: "Analyze my Docker performance"
-- **`/docker-debug`** → Natural language: "Debug my Odoo container"
-- **`/docker-nginx`** → Natural language: "Generate nginx config for Odoo"
+{image_prefix}:19.0-enterprise  (pre-built, published to Docker Hub)
+  + source code (mounted read-only)
+  + custom modules (mounted)
+  + config file (mounted read-only)
+  = Running Odoo container
+```
+
+## Plugin Structure
+
+```
+odoo-docker-plugin/
+  .claude-plugin/plugin.json       # Plugin manifest
+  odoo-docker/SKILL.md             # Skill — decision logic, config notes, perf data
+  commands/odoo-docker.md           # /odoo-docker command with 4 sub-commands
+  hooks/hooks.json                  # SessionStart detection + 6 PostToolUse file watchers
+  hooks/detect-docker.sh            # Docker environment detection script
+  templates/                        # 7 proven template files (compose, Dockerfile, nginx, etc.)
+  reference/                        # Troubleshooting, version matrix, production checklist, patterns
+  odoo-docker.local.md.example      # User configuration template
+```
+
+## Hooks
+
+| Event | Trigger | What It Does |
+|-------|---------|-------------|
+| SessionStart | Session begins | Detects Docker compose files and running containers |
+| PostToolUse | Edit docker-compose*.yml | Suggests recreating containers |
+| PostToolUse | Edit Dockerfile* | Suggests rebuilding image |
+| PostToolUse | Edit nginx*.conf | Suggests reloading nginx |
+| PostToolUse | Edit .env* | Reminds that `down`+`up` is needed (not just restart) |
+| PostToolUse | Edit entrypoint*.sh | Reminds about chmod +x and rebuild |
+| PostToolUse | Edit conf/*.conf | Suggests container restart + key settings checklist |
+
+All PostToolUse hooks are path-scoped — they only fire when the relevant file type is modified.
+
+## Templates
+
+| File | Purpose |
+|------|---------|
+| `docker-compose.dev.yml` | Development compose |
+| `docker-compose.prod.yml` | Production with nginx, tuned PostgreSQL, resource limits |
+| `nginx.conf` | Optimized reverse proxy (gzip, WebSocket, caching, rate limiting) |
+| `Dockerfile.template` | Multi-version base image builder |
+| `entrypoint.sh` | Universal startup script (v14-19, dev mode, debugger) |
+| `odoo.conf.template` | Docker-specific Odoo configuration |
+| `.env.template` | Environment variables with documentation |
+
+## Reference Docs
+
+| File | Purpose |
+|------|---------|
+| `reference/version-matrix.md` | Python, PostgreSQL, Debian, wkhtmltopdf per Odoo version |
+| `reference/troubleshooting.md` | Issue-to-solution map + error patterns + diagnostic commands |
+| `reference/production-checklist.md` | Pre-deployment and post-deployment verification |
+| `reference/docker-patterns.md` | Performance patterns and lessons from stress tests |
+
+## Customization
+
+Users can override defaults without editing plugin files:
+
+1. **Image prefix**: Set `image_prefix` in `~/.claude/odoo-docker.local.md`
+2. **Default version**: Set `default_version` in the same file
+3. **Templates**: Templates use `{placeholder}` syntax — the skill fills them in based on user config and project context
+4. **Hooks**: Path matchers can be adjusted in `hooks/hooks.json` if your project uses non-standard file names
 
 ## Relationship with odoo-service
-
-This plugin complements `odoo-service`:
 
 | Use `odoo-service` for... | Use `odoo-docker` for... |
 |---|---|
@@ -65,37 +124,6 @@ This plugin complements `odoo-service`:
 | Database backup/restore | CI/CD pipelines |
 | IDE configuration | Performance tuning |
 | Environment init | Container debugging |
-
-## Key Features
-
-- **Production Deployment**: nginx with gzip (90% CSS reduction), PostgreSQL tuning, resource limits, warm-up services
-- **Performance Analysis**: Data-driven recommendations from real stress tests (workers=0 → 10s P50 at 50 users)
-- **Multi-Version Support**: Odoo 14-19 with version-specific build workarounds (Buster EOL, gevent compilation, cbor2)
-- **CI/CD**: GitHub Actions multi-platform builds (amd64 + arm64)
-- **Templates**: Proven docker-compose, nginx, Dockerfile, and config templates
-- **Troubleshooting**: Systematic debugging with known issue patterns and auto-suggested fixes
-
-## Architecture
-
-```
-One base image → Many containers → No rebuilding per project
-
-taqatechno/odoo:19.0-enterprise  (pre-built, published to Docker Hub)
-  + source code (mounted read-only)
-  + custom modules (mounted)
-  + config file (mounted read-only)
-  = Running Odoo container
-```
-
-## Templates Included
-
-- `docker-compose.dev.yml` — Development
-- `docker-compose.prod.yml` — Production with nginx
-- `nginx.conf` — Optimized reverse proxy
-- `Dockerfile.template` — Multi-version base image
-- `entrypoint.sh` — Universal startup script
-- `odoo.conf.template` — Docker-specific config
-- `.env.template` — Environment variables
 
 ## Author
 

@@ -1,4 +1,4 @@
-# YOUR-ORG Business Rules
+# TaqaTechno Business Rules
 
 ## Purpose
 
@@ -164,41 +164,90 @@ Improves accessibility and user experience in low-light environments.
 
 ---
 
-## Rule 3: State Transitions (Ready for QC Gate)
+## Rule 3: State Transitions (TaqaTechno Scrum Process)
 
-### User Story State Flow
+### Complete State Flows by Work Item Type
 
+**Task**:
 ```
-New → Active → Ready for QC → Done → Closed
-                    ↑
-                    |
-            MANDATORY GATE
-            Cannot skip!
+To Do → In Progress → Done → Closed → Removed
 ```
 
-### Enforcement Rules
+**Bug**:
+```
+New → Approved → In Progress → Resolved → Done → Closed → Removed
+                      ↑                       |
+                      |       Return ←--------+
+                      +--------→ In Progress (fix & retry)
+```
+
+**PBI (Product Backlog Item)**:
+```
+New → Approved → Committed → In Progress → Ready For QC → Done → Removed
+                                   ↑                        |
+                                   |        Return ←-------+
+                                   +--------→ In Progress (fix & retry)
+```
+
+**User Story**:
+```
+New → Committed → Done
+```
+
+**Enhancement**:
+```
+New → Committed → Done → Closed
+          ↑          |
+          | Return ←-+
+          +---→ Committed (fix & retry)
+```
+
+### PBI Ready For QC Gate (MANDATORY)
 
 | Current State | User Wants | Action |
 |---------------|------------|--------|
-| New | Done | BLOCK → Move to Active → Ready for QC → Done |
-| Active | Done | BLOCK → Move to Ready for QC first |
-| Ready for QC | Done | ALLOW |
+| New | Done | BLOCK → Must go through Approved → Committed → In Progress → Ready For QC → Done |
+| In Progress | Done | BLOCK → Move to Ready For QC first |
+| Ready For QC | Done | ALLOW |
+| Done | Done | Already Done |
+
+### User Story Committed Gate (MANDATORY)
+
+| Current State | User Wants | Action |
+|---------------|------------|--------|
+| New | Done | BLOCK → Must go through Committed first |
+| Committed | Done | ALLOW |
 | Done | Done | Already Done |
 
 ### Implementation
 
 ```
-User: "Mark story #1000 as done"
+User: "Mark PBI #1000 as done"
 
 Claude:
 1. Get current state via API
-2. IF state is "Ready for QC":
+2. IF state is "Ready For QC":
    - Proceed to Done
-3. IF state is NOT "Ready for QC":
-   - Message: "User Stories must pass through 'Ready for QC' for QA review."
+3. IF state is NOT "Ready For QC":
+   - Message: "PBIs must pass through 'Ready For QC' for QA review."
    - Ask: "Would you like me to:
-           1. Move to 'Ready for QC' now
-           2. Move through both states (Ready for QC → Done)?"
+           1. Move to 'Ready For QC' now
+           2. Move through both states (Ready For QC → Done)?"
+4. Execute based on user choice
+```
+
+```
+User: "Mark User Story #1001 as done"
+
+Claude:
+1. Get current state via API
+2. IF state is "Committed":
+   - Proceed to Done
+3. IF state is "New":
+   - Message: "User Stories must pass through 'Committed' before Done."
+   - Ask: "Would you like me to:
+           1. Move to 'Committed' now
+           2. Move through both states (Committed → Done)?"
 4. Execute based on user choice
 ```
 
@@ -471,7 +520,7 @@ When a developer identifies and fixes an issue in their own code, the effort MUS
 
 ### Developer Internal Fix — Process Scenarios
 
-#### Scenario A: Issue Found During an Active PBI (PBI still In Progress)
+#### Scenario A: Issue Found During a PBI still In Progress
 
 ```
 Developer: "I found a bug in the login code, need to fix it"
@@ -632,6 +681,56 @@ When a user requests bug creation:
 
 ---
 
+## Rule 9: Role-Based State Transition Permissions (MANDATORY)
+
+BEFORE any state transition, check user's role from `~/.claude/devops.md` profile.
+
+### Permission Matrix
+
+| Role | Task | Bug | PBI | User Story | Enhancement |
+|------|------|-----|-----|------------|-------------|
+| **Developer/Frontend** | To Do→In Progress→Done | Approved→In Progress→Resolved, Return→In Progress | Committed→In Progress→Ready For QC, Return→In Progress | (none) | New→Committed→Done, Return→Committed |
+| **QA/QC** | To Do→In Progress | New→Approved, Resolved→Done/Return | Ready For QC→Done/Return | Committed→Done | Committed→Return |
+| **PM/Lead** | To Do→In Progress, Done→Closed | New→Approved, Done→Closed | New→Approved→Committed, Committed→In Progress | New→Committed, Committed→Done | New→Committed→Done→Closed |
+
+### Universal Rules
+
+- Only PM/Lead can **Close** (Done → Closed) for any work item type
+- Only PM/Lead can **Remove** (→ Removed) for any work item type
+- Only PM/Lead can **Approve** PBI (New → Approved) and Bug (New → Approved)
+- QA initiates all **Return** transitions (with mandatory comment)
+- Return always goes back to the developer's working state
+- No profile = all transitions allowed with warning
+
+### Return Transition Details
+
+| Work Item | QA Returns From | Developer Resumes At | Developer Targets |
+|-----------|----------------|---------------------|-------------------|
+| Bug | Resolved → Return | Return → In Progress | In Progress → Resolved |
+| PBI | Ready For QC → Return | Return → In Progress | In Progress → Ready For QC |
+| Enhancement | Committed → Return | Return → Committed | Committed → Done |
+
+### Enforcement Flow
+
+```
+1. Load user profile from ~/.claude/devops.md
+2. Extract role (developer, frontend, qa, qc, pm, lead, etc.)
+3. Look up statePermissions.{WorkItemType} for the user's role
+4. Check: is "{currentState} → {targetState}" in allowed transitions?
+   - YES → proceed with the state change
+   - BLOCKED → show message: "Your role ({role}) cannot transition {type} from {current} to {target}."
+              suggest: "This transition requires {requiredRole} role."
+   - NO PROFILE → warn: "No profile found. Allowing transition but role verification is recommended."
+                  allow the transition (graceful fallback)
+```
+
+### Reference Files
+
+- `data/state_permissions.json` — Complete role→permission mapping
+- `validators/state_transition_validator.md` — Step 0 validation logic
+
+---
+
 ## Quick Reference Card
 
 ```
@@ -643,14 +742,29 @@ When a user requests bug creation:
 │  Epic → Feature → User Story → Task / Bug / Enhancement         │
 │  (Task, Bug, Enhancement are siblings under User Story)         │
 │                                                                  │
+│  STATE FLOWS:                                                   │
+│  Task:        To Do → In Progress → Done → Closed → Removed    │
+│  Bug:         New → Approved → In Progress → Resolved →         │
+│               Return → Committed → Done → Closed → Removed     │
+│  PBI:         New → Approved → Committed → In Progress →        │
+│               Ready For QC → Return → Done → Removed            │
+│  User Story:  New → Committed → Done                            │
+│  Enhancement: New → Committed → Return → Done → Closed          │
+│                                                                  │
+│  PBI GATE: Must go through "Ready For QC" before "Done"         │
+│  USER STORY GATE: Must go through "Committed" before "Done"     │
+│                                                                  │
+│  ROLE-BASED PERMISSIONS (Rule 9):                               │
+│  Developer: work transitions (In Progress, Resolved, etc.)      │
+│  QA/QC: approval + Return transitions (with mandatory comment)  │
+│  PM/Lead: Close, Remove, Approve                                │
+│                                                                  │
 │  USER STORY FORMAT:                                             │
 │  How? (approach) → What? (requirements) → Why? (value)          │
 │                                                                  │
-│  STORY STATE FLOW:                                              │
-│  Must go through "Ready for QC" before "Done"                   │
-│                                                                  │
 │  TASK PREFIXES:                                                 │
-│  [Dev] backend | [Front] frontend | [QC Bug Fixing] fix | [QC Test Execution] test | [IMP] deploy │
+│  [Dev] backend | [Front] frontend | [QC Bug Fixing] fix |      │
+│  [QC Test Execution] test | [IMP] deploy                        │
 │                                                                  │
 │  AUTO-SPRINT:                                                   │
 │  Tasks auto-assigned to current sprint by date                  │
@@ -671,5 +785,5 @@ When a user requests bug creation:
 
 ---
 
-*YOUR-ORG Business Rules v1.1*
-*December 2025*
+*TaqaTechno Business Rules v1.2*
+*March 2026*

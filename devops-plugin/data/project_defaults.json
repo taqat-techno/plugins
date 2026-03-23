@@ -1,44 +1,22 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$comment": "Azure DevOps projects configuration. Edit with your organization and project names.",
+  "$comment": "Azure DevOps projects configuration. Run /init profile to auto-populate from your Azure DevOps organization.",
   "version": "1.0.0",
-  "organization": "YOUR-ORG",
-  "organizationUrl": "https://dev.azure.com/YOUR-ORG",
+  "organization": "CONFIGURE_VIA_INIT_PROFILE",
+  "organizationUrl": "https://dev.azure.com/CONFIGURE_VIA_INIT_PROFILE",
   "lastUpdated": "configure-me",
 
   "projects": [
     {
-      "name": "Project Alpha",
+      "name": "Example Project",
       "id": null,
-      "description": "Primary project  -  replace with your project description",
-      "aliases": ["alpha", "project-alpha", "pa"],
-      "defaultTeam": "Project Alpha Team",
-      "primaryRepo": "project-alpha",
-      "urlPath": "Project%20Alpha",
+      "description": "Replace with your project description or run /init profile to auto-populate",
+      "aliases": ["example", "ex"],
+      "defaultTeam": "Example Project Team",
+      "primaryRepo": "example-project",
+      "urlPath": "Example%20Project",
       "active": true,
       "priority": 1
-    },
-    {
-      "name": "Project Beta",
-      "id": null,
-      "description": "Secondary project  -  replace with your project description",
-      "aliases": ["beta", "project-beta", "pb"],
-      "defaultTeam": "Project Beta Team",
-      "primaryRepo": "project-beta",
-      "urlPath": "Project%20Beta",
-      "active": true,
-      "priority": 2
-    },
-    {
-      "name": "Project Gamma",
-      "id": null,
-      "description": "Third project  -  replace with your project description",
-      "aliases": ["gamma", "project-gamma", "pg"],
-      "defaultTeam": "Project Gamma Team",
-      "primaryRepo": "project-gamma",
-      "urlPath": "Project%20Gamma",
-      "active": true,
-      "priority": 3
     }
   ],
 
@@ -105,14 +83,14 @@
   },
 
   "urlTemplates": {
-    "workItem": "https://dev.azure.com/YOUR-ORG/{projectUrlPath}/_workitems/edit/{workItemId}",
-    "board": "https://dev.azure.com/YOUR-ORG/{projectUrlPath}/_boards/board",
-    "backlog": "https://dev.azure.com/YOUR-ORG/{projectUrlPath}/_backlogs/backlog",
-    "sprint": "https://dev.azure.com/YOUR-ORG/{projectUrlPath}/_sprints/taskboard",
-    "repo": "https://dev.azure.com/YOUR-ORG/{projectUrlPath}/_git/{repoName}",
-    "pr": "https://dev.azure.com/YOUR-ORG/{projectUrlPath}/_git/{repoName}/pullrequest/{prId}",
-    "pipeline": "https://dev.azure.com/YOUR-ORG/{projectUrlPath}/_build?definitionId={pipelineId}",
-    "wiki": "https://dev.azure.com/YOUR-ORG/{projectUrlPath}/_wiki/wikis"
+    "workItem": "https://dev.azure.com/CONFIGURE_VIA_INIT_PROFILE/{projectUrlPath}/_workitems/edit/{workItemId}",
+    "board": "https://dev.azure.com/CONFIGURE_VIA_INIT_PROFILE/{projectUrlPath}/_boards/board",
+    "backlog": "https://dev.azure.com/CONFIGURE_VIA_INIT_PROFILE/{projectUrlPath}/_backlogs/backlog",
+    "sprint": "https://dev.azure.com/CONFIGURE_VIA_INIT_PROFILE/{projectUrlPath}/_sprints/taskboard",
+    "repo": "https://dev.azure.com/CONFIGURE_VIA_INIT_PROFILE/{projectUrlPath}/_git/{repoName}",
+    "pr": "https://dev.azure.com/CONFIGURE_VIA_INIT_PROFILE/{projectUrlPath}/_git/{repoName}/pullrequest/{prId}",
+    "pipeline": "https://dev.azure.com/CONFIGURE_VIA_INIT_PROFILE/{projectUrlPath}/_build?definitionId={pipelineId}",
+    "wiki": "https://dev.azure.com/CONFIGURE_VIA_INIT_PROFILE/{projectUrlPath}/_wiki/wikis"
   },
 
   "aliasResolution": {
@@ -120,9 +98,7 @@
     "caseSensitive": false,
     "matchPartial": true,
     "examples": {
-      "alpha": "Project Alpha",
-      "beta": "Project Beta",
-      "gamma": "Project Gamma"
+      "example": "Example Project"
     }
   }
 }

@@ -1,50 +1,61 @@
 {
   "hooks": {
     "PostToolUse": [
-    {
-      "name": "Remotion Render Audio Check",
-      "matcher": "remotion render",
-      "description": "After rendering a video, remind to validate audio duration",
-      "hooks": [
-        {
-          "type": "suggestion",
-          "message": "Render complete! Validate audio sync: python scripts/measure_audio.py public/audio/narration.mp3 --fps 30"
-        }
-      ]
-    },
-    {
-      "name": "Continuous Audio Pattern Guard",
-      "matcher": "<Audio.*src.*/>.*<\\/Sequence>",
-      "description": "Warn if Audio component is placed inside a Sequence (causes cutting)",
-      "hooks": [
-        {
-          "type": "suggestion",
-          "message": "WARNING: <Audio> should be at the ROOT level, not inside <Sequence>! Audio inside Sequence will CUT between slides. Move <Audio> to the outermost <AbsoluteFill>."
-        }
-      ]
-    },
-    {
-      "name": "Voice Generation Duration",
-      "matcher": "generate_voice\\.py",
-      "description": "After voice generation, suggest measuring duration",
-      "hooks": [
-        {
-          "type": "suggestion",
-          "message": "Voice generated! Measure duration: python scripts/measure_audio.py [output.mp3] --fps 30"
-        }
-      ]
-    },
-    {
-      "name": "Audio Concat Timestamp Reminder",
-      "matcher": "concat_audio\\.py",
-      "description": "After concatenating audio, remind to use timestamps for Sequences",
-      "hooks": [
-        {
-          "type": "suggestion",
-          "message": "Audio concatenated! Use the 'segments' array from the JSON output to set Sequence from/durationInFrames values. Use 'total_frames_with_padding' for composition durationInFrames."
-        }
-      ]
-    }
-  ]
+      {
+        "name": "Remotion Render Audio Check",
+        "matcher": "remotion render|npm run render",
+        "description": "After rendering a video, remind to validate audio duration",
+        "hooks": [
+          {
+            "type": "suggestion",
+            "message": "[remotion] Render complete! Validate audio sync: run measure_audio.py on your narration MP3 with --fps matching your composition FPS. Compare duration_frames_with_padding against your composition's durationInFrames."
+          }
+        ]
+      },
+      {
+        "name": "Continuous Audio Pattern Reminder",
+        "matcher": "\\.(tsx|jsx)$",
+        "description": "When writing React components, remind about the continuous audio pattern to prevent voice cutting",
+        "hooks": [
+          {
+            "type": "suggestion",
+            "message": "[remotion] TSX file modified. Remember: <Audio> must be at the ROOT <AbsoluteFill> level, NOT inside <Sequence>. Audio inside Sequence will CUT between slides. Use ONE continuous narration.mp3 at the root."
+          }
+        ]
+      },
+      {
+        "name": "Voice Generation Follow-up",
+        "matcher": "generate_voice\\.py",
+        "description": "After voice generation, suggest measuring duration for frame calculations",
+        "hooks": [
+          {
+            "type": "suggestion",
+            "message": "[remotion] Voice generated! Run measure_audio.py on the output MP3 with --fps 30 to get exact frame counts for your composition's durationInFrames."
+          }
+        ]
+      },
+      {
+        "name": "Audio Concat Segment Mapping",
+        "matcher": "concat_audio\\.py",
+        "description": "After concatenating audio, remind to map segment timestamps to Sequences",
+        "hooks": [
+          {
+            "type": "suggestion",
+            "message": "[remotion] Audio concatenated! Use the 'segments' array from the JSON output to set each <Sequence from={start_frame} durationInFrames={duration_frames}>. Use 'total_frames_with_padding' for the composition's durationInFrames."
+          }
+        ]
+      },
+      {
+        "name": "Timeline JSON Validation",
+        "matcher": "timeline.*\\.json",
+        "description": "After modifying timeline data, remind to validate against actual audio durations",
+        "hooks": [
+          {
+            "type": "suggestion",
+            "message": "[remotion] Timeline JSON modified. Validate that totalDurationMs and scene startMs/endMs values match actual audio durations. Run measure_audio.py --dir public/audio/ to verify."
+          }
+        ]
+      }
+    ]
   }
 }

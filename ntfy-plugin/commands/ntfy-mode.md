@@ -1,7 +1,4 @@
 ---
-title: 'ntfy Mode'
-read_only: false
-type: 'command'
 description: 'Toggle notification mode for this session - auto-notify on task completion and actions'
 ---
 
@@ -60,7 +57,7 @@ Run this Python code to handle the command:
 
 ```python
 import sys
-PLUGIN_PATH = r"C:\TQ-WorkSpace\odoo\tmp\plugins\ntfy-plugin\ntfy\scripts"
+PLUGIN_PATH = r"${PLUGIN_DIR}/ntfy/scripts"
 sys.path.insert(0, PLUGIN_PATH)
 
 from session import cli_handler

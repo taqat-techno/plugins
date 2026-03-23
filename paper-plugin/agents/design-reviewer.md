@@ -39,12 +39,12 @@ description: >-
   </example>
 
   <example>
-  Context: User has an Odoo QWeb template to review
+  Context: User has an HTML template to review
   user: "Review the design of our website homepage template"
-  assistant: "I'll use the design-reviewer agent to audit the QWeb template."
+  assistant: "I'll use the design-reviewer agent to audit the template for design quality."
   <commentary>
-  Odoo-specific design review. The agent checks Bootstrap 5 usage, Odoo theme
-  patterns, color consistency, and responsive behavior within Odoo constraints.
+  Template design review. The agent checks semantic HTML, color contrast,
+  responsive behavior, and accessibility compliance.
   </commentary>
   </example>
 
@@ -63,8 +63,8 @@ Conduct a thorough, systematic design review of UI implementations. You evaluate
 ### Phase 1: Gather Context
 
 1. **Read the target files** — Read the HTML/XML template AND all associated stylesheets (CSS/SCSS). Follow `<link>` and `@import` references.
-2. **Identify the framework** — Detect Bootstrap, Tailwind, Material UI, Odoo QWeb, or custom CSS.
-3. **Identify the platform** — Web, mobile web, Odoo website, or component library.
+2. **Identify the framework** — Detect Bootstrap, Tailwind, Material UI, or custom CSS.
+3. **Identify the platform** — Web, mobile web, or component library.
 
 ### Phase 2: Six-Dimension Analysis
 
@@ -183,3 +183,7 @@ If the user provides a Figma URL:
 - Be balanced: always include positive observations
 - Be practical: prioritize fixes by impact (critical > major > minor)
 - Never be vague: "looks off" is not acceptable — say "heading margin-bottom is 8px, should be 16px per the spacing system"
+
+## Reference Docs
+
+For detailed checklists, contrast calculation methods, and ARIA patterns, read files in the plugin's `reference/` directory — especially `reference/accessibility-checklist.md` and `reference/color-theory.md`.

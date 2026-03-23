@@ -21,95 +21,35 @@ from dataclasses import dataclass, field, asdict
 from pathlib import Path
 from typing import Dict, List, Optional, Set, Tuple
 
-# Reuse extractor components
-sys.path.insert(0, str(Path(__file__).parent))
-from i18n_extractor import ModuleScanner, TranslatableString
+try:
+    from ._common import PoParser
+    from .i18n_extractor import ModuleScanner, TranslatableString
+except ImportError:
+    from _common import PoParser
+    from i18n_extractor import ModuleScanner, TranslatableString
 
 
 # ---------------------------------------------------------------------------
-# .po reader (lightweight, for reading existing translations)
+# .po reader (uses shared PoParser)
 # ---------------------------------------------------------------------------
 
 def read_po_translations(po_path: Path) -> Dict[str, str]:
     """
     Read a .po file and return a dict of {msgid: msgstr}.
-    Empty msgstr values are not included (or included as empty string).
+    Fuzzy and header entries are excluded.
     """
-    translations: Dict[str, str] = {}
-
     if not po_path.exists():
-        return translations
+        return {}
 
     content = po_path.read_text(encoding="utf-8", errors="replace")
-    lines = content.splitlines()
+    parser = PoParser(content, strict=False)
+    entries = parser.parse()
 
-    current_msgid = None
-    current_msgstr = None
-    mode = None
-    is_fuzzy = False
-    is_header = False
-
-    def flush():
-        nonlocal current_msgid, current_msgstr, mode, is_fuzzy, is_header
-        if current_msgid is not None:
-            if not is_fuzzy and not is_header:
-                translations[current_msgid] = current_msgstr or ""
-        current_msgid = None
-        current_msgstr = None
-        mode = None
-        is_fuzzy = False
-        is_header = False
-
-    def unescape(s: str) -> str:
-        s = s.replace('\\"', '"').replace("\\n", "\n").replace("\\t", "\t").replace("\\\\", "\\")
-        return s
-
-    def parse_str(raw: str) -> str:
-        raw = raw.strip()
-        if raw.startswith('"') and raw.endswith('"'):
-            return unescape(raw[1:-1])
-        return ""
-
-    for line in lines:
-        stripped = line.strip()
-
-        if not stripped:
-            flush()
-            continue
-
-        if stripped.startswith("#,") and "fuzzy" in stripped:
-            is_fuzzy = True
-            continue
-
-        if stripped.startswith("#"):
-            continue
-
-        if stripped.startswith("msgid "):
-            if current_msgid is not None:
-                flush()
-            val = parse_str(stripped[6:])
-            current_msgid = val
-            if val == "":
-                is_header = True
-            mode = "msgid"
-            continue
-
-        if stripped.startswith("msgstr "):
-            current_msgstr = parse_str(stripped[7:])
-            mode = "msgstr"
-            continue
-
-        if stripped.startswith('"') and mode in ("msgid", "msgstr"):
-            chunk = parse_str(stripped)
-            if mode == "msgid":
-                current_msgid = (current_msgid or "") + chunk
-                if current_msgid == "":
-                    is_header = True
-            elif mode == "msgstr":
-                current_msgstr = (current_msgstr or "") + chunk
-
-    flush()
-    return translations
+    return {
+        e.msgid: e.msgstr
+        for e in entries
+        if not e.is_header and not e.is_fuzzy
+    }
 
 
 # ---------------------------------------------------------------------------

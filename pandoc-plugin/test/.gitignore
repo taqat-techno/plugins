@@ -1,0 +1,6 @@
+# Binary outputs — regenerate from sample.md
+*.pdf
+*.docx
+*.epub
+*.pptx
+*.html

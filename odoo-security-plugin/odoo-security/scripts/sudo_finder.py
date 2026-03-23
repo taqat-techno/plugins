@@ -34,6 +34,17 @@ import argparse
 from pathlib import Path
 from typing import List, Dict, Optional, Tuple
 
+try:
+    from _common import (
+        SENSITIVE_MODELS as _SENSITIVE_MODELS, SEVERITY_ORDER, SEVERITY_WEIGHTS,
+        find_python_files, count_by_severity, format_text_report as _format_report,
+        load_config, get_sensitive_models,
+    )
+except ImportError:
+    SEVERITY_ORDER = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW']
+    SEVERITY_WEIGHTS = {'CRITICAL': 4, 'HIGH': 3, 'MEDIUM': 2, 'LOW': 1}
+    _SENSITIVE_MODELS = None
+
 
 # Patterns that indicate a sudo() call is in a SAFE context (OK severity)
 SAFE_CONTEXT_PATTERNS = [

@@ -1,0 +1,24 @@
+{
+  "core_path_patterns": [
+    "odoo\\d{2}/odoo/addons/",
+    "odoo\\d{2}/odoo/[^/]+\\.py$",
+    "odoo\\d{2}/odoo/tools/",
+    "odoo\\d{2}/odoo/modules/",
+    "odoo\\d{2}/odoo/cli/",
+    "odoo\\d{2}/odoo/service/",
+    "odoo-\\d+\\.\\d+/odoo/addons/",
+    "odoo-\\d+\\.\\d+/odoo/[^/]+\\.py$",
+    "odoo-\\d+\\.\\d+/odoo/tools/",
+    "odoo-\\d+\\.\\d+/odoo/modules/",
+    "/odoo/odoo/addons/"
+  ],
+  "target_version_path_patterns": {
+    "19": ["odoo19[/\\\\]", "odoo-19", "[/\\\\]v19[/\\\\]", "19\\.0"],
+    "18": ["odoo18[/\\\\]", "odoo-18", "[/\\\\]v18[/\\\\]", "18\\.0"],
+    "17": ["odoo17[/\\\\]", "odoo-17", "[/\\\\]v17[/\\\\]", "17\\.0"],
+    "16": ["odoo16[/\\\\]", "odoo-16", "[/\\\\]v16[/\\\\]", "16\\.0"],
+    "15": ["odoo15[/\\\\]", "odoo-15", "[/\\\\]v15[/\\\\]", "15\\.0"],
+    "14": ["odoo14[/\\\\]", "odoo-14", "[/\\\\]v14[/\\\\]", "14\\.0"]
+  },
+  "default_target_version": 19
+}

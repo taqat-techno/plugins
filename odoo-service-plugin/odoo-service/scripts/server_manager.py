@@ -480,44 +480,35 @@ def follow_log(log_file: str) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Environment Detection
+# Environment Detection (delegated to shared module)
 # ---------------------------------------------------------------------------
 
-def detect_environment(project_root: str = ".") -> str:
-    """Detect the current Odoo environment type."""
-    root = Path(project_root).resolve()
-
-    if (root / "docker-compose.yml").exists() or (root / "docker-compose.yaml").exists():
-        return "docker"
-    if (root / "Dockerfile").exists():
-        return "docker"
-
-    for venv_dir in [".venv", "venv", "env"]:
-        venv_path = root / venv_dir
-        if venv_path.is_dir():
-            if (venv_path / "Scripts" / "python.exe").exists():
+try:
+    from shared import detect_environment, find_python_in_venv
+except ImportError:
+    def detect_environment(project_root: str = ".") -> str:
+        """Detect the current Odoo environment type."""
+        root = Path(project_root).resolve()
+        if (root / "docker-compose.yml").exists() or (root / "docker-compose.yaml").exists():
+            return "docker"
+        if (root / "Dockerfile").exists():
+            return "docker"
+        for venv_dir in [".venv", "venv", "env"]:
+            venv_path = root / venv_dir
+            if (venv_path / "Scripts" / "python.exe").exists() or (venv_path / "bin" / "python").exists():
                 return "venv"
-            if (venv_path / "bin" / "python").exists():
-                return "venv"
+        return "bare"
 
-    return "bare"
-
-
-def find_python_in_venv(project_root: str = ".") -> Optional[str]:
-    """Find the Python executable inside the virtual environment."""
-    root = Path(project_root).resolve()
-
-    for venv_dir in [".venv", "venv", "env"]:
-        venv_path = root / venv_dir
-        win_python = venv_path / "Scripts" / "python.exe"
-        linux_python = venv_path / "bin" / "python"
-
-        if win_python.exists():
-            return str(win_python)
-        if linux_python.exists():
-            return str(linux_python)
-
-    return None
+    def find_python_in_venv(project_root: str = ".") -> Optional[str]:
+        """Find the Python executable inside the virtual environment."""
+        root = Path(project_root).resolve()
+        for venv_dir in [".venv", "venv", "env"]:
+            venv_path = root / venv_dir
+            for sub in ["Scripts/python.exe", "bin/python"]:
+                p = venv_path / sub
+                if p.exists():
+                    return str(p)
+        return None
 
 
 # ---------------------------------------------------------------------------

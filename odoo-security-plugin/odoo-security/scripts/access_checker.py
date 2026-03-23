@@ -29,6 +29,17 @@ import argparse
 from pathlib import Path
 from typing import List, Dict, Optional, Tuple
 
+try:
+    from _common import (
+        SEVERITY_ORDER, SEVERITY_WEIGHTS, find_python_files as _find_py,
+        count_by_severity, format_text_report as _format_report,
+        load_config, should_exclude_path,
+    )
+except ImportError:
+    # Allow standalone execution without _common
+    SEVERITY_ORDER = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW']
+    SEVERITY_WEIGHTS = {'CRITICAL': 4, 'HIGH': 3, 'MEDIUM': 2, 'LOW': 1}
+
 
 # Known Odoo abstract base classes that don't need access rules
 ABSTRACT_BASES = {
@@ -44,8 +55,6 @@ ABSTRACT_NAME_PATTERNS = [
     r'^mail\.thread',
     r'^mail\.activity',
 ]
-
-SEVERITY_ORDER = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW']
 
 
 def find_python_files(directory: Path) -> List[Path]:
@@ -167,14 +176,9 @@ def extract_models_regex(source: str, file_path: Path) -> List[Dict]:
         if name_match:
             model_name = name_match.group(1)
             # Look back a few lines for the class definition
-            is_transient = any(
-                transient_pattern.search(lines[max(0, i-10):i])
-                for _ in range(1)  # just to use loop
-            )
-            is_abstract = any(
-                abstract_pattern.search(lines[max(0, i-10):i])
-                for _ in range(1)
-            )
+            lookback = '\n'.join(lines[max(0, i-10):i])
+            is_transient = bool(transient_pattern.search(lookback))
+            is_abstract = bool(abstract_pattern.search(lookback))
             if not is_abstract:
                 models.append({
                     'name': model_name,

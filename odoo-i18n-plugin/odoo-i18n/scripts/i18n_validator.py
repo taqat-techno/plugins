@@ -15,9 +15,14 @@ import argparse
 import re
 import sys
 import unicodedata
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Optional, Tuple
+
+try:
+    from ._common import PoEntry, PoParser
+except ImportError:
+    from _common import PoEntry, PoParser
 
 
 # ---------------------------------------------------------------------------
@@ -37,142 +42,6 @@ class ValidationIssue:
         loc = f"line {self.line:4d}" if self.line > 0 else "header   "
         ctx = f" | {self.context}" if self.context else ""
         return f"  [{prefix}] {loc}: {self.message}{ctx}"
-
-
-@dataclass
-class PoEntry:
-    """Represents a single msgid/msgstr pair in a .po file."""
-    msgid: str = ""
-    msgstr: str = ""
-    comments: List[str] = field(default_factory=list)
-    flags: List[str] = field(default_factory=list)
-    locations: List[str] = field(default_factory=list)
-    line_start: int = 0
-    is_header: bool = False
-    is_fuzzy: bool = False
-    is_obsolete: bool = False
-
-
-# ---------------------------------------------------------------------------
-# .po Parser
-# ---------------------------------------------------------------------------
-
-class PoParser:
-    """Simple, line-by-line .po file parser that tracks line numbers."""
-
-    def __init__(self, content: str):
-        self.lines = content.splitlines()
-        self.entries: List[PoEntry] = []
-        self.parse_errors: List[Tuple[int, str]] = []
-
-    def parse(self) -> List[PoEntry]:
-        """Parse the .po file into a list of PoEntry objects."""
-        entries = []
-        current: Optional[PoEntry] = None
-        mode = None  # 'msgid' | 'msgstr' | None
-        i = 0
-
-        while i < len(self.lines):
-            lineno = i + 1
-            raw_line = self.lines[i]
-            line = raw_line.strip()
-
-            # Empty line — finalize current entry
-            if not line:
-                if current is not None and (current.msgid or current.is_header):
-                    if not current.msgid:
-                        current.is_header = True
-                    entries.append(current)
-                    current = None
-                    mode = None
-                i += 1
-                continue
-
-            # Comment / flag lines
-            if line.startswith("#"):
-                if current is None:
-                    current = PoEntry(line_start=lineno)
-
-                if line.startswith("#,"):
-                    flags_str = line[2:].strip()
-                    current.flags = [f.strip() for f in flags_str.split(",")]
-                    if "fuzzy" in current.flags:
-                        current.is_fuzzy = True
-                elif line.startswith("#:"):
-                    locs = line[2:].strip()
-                    current.locations.extend(locs.split())
-                elif line.startswith("#~"):
-                    current.is_obsolete = True
-                    current.comments.append(line)
-                else:
-                    current.comments.append(line)
-                i += 1
-                continue
-
-            # msgid
-            if line.startswith("msgid "):
-                if current is None:
-                    current = PoEntry(line_start=lineno)
-                mode = "msgid"
-                try:
-                    current.msgid = self._parse_string(line[6:], lineno)
-                    if current.msgid == "":
-                        current.is_header = True
-                except ValueError as exc:
-                    self.parse_errors.append((lineno, str(exc)))
-                i += 1
-                continue
-
-            # msgstr
-            if line.startswith("msgstr "):
-                mode = "msgstr"
-                try:
-                    current.msgstr = self._parse_string(line[7:], lineno)
-                except ValueError as exc:
-                    self.parse_errors.append((lineno, str(exc)))
-                i += 1
-                continue
-
-            # Continuation string (starts with ")
-            if line.startswith('"') and mode in ("msgid", "msgstr"):
-                try:
-                    chunk = self._parse_string(line, lineno)
-                    if mode == "msgid":
-                        current.msgid += chunk
-                    else:
-                        current.msgstr += chunk
-                except ValueError as exc:
-                    self.parse_errors.append((lineno, str(exc)))
-                i += 1
-                continue
-
-            # Unknown line
-            self.parse_errors.append((lineno, f"Unexpected content: {raw_line!r}"))
-            i += 1
-
-        # Finalize last entry
-        if current is not None and (current.msgid or current.is_header):
-            if not current.msgid:
-                current.is_header = True
-            entries.append(current)
-
-        self.entries = entries
-        return entries
-
-    @staticmethod
-    def _parse_string(raw: str, lineno: int) -> str:
-        """Parse a quoted string from a .po line."""
-        raw = raw.strip()
-        if not raw.startswith('"') or not raw.endswith('"'):
-            raise ValueError(f"Malformed string at line {lineno}: {raw!r}")
-        inner = raw[1:-1]
-        # Unescape
-        inner = inner.replace('\\"', '"')
-        inner = inner.replace("\\n", "\n")
-        inner = inner.replace("\\t", "\t")
-        inner = inner.replace("\\r", "\r")
-        inner = inner.replace("\\\\", "\\")
-        return inner
 
 
 # ---------------------------------------------------------------------------
@@ -571,7 +440,7 @@ def main():
         sys.exit(1)
 
     # Parse
-    parser = PoParser(content)
+    parser = PoParser(content, strict=True)
     entries = parser.parse()
 
     # Validate

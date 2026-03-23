@@ -64,11 +64,12 @@ EXAMPLES
   /odoo-security my_module --layer=routes         Audit HTTP route security
   /odoo-security my_module --layer=sql            Scan for SQL injection risks
 
-PREVIOUSLY SEPARATE COMMANDS (now unified here)
-  /security-audit   -> /odoo-security --severity=<level>
-  /check-access     -> /odoo-security --layer=access
-  /check-routes     -> /odoo-security --layer=routes
-  /find-sudo        -> /odoo-security --layer=sudo
+LAYER EQUIVALENTS (conceptual mappings)
+  Full audit        -> /odoo-security (default, all layers)
+  Access rules only -> /odoo-security --layer=access
+  Route security    -> /odoo-security --layer=routes
+  Sudo analysis     -> /odoo-security --layer=sudo
+  SQL injection     -> /odoo-security --layer=sql
 ```
 
 ---

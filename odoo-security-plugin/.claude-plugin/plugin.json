@@ -1,10 +1,10 @@
 {
   "name": "odoo-security",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "Comprehensive Odoo security auditor - check model access rules, HTTP route authentication, sudo() usage, SQL injection risks, and record rule completeness across Odoo 14-19.",
   "author": {
     "name": "TaqaTechno",
-    "email": "support@example.com",
+    "email": "info@taqatechno.com",
     "url": "https://github.com/taqat-techno"
   },
   "license": "MIT",

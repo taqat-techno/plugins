@@ -1,10 +1,10 @@
 {
   "name": "odoo-frontend",
-  "version": "5.0.0",
-  "description": "Advanced Odoo frontend development with Figma browser automation for design extraction, /create-theme command, PWA support, TypeScript, testing frameworks, and performance optimization. Features Chrome MCP integration, automatic color/typography extraction, $o-website-values-palettes reference, theme mirror model architecture, publicWidget patterns, and MCP integration for Odoo 14-19.",
+  "version": "8.0.0",
+  "description": "Odoo frontend theme development for versions 14-19. Theme creation, SCSS variables, Figma integration, snippets, and JavaScript patterns.",
   "author": {
     "name": "TaqaTechno",
-    "email": "support@example.com",
+    "email": "info@taqatechno.com",
     "url": "https://github.com/taqat-techno"
   },
   "homepage": "https://github.com/taqat-techno/plugins/tree/main/odoo-frontend-plugin",
@@ -15,38 +15,18 @@
     "frontend",
     "theme",
     "figma",
-    "figma-to-odoo",
-    "design-extraction",
-    "browser-automation",
-    "chrome-mcp",
-    "create-theme",
-    "theme-generator",
-    "website-values-palettes",
-    "publicWidget",
-    "mirror-models",
-    "pwa",
-    "typescript",
-    "javascript",
+    "scss",
     "bootstrap",
-    "owl-framework",
     "website",
-    "accessibility",
-    "wcag",
-    "performance",
-    "real-time",
-    "websockets",
-    "jest",
-    "cypress",
-    "vite",
-    "odoo14",
-    "odoo15",
-    "odoo16",
-    "odoo17",
-    "odoo18",
-    "odoo19"
+    "publicWidget",
+    "snippets"
   ],
   "skills": [
-    "./odoo-frontend"
+    "./skills/theme-create",
+    "./skills/theme-scss",
+    "./skills/theme-design",
+    "./skills/theme-snippets",
+    "./skills/frontend-js"
   ],
   "commands": [
     "./commands"

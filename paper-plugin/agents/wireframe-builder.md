@@ -240,3 +240,7 @@ If Figma MCP tools are available:
 - Include LOADING states: "[====........] Loading data..."
 - Include ERROR states: "[!] Something went wrong. [Retry]"
 - Number screens in flows for easy reference
+
+## Reference Docs
+
+For layout pattern examples and platform conventions, read `reference/layout-patterns.md` and `reference/platform-guidelines.md` in the plugin directory.

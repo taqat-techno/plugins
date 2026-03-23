@@ -1,7 +1,7 @@
 {
   "name": "paper",
-  "version": "2.0.0",
-  "description": "UI/UX design specialist — 1 unified /paper command + skill-driven natural language for screen design, wireframing, design review, Figma sync, and design systems. Supports web, iOS, Android, desktop, and Odoo themes.",
+  "version": "3.0.0",
+  "description": "UI/UX design specialist — screen design, wireframing, design review, Figma sync, design systems, and accessibility auditing for web, mobile, and desktop platforms.",
   "author": {
     "name": "TaqaTechno",
     "email": "info@taqatechno.com",
@@ -26,14 +26,13 @@
     "desktop-design",
     "ios",
     "material-design",
-    "bootstrap",
-    "odoo-theme",
     "screen-design",
     "figma-mcp",
     "design-to-code"
   ],
   "skills": [
-    "./skills/paper"
+    "./skills/design",
+    "./skills/figma-workflow"
   ],
   "commands": [
     "./commands"

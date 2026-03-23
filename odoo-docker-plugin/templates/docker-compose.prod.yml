@@ -6,7 +6,7 @@
 #   {postgres_image}  - e.g., postgres:16
 #   {version}         - e.g., 19
 #   {project_name}    - e.g., relief_center
-#   {odoo_image}      - e.g., taqatechno/odoo:19.0-enterprise
+#   {odoo_image}      - e.g., myorg/odoo:19.0-enterprise
 
 services:
   db:

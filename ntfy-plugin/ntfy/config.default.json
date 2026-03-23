@@ -1,0 +1,58 @@
+{
+  "server": "https://ntfy.sh",
+  "topic": "",
+  "default_priority": "default",
+  "auto_notify": {
+    "on_task_complete": true,
+    "on_action_required": true,
+    "on_error": true,
+    "on_long_task": true,
+    "long_task_threshold_seconds": 60
+  },
+  "priorities": {
+    "task_complete": "high",
+    "action_required": "urgent",
+    "blocked": "high",
+    "error": "high",
+    "info": "default",
+    "success": "default"
+  },
+  "tags": {
+    "task_complete": ["white_check_mark", "computer"],
+    "action_required": ["warning", "bell"],
+    "blocked": ["x", "stop_sign"],
+    "error": ["rotating_light", "skull"],
+    "info": ["information_source"],
+    "success": ["tada", "rocket"]
+  },
+  "templates": {
+    "task_complete": {
+      "title": "Task Complete: {task_name}",
+      "message": "{details}\n\nDuration: {duration}"
+    },
+    "action_required": {
+      "title": "ACTION REQUIRED: {action_name}",
+      "message": "{details}\n\nPlease respond in Claude Code."
+    },
+    "error": {
+      "title": "ERROR: {error_type}",
+      "message": "{details}\n\nCheck Claude Code for details."
+    }
+  },
+  "rate_limit": {
+    "enabled": true,
+    "max_per_minute": 10,
+    "cooldown_seconds": 5
+  },
+  "logging": {
+    "enabled": true,
+    "max_history": 1000,
+    "log_file": "notification_history.json"
+  },
+  "authentication": {
+    "enabled": false,
+    "token": "",
+    "username": "",
+    "password": ""
+  }
+}

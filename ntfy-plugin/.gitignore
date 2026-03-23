@@ -1,0 +1,13 @@
+# User-specific config (contains topic, credentials)
+ntfy/config.json
+
+# Runtime state
+ntfy/scripts/session_state.json
+ntfy/scripts/notification_history.json
+ntfy/scripts/failed_notifications.log
+ntfy/scripts/exports/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo

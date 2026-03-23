@@ -4,7 +4,7 @@
   "description": "Comprehensive Odoo internationalization toolkit - extract translatable strings, find missing translations, validate .po files, and manage Arabic/RTL layouts across Odoo 14-19. Supports Arabic, English, Turkish, French and more.",
   "author": {
     "name": "TaqaTechno",
-    "email": "support@example.com"
+    "email": "info@taqatechno.com"
   },
   "license": "MIT",
   "homepage": "https://github.com/taqat-techno/plugins",
