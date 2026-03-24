@@ -160,7 +160,7 @@
     {
       "name": "pm-guidelines",
       "description": "Cross-project PM best practices enforcement - status labels, bilingual parity, secret detection, source file protection, dashboard quality, and session discipline. 48 guidelines, 10 hooks, 6 skills, 2 agents.",
-      "source": "./pm-guidelines-plugin",
+      "source": "./",
       "strict": false,
       "skills": [
         "./pm-guidelines-plugin/pm-report-writing",
