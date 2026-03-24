@@ -12,5 +12,8 @@
   "skills": [
     "./odoo-report"
   ],
+  "commands": [
+    "./commands"
+  ],
   "hooks": "./hooks/hooks.json"
 }
