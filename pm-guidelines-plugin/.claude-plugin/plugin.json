@@ -1,0 +1,38 @@
+{
+  "name": "pm-guidelines",
+  "version": "1.0.0",
+  "description": "Cross-project PM best practices enforcement — status labels, bilingual parity, secret detection, source file protection, dashboard quality, and session discipline.",
+  "author": {
+    "name": "TaqaTechno",
+    "email": "info@taqatechno.com",
+    "url": "https://github.com/taqat-techno"
+  },
+  "homepage": "https://github.com/taqat-techno/plugins/tree/main/pm-guidelines-plugin",
+  "repository": "https://github.com/taqat-techno/plugins",
+  "license": "MIT",
+  "keywords": [
+    "pm",
+    "project-management",
+    "guidelines",
+    "quality",
+    "bilingual",
+    "security",
+    "hooks",
+    "enforcement",
+    "dashboard",
+    "reports"
+  ],
+  "skills": [
+    "../pm-report-writing",
+    "../pm-dashboard-design",
+    "../pm-session-discipline",
+    "../pm-bilingual-standards",
+    "../pm-estimation",
+    "../pm-consolidation"
+  ],
+  "agents": [
+    "../agents/pm-report-reviewer",
+    "../agents/pm-bilingual-qa"
+  ],
+  "hooks": "../hooks/hooks.json"
+}
