@@ -7,7 +7,7 @@
   "metadata": {
     "description": "Professional development skills for Claude Code - Odoo, DevOps, Document Conversion & more",
     "version": "1.7.0",
-    "plugins_count": 13
+    "plugins_count": 14
   },
   "plugins": [
     {
@@ -156,6 +156,20 @@
       "name": "paper",
       "description": "UI/UX design specialist - design screens, wireframes, and design systems for web, mobile (iOS/Android), and desktop. Includes Figma MCP integration, color theory, typography scales, WCAG accessibility, responsive patterns, and Odoo/Bootstrap theme support",
       "source": "./paper-plugin"
+    },
+    {
+      "name": "pm-guidelines",
+      "description": "Cross-project PM best practices enforcement - status labels, bilingual parity, secret detection, source file protection, dashboard quality, and session discipline. 48 guidelines, 10 hooks, 6 skills, 2 agents.",
+      "source": "./pm-guidelines-plugin",
+      "strict": false,
+      "skills": [
+        "./pm-guidelines-plugin/pm-report-writing",
+        "./pm-guidelines-plugin/pm-dashboard-design",
+        "./pm-guidelines-plugin/pm-session-discipline",
+        "./pm-guidelines-plugin/pm-bilingual-standards",
+        "./pm-guidelines-plugin/pm-estimation",
+        "./pm-guidelines-plugin/pm-consolidation"
+      ]
     }
   ]
 }

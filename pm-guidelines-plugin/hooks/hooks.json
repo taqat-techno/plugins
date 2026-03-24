@@ -1,0 +1,95 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit|Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "py \"${CLAUDE_PLUGIN_ROOT}/hooks/pat_token_guard.py\"",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "py \"${CLAUDE_PLUGIN_ROOT}/hooks/source_file_protection.py\"",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "py \"${CLAUDE_PLUGIN_ROOT}/hooks/html_version_naming.py\"",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "py \"${CLAUDE_PLUGIN_ROOT}/hooks/git_pull_before_analysis.py\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "py \"${CLAUDE_PLUGIN_ROOT}/hooks/status_label_enforcer.py\"",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "py \"${CLAUDE_PLUGIN_ROOT}/hooks/bilingual_parity_check.py\"",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "py \"${CLAUDE_PLUGIN_ROOT}/hooks/dashboard_quality_check.py\"",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "py \"${CLAUDE_PLUGIN_ROOT}/hooks/html_render_reminder.py\"",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "py \"${CLAUDE_PLUGIN_ROOT}/hooks/search_index_rebuild.py\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "py \"${CLAUDE_PLUGIN_ROOT}/hooks/session_end_lessons.py\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}
