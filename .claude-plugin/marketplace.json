@@ -149,17 +149,6 @@
       "source": "./paper-plugin",
       "category": "design",
       "homepage": "https://github.com/taqat-techno/plugins/tree/main/paper-plugin"
-    },
-    {
-      "name": "pm-guidelines",
-      "description": "Cross-project PM best practices enforcement - status labels, bilingual parity, secret detection, source file protection, dashboard quality, and session discipline. 10 hooks, 6 skills, 2 agents.",
-      "author": {
-        "name": "TaqaTechno",
-        "email": "info@taqatechno.com"
-      },
-      "source": "./pm-guidelines-plugin",
-      "category": "productivity",
-      "homepage": "https://github.com/taqat-techno/plugins/tree/main/pm-guidelines-plugin"
     }
   ]
 }
