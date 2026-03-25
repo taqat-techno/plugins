@@ -1,175 +1,165 @@
 {
-  "name": "plugins",
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "taqat-techno-plugins",
+  "description": "Professional development skills for Claude Code - Odoo ERP, Azure DevOps, PM best practices, document conversion, video creation, and more",
   "owner": {
     "name": "TAQAT Techno",
-    "email": "support@example.com"
-  },
-  "metadata": {
-    "description": "Professional development skills for Claude Code - Odoo, DevOps, Document Conversion & more",
-    "version": "1.7.0",
-    "plugins_count": 14
+    "email": "info@taqatechno.com"
   },
   "plugins": [
     {
       "name": "odoo-upgrade",
       "description": "Comprehensive Odoo module upgrade assistant for migrating between Odoo versions (14-19)",
-      "source": "./",
-      "strict": false,
-      "skills": [
-        "./odoo-upgrade-plugin/odoo-upgrade"
-      ]
+      "author": {
+        "name": "TaqaTechno",
+        "email": "info@taqatechno.com"
+      },
+      "source": "./odoo-upgrade-plugin",
+      "category": "development",
+      "homepage": "https://github.com/taqat-techno/plugins/tree/main/odoo-upgrade-plugin"
     },
     {
       "name": "odoo-frontend",
       "description": "Comprehensive Odoo website theme development with auto-detection, MCP integration, and Bootstrap version management",
-      "source": "./",
-      "strict": false,
-      "skills": [
-        "./odoo-frontend-plugin/skills/theme-create",
-        "./odoo-frontend-plugin/skills/theme-scss",
-        "./odoo-frontend-plugin/skills/theme-design",
-        "./odoo-frontend-plugin/skills/theme-snippets",
-        "./odoo-frontend-plugin/skills/frontend-js"
-      ],
-      "commands": [
-        "./odoo-frontend-plugin/commands"
-      ]
+      "author": {
+        "name": "TaqaTechno",
+        "email": "info@taqatechno.com"
+      },
+      "source": "./odoo-frontend-plugin",
+      "category": "development",
+      "homepage": "https://github.com/taqat-techno/plugins/tree/main/odoo-frontend-plugin"
     },
     {
       "name": "devops",
-      "description": "Azure DevOps integration for TaqaTechno - manage work items, PRs, pipelines, repos, wiki through natural language via MCP server",
-      "source": "./",
-      "strict": false,
-      "skills": [
-        "./devops-plugin/devops"
-      ],
-      "commands": [
-        "./devops-plugin/commands"
-      ]
+      "description": "Azure DevOps integration - manage work items, PRs, pipelines, repos, wiki through natural language via MCP server",
+      "author": {
+        "name": "TaqaTechno",
+        "email": "info@taqatechno.com"
+      },
+      "source": "./devops-plugin",
+      "category": "productivity",
+      "homepage": "https://github.com/taqat-techno/plugins/tree/main/devops-plugin"
     },
     {
       "name": "ntfy-notifications",
       "description": "Push notifications to your phone via ntfy.sh when Claude completes tasks, needs input, or encounters errors. 100% FREE - No account required!",
-      "source": "./",
-      "strict": false,
-      "skills": [
-        "./ntfy-plugin/ntfy"
-      ],
-      "commands": [
-        "./ntfy-plugin/commands"
-      ]
+      "author": {
+        "name": "TaqaTechno",
+        "email": "info@taqatechno.com"
+      },
+      "source": "./ntfy-plugin",
+      "category": "productivity",
+      "homepage": "https://github.com/taqat-techno/plugins/tree/main/ntfy-plugin"
     },
     {
       "name": "odoo-report",
-      "description": "Professional Odoo Email Templates & QWeb Reports - Complete toolkit for creating, managing, and debugging email templates and PDF reports across Odoo 14-19",
-      "source": "./",
-      "strict": false,
-      "skills": [
-        "./odoo-report-plugin/odoo-report"
-      ]
+      "description": "Professional Odoo Email Templates and QWeb Reports - Complete toolkit for creating, managing, and debugging email templates and PDF reports across Odoo 14-19",
+      "author": {
+        "name": "TaqaTechno",
+        "email": "info@taqatechno.com"
+      },
+      "source": "./odoo-report-plugin",
+      "category": "development",
+      "homepage": "https://github.com/taqat-techno/plugins/tree/main/odoo-report-plugin"
     },
     {
       "name": "pandoc",
       "description": "Universal document conversion powered by Pandoc - Convert between 50+ input and 60+ output formats including PDF, Word, HTML, EPUB, LaTeX, and presentations",
-      "source": "./",
-      "strict": false,
-      "skills": [
-        "./pandoc-plugin/pandoc"
-      ],
-      "commands": [
-        "./pandoc-plugin/commands"
-      ]
+      "author": {
+        "name": "TaqaTechno",
+        "email": "info@taqatechno.com"
+      },
+      "source": "./pandoc-plugin",
+      "category": "productivity",
+      "homepage": "https://github.com/taqat-techno/plugins/tree/main/pandoc-plugin"
     },
     {
       "name": "remotion",
-      "description": "Create professional videos with smooth voice narration using Remotion and Claude Code. Free edge-tts voices, continuous audio pipeline (no voice cutting), full video creation from text prompts.",
-      "source": "./",
-      "strict": false,
-      "skills": [
-        "./remotion-plugin/remotion"
-      ],
-      "commands": [
-        "./remotion-plugin/commands"
-      ]
+      "description": "Create professional videos with smooth voice narration using Remotion and Claude Code. Free edge-tts voices, continuous audio pipeline, full video creation from text prompts.",
+      "author": {
+        "name": "TaqaTechno",
+        "email": "info@taqatechno.com"
+      },
+      "source": "./remotion-plugin",
+      "category": "development",
+      "homepage": "https://github.com/taqat-techno/plugins/tree/main/remotion-plugin"
     },
     {
       "name": "odoo-test",
-      "description": "Comprehensive Odoo testing toolkit - generate test skeletons from model definitions, run tests with formatted output, create realistic mock data, and analyze test coverage gaps across Odoo 14-19",
-      "source": "./",
-      "strict": false,
-      "skills": [
-        "./odoo-test-plugin/odoo-test"
-      ],
-      "commands": [
-        "./odoo-test-plugin/commands"
-      ]
+      "description": "Comprehensive Odoo testing toolkit - generate test skeletons, run tests with formatted output, create mock data, and analyze test coverage across Odoo 14-19",
+      "author": {
+        "name": "TaqaTechno",
+        "email": "info@taqatechno.com"
+      },
+      "source": "./odoo-test-plugin",
+      "category": "testing",
+      "homepage": "https://github.com/taqat-techno/plugins/tree/main/odoo-test-plugin"
     },
     {
       "name": "odoo-security",
-      "description": "Odoo security audit toolkit - verify ir.model.access.csv completeness, audit @http.route auth= parameters, analyze sudo() usage with context analysis, and generate detailed security reports with risk scoring",
-      "source": "./",
-      "strict": false,
-      "skills": [
-        "./odoo-security-plugin/odoo-security"
-      ],
-      "commands": [
-        "./odoo-security-plugin/commands"
-      ]
+      "description": "Odoo security audit toolkit - verify access rules, audit route auth, analyze sudo() usage, and generate security reports with risk scoring",
+      "author": {
+        "name": "TaqaTechno",
+        "email": "info@taqatechno.com"
+      },
+      "source": "./odoo-security-plugin",
+      "category": "security",
+      "homepage": "https://github.com/taqat-techno/plugins/tree/main/odoo-security-plugin"
     },
     {
       "name": "odoo-i18n",
-      "description": "Odoo internationalization toolkit - extract translatable strings to .pot/.po files, validate translation completeness, find missing translations by language, and manage Arabic/RTL localization with full Odoo 14-19 support",
-      "source": "./",
-      "strict": false,
-      "skills": [
-        "./odoo-i18n-plugin/odoo-i18n"
-      ],
-      "commands": [
-        "./odoo-i18n-plugin/commands"
-      ]
+      "description": "Odoo internationalization toolkit - extract translatable strings, validate translations, find missing translations, and manage Arabic/RTL localization across Odoo 14-19",
+      "author": {
+        "name": "TaqaTechno",
+        "email": "info@taqatechno.com"
+      },
+      "source": "./odoo-i18n-plugin",
+      "category": "development",
+      "homepage": "https://github.com/taqat-techno/plugins/tree/main/odoo-i18n-plugin"
     },
     {
       "name": "odoo-service",
-      "description": "Complete Odoo server lifecycle manager - start, stop, deploy, initialize, and manage Odoo across local venv, Docker, and any IDE (PyCharm, VSCode). Handles server startup/shutdown, environment init, database management, Docker orchestration, and IDE config generation for Odoo 14-19",
-      "source": "./",
-      "strict": false,
-      "skills": [
-        "./odoo-service-plugin/odoo-service"
-      ],
-      "commands": [
-        "./odoo-service-plugin/commands"
-      ]
+      "description": "Complete Odoo server lifecycle manager - start, stop, deploy, initialize, and manage Odoo across local venv, Docker, and any IDE for Odoo 14-19",
+      "author": {
+        "name": "TaqaTechno",
+        "email": "info@taqatechno.com"
+      },
+      "source": "./odoo-service-plugin",
+      "category": "development",
+      "homepage": "https://github.com/taqat-techno/plugins/tree/main/odoo-service-plugin"
     },
     {
       "name": "odoo-docker",
-      "description": "Docker infrastructure manager for Odoo - production deployment with nginx, CI/CD pipelines, performance tuning, multi-version image management, container debugging, and centralized workspace orchestration for Odoo 14-19 Enterprise.",
-      "source": "./",
-      "strict": false,
-      "skills": [
-        "./odoo-docker-plugin/odoo-docker"
-      ],
-      "commands": [
-        "./odoo-docker-plugin/commands"
-      ]
+      "description": "Docker infrastructure manager for Odoo - production deployment with nginx, CI/CD pipelines, performance tuning, multi-version image management, and container debugging for Odoo 14-19 Enterprise",
+      "author": {
+        "name": "TaqaTechno",
+        "email": "info@taqatechno.com"
+      },
+      "source": "./odoo-docker-plugin",
+      "category": "deployment",
+      "homepage": "https://github.com/taqat-techno/plugins/tree/main/odoo-docker-plugin"
     },
     {
       "name": "paper",
-      "description": "UI/UX design specialist - design screens, wireframes, and design systems for web, mobile (iOS/Android), and desktop. Includes Figma MCP integration, color theory, typography scales, WCAG accessibility, responsive patterns, and Odoo/Bootstrap theme support",
-      "source": "./paper-plugin"
+      "description": "UI/UX design specialist - design screens, wireframes, and design systems for web, mobile, and desktop. Includes Figma MCP integration, WCAG accessibility, and Odoo/Bootstrap theme support",
+      "author": {
+        "name": "TaqaTechno",
+        "email": "info@taqatechno.com"
+      },
+      "source": "./paper-plugin",
+      "category": "design",
+      "homepage": "https://github.com/taqat-techno/plugins/tree/main/paper-plugin"
     },
     {
       "name": "pm-guidelines",
-      "description": "Cross-project PM best practices enforcement - status labels, bilingual parity, secret detection, source file protection, dashboard quality, and session discipline. 48 guidelines, 10 hooks, 6 skills, 2 agents.",
-      "source": "./",
-      "strict": false,
-      "skills": [
-        "./pm-guidelines-plugin/pm-report-writing",
-        "./pm-guidelines-plugin/pm-dashboard-design",
-        "./pm-guidelines-plugin/pm-session-discipline",
-        "./pm-guidelines-plugin/pm-bilingual-standards",
-        "./pm-guidelines-plugin/pm-estimation",
-        "./pm-guidelines-plugin/pm-consolidation"
-      ]
+      "description": "Cross-project PM best practices enforcement - status labels, bilingual parity, secret detection, source file protection, dashboard quality, and session discipline. 10 hooks, 6 skills, 2 agents.",
+      "author": {
+        "name": "TaqaTechno",
+        "email": "info@taqatechno.com"
+      },
+      "source": "./pm-guidelines-plugin",
+      "category": "productivity",
+      "homepage": "https://github.com/taqat-techno/plugins/tree/main/pm-guidelines-plugin"
     }
   ]
 }
