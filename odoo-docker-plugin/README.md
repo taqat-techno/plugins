@@ -64,8 +64,7 @@ odoo-docker-plugin/
   .claude-plugin/plugin.json       # Plugin manifest
   odoo-docker/SKILL.md             # Skill — decision logic, config notes, perf data
   commands/odoo-docker.md           # /odoo-docker command with 4 sub-commands
-  hooks/hooks.json                  # SessionStart detection + 6 PostToolUse file watchers
-  hooks/detect-docker.sh            # Docker environment detection script
+  hooks/hooks.json                  # SessionStart detection + 7 PostToolUse file watchers
   templates/                        # 7 proven template files (compose, Dockerfile, nginx, etc.)
   reference/                        # Troubleshooting, version matrix, production checklist, patterns
   odoo-docker.local.md.example      # User configuration template
@@ -79,8 +78,9 @@ odoo-docker-plugin/
 | PostToolUse | Edit docker-compose*.yml | Suggests recreating containers |
 | PostToolUse | Edit Dockerfile* | Suggests rebuilding image |
 | PostToolUse | Edit nginx*.conf | Suggests reloading nginx |
-| PostToolUse | Edit .env* | Reminds that `down`+`up` is needed (not just restart) |
+| PostToolUse | Edit .env | Reminds that `down`+`up` is needed (not just restart) |
 | PostToolUse | Edit entrypoint*.sh | Reminds about chmod +x and rebuild |
+| PostToolUse | Edit requirements*.txt | Suggests rebuilding image for new dependencies |
 | PostToolUse | Edit conf/*.conf | Suggests container restart + key settings checklist |
 
 All PostToolUse hooks are path-scoped — they only fire when the relevant file type is modified.
@@ -105,6 +105,8 @@ All PostToolUse hooks are path-scoped — they only fire when the relevant file 
 | `reference/troubleshooting.md` | Issue-to-solution map + error patterns + diagnostic commands |
 | `reference/production-checklist.md` | Pre-deployment and post-deployment verification |
 | `reference/docker-patterns.md` | Performance patterns and lessons from stress tests |
+| `reference/advanced-topics.md` | Deep-dive: security, SSL, CI/CD, debugging, workspace layout |
+| `reference/CHANGELOG.md` | Version history and update guide for new Odoo versions |
 
 ## Customization
 

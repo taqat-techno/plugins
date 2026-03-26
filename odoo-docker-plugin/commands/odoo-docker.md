@@ -20,7 +20,26 @@ Parse `$ARGUMENTS` and route to the appropriate operation:
 
 ## Status (no args)
 
-Run `docker info` and `docker --version` to check Docker. Scan for `docker-compose*.yml`, `conf/*.conf`, and `odoo/release.py` to detect existing projects. Display the help table above.
+Run these diagnostics and display results in a summary:
+
+1. **Docker engine**: Run `docker --version` and check if Docker daemon is running
+2. **Compose files**: Glob for `**/docker-compose*.{yml,yaml}` — list found files
+3. **Running containers**: Run `docker compose ps` (if compose file exists) or `docker ps --filter name=odoo`
+4. **Container health**: Show health status for each running container
+5. **Port usage**: Show which ports are mapped (8069, 8072, etc.)
+6. **Disk usage**: Run `docker system df` — show images, containers, volumes size
+7. **Config files**: Glob for `**/conf/*.conf` — list Odoo configs found
+
+End with the sub-command help table above.
+
+## Validation (built into deploy)
+
+When running `/odoo-docker deploy`, always validate before starting containers:
+
+1. Run `docker compose config` to validate the compose file syntax
+2. Start containers with `docker compose up -d`
+3. After nginx is running, run `docker compose exec nginx nginx -t` to validate nginx config
+4. If either check fails, show the error and stop — do not proceed
 
 ## Execution
 

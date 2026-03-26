@@ -1,3 +1,4 @@
+<!-- Last updated: 2026-03-26 for v2.1.0 -->
 # Odoo Docker Version Matrix — Quick Reference
 
 ## Core Version Table

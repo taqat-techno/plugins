@@ -1,3 +1,4 @@
+<!-- Last updated: 2026-03-26 for v2.1.0 -->
 # Docker Patterns & Lessons Learned
 
 ## Performance Patterns
