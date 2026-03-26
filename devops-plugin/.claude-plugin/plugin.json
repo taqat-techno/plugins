@@ -1,31 +1,25 @@
 {
   "name": "devops",
   "version": "6.3.0",
-  "description": "Azure DevOps HYBRID integration with Work Tracking System. Features: persistent user profile (DevOps.md) with cached identity and team GUIDs, unified /create command with auto-type detection, /workday dashboard with auto-sync, time logging with compliance, /init setup with CLI + MCP + profile generation, intelligent routing with 3 specialized subagents (Haiku for CRUD, Sonnet for planning and PR review), task monitor with loop-based alerts, 6 skill-handled workflows, and 100+ MCP tools.",
+  "description": "Azure DevOps HYBRID integration with Work Tracking System. Features: persistent user profile, unified /create command, /workday dashboard, time logging, /init setup with CLI + MCP, intelligent routing with specialized subagents, and 100+ MCP tools.",
   "author": {
     "name": "TaqaTechno",
-    "email": "support@example.com",
+    "email": "info@taqatechno.com",
     "url": "https://github.com/taqat-techno"
   },
+  "homepage": "https://github.com/taqat-techno/plugins/tree/main/devops-plugin",
+  "repository": "https://github.com/taqat-techno/plugins",
+  "license": "MIT",
   "keywords": [
     "azure-devops",
     "devops",
     "cli",
     "mcp",
-    "hybrid",
-    "automation",
     "work-items",
     "pipelines",
     "pull-requests",
     "ci-cd",
     "agile",
-    "scrum",
-    "sprint",
-    "taqatechno",
-    "project-management",
-    "time-tracking",
-    "work-tracking",
-    "timesheet",
-    "compliance"
+    "time-tracking"
   ]
 }

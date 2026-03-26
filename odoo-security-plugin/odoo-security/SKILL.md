@@ -39,7 +39,9 @@ metadata:
   supported-versions: ["14","15","16","17","18","19"]
   categories: [security, audit, access-control]
   filePatterns: ["**/models/*.py", "**/controllers/*.py", "**/security/*.csv", "**/security/*.xml", "**/__manifest__.py", "**/wizard*/*.py"]
+  model: sonnet
 ---
+<!-- Last updated: 2026-03-26 -->
 
 # Odoo Security Skill
 

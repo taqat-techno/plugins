@@ -67,7 +67,9 @@ metadata:
   categories: [i18n, translation, rtl, arabic]
   filePattern: ["**/i18n/*.po", "**/i18n/*.pot", "**/*.po", "**/*.pot"]
   bashPattern: ["i18n_extractor", "i18n_validator", "i18n_reporter", "i18n_converter", "i18n-export", "i18n-import", "load-language"]
+  model: sonnet
 ---
+<!-- Last updated: 2026-03-26 -->
 
 # Odoo i18n Skill
 

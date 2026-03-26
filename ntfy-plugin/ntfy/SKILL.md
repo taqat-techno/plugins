@@ -46,7 +46,9 @@ metadata:
   self-hosted: true
   priority-levels: 5
   features: "retry, deduplication, rate-limiting, history, decorators"
+  model: sonnet
 ---
+<!-- Last updated: 2026-03-26 -->
 
 # ntfy Notifications Skill
 

@@ -7,13 +7,7 @@
     "email": "info@taqatechno.com",
     "url": "https://github.com/taqat-techno"
   },
-  "license": "MIT",
-  "homepage": "https://github.com/taqat-techno/plugins",
-  "skills": [
-    "./odoo-security"
-  ],
-  "commands": [
-    "./commands"
-  ],
-  "hooks": "./hooks/hooks.json"
+  "homepage": "https://github.com/taqat-techno/plugins/tree/main/odoo-security-plugin",
+  "repository": "https://github.com/taqat-techno/plugins",
+  "license": "MIT"
 }

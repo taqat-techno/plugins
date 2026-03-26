@@ -55,6 +55,7 @@ metadata:
     - "**/*.vue"
     - "**/*.svelte"
 ---
+<!-- Last updated: 2026-03-26 -->
 
 # Paper - UI/UX Design Specialist
 

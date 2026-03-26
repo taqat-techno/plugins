@@ -30,7 +30,9 @@ metadata:
   remotion-version: "4.0.0+"
   voice-engines: ["edge-tts", "elevenlabs"]
   output-formats: ["mp4", "webm", "gif", "png-sequence"]
+  model: sonnet
 ---
+<!-- Last updated: 2026-03-26 -->
 
 # Remotion Video Creator
 

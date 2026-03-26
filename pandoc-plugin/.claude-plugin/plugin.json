@@ -23,12 +23,5 @@
     "citations",
     "academic",
     "documentation"
-  ],
-  "skills": [
-    "./pandoc"
-  ],
-  "commands": [
-    "./commands"
-  ],
-  "hooks": "./hooks/hooks.json"
+  ]
 }
