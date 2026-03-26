@@ -3,6 +3,9 @@
 # Last updated: {TIMESTAMP}
 # Organization: {ORGANIZATION}
 
+lastRefresh: "{DATE_ISO}"
+schemaVersion: "6.2.0"
+
 identity:
   displayName: "{DISPLAY_NAME}"
   email: "{EMAIL}"
@@ -42,7 +45,7 @@ taskTemplates:
 statePermissions:
 # {STATE_PERMISSIONS_YAML}
 # Auto-generated from role during /init profile
-# Source: data/state_permissions.json → rolePermissions[role].permissions
+# Source: data/state_machine.json → rolePermissions[role].permissions
 # DO NOT edit manually — re-run /init profile to refresh
 
 projects:

@@ -5,6 +5,13 @@
 
 INPUT=$(cat)
 
+# MCP server unavailable
+if echo "$INPUT" | grep -qiE 'MCP.*unavailable|server.*not.*running|connection.*refused|ECONNREFUSED'; then
+  echo "[DevOps] MCP server appears unavailable. See devops/MCP_FAILURE_MODES.md for recovery."
+  echo "Quick fix: Run /init to reinstall. CLI fallback: use /cli-run for basic operations."
+  exit 0
+fi
+
 # Authentication errors (401)
 if echo "$INPUT" | grep -qiE '401|Unauthorized|authentication.failed|token.expired'; then
   echo "[DevOps] Authentication error. Your Personal Access Token (PAT) may have expired."
