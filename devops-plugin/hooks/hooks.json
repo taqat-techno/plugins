@@ -25,15 +25,7 @@
         ]
       },
       {
-        "matcher": {
-          "tool_names": [
-            "mcp__azure-devops__wit_create_work_item",
-            "mcp__azure-devops__wit_update_work_item",
-            "mcp__azure-devops__wit_add_work_item_comment",
-            "mcp__azure-devops__wit_work_items_link",
-            "mcp__azure-devops__repo_create_pull_request"
-          ]
-        },
+        "matcher": "mcp__azure-devops__wit_create_work_item|mcp__azure-devops__wit_update_work_item|mcp__azure-devops__wit_add_work_item_comment|mcp__azure-devops__wit_work_items_link|mcp__azure-devops__repo_create_pull_request",
         "hooks": [
           {
             "type": "command",
@@ -57,9 +49,7 @@
     ],
     "PostToolUseFailure": [
       {
-        "matcher": {
-          "tool_names_regex": "^mcp__azure-devops__"
-        },
+        "matcher": "mcp__azure-devops__.*",
         "hooks": [
           {
             "type": "command",
