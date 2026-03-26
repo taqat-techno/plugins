@@ -4,6 +4,7 @@ db_manager.py — Odoo Database Manager
 
 Backup, restore, create, drop, and manage PostgreSQL databases for Odoo.
 Supports local PostgreSQL and Docker containers.
+Last updated: 2026-03-26 for v3.0.0
 
 Usage:
     python db_manager.py backup --db mydb [--format sql|dump] --output backups/

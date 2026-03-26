@@ -4,6 +4,7 @@ docker_manager.py — Odoo Docker Manager
 
 Generate Dockerfiles and docker-compose.yml files, and manage Docker containers
 for Odoo deployments. Supports Odoo 14-19.
+Last updated: 2026-03-26 for v3.0.0
 
 Usage:
     python docker_manager.py init --version 17 --project myproject [--port 8069]
@@ -563,7 +564,16 @@ def init_docker_project(
     http_port: int = 8069,
     output_path: str = ".",
 ) -> None:
-    """Generate all Docker files for a new Odoo project."""
+    """Generate all Docker files for a new Odoo project.
+
+    DEPRECATED: For production-ready Docker setups with nginx, SSL, PostgreSQL
+    tuning, and resource limits, use the odoo-docker plugin instead:
+        /odoo-docker init --project <name>
+    This command generates basic dev Dockerfiles only.
+    """
+    print("[DEPRECATED] docker_manager.py init generates basic dev Dockerfiles only.")
+    print("[DEPRECATED] For production setups, use: /odoo-docker init")
+    print()
     out = Path(output_path)
     out.mkdir(parents=True, exist_ok=True)
 

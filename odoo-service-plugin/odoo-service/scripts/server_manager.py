@@ -4,6 +4,7 @@ server_manager.py — Odoo Server Lifecycle Manager
 
 Start, stop, restart Odoo processes. Works on Windows, Linux, and macOS.
 Supports local venv, bare Python, and Docker environments.
+Last updated: 2026-03-26 for v3.0.0
 
 Usage:
     python server_manager.py start --config conf/myproject.conf [--dev] [--workers 4]
@@ -483,32 +484,8 @@ def follow_log(log_file: str) -> None:
 # Environment Detection (delegated to shared module)
 # ---------------------------------------------------------------------------
 
-try:
-    from shared import detect_environment, find_python_in_venv
-except ImportError:
-    def detect_environment(project_root: str = ".") -> str:
-        """Detect the current Odoo environment type."""
-        root = Path(project_root).resolve()
-        if (root / "docker-compose.yml").exists() or (root / "docker-compose.yaml").exists():
-            return "docker"
-        if (root / "Dockerfile").exists():
-            return "docker"
-        for venv_dir in [".venv", "venv", "env"]:
-            venv_path = root / venv_dir
-            if (venv_path / "Scripts" / "python.exe").exists() or (venv_path / "bin" / "python").exists():
-                return "venv"
-        return "bare"
-
-    def find_python_in_venv(project_root: str = ".") -> Optional[str]:
-        """Find the Python executable inside the virtual environment."""
-        root = Path(project_root).resolve()
-        for venv_dir in [".venv", "venv", "env"]:
-            venv_path = root / venv_dir
-            for sub in ["Scripts/python.exe", "bin/python"]:
-                p = venv_path / sub
-                if p.exists():
-                    return str(p)
-        return None
+sys.path.insert(0, str(Path(__file__).parent))
+from shared import detect_environment, find_python_in_venv
 
 
 # ---------------------------------------------------------------------------

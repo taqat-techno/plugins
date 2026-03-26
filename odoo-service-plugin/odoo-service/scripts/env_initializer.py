@@ -4,6 +4,7 @@ env_initializer.py — Odoo Environment Initializer
 
 Set up virtual environments, install dependencies, configure PostgreSQL,
 generate config files, and scaffold new Odoo projects.
+Last updated: 2026-03-26 for v3.0.0
 
 Usage:
     python env_initializer.py init --version 17 --project myproject --port 8069
@@ -43,6 +44,7 @@ PYTHON_VERSION_REQUIREMENTS: Dict[int, Tuple[Tuple[int, int], Tuple[int, int]]] 
 }
 
 DEFAULT_CONF_TEMPLATE = """\
+; Local development defaults — change credentials before any production use
 [options]
 addons_path = odoo/addons,projects/{project}
 admin_passwd = 123
@@ -111,21 +113,8 @@ desktop.ini
 # Environment Detection (delegated to shared module)
 # ---------------------------------------------------------------------------
 
-try:
-    from shared import detect_environment
-except ImportError:
-    def detect_environment(path: str = ".") -> str:
-        """Detect the current Odoo environment type. Returns: 'venv', 'docker', or 'bare'"""
-        root = Path(path).resolve()
-        if (root / "docker-compose.yml").exists() or (root / "docker-compose.yaml").exists():
-            return "docker"
-        if (root / "Dockerfile").exists():
-            return "docker"
-        for venv_dir in [".venv", "venv", "env"]:
-            venv_path = root / venv_dir
-            if (venv_path / "Scripts" / "python.exe").exists() or (venv_path / "bin" / "python").exists():
-                return "venv"
-        return "bare"
+sys.path.insert(0, str(Path(__file__).parent))
+from shared import detect_environment
 
 
 def detect_python_version(odoo_version: int) -> Tuple[Tuple[int, int], Tuple[int, int]]:
@@ -355,7 +344,8 @@ def create_conf_file(
     # Determine the gevent/longpolling port name by version
     longpolling_key = "gevent_port" if version >= 17 else "longpolling_port"
 
-    conf_content = f"""[options]
+    conf_content = f"""; Local development defaults — change credentials before any production use
+[options]
 addons_path = {addons_path}
 admin_passwd = 123
 db_host = localhost
