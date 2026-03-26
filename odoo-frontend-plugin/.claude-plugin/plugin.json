@@ -1,6 +1,6 @@
 {
   "name": "odoo-frontend",
-  "version": "8.0.0",
+  "version": "8.4.0",
   "description": "Odoo frontend theme development for versions 14-19. Theme creation, SCSS variables, Figma integration, snippets, and JavaScript patterns.",
   "author": {
     "name": "TaqaTechno",
@@ -20,16 +20,5 @@
     "website",
     "publicWidget",
     "snippets"
-  ],
-  "skills": [
-    "./skills/theme-create",
-    "./skills/theme-scss",
-    "./skills/theme-design",
-    "./skills/theme-snippets",
-    "./skills/frontend-js"
-  ],
-  "commands": [
-    "./commands"
-  ],
-  "hooks": "./hooks/hooks.json"
+  ]
 }

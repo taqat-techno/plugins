@@ -30,28 +30,21 @@ description: |
   assistant: "I will diagnose the SCSS load order issue and fix the map-merge pattern."
   <commentary>Theme installation debugging.</commentary>
   </example>
-version: "8.0.0"
-author: "TaqaTechno"
 license: "MIT"
-allowed-tools:
-  - Read
-  - Write
-  - Edit
-  - Bash
-  - Grep
-  - Glob
+metadata:
+  version: "8.0.0"
+  author: "TaqaTechno"
+  allowed-tools: "Read, Write, Edit, Bash, Grep, Glob"
 ---
 
 # Theme Creation Skill
 
 ## Critical Rules
 
-1. **NEVER modify core Odoo** in `odoo/` or `odoo/addons/`
-2. **NEVER use `map-merge()`** with core Odoo variables in theme SCSS — they're undefined at load time
-3. **NEVER use `ir.asset`** records for Google Fonts — use `$o-theme-font-configs`
-4. **ALWAYS use `('prepend', ...)`** for primary_variables.scss in asset bundles
-5. **H6 is ALWAYS 16px** (1rem) — the fixed base reference
-6. All manifests must include `author: 'TaqaTechno'`, `website`, `support`, `license: 'LGPL-3'`
+See `rules/core-odoo-guard.md` and `rules/scss-load-order.md` for mandatory constraints (core Odoo guard, SCSS load order, map-merge prohibition, prepend requirement, H6 baseline).
+
+Additional rule for this skill:
+- All manifests must include `author: 'TaqaTechno'`, `website`, `support`, `license: 'LGPL-3'`
 
 ## Generated Theme Structure (v8.0)
 
@@ -304,11 +297,9 @@ python -m odoo -c conf/<PROJECT>.conf -d <DB> -i theme_<name> --stop-after-init
 
 ## Version-Specific Notes
 
-| Odoo | Bootstrap | Snippet Registration | Key Differences |
-|------|-----------|---------------------|-----------------|
-| 14-15 | 4.x | Simple XPath | `ml-*`/`mr-*` classes |
-| 16-17 | 5.1.3 | Simple XPath | `ms-*`/`me-*` classes |
-| 18-19 | 5.1.3 | Groups required | snippet-group attribute needed |
+For version-specific Bootstrap, snippet registration, and class mappings, see `data/version_mapping.json`.
+
+**Key differences**: Odoo 18-19 require group-based snippet registration (`snippet-group` attribute). Odoo 14-15 use Bootstrap 4 classes (`ml-*`/`mr-*`).
 
 For the complete 115+ SCSS variable reference, see the **theme-scss** skill.
 For Figma-to-Odoo workflow and page template matching, see the **theme-design** skill.

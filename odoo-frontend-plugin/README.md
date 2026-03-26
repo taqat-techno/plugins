@@ -1,4 +1,4 @@
-# Odoo Frontend Plugin for Claude Code v8.0
+# Odoo Frontend Plugin for Claude Code v8.4
 
 Odoo website theme development plugin for Claude Code. Provides theme scaffolding, SCSS variable management, Figma integration, snippet creation, and JavaScript patterns for Odoo 14-19.
 
@@ -43,8 +43,22 @@ Clone this repository into your Claude Code plugins directory.
 
 | Event | Action |
 |-------|--------|
+| **SessionStart** | Auto-detects Odoo version, Bootstrap version, existing themes |
 | **PreToolUse** (Write/Edit) | Blocks inline `<script>` in XML templates |
 | **PostToolUse** (Write/Edit) | Advises on SCSS regeneration, JS annotation, Bootstrap 4 classes, publicWidget editableMode |
+
+## Agent
+
+| Agent | Model | Purpose |
+|-------|-------|---------|
+| **theme-generator** | Sonnet | Executes `/create-theme` pipeline: Figma extraction, color mapping, SCSS generation, scaffolding, installation + auto-fix |
+
+## Rules
+
+| Rule | Purpose |
+|------|---------|
+| `rules/core-odoo-guard.md` | Never modify core Odoo directories |
+| `rules/scss-load-order.md` | SCSS prepend requirement, map-merge prohibition, H6 baseline |
 
 ## Version Compatibility
 

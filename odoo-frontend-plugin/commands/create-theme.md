@@ -4,6 +4,7 @@ read_only: false
 type: 'command'
 description: 'Generate a complete Odoo website theme module from Figma or manual specs'
 argument-hint: '[theme_name] [project_path] [--figma <url>] [--version=17] [--colors="..."] [--font="..."]'
+primary_agent: theme-generator
 ---
 
 # /create-theme
