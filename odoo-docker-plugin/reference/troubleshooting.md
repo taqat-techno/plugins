@@ -1,3 +1,4 @@
+<!-- Last updated: 2026-03-26 for v2.1.0 -->
 # Docker Troubleshooting Quick Reference
 
 ## Issue → Solution Map

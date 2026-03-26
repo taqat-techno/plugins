@@ -7,8 +7,8 @@
         "matcher": "startup",
         "hooks": [
           {
-            "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/detect-docker.sh\""
+            "type": "prompt",
+            "prompt": "Silently check if Docker-related files exist in the current directory (docker-compose*.yml, Dockerfile). If any are found, output a single brief status line: '[odoo-docker] Docker files detected. Use /odoo-docker for infrastructure commands.' If none found, say nothing."
           }
         ]
       }
@@ -54,7 +54,7 @@
         "name": "env-file-changed",
         "description": "When .env is modified, suggest container restart",
         "matcher": "Write|Edit",
-        "path": "**/.env*",
+        "path": "**/.env",
         "hooks": [
           {
             "type": "suggestion",
@@ -75,8 +75,20 @@
         ]
       },
       {
+        "name": "requirements-changed",
+        "description": "When requirements.txt is modified, suggest rebuilding the Docker image",
+        "matcher": "Write|Edit",
+        "path": "**/requirements*.txt",
+        "hooks": [
+          {
+            "type": "suggestion",
+            "message": "requirements.txt was modified. Rebuild the Docker image to install new dependencies:\n\n```bash\ndocker compose build && docker compose up -d\n\n# Clean rebuild if cached layers cause issues\ndocker compose build --no-cache && docker compose up -d\n```\n\nNote: `docker compose restart` does NOT install new Python packages. You must rebuild the image."
+          }
+        ]
+      },
+      {
         "name": "odoo-conf-docker",
-        "description": "When an Odoo .conf file is modified, suggest container restart",
+        "description": "When an Odoo .conf file is modified, suggest container restart. Broad path (**/conf/*.conf) is intentional — the suggestion is harmless in non-Docker contexts and avoids missing Docker configs in non-standard locations.",
         "matcher": "Write|Edit",
         "path": "**/conf/*.conf",
         "hooks": [
