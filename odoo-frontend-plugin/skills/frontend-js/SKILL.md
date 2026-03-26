@@ -30,16 +30,11 @@ description: |
   assistant: "Replace ml-* with ms-*, mr-* with me-*, text-left with text-start."
   <commentary>Bootstrap migration.</commentary>
   </example>
-version: "8.0.0"
-author: "TaqaTechno"
 license: "MIT"
-allowed-tools:
-  - Read
-  - Write
-  - Edit
-  - Bash
-  - Grep
-  - Glob
+metadata:
+  version: "8.0.0"
+  author: "TaqaTechno"
+  allowed-tools: "Read, Write, Edit, Bash, Grep, Glob"
 ---
 
 # Odoo Frontend JavaScript Patterns
@@ -54,13 +49,9 @@ allowed-tools:
 
 ## Version Detection
 
-| Odoo | Bootstrap | Owl | JavaScript |
-|------|-----------|-----|------------|
-| 14 | 4.x | — | ES6+ |
-| 15 | 4.x | v1 | ES6+ |
-| 16 | 5.1.3 | v1 | ES2020+ |
-| 17 | 5.1.3 | v2 | ES2020+ |
-| 18-19 | 5.1.3 | v2 | ES2020+ |
+For complete version mapping (Odoo → Bootstrap → Owl → JavaScript), see `data/version_mapping.json`.
+
+**Quick reference**: Bootstrap 4.x for Odoo 14-15, Bootstrap 5.1.3 for Odoo 16+. Owl v2 for Odoo 18+.
 
 Detect from path (`odoo17/` → v17), manifest version field, or config file.
 

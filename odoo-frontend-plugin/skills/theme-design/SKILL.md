@@ -23,14 +23,11 @@ description: |
   assistant: "There are 9 footer templates ranging from default to slideout."
   <commentary>Footer template reference.</commentary>
   </example>
-version: "8.0.0"
-author: "TaqaTechno"
 license: "MIT"
-allowed-tools:
-  - Read
-  - Grep
-  - Glob
-  - WebFetch
+metadata:
+  version: "8.0.0"
+  author: "TaqaTechno"
+  allowed-tools: "Read, Grep, Glob, WebFetch"
 ---
 
 # Figma-to-Odoo Design Workflow

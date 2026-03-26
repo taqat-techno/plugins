@@ -5,6 +5,8 @@
       "owl_version": null,
       "javascript": "ES6+",
       "asset_syntax": "legacy",
+      "snippet_registration": "simple_xpath",
+      "js_pattern": "odoo_module",
       "margin_classes": {
         "left": "ml-",
         "right": "mr-"
@@ -32,6 +34,8 @@
       "owl_version": "1.x",
       "javascript": "ES6+",
       "asset_syntax": "legacy",
+      "snippet_registration": "simple_xpath",
+      "js_pattern": "odoo_module",
       "margin_classes": {
         "left": "ml-",
         "right": "mr-"
@@ -59,6 +63,8 @@
       "owl_version": "1.x",
       "javascript": "ES2020+",
       "asset_syntax": "modern",
+      "snippet_registration": "simple_xpath",
+      "js_pattern": "odoo_module",
       "margin_classes": {
         "left": "ms-",
         "right": "me-"
@@ -86,6 +92,8 @@
       "owl_version": "2.x",
       "javascript": "ES2020+",
       "asset_syntax": "modern",
+      "snippet_registration": "simple_xpath",
+      "js_pattern": "odoo_module",
       "margin_classes": {
         "left": "ms-",
         "right": "me-"
@@ -113,6 +121,8 @@
       "owl_version": "2.x",
       "javascript": "ES2020+",
       "asset_syntax": "modern",
+      "snippet_registration": "groups_required",
+      "js_pattern": "odoo_module",
       "snippet_groups": true,
       "margin_classes": {
         "left": "ms-",
@@ -141,6 +151,8 @@
       "owl_version": "2.x",
       "javascript": "ES2020+",
       "asset_syntax": "modern",
+      "snippet_registration": "groups_required",
+      "js_pattern": "plugin_based",
       "snippet_groups": true,
       "margin_classes": {
         "left": "ms-",
