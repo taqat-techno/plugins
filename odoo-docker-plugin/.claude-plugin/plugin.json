@@ -22,12 +22,5 @@
     "production",
     "debugging",
     "multi-version"
-  ],
-  "skills": [
-    "./odoo-docker"
-  ],
-  "commands": [
-    "./commands"
-  ],
-  "hooks": "./hooks/hooks.json"
+  ]
 }

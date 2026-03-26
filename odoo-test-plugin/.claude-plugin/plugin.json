@@ -4,7 +4,7 @@
   "description": "Comprehensive Odoo testing toolkit - generate test skeletons, run test suites, create mock data, and analyze test coverage across Odoo 14-19. Integrates with Azure DevOps for test result reporting.",
   "author": {
     "name": "TaqaTechno",
-    "email": "support@example.com",
+    "email": "info@taqatechno.com",
     "url": "https://github.com/taqat-techno"
   },
   "homepage": "https://github.com/taqat-techno/plugins/tree/main/odoo-test-plugin",
@@ -29,12 +29,5 @@
     "odoo17",
     "odoo18",
     "odoo19"
-  ],
-  "skills": [
-    "./odoo-test"
-  ],
-  "commands": [
-    "./commands"
-  ],
-  "hooks": "./hooks/hooks.json"
+  ]
 }

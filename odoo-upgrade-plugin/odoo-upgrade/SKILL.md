@@ -27,7 +27,9 @@ license: "MIT"
 metadata:
   filePattern: "**/__manifest__.py,**/views/*.xml,**/static/src/js/*.js,**/static/src/scss/*.scss"
   bashPattern: "odoo.*upgrade|odoo.*precheck|odoo.*migrate"
+  model: sonnet
 ---
+<!-- Last updated: 2026-03-26 -->
 
 # Odoo Upgrade Assistant v5.0
 

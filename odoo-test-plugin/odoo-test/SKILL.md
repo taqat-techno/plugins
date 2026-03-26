@@ -82,7 +82,9 @@ metadata:
     - integration-tests
     - mock-data
     - coverage
+  model: sonnet
 ---
+<!-- Last updated: 2026-03-26 -->
 
 # Odoo Testing Toolkit Skill (v2.0)
 

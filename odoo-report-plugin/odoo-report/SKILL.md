@@ -87,9 +87,13 @@ metadata:
   bashPattern:
     - "wkhtmltopdf"
   supported-versions: ["14", "15", "16", "17", "18", "19"]
+  model: sonnet
 ---
+<!-- Last updated: 2026-03-26 -->
 
 # Odoo Email Templates & QWeb Reports Skill (v2.1)
+
+> **License note:** This plugin uses LGPL-3 (not MIT) because it generates Odoo module code (XML templates, QWeb reports) that must be LGPL-3 compatible per Odoo Enterprise license terms.
 
 A skill for creating, managing, debugging, and migrating Odoo email templates and QWeb reports across versions 14-19.
 

@@ -5,9 +5,10 @@
   "author": {
     "name": "TaqaTechno",
     "email": "info@taqatechno.com",
-    "url": "https://www.taqatechno.com"
+    "url": "https://github.com/taqat-techno"
   },
-  "homepage": "https://github.com/taqat-techno/odoo-plugins",
+  "homepage": "https://github.com/taqat-techno/plugins/tree/main/odoo-service-plugin",
+  "repository": "https://github.com/taqat-techno/plugins",
   "license": "MIT",
   "keywords": [
     "odoo",
@@ -18,12 +19,5 @@
     "database",
     "ide",
     "devops"
-  ],
-  "skills": [
-    "./odoo-service"
-  ],
-  "commands": [
-    "./commands"
-  ],
-  "hooks": "./hooks/hooks.json"
+  ]
 }

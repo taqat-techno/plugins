@@ -28,6 +28,7 @@ description: >-
   <commentary>Component mapping trigger - checking Figma-to-code connections.</commentary>
   </example>
 ---
+<!-- Last updated: 2026-03-26 -->
 
 # Figma MCP Workflow Integration
 

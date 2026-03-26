@@ -42,7 +42,9 @@ license: "MIT"
 metadata:
   mode: "cli-tool"
   pandoc-min-version: "3.0.0"
+  model: sonnet
 ---
+<!-- Last updated: 2026-03-26 -->
 
 # Pandoc - Universal Document Converter
 

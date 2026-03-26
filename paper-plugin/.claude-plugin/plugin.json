@@ -30,13 +30,6 @@
     "figma-mcp",
     "design-to-code"
   ],
-  "skills": [
-    "./skills/design",
-    "./skills/figma-workflow"
-  ],
-  "commands": [
-    "./commands"
-  ],
-  "hooks": "./hooks/hooks.json",
-  "homepage": "https://github.com/taqat-techno/plugins"
+  "homepage": "https://github.com/taqat-techno/plugins/tree/main/paper-plugin",
+  "repository": "https://github.com/taqat-techno/plugins"
 }
