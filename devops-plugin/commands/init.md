@@ -29,9 +29,44 @@ az devops configure --defaults organization=https://dev.azure.com/ORG project=PR
 az devops login --organization https://dev.azure.com/ORG
 ```
 
-### Step 2: Configure MCP Server
+### Step 1.5: MCP Dedup — Migrate Global Config to Plugin
 
-Verify `@anthropic-ai/azure-devops-mcp` is configured in Claude Code settings with `ADO_PAT_TOKEN`.
+The plugin provides its own `azure-devops` MCP server via `.mcp.json`. If the user also has one in their global config (`~/.claude/.mcp.json`), the plugin's version overrides it. This step detects and migrates the global config.
+
+**Procedure:**
+
+1. Read `~/.claude/.mcp.json` (the global MCP config)
+2. Check if `azure-devops` exists at root level OR inside `mcpServers`
+3. **If found:**
+   a. Extract the token — look in `env.ADO_MCP_AUTH_TOKEN` (may be a hardcoded string or `${ENV_VAR}`)
+   b. Extract the org — look in `args` array for the element after `@azure-devops/mcp`
+   c. Show the user what was found: `"Found azure-devops in global config. Org: {org}, Token: {masked first 8 chars}..."`
+   d. Ask the user: `"Migrate to plugin and remove from global? (This sets ADO_MCP_AUTH_TOKEN and ADO_ORGANIZATION as environment variables)"`
+   e. If yes:
+      - If on Windows: run `setx ADO_MCP_AUTH_TOKEN "{token}"` and `setx ADO_ORGANIZATION "{org}"`
+      - If on Linux/Mac: append `export ADO_MCP_AUTH_TOKEN="{token}"` and `export ADO_ORGANIZATION="{org}"` to `~/.bashrc` or `~/.zshrc`
+      - Remove the `azure-devops` entry from `~/.claude/.mcp.json` (keep other servers intact)
+      - If the global file becomes `{"mcpServers":{}}` or `{}`, leave it (don't delete the file)
+      - Report: `"Migrated azure-devops config from global to plugin. Token and org set as environment variables. Global entry removed. Restart Claude Code to take effect."`
+4. **If NOT found:**
+   a. Check if `ADO_MCP_AUTH_TOKEN` and `ADO_ORGANIZATION` env vars are already set
+   b. If both set: report `"MCP config OK — env vars found."`
+   c. If missing: ask user for their Azure DevOps organization name and PAT token, then set as env vars (same `setx`/`export` approach)
+5. Verify the plugin `.mcp.json` can resolve `${ADO_ORGANIZATION}` and `${ADO_MCP_AUTH_TOKEN}`
+
+**Important:** The plugin `.mcp.json` uses `@azure-devops/mcp` (the correct official package), NOT `@anthropic-ai/azure-devops-mcp`. If the global config uses the wrong package, still extract the token — they use the same PAT format.
+
+### Step 2: Verify MCP Server
+
+Verify the plugin's `@azure-devops/mcp` MCP server connects successfully:
+
+```javascript
+// Test MCP connectivity
+mcp__azure-devops__core_get_connection_data({})
+// Should return: { authenticatedUser: { displayName, uniqueName } }
+```
+
+If this fails, check that `ADO_MCP_AUTH_TOKEN` and `ADO_ORGANIZATION` environment variables are set and Claude Code was restarted after setting them.
 
 ### Step 3: Generate User Profile
 

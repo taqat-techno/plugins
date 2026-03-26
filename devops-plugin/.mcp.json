@@ -1,13 +1,10 @@
 {
-  "mcpServers": {
-    "azure-devops": {
-      "type": "stdio",
-      "command": "npx",
-      "args": ["-y", "@anthropic-ai/azure-devops-mcp@latest"],
-      "env": {
-        "ADO_PAT_TOKEN": "${ADO_PAT_TOKEN}",
-        "ADO_ORGANIZATION": "${ADO_ORGANIZATION}"
-      }
+  "azure-devops": {
+    "type": "stdio",
+    "command": "npx",
+    "args": ["-y", "@azure-devops/mcp", "${ADO_ORGANIZATION}", "--authentication", "envvar"],
+    "env": {
+      "ADO_MCP_AUTH_TOKEN": "${ADO_MCP_AUTH_TOKEN}"
     }
   }
 }
