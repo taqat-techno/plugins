@@ -1,5 +1,5 @@
 {
-  "description": "Azure DevOps integration hooks -- profile check, commit linking, error recovery",
+  "description": "Azure DevOps integration hooks — profile check, write validation, commit linking, error recovery",
   "hooks": {
     "SessionStart": [
       {
@@ -7,7 +7,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/check-profile.sh\"",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/session-start.sh\"",
             "timeout": 10
           }
         ]
@@ -20,6 +20,24 @@
           {
             "type": "command",
             "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/pre-bash-check.sh\"",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": {
+          "tool_names": [
+            "mcp__azure-devops__wit_create_work_item",
+            "mcp__azure-devops__wit_update_work_item",
+            "mcp__azure-devops__wit_add_work_item_comment",
+            "mcp__azure-devops__wit_work_items_link",
+            "mcp__azure-devops__repo_create_pull_request"
+          ]
+        },
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/pre-write-validate.sh\"",
             "timeout": 10
           }
         ]
@@ -39,7 +57,9 @@
     ],
     "PostToolUseFailure": [
       {
-        "matcher": "",
+        "matcher": {
+          "tool_names_regex": "^mcp__azure-devops__"
+        },
         "hooks": [
           {
             "type": "command",

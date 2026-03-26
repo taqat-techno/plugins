@@ -136,4 +136,4 @@ If creating a `[Dev-Internal-fix]` Task, use the same template for the Task desc
 ---
 
 *TaqaTech QA Team — Bug Reporting Framework v1.0*
-*Referenced by: commands/create.md, rules/business_rules.md*
+*Referenced by: commands/create.md, data/state_machine.json*

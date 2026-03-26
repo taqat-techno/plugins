@@ -7,6 +7,103 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [6.3.0] - 2026-03-26 - P2 Polish & Documentation
+
+### Added
+- **Workflows 7-9 in SKILL.md**: Natural-language triggers for Log Time ("spent 3h on #ID"), Daily Standup ("prepare standup"), and Monitor Assignments ("any new tasks?"). Commands `/log-time`, `/standup`, `/task-monitor` remain as explicit shortcuts.
+- **Schema versioning**: `schemaVersion` field in profile template/example. `compatibility` section in `project_defaults.json` with `minProfileSchema`. SessionStart hook checks profile schema major version against minimum.
+- **`devops/MCP_FAILURE_MODES.md`**: Comprehensive documentation for MCP server failures — startup issues, auth failures, timeouts, version incompatibilities, and CLI fallback matrix.
+- **MCP unavailable detection** in `error-recovery.sh`: catches ECONNREFUSED/MCP unavailable patterns and points to failure mode docs.
+
+---
+
+## [6.2.0] - 2026-03-26 - P1 Enforcement & Consolidation
+
+### Changed
+- **Data files consolidated (7 to 5)**:
+  - `work_tracker_defaults.json` merged into `project_defaults.json` as `workTracking` key
+  - `error_patterns.json` merged into `state_machine.json` as `errorPatterns` key (inner key renamed to `patterns`)
+- **3 hard enforcement blocks** in `pre-write-validate.sh`:
+  - Bug creation authority (existing) — developers cannot create Bugs
+  - Close/Remove restriction (NEW) — only PM/Lead can transition to Closed or Removed
+  - Unresolved @mentions (NEW) — comments with `@name` without GUID resolution are blocked
+- **SessionStart consistency checks** added to `session-start.sh`:
+  - JSON syntax validation for 3 core data files
+  - Plugin version check (must be 6.x)
+  - Profile required fields check (role, defaultProject, teamMembers)
+  - Core data file existence check
+
+### Removed
+- `data/work_tracker_defaults.json` — merged into `project_defaults.json`
+- `data/error_patterns.json` — merged into `state_machine.json`
+
+---
+
+## [6.1.0] - 2026-03-26 - P0 Hardening
+
+### Removed
+- **Python scripts layer eliminated**: Deleted 5 formatting scripts (`sprint_report.py`, `standup_generator.py`, `release_notes.py`, `sprint_planner.py`, `pr_analyzer.py`). Agents now format output directly using MCP data + inline templates. `consistency_check.py` moved to `tests/`.
+- **REFERENCE_FULL.md deleted** (602 lines): MCP tools are self-describing; per-tool parameter docs were redundant.
+- **REFERENCE.md deleted** (172 lines): Useful content (WIQL, fields, API limits) merged into SKILL.md Quick Reference appendix.
+- **test_scripts.py deleted**: Tests for removed Python scripts.
+
+### Added
+- **SKILL.md Quick Reference appendix**: Work item fields, WIQL syntax/macros/common queries, response formatting, API limits — all in one place.
+- **`/cli-run` MANDATORY SAFETY section**: Write detection table classifying CLI commands as READ/WRITE, with `rules/write-gate.md` enforcement for writes.
+- **`--force` escape hatch** for `/cli-run`: Power users can bypass write-gate confirmation explicitly.
+- **CLI write detection in `pre-bash-check.sh`**: Soft-remind hook injects write-gate reminder for `az` write commands.
+
+### Changed
+- **Agents updated**: `sprint-planner.md` and `pr-reviewer.md` replaced Scripts/Reference sections with inline Output Formatting / Analysis Approach guidance.
+- **File count reduced from ~48 to ~40** (8 files removed, 1 moved).
+
+---
+
+## [6.0.0] - 2026-03-26 - Architecture Simplification
+
+### Architecture Overhaul
+- **Reduced file count from 50+ to ~45** through aggressive consolidation
+- **Single source of truth**: `data/state_machine.json` merges state permissions, required fields, and business rules
+- **SKILL.md reduced from 1,196 to 346 lines** (71% reduction) — references data files instead of restating rules
+- **Middleware renamed to rules/**: 9 files consolidated into 3 (`write-gate.md`, `guards.md`, `profile-loader.md`)
+- **References directory deleted**: 10 generic knowledge files removed, WIQL templates merged into REFERENCE.md
+- **Scripts consolidated to Python only**: PowerShell/Bash scripts deleted
+
+### Added
+- **`hooks/pre-write-validate.sh`** — Programmatic enforcement of state transitions, bug creation authority, hierarchy, and mention format before MCP write tools execute
+- **`hooks/session-start.sh`** — Profile staleness detection (warns if >30 days since last refresh)
+- **`data/state_machine.json`** — Unified schema for states, transitions, required fields, role permissions, gates, and business rules
+- **`rules/write-gate.md`** — Confirmation protocol (from write_operation_guard.md)
+- **`rules/guards.md`** — Tool selection, mention processing, and repository resolution guards (merged 3 files)
+- **`rules/profile-loader.md`** — Profile loading and project context management (merged 2 files)
+- **`scripts/consistency_check.py`** — Cross-file drift detection script
+- **`tests/test_state_machine.py`** — 40+ tests validating state_machine.json schema, transitions, roles, fields, gates
+- **`tests/test_consistency.py`** — Cross-file reference tests (stale paths, hook scripts, agent references)
+- **`lastRefresh` field in profile** — Enables TTL-based staleness detection in session-start hook
+- **PreToolUse hook for 5 MCP write tools** — `wit_create`, `wit_update`, `wit_add_comment`, `wit_link`, `repo_create_pr`
+
+### Changed
+- **hooks.json** — Added PreToolUse matcher targeting 5 MCP write tools; SessionStart now uses `session-start.sh`
+- **Agent tool lists trimmed** — work-item-ops: 14->8, sprint-planner: 23->11, pr-reviewer: 33->13
+- **Profile generation moved to commands/init.md** — Profile workflow is a setup task, not runtime behavior
+- **All agents updated** — Reference `rules/` and `data/state_machine.json` instead of middleware/
+
+### Removed
+- **`middleware/` directory** (9 files) — Replaced by `rules/` (3 files)
+- **`references/` directory** (10 files) — Generic knowledge removed, WIQL templates moved to REFERENCE.md
+- **`devops/workflows.md`** (560 lines) — Replaced by routing table in SKILL.md (~60 lines)
+- **`devops/profile_generator.md`** — Merged into `commands/init.md`
+- **`data/state_permissions.json`** — Merged into `data/state_machine.json`
+- **`data/required_fields.json`** — Merged into `data/state_machine.json`
+- **`data/repository_cache.json`** — Session-level cache, not persistent data
+- **`data/team_members.json`** — Already stored in profile
+- **`hooks/check-profile.sh`** — Replaced by `hooks/session-start.sh`
+- **`MIGRATION.md`** — No longer relevant
+- **All PowerShell scripts** — Python only
+- **Redundant Python scripts** (`standup_helper.py`, `mention_helper.py`)
+
+---
+
 ## [4.1.0] - 2026-03 - User Profile System
 
 ### Added

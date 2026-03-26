@@ -2,6 +2,10 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$comment": "Azure DevOps projects configuration. Run /init profile to auto-populate from your Azure DevOps organization.",
   "version": "1.0.0",
+  "compatibility": {
+    "minPluginVersion": "6.0.0",
+    "minProfileSchema": "6.0.0"
+  },
   "organization": "CONFIGURE_VIA_INIT_PROFILE",
   "organizationUrl": "https://dev.azure.com/CONFIGURE_VIA_INIT_PROFILE",
   "lastUpdated": "configure-me",
@@ -99,6 +103,19 @@
     "matchPartial": true,
     "examples": {
       "example": "Example Project"
+    }
+  },
+
+  "workTracking": {
+    "version": "1.1.0",
+    "profileStalenessThresholdDays": 14,
+    "stalenessThresholdHours": 4,
+    "settings": {
+      "minHoursPerDay": 6,
+      "workingDaysPerWeek": 5,
+      "workingDays": ["Mon", "Tue", "Wed", "Thu", "Fri"],
+      "hourTypes": ["task", "meeting", "research", "learning", "review", "admin"],
+      "autoPromptOnTaskCompletion": true
     }
   }
 }

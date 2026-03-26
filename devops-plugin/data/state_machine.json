@@ -1,0 +1,680 @@
+{
+  "_meta": {
+    "description": "Single source of truth for work item state machines, role permissions, and required fields (TaqaTechno Scrum process)",
+    "processId": "0b979ee8-3b5c-4723-86d4-e7c3d740f9cc",
+    "processName": "TaqaTechno Scrum",
+    "source": "Merged from state_permissions.json + required_fields.json + business_rules.md",
+    "version": "6.0.0",
+    "lastUpdated": "2026-03-26"
+  },
+
+  "workItemTypes": {
+    "Task": {
+      "referenceName": "TaqaTechnoScrum.Task",
+      "states": ["To Do", "In Progress", "Done", "Closed", "Removed"],
+      "happyPath": ["To Do", "In Progress", "Done", "Closed"],
+      "hasClose": true,
+      "hasReturn": false,
+      "hasRemoved": true,
+      "transitions": {
+        "To Do -> In Progress": {
+          "requiredFields": [],
+          "autoSetFields": {}
+        },
+        "In Progress -> Done": {
+          "requiredFields": [
+            {
+              "field": "Microsoft.VSTS.Scheduling.OriginalEstimate",
+              "path": "/fields/Microsoft.VSTS.Scheduling.OriginalEstimate",
+              "prompt": "Original Estimate (hours): How many hours did you estimate for this task?",
+              "type": "number",
+              "min": 0
+            },
+            {
+              "field": "Microsoft.VSTS.Scheduling.CompletedWork",
+              "path": "/fields/Microsoft.VSTS.Scheduling.CompletedWork",
+              "prompt": "Completed Work (hours): How many hours did you actually spend?",
+              "type": "number",
+              "min": 0
+            }
+          ],
+          "autoSetFields": {
+            "Microsoft.VSTS.Scheduling.RemainingWork": "0"
+          }
+        },
+        "To Do -> Done": {
+          "requiredFields": [
+            {
+              "field": "Microsoft.VSTS.Scheduling.OriginalEstimate",
+              "path": "/fields/Microsoft.VSTS.Scheduling.OriginalEstimate",
+              "prompt": "Original Estimate (hours): How many hours did you estimate for this task?",
+              "type": "number",
+              "min": 0
+            },
+            {
+              "field": "Microsoft.VSTS.Scheduling.CompletedWork",
+              "path": "/fields/Microsoft.VSTS.Scheduling.CompletedWork",
+              "prompt": "Completed Work (hours): How many hours did you actually spend?",
+              "type": "number",
+              "min": 0
+            }
+          ],
+          "autoSetFields": {
+            "Microsoft.VSTS.Scheduling.RemainingWork": "0"
+          }
+        },
+        "Done -> Closed": {
+          "requiredFields": [],
+          "autoSetFields": {}
+        },
+        "Any -> Removed": {
+          "requiredFields": [],
+          "autoSetFields": {}
+        }
+      }
+    },
+
+    "Bug": {
+      "referenceName": "TaqaTechnoScrum.Bug",
+      "states": ["New", "Approved", "In Progress", "Resolved", "Return", "Committed", "Done", "Closed", "Removed"],
+      "happyPath": ["New", "Approved", "In Progress", "Resolved", "Done", "Closed"],
+      "returnPath": ["Resolved", "Return", "In Progress"],
+      "hasClose": true,
+      "hasReturn": true,
+      "hasRemoved": true,
+      "transitions": {
+        "New -> Approved": {
+          "requiredFields": [],
+          "autoSetFields": {}
+        },
+        "Approved -> In Progress": {
+          "requiredFields": [],
+          "autoSetFields": {}
+        },
+        "In Progress -> Resolved": {
+          "requiredFields": [
+            {
+              "field": "Microsoft.VSTS.Common.ResolvedReason",
+              "path": "/fields/Microsoft.VSTS.Common.ResolvedReason",
+              "prompt": "Resolved Reason: Why is this bug being resolved?",
+              "type": "select",
+              "options": ["Fixed", "As Designed", "Cannot Reproduce", "Deferred", "Duplicate", "Not a Bug", "Obsolete"],
+              "default": "Fixed"
+            },
+            {
+              "field": "Microsoft.VSTS.Scheduling.CompletedWork",
+              "path": "/fields/Microsoft.VSTS.Scheduling.CompletedWork",
+              "prompt": "Completed Work (hours): How many hours did you spend fixing this bug?",
+              "type": "number",
+              "min": 0
+            }
+          ],
+          "autoSetFields": {}
+        },
+        "Resolved -> Return": {
+          "requiredFields": [],
+          "requiresComment": true,
+          "commentPrompt": "Return reason: Please describe why this fix is being rejected.",
+          "autoSetFields": {}
+        },
+        "Return -> In Progress": {
+          "requiredFields": [],
+          "autoSetFields": {}
+        },
+        "In Progress -> Committed": {
+          "requiredFields": [],
+          "autoSetFields": {}
+        },
+        "Committed -> In Progress": {
+          "requiredFields": [],
+          "autoSetFields": {}
+        },
+        "Committed -> Done": {
+          "requiredFields": [],
+          "autoSetFields": {}
+        },
+        "Resolved -> Done": {
+          "requiredFields": [],
+          "autoSetFields": {}
+        },
+        "Done -> Closed": {
+          "requiredFields": [],
+          "autoSetFields": {}
+        },
+        "Any -> Removed": {
+          "requiredFields": [],
+          "autoSetFields": {}
+        }
+      }
+    },
+
+    "ProductBacklogItem": {
+      "referenceName": "TaqaTechnoScrum.ProductBacklogItem",
+      "states": ["New", "Approved", "Committed", "In Progress", "Ready For QC", "Return", "Done", "Removed"],
+      "happyPath": ["New", "Approved", "Committed", "In Progress", "Ready For QC", "Done"],
+      "returnPath": ["Ready For QC", "Return", "In Progress"],
+      "hasClose": false,
+      "hasReturn": true,
+      "hasRemoved": true,
+      "qcGate": {
+        "rule": "Must go through 'Ready For QC' before 'Done'",
+        "blockedTransitions": ["In Progress -> Done", "New -> Done", "Approved -> Done", "Committed -> Done"],
+        "requiredIntermediate": "Ready For QC",
+        "suggestion": "Would you like me to move to 'Ready For QC' first?"
+      },
+      "transitions": {
+        "New -> Approved": {
+          "requiredFields": [],
+          "autoSetFields": {}
+        },
+        "Approved -> Committed": {
+          "requiredFields": [],
+          "autoSetFields": {}
+        },
+        "Committed -> In Progress": {
+          "requiredFields": [],
+          "autoSetFields": {}
+        },
+        "In Progress -> Ready For QC": {
+          "requiredFields": [],
+          "autoSetFields": {}
+        },
+        "Ready For QC -> Return": {
+          "requiredFields": [],
+          "requiresComment": true,
+          "commentPrompt": "Return reason: Please describe why this item is being returned.",
+          "autoSetFields": {}
+        },
+        "Ready For QC -> Done": {
+          "requiredFields": [],
+          "autoSetFields": {}
+        },
+        "Return -> In Progress": {
+          "requiredFields": [],
+          "autoSetFields": {}
+        },
+        "Any -> Removed": {
+          "requiredFields": [],
+          "autoSetFields": {}
+        }
+      }
+    },
+
+    "UserStory": {
+      "referenceName": "TaqaTechnoScrum.UserStory",
+      "states": ["New", "Committed", "Done"],
+      "happyPath": ["New", "Committed", "Done"],
+      "hasClose": false,
+      "hasReturn": false,
+      "hasRemoved": false,
+      "committedGate": {
+        "rule": "Must go through 'Committed' before 'Done'",
+        "blockedTransitions": ["New -> Done"],
+        "requiredIntermediate": "Committed",
+        "suggestion": "Would you like me to move to 'Committed' first?"
+      },
+      "transitions": {
+        "New -> Committed": {
+          "requiredFields": [],
+          "autoSetFields": {}
+        },
+        "Committed -> Done": {
+          "requiredFields": [],
+          "autoSetFields": {}
+        }
+      }
+    },
+
+    "Enhancement": {
+      "referenceName": "TaqaTechnoScrum.Enhancement",
+      "states": ["New", "Committed", "Return", "Done", "Closed"],
+      "happyPath": ["New", "Committed", "Done", "Closed"],
+      "returnPath": ["Committed", "Return", "Committed"],
+      "hasClose": true,
+      "hasReturn": true,
+      "hasRemoved": false,
+      "transitions": {
+        "New -> Committed": {
+          "requiredFields": [],
+          "autoSetFields": {}
+        },
+        "Committed -> Return": {
+          "requiredFields": [],
+          "requiresComment": true,
+          "commentPrompt": "Return reason: Please describe why this is being returned for rework.",
+          "autoSetFields": {}
+        },
+        "Return -> Committed": {
+          "requiredFields": [],
+          "autoSetFields": {}
+        },
+        "Committed -> Done": {
+          "requiredFields": [],
+          "autoSetFields": {}
+        },
+        "Done -> Closed": {
+          "requiredFields": [],
+          "autoSetFields": {}
+        }
+      }
+    },
+
+    "Feature": {
+      "referenceName": "TaqaTechnoScrum.Feature",
+      "states": ["New", "In Progress", "Done", "Removed"],
+      "happyPath": ["New", "In Progress", "Done"],
+      "hasClose": false,
+      "hasReturn": false,
+      "hasRemoved": true,
+      "transitions": {
+        "New -> In Progress": { "requiredFields": [], "autoSetFields": {} },
+        "In Progress -> Done": { "requiredFields": [], "autoSetFields": {} },
+        "Any -> Removed": { "requiredFields": [], "autoSetFields": {} }
+      }
+    },
+
+    "Epic": {
+      "referenceName": "Microsoft.VSTS.WorkItemTypes.Epic",
+      "states": ["New", "In Progress", "Done", "Removed"],
+      "happyPath": ["New", "In Progress", "Done"],
+      "hasClose": false,
+      "hasReturn": false,
+      "hasRemoved": true,
+      "transitions": {
+        "New -> In Progress": { "requiredFields": [], "autoSetFields": {} },
+        "In Progress -> Done": { "requiredFields": [], "autoSetFields": {} },
+        "Any -> Removed": { "requiredFields": [], "autoSetFields": {} }
+      }
+    },
+
+    "TestCase": {
+      "referenceName": "Microsoft.VSTS.WorkItemTypes.TestCase",
+      "states": ["Design", "Ready", "Closed"],
+      "happyPath": ["Design", "Ready", "Closed"],
+      "hasClose": true,
+      "hasReturn": false,
+      "hasRemoved": false,
+      "transitions": {
+        "Design -> Ready": { "requiredFields": [], "autoSetFields": {} },
+        "Ready -> Closed": { "requiredFields": [], "autoSetFields": {} }
+      }
+    }
+  },
+
+  "rolePermissions": {
+    "developer": {
+      "displayName": "Developer (Backend/Full-Stack)",
+      "appliesTo": ["developer", "backend", "fullstack"],
+      "permissions": {
+        "Task": {
+          "allowed": ["To Do -> In Progress", "In Progress -> Done"],
+          "blocked": ["Done -> Closed"],
+          "blockedMessage": "Only PM/Lead can close Tasks."
+        },
+        "Bug": {
+          "allowed": ["Approved -> In Progress", "In Progress -> Resolved", "Return -> In Progress", "Committed -> In Progress"],
+          "blocked": ["New -> Approved", "Resolved -> Done", "Resolved -> Return", "Done -> Closed"],
+          "blockedMessage": "QA approves/verifies Bugs. PM closes."
+        },
+        "ProductBacklogItem": {
+          "allowed": ["Committed -> In Progress", "In Progress -> Ready For QC", "Return -> In Progress"],
+          "blocked": ["New -> Approved", "Approved -> Committed", "Ready For QC -> Done", "Ready For QC -> Return"],
+          "blockedMessage": "PM approves PBIs. QA verifies Ready For QC -> Done."
+        },
+        "UserStory": {
+          "allowed": [],
+          "blocked": ["New -> Committed", "Committed -> Done"],
+          "blockedMessage": "PM commits User Stories. QA/PM verifies Done."
+        },
+        "Enhancement": {
+          "allowed": ["New -> Committed", "Committed -> Done", "Return -> Committed"],
+          "blocked": ["Done -> Closed", "Committed -> Return"],
+          "blockedMessage": "QA can return Enhancements. PM closes."
+        }
+      }
+    },
+
+    "frontend": {
+      "displayName": "Frontend Developer",
+      "appliesTo": ["frontend"],
+      "permissions": "$ref:developer"
+    },
+
+    "qa": {
+      "displayName": "QA / QC",
+      "appliesTo": ["tester", "qa", "qc-bugfix", "qc-test"],
+      "permissions": {
+        "Task": {
+          "allowed": ["To Do -> In Progress"],
+          "blocked": ["In Progress -> Done", "Done -> Closed"],
+          "blockedMessage": "Developers complete Tasks. PM closes."
+        },
+        "Bug": {
+          "allowed": ["New -> Approved", "Resolved -> Done", "Resolved -> Return"],
+          "blocked": ["Approved -> In Progress", "In Progress -> Resolved", "Done -> Closed"],
+          "blockedMessage": "Developers fix Bugs. PM closes."
+        },
+        "ProductBacklogItem": {
+          "allowed": ["Ready For QC -> Done", "Ready For QC -> Return"],
+          "blocked": ["New -> Approved", "Approved -> Committed", "Committed -> In Progress", "In Progress -> Ready For QC"],
+          "blockedMessage": "PM approves PBIs. Developers do the work."
+        },
+        "UserStory": {
+          "allowed": ["Committed -> Done"],
+          "blocked": ["New -> Committed"],
+          "blockedMessage": "PM commits User Stories."
+        },
+        "Enhancement": {
+          "allowed": ["Committed -> Return"],
+          "blocked": ["New -> Committed", "Committed -> Done", "Done -> Closed"],
+          "blockedMessage": "Developers handle Enhancements. PM closes."
+        }
+      }
+    },
+
+    "pm": {
+      "displayName": "Project Manager / Team Lead",
+      "appliesTo": ["pm", "lead"],
+      "permissions": {
+        "Task": {
+          "allowed": ["To Do -> In Progress", "Done -> Closed"],
+          "blocked": ["In Progress -> Done"],
+          "blockedMessage": "Developers complete Tasks."
+        },
+        "Bug": {
+          "allowed": ["New -> Approved", "Done -> Closed"],
+          "blocked": ["In Progress -> Resolved", "Resolved -> Done"],
+          "blockedMessage": "Developers resolve Bugs. QA verifies."
+        },
+        "ProductBacklogItem": {
+          "allowed": ["New -> Approved", "Approved -> Committed", "Committed -> In Progress"],
+          "blocked": ["In Progress -> Ready For QC", "Ready For QC -> Done"],
+          "blockedMessage": "Developers prepare for QC. QA verifies."
+        },
+        "UserStory": {
+          "allowed": ["New -> Committed", "Committed -> Done"],
+          "blocked": [],
+          "blockedMessage": ""
+        },
+        "Enhancement": {
+          "allowed": ["New -> Committed", "Committed -> Done", "Done -> Closed"],
+          "blocked": [],
+          "blockedMessage": ""
+        }
+      }
+    }
+  },
+
+  "universalRules": {
+    "closeRestriction": {
+      "rule": "Only PM/Lead can transition to Closed state",
+      "appliesTo": ["Task", "Bug", "Enhancement"],
+      "allowedRoles": ["pm", "lead"]
+    },
+    "removeRestriction": {
+      "rule": "Only PM/Lead can transition to Removed state",
+      "appliesTo": ["Task", "Bug", "ProductBacklogItem", "Feature", "Epic"],
+      "allowedRoles": ["pm", "lead"]
+    },
+    "approveRestriction": {
+      "rule": "Only PM/Lead can approve PBIs and User Stories",
+      "appliesTo": ["ProductBacklogItem", "UserStory"],
+      "allowedRoles": ["pm", "lead"]
+    },
+    "returnHandling": {
+      "rule": "QA initiates Return; Developer picks up from Return state",
+      "appliesTo": ["Bug", "ProductBacklogItem", "Enhancement"],
+      "returnInitiator": ["qa", "qc-bugfix", "qc-test", "tester"],
+      "returnResolver": ["developer", "frontend", "backend", "fullstack"],
+      "requireComment": true
+    },
+    "noProfileFallback": {
+      "rule": "If no profile loaded, allow all transitions with a warning",
+      "behavior": "warn-and-allow"
+    }
+  },
+
+  "businessRules": {
+    "taskNaming": {
+      "rule": "All Task titles MUST start with a template prefix from project settings",
+      "source": "Fetched via /init profile from Project Settings > Boards > Templates > Task",
+      "defaultPrefixes": [
+        {"prefix": "[Dev]", "role": "developer", "keywords": ["api", "endpoint", "database", "model", "backend", "server", "implement"]},
+        {"prefix": "[Front]", "role": "frontend", "keywords": ["ui", "component", "form", "page", "style", "css", "frontend"]},
+        {"prefix": "[QC Bug Fixing]", "role": "qc-bugfix", "keywords": ["fix", "bug", "patch", "hotfix", "debug", "resolve", "reproduce"]},
+        {"prefix": "[QC Test Execution]", "role": "qc-test", "keywords": ["test", "execute", "test case", "regression", "scenario", "validate"]},
+        {"prefix": "[IMP]", "role": "devops", "keywords": ["deploy", "config", "setup", "install", "migration", "infrastructure"]}
+      ]
+    },
+    "bugCreationAuthority": {
+      "rule": "Bugs are reserved for defects identified by QA/QC",
+      "qaRoles": ["tester", "qa", "qc-bugfix", "qc-test"],
+      "developerRedirect": "Create [Dev-Internal-fix] Task instead",
+      "devInternalFixRules": {
+        "titleFormat": "[Dev-Internal-fix] [Module/Feature] - [What is broken] - [Where]",
+        "mustNotifyQC": true,
+        "parentPbiInProgress": "Log fix on existing Task, add comment with bug description",
+        "parentPbiDone": "Create new [Dev-Internal-fix] Task under PBI, move PBI back to In Progress",
+        "raiseFlag": "Ask if fix changes user-facing behavior; if yes, escalate to QA Lead"
+      }
+    },
+    "userStoryFormat": {
+      "rule": "User Story descriptions MUST follow How/What/Why sequence",
+      "sections": ["How (Implementation Approach)", "What (Requirements + Acceptance Criteria)", "Why (Business Value + Impact)"]
+    },
+    "autoSprintDetection": {
+      "rule": "Tasks auto-assigned to current sprint by date",
+      "method": "Fetch team iterations, find where startDate <= today <= finishDate"
+    }
+  },
+
+  "preFlightFields": [
+    "System.Id",
+    "System.Title",
+    "System.State",
+    "System.WorkItemType",
+    "System.TeamProject",
+    "Microsoft.VSTS.Scheduling.OriginalEstimate",
+    "Microsoft.VSTS.Scheduling.CompletedWork",
+    "Microsoft.VSTS.Scheduling.RemainingWork",
+    "Microsoft.VSTS.Common.ResolvedReason"
+  ],
+
+  "errorPatterns": {
+    "$comment": "Azure DevOps API error patterns and recovery actions — single source of truth",
+    "version": "2.0.0",
+    "errorCategories": {
+      "FIELD_ERROR": "Field validation or requirement errors",
+      "STATE_ERROR": "State transition or workflow errors",
+      "NOT_FOUND": "Resource not found errors",
+      "PERMISSION": "Authentication or authorization errors",
+      "CONFLICT": "Update conflict or concurrency errors",
+      "VALIDATION": "Input validation errors",
+      "RATE_LIMIT": "API rate limiting errors"
+    },
+    "patterns": {
+      "VS403507": {
+        "category": "FIELD_ERROR",
+        "pattern": "Field '(.+)' cannot be empty",
+        "regex": "VS403507.*Field '([^']+)' cannot be empty",
+        "userMessage": "Required field '{field}' is missing",
+        "recovery": {
+          "type": "ask_for_field",
+          "steps": [
+            "Parse error to identify the missing field name",
+            "Ask user for the value (e.g., OriginalEstimate -> 'How many hours?')",
+            "Retry the operation with the field included"
+          ]
+        }
+      },
+      "TF401347": {
+        "category": "STATE_ERROR",
+        "pattern": "Invalid state transition",
+        "regex": "TF401347.*Invalid state transition from '([^']+)' to '([^']+)'",
+        "userMessage": "Cannot transition from '{from}' to '{to}' directly",
+        "recovery": {
+          "type": "suggest_transition_path",
+          "steps": [
+            "Look up valid transitions in data/state_machine.json for the work item type",
+            "Suggest the correct intermediate state (e.g., 'Ready For QC' before 'Done')",
+            "Offer to execute a multi-step transition"
+          ]
+        }
+      },
+      "TF401019": {
+        "category": "NOT_FOUND",
+        "pattern": "Work item does not exist",
+        "regex": "TF401019.*Work item (\\d+) does not exist",
+        "userMessage": "Work item #{id} not found",
+        "recovery": {
+          "type": "search_alternative",
+          "steps": [
+            "Suggest searching by keywords or title",
+            "Check if the user is in the correct project scope",
+            "Offer to view recent activity instead"
+          ]
+        }
+      },
+      "VS403403": {
+        "category": "PERMISSION",
+        "pattern": "Access denied|Forbidden",
+        "regex": "VS403403.*(Access denied|Forbidden|does not have.*permission)",
+        "userMessage": "Permission denied for this operation",
+        "recovery": {
+          "type": "show_required_permissions",
+          "steps": [
+            "Identify which scope is needed (vso.work_write, vso.code_write, etc.)",
+            "Direct user to regenerate PAT at https://dev.azure.com/{org}/_usersSettings/tokens",
+            "Suggest checking ~/.claude/devops.md for organization name"
+          ]
+        }
+      },
+      "TF400813": {
+        "category": "NOT_FOUND",
+        "pattern": "Resource not available",
+        "regex": "TF400813.*resource.*not (available|found)",
+        "userMessage": "Resource not found or access denied",
+        "recovery": {
+          "type": "list_available",
+          "steps": [
+            "List available projects or repositories",
+            "Check if the name is spelled correctly",
+            "Verify the user has access to the resource"
+          ]
+        }
+      },
+      "TF401398": {
+        "category": "NOT_FOUND",
+        "pattern": "ref.*does not exist",
+        "regex": "TF401398.*ref '([^']+)' does not exist",
+        "userMessage": "Branch '{branch}' not found",
+        "recovery": {
+          "type": "suggest_branches",
+          "steps": [
+            "List available branches in the repository",
+            "Suggest similar branch names (fuzzy match)",
+            "Offer to create a new branch"
+          ]
+        }
+      },
+      "VS403323": {
+        "category": "CONFLICT",
+        "pattern": "update conflict|optimistic concurrency",
+        "regex": "VS403323.*((update|optimistic) conflict|was modified)",
+        "userMessage": "Update conflict — item was modified by someone else",
+        "recovery": {
+          "type": "refresh_and_retry",
+          "steps": [
+            "Fetch the latest version of the work item",
+            "Show what changed since last read",
+            "Ask user to confirm retry with fresh data"
+          ]
+        }
+      },
+      "VS403513": {
+        "category": "VALIDATION",
+        "pattern": "Invalid field value",
+        "regex": "VS403513.*'([^']+)' is not valid for field '([^']+)'",
+        "userMessage": "Invalid value for field '{field}'",
+        "recovery": {
+          "type": "show_valid_values",
+          "steps": [
+            "Get the field definition and list allowed values",
+            "Present valid options to user",
+            "Retry with corrected value"
+          ]
+        }
+      },
+      "TF401028": {
+        "category": "VALIDATION",
+        "pattern": "source and target.*same",
+        "regex": "TF401028.*(source and target|same branch)",
+        "userMessage": "Source and target branches are the same",
+        "recovery": {
+          "type": "ask_for_different_branch",
+          "steps": [
+            "List available branches excluding the current one",
+            "Ask user to select a different target branch",
+            "Default suggestion: main or develop"
+          ]
+        }
+      },
+      "VS403406": {
+        "category": "CONFLICT",
+        "pattern": "merge conflict",
+        "regex": "VS403406.*merge conflict",
+        "userMessage": "Pull request has merge conflicts",
+        "recovery": {
+          "type": "resolve_conflicts",
+          "steps": [
+            "List the conflicting files",
+            "Suggest opening the PR in the browser to resolve",
+            "Offer to show merge conflict details"
+          ]
+        }
+      },
+      "VS403500": {
+        "category": "VALIDATION",
+        "pattern": "queue.*build|pipeline.*failed",
+        "regex": "VS403500.*(cannot queue|pipeline.*error)",
+        "userMessage": "Cannot start pipeline",
+        "recovery": {
+          "type": "show_pipeline_details",
+          "steps": [
+            "Fetch the pipeline definition",
+            "Check recent run logs for failure reasons",
+            "Verify agent availability"
+          ]
+        }
+      },
+      "VS403429": {
+        "category": "RATE_LIMIT",
+        "pattern": "rate limit|too many requests",
+        "regex": "VS403429.*(rate limit|too many requests)",
+        "userMessage": "API rate limit exceeded — wait before retrying",
+        "recovery": {
+          "type": "wait_and_retry",
+          "steps": [
+            "Wait 60 seconds before retrying",
+            "Consider batching operations to reduce API calls",
+            "If persistent, check if other tools are consuming the rate limit"
+          ]
+        }
+      },
+      "TF401320": {
+        "category": "FIELD_ERROR",
+        "pattern": "The field '(.+)' cannot be set",
+        "regex": "TF401320.*field '([^']+)' cannot be set",
+        "userMessage": "Field '{field}' is read-only and cannot be updated",
+        "recovery": {
+          "type": "remove_field",
+          "steps": [
+            "Remove the read-only field from the update payload",
+            "Inform the user which field was skipped and why",
+            "Retry the operation without the field"
+          ]
+        }
+      }
+    }
+  }
+}
