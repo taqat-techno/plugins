@@ -7,8 +7,8 @@
         "file_pattern": "**/*.{html,xml,jsx,tsx,vue,svelte}",
         "hooks": [
           {
-            "type": "suggestion",
-            "message": "[Paper] Markup modified — check: semantic tags, alt text on images, form label associations."
+            "type": "prompt",
+            "prompt": "[Paper] Markup modified — check: semantic tags, alt text on images, form label associations."
           }
         ]
       },
@@ -18,8 +18,8 @@
         "file_pattern": "**/*.{css,scss,sass,less}",
         "hooks": [
           {
-            "type": "suggestion",
-            "message": "[Paper] Stylesheet modified — check: contrast >= 4.5:1, rem/em units, focus styles."
+            "type": "prompt",
+            "prompt": "[Paper] Stylesheet modified — check: contrast >= 4.5:1, rem/em units, focus styles."
           }
         ]
       }

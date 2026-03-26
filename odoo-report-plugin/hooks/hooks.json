@@ -8,8 +8,8 @@
         "filePattern": "**/data/mail_template*.xml",
         "hooks": [
           {
-            "type": "suggestion",
-            "message": "[odoo-report] Email template file changed. Verify:\n- mail.template record has body_html (not body)\n- subject uses inline_template syntax: {{ object.name }}\n- body_html uses QWeb: <t t-out=\"object.field\"/>\n- email_to or partner_to is set with dynamic expression\n- For Odoo 17+: use report_template_ids (M2M) not report_template\n- For Odoo 15+: use t-out (not t-esc)\n- File is listed in __manifest__.py under 'data'"
+            "type": "prompt",
+            "prompt": "[odoo-report] Email template file changed. Verify:\n- mail.template record has body_html (not body)\n- subject uses inline_template syntax: {{ object.name }}\n- body_html uses QWeb: <t t-out=\"object.field\"/>\n- email_to or partner_to is set with dynamic expression\n- For Odoo 17+: use report_template_ids (M2M) not report_template\n- For Odoo 15+: use t-out (not t-esc)\n- File is listed in __manifest__.py under 'data'"
           }
         ]
       },
@@ -20,8 +20,8 @@
         "filePattern": "**/report*/**/*.xml",
         "hooks": [
           {
-            "type": "suggestion",
-            "message": "[odoo-report] QWeb report file changed. Verify:\n- ir.actions.report has report_type=\"qweb-pdf\" and report_name matching template id\n- Template uses t-call=\"web.html_container\" as outermost wrapper\n- Then t-call=\"web.external_layout\" for header/footer and UTF-8 encoding\n- Content inside <div class=\"page\">\n- Currency uses t-options='{\"widget\": \"monetary\"}'\n- Page breaks: <div style=\"page-break-before: always;\"/>\n- For Arabic/RTL: web.html_container is MANDATORY for UTF-8"
+            "type": "prompt",
+            "prompt": "[odoo-report] QWeb report file changed. Verify:\n- ir.actions.report has report_type=\"qweb-pdf\" and report_name matching template id\n- Template uses t-call=\"web.html_container\" as outermost wrapper\n- Then t-call=\"web.external_layout\" for header/footer and UTF-8 encoding\n- Content inside <div class=\"page\">\n- Currency uses t-options='{\"widget\": \"monetary\"}'\n- Page breaks: <div style=\"page-break-before: always;\"/>\n- For Arabic/RTL: web.html_container is MANDATORY for UTF-8"
           }
         ]
       },
@@ -32,8 +32,8 @@
         "filePattern": "**/__manifest__.py",
         "hooks": [
           {
-            "type": "suggestion",
-            "message": "[odoo-report] Manifest modified. If adding reports or templates, verify:\n- 'data/mail_template_*.xml' entries in 'data' list\n- 'reports/*.xml' entries in 'data' list (action before template)\n- Report SCSS in 'assets' under 'web.report_assets_common'\n- Order: security files before data files"
+            "type": "prompt",
+            "prompt": "[odoo-report] Manifest modified. If adding reports or templates, verify:\n- 'data/mail_template_*.xml' entries in 'data' list\n- 'reports/*.xml' entries in 'data' list (action before template)\n- Report SCSS in 'assets' under 'web.report_assets_common'\n- Order: security files before data files"
           }
         ]
       }

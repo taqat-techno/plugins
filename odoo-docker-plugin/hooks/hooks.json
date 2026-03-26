@@ -21,8 +21,8 @@
         "path": "**/docker-compose*.{yml,yaml}",
         "hooks": [
           {
-            "type": "suggestion",
-            "message": "docker-compose file was modified. Recreate containers to apply changes:\n\n```bash\n# Recreate with updated config\ndocker compose up -d\n\n# If service definitions changed\ndocker compose down && docker compose up -d\n\n# If Dockerfile changed\ndocker compose up -d --build\n```"
+            "type": "prompt",
+            "prompt": "docker-compose file was modified. Recreate containers to apply changes:\n\n```bash\n# Recreate with updated config\ndocker compose up -d\n\n# If service definitions changed\ndocker compose down && docker compose up -d\n\n# If Dockerfile changed\ndocker compose up -d --build\n```"
           }
         ]
       },
@@ -33,8 +33,8 @@
         "path": "**/Dockerfile*",
         "hooks": [
           {
-            "type": "suggestion",
-            "message": "Dockerfile was modified. Rebuild the image to apply changes:\n\n```bash\n# Rebuild and restart\ndocker compose build && docker compose up -d\n\n# Clean rebuild (no cache)\ndocker compose build --no-cache && docker compose up -d\n```"
+            "type": "prompt",
+            "prompt": "Dockerfile was modified. Rebuild the image to apply changes:\n\n```bash\n# Rebuild and restart\ndocker compose build && docker compose up -d\n\n# Clean rebuild (no cache)\ndocker compose build --no-cache && docker compose up -d\n```"
           }
         ]
       },
@@ -45,8 +45,8 @@
         "path": "**/nginx*.conf",
         "hooks": [
           {
-            "type": "suggestion",
-            "message": "nginx.conf was modified. Reload nginx to apply:\n\n```bash\n# Test config first\ndocker compose exec nginx nginx -t\n\n# Reload (no downtime)\ndocker compose exec nginx nginx -s reload\n\n# Or restart nginx container\ndocker compose restart nginx\n```\n\nReminder: ensure `proxy_mode = True` in odoo.conf when behind nginx."
+            "type": "prompt",
+            "prompt": "nginx.conf was modified. Reload nginx to apply:\n\n```bash\n# Test config first\ndocker compose exec nginx nginx -t\n\n# Reload (no downtime)\ndocker compose exec nginx nginx -s reload\n\n# Or restart nginx container\ndocker compose restart nginx\n```\n\nReminder: ensure `proxy_mode = True` in odoo.conf when behind nginx."
           }
         ]
       },
@@ -57,8 +57,8 @@
         "path": "**/.env",
         "hooks": [
           {
-            "type": "suggestion",
-            "message": ".env file was modified. Recreate containers to apply new environment variables:\n\n```bash\ndocker compose down && docker compose up -d\n```\n\nNote: `docker compose restart` does NOT pick up .env changes. You must `down` then `up`."
+            "type": "prompt",
+            "prompt": ".env file was modified. Recreate containers to apply new environment variables:\n\n```bash\ndocker compose down && docker compose up -d\n```\n\nNote: `docker compose restart` does NOT pick up .env changes. You must `down` then `up`."
           }
         ]
       },
@@ -69,8 +69,8 @@
         "path": "**/entrypoint*.sh",
         "hooks": [
           {
-            "type": "suggestion",
-            "message": "entrypoint.sh was modified. Ensure it's executable and rebuild:\n\n```bash\nchmod +x entrypoint.sh\ndocker compose build && docker compose up -d\n```\n\nIf the entrypoint is volume-mounted (not COPY'd), a container restart is sufficient."
+            "type": "prompt",
+            "prompt": "entrypoint.sh was modified. Ensure it's executable and rebuild:\n\n```bash\nchmod +x entrypoint.sh\ndocker compose build && docker compose up -d\n```\n\nIf the entrypoint is volume-mounted (not COPY'd), a container restart is sufficient."
           }
         ]
       },
@@ -81,8 +81,8 @@
         "path": "**/requirements*.txt",
         "hooks": [
           {
-            "type": "suggestion",
-            "message": "requirements.txt was modified. Rebuild the Docker image to install new dependencies:\n\n```bash\ndocker compose build && docker compose up -d\n\n# Clean rebuild if cached layers cause issues\ndocker compose build --no-cache && docker compose up -d\n```\n\nNote: `docker compose restart` does NOT install new Python packages. You must rebuild the image."
+            "type": "prompt",
+            "prompt": "requirements.txt was modified. Rebuild the Docker image to install new dependencies:\n\n```bash\ndocker compose build && docker compose up -d\n\n# Clean rebuild if cached layers cause issues\ndocker compose build --no-cache && docker compose up -d\n```\n\nNote: `docker compose restart` does NOT install new Python packages. You must rebuild the image."
           }
         ]
       },
@@ -93,8 +93,8 @@
         "path": "**/conf/*.conf",
         "hooks": [
           {
-            "type": "suggestion",
-            "message": "Odoo configuration file was modified. Restart the Odoo container:\n\n```bash\ndocker compose restart odoo\n```\n\nKey settings to verify:\n- `data_dir = /var/lib/odoo` (CRITICAL for filestore)\n- `workers >= 2` (production)\n- `proxy_mode = True` (when behind nginx)\n- `gevent_port = 8072` (v17+) or `longpolling_port = 8072` (v14-16)"
+            "type": "prompt",
+            "prompt": "Odoo configuration file was modified. Restart the Odoo container:\n\n```bash\ndocker compose restart odoo\n```\n\nKey settings to verify:\n- `data_dir = /var/lib/odoo` (CRITICAL for filestore)\n- `workers >= 2` (production)\n- `proxy_mode = True` (when behind nginx)\n- `gevent_port = 8072` (v17+) or `longpolling_port = 8072` (v14-16)"
           }
         ]
       }
