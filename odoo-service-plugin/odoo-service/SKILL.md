@@ -53,6 +53,7 @@ metadata:
   environments: ["local-venv", "docker", "bare-python"]
   ide-support: ["pycharm", "vscode", "any"]
   categories: [server-management, deployment, database, docker, ide-integration]
+  model: sonnet
 ---
 
 # Odoo Service Skill
@@ -64,9 +65,15 @@ The `odoo-service` skill manages the full Odoo server lifecycle:
 - **Server**: Start, stop, restart Odoo (Windows, Linux, macOS)
 - **Environment**: Auto-detect venv, Docker, or bare Python; initialize new environments
 - **Database**: Backup, restore, create, drop, list, reset admin passwords
-- **Docker**: Generate Dockerfiles, manage containers, exec into shells
+- **Docker**: Manage containers (up/down/logs/shell), exec into shells
 - **IDE**: Generate PyCharm run configs and VSCode workspace settings
 - **Modules**: Install, update, scaffold Odoo modules
+
+### Docker Scope (odoo-service vs odoo-docker)
+
+This skill handles **basic Docker runtime**: `docker compose up/down/logs/shell`, container start/stop, and module operations inside containers.
+
+For **infrastructure and production deployment** (nginx, SSL, CI/CD, Dockerfile generation, performance tuning, image building), use the `odoo-docker` skill instead.
 
 ## Supported Odoo Versions
 
@@ -134,6 +141,8 @@ db_password: "odoo"
 ```
 
 These values are used by scaffold and init commands. If not present, sensible defaults apply.
+
+For the full version compatibility matrix (Python, Docker base, PostgreSQL, Node.js, gevent key, entry point), read `${CLAUDE_PLUGIN_ROOT}/reference/version-matrix.md`.
 
 ## Version-Specific Notes
 

@@ -5,6 +5,7 @@ shared.py — Shared utilities for Odoo service scripts.
 Contains environment detection and platform helpers used across
 server_manager.py, env_initializer.py, and other scripts.
 """
+# Last updated: 2026-03-26 for v3.0.0
 
 import platform
 from pathlib import Path

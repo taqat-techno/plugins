@@ -2,32 +2,96 @@
   "hooks": {
     "PostToolUse": [
       {
-        "name": "requirements-change",
+        "name": "requirements-changed",
+        "description": "When requirements.txt is modified, suggest installing dependencies",
         "matcher": "Write|Edit",
+        "path": "**/requirements*.txt",
         "hooks": [
           {
-            "type": "prompt",
-            "message": "Check if the file that was just modified matches any of these patterns and provide the appropriate guidance:\n\n1. **requirements*.txt** - Suggest: `pip install -r requirements.txt` (or `.venv/Scripts/pip` on Windows, `.venv/bin/pip` on Linux/Mac). For Docker: `docker-compose up -d --build`.\n\n2. **conf/*.conf** - Suggest restarting the Odoo server to apply config changes: stop the server first, then start with the updated config.\n\n3. **docker-compose*.yml** - Suggest: `docker-compose up -d` to recreate containers. If service definitions changed: `docker-compose down && docker-compose up -d`.\n\n4. **Dockerfile** - Suggest rebuilding: `docker-compose up -d --build` or `docker-compose build --no-cache && docker-compose up -d`.\n\n5. **models/*.py** (new file via Write) - Remind user to: (a) import the model class in `models/__init__.py`, (b) add security entry in `security/ir.model.access.csv`, (c) update the module: `python -m odoo -c conf/CONFIG.conf -d DB -u MODULE --stop-after-init`.\n\n6. **__manifest__.py** - Suggest updating the module and bumping the version string.\n\nIf the file doesn't match any pattern, do nothing - no output needed."
+            "type": "suggestion",
+            "message": "requirements.txt was modified. Install updated dependencies:\n\n```bash\npip install -r requirements.txt\n```\n\nFor Docker environments: `docker compose up -d --build`"
+          }
+        ]
+      },
+      {
+        "name": "odoo-conf-changed",
+        "description": "When an Odoo .conf file is modified, suggest restarting the server",
+        "matcher": "Write|Edit",
+        "path": "**/conf/*.conf",
+        "hooks": [
+          {
+            "type": "suggestion",
+            "message": "Odoo config file was modified. Restart the server to apply changes:\n\n```bash\n/odoo-stop\n/odoo-start\n```\n\nOr restart manually: stop the process on port 8069, then start with the updated config."
+          }
+        ]
+      },
+      {
+        "name": "docker-compose-changed",
+        "description": "When docker-compose.yml is modified, suggest recreating containers",
+        "matcher": "Write|Edit",
+        "path": "**/docker-compose*.{yml,yaml}",
+        "hooks": [
+          {
+            "type": "suggestion",
+            "message": "docker-compose file was modified. Recreate containers:\n\n```bash\ndocker compose up -d\n\n# If service definitions changed\ndocker compose down && docker compose up -d\n```"
+          }
+        ]
+      },
+      {
+        "name": "dockerfile-changed",
+        "description": "When Dockerfile is modified, suggest rebuilding the image",
+        "matcher": "Write|Edit",
+        "path": "**/Dockerfile*",
+        "hooks": [
+          {
+            "type": "suggestion",
+            "message": "Dockerfile was modified. Rebuild the image:\n\n```bash\ndocker compose up -d --build\n\n# Clean rebuild\ndocker compose build --no-cache && docker compose up -d\n```"
+          }
+        ]
+      },
+      {
+        "name": "manifest-changed",
+        "description": "When __manifest__.py is modified, suggest updating the module",
+        "matcher": "Write|Edit",
+        "path": "**/__manifest__.py",
+        "hooks": [
+          {
+            "type": "suggestion",
+            "message": "__manifest__.py was modified. Update the module:\n\n```bash\npython -m odoo -c conf/<CONFIG>.conf -d <DB> -u <MODULE> --stop-after-init\n```\n\nRemember to bump the version field."
+          }
+        ]
+      },
+      {
+        "name": "new-model-file",
+        "description": "When a Python file in models/ is created, remind about imports and security",
+        "matcher": "Write",
+        "path": "**/models/*.py",
+        "hooks": [
+          {
+            "type": "suggestion",
+            "message": "New model file created. Ensure:\n1. The class is imported in `models/__init__.py`\n2. Access rules exist in `security/ir.model.access.csv`\n3. Update the module:\n```bash\npython -m odoo -c conf/<CONFIG>.conf -d <DB> -u <MODULE> --stop-after-init\n```"
           }
         ]
       },
       {
         "name": "venv-change",
+        "description": "After pip operations, remind to update requirements.txt",
         "matcher": "Bash",
         "hooks": [
           {
             "type": "prompt",
-            "message": "Check if the bash command involves virtual environment operations (pip install, pip uninstall, venv creation, or activating a virtual environment). If so, remind:\n- After pip install: update requirements.txt with `pip freeze > requirements.txt` or selectively add the new package\n- After pip uninstall: remove from requirements.txt\n- After venv creation: suggest activating and installing requirements\n\nIf the command is not venv-related, say nothing."
+            "prompt": "Check if the bash command involves pip install or pip uninstall. If so, remind to update requirements.txt. If not pip-related, say nothing."
           }
         ]
       },
       {
         "name": "server-port-conflict",
+        "description": "Detect port 8069/8072 conflicts in command output",
         "matcher": "Bash",
         "hooks": [
           {
             "type": "prompt",
-            "message": "Check if the bash command output contains 'Address already in use' or 'port 8069' or 'port 8072' errors. If so, suggest:\n- Windows: `netstat -ano | findstr :8069` then `taskkill /PID <pid> /F`\n- Linux/Mac: `lsof -ti:8069 | xargs kill -9`\n- Or use `/odoo-service stop` to cleanly stop the server\n\nIf no port conflict, say nothing."
+            "prompt": "Check if the bash command output contains 'Address already in use' or port 8069/8072 errors. If so, suggest: Windows: `netstat -ano | findstr :8069` then `taskkill /PID <pid> /F`. Linux/Mac: `lsof -ti:8069 | xargs kill -9`. Or use `/odoo-stop`. If no port conflict, say nothing."
           }
         ]
       }

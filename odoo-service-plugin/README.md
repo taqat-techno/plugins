@@ -80,7 +80,11 @@ The plugin fires context-aware suggestions when you edit Odoo-relevant files:
 | `models/*.py` (new file) | Update module + check `__init__.py` imports |
 | `__manifest__.py` | Update module + bump version |
 
-Hooks only fire for matching file patterns — no noise on unrelated edits.
+Additionally, two Bash-matcher hooks detect:
+- **pip install/uninstall** — reminds to update `requirements.txt`
+- **Port 8069/8072 conflicts** — suggests cleanup commands
+
+All 8 hooks are path-scoped or pattern-matched — no noise on unrelated edits.
 
 ---
 
@@ -114,11 +118,13 @@ odoo-service-plugin/
 ├── odoo-service/
 │   ├── SKILL.md                 # Skill definition (~140 lines)
 │   └── scripts/
+│       ├── shared.py            # Environment detection + platform helpers
 │       ├── server_manager.py    # Start/stop/status/restart
 │       ├── env_initializer.py   # Venv, PostgreSQL, conf setup
 │       ├── db_manager.py        # Backup/restore/create/drop
-│       ├── docker_manager.py    # Docker lifecycle + Dockerfile gen
-│       └── ide_configurator.py  # PyCharm/VSCode config gen
+│       ├── docker_manager.py    # Docker runtime (up/down/logs/shell)
+│       ├── ide_configurator.py  # PyCharm/VSCode config gen
+│       └── tests/               # 65 pytest tests covering all scripts
 ├── commands/
 │   ├── odoo-service.md          # Dispatcher + status
 │   ├── odoo-start.md            # Start server
@@ -129,8 +135,9 @@ odoo-service-plugin/
 │   ├── odoo-ide.md              # IDE configuration
 │   └── odoo-scaffold.md         # Module scaffolding
 ├── hooks/
-│   ├── hooks.json               # PostToolUse hook config
-│   └── post_tool_use.py         # File-pattern-aware hook script
+│   └── hooks.json               # 8 PostToolUse hooks (6 path-scoped + 2 Bash)
+├── reference/
+│   └── version-matrix.md        # Version compatibility matrix (Odoo 14-19)
 └── README.md
 ```
 
@@ -138,7 +145,7 @@ odoo-service-plugin/
 
 ## Python Scripts
 
-All scripts in `odoo-service/scripts/` are standalone CLI tools using only Python stdlib + optional `psutil`. They work without Odoo installed.
+All scripts in `odoo-service/scripts/` are standalone CLI tools using only Python stdlib + optional `psutil`. They work without Odoo installed. Test suite: `cd odoo-service/scripts && python -m pytest tests/ -v`
 
 ```bash
 python server_manager.py start --config conf/myproject.conf --dev
