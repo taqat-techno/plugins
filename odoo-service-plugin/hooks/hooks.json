@@ -8,8 +8,8 @@
         "path": "**/requirements*.txt",
         "hooks": [
           {
-            "type": "suggestion",
-            "message": "requirements.txt was modified. Install updated dependencies:\n\n```bash\npip install -r requirements.txt\n```\n\nFor Docker environments: `docker compose up -d --build`"
+            "type": "prompt",
+            "prompt": "requirements.txt was modified. Install updated dependencies:\n\n```bash\npip install -r requirements.txt\n```\n\nFor Docker environments: `docker compose up -d --build`"
           }
         ]
       },
@@ -20,8 +20,8 @@
         "path": "**/conf/*.conf",
         "hooks": [
           {
-            "type": "suggestion",
-            "message": "Odoo config file was modified. Restart the server to apply changes:\n\n```bash\n/odoo-stop\n/odoo-start\n```\n\nOr restart manually: stop the process on port 8069, then start with the updated config."
+            "type": "prompt",
+            "prompt": "Odoo config file was modified. Restart the server to apply changes:\n\n```bash\n/odoo-stop\n/odoo-start\n```\n\nOr restart manually: stop the process on port 8069, then start with the updated config."
           }
         ]
       },
@@ -32,8 +32,8 @@
         "path": "**/docker-compose*.{yml,yaml}",
         "hooks": [
           {
-            "type": "suggestion",
-            "message": "docker-compose file was modified. Recreate containers:\n\n```bash\ndocker compose up -d\n\n# If service definitions changed\ndocker compose down && docker compose up -d\n```"
+            "type": "prompt",
+            "prompt": "docker-compose file was modified. Recreate containers:\n\n```bash\ndocker compose up -d\n\n# If service definitions changed\ndocker compose down && docker compose up -d\n```"
           }
         ]
       },
@@ -44,8 +44,8 @@
         "path": "**/Dockerfile*",
         "hooks": [
           {
-            "type": "suggestion",
-            "message": "Dockerfile was modified. Rebuild the image:\n\n```bash\ndocker compose up -d --build\n\n# Clean rebuild\ndocker compose build --no-cache && docker compose up -d\n```"
+            "type": "prompt",
+            "prompt": "Dockerfile was modified. Rebuild the image:\n\n```bash\ndocker compose up -d --build\n\n# Clean rebuild\ndocker compose build --no-cache && docker compose up -d\n```"
           }
         ]
       },
@@ -56,8 +56,8 @@
         "path": "**/__manifest__.py",
         "hooks": [
           {
-            "type": "suggestion",
-            "message": "__manifest__.py was modified. Update the module:\n\n```bash\npython -m odoo -c conf/<CONFIG>.conf -d <DB> -u <MODULE> --stop-after-init\n```\n\nRemember to bump the version field."
+            "type": "prompt",
+            "prompt": "__manifest__.py was modified. Update the module:\n\n```bash\npython -m odoo -c conf/<CONFIG>.conf -d <DB> -u <MODULE> --stop-after-init\n```\n\nRemember to bump the version field."
           }
         ]
       },
@@ -68,8 +68,8 @@
         "path": "**/models/*.py",
         "hooks": [
           {
-            "type": "suggestion",
-            "message": "New model file created. Ensure:\n1. The class is imported in `models/__init__.py`\n2. Access rules exist in `security/ir.model.access.csv`\n3. Update the module:\n```bash\npython -m odoo -c conf/<CONFIG>.conf -d <DB> -u <MODULE> --stop-after-init\n```"
+            "type": "prompt",
+            "prompt": "New model file created. Ensure:\n1. The class is imported in `models/__init__.py`\n2. Access rules exist in `security/ir.model.access.csv`\n3. Update the module:\n```bash\npython -m odoo -c conf/<CONFIG>.conf -d <DB> -u <MODULE> --stop-after-init\n```"
           }
         ]
       },

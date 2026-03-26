@@ -8,8 +8,8 @@
         "path": "**/models/*.py",
         "hooks": [
           {
-            "type": "suggestion",
-            "message": "Model file changed. Consider:\n\n1. **Generate test skeleton**: `/odoo-test generate <model.name> --module /path/to/module`\n2. **Compute fields**: If you added `@api.depends`, test initial computation, recomputation on dependency change, and stored value persistence\n3. **Update module**: `python -m odoo -c conf/project.conf -d DB -u MODULE --stop-after-init`"
+            "type": "prompt",
+            "prompt": "Model file changed. Consider:\n\n1. **Generate test skeleton**: `/odoo-test generate <model.name> --module /path/to/module`\n2. **Compute fields**: If you added `@api.depends`, test initial computation, recomputation on dependency change, and stored value persistence\n3. **Update module**: `python -m odoo -c conf/project.conf -d DB -u MODULE --stop-after-init`"
           }
         ]
       },
@@ -20,8 +20,8 @@
         "path": "**/__manifest__.py",
         "hooks": [
           {
-            "type": "suggestion",
-            "message": "Module manifest updated. Run tests to verify:\n\n```bash\npython -m odoo -c conf/project.conf -d DB --test-enable -i MODULE --stop-after-init\n```\n\nOr use: `/odoo-test run MODULE --config conf/project.conf --database DB`"
+            "type": "prompt",
+            "prompt": "Module manifest updated. Run tests to verify:\n\n```bash\npython -m odoo -c conf/project.conf -d DB --test-enable -i MODULE --stop-after-init\n```\n\nOr use: `/odoo-test run MODULE --config conf/project.conf --database DB`"
           }
         ]
       },
@@ -32,8 +32,8 @@
         "path": "**/ir.model.access.csv",
         "hooks": [
           {
-            "type": "suggestion",
-            "message": "Access control file modified. Security tests recommended:\n\n```python\ndef test_access_control(self):\n    # User WITH permission\n    self.env['my.model'].with_user(authorized_user).search([])\n    # User WITHOUT permission\n    with self.assertRaises(AccessError):\n        self.env['my.model'].with_user(unauthorized_user).search([])\n```"
+            "type": "prompt",
+            "prompt": "Access control file modified. Security tests recommended:\n\n```python\ndef test_access_control(self):\n    # User WITH permission\n    self.env['my.model'].with_user(authorized_user).search([])\n    # User WITHOUT permission\n    with self.assertRaises(AccessError):\n        self.env['my.model'].with_user(unauthorized_user).search([])\n```"
           }
         ]
       },
@@ -44,8 +44,8 @@
         "path": "**/tests/test_*.py",
         "hooks": [
           {
-            "type": "suggestion",
-            "message": "Test file modified.\n\n- **Run coverage**: `/odoo-test coverage /path/to/module --threshold 80`\n- **SavepointCase note**: Removed in Odoo 16+. Use `TransactionCase` instead. For partial rollback: `self.env.cr.savepoint()` context manager."
+            "type": "prompt",
+            "prompt": "Test file modified.\n\n- **Run coverage**: `/odoo-test coverage /path/to/module --threshold 80`\n- **SavepointCase note**: Removed in Odoo 16+. Use `TransactionCase` instead. For partial rollback: `self.env.cr.savepoint()` context manager."
           }
         ]
       },
@@ -56,8 +56,8 @@
         "path": "**/tests/test_*.py",
         "hooks": [
           {
-            "type": "suggestion",
-            "message": "New test file created! Ensure `tests/__init__.py` imports it:\n\n```python\n# tests/__init__.py\nfrom . import test_my_module  # Add this line\n```\n\nWithout this import, Odoo's test runner will NOT discover the test file."
+            "type": "prompt",
+            "prompt": "New test file created! Ensure `tests/__init__.py` imports it:\n\n```python\n# tests/__init__.py\nfrom . import test_my_module  # Add this line\n```\n\nWithout this import, Odoo's test runner will NOT discover the test file."
           }
         ]
       },
@@ -68,8 +68,8 @@
         "path": "**/controllers/*.py",
         "hooks": [
           {
-            "type": "suggestion",
-            "message": "HTTP route detected in controller. Use `HttpCase` for route tests:\n\n```python\nfrom odoo.tests import HttpCase, tagged\n\n@tagged('post_install', '-at_install')\nclass TestController(HttpCase):\n    def test_route_accessible(self):\n        res = self.url_open('/your/route')\n        self.assertEqual(res.status_code, 200)\n```"
+            "type": "prompt",
+            "prompt": "HTTP route detected in controller. Use `HttpCase` for route tests:\n\n```python\nfrom odoo.tests import HttpCase, tagged\n\n@tagged('post_install', '-at_install')\nclass TestController(HttpCase):\n    def test_route_accessible(self):\n        res = self.url_open('/your/route')\n        self.assertEqual(res.status_code, 200)\n```"
           }
         ]
       }
