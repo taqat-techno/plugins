@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 """
 SessionStart hook: Detect Odoo version and inject frontend context.
 Reads JSON on stdin (required by Claude Code hooks).
