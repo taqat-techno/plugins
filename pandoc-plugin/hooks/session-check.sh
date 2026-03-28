@@ -2,6 +2,8 @@
 # SessionStart hook: Check pandoc and LaTeX availability
 # Stdout becomes conversation context. Exit 0 always (non-blocking).
 
+INPUT=$(cat)
+
 PANDOC_OK=false
 LATEX_OK=false
 PANDOC_VER=""
