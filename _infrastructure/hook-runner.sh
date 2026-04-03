@@ -14,7 +14,10 @@
 # wrapper overhead (logging, safe-mode check).
 # ============================================================================
 
-set -euo pipefail
+# NOTE: No 'set -e' or 'set -u'. This wrapper MUST NOT crash.
+# It must survive: non-zero child exit codes (exit 2 = intentional block),
+# unset variables (CLAUDE_PLUGIN_ROOT may not exist), and pipe failures.
+# A crashed wrapper = a broken hook with no logging or fallback.
 
 # ── Defaults ────────────────────────────────────────────────────────────────
 PLUGIN=""
