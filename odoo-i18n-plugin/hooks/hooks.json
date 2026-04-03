@@ -1,28 +1,3 @@
 {
-  "hooks": {
-    "PostToolUse": [
-      {
-        "name": "po-file-validation",
-        "description": "Remind about .po/.pot validation when a translation file is written or edited",
-        "matcher": "Write|Edit",
-        "hooks": [
-          {
-            "type": "prompt",
-            "prompt": "Check the file_path of the tool call. If the file ends in .po or .pot, remind the user:\n\n[odoo-i18n] Translation file changed. Consider running:\n- /odoo-i18n validate — check for syntax errors, encoding issues, and format specifier mismatches\n- /odoo-i18n missing — find untranslated entries\n- Load into Odoo: python -m odoo -c conf/project.conf -d db -u module --stop-after-init\n\nIf the file does NOT end in .po or .pot, say nothing about i18n — this hook is not relevant."
-          }
-        ]
-      },
-      {
-        "name": "i18n-general-reminder",
-        "description": "Brief i18n reminder when new Python, XML, JS, or SCSS files are created in an Odoo module",
-        "matcher": "Write",
-        "hooks": [
-          {
-            "type": "prompt",
-            "prompt": "[odoo-i18n] New file created. Quick i18n checklist:\n- Python: use _('text') for runtime strings, _lt('text') for class-level\n- XML: string= attributes are auto-translated (no _() needed)\n- JS (16+): import { _t } from '@web/core/l10n/translation'\n- SCSS: use CSS logical properties (margin-inline-start) for RTL support\n- Run /odoo-i18n extract after adding translatable strings"
-          }
-        ]
-      }
-    ]
-  }
+  "hooks": {}
 }

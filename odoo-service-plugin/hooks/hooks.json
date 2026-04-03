@@ -2,72 +2,42 @@
   "hooks": {
     "PostToolUse": [
       {
-        "name": "manifest-changed",
-        "description": "Consolidated checklist when __manifest__.py is modified (covers security, testing, reports)",
         "matcher": "Write|Edit",
         "path": "**/__manifest__.py",
         "hooks": [
           {
             "type": "prompt",
-            "prompt": "__manifest__.py modified. Checklist:\n1. **Version**: Bump the version field\n2. **Security order**: data list should have groups XML first, then ir.model.access.csv, then rules XML\n3. **Report/template data**: Include mail_template_*.xml and report/*.xml entries (action before template)\n4. **Report SCSS**: Add report SCSS to assets under web.report_assets_common\n5. **Update module**: `python -m odoo -c conf/<CONFIG>.conf -d <DB> -u <MODULE> --stop-after-init`\n6. **Run tests**: `python -m odoo --test-enable -i <MODULE> --stop-after-init`"
+            "prompt": "__manifest__.py modified. Bump version. Security order: groups XML > ir.model.access.csv > rules XML. Include report/template XMLs. Update module with -u, run tests with --test-enable."
           }
         ]
       },
       {
-        "name": "model-file-changed",
-        "description": "Consolidated checklist when a model file is changed (covers security, testing, imports)",
         "matcher": "Write|Edit",
         "path": "**/models/*.py",
         "hooks": [
           {
             "type": "prompt",
-            "prompt": "Model file changed. Ensure:\n1. Class imported in `models/__init__.py` (new files)\n2. Access rules in `security/ir.model.access.csv` — verify sudo() is justified\n3. Consider `/odoo-test generate` for test skeleton; test @api.depends compute fields\n4. Update module: `python -m odoo -c conf/<CONFIG>.conf -d <DB> -u <MODULE> --stop-after-init`"
+            "prompt": "Model file changed. Ensure class imported in models/__init__.py, access rules in ir.model.access.csv, sudo() justified. Update module with -u."
           }
         ]
       },
       {
-        "name": "requirements-changed",
-        "description": "Dependency install reminder for local and Docker environments",
         "matcher": "Write|Edit",
         "path": "**/requirements*.txt",
         "hooks": [
           {
             "type": "prompt",
-            "prompt": "requirements.txt modified.\n- **Local**: `pip install -r requirements.txt`\n- **Docker**: `docker compose build && docker compose up -d` (restart alone won't install new packages)"
+            "prompt": "requirements.txt modified. Local: pip install -r requirements.txt. Docker: docker compose build && docker compose up -d."
           }
         ]
       },
       {
-        "name": "odoo-conf-changed",
-        "description": "Server restart reminder for local and Docker environments",
         "matcher": "Write|Edit",
         "path": "**/conf/*.conf",
         "hooks": [
           {
             "type": "prompt",
-            "prompt": "Odoo config file modified.\n- **Local**: `/odoo-stop` then `/odoo-start` (or restart manually on port 8069)\n- **Docker**: `docker compose restart odoo`\n- Verify critical settings: `data_dir`, `workers >= 2` (prod), `proxy_mode = True` (behind nginx), `gevent_port = 8072`"
-          }
-        ]
-      },
-      {
-        "name": "venv-change",
-        "description": "After pip operations, remind to update requirements.txt",
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "prompt",
-            "prompt": "Check if the bash command involves pip install or pip uninstall. If so, remind to update requirements.txt. If not pip-related, say nothing."
-          }
-        ]
-      },
-      {
-        "name": "server-port-conflict",
-        "description": "Detect port 8069/8072 conflicts in command output",
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "prompt",
-            "prompt": "Check if the bash command output contains 'Address already in use' or port 8069/8072 errors. If so, suggest: Windows: `netstat -ano | findstr :8069` then `taskkill /PID <pid> /F`. Linux/Mac: `lsof -ti:8069 | xargs kill -9`. Or use `/odoo-stop`. If no port conflict, say nothing."
+            "prompt": "Odoo config modified. Restart server. Verify: data_dir, workers, proxy_mode, gevent_port."
           }
         ]
       }

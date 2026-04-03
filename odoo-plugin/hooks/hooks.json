@@ -1,0 +1,191 @@
+{
+  "description": "Unified Odoo plugin hooks — core file protection, inline JS blocking, version detection, and domain-specific advisories",
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/frontend/session_start.py\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/upgrade/guard_core_odoo.py\"",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/frontend/pre_write_check.py\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "path": "**/docker-compose*.{yml,yaml}",
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "docker-compose file was modified. Recreate containers: `docker compose up -d` or `docker compose down && docker compose up -d` if service definitions changed."
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit",
+        "path": "**/Dockerfile*",
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "Dockerfile was modified. Rebuild: `docker compose build && docker compose up -d` (add --no-cache for clean rebuild)."
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit",
+        "path": "**/nginx*.conf",
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "nginx.conf was modified. Test and reload: `docker compose exec nginx nginx -t && docker compose exec nginx nginx -s reload`. Ensure proxy_mode = True in odoo.conf."
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit",
+        "path": "**/.env",
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": ".env modified. Must recreate: `docker compose down && docker compose up -d` (restart does NOT pick up .env changes)."
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit",
+        "path": "**/entrypoint*.sh",
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "entrypoint.sh modified. Ensure executable: `chmod +x entrypoint.sh && docker compose build && docker compose up -d`."
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit",
+        "path": "**/__manifest__.py",
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "__manifest__.py modified. Bump version. Security order: groups XML > ir.model.access.csv > rules XML. Include report/template XMLs. Update module with -u, run tests with --test-enable."
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit",
+        "path": "**/models/*.py",
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "Model file changed. Ensure class imported in models/__init__.py, access rules in ir.model.access.csv, sudo() justified. Update module with -u."
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit",
+        "path": "**/requirements*.txt",
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "requirements.txt modified. Local: pip install -r requirements.txt. Docker: docker compose build && docker compose up -d."
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit",
+        "path": "**/conf/*.conf",
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "Odoo config modified. Restart server. Verify: data_dir, workers, proxy_mode, gevent_port."
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit",
+        "path": "**/controllers/*.py",
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "Controller changed. Verify: @http.route() has explicit auth= and csrf protection. Consider HttpCase test."
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit",
+        "path": "**/ir.model.access.csv",
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "Access CSV modified. Verify: model_id:id format (model_ prefix, dots to underscores) and group references."
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit",
+        "path": "**/wizard*/*.py",
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "Wizard changed. TransientModel requires ir.model.access.csv with perm_create=1, perm_unlink=1."
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit",
+        "filePattern": "**/data/mail_template*.xml",
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "Email template changed. Verify: body_html (not body), subject uses {{ object.name }}, body uses t-out (not t-esc in 15+), report_template_ids M2M (17+), email_to/partner_to set, file in __manifest__.py data list."
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit",
+        "filePattern": "**/report*/**/*.xml",
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "QWeb report changed. Verify: report_type=qweb-pdf, t-call web.html_container wrapper, web.external_layout for header/footer, content in div.page, monetary t-options, page-break-before for multi-page. Arabic/RTL requires web.html_container for UTF-8."
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit",
+        "path": "**/tests/test_*.py",
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "Test file modified. New file? Ensure tests/__init__.py imports it. Run coverage: /odoo-test coverage. SavepointCase removed in Odoo 16+, use TransactionCase."
+          }
+        ]
+      }
+    ]
+  }
+}

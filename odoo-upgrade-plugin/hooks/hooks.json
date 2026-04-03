@@ -1,54 +1,13 @@
 {
+  "description": "Odoo upgrade hooks - core file protection",
   "hooks": {
-    "SessionStart": [
-      {
-        "name": "upgrade-plugin-welcome",
-        "description": "Announce available upgrade commands on session start",
-        "matcher": "startup|resume",
-        "hooks": [
-          {
-            "type": "prompt",
-            "prompt": "The odoo-upgrade plugin (v5.1) is active. Available commands: /odoo-precheck <path> (scan for issues), /odoo-quickfix <path> (safe mechanical fixes), /odoo-upgrade <path> <version> (full migration pipeline). The plugin protects core Odoo files from modification and checks for version compatibility issues in real-time.",
-            "timeout": 5
-          }
-        ]
-      }
-    ],
     "PreToolUse": [
       {
-        "name": "core-odoo-guard",
-        "description": "Block Write/Edit of core Odoo framework files (odoo/addons/, odoo/*.py)",
         "matcher": "Write|Edit",
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/../_infrastructure/hook-runner.sh\" --plugin=odoo-upgrade-plugin --hook=guard_core_odoo.py --type=PreToolUse --timeout=5 --blocking",
-            "timeout": 8
-          }
-        ]
-      }
-    ],
-    "PostToolUse": [
-      {
-        "name": "odoo19-compat-check",
-        "description": "Check written files for Odoo version compatibility issues (tree->list, attrs, jsonrpc)",
-        "matcher": "Write|Edit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/../_infrastructure/hook-runner.sh\" --plugin=odoo-upgrade-plugin --hook=check_odoo19_compat.py --type=PostToolUse --timeout=10",
-            "timeout": 13
-          }
-        ]
-      },
-      {
-        "name": "bash-compat-error-detect",
-        "description": "Detect Odoo version compatibility issues in Bash command output",
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "prompt",
-            "prompt": "Check if the output indicates an Odoo version compatibility issue. Look for patterns like: 'Invalid field', 'Service rpc is not available', 'Invalid view type', 'cannot be located in parent view', 'cannot import name slug', 'cannot import name.*url_for', 'Invalid view definition', 'Entity.*not defined', 'context_today.*strftime', 'AttributeError.*tzinfo', 'numbercall', 'kanban-box'. If it is a compatibility issue, respond {\"ok\": true, \"reason\": \"This looks like an Odoo version compatibility issue. Consider using the odoo-upgrade skill or /odoo-precheck to diagnose and fix it.\"} otherwise {\"ok\": false}.",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/guard_core_odoo.py\"",
             "timeout": 10
           }
         ]

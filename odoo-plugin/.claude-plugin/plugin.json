@@ -1,0 +1,15 @@
+{
+  "name": "odoo-plugin",
+  "version": "1.0.0",
+  "description": "Unified Odoo development toolkit — upgrade, frontend themes, testing, security auditing, i18n, reports, Docker infrastructure, and server lifecycle across Odoo 14-19",
+  "author": {
+    "name": "TaqaTechno",
+    "email": "info@taqatechno.com"
+  },
+  "homepage": "https://github.com/taqat-techno/plugins",
+  "license": "LGPL-3.0-or-later",
+  "keywords": [
+    "odoo", "erp", "upgrade", "migration", "frontend", "theme",
+    "testing", "security", "i18n", "docker", "reports", "qweb"
+  ]
+}

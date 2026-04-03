@@ -2,38 +2,32 @@
   "hooks": {
     "PostToolUse": [
       {
-        "name": "controller-security-reminder",
-        "description": "Remind about route auth, CSRF, and HTTP testing when a controller is modified",
         "matcher": "Write|Edit",
         "path": "**/controllers/*.py",
         "hooks": [
           {
             "type": "prompt",
-            "prompt": "Controller file changed. Verify: @http.route() has explicit auth= and csrf protection. Consider HttpCase test for route verification. Suggest /odoo-security --layer=routes."
+            "prompt": "Controller changed. Verify: @http.route() has explicit auth= and csrf protection. Consider HttpCase test."
           }
         ]
       },
       {
-        "name": "access-csv-changed",
-        "description": "Validate access CSV format and suggest security tests",
         "matcher": "Write|Edit",
         "path": "**/ir.model.access.csv",
         "hooks": [
           {
             "type": "prompt",
-            "prompt": "Access CSV modified. Verify: model_id:id format (model_ prefix, dots to underscores) and group references. Test with AccessError: user WITH and WITHOUT permission. Suggest /odoo-security --layer=access."
+            "prompt": "Access CSV modified. Verify: model_id:id format (model_ prefix, dots to underscores) and group references."
           }
         ]
       },
       {
-        "name": "wizard-security-reminder",
-        "description": "Remind about TransientModel access rules when a wizard file is modified",
         "matcher": "Write|Edit",
         "path": "**/wizard*/*.py",
         "hooks": [
           {
             "type": "prompt",
-            "prompt": "Wizard file changed. TransientModel requires ir.model.access.csv entry with perm_create=1, perm_unlink=1. Suggest /odoo-security --layer=access."
+            "prompt": "Wizard changed. TransientModel requires ir.model.access.csv with perm_create=1, perm_unlink=1."
           }
         ]
       }

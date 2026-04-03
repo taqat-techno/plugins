@@ -1,70 +1,26 @@
 {
-  "description": "Azure DevOps integration hooks — profile check, write validation, commit linking, error recovery",
+  "description": "Azure DevOps integration hooks - role-based write validation and error recovery",
   "hooks": {
-    "SessionStart": [
-      {
-        "name": "devops-profile-check",
-        "description": "Validate Azure DevOps profile, staleness, JSON syntax, schema version",
-        "matcher": "startup",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/../_infrastructure/hook-runner.sh\" --plugin=devops-plugin --hook=session-start.sh --type=SessionStart --timeout=10",
-            "timeout": 13
-          }
-        ]
-      }
-    ],
     "PreToolUse": [
       {
-        "name": "git-commit-link-advisory",
-        "description": "Advisory: suggest work item ID in git commit messages",
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/../_infrastructure/hook-runner.sh\" --plugin=devops-plugin --hook=pre-bash-check.sh --type=PreToolUse --timeout=10",
-            "timeout": 13
-          }
-        ]
-      },
-      {
-        "name": "ado-write-gate",
-        "description": "Block unauthorized Azure DevOps write operations based on user role",
         "matcher": "mcp__azure-devops__wit_create_work_item|mcp__azure-devops__wit_update_work_item|mcp__azure-devops__wit_add_work_item_comment|mcp__azure-devops__wit_work_items_link|mcp__azure-devops__repo_create_pull_request",
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/../_infrastructure/hook-runner.sh\" --plugin=devops-plugin --hook=pre-write-validate.sh --type=PreToolUse --timeout=10 --blocking",
-            "timeout": 13
-          }
-        ]
-      }
-    ],
-    "PostToolUse": [
-      {
-        "name": "git-workflow-suggest",
-        "description": "Advisory: suggest PR creation after branch checkout, pipeline checks after push",
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/../_infrastructure/hook-runner.sh\" --plugin=devops-plugin --hook=post-bash-suggest.sh --type=PostToolUse --timeout=10",
-            "timeout": 13
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/pre-write-validate.sh\"",
+            "timeout": 10
           }
         ]
       }
     ],
     "PostToolUseFailure": [
       {
-        "name": "ado-error-recovery",
-        "description": "Provide recovery guidance for Azure DevOps MCP failures (auth, WIQL, rate limiting)",
         "matcher": "mcp__azure-devops__.*",
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/../_infrastructure/hook-runner.sh\" --plugin=devops-plugin --hook=error-recovery.sh --type=PostToolUseFailure --timeout=10",
-            "timeout": 13
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/error-recovery.sh\"",
+            "timeout": 10
           }
         ]
       }
