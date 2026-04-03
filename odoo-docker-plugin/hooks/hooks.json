@@ -73,30 +73,6 @@
             "prompt": "entrypoint.sh was modified. Ensure it's executable and rebuild:\n\n```bash\nchmod +x entrypoint.sh\ndocker compose build && docker compose up -d\n```\n\nIf the entrypoint is volume-mounted (not COPY'd), a container restart is sufficient."
           }
         ]
-      },
-      {
-        "name": "requirements-changed",
-        "description": "When requirements.txt is modified, suggest rebuilding the Docker image",
-        "matcher": "Write|Edit",
-        "path": "**/requirements*.txt",
-        "hooks": [
-          {
-            "type": "prompt",
-            "prompt": "requirements.txt was modified. Rebuild the Docker image to install new dependencies:\n\n```bash\ndocker compose build && docker compose up -d\n\n# Clean rebuild if cached layers cause issues\ndocker compose build --no-cache && docker compose up -d\n```\n\nNote: `docker compose restart` does NOT install new Python packages. You must rebuild the image."
-          }
-        ]
-      },
-      {
-        "name": "odoo-conf-docker",
-        "description": "When an Odoo .conf file is modified, suggest container restart. Broad path (**/conf/*.conf) is intentional — the suggestion is harmless in non-Docker contexts and avoids missing Docker configs in non-standard locations.",
-        "matcher": "Write|Edit",
-        "path": "**/conf/*.conf",
-        "hooks": [
-          {
-            "type": "prompt",
-            "prompt": "Odoo configuration file was modified. Restart the Odoo container:\n\n```bash\ndocker compose restart odoo\n```\n\nKey settings to verify:\n- `data_dir = /var/lib/odoo` (CRITICAL for filestore)\n- `workers >= 2` (production)\n- `proxy_mode = True` (when behind nginx)\n- `gevent_port = 8072` (v17+) or `longpolling_port = 8072` (v14-16)"
-          }
-        ]
       }
     ]
   }

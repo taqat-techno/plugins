@@ -66,45 +66,69 @@ except:
   fi
 fi
 
-# ── Lightweight consistency checks ──────────────────────────────
+# ── Lightweight consistency checks (consolidated into single Python call) ──
 
-# 1. JSON syntax validation (core data files) — use raw string paths for Python
-for JSON_FILE in "$PLUGIN_ROOT/data/state_machine.json" "$PLUGIN_ROOT/data/project_defaults.json" "$PLUGIN_ROOT/data/hierarchy_rules.json"; do
-  if [ -f "$JSON_FILE" ] && [ -n "$PYTHON" ]; then
-    if ! $PYTHON -c "import json; json.load(open(r'$JSON_FILE'))" 2>/dev/null; then
-      echo "[DevOps] WARNING: $(basename "$JSON_FILE") has invalid JSON syntax. Plugin data may be corrupted."
-    fi
-  fi
-done
+# Checks: JSON syntax, data file existence, plugin version, profile schema
+if [ -n "$PYTHON" ]; then
+  $PYTHON -c "
+import json, os, sys
+root = r'$PLUGIN_ROOT'
+profile = r'$PROFILE_PATH'
+errors = []
+
+# 1. Core data file existence + JSON syntax validation
+for f in ['state_machine.json', 'hierarchy_rules.json', 'project_defaults.json']:
+    p = os.path.join(root, 'data', f)
+    if not os.path.isfile(p):
+        errors.append(f'WARNING: data/{f} is missing. Plugin may not function correctly.')
+    else:
+        try:
+            json.load(open(p))
+        except Exception:
+            errors.append(f'WARNING: {f} has invalid JSON syntax. Plugin data may be corrupted.')
 
 # 2. Plugin version check
-PLUGIN_JSON="$PLUGIN_ROOT/.claude-plugin/plugin.json"
-if [ -f "$PLUGIN_JSON" ] && [ -n "$PYTHON" ]; then
-  PLUGIN_VER=$($PYTHON -c "import json; print(json.load(open(r'$PLUGIN_JSON')).get('version',''))" 2>/dev/null)
-  if [ -n "$PLUGIN_VER" ] && ! echo "$PLUGIN_VER" | grep -q '^6\.'; then
-    echo "[DevOps] WARNING: Plugin version '$PLUGIN_VER' is not 6.x. Expected v6+."
-  fi
-fi
+pj = os.path.join(root, '.claude-plugin', 'plugin.json')
+if os.path.isfile(pj):
+    try:
+        v = json.load(open(pj)).get('version', '')
+        if v and not v.startswith('6.'):
+            errors.append(f\"WARNING: Plugin version '{v}' is not 6.x. Expected v6+.\")
+    except Exception:
+        pass
 
 # 3. Profile schema version check
-if [ -f "$PROFILE_PATH" ] && [ -n "$PYTHON" ]; then
-  PROFILE_VER=$(grep -E '^schemaVersion:' "$PROFILE_PATH" | head -1 | sed 's/^schemaVersion:[[:space:]]*//' | tr -d '"')
-  MIN_SCHEMA=$($PYTHON -c "import json; print(json.load(open(r'$DEFAULTS_FILE')).get('compatibility', {}).get('minProfileSchema', '6.0.0'))" 2>/dev/null)
-  if [ -n "$PROFILE_VER" ] && [ -n "$MIN_SCHEMA" ]; then
-    PROFILE_MAJOR=$(echo "$PROFILE_VER" | cut -d. -f1)
-    MIN_MAJOR=$(echo "$MIN_SCHEMA" | cut -d. -f1)
-    if [ "$PROFILE_MAJOR" -lt "$MIN_MAJOR" ] 2>/dev/null; then
-      echo "[DevOps] Profile schema version '$PROFILE_VER' is older than required '$MIN_SCHEMA'. Run /init profile --refresh to upgrade."
-    fi
-  fi
-fi
+defaults_file = os.path.join(root, 'data', 'project_defaults.json')
+if os.path.isfile(profile) and os.path.isfile(defaults_file):
+    try:
+        with open(profile) as pf:
+            for line in pf:
+                if line.startswith('schemaVersion:'):
+                    profile_ver = line.split(':', 1)[1].strip().strip('\"').strip(\"'\")
+                    break
+            else:
+                profile_ver = None
+        if profile_ver:
+            defaults = json.load(open(defaults_file))
+            min_schema = defaults.get('compatibility', {}).get('minProfileSchema', '6.0.0')
+            p_major = int(profile_ver.split('.')[0])
+            m_major = int(min_schema.split('.')[0])
+            if p_major < m_major:
+                errors.append(f\"Profile schema version '{profile_ver}' is older than required '{min_schema}'. Run /init profile --refresh to upgrade.\")
+    except Exception:
+        pass
 
-# 4. Core data file existence
-for DATA_FILE in "state_machine.json" "hierarchy_rules.json" "project_defaults.json"; do
-  if [ ! -f "$PLUGIN_ROOT/data/$DATA_FILE" ]; then
-    echo "[DevOps] WARNING: data/$DATA_FILE is missing. Plugin may not function correctly."
-  fi
-done
+for e in errors:
+    print(f'[DevOps] {e}')
+" 2>/dev/null
+else
+  # No Python available — do basic file existence check with bash
+  for DATA_FILE in "state_machine.json" "hierarchy_rules.json" "project_defaults.json"; do
+    if [ ! -f "$PLUGIN_ROOT/data/$DATA_FILE" ]; then
+      echo "[DevOps] WARNING: data/$DATA_FILE is missing. Plugin may not function correctly."
+    fi
+  done
+fi
 
 # 5. Profile required fields check
 # Support both YAML format (role:), Markdown table (| **Label** |), and Markdown heading (## Label)

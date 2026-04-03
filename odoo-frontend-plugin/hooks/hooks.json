@@ -2,33 +2,41 @@
   "hooks": {
     "SessionStart": [
       {
+        "name": "odoo-version-detect",
+        "description": "Detect Odoo version, Bootstrap/Owl versions, and theme modules",
         "hooks": [
           {
             "type": "command",
-            "command": "python \"${CLAUDE_PLUGIN_ROOT}/hooks/session_start.py\"",
-            "timeout": 10000
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/../_infrastructure/hook-runner.sh\" --plugin=odoo-frontend-plugin --hook=session_start.py --type=SessionStart --timeout=10",
+            "timeout": 13
           }
         ]
       }
     ],
     "PreToolUse": [
       {
+        "name": "inline-js-blocker",
+        "description": "Block Write/Edit of XML files containing inline JavaScript",
         "matcher": "Write|Edit",
         "hooks": [
           {
             "type": "command",
-            "command": "python \"${CLAUDE_PLUGIN_ROOT}/hooks/pre_write_check.py\""
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/../_infrastructure/hook-runner.sh\" --plugin=odoo-frontend-plugin --hook=pre_write_check.py --type=PreToolUse --timeout=5 --blocking",
+            "timeout": 8
           }
         ]
       }
     ],
     "PostToolUse": [
       {
+        "name": "frontend-post-write-check",
+        "description": "Advisory: SCSS regeneration, @odoo-module annotation, Bootstrap 4->5 migration hints",
         "matcher": "Write|Edit",
         "hooks": [
           {
             "type": "command",
-            "command": "python \"${CLAUDE_PLUGIN_ROOT}/hooks/post_write_check.py\""
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/../_infrastructure/hook-runner.sh\" --plugin=odoo-frontend-plugin --hook=post_write_check.py --type=PostToolUse --timeout=10",
+            "timeout": 13
           }
         ]
       }

@@ -2,38 +2,26 @@
   "hooks": {
     "PostToolUse": [
       {
-        "name": "model-security-reminder",
-        "description": "Remind about access rules and sudo() when a model file is modified",
-        "matcher": "Write|Edit",
-        "path": "**/models/*.py",
-        "hooks": [
-          {
-            "type": "prompt",
-            "prompt": "Model file changed. Briefly remind: verify access rules exist in ir.model.access.csv and sudo() calls are justified. Suggest running /odoo-security --layer=access to audit. Keep it to 1-2 lines."
-          }
-        ]
-      },
-      {
         "name": "controller-security-reminder",
-        "description": "Remind about route auth and CSRF when a controller file is modified",
+        "description": "Remind about route auth, CSRF, and HTTP testing when a controller is modified",
         "matcher": "Write|Edit",
         "path": "**/controllers/*.py",
         "hooks": [
           {
             "type": "prompt",
-            "prompt": "Controller file changed. Briefly remind: verify @http.route() has explicit auth= and csrf protection. Suggest running /odoo-security --layer=routes. Keep it to 1-2 lines."
+            "prompt": "Controller file changed. Verify: @http.route() has explicit auth= and csrf protection. Consider HttpCase test for route verification. Suggest /odoo-security --layer=routes."
           }
         ]
       },
       {
         "name": "access-csv-changed",
-        "description": "Remind to validate access CSV completeness",
+        "description": "Validate access CSV format and suggest security tests",
         "matcher": "Write|Edit",
         "path": "**/ir.model.access.csv",
         "hooks": [
           {
             "type": "prompt",
-            "prompt": "Access CSV modified. Briefly remind: verify model_id:id format (model_ prefix, dots to underscores) and group references. Suggest running /odoo-security --layer=access. Keep it to 1-2 lines."
+            "prompt": "Access CSV modified. Verify: model_id:id format (model_ prefix, dots to underscores) and group references. Test with AccessError: user WITH and WITHOUT permission. Suggest /odoo-security --layer=access."
           }
         ]
       },
@@ -45,19 +33,7 @@
         "hooks": [
           {
             "type": "prompt",
-            "prompt": "Wizard file changed. Briefly remind: TransientModel requires ir.model.access.csv entry with perm_create=1, perm_unlink=1. Suggest running /odoo-security --layer=access. Keep it to 1-2 lines."
-          }
-        ]
-      },
-      {
-        "name": "manifest-security-check",
-        "description": "Remind about security file ordering in manifest",
-        "matcher": "Write|Edit",
-        "path": "**/__manifest__.py",
-        "hooks": [
-          {
-            "type": "prompt",
-            "prompt": "Manifest changed. Briefly remind: verify security file order in data list — groups XML first, then ir.model.access.csv, then rules XML. Keep it to 1-2 lines."
+            "prompt": "Wizard file changed. TransientModel requires ir.model.access.csv entry with perm_create=1, perm_unlink=1. Suggest /odoo-security --layer=access."
           }
         ]
       }

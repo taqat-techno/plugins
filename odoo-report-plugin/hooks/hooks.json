@@ -24,18 +24,6 @@
             "prompt": "[odoo-report] QWeb report file changed. Verify:\n- ir.actions.report has report_type=\"qweb-pdf\" and report_name matching template id\n- Template uses t-call=\"web.html_container\" as outermost wrapper\n- Then t-call=\"web.external_layout\" for header/footer and UTF-8 encoding\n- Content inside <div class=\"page\">\n- Currency uses t-options='{\"widget\": \"monetary\"}'\n- Page breaks: <div style=\"page-break-before: always;\"/>\n- For Arabic/RTL: web.html_container is MANDATORY for UTF-8"
           }
         ]
-      },
-      {
-        "name": "manifest-report-data",
-        "description": "Remind to include report and template files in manifest data array",
-        "matcher": "Write|Edit",
-        "filePattern": "**/__manifest__.py",
-        "hooks": [
-          {
-            "type": "prompt",
-            "prompt": "[odoo-report] Manifest modified. If adding reports or templates, verify:\n- 'data/mail_template_*.xml' entries in 'data' list\n- 'reports/*.xml' entries in 'data' list (action before template)\n- Report SCSS in 'assets' under 'web.report_assets_common'\n- Order: security files before data files"
-          }
-        ]
       }
     ]
   }
