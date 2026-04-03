@@ -2,74 +2,50 @@
   "hooks": {
     "PostToolUse": [
       {
-        "name": "requirements-changed",
-        "description": "When requirements.txt is modified, suggest installing dependencies",
-        "matcher": "Write|Edit",
-        "path": "**/requirements*.txt",
-        "hooks": [
-          {
-            "type": "prompt",
-            "prompt": "requirements.txt was modified. Install updated dependencies:\n\n```bash\npip install -r requirements.txt\n```\n\nFor Docker environments: `docker compose up -d --build`"
-          }
-        ]
-      },
-      {
-        "name": "odoo-conf-changed",
-        "description": "When an Odoo .conf file is modified, suggest restarting the server",
-        "matcher": "Write|Edit",
-        "path": "**/conf/*.conf",
-        "hooks": [
-          {
-            "type": "prompt",
-            "prompt": "Odoo config file was modified. Restart the server to apply changes:\n\n```bash\n/odoo-stop\n/odoo-start\n```\n\nOr restart manually: stop the process on port 8069, then start with the updated config."
-          }
-        ]
-      },
-      {
-        "name": "docker-compose-changed",
-        "description": "When docker-compose.yml is modified, suggest recreating containers",
-        "matcher": "Write|Edit",
-        "path": "**/docker-compose*.{yml,yaml}",
-        "hooks": [
-          {
-            "type": "prompt",
-            "prompt": "docker-compose file was modified. Recreate containers:\n\n```bash\ndocker compose up -d\n\n# If service definitions changed\ndocker compose down && docker compose up -d\n```"
-          }
-        ]
-      },
-      {
-        "name": "dockerfile-changed",
-        "description": "When Dockerfile is modified, suggest rebuilding the image",
-        "matcher": "Write|Edit",
-        "path": "**/Dockerfile*",
-        "hooks": [
-          {
-            "type": "prompt",
-            "prompt": "Dockerfile was modified. Rebuild the image:\n\n```bash\ndocker compose up -d --build\n\n# Clean rebuild\ndocker compose build --no-cache && docker compose up -d\n```"
-          }
-        ]
-      },
-      {
         "name": "manifest-changed",
-        "description": "When __manifest__.py is modified, suggest updating the module",
+        "description": "Consolidated checklist when __manifest__.py is modified (covers security, testing, reports)",
         "matcher": "Write|Edit",
         "path": "**/__manifest__.py",
         "hooks": [
           {
             "type": "prompt",
-            "prompt": "__manifest__.py was modified. Update the module:\n\n```bash\npython -m odoo -c conf/<CONFIG>.conf -d <DB> -u <MODULE> --stop-after-init\n```\n\nRemember to bump the version field."
+            "prompt": "__manifest__.py modified. Checklist:\n1. **Version**: Bump the version field\n2. **Security order**: data list should have groups XML first, then ir.model.access.csv, then rules XML\n3. **Report/template data**: Include mail_template_*.xml and report/*.xml entries (action before template)\n4. **Report SCSS**: Add report SCSS to assets under web.report_assets_common\n5. **Update module**: `python -m odoo -c conf/<CONFIG>.conf -d <DB> -u <MODULE> --stop-after-init`\n6. **Run tests**: `python -m odoo --test-enable -i <MODULE> --stop-after-init`"
           }
         ]
       },
       {
-        "name": "new-model-file",
-        "description": "When a Python file in models/ is created, remind about imports and security",
-        "matcher": "Write",
+        "name": "model-file-changed",
+        "description": "Consolidated checklist when a model file is changed (covers security, testing, imports)",
+        "matcher": "Write|Edit",
         "path": "**/models/*.py",
         "hooks": [
           {
             "type": "prompt",
-            "prompt": "New model file created. Ensure:\n1. The class is imported in `models/__init__.py`\n2. Access rules exist in `security/ir.model.access.csv`\n3. Update the module:\n```bash\npython -m odoo -c conf/<CONFIG>.conf -d <DB> -u <MODULE> --stop-after-init\n```"
+            "prompt": "Model file changed. Ensure:\n1. Class imported in `models/__init__.py` (new files)\n2. Access rules in `security/ir.model.access.csv` — verify sudo() is justified\n3. Consider `/odoo-test generate` for test skeleton; test @api.depends compute fields\n4. Update module: `python -m odoo -c conf/<CONFIG>.conf -d <DB> -u <MODULE> --stop-after-init`"
+          }
+        ]
+      },
+      {
+        "name": "requirements-changed",
+        "description": "Dependency install reminder for local and Docker environments",
+        "matcher": "Write|Edit",
+        "path": "**/requirements*.txt",
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "requirements.txt modified.\n- **Local**: `pip install -r requirements.txt`\n- **Docker**: `docker compose build && docker compose up -d` (restart alone won't install new packages)"
+          }
+        ]
+      },
+      {
+        "name": "odoo-conf-changed",
+        "description": "Server restart reminder for local and Docker environments",
+        "matcher": "Write|Edit",
+        "path": "**/conf/*.conf",
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "Odoo config file modified.\n- **Local**: `/odoo-stop` then `/odoo-start` (or restart manually on port 8069)\n- **Docker**: `docker compose restart odoo`\n- Verify critical settings: `data_dir`, `workers >= 2` (prod), `proxy_mode = True` (behind nginx), `gevent_port = 8072`"
           }
         ]
       },

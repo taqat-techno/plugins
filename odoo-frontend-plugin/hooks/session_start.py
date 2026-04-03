@@ -3,16 +3,28 @@
 SessionStart hook: Detect Odoo version and inject frontend context.
 Reads JSON on stdin (required by Claude Code hooks).
 Exit 0 always. Stdout becomes conversation context.
+
+Optimized: no recursive glob, internal timeout guard, early termination.
 """
 
 import sys
 import os
-import json
 import re
+import threading
 from pathlib import Path
 
+# ── Internal timeout guard (defense-in-depth) ──────────────────────────────
+# If this script hangs for any reason, force-exit after 8 seconds.
+# The hook-runner wrapper has a 10s timeout; this exits cleanly before that.
+_timer = threading.Timer(8.0, lambda: os._exit(0))
+_timer.daemon = True
+_timer.start()
+
 # Read stdin (required by hook protocol)
-sys.stdin.read()
+try:
+    sys.stdin.read()
+except Exception:
+    pass
 
 PLUGIN_ROOT = Path(__file__).parent.parent
 
@@ -30,56 +42,48 @@ OWL_MAP = {
 
 def detect_odoo_version(search_dir: Path) -> dict:
     """Detect Odoo version from workspace directory structure."""
-    # Strategy 1: Look for odoo{VERSION}/ directories
-    for item in search_dir.iterdir():
-        if item.is_dir():
-            match = re.match(r'^odoo(\d{2})$', item.name)
-            if match:
-                ver = match.group(1)
-                # Normalize: "17" → "17"
-                return {
-                    "version": ver,
-                    "bootstrap": BOOTSTRAP_MAP.get(ver, "5.1.3"),
-                    "owl": OWL_MAP.get(ver),
-                    "source": f"directory {item.name}/",
-                }
+    # Strategy 1: Look for odoo{VERSION}/ directories (fast, no recursion)
+    try:
+        for item in search_dir.iterdir():
+            if item.is_dir():
+                match = re.match(r'^odoo(\d{2})$', item.name)
+                if match:
+                    ver = match.group(1)
+                    return {
+                        "version": ver,
+                        "bootstrap": BOOTSTRAP_MAP.get(ver, "5.1.3"),
+                        "owl": OWL_MAP.get(ver),
+                        "source": f"directory {item.name}/",
+                    }
+    except (OSError, PermissionError):
+        pass
 
-    # Strategy 2: Look for release.py in odoo/ subdirectory
-    for odoo_dir in search_dir.glob("**/odoo/release.py"):
-        try:
-            content = odoo_dir.read_text(encoding="utf-8")
-            match = re.search(r"version_info\s*=\s*\((\d+),", content)
-            if match:
-                ver = match.group(1)
-                return {
-                    "version": ver,
-                    "bootstrap": BOOTSTRAP_MAP.get(ver, "5.1.3"),
-                    "owl": OWL_MAP.get(ver),
-                    "source": str(odoo_dir),
-                }
-        except (OSError, UnicodeDecodeError):
-            continue
+    # Strategy 2: Check targeted paths only (NO recursive glob)
+    # Look for odoo/release.py in the CWD itself or one level up
+    for candidate in [
+        search_dir / "odoo" / "release.py",
+        search_dir.parent / "odoo" / "release.py",
+    ]:
+        if candidate.is_file():
+            try:
+                content = candidate.read_text(encoding="utf-8")
+                match = re.search(r"version_info\s*=\s*\((\d+),", content)
+                if match:
+                    ver = match.group(1)
+                    return {
+                        "version": ver,
+                        "bootstrap": BOOTSTRAP_MAP.get(ver, "5.1.3"),
+                        "owl": OWL_MAP.get(ver),
+                        "source": str(candidate),
+                    }
+            except (OSError, UnicodeDecodeError):
+                continue
 
     return None
 
 
-def count_themes(search_dir: Path) -> int:
-    """Count theme modules in projects/ directories."""
-    count = 0
-    for projects_dir in search_dir.glob("**/projects"):
-        if projects_dir.is_dir():
-            for project in projects_dir.iterdir():
-                if project.is_dir():
-                    for module in project.iterdir():
-                        if module.is_dir() and module.name.startswith("theme_"):
-                            count += 1
-    return count
-
-
 def main():
-    # Determine workspace root (go up from plugin to find Odoo workspace)
     cwd = Path(os.getcwd())
-
     result = detect_odoo_version(cwd)
 
     if result:
@@ -88,14 +92,10 @@ def main():
         owl = result["owl"]
         js_note = f", Owl {owl}" if owl else ""
         print(f"[Odoo Frontend] Detected: Odoo {ver}, Bootstrap {bs}{js_note}. Use publicWidget for website themes.")
+    # Removed: count_themes() -- recursive glob was slow and advisory-only
+    # Removed: "No Odoo installation detected" message -- reduces noise
 
-        # Check for existing themes
-        theme_count = count_themes(cwd)
-        if theme_count > 0:
-            print(f"[Odoo Frontend] Found {theme_count} theme module(s) in workspace.")
-    else:
-        print("[Odoo Frontend] No Odoo installation detected. Run /odoo-frontend for manual setup.")
-
+    _timer.cancel()
     sys.exit(0)
 
 

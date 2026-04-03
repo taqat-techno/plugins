@@ -2,24 +2,28 @@
   "hooks": {
     "SessionStart": [
       {
+        "name": "pandoc-availability-check",
+        "description": "Check pandoc and LaTeX availability on session start",
         "matcher": "startup",
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/session-check.sh\"",
-            "timeout": 10000
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/../_infrastructure/hook-runner.sh\" --plugin=pandoc-plugin --hook=session-check.sh --type=SessionStart --timeout=10",
+            "timeout": 13
           }
         ]
       }
     ],
     "PreToolUse": [
       {
+        "name": "pandoc-best-practices",
+        "description": "Advisory: pandoc format-specific best practices before Bash commands",
         "matcher": "Bash",
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/pandoc-context.sh\"",
-            "timeout": 10000
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/../_infrastructure/hook-runner.sh\" --plugin=pandoc-plugin --hook=pandoc-context.sh --type=PreToolUse --timeout=10",
+            "timeout": 13
           }
         ]
       }
