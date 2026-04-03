@@ -4,6 +4,7 @@
       {
         "name": "odoo-version-detect",
         "description": "Detect Odoo version, Bootstrap/Owl versions, and theme modules",
+        "matcher": "startup",
         "hooks": [
           {
             "type": "command",
