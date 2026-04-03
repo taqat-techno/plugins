@@ -1,0 +1,52 @@
+---
+# User Configuration for odoo-docker plugin
+# Copy this file to ~/.claude/odoo-docker.local.md and customize.
+# The skill reads these values to personalize generated configs.
+
+# Docker Hub image prefix (your org or username)
+image_prefix: "myorg/odoo"
+
+# Default Odoo version when not auto-detected
+default_version: "17"
+
+# Default HTTP port for new projects
+default_http_port: 8069
+
+# PostgreSQL default credentials (override for security)
+default_db_user: "odoo"
+default_db_password: "odoo"
+
+# Git org for source cloning suggestions
+git_org: "my-github-org"
+
+# Volume paths (relative to project root)
+source_path: "./sources"
+projects_path: "./projects"
+conf_path: "./conf"
+logs_path: "./logs"
+---
+
+# Odoo Docker — User Configuration
+
+This file customizes the `odoo-docker` plugin for your environment.
+Edit the YAML frontmatter above to match your setup.
+
+## Image Prefix
+
+The `image_prefix` controls Docker image tags in generated configs:
+- `"myorg/odoo"` produces `myorg/odoo:19.0-enterprise`
+- `"ghcr.io/myorg/odoo"` produces `ghcr.io/myorg/odoo:19.0-enterprise`
+
+## Port Allocation
+
+When running multiple projects, ports increment by 100:
+- Project 1: HTTP 8069, Gevent 8072
+- Project 2: HTTP 8169, Gevent 8172
+- Project 3: HTTP 8269, Gevent 8272
+
+Change `default_http_port` to shift the starting range.
+
+## Credentials
+
+For production, always override `default_db_password` with a strong password.
+The plugin will remind you if defaults are detected in production configs.

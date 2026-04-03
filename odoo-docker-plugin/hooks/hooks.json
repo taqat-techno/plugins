@@ -1,76 +1,53 @@
 {
   "hooks": {
-    "SessionStart": [
-      {
-        "name": "detect-docker-context",
-        "description": "Detect Docker environment on session start",
-        "matcher": "startup",
-        "hooks": [
-          {
-            "type": "prompt",
-            "prompt": "Silently check if Docker-related files exist in the current directory (docker-compose*.yml, Dockerfile). If any are found, output a single brief status line: '[odoo-docker] Docker files detected. Use /odoo-docker for infrastructure commands.' If none found, say nothing."
-          }
-        ]
-      }
-    ],
     "PostToolUse": [
       {
-        "name": "docker-compose-changed",
-        "description": "When docker-compose.yml is modified, suggest recreating containers",
         "matcher": "Write|Edit",
         "path": "**/docker-compose*.{yml,yaml}",
         "hooks": [
           {
             "type": "prompt",
-            "prompt": "docker-compose file was modified. Recreate containers to apply changes:\n\n```bash\n# Recreate with updated config\ndocker compose up -d\n\n# If service definitions changed\ndocker compose down && docker compose up -d\n\n# If Dockerfile changed\ndocker compose up -d --build\n```"
+            "prompt": "docker-compose file was modified. Recreate containers: `docker compose up -d` or `docker compose down && docker compose up -d` if service definitions changed."
           }
         ]
       },
       {
-        "name": "dockerfile-changed",
-        "description": "When Dockerfile is modified, suggest rebuilding the image",
         "matcher": "Write|Edit",
         "path": "**/Dockerfile*",
         "hooks": [
           {
             "type": "prompt",
-            "prompt": "Dockerfile was modified. Rebuild the image to apply changes:\n\n```bash\n# Rebuild and restart\ndocker compose build && docker compose up -d\n\n# Clean rebuild (no cache)\ndocker compose build --no-cache && docker compose up -d\n```"
+            "prompt": "Dockerfile was modified. Rebuild: `docker compose build && docker compose up -d` (add --no-cache for clean rebuild)."
           }
         ]
       },
       {
-        "name": "nginx-conf-changed",
-        "description": "When nginx.conf is modified, suggest reloading nginx",
         "matcher": "Write|Edit",
         "path": "**/nginx*.conf",
         "hooks": [
           {
             "type": "prompt",
-            "prompt": "nginx.conf was modified. Reload nginx to apply:\n\n```bash\n# Test config first\ndocker compose exec nginx nginx -t\n\n# Reload (no downtime)\ndocker compose exec nginx nginx -s reload\n\n# Or restart nginx container\ndocker compose restart nginx\n```\n\nReminder: ensure `proxy_mode = True` in odoo.conf when behind nginx."
+            "prompt": "nginx.conf was modified. Test and reload: `docker compose exec nginx nginx -t && docker compose exec nginx nginx -s reload`. Ensure proxy_mode = True in odoo.conf."
           }
         ]
       },
       {
-        "name": "env-file-changed",
-        "description": "When .env is modified, suggest container restart",
         "matcher": "Write|Edit",
         "path": "**/.env",
         "hooks": [
           {
             "type": "prompt",
-            "prompt": ".env file was modified. Recreate containers to apply new environment variables:\n\n```bash\ndocker compose down && docker compose up -d\n```\n\nNote: `docker compose restart` does NOT pick up .env changes. You must `down` then `up`."
+            "prompt": ".env modified. Must recreate: `docker compose down && docker compose up -d` (restart does NOT pick up .env changes)."
           }
         ]
       },
       {
-        "name": "entrypoint-changed",
-        "description": "When entrypoint.sh is modified, remind about chmod +x and rebuild",
         "matcher": "Write|Edit",
         "path": "**/entrypoint*.sh",
         "hooks": [
           {
             "type": "prompt",
-            "prompt": "entrypoint.sh was modified. Ensure it's executable and rebuild:\n\n```bash\nchmod +x entrypoint.sh\ndocker compose build && docker compose up -d\n```\n\nIf the entrypoint is volume-mounted (not COPY'd), a container restart is sufficient."
+            "prompt": "entrypoint.sh modified. Ensure executable: `chmod +x entrypoint.sh && docker compose build && docker compose up -d`."
           }
         ]
       }

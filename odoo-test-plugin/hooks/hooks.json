@@ -2,26 +2,12 @@
   "hooks": {
     "PostToolUse": [
       {
-        "name": "test-file-changed",
-        "description": "Coverage check, version notes, and __init__.py reminder for test files",
         "matcher": "Write|Edit",
         "path": "**/tests/test_*.py",
         "hooks": [
           {
             "type": "prompt",
-            "prompt": "Test file modified.\n- **Run coverage**: `/odoo-test coverage /path/to/module --threshold 80`\n- **SavepointCase note**: Removed in Odoo 16+. Use `TransactionCase` instead. For partial rollback: `self.env.cr.savepoint()` context manager.\n- **New file?** Ensure `tests/__init__.py` imports it — without this, Odoo's test runner will NOT discover the test file."
-          }
-        ]
-      },
-      {
-        "name": "test-file-init-reminder",
-        "description": "When a NEW test file is created, strongly remind about __init__.py import",
-        "matcher": "Write",
-        "path": "**/tests/test_*.py",
-        "hooks": [
-          {
-            "type": "prompt",
-            "prompt": "New test file created! Ensure `tests/__init__.py` imports it:\n\n```python\n# tests/__init__.py\nfrom . import test_my_module  # Add this line\n```\n\nWithout this import, Odoo's test runner will NOT discover the test file."
+            "prompt": "Test file modified.\n- **New file?** Ensure `tests/__init__.py` imports it — without this, Odoo's test runner will NOT discover the test.\n- **Run coverage**: `/odoo-test coverage /path/to/module --threshold 80`\n- **SavepointCase**: Removed in Odoo 16+. Use `TransactionCase` instead."
           }
         ]
       }

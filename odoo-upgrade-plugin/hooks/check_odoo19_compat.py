@@ -1,26 +1,39 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """
 PostToolUse hook: Check written/edited files for Odoo version compatibility issues.
 
 Reads tool input JSON from stdin. Detects the target Odoo version from the file
 path using configurable patterns, then runs version-appropriate compatibility checks.
 Always exits 0 (advisory, never blocks).
+
+Hardened: internal timeout, JSON hookSpecificOutput format, fail-open.
 """
 
 from __future__ import annotations
 
 import json
+import os
 import re
 import sys
-import os
+import threading
 from pathlib import Path
 
+# Internal timeout: fail-open after 5 seconds
+_timer = threading.Timer(5.0, lambda: os._exit(0))
+_timer.daemon = True
+_timer.start()
+
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from config_loader import load_config, detect_target_version
+try:
+    from config_loader import load_config, detect_target_version
+except ImportError:
+    def load_config():
+        return {"target_version_path_patterns": {}, "default_target_version": 19}
+    def detect_target_version(fp, cfg):
+        return cfg.get("default_target_version")
 
 
 def check_xml_compat(content: str, version: int) -> list[str]:
-    """Check XML content for compatibility issues at the given target version."""
     issues = []
     if version >= 19:
         if re.search(r'<tree[\s>]', content):
@@ -42,11 +55,10 @@ def check_xml_compat(content: str, version: int) -> list[str]:
 
 
 def check_js_compat(content: str, version: int) -> list[str]:
-    """Check JavaScript content for compatibility issues."""
     issues = []
     if version >= 19:
         if re.search(r'useService\(["\']rpc["\']\)', content):
-            issues.append("useService('rpc') - RPC service not available in Odoo 19 frontend")
+            issues.append("useService('rpc') - RPC service not available in Odoo 19")
         if '@web/core/network/rpc_service' in content:
             issues.append("RPC service module - removed in Odoo 19")
     if version >= 18:
@@ -58,7 +70,6 @@ def check_js_compat(content: str, version: int) -> list[str]:
 
 
 def check_py_compat(content: str, version: int) -> list[str]:
-    """Check Python content for compatibility issues."""
     issues = []
     if version >= 19:
         if re.search(r"type\s*=\s*['\"]json['\"]", content) and '@http.route' in content:
@@ -74,7 +85,7 @@ def check_py_compat(content: str, version: int) -> list[str]:
 def main():
     try:
         data = json.load(sys.stdin)
-    except (json.JSONDecodeError, EOFError):
+    except (json.JSONDecodeError, EOFError, ValueError):
         sys.exit(0)
 
     tool_input = data.get('tool_input', {})
@@ -85,9 +96,12 @@ def main():
 
     normalized = file_path.replace('\\', '/')
 
-    config = load_config()
-    version = detect_target_version(normalized, config)
+    try:
+        config = load_config()
+    except Exception:
+        sys.exit(0)
 
+    version = detect_target_version(normalized, config)
     if version is None:
         sys.exit(0)
 
@@ -111,11 +125,11 @@ def main():
         issues = check_py_compat(content, version)
 
     if issues:
-        result = {
-            "message": f"Odoo {version} compatibility check:\n" + "\n".join(f"  - {i}" for i in issues)
-        }
-        json.dump(result, sys.stdout)
+        msg = f"Odoo {version} compatibility:\n" + "\n".join(f"  - {i}" for i in issues)
+        output = {"hookSpecificOutput": {"additionalContext": msg}}
+        print(json.dumps(output))
 
+    _timer.cancel()
     sys.exit(0)
 
 
