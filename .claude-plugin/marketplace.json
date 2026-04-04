@@ -8,7 +8,7 @@
   },
   "plugins": [
     {
-      "name": "odoo-plugin",
+      "name": "odoo",
       "description": "Unified Odoo development toolkit — upgrade, frontend themes, testing, security auditing, i18n, reports, Docker infrastructure, and server lifecycle across Odoo 14-19",
       "author": {
         "name": "TaqaTechno",
