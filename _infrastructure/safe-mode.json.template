@@ -1,8 +1,0 @@
-{
-  "enabled": false,
-  "reason": "",
-  "disabled_plugins": [],
-  "disabled_hooks": [],
-  "allow_prompt_only": false,
-  "activated_at": null
-}
