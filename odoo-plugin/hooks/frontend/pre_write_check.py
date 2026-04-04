@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """PreToolUse hook: blocks Write/Edit of XML files containing inline JavaScript.
 
 Receives JSON on stdin with tool_input containing file_path and content.
