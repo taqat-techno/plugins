@@ -1,8 +1,8 @@
 {
   "_meta": {
-    "description": "Single source of truth for work item state machines, role permissions, and required fields (TaqaTechno Scrum process)",
-    "processId": "0b979ee8-3b5c-4723-86d4-e7c3d740f9cc",
-    "processName": "TaqaTechno Scrum",
+    "description": "Single source of truth for work item state machines, role permissions, and required fields (Azure DevOps Scrum process - auto-detected at /init time)",
+    "processId": "auto-detected",
+    "processName": "Scrum (default - auto-detected at /init time)",
     "source": "Merged from state_permissions.json + required_fields.json + business_rules.md",
     "version": "6.0.0",
     "lastUpdated": "2026-03-26"
@@ -10,7 +10,7 @@
 
   "workItemTypes": {
     "Task": {
-      "referenceName": "TaqaTechnoScrum.Task",
+      "referenceName": "Scrum.Task",
       "states": ["To Do", "In Progress", "Done", "Closed", "Removed"],
       "happyPath": ["To Do", "In Progress", "Done", "Closed"],
       "hasClose": true,
@@ -75,7 +75,7 @@
     },
 
     "Bug": {
-      "referenceName": "TaqaTechnoScrum.Bug",
+      "referenceName": "Scrum.Bug",
       "states": ["New", "Approved", "In Progress", "Resolved", "Return", "Committed", "Done", "Closed", "Removed"],
       "happyPath": ["New", "Approved", "In Progress", "Resolved", "Done", "Closed"],
       "returnPath": ["Resolved", "Return", "In Progress"],
@@ -149,7 +149,7 @@
     },
 
     "ProductBacklogItem": {
-      "referenceName": "TaqaTechnoScrum.ProductBacklogItem",
+      "referenceName": "Scrum.ProductBacklogItem",
       "states": ["New", "Approved", "Committed", "In Progress", "Ready For QC", "Return", "Done", "Removed"],
       "happyPath": ["New", "Approved", "Committed", "In Progress", "Ready For QC", "Done"],
       "returnPath": ["Ready For QC", "Return", "In Progress"],
@@ -201,7 +201,7 @@
     },
 
     "UserStory": {
-      "referenceName": "TaqaTechnoScrum.UserStory",
+      "referenceName": "Scrum.UserStory",
       "states": ["New", "Committed", "Done"],
       "happyPath": ["New", "Committed", "Done"],
       "hasClose": false,
@@ -226,7 +226,7 @@
     },
 
     "Enhancement": {
-      "referenceName": "TaqaTechnoScrum.Enhancement",
+      "referenceName": "Scrum.Enhancement",
       "states": ["New", "Committed", "Return", "Done", "Closed"],
       "happyPath": ["New", "Committed", "Done", "Closed"],
       "returnPath": ["Committed", "Return", "Committed"],
@@ -260,7 +260,7 @@
     },
 
     "Feature": {
-      "referenceName": "TaqaTechnoScrum.Feature",
+      "referenceName": "Scrum.Feature",
       "states": ["New", "In Progress", "Done", "Removed"],
       "happyPath": ["New", "In Progress", "Done"],
       "hasClose": false,

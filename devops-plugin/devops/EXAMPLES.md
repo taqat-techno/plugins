@@ -89,10 +89,10 @@ Plan work for upcoming sprint.
 
 | ID | Type | Title | Points | Assignee |
 |----|------|-------|--------|----------|
-| #1240 | Story | User profile page | 8 | Ahmed |
-| #1241 | Bug | Fix search indexing | 5 | Sara |
-| #1242 | Task | Database optimization | 13 | Mohammed |
-| #1243 | Story | Export to PDF | 8 | Ahmed |
+| #1240 | Story | User profile page | 8 | User A |
+| #1241 | Bug | Fix search indexing | 5 | User B |
+| #1242 | Task | Database optimization | 13 | User C |
+| #1243 | Story | Export to PDF | 8 | User A |
 
 **Total: 34 points** (within capacity)
 
@@ -108,7 +108,7 @@ Plan work for upcoming sprint.
 
 ### Action Items
 1. Break down #1245 into smaller stories
-2. Request production access for Mohammed
+2. Request production access for User C
 ```
 
 ---
@@ -135,7 +135,7 @@ Review a pull request and provide feedback.
 ## PR #45 Review: Add user authentication
 
 ### PR Details
-- Author: Ahmed
+- Author: User A
 - Branch: feature/auth → main
 - Status: Active
 - Created: Dec 10, 2025
@@ -213,8 +213,8 @@ Triage and organize incoming bugs.
 
 | ID | Title | Reported By | Recommendation |
 |----|-------|-------------|----------------|
-| #1250 | Payment processing fails | Customer | Assign to Sara, Sprint 16 |
-| #1251 | Data loss on save | QA Team | Assign to Mohammed, Hotfix |
+| #1250 | Payment processing fails | Customer | Assign to User B, Sprint 16 |
+| #1251 | Data loss on save | QA Team | Assign to User C, Hotfix |
 
 ### High (Severity 2) - Sprint Priority
 
@@ -314,7 +314,7 @@ The test failures appear to be caused by a database connection timeout, not code
    - Check connection pool settings
 
 3. **If code issue**: Review recent commits
-   - Commit abc123f by Ahmed (Dec 11)
+   - Commit abc123f by User A (Dec 11)
    - Changes: 3 files, +45 -12
 
 ### Related
@@ -386,9 +386,9 @@ Prepare for a production release.
 - Safari: Minor CSS alignment issue
 
 ### Contributors
-- Ahmed (12 commits)
-- Sara (8 commits)
-- Mohammed (6 commits)
+- User A (12 commits)
+- User B (8 commits)
+- User C (6 commits)
 
 ### Deployment Notes
 1. Run database migration: `python manage.py migrate`

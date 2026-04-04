@@ -135,8 +135,8 @@ Then show the restart notice (see below).
    - Strip `http://dev.azure.com/` prefix if present
    - Strip trailing slashes
    - If the result contains `/`, take only the first segment
-   - The value must be just the org name (e.g., `TaqaTechno`), NOT a URL
-   - If it looks wrong, warn: "Organization name should be just the name (e.g., 'TaqaTechno'), not a full URL."
+   - The value must be just the org name (e.g., `MyOrgName`), NOT a URL
+   - If it looks wrong, warn: "Organization name should be just the name (e.g., 'MyOrgName'), not a full URL."
 
 4. Set the variables:
    - **Windows:** `setx ADO_MCP_AUTH_TOKEN "{token}"` and `setx ADO_ORGANIZATION "{org}"`
@@ -176,7 +176,7 @@ Write a marker file so the next `/init` knows to resume:
   "envVarsSet": true,
   "timestamp": "2026-04-04T10:30:00Z",
   "nextStep": "verify-mcp",
-  "org": "TaqaTechno"
+  "org": "MyOrgName"
 }
 ```
 
@@ -247,7 +247,7 @@ Before generating a profile, ALWAYS check if `~/.claude/devops.md` already exist
 ```
 Existing profile found:
   Role: developer
-  Default Project: TAQAT
+  Default Project: My Project
   Last Refreshed: 2026-03-20 (15 days ago)
 
 What would you like to do?
@@ -304,7 +304,7 @@ For each project the user belongs to:
 2. Resolve each member's GUID via `core_get_identity_ids`
 3. Generate aliases from display names:
    ```
-   "Ahmed Mohamed" -> aliases: ["ahmed", "mohamed", "am"]
+   "Jane Smith" -> aliases: ["jane", "smith", "js"]
    ```
 4. Deduplicate across projects
 
@@ -378,10 +378,10 @@ statePermissions:
   Bug: { ... }
   ProductBacklogItem: { ... }
 teamMembers:
-  - name: "Ahmed Mohamed"
-    email: "ahmed@company.com"
+  - name: "Jane Smith"
+    email: "user@example.com"
     guid: "..."
-    aliases: ["ahmed", "mohamed", "am"]
+    aliases: ["jane", "smith", "js"]
     role: "developer"
 projects:
   - name: "Project Alpha"

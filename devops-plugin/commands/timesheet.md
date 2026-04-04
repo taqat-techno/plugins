@@ -43,7 +43,7 @@ User: /timesheet --week
 
 Output:
 ## Timesheet - Week of 2026-03-24
-**Project:** Relief Center
+**Project:** My Project
 
 | Day | Logged | Target | Status |
 |-----|--------|--------|--------|

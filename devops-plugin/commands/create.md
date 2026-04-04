@@ -45,10 +45,10 @@ If no type flag is given, detect from title keywords:
    READY TO CREATE: Task
    ----------------------------------
    Title:     [Dev] Fix login API timeout
-   Project:   Relief Center
+   Project:   My Project
    Parent:    #1234 - User Authentication Story
    Sprint:    Sprint 15
-   Assigned:  Ahmed Mohamed
+   Assigned:  the current user
    Priority:  2
 
    Proceed? (yes/no)

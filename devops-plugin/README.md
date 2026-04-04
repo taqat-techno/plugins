@@ -74,7 +74,7 @@ This creates `~/.claude/devops.md` with your identity, role, team members, and p
 | Say this | What happens |
 |----------|-------------|
 | "mark #1234 as done" | Updates work item with pre-flight validation |
-| "comment on #1234 @mahmoud" | Adds comment with validated @mentions |
+| "comment on #1234 @teammate" | Adds comment with validated @mentions |
 | "switch to relief center" | Changes project context |
 | "any failing builds?" | Shows pipeline status |
 | "create PR from feature to main" | Creates pull request |

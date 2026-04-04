@@ -29,7 +29,7 @@ At session start or first DevOps operation:
 | User Says | Without Profile | With Profile |
 |-----------|----------------|--------------|
 | "assign to me" | API call | Instant: use `identity.guid` |
-| "@mahmoud" | API call | Cache lookup -> instant if found |
+| "@teammate" | API call | Cache lookup -> instant if found |
 | /create "Fix bug" | Infer prefix | Use `preferences.taskPrefix` |
 | (session start) | Auto-detect project | Use `defaultProject` |
 

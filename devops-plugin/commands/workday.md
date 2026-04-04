@@ -41,7 +41,7 @@ User: /workday
 
 Output:
 ## Workday Dashboard - 2026-03-26
-Project: Relief Center | Sprint: Sprint 15
+Project: My Project | Sprint: Sprint 15
 
 ### My Active Work (5 items)
 | ID | Type | Title | State | Hours |
