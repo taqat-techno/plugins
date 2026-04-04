@@ -288,3 +288,92 @@ docker compose exec odoo bash
 # Module update inside container
 python -m odoo -c /etc/odoo/odoo.conf -d {db} -u {module} --stop-after-init
 ```
+
+---
+
+## Volume Safety Rules (CRITICAL - from real data-loss incidents)
+
+These rules prevent filestore loss and data corruption.
+
+### Never rename volume entries in compose files
+When regenerating `docker-compose.{project}.yml`, detect and preserve existing volume names. Changing a volume name from `project_17_filestore` to `project_17_data` creates a brand-new empty volume. The database still references files in the old orphaned volume. Result: every image request returns HTTP 500.
+
+### Never use `docker-compose down -v`
+The `-v` flag deletes ALL named volumes -- including the filestore and database. Plain `down` (without `-v`) only removes containers and networks. Only use `-v` when you intentionally want to destroy all data.
+
+### Switching compose files switches volumes
+Running `docker-compose.yml` (default) vs `docker-compose.{project}.yml` (project-specific) mounts completely different volumes at the same path. The database doesn't change but the filestore disappears. Always use the project-specific compose file consistently.
+
+### Filestore is NOT in the database
+Odoo stores binary attachments as files in `{data_dir}/filestore/{db_name}/` on disk. The `ir_attachment` table only stores `store_fname` (a SHA1-based relative path). Restoring a database dump without restoring the corresponding filestore directory leaves all image fields pointing to nonexistent files. **Always backup and restore DB + filestore together.**
+
+### Docker image VOLUME declarations create anonymous volumes
+If the Odoo image declares `VOLUME [/var/lib/odoo /etc/odoo]` and the compose file only bind-mounts a single file like `./conf/odoo.conf:/etc/odoo/odoo.conf`, Docker creates an anonymous volume for `/etc/odoo`. Inspect container mounts with `docker inspect` to spot unexpected volumes.
+
+### Diagnosis: use volume timestamps
+`docker volume inspect <vol> --format '{{.CreatedAt}}'` reveals when each volume was created. Comparing timestamps across volumes reveals exactly when volume name drift occurred.
+
+---
+
+## Performance: DEV_MODE is the #1 Killer (CRITICAL)
+
+`DEV_MODE=1` (or `--dev=all`) forces Odoo to re-read and re-parse ALL QWeb templates from XML files on EVERY page request. On Docker Desktop (Windows/Mac), the Odoo source is bind-mounted from the host, and bind mounts are 17-4000x slower than native volumes for filesystem operations.
+
+**Combined effect: 6-8 seconds per page with DEV_MODE vs 25-100ms without.**
+
+| Setting | Page Load | Use Case |
+|---------|-----------|----------|
+| `DEV_MODE=0` (default) | 25-100ms | Normal development, testing, production |
+| `DEV_MODE=1` | 6-8 seconds | Only when actively editing Python/XML that needs auto-reload |
+
+**Default: `DEV_MODE=0` in `.env`.** Only enable temporarily when you need auto-reload for the specific files you're editing. Disable immediately after.
+
+---
+
+## Windows Docker Issues
+
+### MSYS_NO_PATHCONV=1 is required in Git Bash
+Git Bash (MSYS2) auto-converts Unix paths like `/var/lib/odoo` to Windows paths like `C:/Program Files/Git/var/lib/odoo`. This breaks `docker exec`, `docker run -v`, and `docker run -w`.
+
+Fix: prefix every Docker command with `MSYS_NO_PATHCONV=1`:
+
+```bash
+# Wrong (Git Bash will mangle the path):
+docker exec container ls /var/lib/odoo
+
+# Correct:
+MSYS_NO_PATHCONV=1 docker exec container ls /var/lib/odoo
+
+# Or use single-quoted bash -c:
+docker exec container bash -c 'ls /var/lib/odoo'
+```
+
+---
+
+## Backup and Restore (DB + Filestore Together)
+
+**Always backup both database AND filestore.** A database restore without its filestore is broken -- all images return HTTP 500.
+
+### Backup
+
+```bash
+# Database backup
+MSYS_NO_PATHCONV=1 docker exec postgres pg_dump -U odoo -Fc DB_NAME > backup_DB_NAME.dump
+
+# Filestore backup
+MSYS_NO_PATHCONV=1 docker cp odoo-container:/var/lib/odoo/filestore/DB_NAME ./backup_filestore/
+```
+
+### Restore
+
+```bash
+# Restore database
+MSYS_NO_PATHCONV=1 docker exec -i postgres pg_restore -U odoo -d DB_NAME --clean --if-exists < backup_DB_NAME.dump
+
+# Restore filestore
+MSYS_NO_PATHCONV=1 docker cp ./backup_filestore/DB_NAME odoo-container:/var/lib/odoo/filestore/
+```
+
+### Verify after restore
+- Check image loading on key pages (products, website, categories)
+- Run: `SELECT COUNT(*) FROM ir_attachment WHERE store_fname IS NOT NULL;` and verify files exist on disk
