@@ -24,7 +24,7 @@ Parse `$ARGUMENTS` and route to the appropriate operation:
 | Sub-command | Description | Example |
 |-------------|-------------|---------|
 | `up [--build]` | Start containers | `/odoo-docker up` |
-| `down [--volumes]` | Stop and remove containers | `/odoo-docker down` |
+| `down` | Stop and remove containers (keeps data) | `/odoo-docker down` |
 | `start` / `stop` / `restart` | Container lifecycle | `/odoo-docker restart` |
 | `logs [--tail N]` | Follow container logs | `/odoo-docker logs --tail 50` |
 | `shell` | Bash shell in Odoo container | `/odoo-docker shell` |
@@ -49,3 +49,11 @@ Use the odoo-docker skill (`skills/docker/SKILL.md`) for architecture decisions,
 
 Templates are in `${CLAUDE_PLUGIN_ROOT}/templates/docker/`.
 Check `~/.claude/odoo-docker.local.md` for user-specific settings.
+
+## Critical Safety Rules
+
+- **NEVER pass `--volumes` or `-v` to `down`** unless intentionally destroying all data (database + filestore)
+- **Always use the project-specific compose file** (`docker-compose.{project}.yml`) -- switching compose files switches volumes
+- **DEV_MODE=0 by default** -- only enable `DEV_MODE=1` temporarily when editing Python/XML (causes 6-8s page loads on Docker Desktop)
+- **On Windows Git Bash**: prefix Docker commands with `MSYS_NO_PATHCONV=1` to prevent path mangling
+- **Backups must include BOTH database AND filestore** -- filestore is on disk only, not in the database

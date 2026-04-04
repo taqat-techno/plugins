@@ -86,4 +86,34 @@ curl -sf -o /dev/null -w "%{http_code}" https://yourdomain.com/web/login
 
 # 7. Assets loading (no 500 errors)
 # Open browser DevTools → Network → check JS/CSS responses
+
+# 8. Filestore exists and is populated
+MSYS_NO_PATHCONV=1 docker exec odoo ls /var/lib/odoo/filestore/
+# Should list database name directories
+
+# 9. Product/category images load (not broken)
+# Open a product page with images — no 500 errors
 ```
+
+---
+
+## Data Safety Checklist (from real incidents)
+
+### Volume Naming
+- [ ] Volume names in docker-compose are LOCKED — never rename existing volume entries
+- [ ] Volume names match what containers actually use (check `docker inspect`)
+- [ ] No anonymous volumes accumulating (check `docker volume ls`)
+
+### Backup Strategy
+- [ ] Database backup scheduled: `pg_dump -Fc` (not just SQL dump)
+- [ ] **Filestore backup scheduled alongside DB** — filestore is on disk only, NOT in the database
+- [ ] Backup includes both: `pg_dump` + `docker cp container:/var/lib/odoo/filestore/DB_NAME`
+- [ ] Restore tested: DB + filestore restored together, images verified
+
+### Performance
+- [ ] `DEV_MODE=0` in `.env` (DEV_MODE=1 causes 6-8s page loads on Docker Desktop)
+- [ ] Source bind mounts are read-only where possible (`:ro` flag)
+- [ ] `--dev=all` is NOT in the Odoo command line for production
+
+### Windows-Specific
+- [ ] All Docker commands in scripts use `MSYS_NO_PATHCONV=1` prefix (Git Bash path conversion breaks container paths)

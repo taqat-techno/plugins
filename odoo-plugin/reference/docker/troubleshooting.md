@@ -89,3 +89,71 @@ docker system df
 docker network ls
 docker exec {container} ping -c 1 db
 ```
+
+---
+
+## Volume and Filestore Issues (from real incidents)
+
+### All images broken after changing docker-compose
+
+**Symptom:** Every product image, website logo, and category image returns HTTP 500 or shows broken placeholder. Database queries work fine.
+
+**Cause:** The docker-compose file was regenerated with a different volume name (e.g., `project_17_filestore` changed to `project_17_data`). Docker created a new empty volume. The database still references files via `ir_attachment.store_fname` but those files are in the old orphaned volume.
+
+**Diagnosis:**
+```bash
+# Compare volume creation timestamps
+docker volume inspect project_17_data --format '{{.CreatedAt}}'
+docker volume inspect project_17_filestore --format '{{.CreatedAt}}'
+
+# Check if the old volume has the files
+MSYS_NO_PATHCONV=1 docker run --rm -v project_17_filestore:/data alpine ls /data/filestore/
+```
+
+**Fix:** Either rename the volume back in the compose file, or copy files from old volume to new:
+```bash
+MSYS_NO_PATHCONV=1 docker run --rm \
+  -v project_17_filestore:/old \
+  -v project_17_data:/new \
+  alpine sh -c 'cp -a /old/filestore /new/'
+```
+
+### Pages load in 6-8 seconds (extreme slowness)
+
+**Symptom:** Every page takes 6-8 seconds. CPU usage spikes on each request.
+
+**Cause:** `DEV_MODE=1` in `.env` file. This forces Odoo to re-read and re-parse ALL QWeb templates from bind-mounted XML files on every request. Bind mounts on Docker Desktop (Windows/Mac) are 17-4000x slower than native volumes.
+
+**Fix:** Set `DEV_MODE=0` in the project's `.env` file and restart the container:
+```bash
+# Edit .env
+sed -i 's/DEV_MODE=1/DEV_MODE=0/' .env
+docker compose -f docker-compose.{project}.yml restart odoo
+```
+
+### Docker commands fail with mangled paths on Windows
+
+**Symptom:** `docker exec container ls /var/lib/odoo` returns "No such file or directory" or permission errors. The path shows as `C:/Program Files/Git/var/lib/odoo`.
+
+**Cause:** Git Bash (MSYS2) auto-converts Unix paths to Windows paths before passing them to Docker.
+
+**Fix:** Prefix with `MSYS_NO_PATHCONV=1`:
+```bash
+MSYS_NO_PATHCONV=1 docker exec container ls /var/lib/odoo
+```
+
+### noupdate="1" records won't refresh after module update
+
+**Symptom:** Category images or other XML-data records still show broken/old values after running `-u module_name`.
+
+**Cause:** Records with `noupdate="1"` in XML data files are not overwritten by module updates. If the underlying attachment is broken, `-u` won't fix it.
+
+**Fix:** Delete the broken attachment first, then re-create:
+```python
+# In Odoo shell
+broken = env['ir.attachment'].search([('store_fname', '!=', False), ('res_model', '=', 'product.public.category')])
+for att in broken:
+    if not os.path.exists(att._full_path(att.store_fname)):
+        att.unlink()
+# Then re-import the image via ORM or copy the file to the filestore path
+```
