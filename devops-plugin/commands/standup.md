@@ -37,7 +37,7 @@ User: /standup
 
 Output:
 ## Daily Standup - 2026-03-26
-**Project:** Relief Center
+**Project:** My Project
 
 ### Yesterday
 - [#1401] [Dev] Fix geocoding timeout ✅

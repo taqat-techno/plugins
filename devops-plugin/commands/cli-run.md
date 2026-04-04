@@ -67,7 +67,7 @@ All write operations require confirmation per the **MANDATORY SAFETY** section a
 ## Example
 
 ```
-User: /cli-run az pipelines variable-group list --project "Relief Center" -o table
+User: /cli-run az pipelines variable-group list --project "My Project" -o table
 
 Output:
 ID   Name                     Variables

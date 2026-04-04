@@ -26,7 +26,7 @@ description: |
 
   <example>
   Context: User wants to add a comment with mentions
-  user: "Comment on #1234 telling @mahmoud to review this"
+  user: "Comment on #1234 telling @teammate to review this"
   assistant: "I will resolve the @mention to a GUID, format as HTML, and post the comment."
   <commentary>Comment trigger - mention resolution.</commentary>
   </example>
@@ -210,11 +210,11 @@ These workflows trigger via natural language. They replace former standalone com
 ```
 [Bug] #1234: Fix login button not responding
    State: In Progress | Priority: 2 | Severity: 2
-   Assigned: Ahmed | Sprint: Sprint 15
+   Assigned: (user) | Sprint: Sprint 15
 ```
 ```
 PR #45: Add user authentication
-   Author: Ahmed | Status: Active
+   Author: (user) | Status: Active
    Reviewers: 2/3 approved | Comments: 5
 ```
 ```

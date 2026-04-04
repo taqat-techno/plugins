@@ -38,7 +38,7 @@ User: /sprint
 
 Output:
 ## Sprint Report - Sprint 15
-**Period**: 2026-03-18 to 2026-03-29 | **Project**: Relief Center
+**Period**: 2026-03-18 to 2026-03-29 | **Project**: My Project
 
 ### Progress Overview
 | Metric | Value |
