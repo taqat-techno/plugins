@@ -88,22 +88,37 @@ Append matched lines (with line numbers) to the findings block. **Cap at 10 matc
 
 **Mode banner** (same as `/rag-status`).
 
-**Doctor summary table** (≤ 12 lines):
+**Doctor summary table** (≤ 14 lines):
 
 ```
-| Component             | Status      | Note                          |
-|-----------------------|-------------|-------------------------------|
-| Python                | OK          | 3.12.4                        |
-| qdrant-client         | OK          | 1.12.2                        |
-| sentence-transformers | OK          | 3.0.1                         |
-| mcp                   | OK          | 1.26.0                        |
-| fastapi               | OK          | 0.115.0                       |
-| Service               | OK          | running on 127.0.0.1:21420    |
-| Data directory        | OK          | %LOCALAPPDATA%\RAGTools\data  |
-| State DB              | OK          | 1247 files tracked            |
-| Collection            | INFO        | NOT FOUND (expected, F-010)   |
-| Ignore rules          | OK          | 3 layers active               |
+| Component             | Status      | Note                                          |
+|-----------------------|-------------|-----------------------------------------------|
+| Python                | OK          | 3.12.4                                        |
+| qdrant-client         | OK          | 1.12.2                                        |
+| sentence-transformers | OK          | 3.0.1                                         |
+| mcp                   | OK          | 1.26.0                                        |
+| fastapi               | OK          | 0.115.0                                       |
+| Service               | OK          | running on 127.0.0.1:21420                    |
+| Data directory        | OK          | %LOCALAPPDATA%\RAGTools\data                  |
+| State DB              | OK          | 1247 files tracked                            |
+| Collection            | INFO        | NOT FOUND (expected, F-010)                   |
+| Ignore rules          | OK          | 3 layers active                               |
+| CLAUDE.md rule        | OK          | INSTALLED v0.2.0 at ~/.claude/CLAUDE.md       |
+| MCP registrations     | OK          | 1 (plugin-level, canonical)                   |
 ```
+
+The last two rows are **plugin-level** checks added in v0.2.0 (see D-016 and D-015). They are not derived from `rag doctor` output — they are probed by this command directly, because `rag doctor` only knows about the product layer.
+
+**CLAUDE.md rule row:** runs `/rag-config claude-md status` internally and mirrors the result:
+- `OK — INSTALLED v0.2.0 at <target>` if the rule is present and up-to-date
+- `WARN — INSTALLED v<OLD>, bundled v<NEW>` if the version is outdated
+- `WARN — NOT INSTALLED (target: <path>)` if the target file exists but has no rule
+- `WARN — TARGET MISSING` if `~/.claude/CLAUDE.md` doesn't exist at all
+
+**MCP registrations row:** runs `/rag-config mcp-dedupe status` internally and mirrors the result:
+- `OK — 1 (plugin-level, canonical)` if only the plugin-level registration exists
+- `WARN — <N+1> (plugin-level + <N> duplicates)` if duplicates found. Names the duplicate locations in the findings block below.
+- `ERROR — plugin-level .mcp.json missing` if the plugin's own `.mcp.json` is absent (shouldn't happen, but worth surfacing)
 
 If everything is OK and the only `INFO` row is F-010, print a single-line summary: `✓ All checks passed. Collection NOT FOUND is expected when the service is running.` (Plus the mode banner above.)
 
@@ -113,7 +128,11 @@ If everything is OK and the only `INFO` row is F-010, print a single-line summar
 findings:
   [ERROR] Service status "not running" → see references/repair-playbooks.md#service-will-not-start (F-005)
   [WARN]  State DB has 0 files tracked → run `rag rebuild` or check projects via /rag-status
+  [WARN]  CLAUDE.md rule missing → run /rag-config claude-md install (plugin-behavior, D-016)
+  [WARN]  MCP duplicate at ~/.claude.json → run /rag-config mcp-dedupe clean (plugin-behavior, D-015)
 ```
+
+**Plugin-behavior findings** (CLAUDE.md rule and MCP dedupe) are tagged with the decision ID they trace to (D-015 / D-016), not an F-NNN. The F-NNN catalog is for ragtools product failures only — plugin-behavior issues have their own classification.
 
 **Footer** (one line):
 
@@ -127,6 +146,9 @@ Where `<recommended-action>` is one of:
 - `walk the playbook: see references/repair-playbooks.md#<anchor>` (specific failure ID matched)
 - `read recent logs: /rag-doctor --logs` (unclassified errors)
 - `run /rag-status for a fuller state picture` (no findings, but user wanted more)
+- `install the CLAUDE.md rule: /rag-config claude-md install` (rule missing, plugin-behavior)
+- `clean duplicate MCP registrations: /rag-config mcp-dedupe clean` (duplicates found, plugin-behavior)
+- `fix multiple issues: /rag-repair` (two or more findings at once)
 
 ### Step 6 — `--verbose` extras (only if requested)
 

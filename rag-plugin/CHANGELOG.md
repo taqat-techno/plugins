@@ -2,16 +2,32 @@
 
 All notable changes to `rag-plugin` are documented here. Format is loosely based on [Keep a Changelog](https://keepachangelog.com/). Versioning follows [SemVer](https://semver.org/).
 
-## [Unreleased] — post-roadmap amendment
+## [0.2.0] — 2026-04-14
+
+Post-roadmap amendment. Ships the CLAUDE.md retrieval rule as an auto-installed plugin asset, adds MCP-duplicate detection/cleanup, and wires both into `/rag-setup`, `/rag-doctor`, `/rag-repair`, and `/rag-config`.
 
 ### Added
-- **Plugin-level `.mcp.json`** at the plugin root. The plugin now ships the ragtools MCP server registration automatically, matching the `devops-plugin` pattern. When the plugin is installed via `/plugins`, Claude Code auto-discovers and registers the `ragtools` MCP server using the `rag-mcp` console script. Prerequisites: `rag-mcp` must be on PATH (true in dev mode; true in packaged Windows mode with "Add to PATH" enabled). Fallback to project-level or user-level `.mcp.json` via `/rag-setup` for installs without PATH integration.
-- **D-015** in `docs/decisions.md` documenting the decision and its relationship to D-001 (ops-only boundary — registering the MCP is not the same as wrapping it).
-- **`references/mcp-wiring.md` rewritten** to document all three registration options (Option A plugin-level auto, Option B project-level manual, Option C user-level manual).
-- **README "What this plugin IS" updated** to mention auto-wiring as the first capability.
+- **`rules/claude-md-retrieval-rule.md`** — new top-level `rules/` directory. Contains the single source of truth for the Section-0 retrieval rule block delimited by machine-readable `<!-- rag-plugin:retrieval-rule:begin v=0.2.0 -->` / `<!-- rag-plugin:retrieval-rule:end -->` markers. Commands splice this block into target CLAUDE.md files idempotently.
+- **`/rag-config claude-md status|install|remove [--yes] [--project]`** — new subcommand group. Installs, upgrades, removes, or reports on the retrieval rule in `~/.claude/CLAUDE.md` (or `<cwd>/CLAUDE.md` with `--project`). Idempotent. Backs up before writing. Atomic writes only.
+- **`/rag-config mcp-dedupe status|clean [--yes]`** — new subcommand group. Scans `~/.claude.json` (top-level and per-project `mcpServers`) and `~/.claude/.mcp.json` for duplicate `ragtools` MCP registrations that conflict with the plugin-level `.mcp.json`. Removes duplicates atomically, leaving the plugin-level one as canonical.
+- **`/rag-setup` Branch C Step C.2b** — detects and removes duplicate MCP registrations before wiring. Delegates to `/rag-config mcp-dedupe clean --yes`.
+- **`/rag-setup` Branch C Step C.5** — installs the retrieval rule into `~/.claude/CLAUDE.md` as part of first-time setup. Delegates to `/rag-config claude-md install --yes`. Reminds user the rule takes effect in the next session.
+- **`/rag-doctor` — two new rows** in the diagnostic summary table: `CLAUDE.md rule` (INSTALLED v<N> / MISSING / OUTDATED / TARGET MISSING) and `MCP registrations` (1 canonical / N duplicates found / plugin-level missing). Each maps to a remediation command.
+- **`/rag-repair` — two new plugin-behavior classifier IDs**: **P-RULE** (retrieval rule missing → `/rag-config claude-md install`) and **P-DEDUPE** (duplicate MCP registrations → `/rag-config mcp-dedupe clean`). These are separate from the F-001..F-012 catalog, which is reserved for ragtools product failures.
+- **D-016** in `docs/decisions.md` documenting the retrieval-rule decision with the incident context, safety rules for touching user CLAUDE.md files, and the non-violation of D-001 (installing a workflow instruction is not the same as wrapping a search tool).
+- **Extended D-015** scope documentation — the D-015 entry now references `/rag-config mcp-dedupe` as the dedupe mechanism.
+
+### Changed
+- **`plugin.json` version bumped** `0.1.0` → `0.2.0` (minor bump — new functionality, no breaking changes).
+- **`ARCHITECTURE.md` layer diagram updated** with the new `RULES (1)` layer between references and product surfaces, and a new `USER CONFIG (external)` layer showing the four files the plugin writes to with care (`~/.claude/CLAUDE.md`, `~/.claude.json`, `~/.claude/.mcp.json`, and the plugin's own `.mcp.json`).
+- **`README.md`** updated with the v0.2.0 auto-install behavior under "What this plugin IS".
 
 ### Rationale
-User feedback: "I need to make sure the ragtools mcp in the plugin like the devops". This amendment brings `rag-plugin` to parity with `devops-plugin`'s MCP delivery mechanism — installing the plugin gives you the MCP server registration for free, rather than requiring a separate `/rag-setup` walkthrough. The `/rag-setup` flow still exists as a fallback for packaged installs without PATH integration (primarily macOS and unchecked-PATH Windows installs).
+User incident — asked *"What is the process for emergency assistance requests?"*. The ragtools MCP was loaded and the answer was in `tq-workspace/planing/Alaqraboon/_Emergency_Assistance_Procedure_en.md` at confidence 0.80. Claude never called `search_knowledge_base` and said *"I don't have information about an 'emergency assistance request' process."* This was a retrieval failure: the tool existed, but nothing instructed Claude *when* to use it.
+
+Fix: ship a workflow instruction block (`rules/claude-md-retrieval-rule.md`) that the plugin's setup and repair commands inject into the user's `~/.claude/CLAUDE.md`. The rule loads at session start and applies globally across all projects — no per-project configuration needed. Versioned with begin/end markers for idempotent upgrade and clean removal. Safety-gated like every other write operation in the plugin: backup, atomic write, confirmation, splice by marker.
+
+Paired with MCP-duplicate cleanup (`/rag-config mcp-dedupe`) so users migrating from v0.1.0 (where they may have manually wired ragtools via `~/.claude.json`) get a clean single-registration state after upgrading.
 
 ## [0.1.0] — 2026-04-14
 

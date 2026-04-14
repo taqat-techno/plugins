@@ -245,4 +245,62 @@ Packaged macOS users must manually add the extract directory to PATH (no install
 
 ---
 
+## D-016 — CLAUDE.md retrieval rule is a shipped plugin asset, installed by /rag-config
+
+**Date:** 2026-04-14 (post-roadmap amendment #2)
+**Phase:** Post-9
+**Status:** binding
+**Ships in:** v0.2.0
+**Triggered by:** User incident — a user asked *"What is the process for emergency assistance requests?"*. The ragtools MCP was loaded and the answer was in `tq-workspace/planing/Alaqraboon/_Emergency_Assistance_Procedure_en.md` at confidence 0.80. Claude never called `search_knowledge_base` and said *"I don't have information about an 'emergency assistance request' process."* This was a retrieval failure: the tool existed, but nothing instructed Claude *when* to use it.
+
+### The decision
+
+The plugin ships a **rules/claude-md-retrieval-rule.md** file that contains the verbatim instruction block to be injected into the user's `~/.claude/CLAUDE.md`. The block is delimited by machine-readable begin/end markers:
+
+```
+<!-- rag-plugin:retrieval-rule:begin v=0.2.0 -->
+### 0. Knowledge Base Retrieval (ragtools MCP)
+...
+<!-- rag-plugin:retrieval-rule:end -->
+```
+
+The `/rag-config claude-md` subcommand group owns install / upgrade / remove / status operations. The `/rag-setup` command invokes `claude-md install` as part of its Branch C Step C.5 so first-time users get the rule automatically. `/rag-doctor` surfaces the rule's presence/version in the diagnostic table. `/rag-repair` classifies plugin-behavior symptoms ("Claude doesn't use the MCP") as **P-RULE** and routes them to `/rag-config claude-md install`.
+
+### Why the plugin installs into ~/.claude/CLAUDE.md instead of shipping a skill
+
+The `ragtools-ops` skill only loads on keyword triggers (`ragtools`, `Qdrant`, `rag service`, etc.). A user asking "what is the process for X?" with zero ragtools-related keywords would never trigger the skill. The retrieval rule must apply to **all** user questions across **all** projects, so it has to live in a place Claude reads before its first response: `~/.claude/CLAUDE.md`.
+
+A PreToolUse or UserPromptSubmit hook could also enforce this, but hooks that inject instructions on every turn pollute context and are too aggressive. The CLAUDE.md rule is the right layer: loaded once at session start, applies globally, costs nothing on a per-turn basis, and the user can read / edit / remove it like any other instruction.
+
+### Why the rule is bundled, not hardcoded into the command
+
+- **Single source of truth.** If the rule text needs to change, it changes in one file and every command picks up the new version automatically.
+- **Version tracking.** The `v=X.Y.Z` marker in the begin line lets the install command detect outdated installations and upgrade them cleanly.
+- **Clean removal.** The end marker lets the remove command splice out the block without affecting surrounding CLAUDE.md content.
+- **Auditable by the user.** Users can read `rules/claude-md-retrieval-rule.md` directly before trusting the command to write to their CLAUDE.md.
+
+### Does this violate D-001 (ops-only, never search)?
+
+**No.** The plugin is not implementing search — it is installing a *workflow instruction* that teaches Claude to call the pre-existing `search_knowledge_base` MCP tool. The search tool lives in the ragtools MCP server; the plugin never wraps it. The CLAUDE.md rule is an **instructional layer**, not a search implementation. Same pattern as how a company style guide tells engineers when to run `make test` without re-implementing the test runner.
+
+### Safety rules for touching user CLAUDE.md files
+
+- **Backup first.** Before any write, copy the target to `<target>.bak-pre-claude-md-<operation>`.
+- **Atomic writes only.** Load → modify in memory → write `.tmp` → rename. Never in-place edit.
+- **Splice by markers, not by string-replace.** Always locate the begin→end range and replace it as a whole.
+- **Confirm by default.** Show a diff summary before writing. `--yes` opt-out only for scripted use or when called from `/rag-setup`'s first-install branch.
+- **Idempotent.** Running `claude-md install` twice on an already-installed rule produces no diff.
+- **Never edit inside the markers by hand.** Always use the bundled rule as the source of truth.
+- **Never touch content outside the markers.** Other CLAUDE.md sections are untouched.
+
+### Scope of the /rag-config mcp-dedupe amendment (same release)
+
+D-015 shipped plugin-level `.mcp.json` auto-wiring. After the plugin is installed, users who had previously wired ragtools manually via `~/.claude.json` or `~/.claude/.mcp.json` end up with duplicate registrations. `/rag-config mcp-dedupe status|clean` detects and removes those duplicates, leaving the plugin-level `.mcp.json` as the sole canonical registration. Same safety rules as the `claude-md` subcommand group: backup, atomic writes, confirmation, splice by key (never touch non-ragtools entries).
+
+### Reverse only if
+
+Never. The rule closes a genuine retrieval failure and the install mechanism is idempotent, reversible, and auditable. If the rule content itself ever needs to change substantially (e.g., a new MCP tool is added and the trigger table needs expansion), bump the version marker, update `rules/claude-md-retrieval-rule.md`, and the next `claude-md install` will upgrade existing installations cleanly.
+
+---
+
 *Append new decisions below. Never rewrite or delete an entry — supersede with a new dated entry that references the old one.*

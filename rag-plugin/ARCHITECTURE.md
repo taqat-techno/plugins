@@ -6,14 +6,15 @@
 
 ```
 ┌────────────────────────────────────────────────────────────────┐
-│  COMMANDS (planned, Phase 2+)                                  │
+│  COMMANDS (9)                                                  │
 │  /rag-status, /rag-doctor, /rag-setup, /rag-repair,            │
-│  /rag-projects, /rag-upgrade, /rag-reset                       │
+│  /rag-projects, /rag-upgrade, /rag-reset,                      │
+│  /rag-config, /rag-sync-docs (maintainer-only)                 │
 │  Thin entry points. Print mode banner. Defer to the skill.     │
 └──────────────────────┬─────────────────────────────────────────┘
                        │ invoke
 ┌──────────────────────▼─────────────────────────────────────────┐
-│  SKILL (planned, Phase 2)                                      │
+│  SKILL (1)                                                     │
 │  skills/ragtools-ops/SKILL.md                                  │
 │  Owns: install/mode detection, path resolution recipe,         │
 │         router for which reference to load, phased flow prose. │
@@ -21,11 +22,22 @@
 └──────────────────────┬─────────────────────────────────────────┘
                        │ load on demand
 ┌──────────────────────▼─────────────────────────────────────────┐
-│  REFERENCES (planned, Phase 1)                                 │
+│  REFERENCES (23)                                               │
 │  skills/ragtools-ops/references/                               │
-│  Topic-split slices of ragtools_doc.md.                        │
+│  Topic-split slices of ragtools_doc.md + platform specifics.   │
 │  Source of truth for install paths, config schema, MCP wiring, │
 │  failure modes, repair playbooks, recovery, versioning, gaps.  │
+└──────────────────────┬─────────────────────────────────────────┘
+                       │ commands inject
+┌──────────────────────▼─────────────────────────────────────────┐
+│  RULES (1) — v0.2.0+                                           │
+│  rules/claude-md-retrieval-rule.md                             │
+│  Shipped plugin asset. Source of truth for the CLAUDE.md       │
+│  rule block that teaches Claude to call search_knowledge_base  │
+│  before saying "I don't have information". Installed by        │
+│  /rag-config claude-md install into ~/.claude/CLAUDE.md,       │
+│  delimited by machine-readable begin/end markers for           │
+│  idempotent upgrade and clean removal.                         │
 └──────────────────────┬─────────────────────────────────────────┘
                        │ describes
 ┌──────────────────────▼─────────────────────────────────────────┐
@@ -37,12 +49,25 @@
 │  CLI          rag doctor, rag service start/stop/status,       │
 │               rag version, rag rebuild, rag ignore check       │
 │  MCP server   search_knowledge_base, list_projects,            │
-│               index_status (already exposed to Claude Code)    │
+│               index_status — auto-wired via plugin-level       │
+│               .mcp.json (D-015), cleaned up by                 │
+│               /rag-config mcp-dedupe (D-015 amendment)         │
 │  Files        config.toml, service.log, qdrant/, state DB      │
+└────────────────────────────────────────────────────────────────┘
+                       │
+┌──────────────────────▼─────────────────────────────────────────┐
+│  USER CONFIG (external — owned by user, edited with care)     │
+│                                                                │
+│  ~/.claude/CLAUDE.md     ← rules/claude-md-retrieval-rule.md   │
+│                            injected by /rag-config claude-md   │
+│  ~/.claude.json          ← mcp-dedupe removes ragtools dups    │
+│  ~/.claude/.mcp.json     ← mcp-dedupe removes ragtools dups    │
+│  <plugin-root>/.mcp.json ← canonical ragtools registration     │
+│                            (shipped by the plugin)             │
 └────────────────────────────────────────────────────────────────┘
 ```
 
-**The plugin reaches into product surfaces. It never re-implements them.**
+**The plugin reaches into product surfaces AND user config files. It never re-implements product features and only touches user config files through the command layer with explicit confirmation gates and atomic writes (backup → modify → tmp → rename).**
 
 ## What `rag-plugin` does
 

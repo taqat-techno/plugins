@@ -134,6 +134,12 @@ This is the simplest branch. The user already has ragtools; they just need it ru
 
 The service is healthy. Now we wire Claude Code and seed the first project.
 
+**Important context (post-roadmap amendments D-015, D-016):** the rag-plugin now ships its own plugin-level `.mcp.json` at the plugin root. When the plugin is installed via `/plugins`, Claude Code auto-registers the ragtools MCP server — no manual wiring required in most cases. Branch C still exists for:
+- Packaged installs without PATH integration (macOS Phase 1, or Windows without "Add to PATH")
+- Users who want a project-level or user-level `.mcp.json` alongside the plugin-level one
+- Cleaning up duplicate registrations from older manual setups (C.2b)
+- Installing the CLAUDE.md retrieval rule (C.6)
+
 #### C.1 — Read the canonical MCP config
 
 **CRITICAL:** never hand-construct the `.mcp.json`. Always read it from the running service:
@@ -153,12 +159,35 @@ Ask the user one question:
 > "I can write `.mcp.json` to:
 >   1. **Project-level** at `<current cwd>/.mcp.json` (recommended for team-shared configs)
 >   2. **User-level** at `~/.claude/.mcp.json` (global, all your projects)
+>   3. **Skip** — the plugin-level `.mcp.json` shipped with rag-plugin is enough (recommended if `rag-mcp` is on PATH)
 >
-> Which? (1 or 2)"
+> Which? (1 / 2 / 3)"
+
+If the user picks 3, skip to **C.2b** directly (the plugin-level registration is already in place; we just need to ensure there are no duplicates).
 
 If `.mcp.json` already exists at the chosen location, **read it first**, merge the `ragtools` entry from `/api/mcp-config` into the existing `mcpServers` object, and write the merged result. Never overwrite blindly — other MCP servers may already be configured.
 
 If the merge would replace an existing `ragtools` entry with different command/args, **show the diff and ask the user to confirm** before writing.
+
+#### C.2b — Detect and remove duplicate MCP registrations
+
+**New in v0.2.0 (D-015).** The plugin-level `.mcp.json` shipped with rag-plugin auto-registers the ragtools MCP server when the plugin is installed. If the user previously wired ragtools manually via `~/.claude.json` or `~/.claude/.mcp.json`, those entries are now duplicates — same server name registered twice.
+
+Delegate to `/rag-config mcp-dedupe`:
+
+1. **Status check:** run `/rag-config mcp-dedupe status` internally. Parse the report for duplicate locations.
+2. **If no duplicates:** print `no duplicate ragtools MCP registrations — plugin-level is canonical.` Continue to C.3.
+3. **If duplicates found:** show the list and offer to clean:
+   ```
+   found duplicate ragtools MCP registrations in:
+     • ~/.claude.json → mcpServers.ragtools
+     • ~/.claude/.mcp.json → mcpServers.ragtools
+   
+   the plugin-level .mcp.json (rag-plugin/.mcp.json) is the canonical registration.
+   remove the duplicates? (yes/no)
+   ```
+4. **If yes:** invoke `/rag-config mcp-dedupe clean --yes` (the `--yes` flag suppresses the redundant second confirmation since the user already confirmed here). This backs up the affected files to `.bak-pre-mcp-dedupe`, deletes the `ragtools` keys atomically, and verifies the final state.
+5. **If no:** continue to C.3 but warn: `duplicate MCP registrations left in place — Claude Code's behavior with duplicates is implementation-defined. Run /rag-config mcp-dedupe clean later to fix.`
 
 #### C.3 — Add the first project
 
@@ -190,12 +219,41 @@ The plugin **does not** call `search_knowledge_base` itself (D-001). Instead, te
 >
 > Claude will call the `search_knowledge_base` MCP tool directly. If you don't see results, run `/rag-status` to verify projects and chunks, then `/rag-doctor` if needed."
 
-#### C.5 — Final mode banner
+#### C.5 — Install the CLAUDE.md retrieval rule
+
+**New in v0.2.0 (D-016).** Wiring the MCP is not enough — Claude needs a workflow instruction telling it *when* to reach for `search_knowledge_base`. Without this rule, Claude scans in-context CLAUDE.md, sees no mention of the user's topic, and says "I don't have information" even though the answer is in the indexed knowledge base.
+
+Delegate to `/rag-config claude-md`:
+
+1. **Status check:** run `/rag-config claude-md status` internally.
+2. **If already installed and up-to-date:** print `CLAUDE.md retrieval rule: already installed v<N>. no action needed.` Continue to C.6.
+3. **If missing or outdated:** offer to install:
+   ```
+   installing the retrieval rule teaches Claude to call search_knowledge_base
+   before saying "I don't have information" on any domain question.
+   
+   target: ~/.claude/CLAUDE.md
+   action: <install | upgrade from v<OLD> to v<NEW>>
+   
+   install the rule? (yes/no)
+   ```
+4. **If yes:** invoke `/rag-config claude-md install --yes` (the `--yes` suppresses the redundant second confirmation). The command reads `${CLAUDE_PLUGIN_ROOT}/rules/claude-md-retrieval-rule.md`, splices it into `~/.claude/CLAUDE.md` between the begin/end markers, shows a diff summary, and verifies.
+5. **If no:** continue to C.6 but warn: `retrieval rule not installed — Claude may not use the MCP for domain questions. Run /rag-config claude-md install later to fix.`
+6. **Always remind:** the rule takes effect in the **next** Claude Code session. The current session already loaded the old `~/.claude/CLAUDE.md` at startup.
+
+#### C.6 — Final mode banner
 
 Re-run mode detection one more time and print the banner. Append a one-line summary:
 
 ```
-setup complete. service: UP. mcp: wired. projects: 1. next: try a search from Claude Code.
+setup complete. service: UP. mcp: wired (plugin-level). projects: 1. CLAUDE.md rule: INSTALLED v0.2.0.
+next: try a search from Claude Code in a new session.
+```
+
+If any of the sub-steps was skipped, reflect that in the summary:
+```
+setup complete. service: UP. mcp: wired. projects: 1. CLAUDE.md rule: SKIPPED.
+warning: Claude may not use the MCP for domain questions. Run /rag-config claude-md install later.
 ```
 
 ---
