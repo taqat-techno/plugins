@@ -382,4 +382,58 @@ This is the same non-violation as D-015 (registering an MCP server ≠ wrapping 
 
 ---
 
+## D-018 — Plugin-level `.mcp.json` uses wrapped shape + cross-mode launcher (supersedes D-015 format claim)
+
+**Date:** 2026-04-14 (hotfix amendment)
+**Phase:** Post-9
+**Status:** binding
+**Ships in:** v0.3.1
+**Triggered by:** User bug report. On packaged Windows (RAGTools 2.4.1 installed at `%LOCALAPPDATA%\Programs\RAGTools\`), `/mcp` reported *"Failed to reconnect to plugin:rag:ragtools"* and `search_knowledge_base` was never callable. Two compounding bugs in the v0.3.0 plugin-level `.mcp.json`:
+
+1. **Schema bug.** The file shipped the flat shape `{"ragtools": {...}}` without the `mcpServers` wrapper. Claude Code's plugin loader expects the wrapped form for stdio servers and silently registered nothing. D-015 had claimed the flat shape was plugin-level convention, citing `devops-plugin`, but this turned out to be wrong for stdio. A cross-repo audit of `claude-plugins-official-main/` showed that **every stdio `.mcp.json` in the Anthropic reference marketplace uses the wrapped shape** (`discord`, `fakechat`, `imessage`, `telegram`). The flat shape appears only in SSE/HTTP plugins (`asana`, `github`, `example-plugin`). The `CLAUDE_CODE_PLUGIN_DEVELOPMENT_GUIDE.md` at the workspace root (lines 362–375) documents the wrapped shape as canonical.
+2. **Command-resolution bug.** The file hardcoded `command: "rag-mcp"`, which only exists as a pip console-script in dev installs. The packaged Windows installer ships `rag.exe` only — no `rag-mcp.exe` shim. The canonical command per the service's own `GET /api/mcp-config` endpoint is `rag.exe serve` on packaged Windows and `rag-mcp` on dev installs. No single literal command is correct for both.
+
+The `/rag-doctor` `mcp-dedupe status` row failed to catch either bug because it only counted duplicate registrations across `~/.claude.json` / `~/.claude/.mcp.json` / plugin-level — it never parsed the plugin-level file's contents or verified that the wired command resolved on PATH.
+
+### The decision
+
+1. **Use the wrapped shape.** The plugin-level `.mcp.json` now uses `{"mcpServers": {"ragtools": {...}}}` matching the documented Claude Code plugin MCP schema. This supersedes D-015's flat-shape claim **for stdio servers only**. SSE/HTTP plugins may continue to use the flat shape — D-018 does not touch them.
+
+2. **Delegate command resolution to a launcher.** Rather than hardcoding any single binary name, `.mcp.json` wires `command: "python"` with `args: ["${CLAUDE_PLUGIN_ROOT}/scripts/rag_mcp_launcher.py"]`. The launcher resolves the canonical ragtools binary at runtime and `os.execvp`-replaces itself with it, so Claude Code's stdio pipe connects directly to the real MCP server with no subprocess wrapping overhead.
+
+   Launcher resolution order (stdlib only, ~100 lines, zero deps):
+   - **(1) Service query.** `GET http://127.0.0.1:21420/api/mcp-config` with a 1-second timeout. The running ragtools service is the authoritative source of truth for this install mode — it knows whether this is packaged or dev, where the binary lives, and what args it expects. If the service responds with a valid `config.mcpServers.ragtools` entry, use that and return.
+   - **(2) Packaged-binary probe.** `shutil.which("rag")` → if found, `exec rag serve`. Works on packaged Windows, packaged macOS (with `rag` on PATH), and Linux dev mode.
+   - **(3) Dev-binary probe.** `shutil.which("rag-mcp")` → if found, `exec rag-mcp`. Works on `pip install -e .` dev installs.
+   - **(4) Fail loud.** Write a clear error to stderr naming all three attempts and exit 127. Claude Code surfaces the stderr in `/mcp`.
+
+3. **Harden `/rag-config mcp-dedupe status`.** The doctor check no longer just counts duplicates. It parses the plugin-level `.mcp.json` and asserts four invariants: (a) file exists and is valid JSON; (b) `mcpServers.ragtools` key is present (catches the schema bug); (c) wired `command` resolves via `shutil.which` (catches the wrong-command bug); (d) when the launcher pattern is detected, the launcher script file is readable. Any failed assertion is surfaced as a distinct `ERROR` row in `/rag-doctor` **before** duplicate-count issues, because a broken plugin-level registration means ragtools will not load at all regardless of user-level state.
+
+### Why Python on PATH is an acceptable assumption
+
+- Every ragtools install mode already requires or bundles Python. Dev installs run on a Python venv. Packaged installs bundle Python as a PyInstaller runtime. Users of this plugin are operators of a Python-based RAG tool — `python` on PATH is the minimum bar.
+- If a future regression surfaces where `python` is not resolvable (e.g., a minimal Windows user without Python), we ship platform-specific `.cmd` / `.sh` shims in a later patch. Out of scope for this hotfix.
+
+### Why not regenerate `.mcp.json` at install time instead
+
+Considered: have `/rag-setup` fetch `GET /api/mcp-config` on first run and rewrite the plugin-level `.mcp.json` with the exact binary path for the current install. Rejected because:
+- The plugin directory is cache-managed (`~/.claude/plugins/cache/...`). Rewriting versioned assets at runtime is fragile and survives plugin updates unpredictably.
+- The launcher achieves the same outcome (correct binary selected per install) without persisting mutable state inside the plugin cache.
+- The launcher re-queries `/api/mcp-config` **every time Claude Code spawns the MCP server**, so it adapts automatically when the user reinstalls ragtools, upgrades it, or switches between dev and packaged modes — no setup step required.
+
+### Non-violation of D-001 (ops-only, never search)
+
+The launcher `exec`s into the real ragtools MCP server. It does not implement search, wrap search, parse search results, or proxy MCP traffic. It is a thin process-replacement shim — the same pattern as any Unix shebang wrapper. `rag-plugin` continues to own only the ops layer.
+
+### Relationship to D-015
+
+D-015 remains binding in its intent: the plugin ships its own `.mcp.json` at the plugin root and auto-wires the ragtools MCP server so users do not have to manually edit config files. D-018 supersedes **only** D-015's specific claim that the flat shape is correct for stdio plugin-level registrations. The "Format" paragraph of D-015 is obsolete as of v0.3.1; read D-018 for the current schema rule.
+
+### Reverse only if
+
+- The `${CLAUDE_PLUGIN_ROOT}` variable stops being expanded by the Claude Code plugin loader (would break the launcher path). Unlikely — the variable is documented and used by multiple official plugins.
+- A future Claude Code release accepts the flat shape for stdio plugin-level `.mcp.json` files AND we want to drop the launcher. Even then, keeping the launcher is defensible because it handles the cross-install-mode command problem independently of the schema question.
+
+---
+
 *Append new decisions below. Never rewrite or delete an entry — supersede with a new dated entry that references the old one.*
