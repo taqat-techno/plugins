@@ -1,0 +1,25 @@
+{
+  "name": "rag-plugin",
+  "version": "0.1.0",
+  "description": "Operational console for the ragtools local RAG product. Install, configure, diagnose, repair, upgrade, and run the local Markdown knowledge base. Knows the Qdrant single-process lock, dual-mode MCP, and known failure modes. Does NOT re-implement search.",
+  "author": {
+    "name": "TaqaTechno",
+    "email": "info@taqatechno.com",
+    "url": "https://github.com/taqat-techno"
+  },
+  "homepage": "https://github.com/taqat-techno/plugins/tree/main/rag-plugin",
+  "repository": "https://github.com/taqat-techno/plugins",
+  "license": "MIT",
+  "keywords": [
+    "ragtools",
+    "rag",
+    "qdrant",
+    "knowledge-base",
+    "mcp",
+    "operations",
+    "diagnostics",
+    "support",
+    "local-first",
+    "claude-code"
+  ]
+}

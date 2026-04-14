@@ -1,0 +1,7 @@
+{
+  "ragtools": {
+    "type": "stdio",
+    "command": "rag-mcp",
+    "args": []
+  }
+}

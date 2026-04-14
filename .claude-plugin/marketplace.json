@@ -72,6 +72,17 @@
       "source": "./paper-plugin",
       "category": "design",
       "homepage": "https://github.com/taqat-techno/plugins/tree/main/paper-plugin"
+    },
+    {
+      "name": "rag",
+      "description": "Operational console for the ragtools local RAG product — install, configure, diagnose, repair, upgrade, and run the local Markdown knowledge base. Knows the Qdrant lock, dual-mode MCP, and known failure modes. Does NOT re-implement search.",
+      "author": {
+        "name": "TaqaTechno",
+        "email": "info@taqatechno.com"
+      },
+      "source": "./rag-plugin",
+      "category": "productivity",
+      "homepage": "https://github.com/taqat-techno/plugins/tree/main/rag-plugin"
     }
   ]
 }
