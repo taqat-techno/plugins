@@ -8,8 +8,6 @@
     "url": "https://github.com/taqat-techno"
   },
   "homepage": "https://github.com/taqat-techno/plugins/tree/main/rag-plugin",
-  "repository": "https://github.com/taqat-techno/plugins",
-  "license": "MIT",
   "keywords": [
     "ragtools",
     "rag",
