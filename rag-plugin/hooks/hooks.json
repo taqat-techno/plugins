@@ -1,5 +1,5 @@
 {
-  "description": "rag-plugin PreToolUse guardrail. Warns the user before running a Bash command that would fight the Qdrant single-process file lock while the ragtools service is up. Asks for confirmation only when BOTH (a) the command pattern matches a known lock-conflicting CLI invocation AND (b) the service is reachable on http://127.0.0.1:21420/health. Never denies. Mirrors the official security-guidance plugin pattern.",
+  "description": "rag-plugin hooks. (1) PreToolUse Bash guardrail that warns before commands that would fight the Qdrant single-process file lock while the ragtools service is up — asks, never denies, only when both the command pattern matches and /health is reachable. (2) UserPromptSubmit retrieval-reminder (v0.3.0, D-017) that injects a system reminder when the user's prompt has a likely match in the indexed knowledge base, so Claude reaches for search_knowledge_base before saying 'I don't have information'. Neither hook blocks or denies.",
   "hooks": {
     "PreToolUse": [
       {
@@ -8,6 +8,17 @@
           {
             "type": "command",
             "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/lock_conflict_check.py"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/prompt_retrieval_reminder.py"
           }
         ]
       }

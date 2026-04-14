@@ -2,6 +2,48 @@
 
 All notable changes to `rag-plugin` are documented here. Format is loosely based on [Keep a Changelog](https://keepachangelog.com/). Versioning follows [SemVer](https://semver.org/).
 
+## [0.3.0] — 2026-04-14
+
+Post-roadmap amendment #3. Ships the **Tier-2 guided-enforcement UserPromptSubmit retrieval-reminder hook** with lightweight observability. Closes the advisory-only gap in the D-016 CLAUDE.md rule by adding a harness-enforced layer that injects a system reminder at the moment of answering, not just at session start. Also includes the canonical marker-wrapped upgrade to `~/.claude/CLAUDE.md` on the development machine.
+
+### Added
+- **`rag-plugin/hooks/prompt_retrieval_reminder.py`** — new `UserPromptSubmit` hook script, ~230 lines. Python 3 stdlib only (`json`, `os`, `re`, `sys`, `time`, `urllib.*`). Two-phase decision: Phase A shape gate (question-like OR possessive-domain, NOT current-context), Phase B domain probe via `GET /api/search?top_k=1&compact=true` with a 1-second timeout. Injects a ~10-line reminder via `hookSpecificOutput.additionalContext` when both phases pass. Silent-passes in every other case. Honors D-007 (never deny, never block), D-008 (compact reminder ~200 tokens), and D-012 (observability log contains zero user content).
+- **`rag-plugin/scripts/analyze_hook_decisions.py`** — new maintainer tool, ~150 lines. Reads `~/.claude/rag-plugin/hook-decisions.log` and prints aggregate stats: decisions by action tag, probe-score histogram, shape-gate pass rate, reminder-injection rate, hook version distribution, tuning hints. Read-only, stdlib only, takes no arguments.
+- **`/rag-config hook-observability {status|on|off|analyze|clear}`** — new subcommand group. Controls the hook-decisions log. Default **enabled** (opt-out via `~/.claude/rag-plugin/.hook-observability-disabled` marker file). `analyze` invokes the analyzer script; `clear` deletes the log with typed `CLEAR` confirmation.
+- **Observability log at `~/.claude/rag-plugin/hook-decisions.log`** — JSONL, append-only. Schema: `{ts, shape_match, probe_match, probe_top_score, action, prompt_length, hook_version}`. Zero user content. D-012 aligned.
+- **D-017** in `docs/decisions.md` — the binding decision, terminology correction ("Tier 2 = guided, Tier 3 = strong"), observability-first escalation rationale, D-001/D-012 non-violation argument.
+
+### Changed
+- **`rag-plugin/hooks/hooks.json`** — now registers two hooks: the existing `PreToolUse` Bash lock-conflict guardrail AND the new `UserPromptSubmit` retrieval-reminder. Both use the plugin-level format with `matcher` field (`"Bash"` and `"*"` respectively).
+- **`rag-plugin/.claude-plugin/plugin.json`** — version `0.2.0` → `0.3.0`.
+- **`rag-plugin/commands/rag-config.md`** — four feature groups now (was three). New `hook-observability` subcommand group documented with per-subcommand steps. Unified `status` dashboard now reports four rows.
+- **`rag-plugin/ARCHITECTURE.md`** — layer diagram updated with the new `UserPromptSubmit` hook, the new `scripts/` directory, and the plugin's right to inject `hookSpecificOutput.additionalContext`. Forbidden list unchanged (the hook never wraps or calls `search_knowledge_base` — the `/api/search` probe reads only `results[0].score`, never result content).
+- **`rag-plugin/README.md`** — status badge `v0.2.0` → `v0.3.0`. Added "Tier-2 UserPromptSubmit retrieval-reminder hook" as a new capability bullet under "What this plugin IS". Updated "What we record" section to document the hook-decisions log schema alongside the existing telemetry description.
+- **`~/.claude/CLAUDE.md`** (on the development machine) — canonical marker-wrapped upgrade applied via direct splice. Manually-written Section 0 (29 lines, no markers) replaced with the marker-wrapped v0.2.0 canonical block (33 lines). Backup at `~/.claude/CLAUDE.md.bak-pre-claude-md-install`. This is outside the plugin repo and does not ship with the release, but the operation is documented here for completeness.
+
+### Rationale
+The D-016 CLAUDE.md rule was correct as a first step but insufficient on its own. User incident: *"What is the process for emergency assistance requests?"* — rule loaded, still skipped. Two root causes:
+
+1. **CLAUDE.md is advisory.** The harness doesn't enforce it; Claude reads it and chooses whether to follow it per-turn.
+2. **Model judgment gap.** Even when the rule is read, classifying a question as "domain" vs "general" is fuzzy without explicit `my notes` signals.
+
+Fix: add a **harness-enforced** layer via `UserPromptSubmit`. The hook always runs. When the shape heuristic + domain probe both pass, a reminder is injected into the model's context **at the moment of answering** (not at session start). Claude can still choose to ignore the reminder, but failure mode #1 (forgot the rule) is closed, and failure mode #2 (misjudged the domain) is sharply reduced by surfacing the reminder right when the decision is being made.
+
+Observability is paired with the hook so the Tier-2-vs-Tier-3 decision can be data-driven. If the reminder alone is sufficient, we never ship Tier 3 (pre-fetch) and save the context cost. If not, we have the data to justify the escalation.
+
+**Key safety properties preserved:**
+- Hook never blocks, denies, or throws. Silent-pass on any error.
+- Probe is a confidence check (`results[0].score` only), not a retrieval — never reads content.
+- Observability log contains zero user content (metadata only).
+- Default-enabled observability is consistent with diagnostic syslogs; opt-out is one command.
+- `D-001` (ops-only, never search) non-violation: registering a reminder ≠ wrapping the MCP.
+
+### Verification
+- 9 unit tests via echo-pipe (current-context, trivia, low-probe, high-probe, service-down, malformed JSON, no user_prompt, possessive domain, question+current-context). All pass.
+- Emergency-assistance regression test: probe returned score 0.813, reminder injected correctly.
+- Analyzer script run against 9 real log entries: stats render correctly, tuning hints fire appropriately.
+- Validator: 9 commands, 1 skill, 1 hooks file, 0 errors (same 2 documented stale-validator false positives on hooks.json from Phase 6).
+
 ## [0.2.0] — 2026-04-14
 
 Post-roadmap amendment. Ships the CLAUDE.md retrieval rule as an auto-installed plugin asset, adds MCP-duplicate detection/cleanup, and wires both into `/rag-setup`, `/rag-doctor`, `/rag-repair`, and `/rag-config`.

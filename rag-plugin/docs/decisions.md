@@ -303,4 +303,83 @@ Never. The rule closes a genuine retrieval failure and the install mechanism is 
 
 ---
 
+## D-017 — Tier-2 UserPromptSubmit retrieval-reminder hook + observability-first escalation
+
+**Date:** 2026-04-14 (post-roadmap amendment #3)
+**Phase:** Post-9
+**Status:** binding
+**Ships in:** v0.3.0
+**Triggered by:** The D-016 CLAUDE.md rule is advisory. A follow-up incident confirmed the gap: with the rule loaded, Claude still misclassified *"What is the process for emergency assistance requests?"* as general knowledge and refused to call `search_knowledge_base`, even though the answer was in `tq-workspace/planing/Alaqraboon/_Emergency_Assistance_Procedure_en.md` at confidence 0.80. The user correctly identified this as a failure of instruction-layer enforcement: CLAUDE.md is text Claude reads, not a hook Claude must execute.
+
+### The decision
+
+Ship a **Tier-2 guided-enforcement `UserPromptSubmit` hook** inside the plugin at `hooks/prompt_retrieval_reminder.py`, registered via `hooks/hooks.json`. The hook:
+
+1. **Runs on every user prompt** (harness-enforced by Claude Code — this part is not advisory).
+2. **Phase A — shape gate** (cheap regex, no network): excludes current-context references ("this file", "above", etc.), passes on question shape (`?`, wh-words, imperative retrieval verbs), passes on possessive domain statements (`our deployment pipeline`, `the runbook`, etc.).
+3. **Phase B — domain probe** (one local HTTP call, ~30–50ms): probes `/health` with 500ms timeout, then `GET /api/search?query=<prompt>&top_k=1&compact=true` with 1s timeout. Checks `results[0].score ≥ 0.5` (the ragtools MODERATE confidence boundary).
+4. **Injects a reminder** via `hookSpecificOutput.additionalContext` when both phases pass. Silent-passes in every other case.
+5. **Never blocks, denies, or crashes a turn** — any error at any phase is swallowed as a silent-pass (D-007 spirit).
+
+### Terminology correction (explicit, binding)
+
+- **Tier 1 / Tier 2 = stronger guided enforcement.** The hook is harness-enforced (it definitely runs on every user prompt), but after reading the injected reminder, Claude can still choose not to call `search_knowledge_base`. Enforcement is on the *reminder delivery*, not the *tool call*.
+- **Tier 3 = strongest practical enforcement.** Retrieval is prefetched by the hook before Claude composes its response. By the time Claude answers, the data is already in `additionalContext` — no "decide to search" step for the model to skip. **Tier 3 is NOT shipped in v0.3.0.** Escalation is deferred until observability data shows Tier 2 is insufficient.
+
+### Why Tier 2 first, not Tier 3 immediately
+
+- **Cost.** Tier 3 burns ~500–1500 tokens per matched prompt (pre-fetched results). Tier 2 burns ~200 tokens per matched prompt (reminder text only). For a session with many non-domain prompts, Tier 2's `silent-pass` discipline means most prompts cost **zero** tokens.
+- **Reversibility.** If Tier 2 turns out to have too many false positives (reminder injected on prompts that don't need search), we can tune the threshold or heuristic without breaking anything. If Tier 3 is too aggressive, it's harder to dial back because the results are already in context.
+- **Measurability.** With observability (below), we can tell within days whether the judgment gap is closed by Tier 2's reminder, or whether it persists even when Claude is reminded. That data determines whether to ship Tier 3 at all.
+
+### Lightweight observability log
+
+Every hook invocation appends one JSON line to `~/.claude/rag-plugin/hook-decisions.log`. Schema:
+
+```json
+{
+  "ts": "2026-04-14T15:11:35Z",
+  "shape_match": true,
+  "probe_match": true,
+  "probe_top_score": 0.813,
+  "action": "reminder-injected",
+  "prompt_length": 53,
+  "hook_version": "0.3.0"
+}
+```
+
+**Fields are decision metadata only.** The log NEVER contains:
+- ❌ Prompt text (not even hashed)
+- ❌ Search query text
+- ❌ Result content (file paths, chunks, headings)
+- ❌ Project IDs
+- ❌ User, machine, or network identifiers
+- ❌ Environment variables
+
+This is D-012 aligned: local-only, no network egress, user-inspectable, zero content persistence. The only things stored are booleans, a float score, an action tag, and a prompt-length integer — enough for aggregate FP/FN analysis, insufficient to reconstruct what the user asked.
+
+**Default: enabled.** Consistent with diagnostic syslogs in server software (on by default, user can turn off). Rationale: user explicitly asked for observability to drive the Tier-2-vs-Tier-3 decision, and the data must actually accumulate to be useful. Opt-out via a marker file at `~/.claude/rag-plugin/.hook-observability-disabled`.
+
+### `/rag-config hook-observability` subcommand group
+
+Added in v0.3.0 to manage the log lifecycle: `status`, `on`, `off`, `analyze` (invokes `scripts/analyze_hook_decisions.py` for aggregate stats), `clear` (delete log with typed `CLEAR` confirmation). Same discipline as the existing telemetry subcommand group.
+
+### `scripts/analyze_hook_decisions.py`
+
+New maintainer/power-user tool. Reads the log, prints aggregate stats: decisions by action tag, probe-score histogram, shape-gate pass rate, reminder-injection rate overall and within shape-passed prompts, hook version distribution, and tuning hints (e.g., "injection rate > 25%, consider raising the threshold"). Read-only, no arguments, defaults to the canonical log path. Python 3 stdlib only.
+
+### Non-violation of D-001 (ops-only, never search)
+
+The hook **REGISTERS A REMINDER** that mentions `search_knowledge_base`. It does NOT call the MCP tool. It does NOT wrap or reformat the MCP tool's results. It does NOT implement search of its own. The closest it gets to search is a lightweight HTTP probe to `/api/search?top_k=1&compact=true` to check *whether* a domain match exists — but it only reads `results[0].score`, not the result content. The probe is a **confidence check**, not a retrieval. Compact mode is used specifically to minimize the response payload the hook has to parse.
+
+This is the same non-violation as D-015 (registering an MCP server ≠ wrapping it) and D-016 (installing a workflow rule ≠ implementing a search tool).
+
+### Reverse only if
+
+- The upstream ragtools product removes the `/api/search` endpoint (the probe would fail → hook would silent-pass every prompt → reverts to CLAUDE.md-only guidance).
+- The observability data shows Tier 2 is insufficient over a meaningful window (weeks, not hours) — in which case **escalate to Tier 3** (new D-018), don't remove Tier 2.
+- Never remove the hook because of context-cost concerns without first measuring the actual cost per turn via the observability log. The silent-pass path is ~zero tokens; cost only accumulates on matched prompts.
+
+---
+
 *Append new decisions below. Never rewrite or delete an entry — supersede with a new dated entry that references the old one.*

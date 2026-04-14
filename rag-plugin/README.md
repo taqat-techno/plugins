@@ -2,7 +2,7 @@
 
 > Operations and support plugin for the **ragtools** local-first RAG product. Install, configure, diagnose, repair, upgrade, and run the local Markdown knowledge base from inside Claude Code.
 
-**Status:** `v0.2.0` — All 10 phases shipped + 2 post-roadmap amendments (D-015 plugin-level MCP auto-wiring, D-016 CLAUDE.md retrieval rule auto-install). Production-ready for ragtools 2.4.x.
+**Status:** `v0.3.0` — All 10 phases shipped + 3 post-roadmap amendments (D-015 plugin-level MCP auto-wiring, D-016 CLAUDE.md retrieval rule auto-install, D-017 Tier-2 UserPromptSubmit retrieval-reminder hook + observability). Production-ready for ragtools 2.4.x.
 
 ---
 
@@ -12,6 +12,7 @@
 
 - **Auto-wire the ragtools MCP server.** The plugin ships its own `.mcp.json` at the plugin root (same pattern as `devops-plugin`). Installing the plugin registers `search_knowledge_base`, `list_projects`, and `index_status` with Claude Code automatically — no manual `.mcp.json` editing required (assuming `rag-mcp` is on PATH). (D-015)
 - **Auto-install the CLAUDE.md retrieval rule.** The plugin ships `rules/claude-md-retrieval-rule.md`, a workflow instruction block that teaches Claude to call `search_knowledge_base` before saying "I don't have information" on any domain question. `/rag-setup` installs it into `~/.claude/CLAUDE.md` automatically during first-time setup. `/rag-doctor` surfaces its presence/version. `/rag-repair` classifies plugin-behavior symptoms as **P-RULE** and routes them here. (D-016)
+- **Tier-2 UserPromptSubmit retrieval-reminder hook (v0.3.0).** A PreToolUse-style `UserPromptSubmit` hook ships inside the plugin. It fires on every user prompt, runs a shape heuristic (question-like, domain-possessive, not referencing current context), and if passed, probes `/api/search?top_k=1` for a likely match. When the top result scores ≥ 0.5 (MODERATE+), it injects a system reminder via `hookSpecificOutput.additionalContext` telling Claude to call `search_knowledge_base` before answering. **The hook is harness-enforced**, so Claude cannot "forget" the rule — the reminder is injected at the moment of answering, not loaded once at session start. Closes the advisory-only gap in the CLAUDE.md rule. (D-017)
 - **Detect and clean up duplicate MCP registrations.** `/rag-config mcp-dedupe` scans `~/.claude.json` and `~/.claude/.mcp.json` for stale ragtools entries that conflict with the plugin-level one and removes them atomically with backups.
 - Detect install state (packaged Windows / packaged macOS / dev-mode / not installed)
 - Resolve config / data / log paths the same way ragtools itself does

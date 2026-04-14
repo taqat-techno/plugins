@@ -135,18 +135,29 @@ If all five answers are "no", the feature is in scope.
 
 ## Phase 9 closure — final inventory and state
 
-All 10 phases (0–9) of the rag-plugin roadmap are shipped. The plugin's surface is:
+All 10 phases (0–9) of the rag-plugin roadmap are shipped, plus three post-roadmap amendments (D-015, D-016, D-017). The plugin's surface as of **v0.3.0**:
 
-- **Plugin manifest:** `.claude-plugin/plugin.json` (`v0.1.0`)
+- **Plugin manifest:** `.claude-plugin/plugin.json` (`v0.3.0`)
 - **9 slash commands:**
   - User-facing (7): `/rag-status`, `/rag-doctor`, `/rag-setup`, `/rag-repair`, `/rag-projects`, `/rag-upgrade`, `/rag-reset`
-  - User-facing config (1): `/rag-config` (telemetry on/off toggle, default off, local-only)
+  - User-facing config (1): `/rag-config` — four subcommand groups: telemetry (D-012), claude-md (D-016), mcp-dedupe (D-015), hook-observability (D-017)
   - Maintainer-only (1): `/rag-sync-docs` (`disable-model-invocation: true`, never auto-invoked)
 - **1 skill:** `ragtools-ops` (`skills/ragtools-ops/SKILL.md`)
-- **1 PreToolUse hook:** `hooks/lock_conflict_check.py` (Python 3 stdlib, 7-pattern matcher + 1-second `/health` probe, `permissionDecision: ask` only when both conditions hold)
+- **2 hooks** (both in `hooks/hooks.json`):
+  - **PreToolUse Bash** → `hooks/lock_conflict_check.py` (Python 3 stdlib, 7-pattern matcher + 1-second `/health` probe, `permissionDecision: ask` only when both conditions hold). Lock-conflict guardrail.
+  - **UserPromptSubmit** `matcher: "*"` → `hooks/prompt_retrieval_reminder.py` (Python 3 stdlib, Phase A shape gate + Phase B `/api/search` probe, injects `additionalContext` reminder when both phases pass). Retrieval-reminder (D-017, v0.3.0).
+- **1 rules file:** `rules/claude-md-retrieval-rule.md` — the Section-0 canonical block installed into `~/.claude/CLAUDE.md` by `/rag-config claude-md install`.
 - **1 Haiku agent:** `rag-log-scanner` (`agents/rag-log-scanner.md`)
+- **1 maintainer script:** `scripts/analyze_hook_decisions.py` — reads the hook-decisions log and prints aggregate stats (v0.3.0, D-017).
 - **23 reference files** under `skills/ragtools-ops/references/` (16 from Phase 1 + setup-walkthrough + output-conventions + upgrade-paths + macos-specifics + linux-dev-mode + INDEX + _meta)
-- **Documentation:** `README.md`, `ARCHITECTURE.md` (this file), `CHANGELOG.md`, `LICENSE`, `docs/decisions.md`
+- **1 plugin-level MCP config:** `.mcp.json` at the plugin root (D-015) — registers the ragtools MCP server automatically on plugin install.
+- **Documentation:** `README.md`, `ARCHITECTURE.md` (this file), `CHANGELOG.md`, `LICENSE`, `docs/decisions.md` (D-001..D-017)
+
+### v0.3.0 additions summary (D-017)
+
+The new UserPromptSubmit hook is an **additional writable surface** for the plugin: it now injects `hookSpecificOutput.additionalContext` on matched prompts. This is a read+compute flow (read user prompt, compute shape/probe decision, write decision metadata to log, emit reminder JSON). It does NOT modify any user config file. It does NOT read any result content from the probe — only `results[0].score`. It does NOT call any MCP tool. It does NOT block, deny, or crash a turn.
+
+The observability log at `~/.claude/rag-plugin/hook-decisions.log` is a new plugin-owned writable surface (distinct from the existing D-012 telemetry log at `~/.claude/rag-plugin/usage.log`). Same directory, different file, different purpose: the hook-decisions log captures **decision metadata** for the retrieval-reminder hook's own behavior; the telemetry log captures user command invocation counts. Neither contains user content.
 
 ### Validator state
 
