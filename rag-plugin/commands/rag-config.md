@@ -1,19 +1,20 @@
 ---
-description: Manage rag-plugin local plugin configuration. Controls the opt-in usage-log toggle, the CLAUDE.md retrieval rule install/upgrade/remove, and MCP-duplicate detection/cleanup.
-argument-hint: "status | telemetry <on|off> | claude-md <status|install|remove> [--yes] [--project] | mcp-dedupe <status|clean> [--yes]"
-allowed-tools: Bash(test:*), Bash(mkdir:*), Bash(echo:*), Bash(cat:*), Bash(printenv:*), Bash(grep:*), Bash(diff:*), Bash(sed:*), Read, Write, Edit
+description: Manage rag-plugin local plugin configuration. Controls the opt-in usage-log toggle, the CLAUDE.md retrieval rule install/upgrade/remove, MCP-duplicate detection/cleanup, and the UserPromptSubmit hook observability log.
+argument-hint: "status | telemetry <on|off> | claude-md <status|install|remove> [--yes] [--project] | mcp-dedupe <status|clean> [--yes] | hook-observability <status|on|off|analyze|clear>"
+allowed-tools: Bash(test:*), Bash(mkdir:*), Bash(echo:*), Bash(cat:*), Bash(printenv:*), Bash(grep:*), Bash(diff:*), Bash(sed:*), Bash(wc:*), Bash(rm:*), Bash(python3:*), Read, Write, Edit
 disable-model-invocation: false
 author: TaqaTechno
-version: 0.2.0
+version: 0.3.0
 ---
 
 # /rag-config
 
-Manage `rag-plugin` plugin configuration. Three feature groups:
+Manage `rag-plugin` plugin configuration. Four feature groups:
 
 1. **Telemetry toggle** — local-only opt-in usage log. Default off. Honors D-012.
 2. **CLAUDE.md retrieval rule** — installs, upgrades, or removes the rule block that tells Claude to reach for `search_knowledge_base` before saying "I don't have information." Source of truth: `rules/claude-md-retrieval-rule.md`. Honors D-016.
 3. **MCP-duplicate detection** — scans `~/.claude.json` and `~/.claude/.mcp.json` for duplicate `ragtools` MCP registrations that would conflict with the plugin-level `.mcp.json`. Honors D-015.
+4. **UserPromptSubmit hook observability** — controls the `~/.claude/rag-plugin/hook-decisions.log` file that records decision metadata from the retrieval-reminder hook (D-017). Default ON. No user content ever logged.
 
 ## Subcommand catalog
 
@@ -26,6 +27,11 @@ Manage `rag-plugin` plugin configuration. Three feature groups:
 | `claude-md remove` | Remove the retrieval rule block cleanly (keeps surrounding CLAUDE.md content) | yes (delete marker range) |
 | `mcp-dedupe status` | Report any duplicate ragtools MCP registrations in user-level `.claude.json`, user-level `.mcp.json`, or project-level `.mcp.json` | no |
 | `mcp-dedupe clean` | Remove duplicate ragtools MCP registrations from user-level configs, leaving the plugin-level one as the sole active registration | yes (edit JSON files) |
+| `hook-observability status` | Show whether the retrieval-reminder hook's decision log is enabled, its path, and line count | no |
+| `hook-observability on` | Remove the disable marker (enables hook-decisions logging — default state) | yes (remove marker file) |
+| `hook-observability off` | Create the disable marker (disables hook-decisions logging; existing log is preserved) | yes (create marker file) |
+| `hook-observability analyze` | Run `scripts/analyze_hook_decisions.py` and print aggregate stats from the log | no |
+| `hook-observability clear` | Delete the hook-decisions log file (requires typed `CLEAR` confirmation) | yes (delete log file) |
 
 ## Behavior
 
@@ -351,25 +357,133 @@ Removes all duplicate `ragtools` entries, leaving only the plugin-level one.
 
 ---
 
+# `hook-observability` subcommand group
+
+Controls the `~/.claude/rag-plugin/hook-decisions.log` file written by the `UserPromptSubmit` retrieval-reminder hook (`hooks/prompt_retrieval_reminder.py`). See **D-017** in `docs/decisions.md` and the README section "What we record".
+
+**Default state:** **enabled.** Rationale: the log contains zero user content (decision metadata only — timestamp, shape_match, probe_match, probe_top_score, action tag, prompt_length, hook version). The user asked for observability to drive the Tier-2-vs-Tier-3 escalation decision, so the default must actually accumulate data.
+
+**Opt-out marker:** `~/.claude/rag-plugin/.hook-observability-disabled` (empty file). Presence disables the hook's logging. Absence enables it.
+
+**What the log contains:** one JSON object per hook invocation with these fields only:
+
+| Field | Type | Example |
+|---|---|---|
+| `ts` | ISO 8601 UTC | `2026-04-14T15:11:35Z` |
+| `shape_match` | bool | `true` |
+| `probe_match` | bool | `true` |
+| `probe_top_score` | float | `0.813` |
+| `action` | string | `reminder-injected` / `silent-pass:<reason>` |
+| `prompt_length` | int | `53` |
+| `hook_version` | string | `0.3.0` |
+
+**What the log does NOT contain:** prompt text, query text, result content, file paths, project IDs, machine identifiers, environment variables, or anything the user typed. D-012 aligned.
+
+## `hook-observability status`
+
+1. Resolve `~/.claude/rag-plugin/`. Check for the log file and the disable marker.
+2. Render:
+   ```
+   hook-observability: ENABLED    (default)
+     log file:  ~/.claude/rag-plugin/hook-decisions.log
+     log size:  <N> lines, <B> bytes
+     last entry ts: <ts or "empty">
+   ```
+   Or when disabled:
+   ```
+   hook-observability: DISABLED
+     disable marker: ~/.claude/rag-plugin/.hook-observability-disabled
+     log file (preserved): ~/.claude/rag-plugin/hook-decisions.log (<N> lines)
+     to re-enable: /rag-config hook-observability on
+   ```
+
+## `hook-observability on`
+
+Removes the disable marker. No-op if already enabled.
+
+```bash
+rm -f "$HOME/.claude/rag-plugin/.hook-observability-disabled"
+```
+
+Confirm: `hook-observability: ENABLED. future hook invocations will append to ~/.claude/rag-plugin/hook-decisions.log.`
+
+## `hook-observability off`
+
+Creates the disable marker. The existing log file is **preserved** — user can inspect it before deciding to delete.
+
+```bash
+mkdir -p "$HOME/.claude/rag-plugin"
+touch "$HOME/.claude/rag-plugin/.hook-observability-disabled"
+```
+
+Confirm: `hook-observability: DISABLED. the hook will silent-pass without logging. existing log preserved at <path>. to delete: /rag-config hook-observability clear.`
+
+## `hook-observability analyze`
+
+Runs the bundled analyzer and prints aggregate stats:
+
+```bash
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/analyze_hook_decisions.py"
+```
+
+The analyzer produces:
+- Total decisions
+- Breakdown by action tag
+- Probe-score histogram (only for decisions where the probe ran)
+- Shape gate pass rate, reminder injection rate
+- Hook version distribution
+- Tuning hints (e.g., "injection rate is too high — raise the threshold")
+
+**Read-only.** The analyzer never modifies the log or calls the MCP.
+
+## `hook-observability clear`
+
+Deletes the log file. Requires typed `CLEAR` confirmation (same discipline as `/rag-reset`).
+
+### Steps
+
+1. Resolve the log path.
+2. If the file doesn't exist, print `log file not found — nothing to clear` and stop.
+3. Print the current line count and last-entry timestamp so the user knows what they're about to delete:
+   ```
+   about to delete: ~/.claude/rag-plugin/hook-decisions.log
+   current size: <N> lines (<B> bytes)
+   last entry: <ts>
+   
+   this is irreversible. type CLEAR to confirm:
+   ```
+4. Wait for the user to type `CLEAR` verbatim.
+5. Delete the file:
+   ```bash
+   rm "$HOME/.claude/rag-plugin/hook-decisions.log"
+   ```
+6. Confirm: `log cleared. future hook invocations will create a fresh log (assuming observability is enabled).`
+
+**The clear operation does NOT touch the disable marker** — if observability is off, it stays off after clear. If on, it stays on.
+
+---
+
 # `status` — unified dashboard
 
-The top-level `status` subcommand prints a compact summary of all three feature groups in ≤ 15 lines:
+The top-level `status` subcommand prints a compact summary of all four feature groups in ≤ 18 lines:
 
 ```
 ragtools detected: <mode banner>
 
-rag-plugin v0.2.0 configuration:
+rag-plugin v0.3.0 configuration:
   telemetry:          OFF                                          (see /rag-config telemetry on)
   CLAUDE.md rule:     INSTALLED v0.2.0 at ~/.claude/CLAUDE.md
-  MCP registrations:  1 (plugin-level, canonical)                  ✓
+  MCP registrations:  1 (plugin-level, canonical)                  [OK]
+  hook-observability: ENABLED                                      (247 decisions logged)
 
 next:
-  • /rag-config telemetry on  — enable local-only usage logging
-  • /rag-config claude-md status  — detail the retrieval rule state
-  • /rag-config mcp-dedupe status  — detail MCP registrations
+  • /rag-config telemetry on           — enable local-only usage logging
+  • /rag-config claude-md status       — detail the retrieval rule state
+  • /rag-config mcp-dedupe status      — detail MCP registrations
+  • /rag-config hook-observability analyze  — inspect hook decision stats
 ```
 
-If any of the three is in a non-default state (telemetry on, rule outdated/missing, duplicates found), the corresponding row gets a `!` marker and the `next:` section surfaces the remediation command.
+If any of the four is in a non-default state (telemetry on, rule outdated/missing, duplicates found, observability disabled), the corresponding row gets a `!` marker and the `next:` section surfaces the remediation command.
 
 ## Boundary reminders (whole command)
 
@@ -381,13 +495,17 @@ If any of the three is in a non-default state (telemetry on, rule outdated/missi
 - **Never touch non-ragtools MCP entries.** Other servers are off-limits.
 - **Never delete the plugin-level `.mcp.json`.**
 - **Never networked telemetry (D-012).** Unchanged by this update.
+- **Hook-decisions log contains zero user content (D-017).** Only decision metadata: timestamp, shape_match, probe_match, probe_top_score, action tag, prompt_length, hook version. Never the prompt text, never the query, never the results.
 - Compact-by-default per D-008.
 
 ## See also
 
 - `rules/claude-md-retrieval-rule.md` — source of truth for the retrieval rule block
-- `/rag-setup` — calls `claude-md install` and `mcp-dedupe clean` as part of Step C.2b / C.6
-- `/rag-doctor` — surfaces retrieval-rule and MCP-dedupe state in the diagnostic table
+- `hooks/prompt_retrieval_reminder.py` — the UserPromptSubmit hook whose decisions `hook-observability` surfaces
+- `scripts/analyze_hook_decisions.py` — aggregate analyzer invoked by `hook-observability analyze`
+- `/rag-setup` — calls `claude-md install` and `mcp-dedupe clean` as part of Step C.2b / C.5
+- `/rag-doctor` — surfaces retrieval-rule, MCP-dedupe, and hook-observability state in the diagnostic table
 - `/rag-repair` — classifies plugin-behavior symptoms that route here
 - `docs/decisions.md#d-015` — plugin-level `.mcp.json` auto-wiring
 - `docs/decisions.md#d-016` — CLAUDE.md retrieval rule as a shipped plugin asset
+- `docs/decisions.md#d-017` — Tier 2 guided-enforcement hook + observability-first escalation
