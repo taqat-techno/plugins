@@ -436,4 +436,75 @@ D-015 remains binding in its intent: the plugin ships its own `.mcp.json` at the
 
 ---
 
+## D-019 — Retraction of D-018 schema change; flat shape is correct for plugin-level `.mcp.json`
+
+**Date:** 2026-04-14 (retraction amendment)
+**Phase:** Post-9
+**Status:** binding
+**Ships in:** v0.3.2
+**Supersedes:** D-018 schema portion (the launcher portion of D-018 stands)
+**Triggered by:** Empirical failure of v0.3.1. With the wrapped-shape `.mcp.json` deployed, `/mcp` reported the ragtools server as present and `/reload-plugins` counted it among the loaded servers, but `ToolSearch` could not find any ragtools tool and the model could not call `search_knowledge_base`. The server initialized cleanly when probed directly over stdio — confirming the launcher worked — but the tool schemas never reached the deferred-tool registry.
+
+### What went wrong in D-018
+
+D-018 claimed that plugin-level `.mcp.json` must use the wrapped shape (`{"mcpServers": {"ragtools": {...}}}`). The evidence cited was:
+1. `CLAUDE_CODE_PLUGIN_DEVELOPMENT_GUIDE.md:362–375` documents the wrapped shape.
+2. Every stdio example in `claude-plugins-official-main/` uses the wrapped shape.
+
+Both statements are true. The error was applying them to the wrong scope. **Those docs and examples describe user-level and project-level `.mcp.json` files, not plugin-level files shipped inside a plugin directory.** The plugin-level format is a separate, flat schema, and the two scopes are not interchangeable.
+
+### Empirical evidence for the flat shape at plugin-level
+
+Direct inspection of `~/.claude/plugins/cache/` on the reporter's machine found:
+
+| Plugin | Path | Shape | Tools reach model |
+|---|---|---|---|
+| `chrome-devtools-mcp` | `claude-plugins-official/.../latest/.mcp.json` | **flat** `{"chrome-devtools": {...}}` | ✅ yes |
+| `context7` | `claude-plugins-official/.../.mcp.json` | **flat** `{"context7": {...}}` | ✅ yes |
+| `playwright` | `claude-plugins-official/.../.mcp.json` | **flat** `{"playwright": {...}}` | ✅ yes |
+| `devops-plugin` | `taqat-techno-plugins/devops/6.3.0/.mcp.json` | **flat** `{"azure-devops": {...}}` | ✅ yes |
+| `rag-plugin v0.2.0` | `.../rag/0.2.0/.mcp.json` | **flat** `{"ragtools": {...}}` | (v0.2.0 had the command-resolution bug in some environments but its schema was correct) |
+| `rag-plugin v0.3.0` | `.../rag/0.3.0/.mcp.json` | **flat** `{"ragtools": {...}}` | (same — correct schema, broken command) |
+| `rag-plugin v0.3.1` | `.../rag/0.3.1/.mcp.json` | **wrapped** `{"mcpServers": {"ragtools": {...}}}` | ❌ **no** — tool schemas never reached the model despite the launcher working |
+
+Every plugin whose tools actually reach the model uses the flat shape. The single plugin that adopted the wrapped shape is the single plugin whose tools could not be found. This is sufficient evidence to revert the v0.3.1 schema change.
+
+### The scope rule, recorded explicitly
+
+| File location | Shape | Owner |
+|---|---|---|
+| `<plugin-root>/.mcp.json` (plugin-level) | **flat** `{"<server>": {...}}` | Plugin author, ships with plugin |
+| `~/.claude/.mcp.json` (user-level) | **wrapped** `{"mcpServers": {"<server>": {...}}}` | User, global config |
+| `<repo>/.mcp.json` (project-level) | **wrapped** `{"mcpServers": {"<server>": {...}}}` | Project author, checked into repo |
+
+The wrapped shape is for files that need to coexist with other non-MCP sections of the same JSON document (user-level `~/.claude.json` uses the same `mcpServers` key alongside other top-level keys, and project-level `.mcp.json` files have historically been a subset of the user-level schema for copy-pasting convenience). The flat shape is for plugin-level because the file has nothing else in it — the entire file is the MCP registration for that plugin.
+
+### What of D-018 survives
+
+The **launcher** portion of D-018 — `scripts/rag_mcp_launcher.py` that resolves the canonical ragtools binary via the running service → `rag` on PATH → `rag-mcp` on PATH → fail loud — is **retained and correct**. That fix addresses the real v0.3.0 bug (no single hardcoded command works across every install mode) and is not affected by the schema question. The v0.3.2 `.mcp.json` still delegates to the launcher; it just does so using the flat shape instead of the wrapped shape:
+
+```json
+{
+  "ragtools": {
+    "type": "stdio",
+    "command": "python",
+    "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/rag_mcp_launcher.py"]
+  }
+}
+```
+
+### Also retracted: the `mcp-dedupe status` schema assertion
+
+v0.3.1 added a doctor assertion that the plugin-level file has `mcpServers.ragtools`. That assertion was inverted in v0.3.2 to assert the top-level `ragtools` key directly (flat shape). The detection of a wrapped-shape plugin-level file is now treated as a distinct `ERROR`, because it is the specific regression that v0.3.2 exists to prevent from recurring.
+
+### Why the mistake was made and how to prevent it
+
+The development guide and the reference marketplace both heavily feature the wrapped shape, which is the correct shape for ~90% of `.mcp.json` files a developer encounters (because most `.mcp.json` files are user/project-level, not plugin-level). A bug report claimed plugin-level needed the wrapped shape; the cross-reference check looked at the most prominent examples (which happened to match the claim); the empirical check against actually-working plugins on disk was skipped. Rule going forward: **when validating `.mcp.json` shape for plugin-level registrations, always cross-reference against working plugins in `~/.claude/plugins/cache/`, not just documentation examples.** The cache contains ground truth for what the plugin loader actually accepts.
+
+### Reverse only if
+
+- A future Claude Code release formally standardizes the plugin-level `.mcp.json` schema to require the wrapped shape. If that happens, update `.mcp.json` and document the version boundary. Until such a release exists and is verified empirically against installed plugins, the flat shape is the only known-working format.
+
+---
+
 *Append new decisions below. Never rewrite or delete an entry — supersede with a new dated entry that references the old one.*

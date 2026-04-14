@@ -2,7 +2,7 @@
 
 > Operations and support plugin for the **ragtools** local-first RAG product. Install, configure, diagnose, repair, upgrade, and run the local Markdown knowledge base from inside Claude Code.
 
-**Status:** `v0.3.1` — All 10 phases shipped + 4 post-roadmap amendments (D-015 plugin-level MCP auto-wiring, D-016 CLAUDE.md retrieval rule auto-install, D-017 Tier-2 UserPromptSubmit retrieval-reminder hook + observability, D-018 wrapped-shape `.mcp.json` + cross-mode launcher hotfix). Production-ready for ragtools 2.4.x.
+**Status:** `v0.3.2` — All 10 phases shipped + 5 post-roadmap amendments (D-015 plugin-level MCP auto-wiring, D-016 CLAUDE.md retrieval rule auto-install, D-017 Tier-2 UserPromptSubmit retrieval-reminder hook + observability, D-018 cross-mode launcher, D-019 retraction of D-018 schema change — plugin-level `.mcp.json` keeps the flat shape). Production-ready for ragtools 2.4.x.
 
 ---
 
