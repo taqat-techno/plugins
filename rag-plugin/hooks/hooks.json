@@ -1,0 +1,16 @@
+{
+  "description": "rag-plugin PreToolUse guardrail. Warns the user before running a Bash command that would fight the Qdrant single-process file lock while the ragtools service is up. Asks for confirmation only when BOTH (a) the command pattern matches a known lock-conflicting CLI invocation AND (b) the service is reachable on http://127.0.0.1:21420/health. Never denies. Mirrors the official security-guidance plugin pattern.",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/lock_conflict_check.py"
+          }
+        ]
+      }
+    ]
+  }
+}
