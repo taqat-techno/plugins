@@ -24,47 +24,15 @@ If you find yourself wanting to do any of these five things, **stop**.
 
 Always do this first. Every operational answer depends on it.
 
-### Step 1.1 — Check the service
+**The canonical recipe lives in `rules/state-detection.md`** (v0.4.0). Do not re-implement it — reference it. The recipe produces a structured `state` object (`install_mode`, `service_mode`, `binary_path`, `version`, `config_path`, `data_path`, `log_path`) and the 6-line mode banner that every command prints at the top of its response.
 
-Probe `http://127.0.0.1:21420/health` with a 1-second timeout:
+If you are answering a pure knowledge question and do not need to dispatch a command, you still print the mode banner first — users rely on it for at-a-glance orientation. Compact-by-default does not allow dropping the banner.
 
-```bash
-curl --max-time 1 -s http://127.0.0.1:21420/health
-```
-
-| Result | Service mode |
-|---|---|
-| `{"status":"ready",...}` | **UP** — use HTTP API for state, defer to running MCP for search |
-| Connection refused / timeout | **DOWN** — read ops via CLI direct mode (5–10s encoder load); refuse write ops |
-| HTTP 500 / hangs | **BROKEN** — load `references/repair-playbooks.md#service-will-not-start` |
-
-### Step 1.2 — Check the binary
-
-Resolve in this order (per **D-004**, mirrors `src/ragtools/config.py`):
-
-1. `RAG_DATA_DIR` env var (if set)
-2. `RAG_CONFIG_PATH` env var (if set)
-3. `where rag` (Windows) / `which rag` (macOS/Linux)
-4. Platform default install paths:
-   - Windows: `%LOCALAPPDATA%\Programs\RAGTools\rag.exe`
-   - macOS: `~/Applications/rag/rag` (or wherever the tarball was extracted)
-5. Dev-mode detection: `pyproject.toml` + `.venv` in CWD
-6. **Not installed** → route to `/rag-setup` (Phase 3+)
-
-### Step 1.3 — Compose the mode banner
-
-Always print this at the top of any operational answer (see `references/output-conventions.md` once Phase 6 lands):
-
-```
-ragtools detected: <packaged-windows | packaged-macos | dev-mode | not-installed>
-service mode: <UP (proxy) | DOWN (direct fallback) | BROKEN | N/A>
-binary: <path or "not found">
-config:  <path or "not found">
-data:    <path or "not found">
-logs:    <path or "not found">
-```
-
-Keep the banner ≤ 7 lines. If a path is missing, say `not found` — never invent one.
+**Dispatch summary:**
+- `install_mode == not-installed` → recommend `/rag-setup`.
+- `service_mode == BROKEN` → recommend `/rag-doctor --full --fix`.
+- `service_mode == DOWN` → offer `rag service start`; read ops still work in CLI direct mode with the "encoder will load" warning.
+- `service_mode == UP` → proceed normally, defer to the running MCP for search.
 
 ## Phase 2 — Route to the right reference
 
@@ -105,13 +73,14 @@ For failure IDs (`F-001`..`F-012`), use the failure-ID → playbook table in `re
 After loading the right reference, decide:
 
 - **Pure information question** → answer from the reference, in compact form. Cite the reference filename so the user can re-read it.
-- **Status / diagnostic question** → suggest `/rag-status` or `/rag-doctor` (Phase 2 commands).
-- **Setup / install** → suggest `/rag-setup` (Phase 3+).
-- **Repair walkthrough** → suggest `/rag-repair` (Phase 4+).
-- **Project management** → suggest `/rag-projects <subcommand>` (Phase 5+).
-- **Upgrade / reset** → suggest `/rag-upgrade` or `/rag-reset` (Phase 7+).
+- **Status / diagnostic question** → suggest `/rag-doctor` (default mode is a fast state probe; `--full` runs the deep `rag doctor` wrap).
+- **Setup / install / upgrade** → suggest `/rag-setup` (smart state-aware — branches to install, start-service, upgrade, or verify depending on detected state).
+- **Repair walkthrough** → suggest `/rag-doctor <symptom>` or `/rag-doctor --symptom F-NNN --fix` (playbook walker is built in).
+- **Project management** → suggest `/rag-projects <subcommand>` (list/add/remove/enable/disable/rebuild).
+- **Destructive reset** → suggest `/rag-reset --soft | --data | --nuclear`.
+- **Plugin-layer config** → suggest `/rag-config` (telemetry, claude-md rule, mcp-dedupe, hook-observability).
 
-Until later phases ship, only `/rag-status` and `/rag-doctor` exist. For anything else, walk the user through it manually using the references.
+**Command consolidation note (v0.4.0):** the plugin now has 6 user-facing commands (down from 8). `/rag-status`, `/rag-repair`, and `/rag-upgrade` were absorbed into `/rag-doctor` and `/rag-setup` respectively. All state detection is centralized in `rules/state-detection.md`.
 
 ## Output discipline (D-008)
 

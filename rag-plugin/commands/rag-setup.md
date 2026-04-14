@@ -1,89 +1,81 @@
 ---
-description: Guided ragtools setup — detect install state, walk install/start, wire MCP, add a first project, smoke-test the search loop
-argument-hint: "[--project <path>]"
+description: Smart ragtools install/upgrade/verify. Detects state and branches — install walkthrough when missing, start-service + verify when down, upgrade walkthrough when outdated, idempotent plugin-layer verify when healthy. Absorbs the former /rag-upgrade command (v0.4.0).
+argument-hint: "[--project <path>] [--upgrade] [--verify]"
 allowed-tools: Bash(curl:*), Bash(rag service:*), Bash(rag version:*), Bash(where rag:*), Bash(which rag:*), Bash(test:*), Bash(printenv:*), Bash(echo:*), Bash(uname:*), Bash(ver:*), Bash(arch:*), Read, Write
 disable-model-invocation: false
 author: TaqaTechno
-version: 0.1.0
+version: 0.4.0
 ---
 
 # /rag-setup
 
-Interactive first-run setup for ragtools. Walks the user from "I don't have it" or "I have it but it's broken" all the way to "service running, MCP wired, first project indexed, first MCP search returns a result". This is the **highest-friction** command in the plugin — every flow has to be honest about what it can and cannot automate.
+Smart state-aware entry point for "get ragtools working." Replaces the former `/rag-setup + /rag-upgrade` split. One command handles install, start-service, upgrade, and idempotent post-install verification. Branches on the detected state — the user does not need to know which sub-flow they are in.
 
-## Behavior
+## Behavior by state (routing table)
 
-This command is **conversational, not single-shot.** It gathers a small number of branching answers from the user (`mcp-server-dev/build-mcp-server` interrogation pattern), commits to a path, then walks one phase at a time. **Do not** dump the entire plan up front. Print the mode banner, decide the branch, ask the next question, act.
-
-## Required steps (perform in order)
-
-### Step 0 — Mode detection (reuse Phase 2 recipe)
-
-Run the same install-mode + service-mode detection as `/rag-status` (steps 1 and 2). Print the mode banner. **Do not re-implement** — the format is fixed:
-
-```
-ragtools detected: <packaged-windows | packaged-macos | dev-mode | not-installed>
-service mode: <UP (proxy) | DOWN | STARTING | BROKEN | N/A>
-binary: <path or "not found">
-config:  <path or "not found">
-data:    <path or "not found">
-logs:    <path or "not found">
-```
-
-### Step 1 — Branch on detected state
-
-Pick exactly one of the three branches below.
-
-| Detected | Branch |
+| Detected state | What /rag-setup does |
 |---|---|
-| `not-installed` | **A — Install** |
-| Installed, `service mode: DOWN` or `BROKEN` | **B — Start the service** |
-| Installed, `service mode: UP` or `STARTING` | **C — Wire MCP and add first project** |
+| **not-installed** | **Branch A — Install walkthrough.** Detect platform, show installer URL, warn about friction, wait for install to complete, re-probe state, fall through to Branch D (verify). |
+| **installed, service DOWN** | **Branch B — Start the service.** Offer `rag service start`, wait, re-probe, fall through to Branch D. |
+| **installed, service STARTING** | Wait, re-probe once. If still starting, ask the user to re-run `/rag-setup` in 10 seconds. |
+| **installed, service BROKEN** | Refuse. Print `service is broken. run /rag-doctor --full --fix first.` |
+| **installed, service UP, old version** | **Branch C — Upgrade walkthrough.** Show version diff + changelog highlights, offer in-place upgrade, walk it. After upgrade, fall through to Branch D. This replaces the former `/rag-upgrade`. |
+| **installed, service UP, current version** | **Branch D — Verify + summary.** Idempotent checks: MCP wiring, CLAUDE.md rule, dedupe. Fix any gaps inline. Print post-install summary. |
+| **--upgrade flag** | Forces Branch C regardless of detected version (useful for testing or forced re-check against GitHub). |
+| **--verify flag** | Forces Branch D regardless of state (idempotent re-check of plugin-layer wiring). |
+
+## Step 0 — State detection
+
+Follow `${CLAUDE_PLUGIN_ROOT}/rules/state-detection.md`. Produce the `state` object, print the 6-line mode banner.
+
+Then dispatch:
+
+```
+if state.install_mode == not-installed:
+    → Branch A
+elif state.service_mode == BROKEN:
+    → refuse, point at /rag-doctor
+elif state.service_mode in (DOWN, STARTING):
+    → Branch B
+elif --upgrade flag:
+    → Branch C (forced)
+else:
+    → compare state.version to latest_version (fetch via Step C.0)
+    → if installed < latest: Branch C
+    → else: Branch D
+```
 
 ---
 
-### BRANCH A — Install (not-installed)
+## BRANCH A — Install walkthrough (not-installed)
 
-#### A.1 — Detect platform and arch
+### A.1 — Detect platform and arch
 
 ```bash
 uname -sm 2>/dev/null || ver
 ```
 
-Map to one of:
-
 | Platform / arch | Action |
 |---|---|
-| Windows x64 | Show installer URL, walk install (A.2) |
-| macOS arm64 | Show tarball URL, walk extract + Gatekeeper (A.3) |
-| **macOS x86_64 (Intel)** | **REFUSE.** Print: `ragtools does not ship an Intel macOS build (G-004 in references/gaps.md). The macos-14 CI runner only builds arm64. Apple Silicon is required.` Stop. |
-| **Linux** | **REFUSE the packaged path.** Print: `ragtools does not ship a packaged Linux artifact (G-001 in references/gaps.md). Use the dev install from source — see references/install.md section "Development install from source".` Offer to walk the dev install. |
-| Unknown | Print platform + arch and ask the user to confirm before proceeding. |
+| Windows x64 | → A.2 |
+| macOS arm64 | → A.3 |
+| macOS x86_64 (Intel) | **REFUSE.** No Intel build (G-004). Apple Silicon required. Stop. |
+| Linux | **REFUSE packaged path.** No Linux artifact (G-001). Offer A.4 (dev install). |
+| Unknown | Print platform + arch and ask user to confirm before proceeding. |
 
-#### A.2 — Windows installer flow
+### A.2 — Windows installer flow
 
-1. **Show the URL** (do NOT auto-download): `https://github.com/taqat-techno/rag/releases`
-2. **Warn about friction** up front:
-   - `~488 MB download` (per `references/install.md`)
-   - `SmartScreen warning is expected — no code signing yet (G-005)`
-   - `~5–10 second first-run delay while encoder loads`
-3. **Tell the user what to click:**
-   - Download `RAGTools-Setup-{latest version}.exe`
-   - Double-click. User-level install — no admin required.
-   - Recommended options: ☑ Add to PATH, ☑ Start service after install, ☑ Add to Windows Startup
-4. **Wait for confirmation:** "Tell me when the installer says it's done."
-5. **Re-run mode detection** (back to Step 0) to confirm the install landed and the service is up.
-6. Move to **Branch C**.
+1. **Show URL** (do NOT auto-download): `https://github.com/taqat-techno/rag/releases`
+2. **Warn about friction:** ~488 MB download, SmartScreen warning expected (G-005 — no signing), ~5–10s first-run encoder load.
+3. **What to click:** download `RAGTools-Setup-{latest}.exe`, double-click. Recommended options: ☑ Add to PATH, ☑ Start service after install, ☑ Add to Windows Startup.
+4. Wait for user to confirm install completed.
+5. Re-run state detection (Step 0). Fall through to **Branch D** (verify).
 
-#### A.3 — macOS tarball flow
+### A.3 — macOS tarball flow
 
-1. **Show the URL** (do NOT auto-download): `https://github.com/taqat-techno/rag/releases`
-2. **Warn about friction** up front:
-   - `~423 MB download`
-   - `Gatekeeper will block on first launch — must run xattr -cr to clear quarantine (no signing, G-005)`
-   - `No .app bundle, no .dmg — manual tar extract only`
-   - `No login auto-start (G-002) — service must be started manually each session`
-3. **Tell the user what to do:**
+1. **Show URL:** `https://github.com/taqat-techno/rag/releases`
+2. **Warn:** ~423 MB, Gatekeeper will block — must `xattr -cr rag/`, no `.app`/`.dmg`, no LaunchAgent (G-002 — manual start each session).
+3. **Commands:**
    ```bash
    tar -xzf RAGTools-{version}-macos-arm64.tar.gz
    xattr -cr rag/
@@ -91,169 +83,241 @@ Map to one of:
    ./rag version
    ./rag service start
    ```
-4. **Wait for confirmation,** then re-run mode detection. Move to **Branch C**.
+4. Wait, re-run state detection, fall through to **Branch D**.
 
-#### A.4 — Linux dev install (if user accepted the offer)
+### A.4 — Linux dev install (from source)
 
-Walk the source install from `references/install.md` section 6.4:
+Walk per `references/install.md` section 6.4:
 
 ```bash
 git clone https://github.com/taqat-techno/rag.git
 cd rag
 python -m venv .venv
-source .venv/bin/activate     # or .venv/Scripts/activate on Git Bash
+source .venv/bin/activate   # or .venv/Scripts/activate on Git Bash
 pip install -e ".[dev]"
 rag version
 rag doctor
 rag service start
 ```
 
-Note loudly: `dev mode means config lives at ./ragtools.toml and data at ./data/ — see references/paths-and-layout.md`.
+Note: dev mode means config at `./ragtools.toml`, data at `./data/`. Fall through to **Branch D**.
 
 ---
 
-### BRANCH B — Start the service (installed, service down)
+## BRANCH B — Start the service (installed, service DOWN)
 
-This is the simplest branch. The user already has ragtools; they just need it running.
+The simplest branch. Binary is present, service is not running.
 
-1. **Print:** `ragtools is installed at <binary path> but the service is not running.`
-2. **Offer to start it:** Show the command and ask the user to confirm.
+1. Print: `ragtools is installed at <binary_path> but the service is not running.`
+2. Offer: `rag service start` — ask user to confirm then run it themselves. Do NOT auto-invoke.
+3. Wait 5–10s for encoder to load.
+4. Re-probe `/health`. If DOWN → route to `/rag-doctor --symptom F-005 --fix` and stop.
+5. If UP → fall through to **Branch D**.
+
+---
+
+## BRANCH C — Upgrade walkthrough (installed, service UP, version < latest — or --upgrade forced)
+
+This branch absorbs the former `/rag-upgrade` command. Same in-place upgrade flow, same D-005 URL-only discipline, same D-008 compact output.
+
+### C.0 — Fetch latest release from GitHub
+
+```bash
+curl --max-time 5 -s -L \
+  -H "Accept: application/vnd.github+json" \
+  https://api.github.com/repos/taqat-techno/rag/releases/latest
+```
+
+Parse the response. Extract:
+- `tag_name` (strip leading `v`)
+- `name`
+- `published_at`
+- `body` (changelog)
+- `assets[].name` and `assets[].browser_download_url`
+
+Failure modes:
+- API unreachable → print error, link to releases page, stop.
+- No `tag_name` in response → print error, link to releases page, stop.
+- Rate-limited (403) → suggest retrying later.
+
+Record `state.latest_version`.
+
+### C.1 — Compare versions
+
+| Case | Action |
+|---|---|
+| `installed > latest` | Print `you are on a dev build (v<installed> > v<latest>). no upgrade needed.` Fall through to Branch D. |
+| `installed == latest` | Print `up to date: ragtools v<installed>.` Fall through to Branch D. |
+| `installed < latest` | Continue to C.2. |
+
+### C.2 — Present the upgrade summary (compact, ≤ 12 lines)
+
+```
+ragtools v<installed> → v<latest>
+released: <published_at> (<N> days ago)
+
+highlights:
+  • <line 1 from changelog>
+  • <line 2 from changelog>
+  • <line 3 from changelog>
+
+[pre-v2.4.1 warning if applicable]
+
+installer for your platform: <download URL from assets[]>
+```
+
+**Changelog highlights:** first 3 bullet points or first 3 non-empty lines after `## Changes` / `## What's Changed` / `### Highlights`. Cap each at ~80 chars. Empty body → `(no changelog provided — see GitHub release page)`.
+
+**Installer asset selection:**
+
+| Install mode | Match pattern |
+|---|---|
+| `packaged-windows` | `RAGTools-Setup-*.exe` |
+| `packaged-macos` | `RAGTools-*-macos-arm64.tar.gz` |
+| `dev-mode` | skip — recommend `git pull && pip install -e .` |
+
+**Pre-v2.4.1 warning (strong):**
+```
+⚠ pre-v2.4.1 detected. config writes can land in the wrong path and cause
+projects to disappear after restart (F-001). upgrade is strongly recommended.
+```
+
+### C.3 — Ask the user how to proceed
+
+```
+how would you like to upgrade?
+  1. walk the in-place upgrade (recommended)
+  2. just give me the URL — I'll handle it myself
+  3. cancel — I'll upgrade later
+```
+
+Option 1 → C.4. Option 2 → print URL, fall through to Branch D for post-upgrade verify if/when the user returns. Option 3 → stop.
+
+### C.4 — Walk the in-place upgrade
+
+**Windows (packaged):**
+1. Print: `the installer handles in-place upgrade automatically. it stops the service, replaces files, reinstalls the startup task, and restarts the service. data and config are preserved.`
+2. Show URL — **never auto-download** (D-005).
+3. Wait for user confirmation.
+4. Re-run state detection. Confirm new version detected. Fall through to Branch D.
+
+**macOS (packaged):**
+1. Print platform caveats (G-005, G-002): no signing, manual `tar -xzf`, no LaunchAgent.
+2. Show:
    ```bash
+   ./rag service stop
+   tar -xzf RAGTools-<latest>-macos-arm64.tar.gz
+   xattr -cr rag/
+   # move/replace the old install (preserves ~/Library/Application Support/RAGTools/data and config.toml)
+   cd rag
+   ./rag service start
+   ```
+3. Wait, re-run state detection, fall through to Branch D.
+
+**Dev mode:**
+1. Show:
+   ```bash
+   rag service stop
+   git pull
+   pip install -e ".[dev]"
    rag service start
    ```
-3. **After they run it,** wait 5–10 seconds for the encoder to load, then re-probe `/health`:
-   ```bash
-   curl --max-time 2 -s http://127.0.0.1:21420/health
-   ```
-4. **If still down,** route to `/rag-doctor` and `references/repair-playbooks.md#service-will-not-start`. Stop.
-5. **If up,** congratulate briefly and move to **Branch C**.
+2. Wait, re-run state detection, fall through to Branch D.
 
 ---
 
-### BRANCH C — Wire MCP and add first project (installed, service up)
+## BRANCH D — Verify and summary (installed, service UP, current version)
 
-The service is healthy. Now we wire Claude Code and seed the first project.
+This branch is the **default end state** for all other branches. It is also what the user gets when they type `/rag-setup` on an already-healthy install. Branch D is **idempotent** — running it multiple times on a healthy install is a no-op that prints a green summary.
 
-**Important context (post-roadmap amendments D-015, D-016):** the rag-plugin now ships its own plugin-level `.mcp.json` at the plugin root. When the plugin is installed via `/plugins`, Claude Code auto-registers the ragtools MCP server — no manual wiring required in most cases. Branch C still exists for:
-- Packaged installs without PATH integration (macOS Phase 1, or Windows without "Add to PATH")
-- Users who want a project-level or user-level `.mcp.json` alongside the plugin-level one
-- Cleaning up duplicate registrations from older manual setups (C.2b)
-- Installing the CLAUDE.md retrieval rule (C.6)
+### D.1 — Read the canonical MCP config
 
-#### C.1 — Read the canonical MCP config
-
-**CRITICAL:** never hand-construct the `.mcp.json`. Always read it from the running service:
+**CRITICAL:** never hand-construct `.mcp.json`. Read it from the running service:
 
 ```bash
 curl --max-time 2 -s http://127.0.0.1:21420/api/mcp-config
 ```
 
-This endpoint is computed dynamically in `src/ragtools/service/routes.py` → `mcp_config()` using `sys.frozen` detection, so it always points to the correct binary for the current install mode (packaged vs dev). See `references/mcp-wiring.md`.
+This endpoint computes paths dynamically via `sys.frozen` detection. See `references/mcp-wiring.md` and D-020.
 
-If the endpoint returns nothing parseable, print: `could not read /api/mcp-config — service may be misconfigured. Run /rag-doctor.` Stop.
+If the endpoint returns nothing parseable, route to `/rag-doctor` and stop.
 
-#### C.2 — Decide where to write `.mcp.json`
+### D.2 — Plugin-layer MCP wiring check
 
-Ask the user one question:
+Run `/rag-config mcp-dedupe status` internally. Expected outcome on a healthy v0.3.3+ install:
+- `OK — 1 (plugin-level, canonical, schema OK)` — nothing to do.
+- `WARN — <N+1> (plugin-level + <N> duplicates)` → offer to clean: `/rag-config mcp-dedupe clean`. Ask for confirmation, do not auto-invoke.
+- `ERROR` → surface the error and route to `/rag-doctor --full`.
 
-> "I can write `.mcp.json` to:
->   1. **Project-level** at `<current cwd>/.mcp.json` (recommended for team-shared configs)
->   2. **User-level** at `~/.claude/.mcp.json` (global, all your projects)
->   3. **Skip** — the plugin-level `.mcp.json` shipped with rag-plugin is enough (recommended if `rag-mcp` is on PATH)
->
-> Which? (1 / 2 / 3)"
+If the user has a non-default wiring need (project-level or user-level `.mcp.json`), ask:
 
-If the user picks 3, skip to **C.2b** directly (the plugin-level registration is already in place; we just need to ensure there are no duplicates).
+```
+I can write a project/user-level .mcp.json:
+  1. Project-level at <cwd>/.mcp.json (team-shared, wrapped shape)
+  2. User-level at ~/.claude/.mcp.json (global, wrapped shape)
+  3. Skip — the plugin-level .mcp.json is already in place (recommended)
 
-If `.mcp.json` already exists at the chosen location, **read it first**, merge the `ragtools` entry from `/api/mcp-config` into the existing `mcpServers` object, and write the merged result. Never overwrite blindly — other MCP servers may already be configured.
-
-If the merge would replace an existing `ragtools` entry with different command/args, **show the diff and ask the user to confirm** before writing.
-
-#### C.2b — Detect and remove duplicate MCP registrations
-
-**New in v0.2.0 (D-015).** The plugin-level `.mcp.json` shipped with rag-plugin auto-registers the ragtools MCP server when the plugin is installed. If the user previously wired ragtools manually via `~/.claude.json` or `~/.claude/.mcp.json`, those entries are now duplicates — same server name registered twice.
-
-Delegate to `/rag-config mcp-dedupe`:
-
-1. **Status check:** run `/rag-config mcp-dedupe status` internally. Parse the report for duplicate locations.
-2. **If no duplicates:** print `no duplicate ragtools MCP registrations — plugin-level is canonical.` Continue to C.3.
-3. **If duplicates found:** show the list and offer to clean:
-   ```
-   found duplicate ragtools MCP registrations in:
-     • ~/.claude.json → mcpServers.ragtools
-     • ~/.claude/.mcp.json → mcpServers.ragtools
-   
-   the plugin-level .mcp.json (rag-plugin/.mcp.json) is the canonical registration.
-   remove the duplicates? (yes/no)
-   ```
-4. **If yes:** invoke `/rag-config mcp-dedupe clean --yes` (the `--yes` flag suppresses the redundant second confirmation since the user already confirmed here). This backs up the affected files to `.bak-pre-mcp-dedupe`, deletes the `ragtools` keys atomically, and verifies the final state.
-5. **If no:** continue to C.3 but warn: `duplicate MCP registrations left in place — Claude Code's behavior with duplicates is implementation-defined. Run /rag-config mcp-dedupe clean later to fix.`
-
-#### C.3 — Add the first project
-
-Ask the user for a project path (or use `--project <path>` if passed as an argument). Validate that the path exists:
-
-```bash
-test -d "<path>" && echo OK || echo MISSING
+Which? (1 / 2 / 3)
 ```
 
-If missing, ask again. If OK, POST to the projects API:
+If 1 or 2, use the config from D.1 (wrapped shape at these scopes per D-019). If 3 (default), skip.
+
+### D.3 — CLAUDE.md retrieval rule check
+
+Run `/rag-config claude-md status` internally.
+- `INSTALLED v<N>` matching bundled version → nothing to do.
+- `NOT INSTALLED` → offer `/rag-config claude-md install`. Ask for confirmation.
+- `OUTDATED v<OLD>` → offer upgrade to new version. Ask for confirmation.
+- `TARGET MISSING` (`~/.claude/CLAUDE.md` does not exist) → print warning, recommend creating the target file.
+
+Remind the user: the rule takes effect in the **next** Claude Code session (current session already loaded `~/.claude/CLAUDE.md` at startup).
+
+### D.4 — Add first project (only if `--project <path>` was passed or projects list is empty on a fresh install)
+
+Probe: `curl http://127.0.0.1:21420/api/projects`. If empty and the user is in the first-install flow (came from Branch A), ask for a project path.
+
+Validate: `test -d "<path>"`. POST:
 
 ```bash
 curl --max-time 5 -s -X POST http://127.0.0.1:21420/api/projects \
   -H "Content-Type: application/json" \
-  -d '{"name": "<derived from basename>", "path": "<path>"}'
+  -d '{"name": "<basename>", "path": "<path>"}'
 ```
 
-**Never** edit `config.toml` directly — the v2.4.1 bug is the reason. The HTTP API goes through `get_config_write_path()`, which is the only safe write path.
+**Never** edit `config.toml` directly (D-002, F-001). Poll `/api/status` for `chunks` to start increasing; cap wait at 30s and route longer indexing to `/rag-doctor`.
 
-After the POST returns success, poll `/api/status` for `index_status` to flip to `ready` (or for `chunks` to start increasing). Cap the wait at 30 seconds in compact mode — for larger projects, tell the user "indexing is in progress; check `/rag-status` to monitor".
+Skip this step entirely if the user is re-running `/rag-setup --verify` on an already-populated install — do not ask for a new project.
 
-#### C.4 — Smoke test
+### D.5 — Smoke test hint
 
-The plugin **does not** call `search_knowledge_base` itself (D-001). Instead, tell the user:
+The plugin does not call `search_knowledge_base` itself (D-001). Instead, print:
 
-> "Setup complete. Try a search from Claude Code by asking something like:
->
+> "Setup complete. Try a search from Claude Code in a new session by asking:
 > > Search my knowledge base for [a topic from your project].
->
-> Claude will call the `search_knowledge_base` MCP tool directly. If you don't see results, run `/rag-status` to verify projects and chunks, then `/rag-doctor` if needed."
+> Claude will call the `search_knowledge_base` MCP tool directly. If no results, run `/rag-doctor`."
 
-#### C.5 — Install the CLAUDE.md retrieval rule
+### D.6 — Final summary banner
 
-**New in v0.2.0 (D-016).** Wiring the MCP is not enough — Claude needs a workflow instruction telling it *when* to reach for `search_knowledge_base`. Without this rule, Claude scans in-context CLAUDE.md, sees no mention of the user's topic, and says "I don't have information" even though the answer is in the indexed knowledge base.
-
-Delegate to `/rag-config claude-md`:
-
-1. **Status check:** run `/rag-config claude-md status` internally.
-2. **If already installed and up-to-date:** print `CLAUDE.md retrieval rule: already installed v<N>. no action needed.` Continue to C.6.
-3. **If missing or outdated:** offer to install:
-   ```
-   installing the retrieval rule teaches Claude to call search_knowledge_base
-   before saying "I don't have information" on any domain question.
-   
-   target: ~/.claude/CLAUDE.md
-   action: <install | upgrade from v<OLD> to v<NEW>>
-   
-   install the rule? (yes/no)
-   ```
-4. **If yes:** invoke `/rag-config claude-md install --yes` (the `--yes` suppresses the redundant second confirmation). The command reads `${CLAUDE_PLUGIN_ROOT}/rules/claude-md-retrieval-rule.md`, splices it into `~/.claude/CLAUDE.md` between the begin/end markers, shows a diff summary, and verifies.
-5. **If no:** continue to C.6 but warn: `retrieval rule not installed — Claude may not use the MCP for domain questions. Run /rag-config claude-md install later to fix.`
-6. **Always remind:** the rule takes effect in the **next** Claude Code session. The current session already loaded the old `~/.claude/CLAUDE.md` at startup.
-
-#### C.6 — Final mode banner
-
-Re-run mode detection one more time and print the banner. Append a one-line summary:
+Re-run state detection and print:
 
 ```
-setup complete. service: UP. mcp: wired (plugin-level). projects: 1. CLAUDE.md rule: INSTALLED v0.2.0.
-next: try a search from Claude Code in a new session.
+setup complete.
+  service: UP (v<installed>)
+  mcp: wired (plugin-level, canonical)
+  claude.md rule: INSTALLED v<N>
+  projects: <count>
+  next: try a search from Claude Code in a new session.
 ```
 
-If any of the sub-steps was skipped, reflect that in the summary:
+Reflect any skipped or warned sub-steps:
+
 ```
-setup complete. service: UP. mcp: wired. projects: 1. CLAUDE.md rule: SKIPPED.
-warning: Claude may not use the MCP for domain questions. Run /rag-config claude-md install later.
+setup complete.
+  service: UP (v<installed>)
+  mcp: wired (plugin-level, canonical)
+  claude.md rule: SKIPPED — run /rag-config claude-md install later
+  projects: 1
+  warning: Claude may not use the MCP for domain questions until the rule is installed.
 ```
 
 ---
@@ -262,31 +326,40 @@ warning: Claude may not use the MCP for domain questions. Run /rag-config claude
 
 | Situation | Behavior |
 |---|---|
-| Binary not found and platform unknown | Stop after the platform/arch check with a clear "I can't tell what platform you're on" message |
-| Intel macOS detected | **Hard refuse.** Do not pretend an arm64 build will work |
-| Linux detected | Refuse packaged path; offer dev install |
-| `/api/mcp-config` returns 500 or empty | Route to `/rag-doctor` with a hint that service is misconfigured |
-| `.mcp.json` exists with a different ragtools entry | Show diff, ask user to confirm before overwriting |
-| `POST /api/projects` returns 400 (duplicate path) | Tell the user the project is already added; show `/api/projects` output |
-| `POST /api/projects` returns 500 | Route to `/rag-doctor --logs` |
-| User wants to skip MCP wiring | Skip C.1–C.2, go straight to C.3 |
-| User wants to skip project add | Skip C.3, go straight to C.4 with a note that they must add a project before search returns anything |
-| Service goes DOWN mid-setup (e.g. user kills it) | Re-run mode detection; if still down, offer to restart |
+| Binary not found and platform unknown | Stop after A.1 with "I can't tell what platform you're on" |
+| Intel macOS detected | **Hard refuse.** Do not pretend arm64 will work. |
+| Linux detected | Refuse packaged path; offer A.4 dev install. |
+| GitHub API unreachable (C.0) | Print error, link to releases page manually, skip to Branch D if possible. |
+| GitHub API rate-limited (403) | Print error with rate-limit note, suggest retrying later. |
+| No installer asset for platform | Link to releases page manually. |
+| Service goes DOWN mid-setup | Re-run Step 0; if still down, route to Branch B. |
+| `/api/mcp-config` returns 500 or empty | Route to `/rag-doctor`. |
+| `.mcp.json` exists with a different ragtools entry | Show diff, ask for confirmation before overwriting. |
+| `POST /api/projects` returns 400 (duplicate path) | Tell user project is already added; show `/api/projects` output. |
+| `POST /api/projects` returns 500 | Route to `/rag-doctor --logs`. |
+| User wants to skip MCP wiring (D.2 option 3) | Skip to D.3. |
+| User wants to skip project add | Skip to D.5 with a note that search returns nothing until a project is added. |
 
 ## Boundary reminders
 
-- **Do NOT auto-download** the installer. Produce URLs and instructions; the user clicks. (D-005, scope rule)
-- **Do NOT hand-construct `.mcp.json`.** Always read from `/api/mcp-config`. (`references/mcp-wiring.md`)
+- **Do NOT auto-download installer artifacts.** Produce URLs; user clicks. (D-005)
+- **Do NOT hand-construct `.mcp.json`.** Always read from `/api/mcp-config`. (D-020, `references/mcp-wiring.md`)
 - **Do NOT write `config.toml` directly.** Use `POST /api/projects`. (D-002, F-001)
-- **Do NOT call `search_knowledge_base`** — explain to the user how to call it from Claude Code instead. (D-001)
-- **Do NOT promise** macOS LaunchAgent (G-002), WinGet install (G-003), Intel Macs (G-004), Linux installer (G-001), code signing (G-005). Be honest in every branch.
+- **Do NOT call `search_knowledge_base`** — explain how the user calls it from Claude Code instead. (D-001)
+- **Do NOT promise** macOS LaunchAgent (G-002), WinGet install (G-003), Intel Macs (G-004), Linux installer (G-001), code signing (G-005).
+- **Do NOT skip the pre-v2.4.1 warning.** F-001 is data-loss-tier.
+- **Do NOT re-implement state detection.** Reference `rules/state-detection.md`.
 
 ## See also
 
-- `/rag-status` — verify install mode and service state
-- `/rag-doctor` — deep diagnostic when setup fails
-- `references/setup-walkthrough.md` — long-form companion document with full command examples
-- `references/install.md` — install sources, prerequisites, dev install from source
-- `references/mcp-wiring.md` — MCP architecture, proxy vs direct mode, registration locations
+- `/rag-doctor` — smart diagnose+status+repair (absorbs former `/rag-status` and `/rag-repair`)
+- `/rag-projects` — project CRUD via HTTP API
+- `/rag-reset` — destructive reset with three escalation levels
+- `/rag-config` — plugin-layer config
+- `rules/state-detection.md` — canonical state-detection recipe
+- `references/setup-walkthrough.md` — long-form install companion
+- `references/install.md` — install sources, prerequisites, dev install
+- `references/mcp-wiring.md` — MCP architecture and registration scopes
+- `references/upgrade-paths.md` — in-place vs portable vs source upgrade
+- `references/known-failures.md#f-001` — the v2.4.1 data-loss bug behind the pre-v2.4.1 warning
 - `references/gaps.md` — G-001..G-010 unverified/unimplemented items
-- `references/risks-and-constraints.md` — Gatekeeper, Syncthing, single-process lock

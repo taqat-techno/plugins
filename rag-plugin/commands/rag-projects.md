@@ -21,11 +21,20 @@ CRUD on ragtools projects via the HTTP API at `127.0.0.1:21420`. **Never edits `
 
 ## Required steps (perform in order)
 
-### Step 0 — Mode detection
+### Step 0 — State detection (state-gate preamble)
 
-Reuse the Phase 2 mode-detection recipe. Print the mode banner. Record `service_mode` (UP / DOWN / BROKEN).
+Follow the canonical recipe in `${CLAUDE_PLUGIN_ROOT}/rules/state-detection.md`. Produce the `state` object, print the 6-line mode banner. **Do not re-implement** — reference the rule file.
 
-If `service_mode == BROKEN`, refuse all subcommands and route to `/rag-doctor`.
+**State gate** — refuse early on bad states:
+
+| Detected state | Action |
+|---|---|
+| `install_mode == not-installed` | Refuse: `ragtools is not installed. run /rag-setup first.` Stop. |
+| `service_mode == BROKEN` | Refuse: `service is broken. run /rag-doctor --full --fix.` Stop. |
+| `service_mode == STARTING` | Ask user to retry in 10s once the encoder finishes loading. Stop. |
+| `service_mode == DOWN`, subcommand is a read op (`list`) | Print `cannot list projects with service down. start with: rag service start`. Stop. |
+| `service_mode == DOWN`, subcommand is a write op | Refuse writes (per D-005) — see Step 1. |
+| `service_mode == UP` | Continue. |
 
 ### Step 1 — Parse subcommand
 
@@ -113,7 +122,7 @@ If the service is DOWN, print: `cannot list projects with service down. start wi
 
 5. **Verify by re-listing:** `GET /api/projects` and confirm the new entry is present.
 
-6. **Note about indexing:** `indexing started in background. use /rag-status to monitor.` — do **not** poll for completion in this command (that's `/rag-status`'s job).
+6. **Note about indexing:** `indexing started in background. use /rag-doctor to monitor.` — do **not** poll for completion in this command (that's `/rag-status`'s job).
 
 #### `remove <id>`
 
@@ -128,7 +137,7 @@ If the service is DOWN, print: `cannot list projects with service down. start wi
    this removes the project from the index but does NOT delete files on disk.
    type the project id verbatim to confirm: 
    ```
-   The user must type the actual `id` value (not just "yes"). This is more deliberate than a blanket "yes" and matches the `/rag-repair` confirmation discipline.
+   The user must type the actual `id` value (not just "yes"). This is more deliberate than a blanket "yes" and matches the `/rag-doctor` confirmation discipline.
 
 3. **DELETE via API:**
    ```bash
@@ -172,7 +181,7 @@ If the service is DOWN, print: `cannot list projects with service down. start wi
    ```
    (Or whatever the product's global rebuild endpoint is — check `references/runtime-flow.md` for the canonical surface.)
 
-4. **Print:** `rebuild started. monitor progress via /rag-status or the admin panel.` Do not poll for completion.
+4. **Print:** `rebuild started. monitor progress via /rag-doctor or the admin panel.` Do not poll for completion.
 
 ### Step 4 — Final mode banner
 
@@ -244,16 +253,15 @@ then re-run: /rag-projects add <path>
 - **Do NOT call any MCP tool.** Project management is a plugin concern; search lives in the running MCP server. (D-001)
 - **Do NOT delete files on disk** when a project is removed. Removal is a config-only operation that drops the project from the index. The user's source files are untouched.
 - **Do NOT retry failed writes automatically.** A failed write is information; silent retry hides it.
-- **Do NOT poll for indexing completion** here. That's `/rag-status`'s job.
+- **Do NOT poll for indexing completion** here. That's `/rag-doctor`'s job.
 - **Do NOT bypass the cloud-sync warning** silently. Always show it before any write if the config path is inside a known synced dir.
 - **Compact-by-default** per D-008.
 
 ## See also
 
-- `/rag-status` — monitor indexing progress after add/rebuild
-- `/rag-doctor` — diagnose when a write fails or the service goes broken
-- `/rag-repair` — walk repair playbooks for known failures (e.g. F-006 "projects empty after restart")
-- `/rag-setup` — first-time setup including the first project add
+- `/rag-doctor` — monitor indexing progress, diagnose write failures, classify known failures (e.g. F-006 "projects empty after restart"), walk repair playbooks. Absorbs the former `/rag-status` and `/rag-repair`.
+- `/rag-setup` — first-time setup including the first project add. Also handles upgrades.
+- `rules/state-detection.md` — canonical state-detection recipe used by the preamble
 - `references/runtime-flow.md` — canonical HTTP API surface (`/api/projects`, etc.)
 - `references/configuration.md` — `config.toml` schema (read-only — never write directly)
 - `references/risks-and-constraints.md` — Syncthing / cloud-sync risk

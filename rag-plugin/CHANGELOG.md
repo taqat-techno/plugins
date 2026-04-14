@@ -2,6 +2,48 @@
 
 All notable changes to `rag-plugin` are documented here. Format is loosely based on [Keep a Changelog](https://keepachangelog.com/). Versioning follows [SemVer](https://semver.org/).
 
+## [0.4.0] — 2026-04-14
+
+Command surface consolidation. Collapses 9 commands (8 user-facing + 1 maintainer) into 7 (6 user-facing + 1 maintainer) by folding `/rag-status` and `/rag-repair` into a smart `/rag-doctor` and folding `/rag-upgrade` into a smart `/rag-setup`. Every surviving command is now **state-aware at the top** — it runs a shared state-detection preamble, branches on the detected state, and refuses gracefully when the state is wrong instead of failing with a generic error.
+
+The user complaint that drove this: commands assumed an already-installed, already-healthy state and fragmented the "get ragtools working" mental model across too many entry points.
+
+### Added
+- **`rules/state-detection.md`** — new shared contract file. Documents the canonical state-detection recipe (install mode + service mode + version + paths) and the exact 6-line mode banner format. Every command references it via `${CLAUDE_PLUGIN_ROOT}/rules/state-detection.md` in its Step 0 instead of re-documenting the probe. Single-owner layering per `ARCHITECTURE.md`.
+- **D-021** in `docs/decisions.md` — binding decision. "Each command is a smart entry point that detects state and branches; commands do not assume an ideal state. State detection lives in `rules/state-detection.md` and is referenced, not re-implemented."
+
+### Changed
+- **`commands/rag-doctor.md`** — rewritten as the unified diagnose+status+repair command. Default mode is the fast state probe the former `/rag-status` did. `--full` is the deep `rag doctor` wrap the former standalone `/rag-doctor` did. A free-text positional argument runs the F-001..F-012 + P-RULE/P-DEDUPE classification rubric the former `/rag-repair` did. `--symptom F-NNN` walks the named playbook. `--logs` runs the `rag-log-scanner` Haiku agent. `--fix` composes with any of the above to walk the repair playbook inline after classification. All 8 repair playbooks (P-svc, P-qdrant, P-perm, P-empty, P-slow, P-port, P-watcher, P-mcp) are preserved verbatim with their existing confirmation-gate discipline.
+- **`commands/rag-setup.md`** — rewritten as the unified install+upgrade+verify command. Branches: A install (not-installed), B start-service (DOWN), C upgrade (UP but old, absorbs the former `/rag-upgrade`), D verify (UP and current — idempotent plugin-layer checks for MCP wiring, CLAUDE.md rule, dedupe). All other branches fall through to D on completion so the user always ends in a known-good state.
+- **`commands/rag-projects.md`** — added an explicit state-gate preamble at Step 0. Refuses writes when the service is DOWN or BROKEN with a clear pointer at `/rag-doctor` and `rag service start`. Refuses all ops when `install_mode == not-installed`. Cross-references updated (`/rag-status` → `/rag-doctor`, `/rag-repair` → `/rag-doctor --symptom`).
+- **`commands/rag-reset.md`** — added an explicit state-gate preamble. Now checks `install_mode == not-installed` and `service_mode == BROKEN` **before** showing any typed-DELETE prompt, so destructive gates are never surfaced for an install that cannot be reset. Pre-v2.4.1 warning now routes users to `/rag-setup` (which walks the upgrade flow) instead of the removed `/rag-upgrade`.
+- **`commands/rag-config.md`** — cross-reference fixes only. No behavior change. Pointers to `/rag-status` / `/rag-repair` remapped to `/rag-doctor` and to `/rag-upgrade` remapped to `/rag-setup`.
+- **`skills/ragtools-ops/SKILL.md`** — Phase 1 (mode detection) now references `rules/state-detection.md` instead of inlining the probe. Phase 3 (command routing) rewritten for the new 6-command surface with the consolidation note explaining where `/rag-status`, `/rag-repair`, and `/rag-upgrade` went.
+- **`.claude-plugin/plugin.json`** — version `0.3.3` → `0.4.0`.
+
+### Removed
+- **`commands/rag-status.md`** — absorbed into `/rag-doctor` default mode.
+- **`commands/rag-repair.md`** — absorbed into `/rag-doctor` via free-text symptom classification, `--symptom F-NNN`, `--logs`, and `--fix` flags.
+- **`commands/rag-upgrade.md`** — absorbed into `/rag-setup` Branch C.
+
+Deletion rather than stub-redirects because stubs would create dead entries in the slash-command catalog and confuse users about what is still supported.
+
+### Rationale
+The current 3-file split `/rag-status + /rag-doctor + /rag-repair` forced users to pick a hammer before they knew what was wrong. Every one of those files started with the same mode-detection block and ended with a footer pointing at the other two. The new `/rag-doctor` lets the user just ask "what's wrong?" and branches based on state: default is a fast probe, `--full` goes deep, `--symptom` jumps to a playbook, `--fix` walks it. Same reasoning for `/rag-setup + /rag-upgrade`: the user's mental model is "get ragtools working" regardless of whether that means "install it" or "upgrade it," and a single smart command handles both based on the detected version.
+
+The destructive commands `/rag-reset` and `/rag-projects` **stay separate** because destructive/write operations benefit from their own namespace — they should not be hidden behind an innocuous command name. Instead, they get the state-gate preamble so they fail fast and safely on bad states.
+
+`/rag-config` stays because it operates on a genuinely different scope (plugin-layer config: telemetry, claude-md rule, mcp-dedupe, hook-observability) rather than the ragtools product layer.
+
+`/rag-sync-docs` stays because it is maintainer-only with `disable-model-invocation: true` and is invisible to the user surface.
+
+### Verification
+- `python validate_plugin.py rag-plugin` passes (commands: 6, skill: 1, agent: 1, hooks: 1; only the pre-existing SKILL.md YAML false-positive remains).
+- Shape: `ls commands/` shows exactly 6 files — `rag-config.md`, `rag-doctor.md`, `rag-projects.md`, `rag-reset.md`, `rag-setup.md`, `rag-sync-docs.md`.
+- `rules/state-detection.md` exists and is referenced by both rewritten command files.
+- Grep confirms no live operational references to the deleted commands remain — all remaining mentions of `/rag-status`, `/rag-repair`, `/rag-upgrade` are in historical "absorbs the former X" documentation strings.
+- CHANGELOG, decisions.md D-021, README catalog, ARCHITECTURE inventory, and SKILL routing all updated to the new surface.
+
 ## [0.3.3] — 2026-04-14
 
 Second retraction in the v0.3.x MCP-wiring saga. Drops the Python launcher (`scripts/rag_mcp_launcher.py`) introduced in v0.3.1 and calls `rag serve` directly from `.mcp.json`, matching the pattern every other working plugin in `~/.claude/plugins/cache/` uses (`chrome-devtools`/`context7`/`playwright`/`azure-devops` all call `npx` directly — no Python wrapper in the middle).

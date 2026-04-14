@@ -6,18 +6,21 @@
 
 ```
 ┌────────────────────────────────────────────────────────────────┐
-│  COMMANDS (9)                                                  │
-│  /rag-status, /rag-doctor, /rag-setup, /rag-repair,            │
-│  /rag-projects, /rag-upgrade, /rag-reset,                      │
+│  COMMANDS (6 user + 1 maintainer) — v0.4.0                     │
+│  /rag-doctor, /rag-setup, /rag-projects, /rag-reset,           │
 │  /rag-config, /rag-sync-docs (maintainer-only)                 │
-│  Thin entry points. Print mode banner. Defer to the skill.     │
+│  Smart state-aware entry points. Each one detects state via    │
+│  rules/state-detection.md, prints the mode banner, and         │
+│  branches to the right sub-flow. No command assumes an         │
+│  ideal state. (D-021)                                          │
 └──────────────────────┬─────────────────────────────────────────┘
                        │ invoke
 ┌──────────────────────▼─────────────────────────────────────────┐
 │  SKILL (1)                                                     │
 │  skills/ragtools-ops/SKILL.md                                  │
-│  Owns: install/mode detection, path resolution recipe,         │
-│         router for which reference to load, phased flow prose. │
+│  Owns: knowledge-base routing (which reference file to load),  │
+│         phased flow prose. Defers state detection to the       │
+│         rules/state-detection.md contract.                     │
 │  References: references/*.md                                   │
 └──────────────────────┬─────────────────────────────────────────┘
                        │ load on demand
@@ -28,16 +31,17 @@
 │  Source of truth for install paths, config schema, MCP wiring, │
 │  failure modes, repair playbooks, recovery, versioning, gaps.  │
 └──────────────────────┬─────────────────────────────────────────┘
-                       │ commands inject
+                       │ commands reference + inject
 ┌──────────────────────▼─────────────────────────────────────────┐
-│  RULES (1) — v0.2.0+                                           │
+│  RULES (2) — v0.2.0+ / v0.4.0+                                 │
 │  rules/claude-md-retrieval-rule.md                             │
-│  Shipped plugin asset. Source of truth for the CLAUDE.md       │
-│  rule block that teaches Claude to call search_knowledge_base  │
-│  before saying "I don't have information". Installed by        │
-│  /rag-config claude-md install into ~/.claude/CLAUDE.md,       │
-│  delimited by machine-readable begin/end markers for           │
-│  idempotent upgrade and clean removal.                         │
+│    Shipped plugin asset. Injected into ~/.claude/CLAUDE.md     │
+│    by /rag-config claude-md install (D-016).                   │
+│  rules/state-detection.md                                      │
+│    Shared contract for the state-detection preamble every      │
+│    command runs at Step 0. Single source of truth for install  │
+│    mode + service mode + path resolution + mode banner.        │
+│    Commands reference it; they do NOT re-implement it. (D-021) │
 └──────────────────────┬─────────────────────────────────────────┘
                        │ describes
 ┌──────────────────────▼─────────────────────────────────────────┐

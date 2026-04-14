@@ -2,7 +2,7 @@
 
 > Operations and support plugin for the **ragtools** local-first RAG product. Install, configure, diagnose, repair, upgrade, and run the local Markdown knowledge base from inside Claude Code.
 
-**Status:** `v0.3.3` — All 10 phases shipped + 6 post-roadmap amendments (D-015 plugin-level MCP auto-wiring, D-016 CLAUDE.md retrieval rule auto-install, D-017 Tier-2 UserPromptSubmit retrieval-reminder hook + observability, D-018 cross-mode launcher [retracted], D-019 retraction of D-018 schema change, D-020 retraction of D-018 launcher — plugin-level `.mcp.json` spawns `rag serve` directly). Production-ready for ragtools 2.4.x.
+**Status:** `v0.4.0` — All 10 phases shipped + 7 post-roadmap amendments (D-015 plugin-level MCP auto-wiring, D-016 CLAUDE.md retrieval rule auto-install, D-017 Tier-2 UserPromptSubmit retrieval-reminder hook + observability, D-018 cross-mode launcher [retracted], D-019 retraction of D-018 schema change, D-020 retraction of D-018 launcher, D-021 command consolidation + shared state-detection contract — 6 smart state-aware commands replace the former 8-command surface). Production-ready for ragtools 2.4.x.
 
 ---
 
@@ -35,19 +35,18 @@ If you want one of these things, you want the upstream ragtools product, not thi
 
 ---
 
-## Command catalog
+## Command catalog (v0.4.0 — 6 user + 1 maintainer)
 
-| Command | Purpose | Phase |
-|---------|---------|-------|
-| **`/rag-status`** | Compact one-screen health: install mode, service mode, projects, watcher | 2 |
-| **`/rag-doctor`** | Wraps `rag doctor`, classifies findings against F-001..F-012, optional `--logs` log scan | 2 |
-| **`/rag-setup`** | Conversational onboarding: detect / install / start / wire MCP / add first project | 3 |
-| **`/rag-repair`** | Symptom → failure-ID classifier + 8 walkable playbooks with confirmation gates | 4 |
-| **`/rag-projects`** | Project CRUD via HTTP API: list / add / remove / enable / disable / rebuild | 5 |
-| **`/rag-upgrade`** | Detect installed version, check GitHub releases, walk in-place upgrade | 7 |
-| **`/rag-reset`** | Three-level destructive escalation: `--soft` / `--data` / `--nuclear` (typed-DELETE gating) | 7 |
-| **`/rag-config`** | Local-only opt-in usage logging toggle (default off) | 9 |
-| **`/rag-sync-docs`** | Maintainer-only: report drift between bundled references and upstream `ragtools_doc.md` | 9 |
+Every command detects state and branches intelligently. See `rules/state-detection.md` for the shared contract and D-021 for the consolidation rationale.
+
+| Command | Role | Smart behavior |
+|---------|------|----------------|
+| **`/rag-doctor`** | Diagnose + status + repair. Absorbs the former `/rag-status` and `/rag-repair`. | Default: fast state probe. `--full`: deep `rag doctor` wrap with F-001..F-012 classification. Free-text positional: classify symptom. `--symptom F-NNN`: walk a named playbook. `--logs`: scan service.log via Haiku agent. `--fix`: walk the playbook inline after classification. `--verbose`: expand output. |
+| **`/rag-setup`** | Install + upgrade + verify. Absorbs the former `/rag-upgrade`. | Branches on state: install walkthrough (not-installed) / start-service (DOWN) / upgrade walkthrough (UP but old) / idempotent verify (UP and current). Checks MCP wiring, CLAUDE.md rule, dedupe on every run. |
+| **`/rag-projects`** | Project CRUD via HTTP API. | State-gate preamble refuses writes gracefully when the service is DOWN or BROKEN. Cloud-sync warning on write ops. Subcommands: `list` / `add` / `remove` / `enable` / `disable` / `rebuild`. |
+| **`/rag-reset`** | Destructive three-level reset. | State-gate preamble refuses on not-installed / BROKEN. Pre-v2.4.1 block remains. `--soft` (via HTTP API) / `--data` / `--nuclear` with typed-DELETE gates (1×/2×/3×). |
+| **`/rag-config`** | Plugin-layer config. | `telemetry {status\|on\|off}` / `claude-md {status\|install\|remove}` / `mcp-dedupe {status\|clean}` / `hook-observability {status\|on\|off\|analyze\|clear}`. Atomic writes, backup-first discipline. |
+| **`/rag-sync-docs`** | Maintainer-only. `disable-model-invocation: true`. | Reports drift between bundled references and upstream `ragtools_doc.md`. Never auto-rewrites. |
 
 Plus:
 - **Skill** `ragtools-ops` — keyword-rich router that loads the right reference file on demand
