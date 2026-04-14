@@ -19,26 +19,24 @@ ragtools exposes **three MCP tools** to Claude Code:
 
 ## Registration: three options
 
-### Option A — Plugin-level (automatic, recommended) — v0.3.1+
+### Option A — Plugin-level (automatic, recommended) — v0.3.2+
 
 **The rag-plugin ships its own `.mcp.json` at the plugin root.** When you install the plugin via `/plugins`, Claude Code auto-discovers and registers it. No manual wiring required.
 
-The bundled config (v0.3.1, D-018):
+The bundled config (v0.3.2, D-015 + D-018 launcher + D-019 schema retraction):
 
 ```json
 {
-  "mcpServers": {
-    "ragtools": {
-      "type": "stdio",
-      "command": "python",
-      "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/rag_mcp_launcher.py"]
-    }
+  "ragtools": {
+    "type": "stdio",
+    "command": "python",
+    "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/rag_mcp_launcher.py"]
   }
 }
 ```
 
 Two things to notice:
-- **Wrapped shape with `mcpServers`.** This is the canonical Claude Code plugin MCP schema for stdio servers (see `CLAUDE_CODE_PLUGIN_DEVELOPMENT_GUIDE.md:362` and every stdio example in `claude-plugins-official-main/`). The v0.3.0 flat shape turned out to be invalid for stdio plugins — the loader silently registered nothing.
+- **Flat shape, no `mcpServers` wrapper.** Plugin-level `.mcp.json` files use the flat shape — that is empirically what Claude Code's plugin loader accepts, verified against every working plugin in `~/.claude/plugins/cache/` (`chrome-devtools-mcp`, `context7`, `playwright`, `azure-devops`, and rag-plugin v0.2.0/v0.3.0). The wrapped shape (`{"mcpServers": {...}}`) is the schema for **user-level** (`~/.claude/.mcp.json`) and **project-level** (`<repo>/.mcp.json`) files, not plugin-level. v0.3.1 briefly adopted the wrapped shape based on a misread of the development guide and was retracted in v0.3.2 (see D-019).
 - **`command: "python"` + launcher path**, not a hardcoded `rag-mcp` or `rag`. No single binary name is correct across every supported install mode, so the plugin ships a tiny Python launcher (`scripts/rag_mcp_launcher.py`, ~100 lines, stdlib only) that resolves the canonical ragtools binary at runtime and `os.execvp`-replaces itself with it. Stdio connects directly to the real MCP server — no subprocess wrapping.
 
 The launcher resolution order:
@@ -52,21 +50,11 @@ The launcher resolution order:
 - **At least one** of: ragtools service running on `127.0.0.1:21420`, `rag` on PATH, or `rag-mcp` on PATH. If none are available, the launcher fails loudly and the plugin cannot auto-wire until ragtools is installed.
 - **Fallback:** if the launcher cannot resolve any binary, use Option B or Option C to manually wire a project-level or user-level `.mcp.json`.
 
-#### Legacy (v0.3.0 and earlier)
+#### Legacy versions
 
-Earlier versions shipped the flat shape with a hardcoded `rag-mcp` command:
-
-```json
-{
-  "ragtools": {
-    "type": "stdio",
-    "command": "rag-mcp",
-    "args": []
-  }
-}
-```
-
-This configuration is **broken on packaged Windows installs** (no `rag-mcp.exe` shim) and rejected by Claude Code's plugin loader for stdio servers regardless of the command (missing `mcpServers` wrapper). If you are on v0.3.0 and seeing `Failed to reconnect to plugin:rag:ragtools` in `/mcp`, upgrade to v0.3.1+.
+- **v0.2.0 / v0.3.0** shipped the flat shape with a hardcoded `rag-mcp` command. The schema was correct, but `rag-mcp` only exists on dev pip installs — on packaged Windows (no `rag-mcp.exe` shim) the server failed to start. Symptom: `/mcp` reports "Failed to reconnect to plugin:rag:ragtools". Upgrade to v0.3.2+ for the launcher.
+- **v0.3.1** shipped the cross-mode launcher (correct) but also switched `.mcp.json` to the **wrapped** shape (incorrect — see D-019). Symptom: `/mcp` and `/reload-plugins` report the server as present, but `ToolSearch` cannot find any ragtools tool and the model cannot call `search_knowledge_base`. Upgrade to v0.3.2+ for the flat-shape revert.
+- **v0.3.2+** ships both fixes: flat shape + launcher. This is the first configuration that works across all known install modes.
 
 ### Option B — Project-level (manual, via `/rag-setup`)
 

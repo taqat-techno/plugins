@@ -2,6 +2,42 @@
 
 All notable changes to `rag-plugin` are documented here. Format is loosely based on [Keep a Changelog](https://keepachangelog.com/). Versioning follows [SemVer](https://semver.org/).
 
+## [0.3.2] — 2026-04-14
+
+Hotfix retraction. v0.3.1 over-corrected the v0.3.0 bug and shipped a `.mcp.json` in the **wrapped** shape (`{"mcpServers": {"ragtools": {...}}}`). This turned out to be wrong for plugin-level `.mcp.json` files. Claude Code's plugin loader expects the **flat** shape (`{"ragtools": {...}}` with no wrapper) for plugin-level registrations. `/mcp` reported the server as "present" and `/reload-plugins` counted it among the loaded servers, but `ToolSearch` could not find any ragtools tool by name and the model could not call `search_knowledge_base`.
+
+Empirical confirmation from `~/.claude/plugins/cache/`: every working plugin ships the flat shape. Checked: `chrome-devtools-mcp`, `context7`, `playwright`, `azure-devops` (from `devops-plugin`), and rag-plugin v0.2.0 / v0.3.0 itself. Only v0.3.1 shipped the wrapped shape, and only v0.3.1 was broken. The wrapped shape is for user-level (`~/.claude/.mcp.json`) and project-level (`<repo>/.mcp.json`) files, not plugin-level.
+
+### Fixed
+- **`rag-plugin/.mcp.json`** — reverted to the flat shape while **keeping the launcher**:
+  ```json
+  {
+    "ragtools": {
+      "type": "stdio",
+      "command": "python",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/rag_mcp_launcher.py"]
+    }
+  }
+  ```
+  The launcher (`scripts/rag_mcp_launcher.py`) was the right idea and stays — it still resolves the canonical ragtools binary at runtime via `GET /api/mcp-config` → `rag` on PATH → `rag-mcp` on PATH → fail loud, which is what makes the plugin work across dev and packaged installs without hardcoding a binary name that only exists in one of them.
+
+### Changed
+- **`rag-plugin/commands/rag-config.md`** — `mcp-dedupe status` schema assertion inverted. It now asserts the **flat shape** (top-level `ragtools` key) for plugin-level `.mcp.json`, not the wrapped shape. If a `mcpServers` wrapper is detected in a plugin-level file, surfaces a distinct `ERROR — plugin .mcp.json uses wrapped shape (mcpServers); plugin-level files require the flat shape — unwrap it`. User-level and project-level files continue to use the wrapped shape — the two scopes have different schemas.
+- **`rag-plugin/commands/rag-doctor.md`** — the MCP registrations row's error documentation rewritten to describe the correct flat-shape rule and the wrapped-shape footgun.
+- **`rag-plugin/.claude-plugin/plugin.json`** — version `0.3.1` → `0.3.2`.
+- **`rag-plugin/README.md`** — status badge updated.
+- **`rag-plugin/skills/ragtools-ops/references/mcp-wiring.md`** — Option A snippet reverted to the flat shape with the launcher. The D-018 wrapped-shape recommendation is explicitly retracted in the reference text.
+- **`rag-plugin/docs/decisions.md`** — new **D-019** records the retraction: D-018's schema change was wrong, D-015's original flat-shape claim was correct all along. The launcher portion of D-018 stands (it fixes the real bug — the cross-install-mode command resolution). Only the schema portion is retracted.
+
+### Rationale
+The v0.3.0 bug was **one** bug (command `rag-mcp` not on PATH in packaged Windows installs), not two. My v0.3.1 changelog claimed it was also a schema bug and cited the workspace `CLAUDE_CODE_PLUGIN_DEVELOPMENT_GUIDE.md` which documents the wrapped shape. That reference applies to user/project-level `.mcp.json` files, not plugin-level files. I missed the distinction and introduced a differently-broken schema on top of the fix for the command bug. The fix for v0.3.2 is simple: keep the launcher, revert the schema, document the scope rule so it does not happen again.
+
+### Verification
+- Before-and-after: `cat ~/.claude/plugins/cache/taqat-techno-plugins/rag/0.3.2/.mcp.json` shows flat shape with launcher.
+- `python plugins/rag-plugin/scripts/rag_mcp_launcher.py --dry-run` resolves to `C:\Users\ahmed\AppData\Local\Programs\RAGTools\rag.exe serve` via the running service.
+- Compared against `~/.claude/plugins/cache/claude-plugins-official/chrome-devtools-mcp/latest/.mcp.json` byte-for-byte structure — both use identical flat shape.
+- `/mcp` after restart: `plugin:rag:ragtools` should now expose `search_knowledge_base`, `list_projects`, `index_status` to the model (requires Claude Code session restart so the deferred-tool registry re-indexes).
+
 ## [0.3.1] — 2026-04-14
 
 Hotfix for a broken plugin-level MCP auto-wiring. Two compounding bugs in v0.3.0's `.mcp.json` prevented Claude Code from ever loading the `ragtools` MCP server on packaged Windows installs: the file shipped the flat shape without the `mcpServers` wrapper (which the plugin loader rejects for stdio servers), and it hardcoded `command: "rag-mcp"` which only exists on dev pip installs — packaged Windows ships `rag.exe` only. `/mcp` reported *"Failed to reconnect to plugin:rag:ragtools"* and the doctor `mcp-dedupe status` row did not catch either bug because it only counted duplicates. Closes the gap.

@@ -1,9 +1,7 @@
 {
-  "mcpServers": {
-    "ragtools": {
-      "type": "stdio",
-      "command": "python",
-      "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/rag_mcp_launcher.py"]
-    }
+  "ragtools": {
+    "type": "stdio",
+    "command": "python",
+    "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/rag_mcp_launcher.py"]
   }
 }
