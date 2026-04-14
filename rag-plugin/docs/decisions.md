@@ -572,4 +572,71 @@ The plugin still does not implement, wrap, or proxy search. It registers the pre
 
 ---
 
+## D-021 — Command surface is a small set of smart, state-aware entry points; state detection is centralized
+
+**Date:** 2026-04-14 (consolidation amendment)
+**Phase:** Post-9
+**Status:** binding
+**Ships in:** v0.4.0
+**Triggered by:** User feedback that commands assumed an ideal state (ragtools already installed, already healthy, already configured) and fragmented the "get ragtools working" and "something is wrong" mental models across too many narrow entry points. User explicitly asked for "fewer, stronger, more context-aware commands."
+
+### The decision — two rules, one binding consequence
+
+**Rule 1: Each user-facing command is a smart entry point that detects state and branches.** Commands do not assume an ideal state. Every command's Step 0 is a state-detection preamble that produces a structured `state` object (`install_mode`, `service_mode`, `binary_path`, `version`, `config_path`, `data_path`, `log_path`). Every command's subsequent steps are gated on that state. A command that is asked to operate in an impossible state (e.g. `/rag-projects add` when the service is down, `/rag-reset` when ragtools is not installed) refuses gracefully with a clear remediation pointer rather than failing with a generic HTTP or CLI error.
+
+**Rule 2: State detection lives in one file and is referenced by every command.** The canonical recipe is at `rules/state-detection.md`. Commands do not re-implement the probe — they reference the rule file. Single-owner layering per `ARCHITECTURE.md`. If the probe ever needs to change (new install mode, new service state, new path category), the change happens in one file and every command picks it up automatically.
+
+### The binding consequence — command consolidation
+
+v0.4.0 collapses the former 8-user-command surface into **6 user-facing commands + 1 maintainer-only**:
+
+| Command | Role |
+|---|---|
+| `/rag-doctor` | Smart diagnose. Default: fast state probe. `--full`: deep `rag doctor` wrap. `--symptom F-NNN`: walk a playbook. Free-text positional: classify symptom. `--logs`: scan service.log. `--fix`: walk the playbook inline after classification. **Absorbs the former `/rag-status` and `/rag-repair`.** |
+| `/rag-setup` | Smart install/upgrade/verify. Branches: install (not-installed) / start-service (DOWN) / upgrade (UP but old) / verify (UP and current). **Absorbs the former `/rag-upgrade`.** |
+| `/rag-projects` | Project CRUD via HTTP API with state-gate preamble. |
+| `/rag-reset` | Destructive reset with typed-DELETE gates and state-gate preamble. |
+| `/rag-config` | Plugin-layer config (telemetry, claude-md rule, mcp-dedupe, hook-observability). |
+| `/rag-sync-docs` | Maintainer-only with `disable-model-invocation: true`. |
+
+Deleted files: `commands/rag-status.md`, `commands/rag-repair.md`, `commands/rag-upgrade.md`. Their logic moved verbatim into the surviving commands — all 8 repair playbooks, the F-001..F-012 classification rubric, the GitHub releases fetch, the in-place upgrade walkthroughs, the state-probe recipe, the MCP-wiring verify flow are all still present. What changed is **how the user enters them**, not **what they get once inside**.
+
+### Why these consolidations and not others
+
+- **`/rag-status + /rag-doctor + /rag-repair → /rag-doctor`.** All three began with the identical mode-detection block and all three ended with a footer pointing at the other two. The user's mental model is "what's wrong with ragtools?" not "should I run status or doctor or repair?" — the single command handles all three phases and walks the playbook inline via `--fix`.
+- **`/rag-setup + /rag-upgrade → /rag-setup`.** The user's mental model is "get ragtools working" regardless of whether that means installing, starting, or upgrading. `/rag-upgrade` previously refused outright when ragtools was missing — a classic case of a narrow command assuming an ideal state. The unified `/rag-setup` detects state and picks the right sub-flow.
+- **`/rag-projects` stays separate.** Project CRUD is a distinct operational scope. Merging it into `/rag-setup` or `/rag-doctor` would hide destructive write operations behind an innocuous command name, and the user's mental model of "manage my projects" is clearly distinct from "diagnose my install."
+- **`/rag-reset` stays separate.** Destructive reset is a distinct scope and destructive operations benefit from their own namespace — users searching for "reset" should find `/rag-reset` directly, not a flag on a setup command. Merging reset into setup would violate the rule that destructive paths should never be hidden behind innocuous names.
+- **`/rag-config` stays separate.** Plugin-layer config (telemetry, claude-md rule, mcp-dedupe, hook-observability) operates on a fundamentally different layer than the ragtools product. Merging it into a product-layer command would blur the ops-layer/product-layer boundary the plugin works hard to maintain (see D-001).
+- **`/rag-sync-docs` stays separate.** Maintainer-only with `disable-model-invocation: true`, invisible to the user surface.
+
+### Why deletion, not stub redirects
+
+Considered: keep `rag-status.md` / `rag-repair.md` / `rag-upgrade.md` as thin stubs that print "this command is now part of /rag-X" and redirect. Rejected because:
+1. Stubs create dead entries in the slash-command catalog that compete with the real commands for user attention.
+2. Stubs give a false signal that the old commands are "still supported but deprecated," when in fact their logic has moved entirely and the old names are obsolete.
+3. Deletion forces users to learn the new surface once; stubs force them to learn the new surface AND remember the mapping from old to new.
+
+### Non-violation of existing decisions
+
+- **D-001 (ops-only, never search):** every consolidated command continues to refuse MCP tool calls. Search is still delegated to the running ragtools MCP server and the model calls it directly.
+- **D-002 (no direct config.toml writes):** preserved in both rewritten commands. All project writes continue to go through `POST /api/projects`. The F-001 workaround flow in the P-perm playbook retains its explicit user-confirmation gate.
+- **D-005 (service-down behavior):** preserved. Read ops still work in CLI direct mode with the "encoder will load" warning; write ops still refuse gracefully.
+- **D-007 (hook posture — ask never deny):** unaffected. Commands do not change hook behavior.
+- **D-008 (compact by default):** preserved. Both rewritten commands are compact-by-default with `--verbose` for opt-in drill-down. The state banner + state table + findings block + footer pattern is unchanged.
+- **D-015, D-016, D-017, D-018, D-019, D-020:** all preserved. The plugin-layer MCP wiring, CLAUDE.md retrieval rule, UserPromptSubmit hook, and launcher-to-direct-spawn history are untouched by the command consolidation — only the entry point names changed, not the underlying plugin architecture.
+
+### Reverse only if
+
+- A future Claude Code release introduces a formal command-deprecation mechanism that makes stub redirects low-cost. Even then, consider whether deprecation is actually worth the slash-command-catalog pollution before reintroducing any removed command.
+- A user-flow emerges where state-aware branching is genuinely worse than a narrow command (unlikely — the primary criticism of v0.3.x was the opposite).
+
+### What this decision does NOT do
+
+- Does not add a top-level `/rag` super-command that dispatches to sub-commands. The user asked for fewer commands, not a new meta-command, and `/rag-doctor` as the default diagnose-and-status command already fills that role.
+- Does not refactor the hook scripts (`lock_conflict_check.py`, `prompt_retrieval_reminder.py`) to consume `rules/state-detection.md`. Those have their own stdlib-only minimal detectors; converging them is not worth the risk in this release.
+- Does not change the `references/` library or the `F-001..F-012` catalog. The ragtools product surface is unchanged; only the plugin entry points are.
+
+---
+
 *Append new decisions below. Never rewrite or delete an entry — supersede with a new dated entry that references the old one.*

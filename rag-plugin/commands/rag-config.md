@@ -62,7 +62,7 @@ A single JSONL file at `~/.claude/rag-plugin/usage.log`. One JSON object per lin
 | `ts` | string (ISO 8601 UTC) | `2026-04-14T13:42:51Z` |
 | `command` | string | One of: `rag-status`, `rag-doctor`, `rag-setup`, `rag-repair`, `rag-projects`, `rag-upgrade`, `rag-reset`, `rag-config` |
 | `outcome` | string | `ok` / `error` / `user-cancel` / `refused` |
-| `failure_id` | string or null | F-NNN if `/rag-repair` classified one, else `null` |
+| `failure_id` | string or null | F-NNN if `/rag-doctor` classified one, else `null` |
 
 **What is NOT recorded** (binding rules from D-012):
 
@@ -78,7 +78,7 @@ A single JSONL file at `~/.claude/rag-plugin/usage.log`. One JSON object per lin
 
 The data is intentionally minimal. The point of recording it is so the user can answer "did I run `/rag-doctor` recently?" or "how often do I hit F-003?" — not so anyone (including the plugin author) can reconstruct what they were doing.
 
-**Network egress: zero.** The log file lives only on the local disk. Nothing reads it except the user. There is no upload, no sync, no third-party endpoint. If you ever see `rag-plugin` make a network call other than the explicit ones in `/rag-upgrade` (GitHub releases API), `/rag-status` (HTTP API on 127.0.0.1), and `/rag-doctor` (HTTP API on 127.0.0.1), it is a bug — please report it.
+**Network egress: zero.** The log file lives only on the local disk. Nothing reads it except the user. There is no upload, no sync, no third-party endpoint. If you ever see `rag-plugin` make a network call other than the explicit ones in `/rag-setup` (GitHub releases API when walking the upgrade branch) and `/rag-doctor` / `/rag-projects` / `/rag-setup` (HTTP API on 127.0.0.1 for service probes), it is a bug — please report it.
 
 ## Required steps
 
@@ -164,7 +164,7 @@ This is documented here for transparency. The user does not need to do anything 
 
 ## Boundary reminders
 
-- **No network egress, ever.** This is the binding D-012 rule. If a future change to this command adds any network call other than the explicit `/rag-status` and `/rag-doctor` HTTP API probes (which are already loopback-only), revert it.
+- **No network egress, ever.** This is the binding D-012 rule. If a future change to this command adds any network call other than the explicit `/rag-doctor` HTTP API probes (which are already loopback-only), revert it.
 - **No automatic recording of sensitive data.** Paths, project names, search queries, log contents, identifiers — never. The schema is intentionally minimal.
 - **No silent on by default.** The user must explicitly type `telemetry on`. Default state is off.
 - **No silent off after enable.** Once `telemetry on` is set, it stays on until the user runs `telemetry off`. There is no auto-disable timer.
@@ -510,7 +510,7 @@ If any of the four is in a non-default state (telemetry on, rule outdated/missin
 - `scripts/analyze_hook_decisions.py` — aggregate analyzer invoked by `hook-observability analyze`
 - `/rag-setup` — calls `claude-md install` and `mcp-dedupe clean` as part of Step C.2b / C.5
 - `/rag-doctor` — surfaces retrieval-rule, MCP-dedupe, and hook-observability state in the diagnostic table
-- `/rag-repair` — classifies plugin-behavior symptoms that route here
+- `/rag-doctor` — classifies plugin-behavior symptoms that route here (absorbs the former `/rag-repair`)
 - `docs/decisions.md#d-015` — plugin-level `.mcp.json` auto-wiring
 - `docs/decisions.md#d-016` — CLAUDE.md retrieval rule as a shipped plugin asset
 - `docs/decisions.md#d-017` — Tier 2 guided-enforcement hook + observability-first escalation

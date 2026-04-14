@@ -27,11 +27,18 @@ Compact-by-default per D-008: ≤ 15 lines per branch.
 
 ## Required steps (perform in order)
 
-### Step 0 — Mode detection
+### Step 0 — State detection (state-gate preamble)
 
-Run the standard mode-detection recipe. Print the mode banner.
+Follow the canonical recipe in `${CLAUDE_PLUGIN_ROOT}/rules/state-detection.md`. Produce the `state` object, print the 6-line mode banner. **Do not re-implement** — reference the rule file.
 
-If `install_mode == not-installed`, refuse: `ragtools is not installed. nothing to reset.` and stop.
+**State gate** — refuse early on bad states. This check runs **before** any typed-DELETE prompt, so the user never sees a destructive gate for an install that doesn't exist:
+
+| Detected state | Action |
+|---|---|
+| `install_mode == not-installed` | Refuse: `ragtools is not installed. nothing to reset.` Stop. |
+| `service_mode == BROKEN` | Refuse: `service is broken. run /rag-doctor --full --fix before resetting.` Stop. |
+| `state.version` unparseable | Refuse: `could not parse rag version output. reinstall first via /rag-setup.` Stop. |
+| Otherwise | Continue to Step 1. |
 
 ### Step 1 — Parse the flag
 
@@ -62,7 +69,7 @@ resetting on this version can lose MORE data than you intend, because the
 post-reset startup-sync may not see your config and may treat your projects
 as orphaned.
 
-required action: upgrade first. run /rag-upgrade.
+required action: upgrade first. run /rag-setup (which walks the upgrade flow for old versions).
 
 if you are CERTAIN you understand the risk and want to proceed anyway, you
 will need to bypass this check by running the destructive commands manually
@@ -116,7 +123,7 @@ This is enforced because:
 
 4. **Wait for the user to run it,** then poll `/api/status` for `chunks` to start increasing. Cap the wait at 30 seconds in compact mode and tell the user to monitor via `/rag-status`.
 
-5. **Print:** `rebuild started. monitor via /rag-status. nothing else to do here.`
+5. **Print:** `rebuild started. monitor via /rag-doctor. nothing else to do here.`
 
 #### --data branch
 
@@ -161,7 +168,7 @@ This is enforced because:
    ```
    Wait 5–10 seconds, then `curl /health` to confirm the service is up with a fresh data dir.
 
-7. **Print:** `data reset complete. service: UP. projects: <count from /api/projects>. indexing will resume from the watcher. monitor via /rag-status.`
+7. **Print:** `data reset complete. service: UP. projects: <count from /api/projects>. indexing will resume from the watcher. monitor via /rag-doctor.`
 
 #### --nuclear branch
 
@@ -238,7 +245,7 @@ After any branch, re-run mode detection and print the updated banner. If anythin
 
 | Situation | Behavior |
 |---|---|
-| Pre-v2.4.1 detected | **BLOCK.** Print warning, recommend `/rag-upgrade`, stop. |
+| Pre-v2.4.1 detected | **BLOCK.** Print warning, recommend `/rag-setup` (which walks the upgrade flow), stop. |
 | Multiple flags or no flag | Refuse with usage line |
 | Service mode wrong for chosen flag | Refuse with "start/stop the service first" message |
 | User types anything other than `DELETE` at a gate | Refuse and stop. **Do not retry automatically.** |
@@ -259,10 +266,10 @@ After any branch, re-run mode detection and print the updated banner. If anythin
 
 ## See also
 
-- `/rag-upgrade` — recommended path before any reset on a pre-v2.4.1 install
-- `/rag-status` — verify post-reset state
-- `/rag-doctor` — diagnose post-reset issues
-- `/rag-projects` — re-add projects after `--nuclear`
+- `/rag-setup` — recommended path before any reset on a pre-v2.4.1 install (walks the upgrade flow). Also the entry point for re-adding the first project after `--nuclear`.
+- `/rag-doctor` — verify post-reset state and diagnose any post-reset issues. Absorbs the former `/rag-status` and `/rag-repair`.
+- `/rag-projects` — re-add additional projects after `--nuclear`
+- `rules/state-detection.md` — canonical state-detection recipe used by the preamble
 - `references/recovery-and-reset.md` — full reset/recovery source-of-truth
 - `references/known-failures.md#f-001` — the v2.4.1 data-loss bug that drives the pre-v2.4.1 block
 - `references/risks-and-constraints.md#syncthing--cloud-synced-config-directory` — sync risk on the data dir
