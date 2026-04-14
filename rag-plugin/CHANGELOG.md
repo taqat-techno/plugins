@@ -2,6 +2,56 @@
 
 All notable changes to `rag-plugin` are documented here. Format is loosely based on [Keep a Changelog](https://keepachangelog.com/). Versioning follows [SemVer](https://semver.org/).
 
+## [0.3.3] — 2026-04-14
+
+Second retraction in the v0.3.x MCP-wiring saga. Drops the Python launcher (`scripts/rag_mcp_launcher.py`) introduced in v0.3.1 and calls `rag serve` directly from `.mcp.json`, matching the pattern every other working plugin in `~/.claude/plugins/cache/` uses (`chrome-devtools`/`context7`/`playwright`/`azure-devops` all call `npx` directly — no Python wrapper in the middle).
+
+### The bug v0.3.2 left behind
+
+v0.3.2 shipped the correct **flat shape** `.mcp.json` and kept the launcher. Symptom: `ListMcpResourcesTool` showed `plugin:rag:ragtools` registered, `/reload-plugins` counted the server, but `ToolSearch` found zero ragtools tools and the model could not call `search_knowledge_base`. The MCP handshake was failing.
+
+Root cause: **Python's `os.execvp` on Windows does not preserve stdio pipe inheritance.** On POSIX, `execvp` atomically replaces the current process image, so the stdin/stdout/stderr pipes that Claude Code opened to the Python launcher transfer cleanly to the spawned `rag.exe`. On Windows, `os.execvp` is a thin wrapper over `_spawnv(_P_OVERLAY, ...)` — the Python parent exits and a new process is started, but the inherited pipe handles are not guaranteed to survive that transition. The spawned `rag.exe` never receives the `tools/list` RPC that Claude Code is already waiting on, the call silently times out, and no tool schemas reach the deferred-tool registry.
+
+The launcher worked when probed directly via `python rag_mcp_launcher.py --dry-run` (that path doesn't exec), and the underlying `rag.exe serve` worked when invoked directly over stdio. Both parts were fine in isolation. The handoff between them was the bug.
+
+### Fixed
+- **`rag-plugin/.mcp.json`** — rewritten to spawn `rag` directly. Final canonical form:
+  ```json
+  {
+    "ragtools": {
+      "type": "stdio",
+      "command": "rag",
+      "args": ["serve"]
+    }
+  }
+  ```
+  Same shape as `devops-plugin/.mcp.json`, same pattern as every working plugin on disk. No Python middleman, no `os.execvp`, no launcher script.
+- **`scripts/rag_mcp_launcher.py`** — **deleted**. No longer needed. The service-query → PATH-probe cleverness it provided was solving a problem that doesn't actually exist: every supported install mode already puts `rag` on PATH (packaged Windows installer adds `C:\Users\<you>\AppData\Local\Programs\RAGTools` by default — verified on the reporter's machine via `where rag`; packaged macOS requires the user to add the tarball directory per upstream docs; dev `pip install -e .` exposes `rag` as a pyproject console-script). The v0.3.0 bug was **hardcoding the wrong binary name** (`rag-mcp` instead of `rag`), not "no binary on PATH." Fixing the name removes the need for the runtime-resolution launcher entirely.
+
+### Changed
+- **`rag-plugin/commands/rag-config.md`** — `mcp-dedupe status` schema assertions updated. Direct-spawn is now the rule: any `command` that is `python` / `python3` / `py` with an arg referencing `rag_mcp_launcher.py` is surfaced as a distinct `ERROR — plugin .mcp.json uses the legacy Python launcher which breaks stdio on Windows. Upgrade to v0.3.3+`. The PATH-resolution check remains; the launcher-file check is dropped.
+- **`rag-plugin/commands/rag-doctor.md`** — MCP registrations row error documentation rewritten for direct-spawn. The launcher error state is kept as a diagnostic for users still on v0.3.1/v0.3.2, with the upgrade remediation.
+- **`rag-plugin/.claude-plugin/plugin.json`** — version `0.3.2` → `0.3.3`.
+- **`rag-plugin/README.md`** — status badge and auto-wire bullet updated.
+- **`rag-plugin/skills/ragtools-ops/references/mcp-wiring.md`** — Option A simplified. No more launcher explanation — just the direct-spawn snippet and a Prerequisites bullet: `rag` must be on PATH. Legacy section retained with three version entries (v0.2.0/v0.3.0 wrong command, v0.3.1 wrong schema, v0.3.2 launcher stdio bug).
+- **`rag-plugin/docs/decisions.md`** — new **D-020**: "plugin-level `.mcp.json` spawns the target binary directly; Python wrapper scripts are an anti-pattern because of `os.execvp` stdio-pipe semantics on Windows." Supersedes the launcher portion of D-018 (D-019 already superseded the schema portion). D-015's original flat-shape + direct-spawn posture is fully restored.
+
+### Rationale
+The v0.3.x series has now cycled through three wiring strategies: (1) flat shape + wrong command name (v0.3.0, broken on packaged Windows), (2) wrapped shape + Python launcher (v0.3.1, tool schemas never loaded), (3) flat shape + Python launcher (v0.3.2, stdio pipe handoff broken on Windows). v0.3.3 is strategy (4): flat shape + direct spawn of the correct binary. This matches the empirical ground truth of what every other MCP plugin on the reporter's machine actually does, and it eliminates the entire class of "Python wrapper middleman" failure modes at once.
+
+The lesson that justifies D-020 is worth stating plainly: **when wiring a stdio MCP server, your `.mcp.json` command should be the real binary. Not a script that spawns it, not a launcher, not a shim. If no single literal command works, fix the command at install time or via a user-level `.mcp.json` fallback — do not wrap it in another process.** Wrappers add a pipe-handoff hazard on Windows for no practical benefit.
+
+### Edge case: user-level fallback
+
+For the rare install where `rag` is genuinely not on PATH (user skipped the installer's "Add to PATH" option on Windows, or did not set up PATH on macOS), `/rag-setup` branch C.1–C.2 still works: it reads `GET http://127.0.0.1:21420/api/mcp-config` to get the absolute binary path from the running service, then writes a user-level `~/.claude/.mcp.json` with the **wrapped** shape and that absolute path. Duplicate-registration cleanup via `/rag-config mcp-dedupe` handles the plugin-level-vs-user-level coexistence. This flow is unchanged from v0.1.0 and is the documented fallback.
+
+### Verification
+- `where rag` on the reporter's Windows machine returns `C:\Users\ahmed\AppData\Local\Programs\RAGTools\rag.exe` — confirming `rag` is on PATH by default after the installer runs (the reporter's screenshot also shows `C:\Users\ahmed\AppData\Local\Programs\RAGTools` in the user Path env var).
+- `where rag-mcp` returns nothing on packaged Windows — this is why hardcoding `rag-mcp` in v0.2.0/v0.3.0 was broken, and also why `rag` is the correct choice (not `rag-mcp`).
+- `python plugins/validate_plugin.py rag-plugin` passes.
+- JSON sanity: `python -c "import json; d=json.load(open('plugins/rag-plugin/.mcp.json')); assert d['ragtools']['command']=='rag' and d['ragtools']['args']==['serve']"` exits 0.
+- After Claude Code restart: `/mcp` shows `plugin:rag:ragtools` with tools enumerated; `ToolSearch query="+ragtools"` returns `mcp__plugin_rag-plugin_ragtools__search_knowledge_base` and siblings; the retrieval-reminder hook's recommended call is actually invocable.
+
 ## [0.3.2] — 2026-04-14
 
 Hotfix retraction. v0.3.1 over-corrected the v0.3.0 bug and shipped a `.mcp.json` in the **wrapped** shape (`{"mcpServers": {"ragtools": {...}}}`). This turned out to be wrong for plugin-level `.mcp.json` files. Claude Code's plugin loader expects the **flat** shape (`{"ragtools": {...}}` with no wrapper) for plugin-level registrations. `/mcp` reported the server as "present" and `/reload-plugins` counted it among the loaded servers, but `ToolSearch` could not find any ragtools tool by name and the model could not call `search_knowledge_base`.

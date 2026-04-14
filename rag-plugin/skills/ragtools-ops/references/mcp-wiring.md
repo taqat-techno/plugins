@@ -19,42 +19,39 @@ ragtools exposes **three MCP tools** to Claude Code:
 
 ## Registration: three options
 
-### Option A — Plugin-level (automatic, recommended) — v0.3.2+
+### Option A — Plugin-level (automatic, recommended) — v0.3.3+
 
 **The rag-plugin ships its own `.mcp.json` at the plugin root.** When you install the plugin via `/plugins`, Claude Code auto-discovers and registers it. No manual wiring required.
 
-The bundled config (v0.3.2, D-015 + D-018 launcher + D-019 schema retraction):
+The bundled config (v0.3.3, D-015 + D-019 + D-020):
 
 ```json
 {
   "ragtools": {
     "type": "stdio",
-    "command": "python",
-    "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/rag_mcp_launcher.py"]
+    "command": "rag",
+    "args": ["serve"]
   }
 }
 ```
 
 Two things to notice:
-- **Flat shape, no `mcpServers` wrapper.** Plugin-level `.mcp.json` files use the flat shape — that is empirically what Claude Code's plugin loader accepts, verified against every working plugin in `~/.claude/plugins/cache/` (`chrome-devtools-mcp`, `context7`, `playwright`, `azure-devops`, and rag-plugin v0.2.0/v0.3.0). The wrapped shape (`{"mcpServers": {...}}`) is the schema for **user-level** (`~/.claude/.mcp.json`) and **project-level** (`<repo>/.mcp.json`) files, not plugin-level. v0.3.1 briefly adopted the wrapped shape based on a misread of the development guide and was retracted in v0.3.2 (see D-019).
-- **`command: "python"` + launcher path**, not a hardcoded `rag-mcp` or `rag`. No single binary name is correct across every supported install mode, so the plugin ships a tiny Python launcher (`scripts/rag_mcp_launcher.py`, ~100 lines, stdlib only) that resolves the canonical ragtools binary at runtime and `os.execvp`-replaces itself with it. Stdio connects directly to the real MCP server — no subprocess wrapping.
+- **Flat shape, no `mcpServers` wrapper.** Plugin-level `.mcp.json` files use the flat shape — verified empirically against every working plugin in `~/.claude/plugins/cache/` (`chrome-devtools-mcp`, `context7`, `playwright`, `azure-devops`). The wrapped shape (`{"mcpServers": {...}}`) is the schema for **user-level** (`~/.claude/.mcp.json`) and **project-level** (`<repo>/.mcp.json`) files, not plugin-level (see D-019).
+- **`command: "rag"` — direct spawn of the ragtools binary.** No Python wrapper, no launcher script, no intermediate process. Same pattern every other working MCP plugin uses. v0.3.1/v0.3.2 briefly shipped a Python launcher that broke Windows stdio pipe inheritance via `os.execvp`; see D-020 for the full retraction.
 
-The launcher resolution order:
-1. `GET http://127.0.0.1:21420/api/mcp-config` with a 1s timeout — the running service knows the authoritative command for this install mode.
-2. `rag` on PATH → `exec rag serve` (packaged Windows/macOS/Linux).
-3. `rag-mcp` on PATH → `exec rag-mcp` (dev pip install).
-4. Fail to stderr with exit 127 — Claude Code surfaces the failure in `/mcp`.
-
-**Prerequisites for Option A (v0.3.1+):**
-- `python` (or `python3` / `py`) must be on `PATH`. Every supported ragtools install mode already requires or bundles Python, so this is the minimum bar for plugin users.
-- **At least one** of: ragtools service running on `127.0.0.1:21420`, `rag` on PATH, or `rag-mcp` on PATH. If none are available, the launcher fails loudly and the plugin cannot auto-wire until ragtools is installed.
-- **Fallback:** if the launcher cannot resolve any binary, use Option B or Option C to manually wire a project-level or user-level `.mcp.json`.
+**Prerequisites for Option A:**
+- `rag` must be on `PATH`.
+  - **Packaged Windows:** the installer at `C:\Users\<you>\AppData\Local\Programs\RAGTools\` adds itself to PATH by default (verified via `where rag` on the v0.3.3 reporter's machine).
+  - **Packaged macOS:** user must manually add the tarball extract directory to `PATH`.
+  - **Dev mode:** `pip install -e .` exposes `rag` as a pyproject console-script in the active venv.
+- **Fallback** if `rag` is not on PATH: run `/rag-setup`. Branch C reads `GET /api/mcp-config` and writes a user-level `~/.claude/.mcp.json` with the wrapped shape and an absolute binary path — that file takes precedence over the plugin-level file and works without requiring PATH configuration.
 
 #### Legacy versions
 
-- **v0.2.0 / v0.3.0** shipped the flat shape with a hardcoded `rag-mcp` command. The schema was correct, but `rag-mcp` only exists on dev pip installs — on packaged Windows (no `rag-mcp.exe` shim) the server failed to start. Symptom: `/mcp` reports "Failed to reconnect to plugin:rag:ragtools". Upgrade to v0.3.2+ for the launcher.
-- **v0.3.1** shipped the cross-mode launcher (correct) but also switched `.mcp.json` to the **wrapped** shape (incorrect — see D-019). Symptom: `/mcp` and `/reload-plugins` report the server as present, but `ToolSearch` cannot find any ragtools tool and the model cannot call `search_knowledge_base`. Upgrade to v0.3.2+ for the flat-shape revert.
-- **v0.3.2+** ships both fixes: flat shape + launcher. This is the first configuration that works across all known install modes.
+- **v0.2.0 / v0.3.0** shipped the flat shape with a hardcoded `rag-mcp` command. The schema was correct, but `rag-mcp` only exists on dev pip installs — on packaged Windows (no `rag-mcp.exe` shim) the server failed to start. Symptom: `/mcp` reports "Failed to reconnect to plugin:rag:ragtools". Upgrade to v0.3.3+.
+- **v0.3.1** shipped a Python launcher (correct idea for cross-install-mode resolution) **and** switched `.mcp.json` to the wrapped shape (incorrect). Symptom: `/mcp` and `/reload-plugins` report the server as present, but `ToolSearch` cannot find any ragtools tool. Upgrade to v0.3.3+.
+- **v0.3.2** reverted the schema to the flat shape (correct) but kept the Python launcher (incorrect on Windows). Symptom: `ListMcpResourcesTool` shows the server registered, but no tool schemas reach the model. Root cause: Python's `os.execvp` on Windows does not preserve stdio pipe inheritance across process replacement, so the spawned `rag.exe` never receives the `tools/list` RPC. Upgrade to v0.3.3+.
+- **v0.3.3+** drops the launcher entirely and spawns `rag serve` directly from `.mcp.json`. This is the first configuration that works across all known install modes without a Windows stdio bug (see D-020).
 
 ### Option B — Project-level (manual, via `/rag-setup`)
 

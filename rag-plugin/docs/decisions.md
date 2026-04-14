@@ -507,4 +507,69 @@ The development guide and the reference marketplace both heavily feature the wra
 
 ---
 
+## D-020 — Plugin-level `.mcp.json` spawns `rag serve` directly; no Python wrapper (retracts D-018 launcher portion)
+
+**Date:** 2026-04-14 (retraction amendment #2)
+**Phase:** Post-9
+**Status:** binding
+**Ships in:** v0.3.3
+**Supersedes:** D-018 launcher portion. D-019 already retracted D-018's schema claim. D-020 retracts the launcher claim. D-015's original posture — plugin-level `.mcp.json` registers the ragtools MCP server directly via the canonical binary — is fully restored.
+**Triggered by:** v0.3.2's empirical failure on Windows. With the flat-shape `.mcp.json` delegating to `scripts/rag_mcp_launcher.py`, `ListMcpResourcesTool` showed `plugin:rag:ragtools` as registered and `/reload-plugins` counted the server among loaded servers, but `ToolSearch` found zero ragtools tools and `search_knowledge_base` was never callable. The MCP handshake was failing silently at the `tools/list` step.
+
+### Root cause
+
+Python's `os.execvp` on Windows does not preserve stdio pipe inheritance the way POSIX `execvp` does. On POSIX, `execvp` replaces the current process image atomically — the stdin/stdout/stderr pipes that Claude Code opened to the Python launcher transfer to the spawned `rag.exe` with no handoff. On Windows, `os.execvp` is implemented via `_spawnv(_P_OVERLAY, ...)`: the Python parent exits and a new process is started, and the pipe handles Claude Code inherited are not guaranteed to survive that transition. The spawned `rag.exe` never receives the `tools/list` RPC that Claude Code is already waiting on, the call silently times out, and no tool schemas reach the deferred-tool registry.
+
+Two corroborating observations:
+1. The launcher worked when probed via `python rag_mcp_launcher.py --dry-run` — that code path prints and exits without `exec`, so the `os.execvp` path was never exercised during static testing.
+2. `rag serve` worked correctly when invoked directly as an MCP server over stdio — confirming the ragtools product side was fine.
+
+Both halves of the plugin were fine in isolation. The Python-to-native-binary handoff was the failure point.
+
+### The decision
+
+**Plugin-level `.mcp.json` calls the ragtools binary directly, with no Python wrapper in the middle.** Final canonical form:
+
+```json
+{
+  "ragtools": {
+    "type": "stdio",
+    "command": "rag",
+    "args": ["serve"]
+  }
+}
+```
+
+This matches the pattern used by every working MCP plugin on the reporter's machine (verified in `~/.claude/plugins/cache/`): `chrome-devtools-mcp`, `context7`, `playwright`, and `azure-devops` all invoke their target binary directly via `npx`. None of them use a Python or shell wrapper. The direct-spawn pattern is the ground truth for what Claude Code's plugin loader can reliably handle on Windows.
+
+### Why `rag` (not `rag-mcp`)
+
+`where rag` returns `C:\Users\ahmed\AppData\Local\Programs\RAGTools\rag.exe` on the reporter's packaged Windows install. `where rag-mcp` returns nothing. This was the original v0.3.0 bug — the plugin hardcoded `rag-mcp` which only exists as a pip console-script on dev installs. Fixing the binary name (`rag`) was the single change v0.3.0 actually needed. Everything after that (wrapped schema, launcher script) was over-correction.
+
+`rag` is a pyproject console-script in the ragtools package, so it is also available on dev installs via `pip install -e .`. Both supported install modes cover it.
+
+### Why dropping the launcher is not a loss of functionality
+
+The launcher's stated value-add was "ask the running service for the canonical command via `GET /api/mcp-config`" — adapting to the current install mode dynamically. In practice:
+- If `rag` is on PATH (the common case for both install modes), the service query is redundant — the binary is already resolvable.
+- If `rag` is genuinely not on PATH (user skipped the installer's "Add to PATH" option, or did not set up PATH on macOS), `/rag-setup` branch C.1 already reads `/api/mcp-config` and writes a **user-level** `~/.claude/.mcp.json` with the absolute binary path, which then takes precedence over the plugin-level file. This fallback is unchanged from v0.1.0 and is the documented recovery path.
+
+So the launcher was duplicating logic that already existed in `/rag-setup` — but doing it with a Python middleman that had a Windows stdio bug.
+
+### The general rule (binding)
+
+**When wiring a stdio MCP server in a plugin-level `.mcp.json`, `command` must be the ragtools binary (or the real target binary for any other plugin), not a Python or shell script that spawns it.** Wrappers add a pipe-handoff hazard on Windows via `os.execvp` process replacement, and they add latency and failure surface for no practical benefit — the target binary is already resolvable on PATH in the common case, and the "target not on PATH" edge case is handled by a user-level `.mcp.json` fallback, not by shipping a runtime resolver.
+
+This applies to every future MCP plugin in this marketplace. If a contributor proposes a Python or shell wrapper inside a plugin `.mcp.json`, point them at D-020 and require them to either fix the command name directly or use the user-level fallback.
+
+### Non-violation of D-001
+
+The plugin still does not implement, wrap, or proxy search. It registers the pre-existing ragtools MCP server with Claude Code so the model can call `search_knowledge_base` directly. Same posture as D-015. The only change is removing the Python shim that v0.3.1/v0.3.2 put between Claude Code and that server.
+
+### Reverse only if
+
+- A future Claude Code release introduces a `.mcp.json` feature that actually requires a wrapper script (e.g., per-invocation environment injection that cannot be done via static `env` fields). In that case, design the wrapper as a native binary or a compiled helper, not a Python script — or use a `.cmd` / `.sh` shim and accept the extra install-mode handling. Never re-introduce a Python `os.execvp` middleman.
+
+---
+
 *Append new decisions below. Never rewrite or delete an entry — supersede with a new dated entry that references the old one.*
