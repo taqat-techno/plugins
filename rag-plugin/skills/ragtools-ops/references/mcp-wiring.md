@@ -19,11 +19,42 @@ ragtools exposes **three MCP tools** to Claude Code:
 
 ## Registration: three options
 
-### Option A — Plugin-level (automatic, recommended)
+### Option A — Plugin-level (automatic, recommended) — v0.3.1+
 
 **The rag-plugin ships its own `.mcp.json` at the plugin root.** When you install the plugin via `/plugins`, Claude Code auto-discovers and registers it. No manual wiring required.
 
-The bundled config:
+The bundled config (v0.3.1, D-018):
+
+```json
+{
+  "mcpServers": {
+    "ragtools": {
+      "type": "stdio",
+      "command": "python",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/rag_mcp_launcher.py"]
+    }
+  }
+}
+```
+
+Two things to notice:
+- **Wrapped shape with `mcpServers`.** This is the canonical Claude Code plugin MCP schema for stdio servers (see `CLAUDE_CODE_PLUGIN_DEVELOPMENT_GUIDE.md:362` and every stdio example in `claude-plugins-official-main/`). The v0.3.0 flat shape turned out to be invalid for stdio plugins — the loader silently registered nothing.
+- **`command: "python"` + launcher path**, not a hardcoded `rag-mcp` or `rag`. No single binary name is correct across every supported install mode, so the plugin ships a tiny Python launcher (`scripts/rag_mcp_launcher.py`, ~100 lines, stdlib only) that resolves the canonical ragtools binary at runtime and `os.execvp`-replaces itself with it. Stdio connects directly to the real MCP server — no subprocess wrapping.
+
+The launcher resolution order:
+1. `GET http://127.0.0.1:21420/api/mcp-config` with a 1s timeout — the running service knows the authoritative command for this install mode.
+2. `rag` on PATH → `exec rag serve` (packaged Windows/macOS/Linux).
+3. `rag-mcp` on PATH → `exec rag-mcp` (dev pip install).
+4. Fail to stderr with exit 127 — Claude Code surfaces the failure in `/mcp`.
+
+**Prerequisites for Option A (v0.3.1+):**
+- `python` (or `python3` / `py`) must be on `PATH`. Every supported ragtools install mode already requires or bundles Python, so this is the minimum bar for plugin users.
+- **At least one** of: ragtools service running on `127.0.0.1:21420`, `rag` on PATH, or `rag-mcp` on PATH. If none are available, the launcher fails loudly and the plugin cannot auto-wire until ragtools is installed.
+- **Fallback:** if the launcher cannot resolve any binary, use Option B or Option C to manually wire a project-level or user-level `.mcp.json`.
+
+#### Legacy (v0.3.0 and earlier)
+
+Earlier versions shipped the flat shape with a hardcoded `rag-mcp` command:
 
 ```json
 {
@@ -35,14 +66,7 @@ The bundled config:
 }
 ```
 
-This mirrors how `devops-plugin` ships the Azure DevOps MCP server. The plugin-level `.mcp.json` lives at `plugins/rag-plugin/.mcp.json` — **not** under `.claude-plugin/`. It uses the **flat shape** (no `mcpServers` wrapper) per the plugin-level format convention.
-
-**Prerequisites for Option A:**
-- `rag-mcp` must be on `PATH`.
-  - **Dev mode:** provided by `pip install -e .` via the `rag-mcp` console script entry in `pyproject.toml`. Active venv = works.
-  - **Packaged Windows:** provided if the installer was run with the "Add to PATH" option checked (the default). `%LOCALAPPDATA%\Programs\RAGTools\` gets added to `HKCU\Environment\Path`.
-  - **Packaged macOS:** requires the user to manually add the extract directory to `PATH` (no installer option yet — macOS is Phase 1).
-- **Fallback:** if `rag-mcp` is not on PATH, use Option B or Option C.
+This configuration is **broken on packaged Windows installs** (no `rag-mcp.exe` shim) and rejected by Claude Code's plugin loader for stdio servers regardless of the command (missing `mcpServers` wrapper). If you are on v0.3.0 and seeing `Failed to reconnect to plugin:rag:ragtools` in `/mcp`, upgrade to v0.3.1+.
 
 ### Option B — Project-level (manual, via `/rag-setup`)
 

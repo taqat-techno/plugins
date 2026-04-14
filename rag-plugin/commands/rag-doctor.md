@@ -115,10 +115,15 @@ The last two rows are **plugin-level** checks added in v0.2.0 (see D-016 and D-0
 - `WARN — NOT INSTALLED (target: <path>)` if the target file exists but has no rule
 - `WARN — TARGET MISSING` if `~/.claude/CLAUDE.md` doesn't exist at all
 
-**MCP registrations row:** runs `/rag-config mcp-dedupe status` internally and mirrors the result:
-- `OK — 1 (plugin-level, canonical)` if only the plugin-level registration exists
-- `WARN — <N+1> (plugin-level + <N> duplicates)` if duplicates found. Names the duplicate locations in the findings block below.
-- `ERROR — plugin-level .mcp.json missing` if the plugin's own `.mcp.json` is absent (shouldn't happen, but worth surfacing)
+**MCP registrations row:** runs `/rag-config mcp-dedupe status` internally and mirrors the result. The row must surface **both** the duplicate-count outcome **and** the plugin-level schema/PATH assertions (v0.3.1 D-018):
+- `OK — 1 (plugin-level, canonical, schema OK)` — plugin-level is structurally valid, command resolves on PATH, and no duplicates exist.
+- `WARN — <N+1> (plugin-level + <N> duplicates)` — plugin-level is valid but extra copies exist in `~/.claude.json` or `~/.claude/.mcp.json`. Names the duplicate locations in the findings block below.
+- `ERROR — plugin .mcp.json missing or malformed` — plugin root `.mcp.json` is absent or not parseable as JSON.
+- `ERROR — plugin .mcp.json missing mcpServers.ragtools` — schema bug (flat shape without the `mcpServers` wrapper). This is the regression class that v0.3.1 exists to catch: Claude Code's plugin loader silently registers nothing on the flat shape, so `/mcp` reports "Failed to reconnect". Remediation: reinstall the plugin or restore the canonical `.mcp.json` shape from source.
+- `ERROR — plugin .mcp.json command '<cmd>' not on PATH` — the wired command cannot be found by `shutil.which`. Common cause: hardcoded `rag-mcp` on a packaged install where only `rag.exe` ships, or missing `python` when the launcher is used.
+- `ERROR — launcher script <path> missing or unreadable` — the cross-mode launcher (`scripts/rag_mcp_launcher.py`) is referenced in `.mcp.json` but the file is gone. Indicates a broken plugin install.
+
+An `ERROR` on this row is **always** more urgent than a `WARN` duplicate count — a broken plugin-level registration means ragtools MCP will not load at all, regardless of user-level entries.
 
 If everything is OK and the only `INFO` row is F-010, print a single-line summary: `✓ All checks passed. Collection NOT FOUND is expected when the service is running.` (Plus the mode banner above.)
 

@@ -306,18 +306,23 @@ Scans `~/.claude.json` (top-level `mcpServers` and per-project `mcpServers` sub-
    - Top-level `mcpServers.ragtools`
    - Every `projects.<path>.mcpServers.ragtools`
 2. Read `~/.claude/.mcp.json` (if it exists). Walk `mcpServers.ragtools`.
-3. Read the plugin-level `.mcp.json` (`${CLAUDE_PLUGIN_ROOT}/.mcp.json`). Note its command (should be `rag-mcp`).
-4. **Report** every location where a `ragtools` entry was found:
+3. **Validate the plugin-level `.mcp.json`** at `${CLAUDE_PLUGIN_ROOT}/.mcp.json`. This is not just a count — the file must be **structurally valid** and **resolvable**. Run these assertions in order; each failure is reported as a distinct ERROR:
+   - **EXISTS** — file is present and parseable as JSON. If not: `ERROR — plugin .mcp.json missing or malformed at <path>`.
+   - **SCHEMA** — top-level object has a `mcpServers` key containing a `ragtools` entry. This is the canonical Claude Code plugin MCP shape (the flat shape `{"ragtools": ...}` without the wrapper is **not** accepted by the plugin loader for stdio servers and will register nothing). If not: `ERROR — plugin .mcp.json missing mcpServers.ragtools (expected wrapped shape)`.
+   - **COMMAND RESOLVES ON PATH** — read `mcpServers.ragtools.command`. Run `shutil.which(command)` (or `where` on Windows / `which` on POSIX). If not found: `ERROR — plugin .mcp.json command '<cmd>' not on PATH`.
+   - **LAUNCHER PRESENT** (only when command is the cross-mode launcher pattern) — if `command` is `python` / `python3` / `py` **and** any arg contains `rag_mcp_launcher.py`, resolve the arg against `${CLAUDE_PLUGIN_ROOT}` and assert the file exists and is readable. If not: `ERROR — launcher script <path> missing or unreadable`.
+4. **Report** every location where a `ragtools` entry was found, with the plugin-level assertion result on its own line:
    ```
    mcp-dedupe status:
-     plugin-level (canonical): rag-mcp                                                    [source: rag-plugin/.mcp.json]
+     plugin-level (canonical): python ${CLAUDE_PLUGIN_ROOT}/scripts/rag_mcp_launcher.py  [schema OK, launcher present, python on PATH]
      user top-level:            rag.exe serve                                              [source: ~/.claude.json → mcpServers.ragtools]
      project-level: C:/MY-WorkSpace/rag  → rag-mcp                                         [source: ~/.claude.json → projects.<...>.mcpServers.ragtools]
    
    duplicates found: 2
    recommendation: /rag-config mcp-dedupe clean
    ```
-5. If no duplicates: `mcp-dedupe status: 1 registration (plugin-level, canonical). no duplicates found.`
+5. If no duplicates and plugin-level passes all four assertions: `mcp-dedupe status: 1 registration (plugin-level, canonical). schema OK. no duplicates found.`
+6. If the plugin-level fails any assertion, **surface that first** — it is always more urgent than duplicates, because a broken plugin-level registration means Claude Code cannot load ragtools at all regardless of what's in user-level files.
 
 ## `mcp-dedupe clean [--yes]`
 

@@ -2,6 +2,31 @@
 
 All notable changes to `rag-plugin` are documented here. Format is loosely based on [Keep a Changelog](https://keepachangelog.com/). Versioning follows [SemVer](https://semver.org/).
 
+## [0.3.1] — 2026-04-14
+
+Hotfix for a broken plugin-level MCP auto-wiring. Two compounding bugs in v0.3.0's `.mcp.json` prevented Claude Code from ever loading the `ragtools` MCP server on packaged Windows installs: the file shipped the flat shape without the `mcpServers` wrapper (which the plugin loader rejects for stdio servers), and it hardcoded `command: "rag-mcp"` which only exists on dev pip installs — packaged Windows ships `rag.exe` only. `/mcp` reported *"Failed to reconnect to plugin:rag:ragtools"* and the doctor `mcp-dedupe status` row did not catch either bug because it only counted duplicates. Closes the gap.
+
+### Added
+- **`scripts/rag_mcp_launcher.py`** — new cross-mode Python launcher (stdlib only, ~100 lines). Resolves the canonical ragtools binary at runtime and `os.execvp`-replaces itself with it so Claude Code's stdio pipe connects to the real MCP server directly. Resolution order: (1) `GET http://127.0.0.1:21420/api/mcp-config` with a 1-second timeout — the running service is the authoritative source for this install mode; (2) `rag` on PATH → exec `rag serve` (packaged Windows/macOS/Linux); (3) `rag-mcp` on PATH → exec `rag-mcp` (dev pip install); (4) fail loudly to stderr with exit code 127 so `/mcp` surfaces the failure. Supports `--dry-run` for smoke-testing (prints the resolved `{command, args}` as JSON and returns without exec).
+- **D-018** in `docs/decisions.md` — binding decision. Plugin-level `.mcp.json` uses the wrapped shape (`{"mcpServers": {...}}`) and delegates command resolution to the cross-mode launcher. Overrides the flat-shape claim in D-015 for stdio servers, which was based on the `devops-plugin` pattern but empirically does not work for `rag-plugin` (confirmed by `/mcp` failure; corroborated by every stdio example in `claude-plugins-official-main/` using the wrapped shape). Does not touch SSE/HTTP plugins — flat shape remains acceptable there.
+
+### Changed
+- **`rag-plugin/.mcp.json`** — rewritten. Now uses `{"mcpServers": {"ragtools": {"type": "stdio", "command": "python", "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/rag_mcp_launcher.py"]}}}`. The `${CLAUDE_PLUGIN_ROOT}` variable is expanded by Claude Code's plugin loader at registration time.
+- **`rag-plugin/commands/rag-config.md`** — `mcp-dedupe status` hardened. No longer just counts duplicates. Now parses the plugin-level `.mcp.json` and asserts four invariants: file exists and is valid JSON; top-level `mcpServers.ragtools` key is present (catches the v0.3.0 schema bug); `command` resolves on PATH via `shutil.which` (catches the wrong-command bug); and when the launcher pattern is detected, the launcher script file is readable. Plugin-level failures are surfaced before duplicate-count issues because a broken plugin-level registration means ragtools will not load at all.
+- **`rag-plugin/commands/rag-doctor.md`** — MCP registrations row documents the five new error states produced by the hardened `mcp-dedupe status`: schema bug, missing wrapper, command-not-on-PATH, launcher-missing, and the original missing-file case. Each maps to a clear remediation.
+- **`rag-plugin/.claude-plugin/plugin.json`** — version `0.3.0` → `0.3.1`.
+- **`rag-plugin/README.md`** — the "Auto-wire" bullet now reflects the cross-mode launcher pattern and no longer assumes `rag-mcp` is on PATH.
+- **`rag-plugin/skills/ragtools-ops/references/mcp-wiring.md`** — Option A rewritten to document the wrapped shape + launcher. The old flat-shape snippet is retained as "legacy (v0.3.0 and earlier)" with a note explaining why it stopped working.
+
+### Rationale
+This is a shipped bug, not a feature. The v0.3.0 plugin was demonstrably broken for the primary install target (packaged Windows) and the doctor check that was supposed to catch MCP-wiring regressions did not parse the file it was checking. The fix has to be generic (no single command name works across every supported install mode), so command resolution is delegated to a launcher script that asks the running service first and falls through to PATH probing. The schema fix is the canonical Claude Code plugin shape documented in `CLAUDE_CODE_PLUGIN_DEVELOPMENT_GUIDE.md`. The doctor hardening is the regression-prevention layer the original bug report explicitly called out as missing.
+
+### Verification
+- Static validation: `python plugins/validate_plugin.py rag-plugin` passes.
+- Schema sanity: `python -c "import json; d=json.load(open('plugins/rag-plugin/.mcp.json')); assert 'ragtools' in d['mcpServers']"` exits 0.
+- Launcher dry-run: `python plugins/rag-plugin/scripts/rag_mcp_launcher.py --dry-run` prints `{"command": "<resolved path>", "args": ["serve"]}` on packaged Windows install where `rag.exe` is on PATH.
+- Live MCP: after a Claude Code restart, `/mcp` reports `plugin:rag:ragtools connected` and `mcp__plugin_rag-plugin_ragtools__search_knowledge_base(query=...)` returns results instead of `Failed to reconnect`.
+
 ## [0.3.0] — 2026-04-14
 
 Post-roadmap amendment #3. Ships the **Tier-2 guided-enforcement UserPromptSubmit retrieval-reminder hook** with lightweight observability. Closes the advisory-only gap in the D-016 CLAUDE.md rule by adding a harness-enforced layer that injects a system reminder at the moment of answering, not just at session start. Also includes the canonical marker-wrapped upgrade to `~/.claude/CLAUDE.md` on the development machine.
