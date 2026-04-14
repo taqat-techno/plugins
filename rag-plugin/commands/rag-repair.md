@@ -74,6 +74,17 @@ Match the user's text against the rubric below. Each row has match patterns and 
 | **F-008** | `admin panel.*won't load` + service is reachable on a different port | MEDIUM |
 | **F-009** | `MCP.*not connecting` / `claude code.*MCP.*fail` / `rag-mcp.*broken` | HIGH |
 | **F-010** | `Collection NOT FOUND` + `service is up` (BOTH MUST HOLD) | **HIGH — and this is NOT a bug** |
+| **P-RULE** | `claude doesn't use the MCP` / `claude says no info but data is there` / `rag mcp not used` / `why didn't claude search` | HIGH — plugin behavior, not a ragtools F-ID |
+| **P-RULE** | `CLAUDE.md rule missing` / `retrieval rule not installed` | HIGH — plugin behavior |
+| **P-DEDUPE** | `duplicate MCP` / `two ragtools entries` / `mcp registered twice` | HIGH — plugin behavior |
+| **P-DEDUPE** | `.claude.json has ragtools` + plugin installed | HIGH — plugin behavior |
+
+**Plugin-behavior IDs (P-NNN)** are separate from ragtools product failures (F-NNN). They classify things the plugin itself needs to fix — not things wrong with the ragtools product. Currently two P-IDs exist:
+
+- **P-RULE** — the CLAUDE.md retrieval rule is missing or outdated. Resolution: `/rag-config claude-md install`. Source: D-016. No playbook walk — single-command fix.
+- **P-DEDUPE** — duplicate `ragtools` MCP registrations in user-level configs conflicting with the plugin-level `.mcp.json`. Resolution: `/rag-config mcp-dedupe clean`. Source: D-015. No playbook walk — single-command fix.
+
+Both P-IDs are **confirm-then-delegate** — this command does not implement the fix itself; it points the user at `/rag-config` for the actual edit.
 
 **Critical disambiguation rules:**
 
@@ -85,11 +96,13 @@ Match the user's text against the rubric below. Each row has match patterns and 
 
 4. **F-006 vs F-001.** Both involve "projects gone". F-006 is a config-load failure (config not found at expected path); F-001 is a config-write failure (the v2.4.1 bug). Use the version: pre-v2.4.1 → F-001; ≥ v2.4.1 → F-006.
 
-5. **No match.** If nothing matches HIGH or MEDIUM, do NOT guess. Print `could not classify symptom against F-001..F-012`, list the closest 2 candidates with confidence LOW, and recommend `/rag-doctor --logs` to gather more evidence.
+5. **No match.** If nothing matches HIGH or MEDIUM, do NOT guess. Print `could not classify symptom against F-001..F-012 or P-RULE/P-DEDUPE`, list the closest 2 candidates with confidence LOW, and recommend `/rag-doctor --logs` to gather more evidence.
+
+6. **P-RULE and P-DEDUPE are plugin-behavior IDs, not ragtools F-IDs.** They do NOT walk a playbook — they route to a single `/rag-config` subcommand. Do not try to classify a plugin-behavior symptom as an F-NNN, and do not try to walk an F-NNN playbook for a plugin-behavior symptom. The two namespaces are separate on purpose.
 
 ### Step 2 — Render classification result
 
-Compact format:
+Compact format for F-NNN:
 ```
 mode banner (5–7 lines from Step 0)
 
@@ -99,9 +112,32 @@ classification: F-NNN (<HIGH|MEDIUM|LOW> confidence)
   playbook: references/repair-playbooks.md#<anchor>
 ```
 
-If the user wants more context before walking, they can read the references directly. Otherwise, ask: `walk the playbook? (yes/no)`.
+Compact format for P-NNN (plugin-behavior):
+```
+mode banner
 
-If they say no, stop. If yes, proceed to Step 3.
+classification: P-RULE (HIGH confidence — plugin behavior, not a ragtools F-ID)
+  evidence: <user phrase>
+  cause: the CLAUDE.md retrieval rule is not installed, so Claude doesn't know when to call the MCP
+  fix:   /rag-config claude-md install
+  see:   ../../docs/decisions.md#d-016
+```
+
+```
+classification: P-DEDUPE (HIGH confidence — plugin behavior, not a ragtools F-ID)
+  evidence: <user phrase>
+  cause: duplicate ragtools MCP registrations in user-level configs conflicting with plugin-level .mcp.json
+  fix:   /rag-config mcp-dedupe clean
+  see:   ../../docs/decisions.md#d-015
+```
+
+If the user wants more context before walking (F-NNN) or running the fix (P-NNN), they can read the references directly. Otherwise:
+- **F-NNN:** ask `walk the playbook? (yes/no)`.
+- **P-NNN:** ask `run the fix? (yes/no)` — a yes invokes the corresponding `/rag-config` subcommand with the confirmation gates already built into that command. No playbook walk.
+
+If they say no, stop. If yes:
+- F-NNN → proceed to Step 3 (walk the playbook)
+- P-NNN → tell the user to run the `/rag-config` subcommand themselves; do NOT auto-invoke another slash command from inside `/rag-repair`. The user retains control.
 
 ### Step 3 — Walk the playbook (one step at a time)
 
