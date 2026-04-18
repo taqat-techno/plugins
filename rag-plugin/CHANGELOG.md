@@ -2,6 +2,34 @@
 
 All notable changes to `rag-plugin` are documented here. Format is loosely based on [Keep a Changelog](https://keepachangelog.com/). Versioning follows [SemVer](https://semver.org/).
 
+## [0.6.1] — 2026-04-19
+
+Install-path clarity patch. Restructures `/rag-setup` Branch A so all three packaged platforms (Windows, macOS Apple Silicon, Linux ARM64) are first-class paths with a universal source-install fallback explicitly documented for every other platform. Picks up the ragtools v2.5.1 Linux-ARM64 release. Links the upstream ragtools product repo prominently throughout the plugin.
+
+### Changed
+- **`commands/rag-setup.md`** — Branch A rewritten:
+  - New header calls out the upstream repo [`github.com/taqat-techno/rag`](https://github.com/taqat-techno/rag) as the source of truth for all installers.
+  - Three packaged platforms documented equally: A.2 Windows installer, A.3 macOS Apple Silicon tarball, **A.4 (new) Linux ARM64 tarball** (v2.5.1+).
+  - **A.5 source install is promoted to a universal fallback** — documented as available for *any* platform (macOS Intel, Linux x86_64, Windows ARM, anything exotic), not just Linux. Extended with prerequisite list, platform-specific venv activation commands, and explicit dev-mode-vs-packaged differences (config path, data path, auto-startup, PATH scope).
+  - Platform/arch detection table (A.1) now has a row per arch instead of per OS — distinguishes Linux aarch64 (A.4) from Linux x86_64 (A.5), macOS arm64 (A.3) from macOS Intel (A.5), Windows x64 (A.2) from Windows ARM (A.5).
+- **`skills/ragtools-ops/references/install.md`** — Sources table gains the Linux ARM64 artifact row; Supported platforms table gains rows per architecture with clear "packaged" vs "source-only" support tier.
+- **`skills/ragtools-ops/references/gaps.md`** — **G-001 partially superseded** by ragtools v2.5.1: Linux ARM64 is now packaged. Linux x86_64 is still source-only. Plugin behavior clause updated to detect arch and route accordingly.
+- **`.claude-plugin/plugin.json`** — version `0.6.0` → `0.6.1` (patch — UX clarity + upstream linkage; no new capability added).
+- **`README.md`** — status badge bumped; added a prominent upstream-product link at the top so anyone arriving at the plugin can reach the ragtools repo directly.
+- **Wiki (`plugins/wiki/Home.md`, `Rag-Plugin.md`, `Marketplace-Overview.md`, `Installation-and-Usage.md`, `Plugin-Catalog.md`)** — upstream product link surfaced prominently; Linux ARM64 reflected in relevant tables.
+
+### Rationale
+Two user-reported gaps:
+
+1. **Wiki → product linkage was thin.** Anyone reading the plugin wiki had no obvious path to the ragtools application repo itself. Fixed by adding a prominent [`github.com/taqat-techno/rag`](https://github.com/taqat-techno/rag) link at the top of Home.md, Rag-Plugin.md, and the install walkthrough.
+2. **Install command was implicitly Windows-first.** `/rag-setup`'s Branch A detected three platforms but treated Linux as a dev-install-only path and buried the source-install fallback as "A.4 Linux dev install". ragtools v2.5.1 actually ships Linux ARM64 packaged. The rewrite makes all three packaged paths (A.2/A.3/A.4) equally first-class and elevates the source install (A.5) as the documented universal fallback for any platform — not just Linux.
+
+### Verification
+- Validator passes (pre-existing SKILL.md YAML false-positive and documented hooks.json warnings unchanged).
+- All 3 packaged platforms have a dedicated section in Branch A with platform-specific commands.
+- A.5 source install documents the venv activation commands per-shell (bash/zsh, CMD, PowerShell) and explicitly states the dev-mode-vs-packaged path differences.
+- Upstream repo link (`github.com/taqat-techno/rag`) appears in: `rag-plugin/README.md`, `commands/rag-setup.md`, `references/install.md`, `wiki/Home.md`, `wiki/Rag-Plugin.md`, `wiki/Marketplace-Overview.md`, `wiki/Installation-and-Usage.md`.
+
 ## [0.6.0] — 2026-04-18
 
 Maintainer release-gate capability. Adds a second skill (`ragtools-release`) that walks the six permanent release invariants before an upstream ragtools version ships. Does not affect operator-facing workflows.

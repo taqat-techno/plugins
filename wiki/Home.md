@@ -6,6 +6,17 @@ Welcome to the **taqat-techno-plugins** marketplace for Claude Code. This wiki i
 
 A curated Claude Code plugin catalog published at **[github.com/taqat-techno/plugins](https://github.com/taqat-techno/plugins)**. Each plugin delivers domain-specific capabilities: Odoo ERP development, Azure DevOps integration, local RAG knowledge bases, UI/UX design, universal document conversion, video creation with narration, and mobile push notifications.
 
+> **Upstream products powering these plugins.** Some plugins in this marketplace are operator consoles for external products that live in their own repositories:
+>
+> | Plugin | Upstream product repo |
+> |---|---|
+> | [[Rag Plugin\|Rag-Plugin]] | **[github.com/taqat-techno/rag](https://github.com/taqat-techno/rag)** — the ragtools local RAG application (installers, source, release history, product docs) |
+> | [[DevOps Plugin\|DevOps-Plugin]] | [Azure DevOps Services](https://dev.azure.com/) via the [`@azure-devops/mcp`](https://www.npmjs.com/package/@azure-devops/mcp) server |
+> | [[Paper Plugin\|Paper-Plugin]] | [Figma](https://www.figma.com/) via the user-installed Figma MCP (separate install) |
+> | [[Pandoc Plugin\|Pandoc-Plugin]] | [Pandoc](https://pandoc.org/) — auto-installed by `/pandoc setup` |
+> | [[Remotion Plugin\|Remotion-Plugin]] | [Remotion](https://remotion.dev) — installed by `/remotion <name>` |
+> | [[Ntfy Plugin\|Ntfy-Plugin]] | [ntfy.sh](https://ntfy.sh) |
+
 The marketplace targets a single power-user workflow: real client projects at TAQAT Techno, not templates or demos. Every plugin is evidence-grounded in real operational incidents — Project Alpha migration, the Aqraboon emergency-assistance runbook retrieval incident, ragtools' v2.4.1 data-loss bug, etc.
 
 ## Quick navigation

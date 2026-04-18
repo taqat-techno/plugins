@@ -9,30 +9,33 @@ source-sections: [§3, §4, §5, §6]
 
 ## Sources and distribution
 
-`ragtools` ships from a single source: the **GitHub Releases page** at `https://github.com/taqat-techno/rag/releases`.
+`ragtools` ships from a single source: the **upstream product GitHub Releases page** at **[github.com/taqat-techno/rag/releases](https://github.com/taqat-techno/rag/releases)**.
 
-The CI/CD pipeline (`.github/workflows/release.yml`) builds three artifacts in parallel on tag push:
+The CI/CD pipeline (`.github/workflows/release.yml`) builds packaged artifacts in parallel on tag push:
 
 | Artifact | Platform | Type | Approx. size |
 |----------|----------|------|--------------|
-| `RAGTools-Setup-{version}.exe` | Windows | Inno Setup installer (recommended) | ~488 MB |
-| `RAGTools-{version}-portable.zip` | Windows | Portable bundle (no install) | ~564 MB |
+| `RAGTools-Setup-{version}.exe` | Windows x64 | Inno Setup installer (recommended) | ~488 MB |
+| `RAGTools-{version}-portable.zip` | Windows x64 | Portable bundle (no install) | ~564 MB |
 | `RAGTools-{version}-macos-arm64.tar.gz` | macOS Apple Silicon | PyInstaller tarball | ~423 MB |
+| `RAGTools-{version}-linux-arm64.tar.gz` | Linux ARM64 (v2.5.1+) | PyInstaller tarball | ~423 MB |
 
 Bundle size is dominated by the bundled SentenceTransformer model (`all-MiniLM-L6-v2`, ~175 MB) and the full PyTorch runtime (~600 MB). Not reducible without removing the model.
 
-**Source install** is also supported (see "Development install" below).
+**Source install** is also supported for every platform (see "Development install" below). This is the universal fallback — macOS Intel, Linux x86_64, Windows ARM, and any other platform.
 
 WinGet manifests exist under `winget/` but are **not yet published** to the official WinGet repository — see `gaps.md`.
 
 ## Supported platforms
 
-| OS | Support | Install artifact | Notes |
-|----|---------|------------------|-------|
+| OS / arch | Support | Install artifact | Notes |
+|---|---|---|---|
 | **Windows 10/11 (x64)** | ✅ Full | `RAGTools-Setup-{version}.exe` or portable `.zip` | Primary platform. Includes auto-start on login via VBScript in Windows Startup folder. |
-| **macOS 14+ (Apple Silicon / arm64)** | ✅ Phase 1 | `RAGTools-{version}-macos-arm64.tar.gz` | Built on GitHub `macos-14` runners. No `.app` bundle or `.dmg` yet. No login auto-start. |
-| **macOS Intel (x86_64)** | ❌ Not built | — | Not produced by CI. |
-| **Linux** | ❌ No release artifact | — | Code works in dev mode via `pip install -e ".[dev]"` but CI does not produce a Linux binary. |
+| **Windows ARM** | ⚠ Source-only | — | No packaged Windows-ARM artifact. Use dev install via `pip install -e ".[dev]"`. |
+| **macOS 14+ (Apple Silicon / arm64)** | ✅ Phase 1 | `RAGTools-{version}-macos-arm64.tar.gz` | Built on GitHub `macos-14` runners. No `.app` bundle or `.dmg` yet. No login auto-start (G-002). |
+| **macOS Intel (x86_64)** | ⚠ Source-only | — | Not produced by CI (G-004). Dev install from source works. |
+| **Linux ARM64 (aarch64)** | ✅ v2.5.1+ | `RAGTools-{version}-linux-arm64.tar.gz` | New in ragtools v2.5.1. Follows the same replaceable-app vs persistent-user-data model as macOS. No systemd unit yet. |
+| **Linux x86_64** | ⚠ Source-only | — | No packaged x86_64 Linux artifact yet (G-001). Dev install from source works. |
 
 Key platform differences are covered in `paths-and-layout.md` and `risks-and-constraints.md`.
 

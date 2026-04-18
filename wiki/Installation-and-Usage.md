@@ -62,7 +62,7 @@ Most plugins have a one-time setup step:
 |---|---|---|
 | odoo | no setup required — works on any Odoo source tree | — |
 | devops | `/init` then `/init profile` | Install Azure CLI + MCP; configure auth; generate persistent user profile |
-| rag | `/rag-setup` | Detect install state; walk install/upgrade/verify; auto-install CLAUDE.md rule; dedupe MCP registrations |
+| rag | `/rag-setup` | Detect install state; walk install/upgrade/verify. Installers live in the **upstream ragtools repo at [github.com/taqat-techno/rag/releases](https://github.com/taqat-techno/rag/releases)**. Covers Windows (x64), macOS (Apple Silicon), Linux (ARM64 — v2.5.1+), plus universal source-install fallback for any other platform (clone [github.com/taqat-techno/rag](https://github.com/taqat-techno/rag) + `pip install -e ".[dev]"`). Auto-installs CLAUDE.md rule; dedupes MCP registrations. |
 | paper | `/paper` (status check) | Verify Figma MCP installation status if using figma-workflow |
 | pandoc | `/pandoc setup` | Install Pandoc + LaTeX if missing |
 | remotion | `/remotion <project-name>` | Scaffold a Remotion project with continuous-audio skeleton |

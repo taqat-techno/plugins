@@ -1,6 +1,19 @@
 # Rag Plugin
 
-**Package:** `rag` · **Version:** `0.6.0` · **Category:** productivity · **License:** MIT · **Source:** [`rag-plugin/`](../../rag-plugin/) · **MCP server:** `ragtools` (spawns `rag serve` directly)
+**Package:** `rag` · **Version:** `0.6.1` · **Category:** productivity · **License:** MIT · **Source:** [`rag-plugin/`](../../rag-plugin/) · **MCP server:** `ragtools` (spawns `rag serve` directly)
+
+> **Upstream application:** the **ragtools** product this plugin operates lives at **[github.com/taqat-techno/rag](https://github.com/taqat-techno/rag)**. Installers, source, CHANGELOG, release history, and product-level documentation all live in that repo — **not** in this plugin. This plugin is the operator console (install, diagnose, repair, configure); the upstream repo is the application.
+>
+> Install artifacts per platform (as of ragtools v2.5.1):
+>
+> | Platform / arch | Path | Artifact |
+> |---|---|---|
+> | Windows 10/11 (x64) | packaged installer | [`RAGTools-Setup-{version}.exe`](https://github.com/taqat-techno/rag/releases/latest) |
+> | macOS 14+ (Apple Silicon) | packaged tarball | [`RAGTools-{version}-macos-arm64.tar.gz`](https://github.com/taqat-techno/rag/releases/latest) |
+> | Linux ARM64 (v2.5.1+) | packaged tarball | [`RAGTools-{version}-linux-arm64.tar.gz`](https://github.com/taqat-techno/rag/releases/latest) |
+> | **Anything else** (macOS Intel, Linux x86_64, Windows ARM, etc.) | **source install** — universal fallback | `git clone github.com/taqat-techno/rag` + `pip install -e ".[dev]"` |
+>
+> `/rag-setup` walks all four paths automatically.
 
 ## Purpose
 

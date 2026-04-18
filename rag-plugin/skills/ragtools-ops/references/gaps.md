@@ -15,11 +15,13 @@ This file is the **honest "what we don't promise" list**. The rag-plugin plugin 
 
 ## Confirmed gaps
 
-### G-001 — Linux packaged artifact
+### G-001 — Linux packaged artifact (partial as of ragtools v2.5.1)
 
-**Status:** Code is cross-platform but **no CI build or installer exists**. Dev-mode install via `pip install -e ".[dev]"` works; packaged install is unverified.
+**Status (updated for v2.5.1):** Linux **ARM64** is now shipped as `RAGTools-{version}-linux-arm64.tar.gz` with the same replaceable-app vs persistent-user-data model as macOS. Linux **x86_64** (Intel/AMD) is still unpackaged — code works in dev mode via `pip install -e ".[dev]"` but CI does not produce a packaged binary yet.
 
-**Plugin behavior:** `/rag-setup` on Linux must say "no packaged Linux artifact yet — use the dev install from source" and link to `install.md`.
+**Plugin behavior (post-v2.5.1):** `/rag-setup` on Linux must detect arch:
+- `aarch64` / `arm64` → walk A.4 (packaged tarball path).
+- `x86_64` → walk A.5 (source install fallback); tell the user "no packaged x86_64 Linux artifact yet — source install is the path".
 
 ---
 
