@@ -2,6 +2,52 @@
 
 All notable changes to `rag-plugin` are documented here. Format is loosely based on [Keep a Changelog](https://keepachangelog.com/). Versioning follows [SemVer](https://semver.org/).
 
+## [0.5.0] — 2026-04-18
+
+MCP v2.5.0 integration. The plugin now uses the full 22-tool MCP surface — 3 core + 9 project ops (default ON) + 9 debug (default OFF, user-granted) — for diagnostics, project introspection, ignore-rule management, and guarded writes. **Command count stays at 6 user-facing commands + 1 maintainer-only**; every new capability is delivered as a skill workflow that auto-activates on user intent, rather than as a new slash command. Every existing command is now **generic** (works standalone without required arguments, accepts optional parameters).
+
+### Added
+- **`rules/mcp-envelope.md`** — new shared rule codifying the MCP envelope contract: error-code-first branching, mode-based dispatch, three-tier fallback chain (MCP → HTTP → CLI), tool-grant awareness, cooldown discipline, confirm-token guard for `reindex_project`. Referenced by every MCP-using command and by the `ragtools-ops` skill. Single source of truth for envelope handling; commands do not inline the discipline.
+- **Skill workflows 2.5.1–2.5.9** in `skills/ragtools-ops/SKILL.md` — auto-activating MCP workflows, each triggered by user-intent phrasing:
+  - **2.5.2 Project health** — `list_projects` → `project_status` for a rich per-project card on "is project X healthy?".
+  - **2.5.3 Why-not-indexed workflow** — `list_project_files` → `get_project_ignore_rules` → `preview_ignore_effect` → offer `remove_project_ignore_rule` + `run_index`. Activates on "why isn't file F in search?", "file F is missing", etc. Entirely new capability.
+  - **2.5.4 Add-ignore-rule workflow** — preview → typed `ADD` gate → `add_project_ignore_rule` → offer `run_index`. Activates on "exclude X", "ignore tmp/", "don't index node_modules".
+  - **2.5.5 Remove-ignore-rule workflow** — refuses to remove `built_in` rules (explains why); typed `REMOVE` gate for `config_project` rules.
+  - **2.5.6 Reindex decision tree** — `run_index` incremental first (2s cooldown), drift detection (deleted > 5 AND indexed < 2), escalation to `reindex_project` with typed `DELETE` and 30s cooldown only on drift.
+  - **2.5.7 Tool-grant audit** — shows which MCP tools are enabled vs disabled, names the toggle path for each. Activates on "what tools are enabled?".
+  - **2.5.8 Multi-project search preparation** — constructs the `projects=[...]` spec but does NOT call `search_knowledge_base` (D-001 preserved).
+  - **2.5.9 MCP failure handling** — uniform fallback-chain discipline across all workflows.
+- **D-022** in `docs/decisions.md` — binding decision refining D-001. Plugin uses MCP **ops tools** freely (all 18 non-search tools across core, project-ops, debug tiers); plugin still never wraps `search_knowledge_base`. Explicit table of what's allowed vs forbidden. Non-violation notes against D-001, D-005, D-007, D-008, D-012, D-015, D-017, D-020, D-021.
+- **New `/rag-projects` subcommands (v0.5.0)** — `status <id>` (uses `project_status`), `summary <id> [<top_n>]` (uses `project_summary`), `files <id> [<limit>]` (uses `list_project_files`). All read-only; envelope handling per `rules/mcp-envelope.md`.
+
+### Changed
+- **`commands/rag-doctor.md`** — Mode E (default fast probe) now prefers `mcp__plugin_rag_ragtools__index_status` + `list_projects` (+ optional `service_status`), with HTTP `/api/status` + `/api/projects` + `/api/watcher/status` as fallback when the MCP is in failed mode or not loaded. Mode D (`--full`) prefers `system_health` + `crash_history` for structured diagnostic output, falls back to wrapping `rag doctor` CLI when the debug tools aren't granted (with an admin-UI toggle hint). Mode B (`--logs`) prefers `tail_logs` (has filesystem fallback — works even in degraded mode) and supplements with `recent_activity` when granted. The `rag-log-scanner` Haiku agent contract is unchanged — still classifies findings — but now receives log content from the MCP tool rather than a direct disk read.
+- **`commands/rag-projects.md`** — now **generic and standalone**: running `/rag-projects` with no arguments defaults to `list`. Subcommand whitelist updated to document which MCP tool each subcommand uses (`list` → core, `status`/`summary`/`files` → project-ops, `rebuild` → `reindex_project` with confirm_token + 30s cooldown + auto-backup). `add` / `remove` documented as MCP-excluded-for-safety; plugin keeps HTTP paths for them but flags them as weaker than MCP-guarded alternatives. `rebuild <id>` now routes through MCP `reindex_project` (typed `DELETE` gate + confirm_token = project_id programmatic); global rebuild (no id) stays on HTTP because the MCP has no global equivalent.
+- **`commands/rag-reset.md`** — now **generic and standalone**: running `/rag-reset` with no flag enters an **interactive picker** showing the 3 escalation levels with their auto-backup / service-state / gate requirements. `--soft` routes single-project rebuilds through MCP `reindex_project` for the auto-backup + cooldown benefits; global `--soft` stays on HTTP with an explicit warning that auto-backup is not taken on that path. `--data` and `--nuclear` branches unchanged.
+- **`rules/state-detection.md`** — now describes an MCP-first probe (`index_status` core tool, works in both proxy and direct mode) as the preferred Step 1, with HTTP `/health` and CLI `rag version` as Steps 2–3 fallbacks. State object gains `mcp_available: bool` and `mcp_mode: proxy|direct|degraded|failed|N/A` fields. Path resolution (Step 5) prefers MCP `get_paths` when the debug tool is granted; falls back to HTTP `/api/status` parsing.
+- **`skills/ragtools-ops/SKILL.md`** — frontmatter `description` expanded with operational intent phrases ("why isn't this file in search", "add an ignore rule", etc.) so the skill auto-activates when users describe intents rather than ragtools keywords. Phase 1 (mode detection) now defers to `rules/state-detection.md` + `rules/mcp-envelope.md`. Phase 2.5 is new — MCP tool dispatch with 9 workflow sections. Phase 3 routing rewritten: operational questions default to **skill-chained MCP tool calls** (no slash command needed); only deep diagnosis, setup/install/upgrade, destructive reset, and plugin-layer config still route to slash commands.
+- **`.claude-plugin/plugin.json`** — version `0.4.0` → `0.5.0`.
+
+### Rationale
+ragtools v2.5.0 expanded the MCP from 3 content tools to 22 total (3 core + 9 project ops + 9 debug). The v0.4.0 plugin used only the 3 core content tools via Claude's direct calls (D-001); everything operational was done via HTTP API or CLI. D-022 refines D-001 to keep the content-tool boundary (plugin never wraps `search_knowledge_base`) while unlocking the 18 non-search tools for plugin use. The MCP's own safety model — envelope contract, error-code enum, mode detection, cooldowns, confirm-token guard, auto-backup, intentionally-excluded tools (`add_project`, `remove_project`, `shutdown`, `backup_restore`, `set_active_project`) — is stronger than the ad-hoc HTTP paths the plugin previously used. Routing through the MCP means the plugin inherits those guarantees instead of duplicating (and drifting from) the logic.
+
+Every net-new capability ships as a **skill workflow**, not a new command. The skill auto-activates on user intent (e.g. "why isn't file X indexed?") and chains the MCP tools without requiring a slash-command interface. This matches the user's directional guidance ("decrease commands, increase skills"), preserves D-021's "fewer, stronger, smarter commands" posture, and fills the 22-tool surface without growing the command count.
+
+Every surviving command is now **generic / standalone** — `/rag-projects` defaults to `list` with no args, `/rag-reset` defaults to an interactive picker. Previously they printed usage and stopped; now they do the most common thing automatically.
+
+### Verification
+- Validator passes: `python validate_plugin.py rag-plugin` (pre-existing SKILL.md YAML and hooks.json false positives unchanged).
+- Schema sanity: no change to `.mcp.json`, `.claude-plugin/plugin.json` manifest still valid.
+- Command count: exactly 6 files under `commands/` (`rag-config.md`, `rag-doctor.md`, `rag-projects.md`, `rag-reset.md`, `rag-setup.md`, `rag-sync-docs.md`) — no growth.
+- Rules: 3 files under `rules/` (`claude-md-retrieval-rule.md`, `state-detection.md`, `mcp-envelope.md`).
+- Decisions: D-001 through D-022 — D-022 is the one new binding entry.
+- All four envelope assertions in `rules/mcp-envelope.md` are testable against live MCP output once a session has the tools loaded: envelope shape, `error_code` enum, `mode` enum, fallback chain.
+
+### Known follow-ups (later phases)
+- **v0.6.0:** `/rag-setup` Branch D adds a grant-check sub-step that audits which debug tools are granted vs which plugin workflows need them; offers the toggle path as a one-shot remediation list.
+- **v0.7.0:** session-ID correlation in `/rag-config hook-observability` — log the MCP session ID (`mcp:<sid>`) alongside hook decisions so multi-window users can diff.
+- **Deferred:** migrate `/rag-projects add` and `/rag-projects remove` off HTTP toward CLI/admin-UI-only handoffs, matching the MCP's intentional-exclusion posture (D-022 §8).
+
 ## [0.4.0] — 2026-04-14
 
 Command surface consolidation. Collapses 9 commands (8 user-facing + 1 maintainer) into 7 (6 user-facing + 1 maintainer) by folding `/rag-status` and `/rag-repair` into a smart `/rag-doctor` and folding `/rag-upgrade` into a smart `/rag-setup`. Every surviving command is now **state-aware at the top** — it runs a shared state-detection preamble, branches on the detected state, and refuses gracefully when the state is wrong instead of failing with a generic error.

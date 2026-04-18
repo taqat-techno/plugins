@@ -1,10 +1,10 @@
 ---
-description: Reset ragtools state with three escalation levels — soft (rebuild), data (delete data dir), nuclear (delete everything). Each level requires typing DELETE verbatim. Blocks on pre-v2.4.1 versions.
-argument-hint: "--soft | --data | --nuclear"
-allowed-tools: Bash(curl:*), Bash(rag version:*), Bash(rag service:*), Bash(where rag:*), Bash(which rag:*), Bash(test:*), Read
+description: Reset ragtools state with three escalation levels — soft (MCP-backed rebuild with auto-backup), data (delete data dir), nuclear (delete everything). Standalone (no flag) enters an interactive picker that explains each level. Each level requires typing DELETE verbatim. Blocks on pre-v2.4.1 versions.
+argument-hint: "[--soft | --data | --nuclear]"
+allowed-tools: Bash(curl:*), Bash(rag version:*), Bash(rag service:*), Bash(where rag:*), Bash(which rag:*), Bash(test:*), Read, mcp__plugin_rag_ragtools__index_status, mcp__plugin_rag_ragtools__list_projects, mcp__plugin_rag_ragtools__reindex_project
 disable-model-invocation: false
 author: TaqaTechno
-version: 0.1.0
+version: 0.5.0
 ---
 
 # /rag-reset
@@ -40,18 +40,55 @@ Follow the canonical recipe in `${CLAUDE_PLUGIN_ROOT}/rules/state-detection.md`.
 | `state.version` unparseable | Refuse: `could not parse rag version output. reinstall first via /rag-setup.` Stop. |
 | Otherwise | Continue to Step 1. |
 
-### Step 1 — Parse the flag
+### Step 1 — Parse the flag (or enter interactive picker)
 
-Exactly one flag is required:
+**v0.5.0: generic / standalone.** The command works with or without a flag:
 
 | Input | Action |
 |---|---|
-| `--soft` | Continue to soft-reset branch |
-| `--data` | Continue to data-reset branch |
-| `--nuclear` | Continue to nuclear-reset branch |
+| `--soft` | Jump to soft-reset branch |
+| `--data` | Jump to data-reset branch |
+| `--nuclear` | Jump to nuclear-reset branch |
 | Multiple flags | Refuse: `pick exactly one of --soft / --data / --nuclear` |
-| No flag | Print usage and stop |
+| **No flag (standalone)** | **Enter the interactive picker** (below). Never auto-pick. |
 | Unknown flag | Refuse with usage line |
+
+### Step 1a — Interactive picker (standalone mode)
+
+When called without a flag, print the three escalation levels with their trade-offs and ask the user to choose. **Does not proceed without an explicit pick.**
+
+```
+/rag-reset — choose an escalation level. Each level requires typed confirmation.
+
+  1. --soft     Rebuild (drops Qdrant index + state DB, re-indexes from configured projects)
+                Preserves:  config.toml, project list, all settings
+                Auto-backup: YES (state DB via MCP reindex_project)
+                Service:    must be UP
+                Gate:       type DELETE once
+                Duration:   minutes
+  
+  2. --data     Delete the data directory (%LOCALAPPDATA%\RAGTools\data\ or platform equivalent)
+                Preserves:  config.toml (project list survives)
+                Auto-backup: NO
+                Service:    must be DOWN
+                Gate:       type DELETE twice
+                Duration:   instant, then re-index on next start
+  
+  3. --nuclear  Delete the entire RAGTools state directory
+                Preserves:  nothing (config, data, logs all gone — binary stays)
+                Auto-backup: NO
+                Service:    must be DOWN
+                Gate:       type DELETE three times
+                Duration:   instant, full re-setup needed after
+
+Which level? Type 1, 2, or 3 (or cancel with anything else):
+```
+
+On response:
+- `1` → continue as if `--soft` was passed.
+- `2` → continue as if `--data` was passed.
+- `3` → continue as if `--nuclear` was passed.
+- Anything else → stop. No action taken.
 
 ### Step 2 — Pre-v2.4.1 version check (BLOCKING)
 
@@ -100,30 +137,68 @@ This is enforced because:
 
 #### --soft branch
 
-1. **Print the gate:**
+**v0.5.0:** single-project soft reset routes through MCP `reindex_project` (confirm-token guard + 30s cooldown + auto-backup of state DB). Global rebuild (all projects) stays on HTTP because the MCP does not expose a global rebuild by design.
+
+Ask for scope first:
+```
+--soft scope:
+  1. a single project   (MCP reindex_project — auto-backup, 30s cooldown)
+  2. all projects       (HTTP POST /api/rebuild — no MCP equivalent, no auto-backup)
+
+Which? (1/2):
+```
+
+**Scope 1 — single project (preferred):**
+
+1. `mcp__plugin_rag_ragtools__list_projects()` → show the list; ask the user to name the project.
+2. Print the gate:
    ```
-   /rag-reset --soft
+   /rag-reset --soft — project <X>
    
-   this drops all Qdrant data and the state DB, then re-indexes from your
-   configured projects. it preserves config.toml and the project list.
+   this drops the Qdrant collection + state DB entries for project <X>, then
+   re-indexes from its configured path. config.toml and other projects are preserved.
    
-   the rebuild runs through POST /api/rebuild on the service. it takes
-   minutes-to-hours depending on project size. the service stays responsive
-   during the rebuild (split-lock indexing, v2.4+).
+   auto-backup of the state DB is taken before the drop (via MCP). 30-second cooldown
+   between consecutive reindex calls.
    
    type DELETE to confirm:
    ```
+3. Wait for `DELETE` verbatim.
+4. Call MCP with **`confirm_token = <X>` set programmatically** (never user-supplied — defeats blind injection):
+   ```
+   mcp__plugin_rag_ragtools__reindex_project(project=<X>, confirm_token=<X>)
+   ```
+5. **Envelope handling per `rules/mcp-envelope.md`:**
+   - `COOLDOWN` → show `retry_after_seconds`, sleep, retry once.
+   - `CONFIRM_TOKEN_MISMATCH` → plugin bug; surface verbatim, do not retry.
+   - `SERVICE_DOWN | DEGRADED_MODE` → refuse; direct to `rag service start`.
+   - Success → print stats (`deleted_files`, `files_indexed`, `chunks_indexed`).
 
-2. **Wait for the user to type `DELETE` verbatim.** If they type anything else (including `yes`, `delete`, `Delete`, etc.), refuse and stop.
+**Scope 2 — all projects (HTTP fallback):**
 
+1. Print the gate:
+   ```
+   /rag-reset --soft — ALL projects
+   
+   this rebuilds every project's collection from scratch. minutes-to-hours depending
+   on total KB size. service stays responsive (split-lock indexing, v2.4+).
+   
+   ⚠ no auto-backup on this path — the MCP does not expose a global rebuild,
+     so HTTP is used and auto-backup is skipped. consider a manual backup first:
+     `rag backup create --note "before global rebuild"`
+   
+   type DELETE to confirm:
+   ```
+2. Wait for `DELETE`.
 3. **Show the command** (do not auto-execute):
    ```bash
    curl --max-time 5 -s -X POST http://127.0.0.1:21420/api/rebuild
    ```
+4. Wait for the user to run it; poll `/api/status` for `chunks` to start increasing. Cap at 30s, then suggest `/rag-doctor` for ongoing monitoring.
 
-4. **Wait for the user to run it,** then poll `/api/status` for `chunks` to start increasing. Cap the wait at 30 seconds in compact mode and tell the user to monitor via `/rag-status`.
+**Fallback (MCP unavailable for Scope 1):** falls through to HTTP `POST /api/projects/<id>/rebuild` with the same typed-DELETE gate. Warn the user that the auto-backup is not taken on this path.
 
-5. **Print:** `rebuild started. monitor via /rag-doctor. nothing else to do here.`
+**Print:** `rebuild started. monitor via /rag-doctor. nothing else to do here.`
 
 #### --data branch
 

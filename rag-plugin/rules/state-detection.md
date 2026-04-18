@@ -9,8 +9,10 @@ This file is the single source of truth. Commands reference it as `see rules/sta
 ```
 state.install_mode   ∈ { not-installed, packaged-windows, packaged-macos, dev-mode, unknown }
 state.service_mode   ∈ { UP, STARTING, DOWN, BROKEN, N/A }
+state.mcp_available  : bool                     # true if MCP tools are in the session registry
+state.mcp_mode       ∈ { proxy, direct, degraded, failed, N/A }   # from the MCP envelope
 state.binary_path    : str | None
-state.version        : semver | None            # from `rag version`
+state.version        : semver | None            # from `rag version` or MCP metadata
 state.config_path    : str | None
 state.data_path      : str | None
 state.log_path       : str | None
@@ -29,21 +31,39 @@ Cases a command can distinguish from the state object alone:
 | **installed, healthy, current version** | packaged-* / dev-mode | `UP` | `== latest_version` |
 | **installed, healthy, dev/newer** | packaged-* / dev-mode | `UP` | `> latest_version` |
 
-## The detection recipe (perform in order, stdlib + curl + rag CLI only)
+## The detection recipe (perform in order)
 
-### Step 1 — Resolve install mode (mirrors D-004)
+**Preferred path (v0.5.0+): MCP-first when the ragtools MCP is loaded in the session.** The MCP's `index_status` core tool works in both proxy and direct mode, returns a stable 8-key output, and subsumes parts of the HTTP/CLI probe. Fall back to HTTP and CLI when the MCP is not loaded or returns `STARTUP_FAILED`.
 
-1. **Env var check:** `printenv RAG_DATA_DIR RAG_CONFIG_PATH` (POSIX) / `echo %RAG_DATA_DIR% %RAG_CONFIG_PATH%` (Windows). If set, record them.
-2. **Binary on PATH:** `where rag` (Windows) / `which rag` (macOS/Linux). If found, record `binary_path`.
-3. **Platform default install paths:**
-   - Windows: `test -f "$LOCALAPPDATA/Programs/RAGTools/rag.exe"`
-   - macOS: common extract dirs like `~/Applications/rag/rag`
-4. **Dev-mode detection:** `pyproject.toml` + `.venv` in CWD, with `ragtools` as the package name.
-5. **None of the above →** `install_mode = not-installed`. Set every other path field to `None`. Stop detection here and return the state object — there is nothing else to probe.
+### Step 1 — MCP probe (preferred when tools are available)
 
-Compose `install_mode`: `packaged-windows`, `packaged-macos`, `dev-mode`, or `not-installed`.
+If the ragtools MCP is loaded (`mcp__plugin_rag_ragtools__*` tools are in the session's deferred tool registry), call:
 
-### Step 2 — Probe service health (1-second timeout, single curl)
+```
+mcp__plugin_rag_ragtools__index_status()
+```
+
+This returns a string like:
+```
+[RAG STATUS] Knowledge base is ready (proxy mode).
+  Collection:       markdown_kb
+  Total files:      12
+  Total chunks:     340
+  Points:           340
+  Projects:         alpha, beta
+  Embedding model:  all-MiniLM-L6-v2
+  Score threshold:  0.3
+  Mode:             proxy (forwarding to service)
+```
+
+Parse:
+- **`Mode:`** line → `service_mode = UP` if `proxy`; `DOWN` if `direct`; `BROKEN` if the call returns a string starting with `[RAG ERROR]` or `[RAG STATUS] ... failed`.
+- **`Projects:`** line → project list.
+- **`Total files:` / `Total chunks:`** → stats for the state table.
+
+If the MCP call returns an envelope with `error_code: STARTUP_FAILED`, the MCP itself is broken — fall through to Step 2 (HTTP probe) and mark `mcp_available = False` in the state object for the command to surface.
+
+### Step 2 — HTTP probe fallback (when MCP is not loaded or failed)
 
 ```bash
 curl --max-time 1 -s -w "\n%{http_code}" http://127.0.0.1:21420/health
@@ -56,25 +76,44 @@ curl --max-time 1 -s -w "\n%{http_code}" http://127.0.0.1:21420/health
 | Connection refused / timeout / `000` | `DOWN` |
 | `500` / hang past timeout | `BROKEN` |
 
-### Step 3 — Parse version (only if `binary_path` resolved)
+### Step 3 — Resolve install mode (mirrors D-004)
 
+1. **Env var check:** `printenv RAG_DATA_DIR RAG_CONFIG_PATH` (POSIX) / `echo %RAG_DATA_DIR% %RAG_CONFIG_PATH%` (Windows). If set, record them.
+2. **Binary on PATH:** `where rag` (Windows) / `which rag` (macOS/Linux). If found, record `binary_path`.
+3. **Platform default install paths:**
+   - Windows: `test -f "$LOCALAPPDATA/Programs/RAGTools/rag.exe"`
+   - macOS: common extract dirs like `~/Applications/rag/rag`
+4. **Dev-mode detection:** `pyproject.toml` + `.venv` in CWD, with `ragtools` as the package name.
+5. **None of the above →** `install_mode = not-installed`. Set every other path field to `None`. Stop detection here and return the state object — there is nothing else to probe.
+
+Compose `install_mode`: `packaged-windows`, `packaged-macos`, `dev-mode`, or `not-installed`.
+
+### Step 4 — Parse version (only if `binary_path` resolved)
+
+Preferred: extract from the MCP `index_status` output if Step 1 succeeded (ragtools reports it as part of `as_of` metadata in structured mode).
+
+Fallback:
 ```bash
 rag version 2>&1
 ```
 
 Parse with a `(\d+\.\d+\.\d+)` regex. If the parse fails, set `state.version = None` and mark the install as suspect. Commands must treat unparseable versions as an error condition — do not assume a version.
 
-### Step 4 — Resolve paths (only if service is UP)
+### Step 5 — Resolve paths
 
-When the service is UP, the authoritative source of all paths is:
+**Preferred (when debug tool `get_paths` is granted):**
+```
+mcp__plugin_rag_ragtools__get_paths()
+```
+Returns all absolute paths (`data_dir`, `qdrant_path`, `state_db`, `logs_dir`, `backups_dir`, `service_pid`, `supervisor_pid`, `tray_pid`). Works in degraded mode (filesystem fallback).
 
+**Fallback when service is UP:**
 ```bash
 curl --max-time 2 -s http://127.0.0.1:21420/api/status
 ```
+Parse `config_path`, `data_path`, `log_path` from the response.
 
-Parse `config_path`, `data_path`, `log_path` from the response. Fall back to platform defaults if the service does not expose a path (older versions).
-
-When the service is DOWN, resolve paths from the platform defaults in `references/paths-and-layout.md` — never hand-construct from scratch.
+**Fallback when service is DOWN:** resolve paths from the platform defaults in `references/paths-and-layout.md`. Never hand-construct from scratch.
 
 ## The mode banner — verbatim format
 

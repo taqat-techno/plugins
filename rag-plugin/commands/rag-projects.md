@@ -1,10 +1,10 @@
 ---
-description: Manage ragtools projects via the HTTP API — list, add, remove, enable, disable, rebuild. Refuses writes when the service is down. Never touches config.toml directly.
-argument-hint: "list | add <path> [<name>] | remove <id> | enable <id> | disable <id> | rebuild [<id>]"
-allowed-tools: Bash(curl:*), Bash(test:*), Bash(printenv:*), Bash(echo:*), Bash(rag service:*), Bash(rag version:*), Bash(where rag:*), Bash(which rag:*), Read
+description: Manage ragtools projects. Standalone (no args) defaults to list. Subcommands list / status / summary / files / add / remove / enable / disable / rebuild. Prefers MCP project-ops tools (project_status, project_summary, list_project_files, reindex_project) when loaded; falls back to HTTP API. Refuses writes when the service is down. Never touches config.toml directly.
+argument-hint: "[list | status <id> | summary <id> [<top_n>] | files <id> [<limit>] | add <path> [<name>] | remove <id> | enable <id> | disable <id> | rebuild [<id>]]"
+allowed-tools: Bash(curl:*), Bash(test:*), Bash(printenv:*), Bash(echo:*), Bash(rag service:*), Bash(rag version:*), Bash(where rag:*), Bash(which rag:*), Read, mcp__plugin_rag_ragtools__list_projects, mcp__plugin_rag_ragtools__project_status, mcp__plugin_rag_ragtools__project_summary, mcp__plugin_rag_ragtools__list_project_files, mcp__plugin_rag_ragtools__run_index, mcp__plugin_rag_ragtools__reindex_project
 disable-model-invocation: false
 author: TaqaTechno
-version: 0.1.0
+version: 0.5.0
 ---
 
 # /rag-projects
@@ -38,25 +38,33 @@ Follow the canonical recipe in `${CLAUDE_PLUGIN_ROOT}/rules/state-detection.md`.
 
 ### Step 1 — Parse subcommand
 
-The first positional argument is the subcommand. Validate against this whitelist:
+The first positional argument is the subcommand. **No subcommand → default to `list`** (v0.5.0 — the command is generic and works standalone).
 
-| Subcommand | Args | Read or write |
-|---|---|---|
-| `list` | none | read |
-| `add` | `<path> [<name>]` | write |
-| `remove` | `<id>` | write |
-| `enable` | `<id>` | write |
-| `disable` | `<id>` | write |
-| `rebuild` | `[<id>]` (optional, omit = rebuild all) | write |
+Whitelist:
 
-If the subcommand is unknown, print the usage line and stop. If the subcommand is a write op AND `service_mode != UP`, refuse with:
+| Subcommand | Args | Tier | Preferred MCP tool (v0.5.0+) |
+|---|---|---|---|
+| `list` (default) | none | read | `list_projects` (core) |
+| `status` | `<id>` | read | `project_status` (project ops, default ON) |
+| `summary` | `<id> [<top_n>]` | read | `project_summary` (project ops, default ON) |
+| `files` | `<id> [<limit>]` | read | `list_project_files` (project ops, default ON) |
+| `add` | `<path> [<name>]` | write | HTTP only — MCP excludes `add_project` by design (see `rules/mcp-envelope.md` §8) |
+| `remove` | `<id>` | write | HTTP only — MCP excludes `remove_project` by design |
+| `enable` | `<id>` | write | HTTP only (no equivalent MCP tool) |
+| `disable` | `<id>` | write | HTTP only (no equivalent MCP tool) |
+| `rebuild` | `[<id>]` | write | `reindex_project` (project ops, default ON, confirm_token + 30s cooldown + auto-backup) |
 
+If the subcommand is unknown, print usage and stop.
+
+If the subcommand is a **write op AND `service_mode != UP`**, refuse:
 ```
 write operations require a running service.
 service mode: <DOWN|BROKEN>
 start with: rag service start
 then re-run: /rag-projects <subcommand>
 ```
+
+All MCP-using branches honor `${CLAUDE_PLUGIN_ROOT}/rules/mcp-envelope.md` — envelope → `error_code` → `mode` → fallback chain.
 
 ### Step 2 — Detect cloud-sync risk before any write
 
@@ -89,17 +97,107 @@ This is a **warning gate**, not a hard refusal — the user may have an intentio
 
 ### Step 3 — Execute the subcommand
 
-#### `list`
+#### `list` (default when no args)
 
+**Preferred (v0.5.0+):**
+```
+mcp__plugin_rag_ragtools__list_projects()
+→ returns a formatted string listing projects with file + chunk counts
+```
+
+**Fallback:**
 ```bash
 curl --max-time 2 -s http://127.0.0.1:21420/api/projects
 ```
 
 Parse the JSON response. Render as a markdown table with these columns: `ID`, `Name`, `Enabled`, `Files`, `Chunks`. Cap at 10 rows in compact mode; show `+N more — use --verbose` if exceeded.
 
-If the response is `[]`, print: `no projects configured. add one with: /rag-projects add <path>`.
+If the response is `[]` or the MCP returns `"No projects found in the knowledge base."`, print: `no projects configured. add one with: /rag-projects add <path>`.
 
 If the service is DOWN, print: `cannot list projects with service down. start with: rag service start`. **Do not** parse `config.toml` ourselves.
+
+#### `status <id>` (new in v0.5.0)
+
+Rich per-project health card. Requires `project_status` (MCP project-ops tool, default ON).
+
+```
+1. list_projects() → verify <id> exists; if not, offer closest matches.
+2. mcp__plugin_rag_ragtools__project_status(project=<id>)
+   → envelope; data shape:
+     {
+       "project_id": "alpha",
+       "name":       "Alpha Notes",
+       "path":       "C:\\...\\alpha",
+       "path_exists": true,
+       "enabled":     true,
+       "files":       12,
+       "chunks":      340,
+       "last_indexed": "2026-04-18T01:14:43.763145",
+       "ignore_patterns_count": 0
+     }
+3. Envelope handling:
+   - error_code = SERVICE_DOWN | DEGRADED_MODE → "project_status requires proxy mode. start: rag service start"
+   - error_code = STARTUP_FAILED → show verbatim, suggest /rag-doctor --full
+4. Render a compact card:
+     Project <id> — ENABLED — healthy
+       Path:       <path>  (exists: true)
+       Files:      <files>   Chunks: <chunks>
+       Last index: <last_indexed>
+       Ignore:     <ignore_patterns_count> patterns
+     
+   Highlight red if path_exists=false or enabled=false.
+```
+
+#### `summary <id> [<top_n>]` (new in v0.5.0)
+
+Top-N files by chunk count. Useful to spot which files are dominating the index.
+
+```
+1. Default top_n = 10. Clamp to 1..50.
+2. mcp__plugin_rag_ragtools__project_summary(project=<id>, top_files=<top_n>)
+   → envelope; data shape:
+     {
+       "project_id": "alpha",
+       "name":       "Alpha Notes",
+       "path":       "...",
+       "files":      12,
+       "chunks":     340,
+       "top_files":  [
+         {"file_path": "alpha/big.md", "chunks": 143},
+         {"file_path": "alpha/med.md", "chunks":  45},
+         ...
+       ]
+     }
+3. Render as a markdown table:
+     Project <id> — <files> files, <chunks> chunks
+     
+     | Rank | File               | Chunks | % of total |
+     |------|--------------------|--------|------------|
+     | 1    | alpha/big.md       | 143    | 42.1%      |
+     ...
+```
+
+#### `files <id> [<limit>]` (new in v0.5.0)
+
+Complete file list for a project. Useful as the first step of the "why isn't X indexed?" workflow (also runnable directly via the skill).
+
+```
+1. Default limit = 200. Clamp to 1..1000.
+2. mcp__plugin_rag_ragtools__list_project_files(project=<id>, limit=<limit>)
+   → envelope; data shape:
+     {
+       "project_id": "alpha",
+       "count":      12,
+       "files": [
+         {"path": "alpha/foo.md", "chunks": 23},
+         ...
+       ]
+     }
+3. Render paged table; offer --verbose to bypass compact truncation.
+4. If the user is looking for a specific file and it's missing, point at:
+   "not found in this project — if you think it should be indexed,
+    the ragtools-ops skill's why-not-indexed workflow (2.5.3) can trace it."
+```
 
 #### `add <path> [<name>]`
 
@@ -161,25 +259,47 @@ If the service is DOWN, print: `cannot list projects with service down. start wi
 
 #### `rebuild [<id>]`
 
-1. **If `<id>` is provided:** look up the project as in `remove`, then POST the rebuild trigger:
+**Preferred for single-project (v0.5.0+):** MCP `reindex_project` — confirm-token guard + 30s cooldown + auto-backup of state DB before the drop.
+
+1. **If `<id>` is provided:**
+   a. `list_projects()` → verify `<id>` exists.
+   b. **Typed gate:** show "about to reindex <id>. auto-backup of the state DB is taken before the drop. type DELETE to confirm."
+   c. Call the MCP tool with **confirm_token = `<id>` programmatically** (never user-supplied; defeats blind injection):
+      ```
+      mcp__plugin_rag_ragtools__reindex_project(project=<id>, confirm_token=<id>)
+      ```
+   d. **Envelope handling per `rules/mcp-envelope.md`:**
+      - `error_code = COOLDOWN` → read `retry_after_seconds`, inform user, sleep, retry once. On second COOLDOWN, surface — do not hammer.
+      - `error_code = CONFIRM_TOKEN_MISMATCH` → **never retry.** This is a plugin bug (passed wrong token). Surface verbatim.
+      - `error_code = SERVICE_DOWN | DEGRADED_MODE` → refuse: "rebuild requires the service to be running".
+      - Success → data has `{status: "reindexed", project_id, stats: {deleted_files, files_indexed, chunks_indexed, projects}}`.
+   e. Print stats. Do not poll for completion.
+
+   **Fallback** (MCP not granted or in failed mode): HTTP POST
    ```bash
    curl --max-time 5 -s -X POST http://127.0.0.1:21420/api/projects/<id>/rebuild
    ```
+   Same typed-DELETE gate applies. HTTP path does NOT include the auto-backup discipline — warn the user of this difference in the info line.
 
-2. **If no `<id>`:** rebuild **all** projects. This is more destructive (re-encodes everything from scratch). **Confirmation gate:**
+2. **If no `<id>`:** rebuild **all** projects. No MCP equivalent — the MCP intentionally does not expose a global rebuild (blast radius). **Stronger confirmation gate:**
    ```
    about to rebuild ALL projects.
-   this drops the index and re-embeds every chunk. takes minutes-to-hours depending on size.
-   the service will remain responsive during the rebuild (split-lock indexing, v2.4+).
+   this drops every collection and re-embeds every chunk. minutes-to-hours depending on size.
+   service stays responsive during the rebuild (split-lock indexing, v2.4+).
+   no auto-backup is taken on this path (unlike single-project via MCP).
    
-   type REBUILD to confirm: 
+   type REBUILD to confirm:
    ```
-
-3. **POST the global rebuild:**
+   Then HTTP:
    ```bash
    curl --max-time 5 -s -X POST http://127.0.0.1:21420/api/rebuild
    ```
-   (Or whatever the product's global rebuild endpoint is — check `references/runtime-flow.md` for the canonical surface.)
+
+3. **Incremental alternative (v0.5.0+):** if the user just wants to pick up new files (not re-encode existing ones), suggest:
+   ```
+   tip: for incremental indexing (idempotent, 2s cooldown, keeps existing chunks), use:
+        "reindex project <id>" (the skill's reindex workflow calls run_index first, only escalates to destructive on drift detection)
+   ```
 
 4. **Print:** `rebuild started. monitor progress via /rag-doctor or the admin panel.` Do not poll for completion.
 

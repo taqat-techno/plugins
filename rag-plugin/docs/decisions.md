@@ -639,4 +639,72 @@ Considered: keep `rag-status.md` / `rag-repair.md` / `rag-upgrade.md` as thin st
 
 ---
 
+## D-022 — Plugin uses MCP ops tools freely; refines D-001 scope for the v2.5.0+ MCP surface
+
+**Date:** 2026-04-18 (MCP v2.5.0 integration amendment)
+**Phase:** Post-9
+**Status:** binding
+**Ships in:** v0.5.0
+**Refines:** D-001 (ops-only, never search). Does not supersede it. D-001 remains in force for content-retrieval tools.
+**Triggered by:** ragtools MCP v2.5.0 (handoff doc at `C:\MY-WorkSpace\claude_plugins\ragtools_mcp_doc.md`) expanded the MCP surface from 3 content-retrieval tools to **22 tools**: 3 core (content), 9 optional project ops (default ON), 9 optional debug (default OFF). D-001 was written when the MCP only had the 3 core content tools, and its "never call MCP tools" posture would now forbid the plugin from using 19 explicitly-designed operational tools — which is backwards.
+
+### The clarification
+
+D-001's binding rule — **"plugin never wraps or re-implements `search_knowledge_base`"** — is preserved without change. Content retrieval stays with Claude calling the MCP directly; the plugin never intercepts, reformats, or proxies search results.
+
+D-022 adds: **the plugin freely chains the 18 non-search MCP tools (`list_projects`, `index_status`, 9 project ops, 9 debug) to drive diagnostic, operational, and guided-write workflows in its commands and skill.** These are ops tools, not content tools. Using them is exactly what the MCP was expanded for.
+
+### The line between "wrap" and "use"
+
+| Action | D-001 says | D-022 says |
+|---|---|---|
+| Plugin calls `search_knowledge_base` to retrieve content for the user | ❌ **forbidden** (wrapping search) | Unchanged — still forbidden |
+| Plugin reformats `search_knowledge_base` results before showing them | ❌ forbidden | Unchanged — still forbidden |
+| Plugin calls `index_status` to probe health | (not mentioned — pre-v2.5.0 the plugin hit HTTP instead) | ✅ allowed — ops tool |
+| Plugin calls `system_health` / `crash_history` / `service_status` for diagnostics | (not mentioned) | ✅ allowed — ops tools |
+| Plugin calls `project_status` / `list_project_files` for `/rag-projects status` | (not mentioned) | ✅ allowed — ops tools |
+| Plugin calls `reindex_project` with user-confirmation gate | (not mentioned) | ✅ allowed — guarded write |
+| Plugin calls `add_project_ignore_rule` after `preview_ignore_effect` | (not mentioned) | ✅ allowed — guarded write |
+| Plugin calls `search_knowledge_base(top_k=1)` as a "has this content?" probe | ⚠ ambiguous pre-v2.5.0 | ✅ allowed only in the UserPromptSubmit hook (pre-loading context), forbidden elsewhere |
+| Plugin pre-fetches search results and injects them into a skill response | ❌ forbidden (Tier 3 retrieval — not shipped; see D-017 "Reverse only if") | Unchanged — still forbidden unless D-017's escalation criteria are met |
+
+### Why the distinction is load-bearing
+
+Three safety and design properties fall out of this split:
+
+1. **Content tools are the user's domain; ops tools are the plugin's domain.** `search_knowledge_base` answers user questions; the user must see Claude's unmediated call to that tool. Ops tools answer "is the service up?" or "why isn't this indexed?" — those are plugin-operational questions, not user-content questions.
+2. **Ops tools carry their own safety model.** The MCP's `reindex_project` has a confirm-token guard; `run_index` has a 2s cooldown; `add_project_ignore_rule` auto-surfaces the "run reindex" reminder. If the plugin *doesn't* use these tools and hits the HTTP API instead (as pre-v0.5.0 did), it loses the envelope contract's benefits and duplicates logic that drifts.
+3. **The MCP explicitly excludes high-blast-radius writes** (`add_project`, `remove_project`, `shutdown`, `backup_restore`, `set_active_project`). The plugin's existing HTTP paths that call those endpoints (e.g. `POST /api/projects`) now stand out as **weaker than what the MCP would accept** — D-022 flags them for future migration to CLI-only or admin-UI-only paths. The plugin should not add new HTTP paths that bypass the MCP's intentional exclusions.
+
+### How the plugin enforces the distinction
+
+- **`rules/mcp-envelope.md`** (new in v0.5.0) codifies the envelope contract, error-code branching, mode handling, fallback chain (MCP → HTTP → CLI), and tool-grant awareness. Every MCP-using command references this rule rather than inlining the discipline.
+- **Commands that need debug tools** (`system_health`, `crash_history`, `tail_logs`, `service_status`) must degrade gracefully when the user hasn't granted them — print the specific toggle path in the admin UI, fall back to CLI/HTTP, never fail cryptically.
+- **Skills route to MCP tools automatically.** The `ragtools-ops` skill now includes a Phase 2.5 "MCP tool dispatch" section that lists which MCP tool to call for each user-intent pattern (ignore rules, project diagnostics, why-not-indexed, etc.). When the user asks "why isn't file X in the search?", the skill chains `list_project_files` → `get_project_ignore_rules` → `preview_ignore_effect` without the user typing a single command.
+
+### Non-violation of other decisions
+
+- **D-005 (service-down behavior):** preserved. Writes still refuse gracefully when the service is down — now the refusal comes from the MCP envelope (`SERVICE_DOWN` / `DEGRADED_MODE`) instead of a raw curl error, which is a UX improvement. Read tools with filesystem fallbacks (`tail_logs`, `get_paths`, etc.) continue to work.
+- **D-007 (hook posture — ask never deny):** unaffected. Hooks do not call MCP tools; they still use minimal HTTP/stdlib probes.
+- **D-008 (compact by default):** preserved. MCP envelopes are structured data; the plugin still renders compact tables and emits `--verbose` only on request.
+- **D-012 (local-first telemetry):** preserved. All MCP traffic is loopback. Session-ID stamping is metadata only — no content logged.
+- **D-015 (plugin ships `.mcp.json`):** preserved. D-022 just expands what the plugin can do *with* the MCP the plugin already auto-wires.
+- **D-017 (retrieval-reminder hook):** preserved. The hook's domain probe via `/api/search` is a non-MCP HTTP call that still happens pre-hook — it does not call `search_knowledge_base`.
+- **D-020 (`.mcp.json` direct spawn):** preserved. D-022 is about *using* the MCP's tools; D-020 is about *wiring* the MCP server. Orthogonal.
+- **D-021 (state-aware smart commands):** preserved. `rules/state-detection.md` was updated to prefer MCP probes; the state-aware dispatch pattern is unchanged.
+
+### Reverse only if
+
+- The MCP contract ever removes the envelope discipline or breaks the error-code enum. Then the plugin must fall back entirely to HTTP/CLI until a new stable contract lands.
+- The MCP exposes `search_knowledge_base` in a way the plugin is forced to mediate (e.g. if the user asks for a search scope the MCP can't express). Even then, prefer adding the missing capability to the MCP itself and cite an upstream issue — do not wrap around it.
+
+### What D-022 does NOT change
+
+- Plugin still does not call `search_knowledge_base` from any command. Content retrieval is Claude's direct call, period.
+- Plugin still does not re-implement search or index logic. The MCP owns that.
+- Plugin still does not auto-execute destructive operations. Every write is gated by typed confirmation (`DELETE`, `ADD`, `REMOVE`, or the project ID verbatim).
+- Plugin still honors the MCP's intentional exclusions (`add_project`, `remove_project`, `shutdown`, `backup_restore`, `set_active_project`) — does not wrap them even where HTTP fallbacks exist. Future plugin releases should migrate the existing HTTP paths for `add_project` / `remove_project` toward CLI-only or admin-UI-only handoffs.
+
+---
+
 *Append new decisions below. Never rewrite or delete an entry — supersede with a new dated entry that references the old one.*

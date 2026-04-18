@@ -1,10 +1,10 @@
 ---
-description: Smart ragtools diagnose. Detects install and service state, runs the right probe, classifies findings against F-001..F-012 + P-RULE/P-DEDUPE, and optionally walks the repair playbook inline. Absorbs the former /rag-status and /rag-repair commands (v0.4.0).
+description: Smart ragtools diagnose. Detects install and service state, runs the right probe, classifies findings against F-001..F-012 + P-RULE/P-DEDUPE, and optionally walks the repair playbook inline. Prefers MCP ops tools (system_health, crash_history, tail_logs, service_status) when granted; falls back to HTTP API + CLI gracefully. Absorbs the former /rag-status and /rag-repair commands (v0.4.0) and the MCP-first integration from v0.5.0.
 argument-hint: "[<free-text symptom>] [--full] [--symptom F-NNN] [--logs] [--fix] [--verbose]"
-allowed-tools: Bash(curl:*), Bash(rag doctor:*), Bash(rag version:*), Bash(rag service:*), Bash(where rag:*), Bash(which rag:*), Bash(test:*), Bash(tail:*), Bash(grep:*), Bash(netstat:*), Bash(lsof:*), Bash(tasklist:*), Bash(ps:*), Bash(printenv:*), Bash(echo:*), Read
+allowed-tools: Bash(curl:*), Bash(rag doctor:*), Bash(rag version:*), Bash(rag service:*), Bash(where rag:*), Bash(which rag:*), Bash(test:*), Bash(tail:*), Bash(grep:*), Bash(netstat:*), Bash(lsof:*), Bash(tasklist:*), Bash(ps:*), Bash(printenv:*), Bash(echo:*), Read, mcp__plugin_rag_ragtools__index_status, mcp__plugin_rag_ragtools__system_health, mcp__plugin_rag_ragtools__crash_history, mcp__plugin_rag_ragtools__service_status, mcp__plugin_rag_ragtools__tail_logs, mcp__plugin_rag_ragtools__recent_activity, mcp__plugin_rag_ragtools__list_projects
 disable-model-invocation: false
 author: TaqaTechno
-version: 0.4.0
+version: 0.5.0
 ---
 
 # /rag-doctor
@@ -42,6 +42,10 @@ Compact-by-default per D-008: ≤ 25 lines unless `--verbose` or a playbook walk
 
 Follow the canonical recipe in `${CLAUDE_PLUGIN_ROOT}/rules/state-detection.md`. Do NOT re-implement the probe. Produce the `state` object and print the 6-line mode banner verbatim. This is the first thing in the response.
 
+**Preferred path (v0.5.0+):** if the ragtools MCP is loaded (tools starting with `mcp__plugin_rag_ragtools__` visible in the session), call `mcp__plugin_rag_ragtools__index_status` first — it works in both proxy and direct mode. Parse its `Mode:` line for `service_mode`. Fall back to `curl /health` + `rag version` CLI only when the MCP is absent or returns `STARTUP_FAILED`.
+
+All MCP-using branches below honor `${CLAUDE_PLUGIN_ROOT}/rules/mcp-envelope.md` — branch on `error_code`, respect `mode`, fall through to HTTP/CLI on failure with a one-line info note.
+
 If `state.install_mode == not-installed`, stop now with a single line:
 
 ```
@@ -68,10 +72,25 @@ Pick exactly one primary mode, in priority order:
 
 This is the most common entry point. A user types `/rag-doctor` with no args when they want "what state is ragtools in?"
 
-### E.1 — When service is UP
+### E.1 — When service is UP (MCP-first)
 
-Fetch state from the HTTP API in parallel:
+**Preferred (v0.5.0+):** call the MCP core tool — works in both proxy and direct mode, returns stable 8-key output:
 
+```
+mcp__plugin_rag_ragtools__index_status()
+→ parse the string for Collection, Total files, Total chunks, Points, Projects, Mode
+mcp__plugin_rag_ragtools__list_projects()
+→ parse project names + per-project file/chunk counts
+```
+
+If `mcp__plugin_rag_ragtools__service_status` is granted (debug tool, default OFF — see `rules/mcp-envelope.md` §9):
+```
+mcp__plugin_rag_ragtools__service_status()
+→ chain /api/status + /api/watcher/status via the envelope contract
+```
+On `{"ok": false, "error_code": "SERVICE_DOWN"}` — not unusual if the user has the tool granted but the service just restarted — fall through to the HTTP fallback below.
+
+**Fallback (when MCP is not loaded or returns STARTUP_FAILED):** fetch from HTTP directly:
 ```bash
 curl --max-time 2 -s http://127.0.0.1:21420/api/status
 curl --max-time 2 -s http://127.0.0.1:21420/api/projects
@@ -79,6 +98,11 @@ curl --max-time 2 -s http://127.0.0.1:21420/api/watcher/status
 ```
 
 Extract `version`, `projects` count, total `files`, total `chunks`, `last_indexed`, watcher `running`, watched paths count, and per-project stats.
+
+Print one info line if fallback was used:
+```
+[info] MCP not loaded / in failed mode — using HTTP fallback.
+```
 
 Render the state table (≤ 12 lines):
 
@@ -132,15 +156,58 @@ Print: `service is starting — encoder is loading (~5–10s). re-probe once in 
 
 ---
 
-## Mode D — Deep `rag doctor` wrap (absorbs former /rag-doctor --full)
+## Mode D — Deep diagnose (`--full`)
 
-### D.1 — Run `rag doctor`
+### D.1 — Preferred path: MCP structured diagnostics (v0.5.0+)
+
+When `mcp__plugin_rag_ragtools__system_health` and `mcp__plugin_rag_ragtools__crash_history` are granted (both default OFF in ragtools v2.5.0+ — user must toggle in admin UI), the plugin gets **structured** rag doctor output instead of parsing CLI text:
+
+```
+mcp__plugin_rag_ragtools__system_health()
+→ envelope; on success, data is:
+    {
+      "platform": "win32",
+      "checks": [
+        {"component": "python", "status": "ok", "detail": "3.12.10"},
+        {"component": "collection", "status": "ok", "detail": "340 points",
+         "scale_level": "none", "scale_message": "..."},
+        {"component": "login_startup", "status": "ok", "detail": "Registered"},
+        {"component": "watchdog", "status": "missing", "detail": "rag service watchdog install"}
+      ]
+    }
+
+mcp__plugin_rag_ragtools__crash_history()
+→ envelope; on success, data is:
+    {
+      "count": 1,
+      "items": [
+        {"kind": "service_crash", "timestamp": "...", "dismiss_key": "...",
+         "exception_type": "RuntimeError", "message": "...",
+         "traceback": "...", "memory_rss_mb": 512.0}
+      ]
+    }
+```
+
+Envelope handling per `rules/mcp-envelope.md`:
+- On `error_code: STARTUP_FAILED` → fall through to D.2 (CLI wrap) with info note
+- On missing tool (not granted) → print the specific admin-UI toggle path and fall through to D.2
+- On success → render the **structured card** in D.3
+
+### D.2 — Fallback: wrap `rag doctor` CLI (v0.4.0 path, preserved)
+
+When the MCP tools are not granted or the MCP is in failed mode:
 
 ```bash
 rag doctor 2>&1
 ```
 
 `rag doctor` prints a structured table: Python version, `qdrant-client`, `sentence-transformers`, `mcp`, `fastapi`, service status, data directory, state DB, collection, ignore rules.
+
+Print the info line:
+```
+[info] MCP system_health / crash_history not granted — using `rag doctor` CLI.
+Enable richer diagnosis: admin panel → MCP Tool Access → toggle system_health and crash_history → Save → restart Claude Code.
+```
 
 ### D.2 — Parse and classify
 
@@ -339,7 +406,48 @@ After the playbook walk completes (or the user stops), re-run **Step 0 — state
 
 ## Mode B — Log scanner (absorbs former /rag-repair --scan-logs and /rag-doctor --logs)
 
-Resolve the log path from the state object. Invoke the `rag-log-scanner` Haiku agent (defined in `agents/rag-log-scanner.md`) with the log path and a 200-line budget.
+### B.1 — Preferred path: MCP `tail_logs` (v0.5.0+)
+
+When `mcp__plugin_rag_ragtools__tail_logs` is granted (debug tool, filesystem fallback — **works in degraded mode** too):
+
+```
+mcp__plugin_rag_ragtools__tail_logs(source="service", limit=200)
+→ envelope; data is:
+    {
+      "source": "service",
+      "path":   "C:\\...\\data\\logs\\service.log",
+      "lines":  ["2026-04-18 14:59:15,361 INFO ...", ...],
+      "truncated": true,
+      "total_lines_in_file": 1234
+    }
+```
+
+The whitelist is enforced server-side: `service`, `watcher`, `launcher`, `watchdog`, `supervisor`, `tray`. Any other value returns `error_code: INVALID_ARG` with the allowed list in `hint`.
+
+Feed `lines` into the `rag-log-scanner` Haiku agent exactly as before — the agent's job is classification, not I/O. No change to the agent's prompt or contract.
+
+### B.2 — Fallback: filesystem read (when tool not granted or MCP failed)
+
+Resolve the log path from the state object (`${CLAUDE_PLUGIN_ROOT}/rules/state-detection.md` Step 5). Invoke the `rag-log-scanner` Haiku agent (defined in `agents/rag-log-scanner.md`) with the log path and a 200-line budget, same as pre-v0.5.0 behavior.
+
+Print info line:
+```
+[info] MCP tail_logs not granted — reading log file directly.
+Enable: admin panel → MCP Tool Access → toggle tail_logs → Save → restart Claude Code.
+```
+
+### B.3 — Activity supplement (if granted)
+
+When `mcp__plugin_rag_ragtools__recent_activity` is granted, also fetch:
+
+```
+mcp__plugin_rag_ragtools__recent_activity(limit=50, level="error")
+→ events with level=error from the admin activity log
+```
+
+Merge into the findings block below. Source strings starting with `mcp:<sid>` indicate agent-initiated actions from a specific Claude Code session — useful for multi-window correlation.
+
+### B.4 — Scanner invocation
 
 The agent returns JSON:
 ```json
