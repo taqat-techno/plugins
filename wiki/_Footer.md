@@ -1,0 +1,1 @@
+**[taqat-techno-plugins](https://github.com/taqat-techno/plugins)** · MIT License · Maintained by [TAQAT Techno](https://www.taqatechno.com) · 7 plugins · Issues → [github.com/taqat-techno/plugins/issues](https://github.com/taqat-techno/plugins/issues)
