@@ -2,6 +2,43 @@
 
 All notable changes to `rag-plugin` are documented here. Format is loosely based on [Keep a Changelog](https://keepachangelog.com/). Versioning follows [SemVer](https://semver.org/).
 
+## [0.6.0] — 2026-04-18
+
+Maintainer release-gate capability. Adds a second skill (`ragtools-release`) that walks the six permanent release invariants before an upstream ragtools version ships. Does not affect operator-facing workflows.
+
+### Added
+- **`skills/ragtools-release/SKILL.md`** — new skill, auto-activating on maintainer release phrasing ("pre-release check", "release checklist", "ready to ship ragtools", "v2.5.x pre-flight", "release go/no-go", "RELEASE_LIFECYCLE", "cutting a ragtools release"). Gating-only — walks the six invariants one at a time, gathers explicit ack or hold per item, summarizes as green / pre-release / blocked. Never tags, pushes, promotes, or builds.
+- **`skills/ragtools-release/references/release-checklist.md`** — the six permanent invariants with statement, rationale, source-of-truth files, pre-check heuristics, and red flags:
+  - **Invariant 1** — no user data into install directory (`get_config_write_path()` vs `{app}\`)
+  - **Invariant 2** — schema changes bump version + ship migration (`CONFIG_VERSION`, `PRAGMA user_version`, encoder dim, index schema)
+  - **Invariant 3** — dev-mode startup isolation (`is_packaged()` guard in `run.py`)
+  - **Invariant 4** — upgrade-path manual test (downloaded installer on previous-version machine)
+  - **Invariant 5** — uninstall opt-in prompt (full wipe / keep data)
+  - **Invariant 6** — `docs/RELEASE_LIFECYCLE.md` accuracy
+- Two-skill surface: `ragtools-ops` (operator-facing) + `ragtools-release` (maintainer-facing). Different activation triggers, no overlap.
+
+### Changed
+- **`.claude-plugin/plugin.json`** — version `0.5.0` → `0.6.0`. Minor bump (new skill surface is user-visible).
+
+### Rationale
+The ragtools v2.5.1 release checklist the upstream maintainer had been running manually (the six-item "Claude says: yes. Your ack?" ritual) was load-bearing enough to promote into the plugin as a skill. Shipping it as a skill rather than a new command follows the house direction — skills over commands, commands stay generic. The skill auto-activates on maintainer phrasing; the operator-facing `ragtools-ops` skill is untouched.
+
+The six invariants derive from actual release incidents and boundary-safety rules:
+- Invariants 1 + 3 + 5 exist because ragtools has both replaceable-app (`{app}\`) and persistent-user-data (`{userdata}\`) locations, and historic bugs have written user state into `{app}\` where upgrades silently wiped it.
+- Invariant 2 exists because silent schema mismatches across versions are a class of data-loss bug that version constants + migrations prevent.
+- Invariant 4 exists because CI installs on clean machines, but the v2.5.0 → v2.5.1 `ForceKillRagProcesses` fix only manifests as a bug when the previous version is already installed *and running*. Manual test of the downloaded installer on a pre-upgraded machine is the only coverage.
+- Invariant 6 exists because the canonical release-lifecycle doc is downstream of the invariants — if the doc doesn't match reality, future maintainers get wrong answers.
+
+### Verification
+- Validator passes (pre-existing SKILL.md YAML false-positive and documented hooks.json warnings unchanged).
+- Two skills now present: `ragtools-ops/SKILL.md` + `ragtools-release/SKILL.md`.
+- References file at `skills/ragtools-release/references/release-checklist.md` — ~180 lines, stdlib-only content, no external refs required at read-time.
+- Activation triggers in the `ragtools-release` skill description are explicitly maintainer-only (no overlap with `ragtools-ops` operational triggers).
+
+### Known follow-ups
+- A "release ack log" at `~/.claude/rag-plugin/release-acks.jsonl` (opt-in, same pattern as `usage.log` and `hook-decisions.log`) — the skill mentions this as a future capability but it is not yet wired into `/rag-config`.
+- When ragtools v2.6.0 ships with new invariants (new platforms, new schema), append a new D-NNN in `docs/decisions.md` + extend `references/release-checklist.md`.
+
 ## [0.5.0] — 2026-04-18
 
 MCP v2.5.0 integration. The plugin now uses the full 22-tool MCP surface — 3 core + 9 project ops (default ON) + 9 debug (default OFF, user-granted) — for diagnostics, project introspection, ignore-rule management, and guarded writes. **Command count stays at 6 user-facing commands + 1 maintainer-only**; every new capability is delivered as a skill workflow that auto-activates on user intent, rather than as a new slash command. Every existing command is now **generic** (works standalone without required arguments, accepts optional parameters).

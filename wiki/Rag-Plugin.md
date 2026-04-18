@@ -1,6 +1,6 @@
 # Rag Plugin
 
-**Package:** `rag` · **Version:** `0.5.0` · **Category:** productivity · **License:** MIT · **Source:** [`rag-plugin/`](../../rag-plugin/) · **MCP server:** `ragtools` (spawns `rag serve` directly)
+**Package:** `rag` · **Version:** `0.6.0` · **Category:** productivity · **License:** MIT · **Source:** [`rag-plugin/`](../../rag-plugin/) · **MCP server:** `ragtools` (spawns `rag serve` directly)
 
 ## Purpose
 
@@ -61,7 +61,33 @@ All commands work **standalone** (no required args; sensible defaults) and accep
 | `/rag-config` | Plugin-layer config dashboard | `telemetry {on\|off\|status}`, `claude-md {install\|remove\|status}`, `mcp-dedupe {status\|clean}`, `hook-observability {status\|on\|off\|analyze\|clear}` |
 | `/rag-sync-docs` | **Maintainer-only** (`disable-model-invocation: true`) | Reports drift between bundled references and upstream `ragtools_doc.md` |
 
-## Skill (`ragtools-ops`) auto-activating workflows
+## Skills (2)
+
+The plugin ships **two skills** with no-overlap activation triggers:
+
+| Skill | Audience | Activates on |
+|---|---|---|
+| [`ragtools-ops`](../../rag-plugin/skills/ragtools-ops/SKILL.md) | Operators (anyone using ragtools) | ragtools keywords, error messages, operational intents ("why isn't this file in search", "add an ignore rule", "reindex project X", "diagnose rag") |
+| [`ragtools-release`](../../rag-plugin/skills/ragtools-release/SKILL.md) | **Maintainers only** | "pre-release check", "release checklist", "ready to ship ragtools", "v2.5.x pre-flight", "release go/no-go", "RELEASE_LIFECYCLE", "cutting a ragtools release" |
+
+The two skills never overlap. Operators never see the release-gate skill; maintainers preparing a release get the full six-invariant walk automatically on the triggering phrasing.
+
+### `ragtools-release` — release-gate workflow (v0.6.0+)
+
+Walks six permanent invariants before an upstream ragtools release ships:
+
+1. **No user data into install directory** — verifies `get_config_write_path()` is used, no `{app}\` writes.
+2. **Schema changes bump version + ship migration** — `CONFIG_VERSION`, `PRAGMA user_version`, encoder dim, index schema.
+3. **Dev-mode isolation** — `is_packaged()` guard in `run.py`; dev-mode never touches `{userdata}` or registers Startup task.
+4. **Upgrade-path manual test** — downloaded installer exercised on a pre-upgraded machine. Ships as pre-release until manually validated.
+5. **Uninstall opt-in prompt** — both full-wipe and keep-data branches tested when the uninstall code path is touched.
+6. **`docs/RELEASE_LIFECYCLE.md` accuracy** — canonical doc matches reality, new platforms covered.
+
+Output is a compact release-gate summary: `GREEN / PRE-RELEASE / BLOCKED` with required follow-ups and an optional JSONL ack log line for traceability. The skill **never tags, pushes, promotes, or builds** — pure gating.
+
+Full rule text + source-of-truth files per invariant: [`skills/ragtools-release/references/release-checklist.md`](../../rag-plugin/skills/ragtools-release/references/release-checklist.md).
+
+### `ragtools-ops` — auto-activating MCP workflows
 
 `skills/ragtools-ops/SKILL.md` activates on ragtools keywords, error messages, AND operational user intents. Phase 2.5 (v0.5.0) defines 9 MCP workflows that chain tools **without needing a slash command**:
 
