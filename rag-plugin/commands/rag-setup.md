@@ -49,6 +49,17 @@ else:
 
 ## BRANCH A — Install walkthrough (not-installed)
 
+**Upstream product:** the ragtools application lives at **[`github.com/taqat-techno/rag`](https://github.com/taqat-techno/rag)**. All installers are published to that repo's Releases page; this plugin never auto-downloads, it only walks the user through the right path per platform. (D-005)
+
+Three packaged platforms + one universal source-install path:
+
+| # | Path | Platforms | Artifact |
+|---|---|---|---|
+| **A.2** | Windows installer | Windows 10/11 x64 | `RAGTools-Setup-{version}.exe` |
+| **A.3** | macOS tarball | macOS 14+ Apple Silicon | `RAGTools-{version}-macos-arm64.tar.gz` |
+| **A.4** | Linux tarball | Linux arm64 (v2.5.1+) | `RAGTools-{version}-linux-arm64.tar.gz` |
+| **A.5** | Source install (universal fallback) | **Any platform** — Windows, macOS Intel, Linux x86_64, anything else | `git clone` + `pip install -e ".[dev]"` |
+
 ### A.1 — Detect platform and arch
 
 ```bash
@@ -57,24 +68,28 @@ uname -sm 2>/dev/null || ver
 
 | Platform / arch | Action |
 |---|---|
-| Windows x64 | → A.2 |
-| macOS arm64 | → A.3 |
-| macOS x86_64 (Intel) | **REFUSE.** No Intel build (G-004). Apple Silicon required. Stop. |
-| Linux | **REFUSE packaged path.** No Linux artifact (G-001). Offer A.4 (dev install). |
+| Windows x64 | → **A.2** (packaged installer) |
+| Windows on ARM | → **A.5** (source install — no packaged ARM-Windows artifact) |
+| macOS arm64 (Apple Silicon) | → **A.3** (packaged tarball) |
+| macOS x86_64 (Intel) | **No packaged Intel build (G-004).** Offer → **A.5** (source install) as the only viable path. |
+| Linux arm64 (aarch64) | → **A.4** (packaged tarball, v2.5.1+) |
+| Linux x86_64 | **No packaged x86_64 Linux artifact yet (G-001).** Offer → **A.5** (source install). |
 | Unknown | Print platform + arch and ask user to confirm before proceeding. |
+
+On any path, the user can always choose **A.5 (source install)** instead of the packaged path — it's listed as a universal fallback for "I want dev mode" or "packaged install isn't working".
 
 ### A.2 — Windows installer flow
 
-1. **Show URL** (do NOT auto-download): `https://github.com/taqat-techno/rag/releases`
-2. **Warn about friction:** ~488 MB download, SmartScreen warning expected (G-005 — no signing), ~5–10s first-run encoder load.
-3. **What to click:** download `RAGTools-Setup-{latest}.exe`, double-click. Recommended options: ☑ Add to PATH, ☑ Start service after install, ☑ Add to Windows Startup.
+1. **Show URL** (do NOT auto-download): `https://github.com/taqat-techno/rag/releases/latest`
+2. **Warn about friction:** ~488 MB download, SmartScreen warning expected (G-005 — no code signing), ~5–10s first-run encoder load.
+3. **What to click:** download `RAGTools-Setup-{latest}.exe`, double-click. Recommended installer options: ☑ Add to PATH, ☑ Start service after install, ☑ Add to Windows Startup.
 4. Wait for user to confirm install completed.
 5. Re-run state detection (Step 0). Fall through to **Branch D** (verify).
 
-### A.3 — macOS tarball flow
+### A.3 — macOS tarball flow (Apple Silicon)
 
-1. **Show URL:** `https://github.com/taqat-techno/rag/releases`
-2. **Warn:** ~423 MB, Gatekeeper will block — must `xattr -cr rag/`, no `.app`/`.dmg`, no LaunchAgent (G-002 — manual start each session).
+1. **Show URL:** `https://github.com/taqat-techno/rag/releases/latest`
+2. **Warn:** ~423 MB, Gatekeeper will block on first launch — must `xattr -cr rag/` to clear quarantine (G-005 — no code signing yet), no `.app` / `.dmg` bundle, no LaunchAgent (G-002 — manual `rag service start` each session).
 3. **Commands:**
    ```bash
    tar -xzf RAGTools-{version}-macos-arm64.tar.gz
@@ -83,24 +98,67 @@ uname -sm 2>/dev/null || ver
    ./rag version
    ./rag service start
    ```
-4. Wait, re-run state detection, fall through to **Branch D**.
+4. **Add to PATH** (recommended): append the extracted `rag/` directory to `PATH` in `~/.zshrc` or `~/.bash_profile` so the plugin's `.mcp.json` can spawn `rag serve` on session start.
+5. Wait, re-run state detection, fall through to **Branch D**.
 
-### A.4 — Linux dev install (from source)
+### A.4 — Linux tarball flow (ARM64) — v2.5.1+
 
-Walk per `references/install.md` section 6.4:
+**New in ragtools v2.5.1.** Follows the same replaceable-app vs persistent-user-data model as macOS. Linux x86_64 (Intel/AMD) is still unreleased — those users fall through to A.5.
 
+1. **Show URL:** `https://github.com/taqat-techno/rag/releases/latest`
+2. **Warn:** similar size to macOS tarball, no systemd unit yet (equivalent to G-002 on macOS — manual `rag service start` each session), no `.deb` / `.rpm` packaging yet.
+3. **Commands:**
+   ```bash
+   tar -xzf RAGTools-{version}-linux-arm64.tar.gz
+   cd rag
+   chmod +x rag
+   ./rag version
+   ./rag service start
+   ```
+4. **Add to PATH** (recommended): append the extracted `rag/` directory to `PATH` in `~/.bashrc` or equivalent.
+5. **Verify data path:** Linux packaged install uses `$XDG_DATA_HOME/RAGTools/` (default `~/.local/share/RAGTools/`), not dev-mode's `./data/`.
+6. Wait, re-run state detection, fall through to **Branch D**.
+
+### A.5 — Source install (universal fallback) — any platform
+
+**When to use this path:**
+- Your platform is not covered by A.2–A.4 (macOS Intel, Windows ARM, Linux x86_64, anything exotic).
+- You want dev mode — config at `./ragtools.toml`, data at `./data/`, runnable from the checkout.
+- Packaged install isn't working and you want to verify the upstream behavior directly.
+- You intend to contribute upstream to `github.com/taqat-techno/rag`.
+
+**Prerequisites:** Python ≥ 3.10 (3.12 tested in CI), Git, pip.
+
+**Procedure:**
 ```bash
+# 1. Clone the upstream repo
 git clone https://github.com/taqat-techno/rag.git
 cd rag
+
+# 2. Create and activate a virtual environment
 python -m venv .venv
-source .venv/bin/activate   # or .venv/Scripts/activate on Git Bash
+source .venv/bin/activate          # macOS / Linux / Git Bash on Windows
+# or on Windows CMD:  .venv\Scripts\activate.bat
+# or on Windows PowerShell:  .venv\Scripts\Activate.ps1
+
+# 3. Install in editable mode with dev extras
 pip install -e ".[dev]"
+
+# 4. Verify the install
 rag version
 rag doctor
+
+# 5. Start the service
 rag service start
 ```
 
-Note: dev mode means config at `./ragtools.toml`, data at `./data/`. Fall through to **Branch D**.
+**Important dev-mode differences from packaged installs:**
+- Config lives at `./ragtools.toml` (CWD-relative), NOT `%LOCALAPPDATA%\RAGTools\` / `~/Library/Application Support/RAGTools/` / `~/.local/share/RAGTools/`.
+- Data at `./data/`, NOT the platform-absolute `{userdata}\data\` path.
+- No auto-startup on login. The `is_packaged()` guard in `run.py` intentionally skips Startup-task registration in dev mode (see ragtools `docs/RELEASE_LIFECYCLE.md` invariant 3).
+- `rag` is on PATH **only inside the activated venv** — outside, the command is unavailable. Claude Code's MCP will call `rag serve`, so activate the venv before starting Claude Code, OR point `.mcp.json` at the absolute venv path (see `/rag-setup` Branch D).
+
+**Wait for confirmation**, re-run state detection, fall through to **Branch D**.
 
 ---
 

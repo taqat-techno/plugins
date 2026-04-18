@@ -6,6 +6,8 @@ A Claude Code marketplace is a Git repository that ships one or more **plugins**
 
 This repo is the **taqat-techno-plugins** marketplace — 7 plugins targeting real operational workflows at TAQAT Techno.
 
+Some plugins are operator consoles for external products. The `rag` plugin, in particular, is the operations console for the upstream **[ragtools](https://github.com/taqat-techno/rag)** application — installers, product source, CHANGELOG, and release history all live in that separate repo. See [[Rag Plugin|Rag-Plugin]] for the relationship and cross-links.
+
 ## Repository layout
 
 ```

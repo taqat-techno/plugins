@@ -2,7 +2,19 @@
 
 > Operations and support plugin for the **ragtools** local-first RAG product. Install, configure, diagnose, repair, upgrade, and run the local Markdown knowledge base from inside Claude Code.
 
-**Status:** `v0.6.0` — All 10 phases shipped + 9 post-roadmap amendments (D-015 plugin-level MCP auto-wiring, D-016 CLAUDE.md retrieval rule auto-install, D-017 Tier-2 UserPromptSubmit retrieval-reminder hook + observability, D-018 cross-mode launcher [retracted], D-019 retraction of D-018 schema change, D-020 retraction of D-018 launcher, D-021 command consolidation + shared state-detection contract, D-022 plugin uses MCP ops tools freely via the ragtools v2.5.0 22-tool surface while still never wrapping `search_knowledge_base`, v0.6.0 maintainer release-gate skill). 6 generic state-aware commands + 9 skill-level MCP workflows + 2 skills (`ragtools-ops` operator-facing, `ragtools-release` maintainer-facing). Production-ready for ragtools 2.5.x.
+**Status:** `v0.6.1` — All 10 phases shipped + 9 post-roadmap amendments + install-path clarity patch for ragtools v2.5.1 (Linux ARM64 added). 6 generic state-aware commands + 9 skill-level MCP workflows + 2 skills (`ragtools-ops` operator-facing, `ragtools-release` maintainer-facing). Production-ready for ragtools 2.5.x including v2.5.1 Linux ARM64.
+
+---
+
+> **Upstream product:** the ragtools application itself lives at **[`github.com/taqat-techno/rag`](https://github.com/taqat-techno/rag)**. This plugin is the operations console; the ragtools repo is where the application source, releases, installer artifacts, and product-level documentation live.
+>
+> Install artifacts per platform:
+> - **Windows 10/11 (x64):** [`RAGTools-Setup-{version}.exe`](https://github.com/taqat-techno/rag/releases/latest) or portable zip
+> - **macOS 14+ (Apple Silicon):** [`RAGTools-{version}-macos-arm64.tar.gz`](https://github.com/taqat-techno/rag/releases/latest)
+> - **Linux ARM64:** [`RAGTools-{version}-linux-arm64.tar.gz`](https://github.com/taqat-techno/rag/releases/latest) (v2.5.1+)
+> - **Any other platform** (macOS Intel, Linux x86_64, Windows ARM, etc.): clone [`github.com/taqat-techno/rag`](https://github.com/taqat-techno/rag) and install from source with `pip install -e ".[dev]"` — works on every platform Python supports.
+>
+> `/rag-setup` walks all four paths automatically.
 
 ---
 
