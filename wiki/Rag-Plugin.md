@@ -1,6 +1,6 @@
 # Rag Plugin
 
-**Package:** `rag` · **Version:** `0.6.1` · **Category:** productivity · **License:** MIT · **Source:** [`rag-plugin/`](../../rag-plugin/) · **MCP server:** `ragtools` (spawns `rag serve` directly)
+**Package:** `rag` · **Version:** `0.7.0` · **Category:** productivity · **License:** MIT · **Source:** [`rag-plugin/`](../../rag-plugin/) · **MCP server:** `ragtools` (spawns `rag serve` directly)
 
 > **Upstream application:** the **ragtools** product this plugin operates lives at **[github.com/taqat-techno/rag](https://github.com/taqat-techno/rag)**. Installers, source, CHANGELOG, release history, and product-level documentation all live in that repo — **not** in this plugin. This plugin is the operator console (install, diagnose, repair, configure); the upstream repo is the application.
 >
@@ -61,7 +61,7 @@ commands/  →  skills/ragtools-ops/SKILL.md  →  references/  →  rules/  →
 - **23 reference files** under `skills/ragtools-ops/references/` slice the upstream `ragtools_doc.md` + platform specifics + failure catalog + repair playbooks.
 - **3 rules**: `claude-md-retrieval-rule.md` (v0.2.0 shipped asset), `state-detection.md` (v0.4.0 shared probe), `mcp-envelope.md` (v0.5.0 binding contract).
 
-## Commands (6 user + 1 maintainer)
+## Commands (7 user + 1 maintainer)
 
 All commands work **standalone** (no required args; sensible defaults) and accept optional parameters.
 
@@ -73,17 +73,31 @@ All commands work **standalone** (no required args; sensible defaults) and accep
 | `/rag-reset` | Interactive picker (v0.5.0 — standalone = picker) | `--soft` / `--data` / `--nuclear` |
 | `/rag-config` | Plugin-layer config dashboard | `telemetry {on\|off\|status}`, `claude-md {install\|remove\|status}`, `mcp-dedupe {status\|clean}`, `hook-observability {status\|on\|off\|analyze\|clear}` |
 | `/rag-sync-docs` | **Maintainer-only** (`disable-model-invocation: true`) | Reports drift between bundled references and upstream `ragtools_doc.md` |
+| `/md-rag-enhance` | Always-safe Markdown enhancer (v0.7.0) | No args → enhance every `.md` under CWD; optional positional file arg → one file. Only flags are `--verbose` and `--no-backup`. Applies two mechanical safe fixes (pseudo-heading → real heading, blank-line normalization); reports every structural finding for manual review |
 
-## Skills (2)
+## Skills (3)
 
-The plugin ships **two skills** with no-overlap activation triggers:
+The plugin ships **three skills** with no-overlap activation triggers:
 
 | Skill | Audience | Activates on |
 |---|---|---|
 | [`ragtools-ops`](../../rag-plugin/skills/ragtools-ops/SKILL.md) | Operators (anyone using ragtools) | ragtools keywords, error messages, operational intents ("why isn't this file in search", "add an ignore rule", "reindex project X", "diagnose rag") |
 | [`ragtools-release`](../../rag-plugin/skills/ragtools-release/SKILL.md) | **Maintainers only** | "pre-release check", "release checklist", "ready to ship ragtools", "v2.5.x pre-flight", "release go/no-go", "RELEASE_LIFECYCLE", "cutting a ragtools release" |
+| [`markdown-authoring`](../../rag-plugin/skills/markdown-authoring/SKILL.md) | **Content authors** (v0.7.0+) | "write a README for X", "document component Y", "create a runbook for Z", "draft an SOP", "RAG-friendly markdown", "optimize for retrieval" — any Markdown creation intent for content that will be indexed by ragtools |
 
-The two skills never overlap. Operators never see the release-gate skill; maintainers preparing a release get the full six-invariant walk automatically on the triggering phrasing.
+The three skills never overlap. Operators never see the release-gate or authoring skill; maintainers preparing a release get the six-invariant walk; authors creating Markdown get the 8 hard rules + 5 page templates automatically on the triggering phrasing.
+
+### `markdown-authoring` — chunker-optimized Markdown creation (v0.7.0+)
+
+Auto-activates when Claude is asked to create any `.md` file — READMEs, runbooks, SOPs, architecture pages, reference docs, concept pages. Loads three reference files:
+
+- **`references/rag-md-guidelines.md`** — the full 359-line authoring standard reverse-engineered from `src/ragtools/chunking/markdown.py`. The 8 hard rules + 6 soft rules.
+- **`references/page-templates.md`** — 5 copy-paste scaffolds (concept, SOP, reference, runbook, architecture) each designed to produce 3–6 clean heading-anchored chunks.
+- **`references/anti-patterns.md`** — 9 anti-patterns with per-item chunker-mechanism rationale.
+
+Emits Markdown that satisfies the §8 pre-commit checklist: opens with `# Title`, sections ≤ 300 words, leaf headings unique, no knowledge in YAML frontmatter, code blocks ≤ 60 lines, tables ≤ 15 rows, prose before code. **Never auto-saves** — Claude proposes content; the user accepts/edits/rejects.
+
+Pairs with the `/md-rag-enhance` command (below) which handles **existing** Markdown.
 
 ### `ragtools-release` — release-gate workflow (v0.6.0+)
 

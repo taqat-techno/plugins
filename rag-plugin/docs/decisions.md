@@ -707,4 +707,60 @@ Three safety and design properties fall out of this split:
 
 ---
 
+## D-023 — Markdown authoring standard + always-safe improvement boundary
+
+**Date:** 2026-04-19
+**Phase:** Post-9
+**Status:** binding
+**Ships in:** v0.7.0
+**Triggered by:** user-provided Markdown authoring standard at `C:\MY-WorkSpace\claude_plugins\rag_md_guidelines.md`, reverse-engineered from `src/ragtools/chunking/markdown.py` + `src/ragtools/retrieval/formatter.py` + `src/ragtools/embedding/encoder.py` (MiniLM-L6-v2, 256-token max). The guideline documents exactly which Markdown patterns the chunker rewards and which it punishes. Ships alongside the rag-plugin's shift from "any Markdown" to "Markdown that chunks well for this specific RAG pipeline."
+
+### The decision
+
+1. **Markdown creation in the rag-plugin defers to the `markdown-authoring` skill.** The skill lives at `skills/markdown-authoring/SKILL.md` with three reference files: `references/rag-md-guidelines.md` (the 359-line canonical standard, copied verbatim from the source-of-truth), `references/page-templates.md` (5 copy-paste scaffolds — concept, SOP, reference, runbook, architecture), and `references/anti-patterns.md` (the 9 anti-patterns with per-item chunker-mechanism rationale). The skill activates on Markdown creation intent — "write a README", "document component X", "create a runbook", "draft an SOP" — and emits content that satisfies the §8 pre-commit checklist: opens with `#` heading, sections ≤ 300 words, leaf headings unique, no knowledge in YAML frontmatter, code blocks ≤ 60 lines, tables ≤ 15 rows, prose before code.
+
+2. **The `/md-rag-enhance` command is ALWAYS-SAFE by design.** No `--analyze` toggle, no `--fix-safe` flag, no `--fix-aggressive` flag. Safe enhancement is the single mode. Every invocation applies exactly two mechanical fix categories that cannot change semantic meaning by construction:
+   - **GL-05 pseudo-heading → real heading conversion.** Bold-text lines used as section titles (`**Text**` on its own line, blank-line-surrounded, outside code fences) get converted to `## Text`. The ragtools heading regex doesn't match bold-as-heading — this is pure structural improvement.
+   - **Blank-line normalization around headings and code fences.** Adds a blank line before/after every `##`/`###`/`####` heading and every fenced code block if missing. Typographical only, never touches code-fence interiors or flowing text.
+
+3. **Every other finding is REPORT-ONLY.** Content-before-first-heading (GL-01), oversized sections (GL-02), vague headings (GL-03), duplicate leaf headings (GL-04), oversized code blocks (GL-06), oversized tables (GL-07), YAML frontmatter carrying knowledge (GL-08), code block without prose intro (GL-09), skipped heading levels (GL-10) — all surfaced in the command's output for manual review, never auto-applied. Structural rewrites require semantic judgment; the tool reports, the human decides.
+
+4. **Every enhancement writes atomic + backup-first.** Never in-place edit. Never touch code-fence interiors. Never change commands, URLs, file paths, config keys, version numbers, or numeric values — the safe-fix categories do not write into flowing text. `<file>.bak-pre-md-rag-enhance` sibling is written before every modification; `--no-backup` opts out for git-managed users.
+
+5. **Parameter surface is minimal and binding:**
+   ```
+   /md-rag-enhance                 enhance every .md under CWD
+   /md-rag-enhance <file>          enhance only that file
+   /md-rag-enhance --verbose       full per-file report
+   /md-rag-enhance --no-backup     skip the backup sibling files
+   ```
+   No other flags ship. No `--path`, no `--max-files`, no `--report`, no `--fix-*`, no `--analyze`, no `--dry-run` (the `--dry-run` / `--json` / `--self-test` flags exist in the underlying analyzer script for development and testing, but are **not exposed** through the command). **Simplicity is the safety property.** A command with one mode is always-safe; a command with modes can be invoked in the wrong mode.
+
+6. **Hardcoded 500-file safety cap** for whole-project runs. Exceeded → clear error message telling the user to pass a specific file path. Defensive, not user-configurable.
+
+### Non-violation of prior decisions
+
+- **D-001 / D-022:** the skill and command do not call `search_knowledge_base` or any MCP content-retrieval tool. They operate purely on the filesystem. The Markdown they affect will be chunked by ragtools later if the user indexes the project, but the plugin does no indexing and no search. Boundary unchanged.
+- **D-005:** the command does not require ragtools to be running. It's a filesystem tool, not a service client. Install-mode `not-installed` is not a blocker — the command prints an info line and continues. The state-detection preamble still runs for UX consistency.
+- **D-007:** the command does not block tool calls or deny actions. It produces reports and applies safe fixes.
+- **D-008:** compact-by-default output discipline preserved. `--verbose` for drill-down.
+- **D-012:** no network egress. The analyzer is stdlib-only Python; no external endpoints.
+- **D-015 / D-020:** MCP wiring untouched. The skill and command are new; they do not change `.mcp.json`.
+- **D-021:** command is generic (works standalone with no args; defaults to enhance-all in CWD; optional positional arg for a single file). New capability ships 80% as a skill and 20% as a command — matches the "decrease commands, increase skills" directional guidance.
+
+### Reverse only if
+
+- **The upstream ragtools chunker changes meaningfully** (new section-boundary rules, different token budget, different embedder model). Then both the skill reference content and the analyzer heuristics need updating together. Update `references/rag-md-guidelines.md` first; bump the plugin minor version; document which chunker-version range the heuristics now target.
+- **Structural auto-fixes prove safe enough in practice** that the REPORT-ONLY list can shrink. Requires empirical evidence from field use, not theory. The first candidate for promotion from report-only to safe-fix would be YAML-frontmatter-to-`## Tags` migration (GL-08) — mechanical, but the risk tail with non-semantic frontmatter keys is why v0.7.0 keeps it report-only.
+- **The always-safe posture becomes a usability bottleneck** (user explicitly asks for a riskier mode to save time on large projects). Even then, prefer a new companion command with a scary name (e.g. `/md-rag-rewrite`) over adding a `--fix-aggressive` flag to the always-safe one. Flag-based safety regressions are how safety erodes.
+
+### What D-023 does NOT change
+
+- Does not change how ragtools itself chunks or embeds. That's upstream.
+- Does not require any plugin user to run `/md-rag-enhance` — it's a tool, not a mandate. The plugin still works without it.
+- Does not touch files other than `.md` files. No YAML, JSON, Python, shell — those are not in scope.
+- Does not index, search, or read any chunks from the knowledge base. Purely a Markdown-authoring hygiene tool.
+
+---
+
 *Append new decisions below. Never rewrite or delete an entry — supersede with a new dated entry that references the old one.*
