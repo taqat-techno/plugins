@@ -8,7 +8,7 @@ All 7 plugins in the **taqat-techno-plugins** marketplace, with current version,
 |---|---|---|---|---|---|---|
 | 1 | **odoo** | `1.0.0` | development | 17 commands, 4 agents, 8 sub-skills, hooks | [[Odoo Plugin\|Odoo-Plugin]] | [`odoo-plugin/README.md`](../../odoo-plugin/README.md) |
 | 2 | **devops** | `6.3.0` | productivity | 9 commands, 3 agents, MCP server, rules, data, hooks | [[DevOps Plugin\|DevOps-Plugin]] | [`devops-plugin/README.md`](../../devops-plugin/README.md) |
-| 3 | **rag** | `0.6.1` | productivity | 6 commands, 1 agent, 2 skills, MCP server, 3 rules, hooks. **Upstream product:** [github.com/taqat-techno/rag](https://github.com/taqat-techno/rag) | [[Rag Plugin\|Rag-Plugin]] | [`rag-plugin/README.md`](../../rag-plugin/README.md) |
+| 3 | **rag** | `0.7.0` | productivity | 7 commands, 1 agent, 3 skills, MCP server, 3 rules, hooks. **Upstream product:** [github.com/taqat-techno/rag](https://github.com/taqat-techno/rag) | [[Rag Plugin\|Rag-Plugin]] | [`rag-plugin/README.md`](../../rag-plugin/README.md) |
 | 4 | **paper** | `3.0.0` | design | 1 command, 2 agents, 2 skills, hooks | [[Paper Plugin\|Paper-Plugin]] | [`paper-plugin/README.md`](../../paper-plugin/README.md) |
 | 5 | **pandoc** | `2.1.0` | productivity | 1 command, hooks | [[Pandoc Plugin\|Pandoc-Plugin]] | [`pandoc-plugin/README.md`](../../pandoc-plugin/README.md) |
 | 6 | **remotion** | `2.1.0` | development | 1 command, templates, hooks | [[Remotion Plugin\|Remotion-Plugin]] | [`remotion-plugin/README.md`](../../remotion-plugin/README.md) |

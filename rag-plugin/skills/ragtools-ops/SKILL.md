@@ -269,7 +269,9 @@ After loading the right reference, decide:
 - **Destructive reset** → `/rag-reset` with no args enters an interactive picker; `/rag-reset --soft | --data | --nuclear` jumps straight to a level.
 - **Plugin-layer config** → `/rag-config` (telemetry, claude-md rule, mcp-dedupe, hook-observability).
 
-**Command surface (v0.5.0):** 6 user-facing commands + 1 maintainer-only (`/rag-sync-docs`). Every command works standalone (no required args) AND accepts parameters. New capabilities ship as **skill workflows** (Phase 2.5), not new commands — preferred route per D-021 and the v0.5.0 direction.
+**Command surface (v0.7.0):** 7 user-facing commands + 1 maintainer-only (`/rag-sync-docs`). Every command works standalone (no required args) AND accepts parameters. New capabilities ship as **skill workflows** (Phase 2.5), not new commands — preferred route per D-021 and the v0.5.0 direction.
+
+**Sibling skill — `markdown-authoring` (v0.7.0):** when the user asks Claude to **create** any Markdown file (README, runbook, SOP, concept page, architecture doc, design notes), the `markdown-authoring` skill at `${CLAUDE_PLUGIN_ROOT}/skills/markdown-authoring/SKILL.md` is the right entry point — it loads the RAG-optimized authoring standard and the 5 page templates. When the user asks to **improve existing** Markdown, route to `/md-rag-enhance` (the always-safe improver command). The two are complementary: the skill shapes new content, the command enhances old content. Neither overlaps with `ragtools-ops`' operator-of-ragtools scope.
 
 ## Output discipline (D-008)
 

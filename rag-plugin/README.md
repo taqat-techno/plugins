@@ -2,7 +2,7 @@
 
 > Operations and support plugin for the **ragtools** local-first RAG product. Install, configure, diagnose, repair, upgrade, and run the local Markdown knowledge base from inside Claude Code.
 
-**Status:** `v0.6.1` — All 10 phases shipped + 9 post-roadmap amendments + install-path clarity patch for ragtools v2.5.1 (Linux ARM64 added). 6 generic state-aware commands + 9 skill-level MCP workflows + 2 skills (`ragtools-ops` operator-facing, `ragtools-release` maintainer-facing). Production-ready for ragtools 2.5.x including v2.5.1 Linux ARM64.
+**Status:** `v0.7.0` — All 10 phases shipped + 10 post-roadmap amendments. 7 generic state-aware commands + 9 skill-level MCP workflows + 3 skills (`ragtools-ops` operator-facing, `ragtools-release` maintainer-facing, `markdown-authoring` content-authoring-facing). Production-ready for ragtools 2.5.x including v2.5.1 Linux ARM64. New in v0.7.0: `markdown-authoring` skill + `/md-rag-enhance` always-safe Markdown improver command for RAG-optimized chunking and embedding.
 
 ---
 

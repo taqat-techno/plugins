@@ -2,6 +2,68 @@
 
 All notable changes to `rag-plugin` are documented here. Format is loosely based on [Keep a Changelog](https://keepachangelog.com/). Versioning follows [SemVer](https://semver.org/).
 
+## [0.7.0] — 2026-04-19
+
+Markdown authoring standard + always-safe Markdown enhancer. Ships a third skill (`markdown-authoring`) and a seventh user-facing command (`/md-rag-enhance`) that together optimize any Markdown-heavy project for the ragtools chunker + MiniLM-L6-v2 embedder.
+
+The work is grounded in a reverse-engineered 359-line authoring standard derived from `src/ragtools/chunking/markdown.py`, `src/ragtools/retrieval/formatter.py`, and the embedder's 256-token window. The plugin now knows both how to **create** RAG-friendly Markdown (the skill) and how to **enhance** existing files toward the standard without corrupting their meaning (the command).
+
+### Added
+
+- **`skills/markdown-authoring/SKILL.md`** — new skill, third on the plugin's skill surface. Auto-activates on Markdown creation intent ("write a README", "document this component", "create a runbook", "draft an SOP for Z", "RAG-friendly markdown", "optimize for retrieval"). Loads the 8 hard rules + 5 page templates + 9 anti-patterns from `references/`. Never auto-saves files — Claude proposes content; the user accepts/edits/rejects.
+- **`skills/markdown-authoring/references/rag-md-guidelines.md`** — the full 359-line authoring standard, copied verbatim from the source-of-truth. Used as the canonical reference by the skill.
+- **`skills/markdown-authoring/references/page-templates.md`** — 5 copy-paste scaffolds (concept page, SOP page, reference page, runbook page, architecture page) each designed to produce 3–6 clean heading-anchored chunks.
+- **`skills/markdown-authoring/references/anti-patterns.md`** — the 9 anti-patterns with per-item chunker-mechanism rationale (why each specifically hurts this RAG pipeline with file:line references to `markdown.py`).
+- **`commands/md-rag-enhance.md`** — new command, always-safe by design. No args → enhance every `.md` under CWD. Optional positional file arg → enhance just that file. `--verbose` and `--no-backup` are the only flags. Generic and standalone per D-021.
+- **`scripts/md_analyzer.py`** — stdlib-only Python analyzer and safe-fix engine (~500 lines, Python 3.10+). 10 check functions (`GL-01..GL-10`), two safe-fix categories (pseudo-heading conversion + blank-line normalization), atomic+backup writes, `--self-test` with built-in unit-like tests, `--dry-run` for development preview, `--json` for programmatic use, Windows-safe stdout (force UTF-8).
+- **D-023** in `docs/decisions.md` — binding decision covering the authoring standard, the always-safe command boundary, the five-flag parameter surface, the two fix categories that are safe by construction, the report-only list that requires human judgment, non-violation checks against D-001/D-005/D-007/D-008/D-012/D-015/D-020/D-021/D-022, and the "Reverse only if" criteria for future expansion.
+
+### Changed
+
+- **`skills/ragtools-ops/SKILL.md`** — command surface description bumped to 7 user-facing + 1 maintainer. Routing note added for Markdown creation (→ `markdown-authoring` skill) and Markdown improvement (→ `/md-rag-enhance`). No other behavior change.
+- **`.claude-plugin/plugin.json`** — version `0.6.1` → `0.7.0`.
+
+### Safety properties of the new command
+
+Applied on every invocation (always-safe is the only mode):
+
+1. **Never modify content inside fenced code blocks.** Even blank-line normalization skips code-fence interiors.
+2. **Never change commands, URLs, file paths, config keys, version numbers, or numeric values.** The safe-fix categories operate on structure, not flowing text.
+3. **Never delete content.** The two safe fixes only ADD structure (headings, blank lines) or CONVERT pseudo-headings to real headings.
+4. **Atomic writes.** Load → modify in-memory → write to `<file>.tmp` → `os.replace()`. Never in-place edit.
+5. **Backup before every write.** `<file>.bak-pre-md-rag-enhance` sibling. `--no-backup` opts out for git users.
+6. **Skip standard dirs** (`.git/`, `node_modules/`, `.venv/`, `dist/`, `build/`, `__pycache__/`) and respect `.gitignore`. Skip binary files, symlinks, files > 1 MB.
+7. **Hardcoded 500-file safety cap** for whole-project scans. Exceeded → clear error asking for a specific file path.
+
+### Rationale
+
+Two user-reported needs:
+
+1. **Newly-created Markdown should follow the guideline by default.** Before v0.7.0, any documentation Claude wrote would land in whatever shape the conversation produced — sometimes excellent, sometimes an anti-pattern. The skill makes "good chunks" the default shape.
+2. **Existing Markdown-heavy projects need a safe way to migrate toward the standard.** Before v0.7.0, the user had to manually apply the 8 hard rules to hundreds of files. The command automates the two categories that are mechanically safe, and reports the rest for manual review.
+
+The always-safe posture (no mode switching) is deliberate. A command with flags for "analyze" vs "safe-fix" vs "aggressive" invites the wrong invocation at the wrong time. Simplicity is the safety property; the single mode eliminates a whole class of mis-invocations. Structural rewrites that require judgment are REPORT-ONLY — the tool surfaces them; the human decides.
+
+The two safe-fix categories were chosen because they **cannot change semantic meaning by construction**:
+- Pseudo-headings (`**Text**`) are bold text with no chunker-visible effect; converting to `## Text` adds chunking structure without touching any flowing text.
+- Blank-line normalization is purely typographical; it inserts `\n` characters and never touches any non-blank content.
+
+Every other guideline violation (content-before-first-heading, oversized sections, vague headings, mixed-topic sections, duplicate leaf headings, oversized code blocks, oversized tables, YAML frontmatter carrying knowledge, code block without prose intro, skipped heading levels) requires **semantic judgment** to fix — splitting a section needs topic decomposition, renaming a heading needs understanding what it's about, moving knowledge out of frontmatter needs deciding where it belongs. These are reported, not auto-applied.
+
+### Verification
+
+- **Self-test:** `python scripts/md_analyzer.py --self-test` passes on Windows (cp1252-safe with forced UTF-8 stdout).
+- **Dry-run against the plugin's own README:** `python scripts/md_analyzer.py README.md --dry-run` correctly identifies missing blank lines around code fences; applies no other changes; never touches code-fence interiors.
+- **Validator:** `python validate_plugin.py rag-plugin` passes (pre-existing SKILL.md YAML false-positive and documented hooks.json warnings unchanged).
+- **Cross-platform:** `sys.stdout.reconfigure(encoding='utf-8', errors='replace')` called at `main()` entry so the script is safe on Windows cp1252 consoles when printing Markdown content containing arrows, em-dashes, or non-ASCII.
+- **Command surface audit:** 7 user-facing commands (was 6) + 1 maintainer-only = 8 total commands. 3 skills (was 2) — `ragtools-ops`, `ragtools-release`, `markdown-authoring`.
+
+### Known follow-ups
+
+- **Frontmatter-to-`## Tags` migration as a safe-fix** — promoted from report-only to auto-applied in v0.8.0 after field evidence that the migration is clean on real-world files with mixed frontmatter (dates, authors, license fields mixed with tags/keywords).
+- **Diff-review mode** (`--review` or equivalent) for users who want to preview changes before the safe-fix is applied. The analyzer already supports `--dry-run` internally; surfacing it through the command requires UX work and a binding decision on whether "preview then commit" constitutes a second mode that violates D-023's simplicity property. Deferred to v0.8.0.
+- **Integration with the `ragtools-release` skill** — when a ragtools release ships, documentation updates could be gated on `/md-rag-enhance` passing with no HIGH findings. Would need a new invariant in `skills/ragtools-release/references/release-checklist.md`.
+
 ## [0.6.1] — 2026-04-19
 
 Install-path clarity patch. Restructures `/rag-setup` Branch A so all three packaged platforms (Windows, macOS Apple Silicon, Linux ARM64) are first-class paths with a universal source-install fallback explicitly documented for every other platform. Picks up the ragtools v2.5.1 Linux-ARM64 release. Links the upstream ragtools product repo prominently throughout the plugin.
