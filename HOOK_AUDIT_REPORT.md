@@ -461,7 +461,7 @@ trap "kill $TIMEOUT_PID 2>/dev/null" EXIT
   "hooks": [
     {
       "type": "prompt",
-      "prompt": "Test file changed or created. Reminders:\n- Run coverage: /odoo-test coverage\n- SavepointCase removed in 16+, use TransactionCase\n- NEW files: ensure tests/__init__.py imports it (test runner won't discover without import)"
+      "prompt": "Test file changed or created. Reminders:\n- Run coverage: /test coverage\n- SavepointCase removed in 16+, use TransactionCase\n- NEW files: ensure tests/__init__.py imports it (test runner won't discover without import)"
     }
   ]
 }

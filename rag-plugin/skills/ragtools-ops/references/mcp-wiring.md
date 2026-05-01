@@ -44,7 +44,7 @@ Two things to notice:
   - **Packaged Windows:** the installer at `C:\Users\<you>\AppData\Local\Programs\RAGTools\` adds itself to PATH by default (verified via `where rag` on the v0.3.3 reporter's machine).
   - **Packaged macOS:** user must manually add the tarball extract directory to `PATH`.
   - **Dev mode:** `pip install -e .` exposes `rag` as a pyproject console-script in the active venv.
-- **Fallback** if `rag` is not on PATH: run `/rag-setup`. Branch C reads `GET /api/mcp-config` and writes a user-level `~/.claude/.mcp.json` with the wrapped shape and an absolute binary path — that file takes precedence over the plugin-level file and works without requiring PATH configuration.
+- **Fallback** if `rag` is not on PATH: run `/setup`. Branch C reads `GET /api/mcp-config` and writes a user-level `~/.claude/.mcp.json` with the wrapped shape and an absolute binary path — that file takes precedence over the plugin-level file and works without requiring PATH configuration.
 
 #### Legacy versions
 
@@ -53,7 +53,7 @@ Two things to notice:
 - **v0.3.2** reverted the schema to the flat shape (correct) but kept the Python launcher (incorrect on Windows). Symptom: `ListMcpResourcesTool` shows the server registered, but no tool schemas reach the model. Root cause: Python's `os.execvp` on Windows does not preserve stdio pipe inheritance across process replacement, so the spawned `rag.exe` never receives the `tools/list` RPC. Upgrade to v0.3.3+.
 - **v0.3.3+** drops the launcher entirely and spawns `rag serve` directly from `.mcp.json`. This is the first configuration that works across all known install modes without a Windows stdio bug (see D-020).
 
-### Option B — Project-level (manual, via `/rag-setup`)
+### Option B — Project-level (manual, via `/setup`)
 
 For dev mode (source install with `pip install -e .`):
 
@@ -76,7 +76,7 @@ For packaged installs without PATH integration, the admin panel at **Settings �
 GET http://127.0.0.1:21420/api/mcp-config
 ```
 
-**Use this endpoint** to get the correct config — do not hand-construct paths. `/rag-setup` branch C.1 reads this endpoint and writes `.mcp.json` for you.
+**Use this endpoint** to get the correct config — do not hand-construct paths. `/setup` branch C.1 reads this endpoint and writes `.mcp.json` for you.
 
 ### Option C — User-level (manual)
 

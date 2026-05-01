@@ -50,7 +50,7 @@ curl http://127.0.0.1:21420/health
 curl http://127.0.0.1:21420/api/projects
 ```
 
-If anything is wrong, route to `/rag-doctor`.
+If anything is wrong, route to `/doctor`.
 
 ## Portable replace (Windows zip)
 
@@ -152,19 +152,19 @@ For users who installed via `pip install -e ".[dev]"`:
 |---|---|---|
 | Service won't start after upgrade | Bundle corruption from incomplete download | Re-download installer; verify SHA if available |
 | `rag version` shows old version | Old binary still on PATH | Restart shell or check PATH order |
-| Projects empty after upgrade | Config landed in wrong place (pre-v2.4.1 bug, F-001) | This should not happen post-upgrade. If it does, route to `/rag-doctor` and `repair-playbooks.md#projects-empty-after-restart` |
+| Projects empty after upgrade | Config landed in wrong place (pre-v2.4.1 bug, F-001) | This should not happen post-upgrade. If it does, route to `/doctor` and `repair-playbooks.md#projects-empty-after-restart` |
 | `rag doctor` reports `Collection NOT FOUND` | Expected if service is up (F-010) — not a bug | Ignore |
 | Watcher not running after upgrade | Auto-restart budget exhausted from the upgrade interruption | `curl -X POST http://127.0.0.1:21420/api/watcher/start` |
-| MCP server fails to connect from Claude Code | `.mcp.json` may need refresh if binary path changed | Re-run `/rag-setup` step C.1 to read fresh `/api/mcp-config` |
+| MCP server fails to connect from Claude Code | `.mcp.json` may need refresh if binary path changed | Re-run `/setup` step C.1 to read fresh `/api/mcp-config` |
 
 ## Pre-v2.4.1 mandatory upgrade
 
 If the user is on **any version below 2.4.1**, upgrading is **not optional**. The v2.4.1 fix addresses a data-loss-tier bug (F-001) in the config write path. Running on pre-v2.4.1:
 - Adding a project from the admin panel can fail with `[Errno 13] Permission denied: 'ragtools.toml'`
 - Even if the add appears to succeed, the next service restart can delete "orphaned" data
-- `/rag-reset` is **blocked** by `/rag-reset` Step 2 on pre-v2.4.1 because a reset on a buggy version can lose more data than intended
+- `/reset` is **blocked** by `/reset` Step 2 on pre-v2.4.1 because a reset on a buggy version can lose more data than intended
 
-The plugin's `/rag-upgrade` command surfaces a strong warning when pre-v2.4.1 is detected. The plugin's `/rag-reset` command refuses entirely. Both behaviors trace back to F-001 and the v2.4.1 incident history.
+The plugin's `/rag-upgrade` command surfaces a strong warning when pre-v2.4.1 is detected. The plugin's `/reset` command refuses entirely. Both behaviors trace back to F-001 and the v2.4.1 incident history.
 
 ## What `/rag-upgrade` does for you
 

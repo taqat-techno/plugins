@@ -7,34 +7,35 @@ author: TaqaTechno
 version: 0.5.0
 ---
 
-# /rag-doctor
+# /doctor
 
-Smart, state-aware diagnose-and-repair entry point for ragtools. **One command** handles what used to be split across `/rag-status`, `/rag-doctor`, and `/rag-repair`. Branches on the detected state so it behaves correctly whether ragtools is missing, broken, half-configured, or perfectly healthy.
+Smart, state-aware diagnose-and-repair entry point for ragtools. **One command** handles what used to be split across `/rag-status`, `/doctor`, and `/rag-repair`. Branches on the detected state so it behaves correctly whether ragtools is missing, broken, half-configured, or perfectly healthy.
 
 ## Behavior by state (routing table)
 
-| Detected state | What /rag-doctor does |
+| Detected state | What /doctor does |
 |---|---|
-| **not-installed** | Print the mode banner with `not-installed` label and a single line: `ragtools is not installed. run /rag-setup to install.` Stop. No probes, no findings, no playbook walks. |
+| **not-installed** | Print the mode banner with `not-installed` label and a single line: `ragtools is not installed. run /setup to install.` Stop. No probes, no findings, no playbook walks. |
 | **installed, service DOWN** | Mode banner + CLI-direct-mode read-only probes (`rag version`, `rag service status`). Classify any errors. Recommend `rag service start`. If `--full` was passed, also run `rag doctor` in CLI direct mode (it takes the Qdrant lock, which is safe because no other process holds it). |
 | **installed, service STARTING** | Mode banner + "service is starting — encoder load ~5–10s" note. Re-probe once after 2s. If still STARTING, print the state and stop — do not run destructive probes against a loading service. |
 | **installed, service BROKEN** (500/hang) | Mode banner + `[ERROR] service is broken` finding tagged against **F-005**. Offer to walk the P-svc playbook inline if `--fix` was passed. |
 | **installed, service UP, all green** | Mode banner + compact state table (version / projects / files / chunks / watcher) + plugin-level assertions (CLAUDE.md rule, MCP registrations). One-line summary: `✓ all checks passed` if nothing is wrong. This is what the former `/rag-status` printed. |
 | **installed, service UP, unhealthy** | Mode banner + state table + findings block with each finding tagged against F-001..F-012 or P-RULE/P-DEDUPE. Each finding has a remediation line. If `--fix` was passed and exactly one HIGH-confidence finding exists, walk its playbook inline. |
-| **installed, service UP, old version** | Everything above + an `[INFO] upgrade available v<X> → v<Y>` row in the findings block (only if the command fetched `latest_version`). Recommend `/rag-setup` to walk the upgrade. Does NOT auto-walk upgrades from `/rag-doctor`. |
-| **free-text symptom passed** | `/rag-doctor "projects disappeared after restart"` → classify the symptom against the F-001..F-012 + P-RULE/P-DEDUPE rubric, emit the top match, offer the playbook walk. This replaces the old `/rag-repair <text>` entry point. |
+| **installed, service UP, old version** | Everything above + an `[INFO] upgrade available v<X> → v<Y>` row in the findings block (only if the command fetched `latest_version`). Recommend `/setup` to walk the upgrade. Does NOT auto-walk upgrades from `/doctor`. |
+| **free-text symptom passed** | `/doctor "projects disappeared after restart"` → classify the symptom against the F-001..F-012 + P-RULE/P-DEDUPE rubric, emit the top match, offer the playbook walk. This replaces the old `/rag-repair <text>` entry point. |
 | **--symptom F-NNN passed** | Skip classification. Go straight to the named playbook. Same behavior as the old `/rag-repair --symptom F-NNN`. |
 | **--logs passed** | Resolve the log path, invoke the `rag-log-scanner` Haiku agent on the last 200 lines, fold its findings into the findings block. If `--fix` is also set, walk the top-confidence finding's playbook inline. |
 
 ## Modes (command-line flags)
 
-- `/rag-doctor` — **default mode.** Fast state probe (~400ms). Absorbs the former `/rag-status`. Best entry point for "what's going on with ragtools?"
-- `/rag-doctor --full` — **deep diagnose.** Wraps `rag doctor` and classifies every row against F-001..F-012. Replaces the former standalone `/rag-doctor`. Takes several seconds because `rag doctor` walks the dependency tree.
-- `/rag-doctor <free-text>` — **symptom classification.** Matches the user's text against the F-001..F-012 + P-RULE/P-DEDUPE rubric (20 rows with disambiguation rules). Replaces the former `/rag-repair <text>`.
-- `/rag-doctor --symptom F-NNN` — **jump to a playbook.** Skip classification. Replaces the former `/rag-repair --symptom F-NNN`.
-- `/rag-doctor --logs` — **log scan.** Invokes the `rag-log-scanner` Haiku agent. Replaces the former `/rag-repair --scan-logs` and `/rag-doctor --logs`.
-- `/rag-doctor --fix` — **walk the playbook inline.** Combine with any of the above. After classification, if exactly one HIGH-confidence finding exists, walk its playbook one step at a time with typed confirmation gates. This was formerly a separate `/rag-repair` invocation.
-- `/rag-doctor --verbose` — **expand output.** Adds full raw `rag doctor` output, the environment dump, and un-truncated log tails. Composes with the other flags.
+- `/doctor` — **default mode.** Fast state probe (~400ms). Absorbs the former `/rag-status`. Best entry point for "what's going on with ragtools?"
+- `/doctor --full` — **deep diagnose.** Wraps `rag doctor` and classifies every row against F-001..F-012. Replaces the former standalone `/doctor`. Takes several seconds because `rag doctor` walks the dependency tree.
+- `/doctor <free-text>` — **symptom classification.** Matches the user's text against the F-001..F-012 + P-RULE/P-DEDUPE rubric (20 rows with disambiguation rules). Replaces the former `/rag-repair <text>`.
+- `/doctor --symptom F-NNN` — **jump to a playbook.** Skip classification. Replaces the former `/rag-repair --symptom F-NNN`.
+- `/doctor --logs` — **log scan.** Invokes the `rag-log-scanner` Haiku agent. Replaces the former `/rag-repair --scan-logs` and `/doctor --logs`.
+- `/doctor --fix` — **walk the playbook inline.** Combine with any of the above. After classification, if exactly one HIGH-confidence finding exists, walk its playbook one step at a time with typed confirmation gates. This was formerly a separate `/rag-repair` invocation.
+- `/doctor --verbose` — **expand output.** Adds full raw `rag doctor` output, the environment dump, and un-truncated log tails. Composes with the other flags.
+- `/doctor --classify` — **(v0.11.0)** read-only diagnostic for the retrieval-reminder hook. Runs `python ${CLAUDE_PLUGIN_ROOT}/scripts/hook_classifier_smoke.py --verbose` so the user sees how each fixture is classified by the v0.4.0 operational-intent gate (D-027). Surfaces regression in the gate before users see it in the wild. Also use to investigate "why did the hook fire on my operational prompt" — the smoke fixtures are the canonical truth-set.
 
 Compact-by-default per D-008: ≤ 25 lines unless `--verbose` or a playbook walk is in progress.
 
@@ -49,7 +50,7 @@ All MCP-using branches below honor `${CLAUDE_PLUGIN_ROOT}/rules/mcp-envelope.md`
 If `state.install_mode == not-installed`, stop now with a single line:
 
 ```
-ragtools is not installed. run /rag-setup to install.
+ragtools is not installed. run /setup to install.
 ```
 
 No further steps. No probes. The user has nothing to diagnose.
@@ -70,7 +71,7 @@ Pick exactly one primary mode, in priority order:
 
 ## Mode E — Default fast probe (absorbs former /rag-status)
 
-This is the most common entry point. A user types `/rag-doctor` with no args when they want "what state is ragtools in?"
+This is the most common entry point. A user types `/doctor` with no args when they want "what state is ragtools in?"
 
 ### E.1 — When service is UP (MCP-first)
 
@@ -121,8 +122,8 @@ If multiple projects, add a second small table capped at 5 rows with `+N more �
 
 Run the **plugin-level assertions** — these are not from `rag doctor`, they are probed by this command directly (introduced in v0.2.0, v0.3.1, v0.3.3):
 
-- `/rag-config claude-md status` → maps to `OK — INSTALLED v<N>` / `WARN — NOT INSTALLED` / `WARN — OUTDATED v<OLD>→v<NEW>` / `WARN — TARGET MISSING`
-- `/rag-config mcp-dedupe status` → maps to `OK — 1 (plugin-level, canonical, schema OK)` / `WARN — <N+1> (plugin-level + <N> duplicates)` / `ERROR — plugin .mcp.json missing top-level 'ragtools' key` / `ERROR — plugin .mcp.json command '<cmd>' not on PATH` / `ERROR — plugin .mcp.json uses the legacy Python launcher`
+- `/config claude-md status` → maps to `OK — INSTALLED v<N>` / `WARN — NOT INSTALLED` / `WARN — OUTDATED v<OLD>→v<NEW>` / `WARN — TARGET MISSING`
+- `/config mcp-dedupe status` → maps to `OK — 1 (plugin-level, canonical, schema OK)` / `WARN — <N+1> (plugin-level + <N> duplicates)` / `ERROR — plugin .mcp.json missing top-level 'ragtools' key` / `ERROR — plugin .mcp.json command '<cmd>' not on PATH` / `ERROR — plugin .mcp.json uses the legacy Python launcher`
 
 An `ERROR` on the MCP registrations row is **always** more urgent than any WARN — it means ragtools MCP will not load at all.
 
@@ -148,11 +149,11 @@ If `rag version` itself fails, the binary is broken — classify as UNCLASSIFIED
 
 ### E.3 — When service is BROKEN
 
-Print one line: `service returned 500 / hung. classified as F-005 (service will not start). run /rag-doctor --symptom F-005 --fix to walk the playbook.`
+Print one line: `service returned 500 / hung. classified as F-005 (service will not start). run /doctor --symptom F-005 --fix to walk the playbook.`
 
 ### E.4 — When service is STARTING
 
-Print: `service is starting — encoder is loading (~5–10s). re-probe once in a moment or run /rag-doctor --full once it settles.`
+Print: `service is starting — encoder is loading (~5–10s). re-probe once in a moment or run /doctor --full once it settles.`
 
 ---
 
@@ -234,16 +235,16 @@ Unrecognized errors → `[UNCLASSIFIED]`, recommend `--logs`.
 
 ### D.3 — Render the doctor summary table
 
-≤ 14 rows covering dependencies + service + data + plugin-level rows. Same format as the former `/rag-doctor` Step 5 rendering. See the classifier rubric above for what each status cell should say.
+≤ 14 rows covering dependencies + service + data + plugin-level rows. Same format as the former `/doctor` Step 5 rendering. See the classifier rubric above for what each status cell should say.
 
 ### D.4 — Emit findings block
 
 One line per non-OK finding:
 ```
 findings:
-  [ERROR] Service status "not running" → /rag-doctor --symptom F-005 --fix
-  [WARN]  CLAUDE.md rule missing → /rag-config claude-md install (D-016)
-  [WARN]  MCP duplicate at ~/.claude.json → /rag-config mcp-dedupe clean (D-015)
+  [ERROR] Service status "not running" → /doctor --symptom F-005 --fix
+  [WARN]  CLAUDE.md rule missing → /config claude-md install (D-016)
+  [WARN]  MCP duplicate at ~/.claude.json → /config mcp-dedupe clean (D-015)
 ```
 
 Plugin-behavior findings (CLAUDE.md rule / MCP dedupe) are tagged with the D-NNN decision they trace to, not an F-NNN.
@@ -257,11 +258,11 @@ next: <recommended-action>
 One of:
 - `service is healthy — nothing to do`
 - `start the service: rag service start`
-- `walk the playbook: /rag-doctor --symptom F-NNN --fix`
-- `scan the logs: /rag-doctor --logs`
-- `install the CLAUDE.md rule: /rag-config claude-md install`
-- `clean duplicate MCP registrations: /rag-config mcp-dedupe clean`
-- `fix multiple issues: /rag-doctor --full --fix` (walks the top-confidence finding first)
+- `walk the playbook: /doctor --symptom F-NNN --fix`
+- `scan the logs: /doctor --logs`
+- `install the CLAUDE.md rule: /config claude-md install`
+- `clean duplicate MCP registrations: /config mcp-dedupe clean`
+- `fix multiple issues: /doctor --full --fix` (walks the top-confidence finding first)
 
 ---
 
@@ -295,19 +296,19 @@ Match the user's positional argument against the rubric below. Each row has a co
 
 ### Disambiguation rules (binding)
 
-1. **F-010 vs F-003.** If the user mentions "Collection NOT FOUND" AND `state.service_mode == UP`, classify as **F-010 (NOT a bug)**, not F-003. Explain the lock contention and recommend `/rag-doctor` (which hits the HTTP API and doesn't see the lock).
+1. **F-010 vs F-003.** If the user mentions "Collection NOT FOUND" AND `state.service_mode == UP`, classify as **F-010 (NOT a bug)**, not F-003. Explain the lock contention and recommend `/doctor` (which hits the HTTP API and doesn't see the lock).
 2. **F-003 strict matcher.** Only classify as F-003 (HIGH) if the user pastes the exact substring, OR if `service_mode == DOWN` and the user is trying to start it. Vague "qdrant lock" is MEDIUM at most.
 3. **F-002 is fixed in v2.4.2.** If `state.version >= 2.4.2` and the user pastes an MPS error, recommend filing an upstream issue rather than walking the (obsolete) playbook.
 4. **F-006 vs F-001.** Both involve "projects gone". Pre-v2.4.1 → F-001. ≥ v2.4.1 → F-006.
-5. **No match.** Do not guess. Print `could not classify symptom against F-001..F-012 or P-RULE/P-DEDUPE`, list the closest 2 candidates with confidence LOW, and recommend `/rag-doctor --logs`.
-6. **P-RULE and P-DEDUPE are plugin-behavior IDs, not ragtools F-IDs.** They do NOT walk a playbook — they route to a single `/rag-config` subcommand.
+5. **No match.** Do not guess. Print `could not classify symptom against F-001..F-012 or P-RULE/P-DEDUPE`, list the closest 2 candidates with confidence LOW, and recommend `/doctor --logs`.
+6. **P-RULE and P-DEDUPE are plugin-behavior IDs, not ragtools F-IDs.** They do NOT walk a playbook — they route to a single `/config` subcommand.
 
 Render the classification result in compact form:
 ```
 classification: F-NNN (<HIGH|MEDIUM|LOW> confidence)
   evidence: <user phrase>
   see: references/known-failures.md#f-NNN
-  fix: /rag-doctor --symptom F-NNN --fix
+  fix: /doctor --symptom F-NNN --fix
 ```
 
 If `--fix` was also passed, fall through to **Mode A** with the classified F-ID. Otherwise stop here — the user chooses whether to walk the playbook.
@@ -340,11 +341,11 @@ No destructive steps.
 4. **Gate 4 — Qdrant lock file:** show `%LOCALAPPDATA%\RAGTools\data\qdrant\.lock`. **Safety check:** re-run the tasklist probe; refuse if anything matches. Ask `delete the Qdrant lock file? type DELETE to confirm`.
 5. `rag service start`.
 
-**Critical safety rule:** never suggest deleting the Qdrant **data directory** in this playbook. That is `/rag-reset --data` territory.
+**Critical safety rule:** never suggest deleting the Qdrant **data directory** in this playbook. That is `/reset --data` territory.
 
 ### P-perm — add-project permission denied (F-001)
 
-1. `rag version`. If pre-v2.4.1 → strongly recommend `/rag-setup` (which walks the upgrade flow).
+1. `rag version`. If pre-v2.4.1 → strongly recommend `/setup` (which walks the upgrade flow).
 2. If ≥ v2.4.1 → unclassified; recommend `--logs`.
 3. Workaround if user can't upgrade: stop service, manually create `%LOCALAPPDATA%\RAGTools\config.toml` with project entries. **Gate:** `proceed with manual config? (yes/no)`.
 4. Verify: `curl /api/projects`.
@@ -366,7 +367,7 @@ No destructive steps.
 2. CPU usage of `rag.exe`. Sustained high CPU = working, not stuck (encoder is CPU-bound by design).
 3. Large projects expect minutes. Patience.
 4. Watcher too eager during edits: `rag watch . --debounce 5000`.
-5. Truly hung (no CPU, no log progress) → escalate to `/rag-reset --soft`.
+5. Truly hung (no CPU, no log progress) → escalate to `/reset --soft`.
 
 Read-only. No gates.
 
@@ -404,7 +405,7 @@ After the playbook walk completes (or the user stops), re-run **Step 0 — state
 
 ---
 
-## Mode B — Log scanner (absorbs former /rag-repair --scan-logs and /rag-doctor --logs)
+## Mode B — Log scanner (absorbs former /rag-repair --scan-logs and /doctor --logs)
 
 ### B.1 — Preferred path: MCP `tail_logs` (v0.5.0+)
 
@@ -478,8 +479,8 @@ Every destructive step in Mode A / playbook walks must match one of these patter
 | Move a file (stale config rescue) | user confirms `yes` AND original is backed up to `.bak` |
 | Stop the service | user confirms `yes` |
 | Modify `config.toml` directly | **refused unless F-001 workaround flow.** Prefer HTTP API. |
-| Delete Qdrant data directory | **refused.** That's `/rag-reset --data` territory. |
-| Delete entire RAGTools dir | **refused.** That's `/rag-reset --nuclear` territory. |
+| Delete Qdrant data directory | **refused.** That's `/reset --data` territory. |
+| Delete entire RAGTools dir | **refused.** That's `/reset --nuclear` territory. |
 | Modify `.mcp.json` | user confirms `yes` after seeing the diff |
 
 **No silent destructive actions. Ever.**
@@ -488,8 +489,8 @@ Every destructive step in Mode A / playbook walks must match one of these patter
 
 | Situation | Behavior |
 |---|---|
-| `state.install_mode == not-installed` | One-line refusal + pointer at `/rag-setup`. Stop. |
-| `rag doctor` not found when `--full` was asked | Print `not-installed` banner, recommend `/rag-setup`. |
+| `state.install_mode == not-installed` | One-line refusal + pointer at `/setup`. Stop. |
+| `rag doctor` not found when `--full` was asked | Print `not-installed` banner, recommend `/setup`. |
 | `rag doctor` returns non-zero with no parseable output (`--full`) | Print raw output truncated to 30 lines, tag `[UNCLASSIFIED]`, recommend `--logs`. |
 | Free-text symptom matches no rules (Mode C) | Print "could not classify", list closest LOW candidates, recommend `--logs`. |
 | `--symptom F-NNN` invalid | Print "unknown failure ID", stop. |
@@ -511,10 +512,10 @@ Every destructive step in Mode A / playbook walks must match one of these patter
 
 ## See also
 
-- `/rag-setup` — install / upgrade / verify (absorbs the former `/rag-upgrade`)
-- `/rag-projects` — project CRUD via HTTP API
-- `/rag-reset` — destructive reset with three escalation levels
-- `/rag-config` — plugin-layer config: telemetry, claude-md rule, mcp-dedupe, hook-observability
+- `/setup` — install / upgrade / verify (absorbs the former `/rag-upgrade`)
+- `/projects` — project CRUD via HTTP API
+- `/reset` — destructive reset with three escalation levels
+- `/config` — plugin-layer config: telemetry, claude-md rule, mcp-dedupe, hook-observability
 - `rules/state-detection.md` — canonical state-detection recipe
 - `references/known-failures.md` — F-001..F-012 catalog
 - `references/repair-playbooks.md` — full playbook source

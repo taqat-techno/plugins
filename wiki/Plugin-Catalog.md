@@ -36,7 +36,7 @@ All 7 plugins in the **taqat-techno-plugins** marketplace, with current version,
 
 ### Commands per plugin
 
-- **odoo**: 17 — `/odoo-upgrade`, `/odoo-precheck`, `/odoo-quickfix`, `/odoo-frontend`, `/create-theme`, `/odoo-docker`, `/odoo-service`, `/odoo-start`, `/odoo-stop`, `/odoo-init`, `/odoo-db`, `/odoo-ide`, `/odoo-scaffold`, `/odoo-test`, `/odoo-security`, `/odoo-i18n`, `/odoo-report`
+- **odoo**: 17 — `/upgrade`, `/precheck`, `/quickfix`, `/frontend`, `/create-theme`, `/docker`, `/service`, `/start`, `/stop`, `/init`, `/db`, `/ide`, `/scaffold`, `/test`, `/security`, `/i18n`, `/report`
 - **devops**: 9 — `/init`, `/create`, `/workday`, `/standup`, `/sprint`, `/log-time`, `/timesheet`, `/cli-run`, `/task-monitor`
 - **rag**: 6 — `/rag-doctor`, `/rag-setup`, `/rag-projects`, `/rag-reset`, `/rag-config`, `/rag-sync-docs` (maintainer-only)
 - **paper**: 1 — `/paper` (dispatcher to skills)

@@ -568,11 +568,11 @@ def init_docker_project(
 
     DEPRECATED: For production-ready Docker setups with nginx, SSL, PostgreSQL
     tuning, and resource limits, use the odoo-docker plugin instead:
-        /odoo-docker init --project <name>
+        /docker init --project <name>
     This command generates basic dev Dockerfiles only.
     """
     print("[DEPRECATED] docker_manager.py init generates basic dev Dockerfiles only.")
-    print("[DEPRECATED] For production setups, use: /odoo-docker init")
+    print("[DEPRECATED] For production setups, use: /docker init")
     print()
     out = Path(output_path)
     out.mkdir(parents=True, exist_ok=True)

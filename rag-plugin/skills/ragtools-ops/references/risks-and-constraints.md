@@ -59,7 +59,7 @@ If the config file is in a Syncthing-managed (or iCloud, OneDrive, Dropbox) dire
 - Store `config.toml` outside the synced directory, OR
 - Add `config.toml` (or the entire `RAGTools/` directory) to `.stignore` (Syncthing) or the equivalent ignore mechanism for your sync tool.
 
-The plugin should detect this scenario and warn — see Phase 5 (`/rag-projects`).
+The plugin should detect this scenario and warn — see Phase 5 (`/projects`).
 
 ## MCP token consumption
 

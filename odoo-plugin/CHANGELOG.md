@@ -1,0 +1,64 @@
+# Changelog
+
+All notable changes to `odoo-plugin` are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/). Versioning follows [SemVer](https://semver.org/).
+
+## [2.0.0] — 2026-05-01 — BREAKING command rename + bare-invocation discipline
+
+Two binding rules adopted across the marketplace are now applied to odoo-plugin:
+
+1. **Command file names must not include the plugin name as a prefix.** Claude Code already namespaces plugin commands as `/<plugin-name>:<command>`, so `commands/odoo-init.md` produced the awkward `/odoo-plugin:odoo-init`. All sixteen `odoo-*` command files renamed to drop the prefix.
+2. **Every command must run sensibly with no arguments.** Bare `/foo` always works; flags are optional shortcuts, never required. The eight commands that previously required positional arguments now auto-detect the target module from the working directory or prompt for the missing piece.
+
+### Renamed (file → new file → invocation form)
+
+| Before | After | Plugin-namespaced |
+|---|---|---|
+| `commands/odoo-db.md` | `commands/db.md` | `/odoo-plugin:db` |
+| `commands/odoo-docker.md` | `commands/docker.md` | `/odoo-plugin:docker` |
+| `commands/odoo-frontend.md` | `commands/frontend.md` | `/odoo-plugin:frontend` |
+| `commands/odoo-i18n.md` | `commands/i18n.md` | `/odoo-plugin:i18n` |
+| `commands/odoo-ide.md` | `commands/ide.md` | `/odoo-plugin:ide` |
+| `commands/odoo-init.md` | `commands/init.md` | `/odoo-plugin:init` |
+| `commands/odoo-precheck.md` | `commands/precheck.md` | `/odoo-plugin:precheck` |
+| `commands/odoo-quickfix.md` | `commands/quickfix.md` | `/odoo-plugin:quickfix` |
+| `commands/odoo-report.md` | `commands/report.md` | `/odoo-plugin:report` |
+| `commands/odoo-scaffold.md` | `commands/scaffold.md` | `/odoo-plugin:scaffold` |
+| `commands/odoo-security.md` | `commands/security.md` | `/odoo-plugin:security` |
+| `commands/odoo-service.md` | `commands/service.md` | `/odoo-plugin:service` |
+| `commands/odoo-start.md` | `commands/start.md` | `/odoo-plugin:start` |
+| `commands/odoo-stop.md` | `commands/stop.md` | `/odoo-plugin:stop` |
+| `commands/odoo-test.md` | `commands/test.md` | `/odoo-plugin:test` |
+| `commands/odoo-upgrade.md` | `commands/upgrade.md` | `/odoo-plugin:upgrade` |
+
+`commands/create-theme.md` was already prefix-free and is unchanged.
+
+### Bare-invocation fixes (no args required)
+
+Eight commands that previously required positional arguments now auto-detect from the working directory:
+
+- **`/precheck`**, **`/quickfix`**, **`/upgrade`**, **`/security`** — walk up from `$CWD` to find `__manifest__.py`; if `$CWD` has multiple direct subdirectories with manifests, list them and ask which.
+- **`/test`** — auto-detects the module the same way and runs the full workflow (coverage → generate-missing → run) instead of "show help".
+- **`/init`** — detects Odoo version from `odoo/release.py` if present; uses `$CWD` basename for the project name when reasonable; prompts only for what's actually missing.
+- **`/scaffold`** — module name has no filesystem-derivable default, so the bare form prompts interactively rather than refusing. Still does something useful with no args.
+
+Each command's `argument-hint` now uses `[brackets]` for everything since nothing is strictly required.
+
+### Cross-reference rewrites
+
+- 92 internal `/odoo-X` references rewritten across `odoo-plugin/` (commands, skills, scripts, references, tests).
+- 7 marketplace-level files updated (`README.md`, `HOOK_AUDIT_REPORT.md`, `wiki/Contribution-Guide.md`, `wiki/Ntfy-Plugin.md`, `wiki/Odoo-Plugin.md`, `wiki/Plugin-Catalog.md`, `wiki/Troubleshooting.md`).
+- Plugin manifest version `1.0.0` → `2.0.0` (BREAKING — old `/odoo-X` invocations no longer resolve).
+
+### Migration
+
+Replace any `/odoo-X` muscle memory with the bare command name:
+- `/odoo-init --version 19 --project foo` → `/init` (auto-detect) or `/init --version 19 --project foo`
+- `/odoo-test mymodule` → `/test mymodule` (or just `/test` from inside the module dir)
+- `/odoo-upgrade ./addons/foo 19` → `/upgrade ./addons/foo 19` (or just `/upgrade` from inside the module)
+
+Plugin-namespaced forms are always correct: `/odoo-plugin:init`, `/odoo-plugin:test`, etc.
+
+### Verification
+
+- `python validate_plugin_simple.py odoo-plugin` — passes.
+- All 17 commands now run sensibly with no arguments.

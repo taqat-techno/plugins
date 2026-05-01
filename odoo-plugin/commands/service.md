@@ -6,7 +6,7 @@ description: 'Odoo server lifecycle — start, stop, init, database, Docker, and
 argument-hint: '[start|stop|init|db|docker|ide|scaffold] [args...]'
 ---
 
-# /odoo-service — Unified Odoo Service Manager
+# /service — Unified Odoo Service Manager
 
 One command for the entire Odoo server lifecycle. Supports Odoo 14-19, local venv, Docker, and bare Python.
 
@@ -17,13 +17,13 @@ Parse the first argument and dispatch to the appropriate sub-command:
 | Input | Action | Sub-command |
 |-------|--------|-------------|
 | *(none)* | Show status + help | (this file) |
-| `start` | Start server | `/odoo-start` |
-| `stop` | Stop server | `/odoo-stop` |
-| `init` | Initialize environment | `/odoo-init` |
-| `db` | Database operations | `/odoo-db` |
-| `docker` | Docker management | `/odoo-docker` |
-| `ide` | IDE configuration | `/odoo-ide` |
-| `scaffold` | Scaffold module | `/odoo-scaffold` |
+| `start` | Start server | `/start` |
+| `stop` | Stop server | `/stop` |
+| `init` | Initialize environment | `/init` |
+| `db` | Database operations | `/db` |
+| `docker` | Docker management | `/docker` |
+| `ide` | IDE configuration | `/ide` |
+| `scaffold` | Scaffold module | `/scaffold` |
 
 Natural language also routes: "start odoo" → `start`, "backup database" → `db backup`, "set up vscode" → `ide vscode`.
 
@@ -55,13 +55,13 @@ Server: RUNNING on port 8069 (PID 12345)
 Config: conf/PROJECT17.conf
 
 Sub-commands:
-  /odoo-service start [config] [--dev]
-  /odoo-service stop [--port PORT]
-  /odoo-service init --version N --project NAME
-  /odoo-service db <backup|restore|create|drop|list>
-  /odoo-service docker <up|down|build|logs|shell>
-  /odoo-service ide [vscode|pycharm|all]
-  /odoo-service scaffold <name> <project>
+  /service start [config] [--dev]
+  /service stop [--port PORT]
+  /service init --version N --project NAME
+  /service db <backup|restore|create|drop|list>
+  /service docker <up|down|build|logs|shell>
+  /service ide [vscode|pycharm|all]
+  /service scaffold <name> <project>
 ```
 
 ## Scripts

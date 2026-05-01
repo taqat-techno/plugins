@@ -6,23 +6,23 @@ Unified Odoo development toolkit for Claude Code — covering upgrade, frontend 
 
 | Command | Domain | Description |
 |---------|--------|-------------|
-| `/odoo-upgrade <path> [version]` | upgrade | Full module upgrade pipeline |
-| `/odoo-precheck <path> [version]` | upgrade | Read-only compatibility scan |
-| `/odoo-quickfix <path>` | upgrade | Safe mechanical fixes |
-| `/odoo-frontend` | frontend | Environment status and capabilities |
+| `/upgrade <path> [version]` | upgrade | Full module upgrade pipeline |
+| `/precheck <path> [version]` | upgrade | Read-only compatibility scan |
+| `/quickfix <path>` | upgrade | Safe mechanical fixes |
+| `/frontend` | frontend | Environment status and capabilities |
 | `/create-theme <name> <path>` | frontend | Scaffold complete theme module |
-| `/odoo-docker [sub]` | docker | Docker infrastructure management |
-| `/odoo-service` | service | Server lifecycle overview |
-| `/odoo-start [config]` | service | Start Odoo server |
-| `/odoo-stop` | service | Stop Odoo server |
-| `/odoo-init` | service | Initialize environment |
-| `/odoo-db [operation]` | service | Database operations |
-| `/odoo-ide [target]` | service | IDE configuration |
-| `/odoo-scaffold <name> <project>` | service | New module skeleton |
-| `/odoo-test [sub] <model>` | test | Testing workflows |
-| `/odoo-security <module>` | security | Security audit |
-| `/odoo-i18n [sub]` | i18n | Translation management |
-| `/odoo-report [sub]` | report | Email templates and QWeb reports |
+| `/docker [sub]` | docker | Docker infrastructure management |
+| `/service` | service | Server lifecycle overview |
+| `/start [config]` | service | Start Odoo server |
+| `/stop` | service | Stop Odoo server |
+| `/init` | service | Initialize environment |
+| `/db [operation]` | service | Database operations |
+| `/ide [target]` | service | IDE configuration |
+| `/scaffold <name> <project>` | service | New module skeleton |
+| `/test [sub] <model>` | test | Testing workflows |
+| `/security <module>` | security | Security audit |
+| `/i18n [sub]` | i18n | Translation management |
+| `/report [sub]` | report | Email templates and QWeb reports |
 
 ## Safety Hooks
 

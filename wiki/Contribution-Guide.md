@@ -191,7 +191,7 @@ Open an issue with:
 - OS and shell.
 - Exact error or unexpected behavior.
 - Minimal steps to reproduce.
-- For plugins with diagnostic commands (`/rag-doctor --full`, `/odoo-service`, `/pandoc status`), include their output.
+- For plugins with diagnostic commands (`/rag-doctor --full`, `/service`, `/pandoc status`), include their output.
 
 ## Suggesting features
 

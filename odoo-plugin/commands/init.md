@@ -3,13 +3,25 @@ title: 'Initialize Odoo Environment'
 read_only: false
 type: 'command'
 description: 'Create venv, config file, directories, and check prerequisites for a new Odoo project'
-argument-hint: '--version VERSION --project NAME [--port PORT] [--docker]'
+argument-hint: '[--version VERSION] [--project NAME] [--port PORT] [--docker] [--db DATABASE] [--no-venv]'
 ---
 
-# /odoo-init — Initialize Odoo Environment
+# /init — Initialize Odoo Environment
+
+## Bare-invocation behavior (no args)
+
+When invoked with no arguments, gather the missing pieces interactively rather than refusing:
+
+1. **`--version`** — if `$CWD/odoo/release.py` exists, parse `version_info` from it. Otherwise default to `19` (the latest Odoo version this plugin knows about) and confirm.
+2. **`--project`** — if `$CWD` looks like a project root (contains `projects/` or has a `__manifest__.py` in a child), use the basename of `$CWD` as the project name. Otherwise prompt for a name.
+3. **`--port`**, **`--docker`**, **`--db`**, **`--no-venv`** — apply documented defaults (port `8069`, no docker, db = project name, venv enabled).
+
+Show the resolved configuration and ask for confirmation before creating any files. This makes `/init` work from any reasonable starting point without forcing the user to type every flag.
+
+## Explicit form
 
 ```
-/odoo-init --version VERSION --project NAME [--port PORT] [--docker] [--db DATABASE] [--no-venv]
+/init [--version VERSION] [--project NAME] [--port PORT] [--docker] [--db DATABASE] [--no-venv]
 ```
 
 ## What It Creates

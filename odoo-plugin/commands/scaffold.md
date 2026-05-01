@@ -3,22 +3,34 @@ title: 'Scaffold Odoo Module'
 read_only: false
 type: 'command'
 description: 'Generate a complete Odoo module skeleton with models, views, security, and tests'
-argument-hint: '<module_name> <project> [--version N]'
+argument-hint: '[<module_name>] [<project>] [--version N]'
 ---
 
-# /odoo-scaffold — Scaffold New Module
+# /scaffold — Scaffold New Module
+
+## Bare-invocation behavior (no args)
+
+Module scaffolding requires a name — there is no sensible filesystem-derived default. So when invoked with no arguments, the command does **not** error: it prompts.
+
+1. Detect candidate `project` from `$CWD`: if `$CWD/projects/` exists, list its subdirectories and ask which to scaffold inside; if `$CWD` itself is named `projects/` or is inside one, default to it; otherwise ask.
+2. Ask for the **module name** (snake_case).
+3. Detect Odoo version from `$CWD/odoo/release.py` if present; otherwise ask. Default to 19 if the user doesn't specify.
+
+Show the resolved values and ask for confirmation before generating any files.
+
+## Explicit form
 
 ```
-/odoo-scaffold <module_name> <project> [--version=17]
+/scaffold <module_name> <project> [--version=19]
 ```
 
 ## Arguments
 
-| Argument | Required | Description |
-|----------|----------|-------------|
-| `module_name` | Yes | Module name in `snake_case` |
-| `project` | Yes | Project directory under `projects/` |
-| `--version` | No | Odoo version (14-19). Auto-detected if omitted |
+| Argument | Source | Description |
+|----------|--------|-------------|
+| `module_name` | required (positional or prompt) | Module name in `snake_case` |
+| `project` | auto-detected from `$CWD/projects/` or prompted | Project directory under `projects/` |
+| `--version` | auto-detected from `odoo/release.py` or prompted (default 19) | Odoo version (14-19) |
 
 ## Generated Structure
 

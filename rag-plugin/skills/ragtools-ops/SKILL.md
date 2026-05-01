@@ -29,8 +29,8 @@ Always do this first. Every operational answer depends on it.
 If you are answering a pure knowledge question and do not need to dispatch a command, you still print the mode banner first — users rely on it for at-a-glance orientation. Compact-by-default does not allow dropping the banner.
 
 **Dispatch summary:**
-- `install_mode == not-installed` → recommend `/rag-setup`.
-- `service_mode == BROKEN` → recommend `/rag-doctor --full --fix`.
+- `install_mode == not-installed` → recommend `/setup`.
+- `service_mode == BROKEN` → recommend `/doctor --full --fix`.
 - `service_mode == DOWN` → offer `rag service start`; read ops still work in CLI direct mode with the "encoder will load" warning.
 - `service_mode == UP` → proceed normally, defer to the running MCP for search.
 
@@ -87,12 +87,12 @@ Before calling any MCP tool, follow `rules/mcp-envelope.md` §1–§5: branch on
 | "Add an ignore rule" / "Exclude `tmp/` from project X" / "How do I ignore node_modules?" | 2.5.4 ignore-rule workflow | Preview → confirm → add → reindex. |
 | "Remove an ignore rule" / "Stop excluding X" | 2.5.5 remove-ignore-rule workflow | Preview impact → confirm → remove → reindex. |
 | "Reindex project X" / "Re-run indexing" / "Project X is stale" | 2.5.6 reindex decision tree | Incremental first; destructive only on drift. |
-| "Reindex everything" | List projects → offer incremental `run_index` per project; route to `/rag-reset --soft` for single-project destructive rebuild |
+| "Reindex everything" | List projects → offer incremental `run_index` per project; route to `/reset --soft` for single-project destructive rebuild |
 | "Is X in the ignore list?" / "What rules apply to X?" | `get_project_ignore_rules(project=X)` | Print built_in + config_global + config_project. |
 | "What would happen if I ignored `*.tmp`?" | `preview_ignore_effect(project=X, pattern="*.tmp")` | Print would_exclude count and list; do not commit. |
 | "Show recent errors in the log" / "Tail the service log" | `tail_logs(source="service", limit=50)` (filesystem fallback — works even in degraded mode) | Print filtered output. |
 | "Show me recent crashes" / "Has the service crashed lately?" | `crash_history()` (filesystem fallback) | Print items with exception_type + traceback. |
-| "Run rag doctor" / "Diagnose rag" / "Why is rag broken?" | `system_health()` + `crash_history()` + `service_status()` | Structured card; suggest `/rag-doctor --full` for richer output. |
+| "Run rag doctor" / "Diagnose rag" / "Why is rag broken?" | `system_health()` + `crash_history()` + `service_status()` | Structured card; suggest `/doctor --full` for richer output. |
 | "Show me the admin-panel activity" / "Who/what is calling rag recently?" | `recent_activity(limit=50)` | Print events; note `source: "mcp:<sid>"` for MCP-attributed writes. |
 | "What MCP tools does rag have?" / "Are all the rag tools enabled?" | Infer from available `mcp__plugin_rag_ragtools__*` in session; supplement with `get_config` if granted | 2.5.7 tool-grant audit |
 | "Show me the config" / "Where does rag store data?" | `get_config()` + `get_paths()` (both filesystem fallback) | Summarized — not the whole dump unless --verbose. |
@@ -101,7 +101,7 @@ Before calling any MCP tool, follow `rules/mcp-envelope.md` §1–§5: branch on
 
 ```
 1. list_projects() → verify X is in the result
-   → not found: "Project X is not indexed. See /rag-projects for the project list."
+   → not found: "Project X is not indexed. See /projects for the project list."
 2. project_status(X) → envelope
 3. Parse data: path_exists, enabled, files, chunks, last_indexed, ignore_patterns_count
 4. Emit a compact card:
@@ -131,7 +131,7 @@ Replaces the need for a separate `/rag-why-not-indexed` command. Activates autom
       If source=built_in: explain why built-in rules exist; refuse removal unless user overrides via admin UI
 5. If no rule matches, the issue is either:
    a. project.path doesn't contain F (wrong project) → suggest list_projects and correct project
-   b. project_status shows path_exists=false → route to /rag-doctor
+   b. project_status shows path_exists=false → route to /doctor
    c. File was added after last index → offer run_index(P) (gated)
 6. Every destructive step (remove rule, reindex) goes through rules/mcp-envelope.md §6.3 gates.
 ```
@@ -206,11 +206,11 @@ Activates on "what tools are enabled", "why isn't tool X working", "do I have to
 3. Emit a table:
      Required by               | Tool                | Granted?
      --------------------------|---------------------|---------
-     /rag-doctor default       | index_status        | ✅ (core)
-     /rag-doctor --full        | system_health       | ❌  ← toggle in admin UI
-     /rag-doctor --full        | crash_history       | ❌  ← toggle in admin UI
-     /rag-doctor --logs        | tail_logs           | ✅
-     /rag-projects status      | project_status      | ✅ (default ON)
+     /doctor default       | index_status        | ✅ (core)
+     /doctor --full        | system_health       | ❌  ← toggle in admin UI
+     /doctor --full        | crash_history       | ❌  ← toggle in admin UI
+     /doctor --logs        | tail_logs           | ✅
+     /projects status      | project_status      | ✅ (default ON)
      Skill: why-not-indexed    | list_project_files  | ✅ (default ON)
      Skill: ignore rules       | preview_ignore_eff. | ✅ (default ON)
      Skill: reindex            | run_index           | ✅ (default ON)
@@ -244,7 +244,7 @@ When `index_status` returns a string starting with `[RAG ERROR]` or any optional
 1. Surface the error verbatim — do not bury it.
 2. State which fallback path is being taken:
      "[info] MCP in failed mode; falling back to CLI (rag doctor) + HTTP (/api/status)."
-3. Suggest: "/rag-doctor --full" (which itself handles failed mode).
+3. Suggest: "/doctor --full" (which itself handles failed mode).
 4. Do not retry the MCP call in the same session — settings are read once at startup.
 ```
 
@@ -262,14 +262,14 @@ After loading the right reference, decide:
 
 - **Pure information question** → answer from the reference, in compact form. Cite the reference filename so the user can re-read it.
 - **Operational question answerable via MCP ops tools** → chain MCP tools per Phase 2.5, in the current conversation — no slash command needed. This is the default for "why isn't X indexed", "add an ignore rule", "reindex X", "show me crashes", etc.
-- **Status / diagnostic question (deep)** → suggest `/rag-doctor` (default mode is a fast state probe; `--full` runs the deep `system_health` + `crash_history` + CLI fallback wrap).
-- **Setup / install / upgrade** → suggest `/rag-setup` (smart state-aware — branches to install, start-service, upgrade, or verify depending on detected state).
-- **Repair walkthrough** → `/rag-doctor <symptom>` or `/rag-doctor --symptom F-NNN --fix` (playbook walker is built in).
-- **Project management (interactive)** → `/rag-projects` with no args defaults to `list`; subcommands `status <id>`, `summary <id>`, `files <id>`, `add <path>`, `remove <id>`, `enable <id>`, `disable <id>`, `rebuild <id>`.
-- **Destructive reset** → `/rag-reset` with no args enters an interactive picker; `/rag-reset --soft | --data | --nuclear` jumps straight to a level.
-- **Plugin-layer config** → `/rag-config` (telemetry, claude-md rule, mcp-dedupe, hook-observability).
+- **Status / diagnostic question (deep)** → suggest `/doctor` (default mode is a fast state probe; `--full` runs the deep `system_health` + `crash_history` + CLI fallback wrap).
+- **Setup / install / upgrade** → suggest `/setup` (smart state-aware — branches to install, start-service, upgrade, or verify depending on detected state).
+- **Repair walkthrough** → `/doctor <symptom>` or `/doctor --symptom F-NNN --fix` (playbook walker is built in).
+- **Project management (interactive)** → `/projects` with no args defaults to `list`; subcommands `status <id>`, `summary <id>`, `files <id>`, `add <path>`, `remove <id>`, `enable <id>`, `disable <id>`, `rebuild <id>`.
+- **Destructive reset** → `/reset` with no args enters an interactive picker; `/reset --soft | --data | --nuclear` jumps straight to a level.
+- **Plugin-layer config** → `/config` (telemetry, claude-md rule, mcp-dedupe, hook-observability).
 
-**Command surface (v0.7.0):** 7 user-facing commands + 1 maintainer-only (`/rag-sync-docs`). Every command works standalone (no required args) AND accepts parameters. New capabilities ship as **skill workflows** (Phase 2.5), not new commands — preferred route per D-021 and the v0.5.0 direction.
+**Command surface (v0.7.0):** 7 user-facing commands + 1 maintainer-only (`/sync-docs`). Every command works standalone (no required args) AND accepts parameters. New capabilities ship as **skill workflows** (Phase 2.5), not new commands — preferred route per D-021 and the v0.5.0 direction.
 
 **Sibling skill — `markdown-authoring` (v0.7.0):** when the user asks Claude to **create** any Markdown file (README, runbook, SOP, concept page, architecture doc, design notes), the `markdown-authoring` skill at `${CLAUDE_PLUGIN_ROOT}/skills/markdown-authoring/SKILL.md` is the right entry point — it loads the RAG-optimized authoring standard and the 5 page templates. When the user asks to **improve existing** Markdown, route to `/md-rag-enhance` (the always-safe improver command). The two are complementary: the skill shapes new content, the command enhances old content. Neither overlaps with `ragtools-ops`' operator-of-ragtools scope.
 

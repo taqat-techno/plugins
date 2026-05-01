@@ -44,7 +44,7 @@ The compatibility band lives in `_meta.md` and is updated as part of the doc-syn
 Per decision **D-011** and the v2.4.1 failure mode (`F-001` in `known-failures.md`), the plugin should:
 
 - **Warn** users running pre-v2.4.1 that their config writes can be silently lost.
-- **Block destructive operations** (`/rag-reset`, project removal) on pre-v2.4.1 unless the user explicitly confirms they understand the risk.
+- **Block destructive operations** (`/reset`, project removal) on pre-v2.4.1 unless the user explicitly confirms they understand the risk.
 - **Recommend immediate upgrade** to ≥ v2.4.1 as the first step in any repair flow on those versions.
 
 This is implemented in Phase 7 (`/rag-upgrade`).
@@ -56,7 +56,7 @@ rag version
 # Expected: "ragtools v<X.Y.Z>"
 ```
 
-The plugin parses this output to drive version-gated behavior. If `rag version` is unavailable (binary not on PATH), the plugin treats this as "not installed" and routes to `/rag-setup`.
+The plugin parses this output to drive version-gated behavior. If `rag version` is unavailable (binary not on PATH), the plugin treats this as "not installed" and routes to `/setup`.
 
 ## Schema migration
 

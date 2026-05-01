@@ -7,7 +7,7 @@ author: TaqaTechno
 version: 0.1.0
 ---
 
-# /rag-sync-docs
+# /sync-docs
 
 > **MAINTAINER-ONLY COMMAND.** This command exists for plugin maintainers to detect drift between the bundled references library and the upstream `ragtools_doc.md` source-of-truth. It is **not** part of the user surface. `disable-model-invocation: true` keeps the model from auto-invoking it during normal operation.
 >
@@ -152,7 +152,7 @@ next steps for maintainer:
   1. open the affected reference files
   2. apply edits by hand (do NOT auto-rewrite)
   3. update references/_meta.md with the new sha256 and version
-  4. re-run /rag-sync-docs to confirm "UP TO DATE"
+  4. re-run /sync-docs to confirm "UP TO DATE"
 ```
 
 If no drift, the report is much shorter:
@@ -181,7 +181,7 @@ no edits needed.
 - **NEVER auto-rewrite reference files.** This is binding. The whole point of this command is to surface drift, not to silently apply changes that might introduce inaccuracies.
 - **NEVER call any rag-plugin user command** from this command. It is an isolated maintenance tool.
 - **NEVER delete reference files** even if their `source-sections` are stale. The maintainer decides what to do.
-- **`disable-model-invocation: true`** keeps Claude from running this during normal user interactions. It is invoked manually by maintainers via `/rag-sync-docs`.
+- **`disable-model-invocation: true`** keeps Claude from running this during normal user interactions. It is invoked manually by maintainers via `/sync-docs`.
 - **No network egress.** This command reads local files only.
 - **Compact output for the report.** Even maintainer reports honor D-008.
 

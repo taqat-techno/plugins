@@ -22,7 +22,7 @@ ragtools macOS support is **Phase 1**: tarball-only, Apple Silicon only, no `.ap
 | Login auto-start (LaunchAgent) | ❌ Not implemented | `gaps.md#g-002` |
 | MPS (Apple Metal) device | ❌ Disabled — `device="cpu"` forced | `risks-and-constraints.md#macos-mps-must-stay-disabled` |
 
-The rag-plugin plugin reflects this honestly. It does not promise auto-start. It does not pretend `.app` exists. It refuses Intel Macs in `/rag-setup` (Phase 3 already implemented this).
+The rag-plugin plugin reflects this honestly. It does not promise auto-start. It does not pretend `.app` exists. It refuses Intel Macs in `/setup` (Phase 3 already implemented this).
 
 ## Paths
 
@@ -79,16 +79,16 @@ Because there is no code signing or notarization (G-005), macOS Gatekeeper quara
 - After every upgrade (the new tarball is also unsigned)
 - If the user moves the directory across volumes that strip xattrs
 
-The plugin's `/rag-setup` and `/rag-upgrade` commands include this step in the macOS branch.
+The plugin's `/setup` and `/rag-upgrade` commands include this step in the macOS branch.
 
 ## What rag-plugin does differently on macOS
 
-### `/rag-status` and `/rag-doctor`
+### `/rag-status` and `/doctor`
 - Mode banner shows `packaged-macos` and the macOS conventional paths
 - Process discovery uses `ps aux | grep rag` instead of `tasklist | findstr rag.exe`
 - Port collision diagnostic uses `lsof -i :21420` instead of `netstat -ano | findstr 21420`
 
-### `/rag-setup`
+### `/setup`
 - Detects arch via `uname -m`
 - Refuses Intel (`x86_64`) with a hard-block message citing G-004
 - Walks the tarball + Gatekeeper flow (Branch A.3 in `setup-walkthrough.md`)
@@ -100,7 +100,7 @@ The plugin's `/rag-setup` and `/rag-upgrade` commands include this step in the m
 - **P-port:** `lsof -i :21420` to identify conflicting process
 - **P-empty:** stale-CWD rescue is less common on macOS (no VBScript launcher) but still possible if the user runs `./rag` from an unusual working directory in dev mode
 
-### `/rag-projects`
+### `/projects`
 - Cloud-sync detection includes iCloud (`Mobile Documents/com~apple~CloudDocs/`) — see `risks-and-constraints.md#syncthing--cloud-synced-config-directory`
 - HTTP API surface is identical to Windows
 
@@ -110,7 +110,7 @@ The plugin's `/rag-setup` and `/rag-upgrade` commands include this step in the m
 - Reminds about Gatekeeper for every upgrade (no signing → quarantine bit returns)
 - Reminds that the service must be restarted manually post-upgrade (no LaunchAgent)
 
-### `/rag-reset`
+### `/reset`
 - `--data` shows `rm -rf "$HOME/Library/Application Support/RAGTools/data"`
 - `--nuclear` shows `rm -rf "$HOME/Library/Application Support/RAGTools"`
 - `--soft` is identical (HTTP API is platform-agnostic)

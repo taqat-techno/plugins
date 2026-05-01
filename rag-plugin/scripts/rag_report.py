@@ -489,7 +489,7 @@ def inspect_claude_config() -> ClaudeConfigInspection:
     if cci.user_mcp_ragtools_entries and cci.plugin_mcp_present:
         cci.duplicate_mcp_warning = (
             f"{len(cci.user_mcp_ragtools_entries)} user-level ragtools MCP entry/entries found "
-            f"alongside the plugin-level registration. /rag-config mcp-dedupe clean removes them."
+            f"alongside the plugin-level registration. /config mcp-dedupe clean removes them."
         )
 
     # User hooks
@@ -722,7 +722,7 @@ def synthesize_findings(state: State, plugin: PluginInspection,
             id="A-001", title="ragtools not installed on this device",
             severity="critical",
             evidence="`rag` not on PATH and no install dir at the platform default location.",
-            recommendation="Install via `/rag:rag-setup` (auto-detects platform) or "
+            recommendation="Install via `/rag:setup` (auto-detects platform) or "
                            "https://github.com/taqat-techno/rag/releases/latest.",
             target="rag",
         ))
@@ -749,7 +749,7 @@ def synthesize_findings(state: State, plugin: PluginInspection,
                 id="A-004", title="ragtools /health endpoint returned non-ready response",
                 severity="critical",
                 evidence=f"health body: {redact(json.dumps(state.health_status, default=str))[:300]}",
-                recommendation="Run `/rag:rag-doctor --full --logs` to classify against F-001..F-012.",
+                recommendation="Run `/rag:doctor --full --logs` to classify against F-001..F-012.",
                 target="rag",
             ))
         elif state.service_mode == "STARTING":
@@ -774,7 +774,7 @@ def synthesize_findings(state: State, plugin: PluginInspection,
                     id="A-007", title="watcher process not running",
                     severity="medium",
                     evidence=f"watcher status: {redact(json.dumps(state.watcher_status))[:200]}",
-                    recommendation="POST /api/watcher/start or run `/rag:rag-doctor --symptom F-004 --fix`.",
+                    recommendation="POST /api/watcher/start or run `/rag:doctor --symptom F-004 --fix`.",
                     target="rag",
                 ))
             if not state.api_projects:
@@ -782,7 +782,7 @@ def synthesize_findings(state: State, plugin: PluginInspection,
                     id="A-008", title="no projects configured",
                     severity="info",
                     evidence="/api/projects returned an empty list.",
-                    recommendation="Add a project with `/rag:rag-projects add` so the knowledge base is populated.",
+                    recommendation="Add a project with `/rag:projects add` so the knowledge base is populated.",
                     target="rag",
                 ))
 
@@ -794,7 +794,7 @@ def synthesize_findings(state: State, plugin: PluginInspection,
                 id="A-009", title=f"{total_hits} error-pattern matches in recent log tails",
                 severity="medium",
                 evidence=f"matched files: {', '.join(item['file'] for item in log_hits)}",
-                recommendation="Run `/rag:rag-doctor --logs` to classify against F-001..F-012.",
+                recommendation="Run `/rag:doctor --logs` to classify against F-001..F-012.",
                 target="rag",
             ))
         else:
@@ -802,7 +802,7 @@ def synthesize_findings(state: State, plugin: PluginInspection,
                 id="A-010", title=f"{total_hits} log warning(s) in recent tails",
                 severity="low",
                 evidence=", ".join(item["file"] for item in log_hits),
-                recommendation="Skim `/rag:rag-doctor --logs --verbose` if behavior is unexpected.",
+                recommendation="Skim `/rag:doctor --logs --verbose` if behavior is unexpected.",
                 target="rag",
             ))
 
@@ -839,7 +839,7 @@ def synthesize_findings(state: State, plugin: PluginInspection,
             id="P-004", title="~/.claude/CLAUDE.md does not exist",
             severity="medium",
             evidence=cci.user_claude_md_path,
-            recommendation="Run `/rag:rag-config claude-md install` to install the retrieval rule.",
+            recommendation="Run `/rag:config claude-md install` to install the retrieval rule.",
             target="plugins",
         ))
     elif not cci.retrieval_rule_present:
@@ -847,7 +847,7 @@ def synthesize_findings(state: State, plugin: PluginInspection,
             id="P-005", title="retrieval rule not installed in ~/.claude/CLAUDE.md",
             severity="high",
             evidence="None of the canonical markers were found in CLAUDE.md.",
-            recommendation="Run `/rag:rag-config claude-md install` (D-016).",
+            recommendation="Run `/rag:config claude-md install` (D-016).",
             target="plugins",
         ))
 
@@ -856,7 +856,7 @@ def synthesize_findings(state: State, plugin: PluginInspection,
             id="P-006", title="duplicate ragtools MCP registration detected",
             severity="high",
             evidence=cci.duplicate_mcp_warning,
-            recommendation="Run `/rag:rag-config mcp-dedupe clean` (D-015).",
+            recommendation="Run `/rag:config mcp-dedupe clean` (D-015).",
             target="plugins",
         ))
 
@@ -905,7 +905,7 @@ def synthesize_findings(state: State, plugin: PluginInspection,
                 evidence=f"{skipped} 'I don't have information'-shaped responses across "
                          f"{scan.sessions_with_signal} session(s) that also referenced ragtools.",
                 recommendation="Consider escalating Tier 2 → Tier 3 pre-fetch, or verify the CLAUDE.md rule is loaded "
-                               "into project sessions (`/rag:rag-config claude-md status --project`).",
+                               "into project sessions (`/rag:config claude-md status --project`).",
                 target="plugins",
             ))
         if user_corrections > 0:
@@ -921,7 +921,7 @@ def synthesize_findings(state: State, plugin: PluginInspection,
                 id="P-012", title="MCP error phrases detected in sessions",
                 severity="medium",
                 evidence=f"{mcp_errors} MCP-error phrase(s) seen in recent session JSONL.",
-                recommendation="Cross-check with `/rag:rag-doctor` and the maintainer playbook P-mcp.",
+                recommendation="Cross-check with `/rag:doctor` and the maintainer playbook P-mcp.",
                 target="plugins",
             ))
         if connect_ref > 0 and state.service_mode != "UP":
@@ -1178,7 +1178,7 @@ def render_plugin_report(state: State, plugin: PluginInspection,
 
     md.append("## 7. Plugin improvement opportunities\n")
     md.append("- Add a Tier-3 pre-fetch escalation toggle to the retrieval-reminder hook for users on slow models.")
-    md.append("- Add `/rag:rag-config claude-md status --project` so per-project CLAUDE.md status is visible.")
+    md.append("- Add `/rag:config claude-md status --project` so per-project CLAUDE.md status is visible.")
     md.append("- Add a `--ci` flag to the report command so CI runners can enforce `no-high-findings`.")
     md.append("- Document expected hook log noise levels in `docs/decisions.md`.")
     md.append("- Provide a `--json` flag on every command for programmatic consumption.")
@@ -1275,8 +1275,8 @@ def render_github_issue(target: str, findings: list[Finding], state: State,
         md.append("2. `rag doctor` for the layered dependency report")
         md.append("3. tail the most recent service log\n")
     else:
-        md.append("1. `/rag:rag-doctor` to confirm state")
-        md.append("2. `/rag:rag-config status` for plugin config snapshot")
+        md.append("1. `/rag:doctor` to confirm state")
+        md.append("2. `/rag:config status` for plugin config snapshot")
         md.append("3. `/rag:rag-report` to regenerate this evidence on a fresh device\n")
     md.append("## Privacy\n")
     md.append("Secrets, tokens, bearer headers, cookies, and private keys were redacted before this issue was generated. ")

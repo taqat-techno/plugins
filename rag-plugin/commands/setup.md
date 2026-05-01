@@ -7,18 +7,18 @@ author: TaqaTechno
 version: 0.4.0
 ---
 
-# /rag-setup
+# /setup
 
-Smart state-aware entry point for "get ragtools working." Replaces the former `/rag-setup + /rag-upgrade` split. One command handles install, start-service, upgrade, and idempotent post-install verification. Branches on the detected state — the user does not need to know which sub-flow they are in.
+Smart state-aware entry point for "get ragtools working." Replaces the former `/setup + /rag-upgrade` split. One command handles install, start-service, upgrade, and idempotent post-install verification. Branches on the detected state — the user does not need to know which sub-flow they are in.
 
 ## Behavior by state (routing table)
 
-| Detected state | What /rag-setup does |
+| Detected state | What /setup does |
 |---|---|
 | **not-installed** | **Branch A — Install walkthrough.** Detect platform, show installer URL, warn about friction, wait for install to complete, re-probe state, fall through to Branch D (verify). |
 | **installed, service DOWN** | **Branch B — Start the service.** Offer `rag service start`, wait, re-probe, fall through to Branch D. |
-| **installed, service STARTING** | Wait, re-probe once. If still starting, ask the user to re-run `/rag-setup` in 10 seconds. |
-| **installed, service BROKEN** | Refuse. Print `service is broken. run /rag-doctor --full --fix first.` |
+| **installed, service STARTING** | Wait, re-probe once. If still starting, ask the user to re-run `/setup` in 10 seconds. |
+| **installed, service BROKEN** | Refuse. Print `service is broken. run /doctor --full --fix first.` |
 | **installed, service UP, old version** | **Branch C — Upgrade walkthrough.** Show version diff + changelog highlights, offer in-place upgrade, walk it. After upgrade, fall through to Branch D. This replaces the former `/rag-upgrade`. |
 | **installed, service UP, current version** | **Branch D — Verify + summary.** Idempotent checks: MCP wiring, CLAUDE.md rule, dedupe. Fix any gaps inline. Print post-install summary. |
 | **--upgrade flag** | Forces Branch C regardless of detected version (useful for testing or forced re-check against GitHub). |
@@ -34,7 +34,7 @@ Then dispatch:
 if state.install_mode == not-installed:
     → Branch A
 elif state.service_mode == BROKEN:
-    → refuse, point at /rag-doctor
+    → refuse, point at /doctor
 elif state.service_mode in (DOWN, STARTING):
     → Branch B
 elif --upgrade flag:
@@ -156,7 +156,7 @@ rag service start
 - Config lives at `./ragtools.toml` (CWD-relative), NOT `%LOCALAPPDATA%\RAGTools\` / `~/Library/Application Support/RAGTools/` / `~/.local/share/RAGTools/`.
 - Data at `./data/`, NOT the platform-absolute `{userdata}\data\` path.
 - No auto-startup on login. The `is_packaged()` guard in `run.py` intentionally skips Startup-task registration in dev mode (see ragtools `docs/RELEASE_LIFECYCLE.md` invariant 3).
-- `rag` is on PATH **only inside the activated venv** — outside, the command is unavailable. Claude Code's MCP will call `rag serve`, so activate the venv before starting Claude Code, OR point `.mcp.json` at the absolute venv path (see `/rag-setup` Branch D).
+- `rag` is on PATH **only inside the activated venv** — outside, the command is unavailable. Claude Code's MCP will call `rag serve`, so activate the venv before starting Claude Code, OR point `.mcp.json` at the absolute venv path (see `/setup` Branch D).
 
 **Wait for confirmation**, re-run state detection, fall through to **Branch D**.
 
@@ -169,7 +169,7 @@ The simplest branch. Binary is present, service is not running.
 1. Print: `ragtools is installed at <binary_path> but the service is not running.`
 2. Offer: `rag service start` — ask user to confirm then run it themselves. Do NOT auto-invoke.
 3. Wait 5–10s for encoder to load.
-4. Re-probe `/health`. If DOWN → route to `/rag-doctor --symptom F-005 --fix` and stop.
+4. Re-probe `/health`. If DOWN → route to `/doctor --symptom F-005 --fix` and stop.
 5. If UP → fall through to **Branch D**.
 
 ---
@@ -286,7 +286,7 @@ Option 1 → C.4. Option 2 → print URL, fall through to Branch D for post-upgr
 
 ## BRANCH D — Verify and summary (installed, service UP, current version)
 
-This branch is the **default end state** for all other branches. It is also what the user gets when they type `/rag-setup` on an already-healthy install. Branch D is **idempotent** — running it multiple times on a healthy install is a no-op that prints a green summary.
+This branch is the **default end state** for all other branches. It is also what the user gets when they type `/setup` on an already-healthy install. Branch D is **idempotent** — running it multiple times on a healthy install is a no-op that prints a green summary.
 
 ### D.1 — Read the canonical MCP config
 
@@ -298,14 +298,14 @@ curl --max-time 2 -s http://127.0.0.1:21420/api/mcp-config
 
 This endpoint computes paths dynamically via `sys.frozen` detection. See `references/mcp-wiring.md` and D-020.
 
-If the endpoint returns nothing parseable, route to `/rag-doctor` and stop.
+If the endpoint returns nothing parseable, route to `/doctor` and stop.
 
 ### D.2 — Plugin-layer MCP wiring check
 
-Run `/rag-config mcp-dedupe status` internally. Expected outcome on a healthy v0.3.3+ install:
+Run `/config mcp-dedupe status` internally. Expected outcome on a healthy v0.3.3+ install:
 - `OK — 1 (plugin-level, canonical, schema OK)` — nothing to do.
-- `WARN — <N+1> (plugin-level + <N> duplicates)` → offer to clean: `/rag-config mcp-dedupe clean`. Ask for confirmation, do not auto-invoke.
-- `ERROR` → surface the error and route to `/rag-doctor --full`.
+- `WARN — <N+1> (plugin-level + <N> duplicates)` → offer to clean: `/config mcp-dedupe clean`. Ask for confirmation, do not auto-invoke.
+- `ERROR` → surface the error and route to `/doctor --full`.
 
 If the user has a non-default wiring need (project-level or user-level `.mcp.json`), ask:
 
@@ -322,9 +322,9 @@ If 1 or 2, use the config from D.1 (wrapped shape at these scopes per D-019). If
 
 ### D.3 — CLAUDE.md retrieval rule check
 
-Run `/rag-config claude-md status` internally.
+Run `/config claude-md status` internally.
 - `INSTALLED v<N>` matching bundled version → nothing to do.
-- `NOT INSTALLED` → offer `/rag-config claude-md install`. Ask for confirmation.
+- `NOT INSTALLED` → offer `/config claude-md install`. Ask for confirmation.
 - `OUTDATED v<OLD>` → offer upgrade to new version. Ask for confirmation.
 - `TARGET MISSING` (`~/.claude/CLAUDE.md` does not exist) → print warning, recommend creating the target file.
 
@@ -342,9 +342,9 @@ curl --max-time 5 -s -X POST http://127.0.0.1:21420/api/projects \
   -d '{"name": "<basename>", "path": "<path>"}'
 ```
 
-**Never** edit `config.toml` directly (D-002, F-001). Poll `/api/status` for `chunks` to start increasing; cap wait at 30s and route longer indexing to `/rag-doctor`.
+**Never** edit `config.toml` directly (D-002, F-001). Poll `/api/status` for `chunks` to start increasing; cap wait at 30s and route longer indexing to `/doctor`.
 
-Skip this step entirely if the user is re-running `/rag-setup --verify` on an already-populated install — do not ask for a new project.
+Skip this step entirely if the user is re-running `/setup --verify` on an already-populated install — do not ask for a new project.
 
 ### D.5 — Smoke test hint
 
@@ -352,7 +352,7 @@ The plugin does not call `search_knowledge_base` itself (D-001). Instead, print:
 
 > "Setup complete. Try a search from Claude Code in a new session by asking:
 > > Search my knowledge base for [a topic from your project].
-> Claude will call the `search_knowledge_base` MCP tool directly. If no results, run `/rag-doctor`."
+> Claude will call the `search_knowledge_base` MCP tool directly. If no results, run `/doctor`."
 
 ### D.6 — Final summary banner
 
@@ -373,7 +373,7 @@ Reflect any skipped or warned sub-steps:
 setup complete.
   service: UP (v<installed>)
   mcp: wired (plugin-level, canonical)
-  claude.md rule: SKIPPED — run /rag-config claude-md install later
+  claude.md rule: SKIPPED — run /config claude-md install later
   projects: 1
   warning: Claude may not use the MCP for domain questions until the rule is installed.
 ```
@@ -391,10 +391,10 @@ setup complete.
 | GitHub API rate-limited (403) | Print error with rate-limit note, suggest retrying later. |
 | No installer asset for platform | Link to releases page manually. |
 | Service goes DOWN mid-setup | Re-run Step 0; if still down, route to Branch B. |
-| `/api/mcp-config` returns 500 or empty | Route to `/rag-doctor`. |
+| `/api/mcp-config` returns 500 or empty | Route to `/doctor`. |
 | `.mcp.json` exists with a different ragtools entry | Show diff, ask for confirmation before overwriting. |
 | `POST /api/projects` returns 400 (duplicate path) | Tell user project is already added; show `/api/projects` output. |
-| `POST /api/projects` returns 500 | Route to `/rag-doctor --logs`. |
+| `POST /api/projects` returns 500 | Route to `/doctor --logs`. |
 | User wants to skip MCP wiring (D.2 option 3) | Skip to D.3. |
 | User wants to skip project add | Skip to D.5 with a note that search returns nothing until a project is added. |
 
@@ -410,10 +410,10 @@ setup complete.
 
 ## See also
 
-- `/rag-doctor` — smart diagnose+status+repair (absorbs former `/rag-status` and `/rag-repair`)
-- `/rag-projects` — project CRUD via HTTP API
-- `/rag-reset` — destructive reset with three escalation levels
-- `/rag-config` — plugin-layer config
+- `/doctor` — smart diagnose+status+repair (absorbs former `/rag-status` and `/rag-repair`)
+- `/projects` — project CRUD via HTTP API
+- `/reset` — destructive reset with three escalation levels
+- `/config` — plugin-layer config
 - `rules/state-detection.md` — canonical state-detection recipe
 - `references/setup-walkthrough.md` — long-form install companion
 - `references/install.md` — install sources, prerequisites, dev install

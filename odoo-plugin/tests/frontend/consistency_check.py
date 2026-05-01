@@ -43,7 +43,7 @@ def check_file_existence() -> list:
         "skills/theme-snippets/REFERENCE.md",
         "skills/frontend-js/SKILL.md",
         "commands/create-theme.md",
-        "commands/odoo-frontend.md",
+        "commands/frontend.md",
         "hooks/hooks.json",
         "hooks/pre_write_check.py",
         "hooks/post_write_check.py",

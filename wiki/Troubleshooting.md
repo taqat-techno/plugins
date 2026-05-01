@@ -106,7 +106,7 @@ Then restart Claude Code. This is the #1 "my fix isn't working" cause during dev
 
 **Reason:** `attrs` removal is a known gap in the `odoo-plugin` upgrade pattern library (documented in [`PLUGIN_ENHANCEMENT_REPORT_FEB_2026.md`](../../PLUGIN_ENHANCEMENT_REPORT_FEB_2026.md) §3). The pattern library knows about it but the auto-fix coverage is partial.
 
-**Fix:** run `/odoo-quickfix` and manually review the reported residues. Full fix coming in a future version of the upgrade pattern library.
+**Fix:** run `/quickfix` and manually review the reported residues. Full fix coming in a future version of the upgrade pattern library.
 
 ### ntfy notifications not arriving
 
@@ -135,7 +135,7 @@ Then restart Claude Code. This is the #1 "my fix isn't working" cause during dev
 
 | Plugin | Diagnostic command |
 |---|---|
-| odoo | `/odoo-service` (lifecycle status) |
+| odoo | `/service` (lifecycle status) |
 | devops | `/init` (re-run to validate auth + connectivity) |
 | rag | `/rag-doctor --full --fix` (structured diagnosis + inline repair) |
 | paper | `/paper` (status + Figma MCP check) |

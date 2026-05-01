@@ -6,7 +6,7 @@ description: 'Odoo email templates & QWeb reports - create, validate, migrate, a
 argument-hint: '[create|validate|migrate|analyze|preview] [args...]'
 ---
 
-# /odoo-report - Email Templates & QWeb Reports
+# /report - Email Templates & QWeb Reports
 
 Parse `$ARGUMENTS` and route:
 

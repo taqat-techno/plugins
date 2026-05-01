@@ -5,7 +5,7 @@
 - Added `model: sonnet` to skill frontmatter
 - Replaced bash SessionStart hook with cross-platform prompt hook
 - Progressive disclosure: extracted sections 8-14 to `reference/advanced-topics.md`
-- Enhanced `/odoo-docker` status with real diagnostics
+- Enhanced `/docker` status with real diagnostics
 - Added `requirements-changed` PostToolUse hook
 - Added deploy validation step (`docker compose config` + `nginx -t`)
 

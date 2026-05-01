@@ -1,13 +1,15 @@
 ---
 description: Manage rag-plugin local plugin configuration. Controls the opt-in usage-log toggle, the CLAUDE.md retrieval rule install/upgrade/remove, MCP-duplicate detection/cleanup, and the UserPromptSubmit hook observability log.
-argument-hint: "status | telemetry <on|off> | claude-md <status|install|remove> [--yes] [--project] | mcp-dedupe <status|clean> [--yes] | hook-observability <status|on|off|analyze|clear>"
+argument-hint: "[status | telemetry <on|off> | claude-md <status|install|remove> [--yes] [--project] | mcp-dedupe <status|clean> [--yes] | hook-observability <status|on|off|analyze|clear>]"
 allowed-tools: Bash(test:*), Bash(mkdir:*), Bash(echo:*), Bash(cat:*), Bash(printenv:*), Bash(grep:*), Bash(diff:*), Bash(sed:*), Bash(wc:*), Bash(rm:*), Bash(python3:*), Read, Write, Edit
 disable-model-invocation: false
 author: TaqaTechno
 version: 0.3.0
 ---
 
-# /rag-config
+# /config
+
+**Bare invocation (no args) runs `status`** — a compact banner of all four feature groups. Use a subcommand only to change state.
 
 Manage `rag-plugin` plugin configuration. Four feature groups:
 
@@ -62,7 +64,7 @@ A single JSONL file at `~/.claude/rag-plugin/usage.log`. One JSON object per lin
 | `ts` | string (ISO 8601 UTC) | `2026-04-14T13:42:51Z` |
 | `command` | string | One of: `rag-status`, `rag-doctor`, `rag-setup`, `rag-repair`, `rag-projects`, `rag-upgrade`, `rag-reset`, `rag-config` |
 | `outcome` | string | `ok` / `error` / `user-cancel` / `refused` |
-| `failure_id` | string or null | F-NNN if `/rag-doctor` classified one, else `null` |
+| `failure_id` | string or null | F-NNN if `/doctor` classified one, else `null` |
 
 **What is NOT recorded** (binding rules from D-012):
 
@@ -76,9 +78,9 @@ A single JSONL file at `~/.claude/rag-plugin/usage.log`. One JSON object per lin
 - ❌ No HTTP request bodies or responses
 - ❌ No stack traces or error messages
 
-The data is intentionally minimal. The point of recording it is so the user can answer "did I run `/rag-doctor` recently?" or "how often do I hit F-003?" — not so anyone (including the plugin author) can reconstruct what they were doing.
+The data is intentionally minimal. The point of recording it is so the user can answer "did I run `/doctor` recently?" or "how often do I hit F-003?" — not so anyone (including the plugin author) can reconstruct what they were doing.
 
-**Network egress: zero.** The log file lives only on the local disk. Nothing reads it except the user. There is no upload, no sync, no third-party endpoint. If you ever see `rag-plugin` make a network call other than the explicit ones in `/rag-setup` (GitHub releases API when walking the upgrade branch) and `/rag-doctor` / `/rag-projects` / `/rag-setup` (HTTP API on 127.0.0.1 for service probes), it is a bug — please report it.
+**Network egress: zero.** The log file lives only on the local disk. Nothing reads it except the user. There is no upload, no sync, no third-party endpoint. If you ever see `rag-plugin` make a network call other than the explicit ones in `/setup` (GitHub releases API when walking the upgrade branch) and `/doctor` / `/projects` / `/setup` (HTTP API on 127.0.0.1 for service probes), it is a bug — please report it.
 
 ## Required steps
 
@@ -126,7 +128,7 @@ what is recorded: timestamp, command name, outcome, optional failure_id
 what is NOT recorded: paths, project names, search queries, log contents, identifiers
 network egress: none — local-only
 
-toggle: /rag-config telemetry <on|off>
+toggle: /config telemetry <on|off>
 ```
 
 #### `telemetry on`
@@ -164,7 +166,7 @@ This is documented here for transparency. The user does not need to do anything 
 
 ## Boundary reminders
 
-- **No network egress, ever.** This is the binding D-012 rule. If a future change to this command adds any network call other than the explicit `/rag-doctor` HTTP API probes (which are already loopback-only), revert it.
+- **No network egress, ever.** This is the binding D-012 rule. If a future change to this command adds any network call other than the explicit `/doctor` HTTP API probes (which are already loopback-only), revert it.
 - **No automatic recording of sensitive data.** Paths, project names, search queries, log contents, identifiers — never. The schema is intentionally minimal.
 - **No silent on by default.** The user must explicitly type `telemetry on`. Default state is off.
 - **No silent off after enable.** Once `telemetry on` is set, it stays on until the user runs `telemetry off`. There is no auto-disable timer.
@@ -211,7 +213,7 @@ Commands must **never** edit inside the markers. Detect, splice, replace, or del
    - No match → `CLAUDE.md rule: not installed (target file: <path>)`
    - Match → extract version from the begin-marker line, compare against bundled version in `${CLAUDE_PLUGIN_ROOT}/rules/claude-md-retrieval-rule.md`, report one of:
      - `CLAUDE.md rule: installed v<N> — up to date`
-     - `CLAUDE.md rule: installed v<N> — outdated (bundled: v<M>) — run: /rag-config claude-md install`
+     - `CLAUDE.md rule: installed v<N> — outdated (bundled: v<M>) — run: /config claude-md install`
 4. Compact output: 1–3 lines plus the mode banner.
 
 ## `claude-md install [--yes] [--project]`
@@ -244,7 +246,7 @@ The install path is idempotent: running it twice on an already-installed rule pr
    lines unchanged: <...>
    ```
 
-6. **Ask for confirmation** unless `--yes` is passed OR the command is invoked from `/rag-setup`'s first-install branch:
+6. **Ask for confirmation** unless `--yes` is passed OR the command is invoked from `/setup`'s first-install branch:
    ```
    proceed with install? (yes/no)
    ```
@@ -285,7 +287,7 @@ Removes the rule block cleanly, leaving the rest of the target CLAUDE.md intact.
    the rest of the file will be untouched.
    type REMOVE to confirm:
    ```
-   (The user types the literal word `REMOVE` — same discipline as `/rag-reset`.)
+   (The user types the literal word `REMOVE` — same discipline as `/reset`.)
 4. Splice the begin→end range out of the file. Also strip **at most one** leading and **at most one** trailing blank line around the removed range, to avoid leaving a double-blank gap.
 5. Write the file.
 6. Verify via `claude-md status` — should report "not installed".
@@ -310,7 +312,7 @@ Scans `~/.claude.json` (top-level `mcpServers` and per-project `mcpServers` sub-
    - **EXISTS** — file is present and parseable as JSON. If not: `ERROR — plugin .mcp.json missing or malformed at <path>`.
    - **SCHEMA (flat shape)** — top-level object has a `ragtools` key directly (no `mcpServers` wrapper). **Plugin-level `.mcp.json` uses the flat shape**, unlike user-level `~/.claude/.mcp.json` or project-level `<repo>/.mcp.json` which use the `mcpServers` wrapper. Claude Code's plugin loader expects the flat shape for plugin-level registrations — verified empirically against every working plugin in `~/.claude/plugins/cache/` (`chrome-devtools`, `context7`, `playwright`, `azure-devops`, and rag v0.2.0/v0.3.0 all ship the flat shape). If the top-level `ragtools` key is missing: `ERROR — plugin .mcp.json missing top-level 'ragtools' key`. If a `mcpServers` wrapper is present instead: `ERROR — plugin .mcp.json uses wrapped shape (mcpServers); plugin-level files require the flat shape — unwrap it`.
    - **DIRECT-SPAWN COMMAND** — `ragtools.command` should be the ragtools binary itself (`rag`, typically with `args: ["serve"]`), not a Python wrapper script. v0.3.1/v0.3.2 briefly shipped a Python launcher (`scripts/rag_mcp_launcher.py`) that sat between Claude Code and `rag.exe`, but Python's `os.execvp` on Windows does not preserve stdio pipe inheritance — the server registered but `tools/list` silently timed out. Every other working plugin in `~/.claude/plugins/cache/` calls its target binary directly (`npx` for chrome-devtools/context7/playwright/azure-devops). If `command` is `python` / `python3` / `py` with any arg referencing `rag_mcp_launcher.py`: `ERROR — plugin .mcp.json uses the legacy Python launcher which breaks stdio on Windows. Upgrade to v0.3.3+ which spawns 'rag serve' directly`.
-   - **COMMAND RESOLVES ON PATH** — run `shutil.which(command)` (or `where` on Windows / `which` on POSIX). If not found: `ERROR — plugin .mcp.json command '<cmd>' not on PATH. Add the RAGTools install directory to your PATH (Windows installer default: C:\Users\<you>\AppData\Local\Programs\RAGTools) or run /rag-setup for the manual user-level fallback`.
+   - **COMMAND RESOLVES ON PATH** — run `shutil.which(command)` (or `where` on Windows / `which` on POSIX). If not found: `ERROR — plugin .mcp.json command '<cmd>' not on PATH. Add the RAGTools install directory to your PATH (Windows installer default: C:\Users\<you>\AppData\Local\Programs\RAGTools) or run /setup for the manual user-level fallback`.
 4. **Report** every location where a `ragtools` entry was found, with the plugin-level assertion result on its own line:
    ```
    mcp-dedupe status:
@@ -319,7 +321,7 @@ Scans `~/.claude.json` (top-level `mcpServers` and per-project `mcpServers` sub-
      project-level: C:/MY-WorkSpace/rag  → rag-mcp                                         [source: ~/.claude.json → projects.<...>.mcpServers.ragtools]
    
    duplicates found: 2
-   recommendation: /rag-config mcp-dedupe clean
+   recommendation: /config mcp-dedupe clean
    ```
 5. If no duplicates and plugin-level passes all four assertions: `mcp-dedupe status: 1 registration (plugin-level, canonical). schema OK. no duplicates found.`
 6. If the plugin-level fails any assertion, **surface that first** — it is always more urgent than duplicates, because a broken plugin-level registration means Claude Code cannot load ragtools at all regardless of what's in user-level files.
@@ -399,7 +401,7 @@ Controls the `~/.claude/rag-plugin/hook-decisions.log` file written by the `User
    hook-observability: DISABLED
      disable marker: ~/.claude/rag-plugin/.hook-observability-disabled
      log file (preserved): ~/.claude/rag-plugin/hook-decisions.log (<N> lines)
-     to re-enable: /rag-config hook-observability on
+     to re-enable: /config hook-observability on
    ```
 
 ## `hook-observability on`
@@ -421,7 +423,7 @@ mkdir -p "$HOME/.claude/rag-plugin"
 touch "$HOME/.claude/rag-plugin/.hook-observability-disabled"
 ```
 
-Confirm: `hook-observability: DISABLED. the hook will silent-pass without logging. existing log preserved at <path>. to delete: /rag-config hook-observability clear.`
+Confirm: `hook-observability: DISABLED. the hook will silent-pass without logging. existing log preserved at <path>. to delete: /config hook-observability clear.`
 
 ## `hook-observability analyze`
 
@@ -443,7 +445,7 @@ The analyzer produces:
 
 ## `hook-observability clear`
 
-Deletes the log file. Requires typed `CLEAR` confirmation (same discipline as `/rag-reset`).
+Deletes the log file. Requires typed `CLEAR` confirmation (same discipline as `/reset`).
 
 ### Steps
 
@@ -476,16 +478,16 @@ The top-level `status` subcommand prints a compact summary of all four feature g
 ragtools detected: <mode banner>
 
 rag-plugin v0.3.0 configuration:
-  telemetry:          OFF                                          (see /rag-config telemetry on)
+  telemetry:          OFF                                          (see /config telemetry on)
   CLAUDE.md rule:     INSTALLED v0.2.0 at ~/.claude/CLAUDE.md
   MCP registrations:  1 (plugin-level, canonical)                  [OK]
   hook-observability: ENABLED                                      (247 decisions logged)
 
 next:
-  • /rag-config telemetry on           — enable local-only usage logging
-  • /rag-config claude-md status       — detail the retrieval rule state
-  • /rag-config mcp-dedupe status      — detail MCP registrations
-  • /rag-config hook-observability analyze  — inspect hook decision stats
+  • /config telemetry on           — enable local-only usage logging
+  • /config claude-md status       — detail the retrieval rule state
+  • /config mcp-dedupe status      — detail MCP registrations
+  • /config hook-observability analyze  — inspect hook decision stats
 ```
 
 If any of the four is in a non-default state (telemetry on, rule outdated/missing, duplicates found, observability disabled), the corresponding row gets a `!` marker and the `next:` section surfaces the remediation command.
@@ -496,7 +498,7 @@ If any of the four is in a non-default state (telemetry on, rule outdated/missin
 - **Splice by markers.** Never use find-and-replace on the rule body.
 - **Always backup before editing user config files** (`~/.claude.json`, `~/.claude/.mcp.json`, `~/.claude/CLAUDE.md`). Backup extension: `.bak-pre-<operation>`.
 - **Atomic writes only.** Load → modify → write tmp → rename.
-- **Confirm by default**, with `--yes` opt-out for scripted use (and a silent pass when called from `/rag-setup`'s first-install flow).
+- **Confirm by default**, with `--yes` opt-out for scripted use (and a silent pass when called from `/setup`'s first-install flow).
 - **Never touch non-ragtools MCP entries.** Other servers are off-limits.
 - **Never delete the plugin-level `.mcp.json`.**
 - **Never networked telemetry (D-012).** Unchanged by this update.
@@ -508,9 +510,9 @@ If any of the four is in a non-default state (telemetry on, rule outdated/missin
 - `rules/claude-md-retrieval-rule.md` — source of truth for the retrieval rule block
 - `hooks/prompt_retrieval_reminder.py` — the UserPromptSubmit hook whose decisions `hook-observability` surfaces
 - `scripts/analyze_hook_decisions.py` — aggregate analyzer invoked by `hook-observability analyze`
-- `/rag-setup` — calls `claude-md install` and `mcp-dedupe clean` as part of Step C.2b / C.5
-- `/rag-doctor` — surfaces retrieval-rule, MCP-dedupe, and hook-observability state in the diagnostic table
-- `/rag-doctor` — classifies plugin-behavior symptoms that route here (absorbs the former `/rag-repair`)
+- `/setup` — calls `claude-md install` and `mcp-dedupe clean` as part of Step C.2b / C.5
+- `/doctor` — surfaces retrieval-rule, MCP-dedupe, and hook-observability state in the diagnostic table
+- `/doctor` — classifies plugin-behavior symptoms that route here (absorbs the former `/rag-repair`)
 - `docs/decisions.md#d-015` — plugin-level `.mcp.json` auto-wiring
 - `docs/decisions.md#d-016` — CLAUDE.md retrieval rule as a shipped plugin asset
 - `docs/decisions.md#d-017` — Tier 2 guided-enforcement hook + observability-first escalation

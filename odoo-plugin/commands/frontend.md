@@ -6,7 +6,7 @@ description: 'Show Odoo frontend environment status and available capabilities'
 argument-hint: ''
 ---
 
-# /odoo-frontend
+# /frontend
 
 Display the current Odoo frontend development environment status.
 

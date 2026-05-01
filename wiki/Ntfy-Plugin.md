@@ -113,7 +113,7 @@ Claude: Resuming with confirmation received. Dropping...
 
 ## Related plugins and integrations
 
-- **odoo** — notify when `/odoo-upgrade` long migrations complete.
+- **odoo** — notify when `/upgrade` long migrations complete.
 - **remotion** — notify when video rendering finishes.
 - **devops** — notify on new work item assignment via `/task-monitor` + `/loop 15m`.
 - **Any plugin** — the `/ntfy <message>` command is a one-liner anywhere.

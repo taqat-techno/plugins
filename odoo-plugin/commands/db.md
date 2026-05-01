@@ -6,23 +6,23 @@ description: 'Backup, restore, create, drop, list databases and reset admin pass
 argument-hint: '<backup|restore|create|drop|list|reset-admin|modules> [options]'
 ---
 
-# /odoo-db — Database Operations
+# /db — Database Operations
 
 ```
-/odoo-db <operation> [options]
+/db <operation> [options]
 ```
 
 ## Operations
 
 | Operation | Usage |
 |-----------|-------|
-| `backup` | `/odoo-db backup --db NAME [--format sql\|dump] [--output DIR]` |
-| `restore` | `/odoo-db restore --file PATH --db NAME [--no-create]` |
-| `create` | `/odoo-db create --db NAME` |
-| `drop` | `/odoo-db drop --db NAME [--yes]` |
-| `list` | `/odoo-db list` |
-| `reset-admin` | `/odoo-db reset-admin --db NAME --password PASS` |
-| `modules` | `/odoo-db modules --db NAME` |
+| `backup` | `/db backup --db NAME [--format sql\|dump] [--output DIR]` |
+| `restore` | `/db restore --file PATH --db NAME [--no-create]` |
+| `create` | `/db create --db NAME` |
+| `drop` | `/db drop --db NAME [--yes]` |
+| `list` | `/db list` |
+| `reset-admin` | `/db reset-admin --db NAME --password PASS` |
+| `modules` | `/db modules --db NAME` |
 
 ## Connection Defaults
 

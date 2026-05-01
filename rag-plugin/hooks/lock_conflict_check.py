@@ -29,7 +29,7 @@ Design notes:
   - Python stdlib only (json, sys, re, urllib.request, socket). No curl,
     no jq, no third-party deps. Cross-platform.
   - The matcher does NOT match HTTP API calls (curl POST /api/rebuild),
-    /rag-projects rebuild, or /rag-status — those go through the service
+    /projects rebuild, or /rag-status — those go through the service
     on purpose and do not fight the lock.
   - The matcher requires a whole-word "rag" boundary so it does not
     false-match other commands that happen to contain the substring "rag".
@@ -128,7 +128,7 @@ def emit_ask(command: str, matched_pattern: str) -> None:
         "the most common ragtools failure mode (F-003 in references/known-failures.md). "
         "Either stop the service first (`rag service stop`) or use the HTTP API "
         "equivalent (e.g. `curl -X POST http://127.0.0.1:21420/api/rebuild` for rebuild, "
-        "`/rag-projects rebuild` for project management).\n\n"
+        "`/projects rebuild` for project management).\n\n"
         f"matched pattern: {matched_pattern}\n"
         f"command: {command[:200]}"
     )

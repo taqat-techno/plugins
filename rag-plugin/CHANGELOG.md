@@ -2,13 +2,91 @@
 
 All notable changes to `rag-plugin` are documented here. Format is loosely based on [Keep a Changelog](https://keepachangelog.com/). Versioning follows [SemVer](https://semver.org/).
 
+## [0.11.0] — 2026-05-01
+
+Closes the LESSONS.md TODO "rag-plugin enhancement (future work)" — the retrieval-reminder hook now distinguishes operational/inspection questions from knowledge questions and silent-passes the former. Source: `~/.claude/LESSONS.md` "Inspect the machine before asking clarifying questions" (2026-04-28).
+
+### Added
+
+- **`hooks/prompt_retrieval_reminder.py`** — new Phase A.5 **operational-intent classifier** (`is_operational_intent()`). Matches imperative operational verbs near the start of the prompt (`start|stop|restart|run|launch|kill|fix|set up|install|configure|where is|what's running|why is X failing|...`) and silent-passes with a new action tag `silent-pass:operational-intent`. Anchored to first 120 chars + word boundaries so trailing operational verbs in long knowledge questions don't trip it. Also accepts "how do I X" / "how can I X" / "how to X" lead-ins followed by an action verb.
+- **`scripts/hook_classifier_smoke.py`** — new smoke test harness. 12 operational fixtures + 8 knowledge fixtures, asserts the classifier's decision on each. Importable from the plugin root; `--self-test` exits non-zero on any misclassification; `--verbose` prints every fixture's decision.
+- **D-027** in `docs/decisions.md` — binding decision capturing the classifier list, the threshold change, and the single-source-of-truth principle (regex lives in the hook; smoke script imports it).
+- **`/doctor --classify`** — new read-only flag in `commands/doctor.md`. Invokes the smoke test in verbose mode so users can see exactly how each fixture is classified by the gate.
+
+### Changed
+
+- **`hooks/prompt_retrieval_reminder.py`** — `HOOK_VERSION` bumped `0.3.0 → 0.4.0`. Default `RAG_PLUGIN_HOOK_PROBE_THRESHOLD` raised from `0.5 → 0.65` per LESSONS.md TODO #2 — MODERATE-tier (0.5–0.7) was too noisy; HIGH-tier (≥0.65) keeps the hook helpful without nagging. Override via env var still supported.
+- **`rules/claude-md-retrieval-rule.md`** — version bumped `0.2.0 → 0.3.0`. Marker now reads `<!-- rag-plugin:retrieval-rule:begin v=0.3.0 -->`. **Section 0a "Override: Operational / Inspection Questions Skip the MCP"** added inside the managed block per LESSONS.md TODO #3 — every install of rag-plugin now ships with the operational/inspection skip baked in. The user no longer needs to hand-roll Section 0a outside the markers. (Existing user-managed Section 0a outside the markers is left intact by the install logic — no overwrite.)
+- **`commands/doctor.md`** — new `--classify` flag documented.
+- **`.claude-plugin/plugin.json`** — version `0.10.0 → 0.11.0`.
+
+### Migration
+
+Run `/rag:config claude-md install` once to upgrade the managed block to v0.3.0. The install logic detects the marker version, locates the begin→end range, and replaces the enclosed block atomically with backup. Users who manually added Section 0a outside the markers can remove their hand-rolled copy after the upgrade — the canonical version now ships with the plugin.
+
+### Verification
+
+- `python scripts/hook_classifier_smoke.py --self-test` — **20/20 fixtures pass** (12 operational + 8 knowledge).
+- `python validate_plugin_simple.py rag-plugin` — 9 commands, 3 skills, 1 hooks file, all OK.
+- Real-world test: feed `"how do I start the bot in WSL?"` to the hook → silent-passes with `operational-intent`. Feed `"what's our process for handling token rotation?"` → reaches the probe phase (correctly).
+
+### Why this matters
+
+Before v0.11.0, the hook fired on probe-score similarity alone and could not distinguish "how do I start X" (answer is on disk) from "how do we handle X" (answer is in notes). The classifier closes that gap. After v0.11.0, the user-side workaround in `~/.claude/CLAUDE.md` Section 0a (added 2026-04-28) is no longer needed for new installs — Section 0a now ships inside the managed block.
+
+LESSONS.md TODO items #1, #2, #3 fully addressed. Item #4 (`/setup` smoke test integration during first-time install) deferred to a future amendment — the smoke script is shipped and runnable today as `python scripts/hook_classifier_smoke.py`; wiring it into the `/setup` verify branch happens when the next setup-flow refactor lands.
+
+## [0.10.0] — 2026-05-01 — BREAKING command rename
+
+All seven `/rag-*` commands renamed to drop the redundant `rag-` prefix. The plugin namespace `/rag:` already provides the prefix when commands are invoked through Claude Code's plugin command surface, so the file-name prefix duplicated information. Plugin-namespaced invocations are now shorter and cleaner.
+
+### Renamed (file → new file → invocation form)
+
+| Before | After | Plugin-namespaced |
+|---|---|---|
+| `commands/rag-bug-report.md` | `commands/report.md` | `/rag:report` |
+| `commands/rag-config.md` | `commands/config.md` | `/rag:config` |
+| `commands/rag-doctor.md` | `commands/doctor.md` | `/rag:doctor` |
+| `commands/rag-projects.md` | `commands/projects.md` | `/rag:projects` |
+| `commands/rag-reset.md` | `commands/reset.md` | `/rag:reset` |
+| `commands/rag-setup.md` | `commands/setup.md` | `/rag:setup` |
+| `commands/rag-sync-docs.md` | `commands/sync-docs.md` | `/rag:sync-docs` |
+
+Untouched (already namespace-clean):
+
+- `commands/md-rag-enhance.md` → `/rag:md-rag-enhance` (the `rag` here refers to the RAG pipeline, not the plugin name)
+- `commands/project-focus.md` → `/rag:project-focus`
+
+### Changed
+
+- All cross-references to renamed commands across the plugin source (commands, skills, agents, hooks, scripts, rules, README, ARCHITECTURE, decisions log) rewritten in one pass — 397 replacements across 30 files. Both bare-slash forms (`/rag-doctor` → `/doctor`) and plugin-namespaced forms (`/rag:rag-doctor` → `/rag:doctor`) updated.
+- `.claude-plugin/plugin.json` — version `0.9.0` → `0.10.0`.
+- **D-026** in `docs/decisions.md` — binding decision capturing the rename + migration guidance for users with muscle memory.
+
+### Migration notes for users
+
+If you typed `/rag:rag-doctor` before, type `/rag:doctor` now. The plugin name on the left of the colon stays the same; only the command-name suffix changed. With the rename, plugin-namespaced is the canonical form.
+
+Older CHANGELOG entries' command-invocation tokens have been rewritten for textual consistency; the file-path references inside those entries still point at the historical filenames at the time of release. Treat the CHANGELOG as a current-day reading guide, not a forensic record of historical syntax.
+
+### Verification
+
+- `python validate_plugin_simple.py rag-plugin` — 9 commands, 3 skills, 1 hooks file, all OK.
+- `python scripts/project_focus.py self-test` — 5/5 checks pass.
+- `python scripts/rag_report.py --self-test` — all redaction + render checks pass.
+- No `/rag-doctor` / `/rag-config` / `/rag-projects` / `/rag-reset` / `/rag-setup` / `/rag-sync-docs` / `/rag-bug-report` references remain in source.
+
+### Reasoning for `report` (not `bug-report`)
+
+The diagnostic command captures evidence for the maintainers across the full health spectrum — install state, runtime, performance signals, configuration drift, missed retrievals, manual workarounds, improvement opportunities. "Bug-report" implied a defect-focused tool; the actual scope is broader. `/rag:report` reads naturally for "give me a diagnostic report".
+
 ## [0.9.0] — 2026-05-01
 
 Project-focus mode. Ships `/project-focus`, a command that scopes ragtools retrieval to the user's current project so Claude does not pull context from unrelated indexed projects. Persists focus state in a single local JSON file and injects scope-this-to-X context on every UserPromptSubmit via a new bundled hook.
 
 ### Added
 
-- **`commands/project-focus.md`** — new user-facing command, ninth in the catalog. Subcommands: `set` (auto-detect from CWD + git root, default), `<name>` (manual focus), `status`, `clear`. Refuses to mutate ragtools project config — if the focused project isn't indexed, it tells the user which `/rag-projects` invocation to run.
+- **`commands/project-focus.md`** — new user-facing command, ninth in the catalog. Subcommands: `set` (auto-detect from CWD + git root, default), `<name>` (manual focus), `status`, `clear`. Refuses to mutate ragtools project config — if the focused project isn't indexed, it tells the user which `/projects` invocation to run.
 - **`scripts/project_focus.py`** — stdlib-only Python matcher + state CRUD engine. Resolves CWD + git root, calls `GET /api/projects` to enumerate configured projects, scores matches by exact-path / ancestor-path / descendant-path / name, persists `~/.claude/rag-plugin/state/project-focus.json` atomically. Built-in `self-test` covers exact-match, ancestor-match, manual-name-match, no-match, and state file round-trip.
 - **`hooks/project_focus_inject.py`** — new UserPromptSubmit hook that reads the focus state file and injects a strict-mode reminder when focus is active. Silent-passes on missing/malformed state. Composes alongside the existing retrieval-reminder hook (Claude Code supports multiple UserPromptSubmit entries). Never reads or logs the prompt.
 - **D-025** in `docs/decisions.md` — binding decision covering the focus state-file contract, the filter-fallback policy (try project parameter → post-filter results → warn if neither possible), the cross-project retrieval gate (explicit phrase required), and the no-auto-mutation rule.
@@ -43,11 +121,11 @@ Every UserPromptSubmit injects a system reminder telling Claude to:
 
 ## [0.8.0] — 2026-05-01
 
-Maintainer-feedback diagnostic command. Ships `/rag-bug-report`, an evidence-collection command that produces two reports — one targeted at the upstream `ragtools` product (github.com/taqat-techno/rag) and one targeted at this plugin (github.com/taqat-techno/plugins). The reports are designed to be copy-pasted into a maintainer issue without follow-up questions about environment, install state, or repro context.
+Maintainer-feedback diagnostic command. Ships `/report`, an evidence-collection command that produces two reports — one targeted at the upstream `ragtools` product (github.com/taqat-techno/rag) and one targeted at this plugin (github.com/taqat-techno/plugins). The reports are designed to be copy-pasted into a maintainer issue without follow-up questions about environment, install state, or repro context.
 
 ### Added
 
-- **`commands/rag-bug-report.md`** — new user-facing command, eighth in the catalog. State-aware: produces both reports even when ragtools is not installed (the app report simply leads with that as the top finding). Privacy-safe by design — no auto-upload, no config mutation, secrets redacted, home paths normalized, session snippets clipped to 220 chars.
+- **`commands/rag-report.md`** — new user-facing command, eighth in the catalog. State-aware: produces both reports even when ragtools is not installed (the app report simply leads with that as the top finding). Privacy-safe by design — no auto-upload, no config mutation, secrets redacted, home paths normalized, session snippets clipped to 220 chars.
 - **`scripts/rag_report.py`** — stdlib-only Python report engine (~700 lines, Python 3.10+). Probes install state, service runtime, MCP wiring, plugin layout, Claude configuration, hook-decisions log, recent service log tails, and recent Claude session JSONL files for RAC/RAG-related signals only. Redaction layer covers bearer tokens, API keys, GitHub PATs (`ghp_*`, `github_pat_*`), AWS keys, Slack tokens, cookies, and PEM private keys. `--self-test` mode runs lightweight stdlib unit-style checks. `--no-sessions` opts out of session scanning entirely. `--max-sessions N` caps the scan budget. Output is six files in a timestamped directory.
 - **D-024** in `docs/decisions.md` — binding decision covering the dual-report architecture, the privacy invariants, the no-upload posture, the redaction surface, and the session-scan signal taxonomy.
 
@@ -146,7 +224,7 @@ Every other guideline violation (content-before-first-heading, oversized section
 
 ## [0.6.1] — 2026-04-19
 
-Install-path clarity patch. Restructures `/rag-setup` Branch A so all three packaged platforms (Windows, macOS Apple Silicon, Linux ARM64) are first-class paths with a universal source-install fallback explicitly documented for every other platform. Picks up the ragtools v2.5.1 Linux-ARM64 release. Links the upstream ragtools product repo prominently throughout the plugin.
+Install-path clarity patch. Restructures `/setup` Branch A so all three packaged platforms (Windows, macOS Apple Silicon, Linux ARM64) are first-class paths with a universal source-install fallback explicitly documented for every other platform. Picks up the ragtools v2.5.1 Linux-ARM64 release. Links the upstream ragtools product repo prominently throughout the plugin.
 
 ### Changed
 - **`commands/rag-setup.md`** — Branch A rewritten:
@@ -164,7 +242,7 @@ Install-path clarity patch. Restructures `/rag-setup` Branch A so all three pack
 Two user-reported gaps:
 
 1. **Wiki → product linkage was thin.** Anyone reading the plugin wiki had no obvious path to the ragtools application repo itself. Fixed by adding a prominent [`github.com/taqat-techno/rag`](https://github.com/taqat-techno/rag) link at the top of Home.md, Rag-Plugin.md, and the install walkthrough.
-2. **Install command was implicitly Windows-first.** `/rag-setup`'s Branch A detected three platforms but treated Linux as a dev-install-only path and buried the source-install fallback as "A.4 Linux dev install". ragtools v2.5.1 actually ships Linux ARM64 packaged. The rewrite makes all three packaged paths (A.2/A.3/A.4) equally first-class and elevates the source install (A.5) as the documented universal fallback for any platform — not just Linux.
+2. **Install command was implicitly Windows-first.** `/setup`'s Branch A detected three platforms but treated Linux as a dev-install-only path and buried the source-install fallback as "A.4 Linux dev install". ragtools v2.5.1 actually ships Linux ARM64 packaged. The rewrite makes all three packaged paths (A.2/A.3/A.4) equally first-class and elevates the source install (A.5) as the documented universal fallback for any platform — not just Linux.
 
 ### Verification
 - Validator passes (pre-existing SKILL.md YAML false-positive and documented hooks.json warnings unchanged).
@@ -206,7 +284,7 @@ The six invariants derive from actual release incidents and boundary-safety rule
 - Activation triggers in the `ragtools-release` skill description are explicitly maintainer-only (no overlap with `ragtools-ops` operational triggers).
 
 ### Known follow-ups
-- A "release ack log" at `~/.claude/rag-plugin/release-acks.jsonl` (opt-in, same pattern as `usage.log` and `hook-decisions.log`) — the skill mentions this as a future capability but it is not yet wired into `/rag-config`.
+- A "release ack log" at `~/.claude/rag-plugin/release-acks.jsonl` (opt-in, same pattern as `usage.log` and `hook-decisions.log`) — the skill mentions this as a future capability but it is not yet wired into `/config`.
 - When ragtools v2.6.0 ships with new invariants (new platforms, new schema), append a new D-NNN in `docs/decisions.md` + extend `references/release-checklist.md`.
 
 ## [0.5.0] — 2026-04-18
@@ -225,12 +303,12 @@ MCP v2.5.0 integration. The plugin now uses the full 22-tool MCP surface — 3 c
   - **2.5.8 Multi-project search preparation** — constructs the `projects=[...]` spec but does NOT call `search_knowledge_base` (D-001 preserved).
   - **2.5.9 MCP failure handling** — uniform fallback-chain discipline across all workflows.
 - **D-022** in `docs/decisions.md` — binding decision refining D-001. Plugin uses MCP **ops tools** freely (all 18 non-search tools across core, project-ops, debug tiers); plugin still never wraps `search_knowledge_base`. Explicit table of what's allowed vs forbidden. Non-violation notes against D-001, D-005, D-007, D-008, D-012, D-015, D-017, D-020, D-021.
-- **New `/rag-projects` subcommands (v0.5.0)** — `status <id>` (uses `project_status`), `summary <id> [<top_n>]` (uses `project_summary`), `files <id> [<limit>]` (uses `list_project_files`). All read-only; envelope handling per `rules/mcp-envelope.md`.
+- **New `/projects` subcommands (v0.5.0)** — `status <id>` (uses `project_status`), `summary <id> [<top_n>]` (uses `project_summary`), `files <id> [<limit>]` (uses `list_project_files`). All read-only; envelope handling per `rules/mcp-envelope.md`.
 
 ### Changed
 - **`commands/rag-doctor.md`** — Mode E (default fast probe) now prefers `mcp__plugin_rag_ragtools__index_status` + `list_projects` (+ optional `service_status`), with HTTP `/api/status` + `/api/projects` + `/api/watcher/status` as fallback when the MCP is in failed mode or not loaded. Mode D (`--full`) prefers `system_health` + `crash_history` for structured diagnostic output, falls back to wrapping `rag doctor` CLI when the debug tools aren't granted (with an admin-UI toggle hint). Mode B (`--logs`) prefers `tail_logs` (has filesystem fallback — works even in degraded mode) and supplements with `recent_activity` when granted. The `rag-log-scanner` Haiku agent contract is unchanged — still classifies findings — but now receives log content from the MCP tool rather than a direct disk read.
-- **`commands/rag-projects.md`** — now **generic and standalone**: running `/rag-projects` with no arguments defaults to `list`. Subcommand whitelist updated to document which MCP tool each subcommand uses (`list` → core, `status`/`summary`/`files` → project-ops, `rebuild` → `reindex_project` with confirm_token + 30s cooldown + auto-backup). `add` / `remove` documented as MCP-excluded-for-safety; plugin keeps HTTP paths for them but flags them as weaker than MCP-guarded alternatives. `rebuild <id>` now routes through MCP `reindex_project` (typed `DELETE` gate + confirm_token = project_id programmatic); global rebuild (no id) stays on HTTP because the MCP has no global equivalent.
-- **`commands/rag-reset.md`** — now **generic and standalone**: running `/rag-reset` with no flag enters an **interactive picker** showing the 3 escalation levels with their auto-backup / service-state / gate requirements. `--soft` routes single-project rebuilds through MCP `reindex_project` for the auto-backup + cooldown benefits; global `--soft` stays on HTTP with an explicit warning that auto-backup is not taken on that path. `--data` and `--nuclear` branches unchanged.
+- **`commands/rag-projects.md`** — now **generic and standalone**: running `/projects` with no arguments defaults to `list`. Subcommand whitelist updated to document which MCP tool each subcommand uses (`list` → core, `status`/`summary`/`files` → project-ops, `rebuild` → `reindex_project` with confirm_token + 30s cooldown + auto-backup). `add` / `remove` documented as MCP-excluded-for-safety; plugin keeps HTTP paths for them but flags them as weaker than MCP-guarded alternatives. `rebuild <id>` now routes through MCP `reindex_project` (typed `DELETE` gate + confirm_token = project_id programmatic); global rebuild (no id) stays on HTTP because the MCP has no global equivalent.
+- **`commands/rag-reset.md`** — now **generic and standalone**: running `/reset` with no flag enters an **interactive picker** showing the 3 escalation levels with their auto-backup / service-state / gate requirements. `--soft` routes single-project rebuilds through MCP `reindex_project` for the auto-backup + cooldown benefits; global `--soft` stays on HTTP with an explicit warning that auto-backup is not taken on that path. `--data` and `--nuclear` branches unchanged.
 - **`rules/state-detection.md`** — now describes an MCP-first probe (`index_status` core tool, works in both proxy and direct mode) as the preferred Step 1, with HTTP `/health` and CLI `rag version` as Steps 2–3 fallbacks. State object gains `mcp_available: bool` and `mcp_mode: proxy|direct|degraded|failed|N/A` fields. Path resolution (Step 5) prefers MCP `get_paths` when the debug tool is granted; falls back to HTTP `/api/status` parsing.
 - **`skills/ragtools-ops/SKILL.md`** — frontmatter `description` expanded with operational intent phrases ("why isn't this file in search", "add an ignore rule", etc.) so the skill auto-activates when users describe intents rather than ragtools keywords. Phase 1 (mode detection) now defers to `rules/state-detection.md` + `rules/mcp-envelope.md`. Phase 2.5 is new — MCP tool dispatch with 9 workflow sections. Phase 3 routing rewritten: operational questions default to **skill-chained MCP tool calls** (no slash command needed); only deep diagnosis, setup/install/upgrade, destructive reset, and plugin-layer config still route to slash commands.
 - **`.claude-plugin/plugin.json`** — version `0.4.0` → `0.5.0`.
@@ -240,7 +318,7 @@ ragtools v2.5.0 expanded the MCP from 3 content tools to 22 total (3 core + 9 pr
 
 Every net-new capability ships as a **skill workflow**, not a new command. The skill auto-activates on user intent (e.g. "why isn't file X indexed?") and chains the MCP tools without requiring a slash-command interface. This matches the user's directional guidance ("decrease commands, increase skills"), preserves D-021's "fewer, stronger, smarter commands" posture, and fills the 22-tool surface without growing the command count.
 
-Every surviving command is now **generic / standalone** — `/rag-projects` defaults to `list` with no args, `/rag-reset` defaults to an interactive picker. Previously they printed usage and stopped; now they do the most common thing automatically.
+Every surviving command is now **generic / standalone** — `/projects` defaults to `list` with no args, `/reset` defaults to an interactive picker. Previously they printed usage and stopped; now they do the most common thing automatically.
 
 ### Verification
 - Validator passes: `python validate_plugin.py rag-plugin` (pre-existing SKILL.md YAML and hooks.json false positives unchanged).
@@ -251,13 +329,13 @@ Every surviving command is now **generic / standalone** — `/rag-projects` defa
 - All four envelope assertions in `rules/mcp-envelope.md` are testable against live MCP output once a session has the tools loaded: envelope shape, `error_code` enum, `mode` enum, fallback chain.
 
 ### Known follow-ups (later phases)
-- **v0.6.0:** `/rag-setup` Branch D adds a grant-check sub-step that audits which debug tools are granted vs which plugin workflows need them; offers the toggle path as a one-shot remediation list.
-- **v0.7.0:** session-ID correlation in `/rag-config hook-observability` — log the MCP session ID (`mcp:<sid>`) alongside hook decisions so multi-window users can diff.
-- **Deferred:** migrate `/rag-projects add` and `/rag-projects remove` off HTTP toward CLI/admin-UI-only handoffs, matching the MCP's intentional-exclusion posture (D-022 §8).
+- **v0.6.0:** `/setup` Branch D adds a grant-check sub-step that audits which debug tools are granted vs which plugin workflows need them; offers the toggle path as a one-shot remediation list.
+- **v0.7.0:** session-ID correlation in `/config hook-observability` — log the MCP session ID (`mcp:<sid>`) alongside hook decisions so multi-window users can diff.
+- **Deferred:** migrate `/projects add` and `/projects remove` off HTTP toward CLI/admin-UI-only handoffs, matching the MCP's intentional-exclusion posture (D-022 §8).
 
 ## [0.4.0] — 2026-04-14
 
-Command surface consolidation. Collapses 9 commands (8 user-facing + 1 maintainer) into 7 (6 user-facing + 1 maintainer) by folding `/rag-status` and `/rag-repair` into a smart `/rag-doctor` and folding `/rag-upgrade` into a smart `/rag-setup`. Every surviving command is now **state-aware at the top** — it runs a shared state-detection preamble, branches on the detected state, and refuses gracefully when the state is wrong instead of failing with a generic error.
+Command surface consolidation. Collapses 9 commands (8 user-facing + 1 maintainer) into 7 (6 user-facing + 1 maintainer) by folding `/rag-status` and `/rag-repair` into a smart `/doctor` and folding `/rag-upgrade` into a smart `/setup`. Every surviving command is now **state-aware at the top** — it runs a shared state-detection preamble, branches on the detected state, and refuses gracefully when the state is wrong instead of failing with a generic error.
 
 The user complaint that drove this: commands assumed an already-installed, already-healthy state and fragmented the "get ragtools working" mental model across too many entry points.
 
@@ -266,29 +344,29 @@ The user complaint that drove this: commands assumed an already-installed, alrea
 - **D-021** in `docs/decisions.md` — binding decision. "Each command is a smart entry point that detects state and branches; commands do not assume an ideal state. State detection lives in `rules/state-detection.md` and is referenced, not re-implemented."
 
 ### Changed
-- **`commands/rag-doctor.md`** — rewritten as the unified diagnose+status+repair command. Default mode is the fast state probe the former `/rag-status` did. `--full` is the deep `rag doctor` wrap the former standalone `/rag-doctor` did. A free-text positional argument runs the F-001..F-012 + P-RULE/P-DEDUPE classification rubric the former `/rag-repair` did. `--symptom F-NNN` walks the named playbook. `--logs` runs the `rag-log-scanner` Haiku agent. `--fix` composes with any of the above to walk the repair playbook inline after classification. All 8 repair playbooks (P-svc, P-qdrant, P-perm, P-empty, P-slow, P-port, P-watcher, P-mcp) are preserved verbatim with their existing confirmation-gate discipline.
+- **`commands/rag-doctor.md`** — rewritten as the unified diagnose+status+repair command. Default mode is the fast state probe the former `/rag-status` did. `--full` is the deep `rag doctor` wrap the former standalone `/doctor` did. A free-text positional argument runs the F-001..F-012 + P-RULE/P-DEDUPE classification rubric the former `/rag-repair` did. `--symptom F-NNN` walks the named playbook. `--logs` runs the `rag-log-scanner` Haiku agent. `--fix` composes with any of the above to walk the repair playbook inline after classification. All 8 repair playbooks (P-svc, P-qdrant, P-perm, P-empty, P-slow, P-port, P-watcher, P-mcp) are preserved verbatim with their existing confirmation-gate discipline.
 - **`commands/rag-setup.md`** — rewritten as the unified install+upgrade+verify command. Branches: A install (not-installed), B start-service (DOWN), C upgrade (UP but old, absorbs the former `/rag-upgrade`), D verify (UP and current — idempotent plugin-layer checks for MCP wiring, CLAUDE.md rule, dedupe). All other branches fall through to D on completion so the user always ends in a known-good state.
-- **`commands/rag-projects.md`** — added an explicit state-gate preamble at Step 0. Refuses writes when the service is DOWN or BROKEN with a clear pointer at `/rag-doctor` and `rag service start`. Refuses all ops when `install_mode == not-installed`. Cross-references updated (`/rag-status` → `/rag-doctor`, `/rag-repair` → `/rag-doctor --symptom`).
-- **`commands/rag-reset.md`** — added an explicit state-gate preamble. Now checks `install_mode == not-installed` and `service_mode == BROKEN` **before** showing any typed-DELETE prompt, so destructive gates are never surfaced for an install that cannot be reset. Pre-v2.4.1 warning now routes users to `/rag-setup` (which walks the upgrade flow) instead of the removed `/rag-upgrade`.
-- **`commands/rag-config.md`** — cross-reference fixes only. No behavior change. Pointers to `/rag-status` / `/rag-repair` remapped to `/rag-doctor` and to `/rag-upgrade` remapped to `/rag-setup`.
+- **`commands/rag-projects.md`** — added an explicit state-gate preamble at Step 0. Refuses writes when the service is DOWN or BROKEN with a clear pointer at `/doctor` and `rag service start`. Refuses all ops when `install_mode == not-installed`. Cross-references updated (`/rag-status` → `/doctor`, `/rag-repair` → `/doctor --symptom`).
+- **`commands/rag-reset.md`** — added an explicit state-gate preamble. Now checks `install_mode == not-installed` and `service_mode == BROKEN` **before** showing any typed-DELETE prompt, so destructive gates are never surfaced for an install that cannot be reset. Pre-v2.4.1 warning now routes users to `/setup` (which walks the upgrade flow) instead of the removed `/rag-upgrade`.
+- **`commands/rag-config.md`** — cross-reference fixes only. No behavior change. Pointers to `/rag-status` / `/rag-repair` remapped to `/doctor` and to `/rag-upgrade` remapped to `/setup`.
 - **`skills/ragtools-ops/SKILL.md`** — Phase 1 (mode detection) now references `rules/state-detection.md` instead of inlining the probe. Phase 3 (command routing) rewritten for the new 6-command surface with the consolidation note explaining where `/rag-status`, `/rag-repair`, and `/rag-upgrade` went.
 - **`.claude-plugin/plugin.json`** — version `0.3.3` → `0.4.0`.
 
 ### Removed
-- **`commands/rag-status.md`** — absorbed into `/rag-doctor` default mode.
-- **`commands/rag-repair.md`** — absorbed into `/rag-doctor` via free-text symptom classification, `--symptom F-NNN`, `--logs`, and `--fix` flags.
-- **`commands/rag-upgrade.md`** — absorbed into `/rag-setup` Branch C.
+- **`commands/rag-status.md`** — absorbed into `/doctor` default mode.
+- **`commands/rag-repair.md`** — absorbed into `/doctor` via free-text symptom classification, `--symptom F-NNN`, `--logs`, and `--fix` flags.
+- **`commands/rag-upgrade.md`** — absorbed into `/setup` Branch C.
 
 Deletion rather than stub-redirects because stubs would create dead entries in the slash-command catalog and confuse users about what is still supported.
 
 ### Rationale
-The current 3-file split `/rag-status + /rag-doctor + /rag-repair` forced users to pick a hammer before they knew what was wrong. Every one of those files started with the same mode-detection block and ended with a footer pointing at the other two. The new `/rag-doctor` lets the user just ask "what's wrong?" and branches based on state: default is a fast probe, `--full` goes deep, `--symptom` jumps to a playbook, `--fix` walks it. Same reasoning for `/rag-setup + /rag-upgrade`: the user's mental model is "get ragtools working" regardless of whether that means "install it" or "upgrade it," and a single smart command handles both based on the detected version.
+The current 3-file split `/rag-status + /doctor + /rag-repair` forced users to pick a hammer before they knew what was wrong. Every one of those files started with the same mode-detection block and ended with a footer pointing at the other two. The new `/doctor` lets the user just ask "what's wrong?" and branches based on state: default is a fast probe, `--full` goes deep, `--symptom` jumps to a playbook, `--fix` walks it. Same reasoning for `/setup + /rag-upgrade`: the user's mental model is "get ragtools working" regardless of whether that means "install it" or "upgrade it," and a single smart command handles both based on the detected version.
 
-The destructive commands `/rag-reset` and `/rag-projects` **stay separate** because destructive/write operations benefit from their own namespace — they should not be hidden behind an innocuous command name. Instead, they get the state-gate preamble so they fail fast and safely on bad states.
+The destructive commands `/reset` and `/projects` **stay separate** because destructive/write operations benefit from their own namespace — they should not be hidden behind an innocuous command name. Instead, they get the state-gate preamble so they fail fast and safely on bad states.
 
-`/rag-config` stays because it operates on a genuinely different scope (plugin-layer config: telemetry, claude-md rule, mcp-dedupe, hook-observability) rather than the ragtools product layer.
+`/config` stays because it operates on a genuinely different scope (plugin-layer config: telemetry, claude-md rule, mcp-dedupe, hook-observability) rather than the ragtools product layer.
 
-`/rag-sync-docs` stays because it is maintainer-only with `disable-model-invocation: true` and is invisible to the user surface.
+`/sync-docs` stays because it is maintainer-only with `disable-model-invocation: true` and is invisible to the user surface.
 
 ### Verification
 - `python validate_plugin.py rag-plugin` passes (commands: 6, skill: 1, agent: 1, hooks: 1; only the pre-existing SKILL.md YAML false-positive remains).
@@ -338,7 +416,7 @@ The lesson that justifies D-020 is worth stating plainly: **when wiring a stdio 
 
 ### Edge case: user-level fallback
 
-For the rare install where `rag` is genuinely not on PATH (user skipped the installer's "Add to PATH" option on Windows, or did not set up PATH on macOS), `/rag-setup` branch C.1–C.2 still works: it reads `GET http://127.0.0.1:21420/api/mcp-config` to get the absolute binary path from the running service, then writes a user-level `~/.claude/.mcp.json` with the **wrapped** shape and that absolute path. Duplicate-registration cleanup via `/rag-config mcp-dedupe` handles the plugin-level-vs-user-level coexistence. This flow is unchanged from v0.1.0 and is the documented fallback.
+For the rare install where `rag` is genuinely not on PATH (user skipped the installer's "Add to PATH" option on Windows, or did not set up PATH on macOS), `/setup` branch C.1–C.2 still works: it reads `GET http://127.0.0.1:21420/api/mcp-config` to get the absolute binary path from the running service, then writes a user-level `~/.claude/.mcp.json` with the **wrapped** shape and that absolute path. Duplicate-registration cleanup via `/config mcp-dedupe` handles the plugin-level-vs-user-level coexistence. This flow is unchanged from v0.1.0 and is the documented fallback.
 
 ### Verification
 - `where rag` on the reporter's Windows machine returns `C:\Users\ahmed\AppData\Local\Programs\RAGTools\rag.exe` — confirming `rag` is on PATH by default after the installer runs (the reporter's screenshot also shows `C:\Users\ahmed\AppData\Local\Programs\RAGTools` in the user Path env var).
@@ -415,7 +493,7 @@ Post-roadmap amendment #3. Ships the **Tier-2 guided-enforcement UserPromptSubmi
 ### Added
 - **`rag-plugin/hooks/prompt_retrieval_reminder.py`** — new `UserPromptSubmit` hook script, ~230 lines. Python 3 stdlib only (`json`, `os`, `re`, `sys`, `time`, `urllib.*`). Two-phase decision: Phase A shape gate (question-like OR possessive-domain, NOT current-context), Phase B domain probe via `GET /api/search?top_k=1&compact=true` with a 1-second timeout. Injects a ~10-line reminder via `hookSpecificOutput.additionalContext` when both phases pass. Silent-passes in every other case. Honors D-007 (never deny, never block), D-008 (compact reminder ~200 tokens), and D-012 (observability log contains zero user content).
 - **`rag-plugin/scripts/analyze_hook_decisions.py`** — new maintainer tool, ~150 lines. Reads `~/.claude/rag-plugin/hook-decisions.log` and prints aggregate stats: decisions by action tag, probe-score histogram, shape-gate pass rate, reminder-injection rate, hook version distribution, tuning hints. Read-only, stdlib only, takes no arguments.
-- **`/rag-config hook-observability {status|on|off|analyze|clear}`** — new subcommand group. Controls the hook-decisions log. Default **enabled** (opt-out via `~/.claude/rag-plugin/.hook-observability-disabled` marker file). `analyze` invokes the analyzer script; `clear` deletes the log with typed `CLEAR` confirmation.
+- **`/config hook-observability {status|on|off|analyze|clear}`** — new subcommand group. Controls the hook-decisions log. Default **enabled** (opt-out via `~/.claude/rag-plugin/.hook-observability-disabled` marker file). `analyze` invokes the analyzer script; `clear` deletes the log with typed `CLEAR` confirmation.
 - **Observability log at `~/.claude/rag-plugin/hook-decisions.log`** — JSONL, append-only. Schema: `{ts, shape_match, probe_match, probe_top_score, action, prompt_length, hook_version}`. Zero user content. D-012 aligned.
 - **D-017** in `docs/decisions.md` — the binding decision, terminology correction ("Tier 2 = guided, Tier 3 = strong"), observability-first escalation rationale, D-001/D-012 non-violation argument.
 
@@ -452,18 +530,18 @@ Observability is paired with the hook so the Tier-2-vs-Tier-3 decision can be da
 
 ## [0.2.0] — 2026-04-14
 
-Post-roadmap amendment. Ships the CLAUDE.md retrieval rule as an auto-installed plugin asset, adds MCP-duplicate detection/cleanup, and wires both into `/rag-setup`, `/rag-doctor`, `/rag-repair`, and `/rag-config`.
+Post-roadmap amendment. Ships the CLAUDE.md retrieval rule as an auto-installed plugin asset, adds MCP-duplicate detection/cleanup, and wires both into `/setup`, `/doctor`, `/rag-repair`, and `/config`.
 
 ### Added
 - **`rules/claude-md-retrieval-rule.md`** — new top-level `rules/` directory. Contains the single source of truth for the Section-0 retrieval rule block delimited by machine-readable `<!-- rag-plugin:retrieval-rule:begin v=0.2.0 -->` / `<!-- rag-plugin:retrieval-rule:end -->` markers. Commands splice this block into target CLAUDE.md files idempotently.
-- **`/rag-config claude-md status|install|remove [--yes] [--project]`** — new subcommand group. Installs, upgrades, removes, or reports on the retrieval rule in `~/.claude/CLAUDE.md` (or `<cwd>/CLAUDE.md` with `--project`). Idempotent. Backs up before writing. Atomic writes only.
-- **`/rag-config mcp-dedupe status|clean [--yes]`** — new subcommand group. Scans `~/.claude.json` (top-level and per-project `mcpServers`) and `~/.claude/.mcp.json` for duplicate `ragtools` MCP registrations that conflict with the plugin-level `.mcp.json`. Removes duplicates atomically, leaving the plugin-level one as canonical.
-- **`/rag-setup` Branch C Step C.2b** — detects and removes duplicate MCP registrations before wiring. Delegates to `/rag-config mcp-dedupe clean --yes`.
-- **`/rag-setup` Branch C Step C.5** — installs the retrieval rule into `~/.claude/CLAUDE.md` as part of first-time setup. Delegates to `/rag-config claude-md install --yes`. Reminds user the rule takes effect in the next session.
-- **`/rag-doctor` — two new rows** in the diagnostic summary table: `CLAUDE.md rule` (INSTALLED v<N> / MISSING / OUTDATED / TARGET MISSING) and `MCP registrations` (1 canonical / N duplicates found / plugin-level missing). Each maps to a remediation command.
-- **`/rag-repair` — two new plugin-behavior classifier IDs**: **P-RULE** (retrieval rule missing → `/rag-config claude-md install`) and **P-DEDUPE** (duplicate MCP registrations → `/rag-config mcp-dedupe clean`). These are separate from the F-001..F-012 catalog, which is reserved for ragtools product failures.
+- **`/config claude-md status|install|remove [--yes] [--project]`** — new subcommand group. Installs, upgrades, removes, or reports on the retrieval rule in `~/.claude/CLAUDE.md` (or `<cwd>/CLAUDE.md` with `--project`). Idempotent. Backs up before writing. Atomic writes only.
+- **`/config mcp-dedupe status|clean [--yes]`** — new subcommand group. Scans `~/.claude.json` (top-level and per-project `mcpServers`) and `~/.claude/.mcp.json` for duplicate `ragtools` MCP registrations that conflict with the plugin-level `.mcp.json`. Removes duplicates atomically, leaving the plugin-level one as canonical.
+- **`/setup` Branch C Step C.2b** — detects and removes duplicate MCP registrations before wiring. Delegates to `/config mcp-dedupe clean --yes`.
+- **`/setup` Branch C Step C.5** — installs the retrieval rule into `~/.claude/CLAUDE.md` as part of first-time setup. Delegates to `/config claude-md install --yes`. Reminds user the rule takes effect in the next session.
+- **`/doctor` — two new rows** in the diagnostic summary table: `CLAUDE.md rule` (INSTALLED v<N> / MISSING / OUTDATED / TARGET MISSING) and `MCP registrations` (1 canonical / N duplicates found / plugin-level missing). Each maps to a remediation command.
+- **`/rag-repair` — two new plugin-behavior classifier IDs**: **P-RULE** (retrieval rule missing → `/config claude-md install`) and **P-DEDUPE** (duplicate MCP registrations → `/config mcp-dedupe clean`). These are separate from the F-001..F-012 catalog, which is reserved for ragtools product failures.
 - **D-016** in `docs/decisions.md` documenting the retrieval-rule decision with the incident context, safety rules for touching user CLAUDE.md files, and the non-violation of D-001 (installing a workflow instruction is not the same as wrapping a search tool).
-- **Extended D-015** scope documentation — the D-015 entry now references `/rag-config mcp-dedupe` as the dedupe mechanism.
+- **Extended D-015** scope documentation — the D-015 entry now references `/config mcp-dedupe` as the dedupe mechanism.
 
 ### Changed
 - **`plugin.json` version bumped** `0.1.0` → `0.2.0` (minor bump — new functionality, no breaking changes).
@@ -475,7 +553,7 @@ User incident — asked *"What is the process for emergency assistance requests?
 
 Fix: ship a workflow instruction block (`rules/claude-md-retrieval-rule.md`) that the plugin's setup and repair commands inject into the user's `~/.claude/CLAUDE.md`. The rule loads at session start and applies globally across all projects — no per-project configuration needed. Versioned with begin/end markers for idempotent upgrade and clean removal. Safety-gated like every other write operation in the plugin: backup, atomic write, confirmation, splice by marker.
 
-Paired with MCP-duplicate cleanup (`/rag-config mcp-dedupe`) so users migrating from v0.1.0 (where they may have manually wired ragtools via `~/.claude.json`) get a clean single-registration state after upgrading.
+Paired with MCP-duplicate cleanup (`/config mcp-dedupe`) so users migrating from v0.1.0 (where they may have manually wired ragtools via `~/.claude.json`) get a clean single-registration state after upgrading.
 
 ## [0.1.0] — 2026-04-14
 

@@ -6,17 +6,17 @@ description: 'Start Odoo server with config detection and environment awareness'
 argument-hint: '[CONFIG] [--dev] [--workers N] [--docker]'
 ---
 
-# /odoo-start — Start Odoo Server
+# /start — Start Odoo Server
 
 ```
-/odoo-start [CONFIG] [--dev] [--workers N] [--db DATABASE] [--port PORT] [--detach] [--docker]
+/start [CONFIG] [--dev] [--workers N] [--db DATABASE] [--port PORT] [--detach] [--docker]
 ```
 
 ## Behavior
 
 1. **Detect environment**: venv, Docker, or bare Python
 2. **Find config**: If no CONFIG given, scan `conf/` and prompt user to select
-3. **Check port**: If 8069 is already in use, warn and suggest `/odoo-stop`
+3. **Check port**: If 8069 is already in use, warn and suggest `/stop`
 4. **Start server**:
 
 **Local venv**:

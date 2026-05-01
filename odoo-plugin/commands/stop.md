@@ -6,10 +6,10 @@ description: 'Stop Odoo server by killing processes on port 8069/8072'
 argument-hint: '[--port PORT] [--docker] [--all]'
 ---
 
-# /odoo-stop — Stop Odoo Server
+# /stop — Stop Odoo Server
 
 ```
-/odoo-stop [--port PORT] [--docker] [--all] [--force]
+/stop [--port PORT] [--docker] [--all] [--force]
 ```
 
 ## Behavior
