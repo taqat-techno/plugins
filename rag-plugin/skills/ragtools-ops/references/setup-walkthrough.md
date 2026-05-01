@@ -7,7 +7,7 @@ source-sections: [§3, §6, §7, §10]
 
 # Setup Walkthrough — long form
 
-This is the long-form companion to `/rag-setup`. The slash command is interactive and asks one question at a time; this file is for users who would rather read the whole thing first. Both produce the same end state: service running, MCP wired, first project indexed.
+This is the long-form companion to `/setup`. The slash command is interactive and asks one question at a time; this file is for users who would rather read the whole thing first. Both produce the same end state: service running, MCP wired, first project indexed.
 
 ## Time budget
 
@@ -23,7 +23,7 @@ This is the long-form companion to `/rag-setup`. The slash command is interactiv
 
 ## Pre-flight checks
 
-Before running `/rag-setup`, you should know:
+Before running `/setup`, you should know:
 
 - **Your platform.** Windows 10/11 x64, macOS arm64 (Apple Silicon), or Linux dev-mode only.
 - **Your project path.** A directory containing Markdown files you want searchable. ragtools indexes Markdown only — see `configuration.md` for chunking details.
@@ -207,7 +207,7 @@ Now ask Claude Code something that should hit your knowledge base:
 
 > Search my knowledge base for [a topic from your project].
 
-Claude calls the `search_knowledge_base` MCP tool directly — neither rag-plugin nor any plugin wraps it. If results come back with HIGH or MODERATE confidence, you're done. If LOW or empty, check `/rag-status` for chunks count, then `/rag-doctor`.
+Claude calls the `search_knowledge_base` MCP tool directly — neither rag-plugin nor any plugin wraps it. If results come back with HIGH or MODERATE confidence, you're done. If LOW or empty, check `/rag-status` for chunks count, then `/doctor`.
 
 ## Verification checklist
 
@@ -231,7 +231,7 @@ After setup, run through `post-install-verify.md` or just:
 | Service starts but `/api/projects` is empty after restart | F-006 / `repair-playbooks.md#projects-empty-after-restart` |
 | `Permission denied: 'ragtools.toml'` on add-project | F-001 / upgrade to ≥ v2.4.1 |
 | MCP server doesn't connect from Claude Code | F-009 / `repair-playbooks.md#mcp-not-connecting` |
-| Search returns no results | `/rag-status` to confirm chunks; `/rag-doctor` if chunks > 0 but search is empty |
+| Search returns no results | `/rag-status` to confirm chunks; `/doctor` if chunks > 0 but search is empty |
 
 ## See also
 

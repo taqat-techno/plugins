@@ -63,7 +63,7 @@ Each plugin ships its own complete README. Click through for commands, configura
 
 The single consolidated Odoo plugin covering **eight previously separate capabilities**: upgrade (v14→19 migrations), frontend theme development, testing toolkit, security auditing, i18n/translation management, email templates and QWeb reports, Docker infrastructure, and server lifecycle management. Each capability lives as a sub-skill inside `odoo-plugin/skills/<area>/`.
 
-**Key commands:** `/odoo-upgrade`, `/odoo-precheck`, `/odoo-quickfix`, `/odoo-frontend`, `/create-theme`, `/odoo-docker`, `/odoo-service`, `/odoo-start`, `/odoo-stop`, `/odoo-init`, `/odoo-db`, `/odoo-ide`, `/odoo-scaffold`, `/odoo-test`, `/odoo-security`, `/odoo-i18n`, `/odoo-report`.
+**Key commands:** `/upgrade`, `/precheck`, `/quickfix`, `/frontend`, `/create-theme`, `/docker`, `/service`, `/start`, `/stop`, `/init`, `/db`, `/ide`, `/scaffold`, `/test`, `/security`, `/i18n`, `/report`.
 
 **Typical usage:** `"Upgrade my_module from Odoo 16 to Odoo 19"` / `"Create a new Odoo 17 website theme"` / `"Audit my_module for access rule gaps"`.
 

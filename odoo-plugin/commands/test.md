@@ -3,16 +3,24 @@ title: 'Odoo Testing Workflow'
 read_only: false
 type: 'command'
 description: 'Odoo testing toolkit - generate, mock data, run, coverage, and E2E tests'
-argument-hint: '[generate|data|run|coverage|e2e] <model|module> [args...]'
+argument-hint: '[generate|data|run|coverage|e2e] [<model|module>] [args...]'
 ---
 
-# /odoo-test [sub-command] [args...]
+# /test [sub-command] [args...]
+
+## Bare-invocation behavior (no args)
+
+When invoked with no arguments, auto-detect the target module from `$CWD` (walk up to `__manifest__.py`) and run the full workflow: **coverage scan → report any untested methods → offer to generate skeletons → run the existing suite**. If the module cannot be detected (no manifest under `$CWD` or its parents), surface a list of direct-child modules and ask which one to operate on.
+
+This makes `/test` work from inside any module directory without arguments.
+
+## Routing
 
 Parse the first token of `$ARGUMENTS` and route:
 
 | Token | Action |
 |-------|--------|
-| *(empty)* | Show help + offer full workflow (generate > run > coverage) |
+| *(empty)* | Auto-detect module + run full workflow (coverage > generate-missing > run) |
 | `generate` | Generate TransactionCase/HttpCase test skeleton |
 | `data` | Generate mock data factory for setUp |
 | `run` | Run test suite with colored output |
@@ -21,12 +29,12 @@ Parse the first token of `$ARGUMENTS` and route:
 | *(other)* | Treat as module name, run full workflow |
 
 ```
-/odoo-test                              Show help + offer full workflow
-/odoo-test generate <model> [module]    Generate test skeleton
-/odoo-test data <model> [--count N]     Generate mock data factory
-/odoo-test run <module> [--tags X]      Run test suite
-/odoo-test coverage <module>            Coverage analysis
-/odoo-test e2e <module> [--url X]       Playwright E2E tests
+/test                              Show help + offer full workflow
+/test generate <model> [module]    Generate test skeleton
+/test data <model> [--count N]     Generate mock data factory
+/test run <module> [--tags X]      Run test suite
+/test coverage <module>            Coverage analysis
+/test e2e <module> [--url X]       Playwright E2E tests
 ```
 
 ## Execution

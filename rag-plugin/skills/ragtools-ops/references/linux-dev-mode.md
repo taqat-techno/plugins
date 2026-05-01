@@ -22,7 +22,7 @@ ragtools has **no packaged Linux artifact** (G-001). The codebase is cross-platf
 | MCP server | ✅ Works in dev mode |
 | Embedded Qdrant + SentenceTransformers | ✅ Work in dev mode |
 
-**The plugin's `/rag-setup` refuses the packaged install path on Linux** with a clear "no packaged Linux artifact" message and offers the dev-install flow as an alternative (Phase 3 already implemented this).
+**The plugin's `/setup` refuses the packaged install path on Linux** with a clear "no packaged Linux artifact" message and offers the dev-install flow as an alternative (Phase 3 already implemented this).
 
 ## Dev-mode detection
 
@@ -91,7 +91,7 @@ Same as the dev-mode prerequisites in `install.md`:
 
 ## What rag-plugin does differently on Linux
 
-### `/rag-setup`
+### `/setup`
 - Detects platform via `uname -s` (or absence of Windows env vars)
 - **Refuses** the packaged install path with a clear "no packaged Linux artifact yet (G-001)" message
 - Offers to walk the dev install from source as the only supported path
@@ -106,7 +106,7 @@ Same as the dev-mode prerequisites in `install.md`:
 - Paths shown are absolute (resolved from the dev-mode CWD)
 - Service mode probe is identical (HTTP API on `127.0.0.1:21420`)
 
-### `/rag-doctor`
+### `/doctor`
 - Wraps `rag doctor` identically; the doctor command is platform-agnostic
 - Log scan path resolves to `./data/logs/service.log`
 
@@ -115,7 +115,7 @@ Same as the dev-mode prerequisites in `install.md`:
 - Port collision: `lsof -i :21420` (or `ss -tlnp | grep 21420` if `lsof` missing)
 - **P-empty stale-CWD rescue** is more relevant on Linux dev mode than on Windows packaged — the bug class (CWD-relative config write going to the wrong directory) is still possible if the user runs `rag service start` from a directory that is not the original install dir
 
-### `/rag-projects`
+### `/projects`
 - HTTP API surface is identical
 - Cloud-sync detection on Linux includes Syncthing (`~/.config/syncthing/`) and Dropbox/OneDrive desktop sync clients if installed
 
@@ -131,7 +131,7 @@ Same as the dev-mode prerequisites in `install.md`:
   ```
 - Pre-v2.4.1 warning still applies — `git checkout v2.4.1 || git checkout main` if needed
 
-### `/rag-reset`
+### `/reset`
 - `--soft` is identical (HTTP API)
 - `--data` shows `rm -rf ./data` (CWD-relative — only run from the dev install directory!)
 - `--nuclear` shows `rm -rf ./data ./ragtools.toml` (also CWD-relative — same warning)

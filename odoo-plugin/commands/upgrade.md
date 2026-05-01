@@ -1,11 +1,27 @@
 ---
-description: Upgrade an Odoo module to a target version with full transformation pipeline
-argument-hint: <module-path> [target-version]
+description: Upgrade an Odoo module to a target version with full transformation pipeline. Bare invocation auto-detects the module from the current working directory.
+argument-hint: "[<module-path>] [target-version]"
 ---
 
-Perform a complete Odoo module upgrade for the path and target version specified in: $ARGUMENTS
+## Bare-invocation behavior (no args)
 
-Follow this workflow:
+When invoked with no arguments, auto-detect the target module:
+
+1. Walk up from `$CWD` until a `__manifest__.py` is found → use that directory as the module path.
+2. If `$CWD` contains multiple direct subdirectories each with a `__manifest__.py`, list them and ask which to upgrade.
+3. If no manifest is found, ask for the explicit form `/upgrade <module-path> [target-version]`.
+
+For `target-version`: if not given, default to the latest Odoo version the plugin knows about (currently 19) and confirm with the user before applying transforms.
+
+## Explicit form
+
+```
+/upgrade <module-path> [target-version]
+```
+
+## Workflow
+
+Perform a complete Odoo module upgrade for the resolved module path and target version.
 
 1. **Analyze**: Read the module's `__manifest__.py` to determine the current version. Scan all Python, XML, JavaScript, and SCSS files to identify compatibility issues.
 

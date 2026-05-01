@@ -64,13 +64,13 @@ Every command has a **default-mode line budget**. Going over the budget requires
 | Command | Default budget | Verbose? |
 |---|---|---|
 | `/rag-status` | ≤ 25 lines (banner + state table + per-project table + footer) | yes (`--verbose`) |
-| `/rag-doctor` | ≤ 25 lines (banner + doctor summary table + findings + next-step) | yes (`--verbose`, `--logs`) |
-| `/rag-setup` | conversational; each step ≤ 10 lines | no — the command is interactive |
+| `/doctor` | ≤ 25 lines (banner + doctor summary table + findings + next-step) | yes (`--verbose`, `--logs`) |
+| `/setup` | conversational; each step ≤ 10 lines | no — the command is interactive |
 | `/rag-repair` | one playbook step at a time; each step ≤ 12 lines | no — escalation is by walking, not by verbosity |
-| `/rag-projects list` | ≤ 25 lines (banner + table capped at 10 rows + summary) | yes (`--verbose`) |
-| `/rag-projects` (writes) | ≤ 15 lines per write op | no — writes are bounded by their nature |
+| `/projects list` | ≤ 25 lines (banner + table capped at 10 rows + summary) | yes (`--verbose`) |
+| `/projects` (writes) | ≤ 15 lines per write op | no — writes are bounded by their nature |
 | `/rag-upgrade` | ≤ 20 lines (banner + version diff + changelog highlights) | yes (`--verbose`) |
-| `/rag-reset` | ≤ 15 lines (banner + escalation gate + confirmation) | no — destructive ops are tightly bounded |
+| `/reset` | ≤ 15 lines (banner + escalation gate + confirmation) | no — destructive ops are tightly bounded |
 
 **Skill (`ragtools-ops`):** loads exactly **one** reference file by default (per INDEX routing rules). Loading more requires the user's question to span multiple topics.
 
@@ -112,7 +112,7 @@ The footer is **never** more than one line. Never multi-paragraph next-steps. Ne
 When something fails (HTTP 500, command not found, classification miss), the output is still compact:
 - Banner
 - One line stating what failed
-- One line pointing at the next step (`/rag-doctor`, a playbook anchor, a reference)
+- One line pointing at the next step (`/doctor`, a playbook anchor, a reference)
 - No stack traces in default mode — those go in `--verbose`
 
 ### 8. No emoji unless the user asks

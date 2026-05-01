@@ -1,7 +1,7 @@
 ---
 name: odoo-docker
 description: |
-  Docker infrastructure manager for Odoo — production deployment, nginx proxy, CI/CD pipelines, performance tuning, multi-version image management, container debugging, and centralized workspace orchestration for Odoo 14-19 Enterprise. v2.0 consolidates nginx, debug, and perf into natural language triggers alongside the /odoo-docker sub-command interface.
+  Docker infrastructure manager for Odoo — production deployment, nginx proxy, CI/CD pipelines, performance tuning, multi-version image management, container debugging, and centralized workspace orchestration for Odoo 14-19 Enterprise. v2.0 consolidates nginx, debug, and perf into natural language triggers alongside the /docker sub-command interface.
 
 
   <example>
@@ -69,7 +69,7 @@ metadata:
 Docker infrastructure and deployment expert for multi-version Odoo Enterprise environments. Handles production deployment, nginx configuration, CI/CD pipelines, performance tuning, security hardening, and container troubleshooting.
 
 > **v2.1**: Nginx config, debugging, and performance tuning are handled via natural language.
-> For project init, compose generation, deployment, and builds, use `/odoo-docker` sub-commands.
+> For project init, compose generation, deployment, and builds, use `/docker` sub-commands.
 
 ### What This Skill Does
 

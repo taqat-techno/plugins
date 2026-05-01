@@ -78,7 +78,7 @@ import urllib.request
 
 # --- configuration ---------------------------------------------------------
 
-HOOK_VERSION = "0.3.0"
+HOOK_VERSION = "0.4.0"
 
 HEALTH_URL = os.environ.get(
     "RAG_PLUGIN_HOOK_HEALTH_URL",
@@ -90,7 +90,11 @@ SEARCH_URL = os.environ.get(
 )
 HEALTH_TIMEOUT = float(os.environ.get("RAG_PLUGIN_HOOK_HEALTH_TIMEOUT", "0.5"))
 SEARCH_TIMEOUT = float(os.environ.get("RAG_PLUGIN_HOOK_SEARCH_TIMEOUT", "1.0"))
-PROBE_THRESHOLD = float(os.environ.get("RAG_PLUGIN_HOOK_PROBE_THRESHOLD", "0.5"))
+# v0.4.0 (D-027): default raised from 0.5 → 0.65 to cut MODERATE-tier noise.
+# Override via env when needed; lower it for projects where retrieval recall
+# matters more than reminder noise. Anchored to the ragtools confidence band
+# documented in references/runtime-flow.md.
+PROBE_THRESHOLD = float(os.environ.get("RAG_PLUGIN_HOOK_PROBE_THRESHOLD", "0.65"))
 
 # Observability log lives under ~/.claude/rag-plugin/
 # (same directory as the telemetry log from D-012).
@@ -157,6 +161,56 @@ def shape_match(prompt: str) -> bool:
     if _POSSESSIVE_DOMAIN.search(prompt):
         return True
     return False
+
+
+# --- operational-intent classifier (v0.4.0 / D-027) -----------------------
+#
+# Pattern source: LESSONS.md "Inspect the machine before asking clarifying
+# questions" (2026-04-28). Matches imperative operational verbs near the
+# start of the prompt — the user is asking about local machine state, not
+# about a knowledge concept. KB search is the wrong tool; filesystem
+# inspection is the right tool. Suppress the reminder.
+#
+# Anchored to first 120 chars + word boundaries so a knowledge question
+# that happens to use the word "install" later in the sentence
+# ("how do we decide which dependencies to install?") does NOT match.
+
+_OPERATIONAL_INTENT = re.compile(
+    r"^\s*(?:please\s+|can you\s+|could you\s+|would you\s+|"
+    r"i need to\s+|i want to\s+|help me\s+|"
+    # "how do I X" / "how can I X" / "how to X" lead-ins still classify as
+    # operational when followed by an action verb.
+    r"how\s+(?:do\s+i|can\s+i|to|do\s+you|would\s+i)\s+|"
+    r"how\s+(?:do\s+i|can\s+i)\s+(?:get\s+|go\s+about\s+))?"
+    r"(start|stop|restart|run|launch|kill|spawn|"
+    r"fix|repair|debug|troubleshoot|"
+    r"set\s*up|setup|install|uninstall|reinstall|upgrade|update|configure|"
+    r"where\s+is|where\s+are|what'?s\s+(?:running|listening|installed|configured|in)|"
+    r"is\s+\w+\s+(?:installed|running|on\s+path|reachable|up)|"
+    # "why is X failing" — allow X to be 1–4 words (my service, the bot, etc.)
+    r"why\s+is\s+(?:\w+\s+){1,4}?(?:failing|crashing|broken|down|not\s+running|not\s+working|not\s+starting|not\s+booting|failing\s+to\s+\w+)|"
+    r"why\s+(?:does|won'?t)\s+(?:\w+\s+){1,4}?(?:fail|crash|break|stop|not\s+\w+)|"
+    r"check\s+(?:if|whether|the)\s+|inspect\s+(?:the|my)\s+|"
+    r"auto[- ]?start|wire\s+up|enable|disable|"
+    r"open\s+(?:the\s+)?(?:wsl|terminal|shell|ide|browser)|"
+    r"clear\s+(?:the\s+)?(?:cache|log|state)|delete\s+(?:the\s+)?(?:cache|log|file|state)|"
+    r"list\s+(?:the\s+)?(?:files|processes|tasks|services)|"
+    r"show\s+(?:me\s+)?(?:the\s+)?(?:status|process|log|tail)"
+    r")\b",
+    re.IGNORECASE,
+)
+
+
+def is_operational_intent(prompt: str) -> bool:
+    """Return True iff the prompt looks like an operational/inspection
+    question — one whose answer is on the local filesystem / process table /
+    tool --help, not in the indexed knowledge base. Bound to first 120 chars
+    so trailing operational verbs in long knowledge questions don't trip it.
+    """
+    if not prompt or not prompt.strip():
+        return False
+    head = prompt[:120]
+    return bool(_OPERATIONAL_INTENT.search(head))
 
 
 # --- domain probe (Phase B) ------------------------------------------------
@@ -355,6 +409,18 @@ def main() -> None:
     # Phase A: shape gate
     if not shape_match(prompt):
         silent_pass("shape-mismatch", shape=False, prompt_length=prompt_length)
+        return
+
+    # Phase A.5 (v0.4.0 / D-027): operational-intent classifier.
+    # Suppress the reminder when the prompt is asking about local machine
+    # state — the answer is on disk, not in the KB. Source: LESSONS.md
+    # "Inspect the machine before asking clarifying questions" (2026-04-28).
+    if is_operational_intent(prompt):
+        silent_pass(
+            "operational-intent",
+            shape=True,
+            prompt_length=prompt_length,
+        )
         return
 
     # Phase B: health probe (fast fail if service is down)

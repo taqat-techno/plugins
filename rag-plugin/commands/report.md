@@ -1,15 +1,15 @@
 ---
-description: Generate two evidence-based diagnostic reports for the maintainers — (1) RAC/RAG application setup report (target repo github.com/taqat-techno/rag) and (2) rag-plugin behavior report (target repo github.com/taqat-techno/plugins). Inspects local install, service runtime, MCP wiring, hooks, Claude configuration, and recent session JSONL files for RAC/RAG-related signals. Privacy-safe — secrets are redacted, home paths normalized, no auto-upload, no config mutation.
+description: Generate two evidence-based diagnostic reports for the maintainers — (1) RAC/RAG application setup report (target repo github.com/taqat-techno/rag) and (2) rag-plugin behavior report (target repo github.com/taqat-techno/plugins). Inspects local install, service runtime, performance signals, MCP wiring, hooks, Claude configuration, and recent session JSONL files for RAC/RAG-related signals. Surfaces findings whether the system is healthy, degraded, or broken — not just bugs but also performance issues, config drift, missed retrievals, manual workarounds, and improvement opportunities. Privacy-safe — secrets are redacted, home paths normalized, no auto-upload, no config mutation.
 argument-hint: "[--no-sessions] [--max-sessions N] [--out <dir>] [--quiet]"
 allowed-tools: Bash(python:*), Bash(python3:*), Bash(where rag:*), Bash(which rag:*), Bash(rag version:*), Bash(curl:*), Read
 disable-model-invocation: false
 author: TaqaTechno
-version: 0.8.0
+version: 0.10.0
 ---
 
-# /rag-bug-report
+# /report
 
-Generates **two bug-report-ready diagnostic reports** plus a summary and two GitHub-ready issue bodies, in a single timestamped directory. The purpose is **evidence collection for the maintainers** — not "everything is fine" rubber-stamping. The command surfaces problems, misbehavior, missed retrievals, manual workarounds, and improvement opportunities, all redacted and ready to copy into an issue.
+Generates **two diagnostic reports** plus a summary and two GitHub-ready issue bodies, in a single timestamped directory. Captures install/runtime/performance/configuration/session-behavior evidence for the maintainers. Reports surface findings whether the system is healthy, degraded, or broken — not just bugs but also performance issues, config drift, missed retrievals, manual workarounds, and improvement opportunities.
 
 ## What it produces
 
@@ -63,7 +63,7 @@ Home directory paths are normalized to `~/...`. Hostname is partially masked. Sn
 
 ## Step 0 — State detection
 
-Follow `${CLAUDE_PLUGIN_ROOT}/rules/state-detection.md`. Print the 6-line mode banner verbatim. The script handles its own probing internally — Step 0 is to give the user the same orientation as `/rag-doctor`. If `state.install_mode == not-installed`, the script will still produce both reports; the application report will simply note "ragtools is not installed on this device" as the top finding (this is the expected case for users who run the report before installing).
+Follow `${CLAUDE_PLUGIN_ROOT}/rules/state-detection.md`. Print the 6-line mode banner verbatim. The script handles its own probing internally — Step 0 is to give the user the same orientation as `/doctor`. If `state.install_mode == not-installed`, the script will still produce both reports; the application report will simply note "ragtools is not installed on this device" as the top finding (this is the expected case for users who run the report before installing).
 
 ## Step 1 — Run the script
 
@@ -128,8 +128,8 @@ After implementation:
 
 ## See also
 
-- `/rag-doctor` — interactive state probe + repair (live, not a report)
-- `/rag-config status` — current plugin config (no report file)
+- `/doctor` — interactive state probe + repair (live, not a report)
+- `/config status` — current plugin config (no report file)
 - `scripts/rag_report.py` — the analyzer
 - `scripts/analyze_hook_decisions.py` — hook-decisions histogram
 - `rules/state-detection.md` — shared state probe contract

@@ -7,7 +7,7 @@ author: TaqaTechno
 version: 0.5.0
 ---
 
-# /rag-reset
+# /reset
 
 Three levels of destructive reset for ragtools state, with strict confirmation gating. Every level requires the user to type `DELETE` verbatim. Pre-v2.4.1 versions are **blocked** because the v2.4.1 config-write-path bug (F-001) means a reset on those versions can lose more data than the user intended.
 
@@ -36,8 +36,8 @@ Follow the canonical recipe in `${CLAUDE_PLUGIN_ROOT}/rules/state-detection.md`.
 | Detected state | Action |
 |---|---|
 | `install_mode == not-installed` | Refuse: `ragtools is not installed. nothing to reset.` Stop. |
-| `service_mode == BROKEN` | Refuse: `service is broken. run /rag-doctor --full --fix before resetting.` Stop. |
-| `state.version` unparseable | Refuse: `could not parse rag version output. reinstall first via /rag-setup.` Stop. |
+| `service_mode == BROKEN` | Refuse: `service is broken. run /doctor --full --fix before resetting.` Stop. |
+| `state.version` unparseable | Refuse: `could not parse rag version output. reinstall first via /setup.` Stop. |
 | Otherwise | Continue to Step 1. |
 
 ### Step 1 — Parse the flag (or enter interactive picker)
@@ -58,7 +58,7 @@ Follow the canonical recipe in `${CLAUDE_PLUGIN_ROOT}/rules/state-detection.md`.
 When called without a flag, print the three escalation levels with their trade-offs and ask the user to choose. **Does not proceed without an explicit pick.**
 
 ```
-/rag-reset — choose an escalation level. Each level requires typed confirmation.
+/reset — choose an escalation level. Each level requires typed confirmation.
 
   1. --soft     Rebuild (drops Qdrant index + state DB, re-indexes from configured projects)
                 Preserves:  config.toml, project list, all settings
@@ -106,7 +106,7 @@ resetting on this version can lose MORE data than you intend, because the
 post-reset startup-sync may not see your config and may treat your projects
 as orphaned.
 
-required action: upgrade first. run /rag-setup (which walks the upgrade flow for old versions).
+required action: upgrade first. run /setup (which walks the upgrade flow for old versions).
 
 if you are CERTAIN you understand the risk and want to proceed anyway, you
 will need to bypass this check by running the destructive commands manually
@@ -119,9 +119,9 @@ If `rag version` is unparseable, print the parse error and refuse — do not ass
 
 ### Step 3 — Service-state check
 
-`/rag-reset --soft` requires the service to be **up** (it goes through `POST /api/rebuild`).
+`/reset --soft` requires the service to be **up** (it goes through `POST /api/rebuild`).
 
-`/rag-reset --data` and `--nuclear` require the service to be **down** (you cannot delete the data directory while the service holds the Qdrant lock).
+`/reset --data` and `--nuclear` require the service to be **down** (you cannot delete the data directory while the service holds the Qdrant lock).
 
 | Flag | Required service mode | If wrong | Action |
 |---|---|---|---|
@@ -153,7 +153,7 @@ Which? (1/2):
 1. `mcp__plugin_rag_ragtools__list_projects()` → show the list; ask the user to name the project.
 2. Print the gate:
    ```
-   /rag-reset --soft — project <X>
+   /reset --soft — project <X>
    
    this drops the Qdrant collection + state DB entries for project <X>, then
    re-indexes from its configured path. config.toml and other projects are preserved.
@@ -178,7 +178,7 @@ Which? (1/2):
 
 1. Print the gate:
    ```
-   /rag-reset --soft — ALL projects
+   /reset --soft — ALL projects
    
    this rebuilds every project's collection from scratch. minutes-to-hours depending
    on total KB size. service stays responsive (split-lock indexing, v2.4+).
@@ -194,17 +194,17 @@ Which? (1/2):
    ```bash
    curl --max-time 5 -s -X POST http://127.0.0.1:21420/api/rebuild
    ```
-4. Wait for the user to run it; poll `/api/status` for `chunks` to start increasing. Cap at 30s, then suggest `/rag-doctor` for ongoing monitoring.
+4. Wait for the user to run it; poll `/api/status` for `chunks` to start increasing. Cap at 30s, then suggest `/doctor` for ongoing monitoring.
 
 **Fallback (MCP unavailable for Scope 1):** falls through to HTTP `POST /api/projects/<id>/rebuild` with the same typed-DELETE gate. Warn the user that the auto-backup is not taken on this path.
 
-**Print:** `rebuild started. monitor via /rag-doctor. nothing else to do here.`
+**Print:** `rebuild started. monitor via /doctor. nothing else to do here.`
 
 #### --data branch
 
 1. **Print the gate:**
    ```
-   /rag-reset --data
+   /reset --data
    
    this DELETES the entire data directory:
      <resolved data path from mode banner>
@@ -243,13 +243,13 @@ Which? (1/2):
    ```
    Wait 5–10 seconds, then `curl /health` to confirm the service is up with a fresh data dir.
 
-7. **Print:** `data reset complete. service: UP. projects: <count from /api/projects>. indexing will resume from the watcher. monitor via /rag-doctor.`
+7. **Print:** `data reset complete. service: UP. projects: <count from /api/projects>. indexing will resume from the watcher. monitor via /doctor.`
 
 #### --nuclear branch
 
 1. **Print the gate:**
    ```
-   /rag-reset --nuclear
+   /reset --nuclear
    
    ⚠ MAXIMALLY DESTRUCTIVE.
    
@@ -279,7 +279,7 @@ Which? (1/2):
      about to delete: <resolved RAGTools state dir>
      this is irreversible.
      after the reset, you will need to re-add your projects manually
-     via /rag-projects add or /rag-setup.
+     via /projects add or /setup.
    
    type DELETE again to proceed:
    ```
@@ -310,23 +310,23 @@ Which? (1/2):
 
 9. **Verify:** `rag version`, `curl /health`, `curl /api/projects` (should return `[]`).
 
-10. **Print:** `nuclear reset complete. ragtools is in fresh-install state. run /rag-setup to add your first project.`
+10. **Print:** `nuclear reset complete. ragtools is in fresh-install state. run /setup to add your first project.`
 
 ### Step 5 — Final mode banner
 
-After any branch, re-run mode detection and print the updated banner. If anything is wrong, route to `/rag-doctor`.
+After any branch, re-run mode detection and print the updated banner. If anything is wrong, route to `/doctor`.
 
 ## Failure handling
 
 | Situation | Behavior |
 |---|---|
-| Pre-v2.4.1 detected | **BLOCK.** Print warning, recommend `/rag-setup` (which walks the upgrade flow), stop. |
+| Pre-v2.4.1 detected | **BLOCK.** Print warning, recommend `/setup` (which walks the upgrade flow), stop. |
 | Multiple flags or no flag | Refuse with usage line |
 | Service mode wrong for chosen flag | Refuse with "start/stop the service first" message |
 | User types anything other than `DELETE` at a gate | Refuse and stop. **Do not retry automatically.** |
 | `rag version` unparseable | Refuse — do not assume a version |
-| User runs the displayed delete command but it fails | Show the error, route to `/rag-doctor` |
-| Post-reset `curl /health` fails | Route to `/rag-doctor` |
+| User runs the displayed delete command but it fails | Show the error, route to `/doctor` |
+| Post-reset `curl /health` fails | Route to `/doctor` |
 | User has Syncthing/cloud-sync on the data dir | Print warning before the gate (sync may restore deleted files asynchronously, leading to confusion) |
 
 ## Boundary reminders
@@ -341,9 +341,9 @@ After any branch, re-run mode detection and print the updated banner. If anythin
 
 ## See also
 
-- `/rag-setup` — recommended path before any reset on a pre-v2.4.1 install (walks the upgrade flow). Also the entry point for re-adding the first project after `--nuclear`.
-- `/rag-doctor` — verify post-reset state and diagnose any post-reset issues. Absorbs the former `/rag-status` and `/rag-repair`.
-- `/rag-projects` — re-add additional projects after `--nuclear`
+- `/setup` — recommended path before any reset on a pre-v2.4.1 install (walks the upgrade flow). Also the entry point for re-adding the first project after `--nuclear`.
+- `/doctor` — verify post-reset state and diagnose any post-reset issues. Absorbs the former `/rag-status` and `/rag-repair`.
+- `/projects` — re-add additional projects after `--nuclear`
 - `rules/state-detection.md` — canonical state-detection recipe used by the preamble
 - `references/recovery-and-reset.md` — full reset/recovery source-of-truth
 - `references/known-failures.md#f-001` — the v2.4.1 data-loss bug that drives the pre-v2.4.1 block

@@ -6,15 +6,15 @@ description: 'Generate PyCharm and VSCode configurations for Odoo development'
 argument-hint: '[vscode|pycharm|all] [--config CONFIG]'
 ---
 
-# /odoo-ide — IDE Configuration Generator
+# /ide — IDE Configuration Generator
 
 ```
-/odoo-ide [vscode|pycharm|all] [--config CONFIG] [--project NAME] [--venv PATH]
+/ide [vscode|pycharm|all] [--config CONFIG] [--project NAME] [--venv PATH]
 ```
 
 Auto-detects Odoo version, config path, venv path, and addons paths from the environment.
 
-## VSCode (`/odoo-ide vscode`)
+## VSCode (`/ide vscode`)
 
 Generates 4 files under `.vscode/`:
 
@@ -23,7 +23,7 @@ Generates 4 files under `.vscode/`:
 - **settings.json**: Python interpreter, Pylance extra paths, Ruff formatter, file associations
 - **extensions.json**: Recommended extensions (Python, Pylance, Ruff, XML, GitLens, Odoo snippets)
 
-## PyCharm (`/odoo-ide pycharm`)
+## PyCharm (`/ide pycharm`)
 
 Generates under `.run/` and `.idea/`:
 
@@ -31,7 +31,7 @@ Generates under `.run/` and `.idea/`:
 - **odoo-test.run.xml**: Test run configuration
 - **PROJECT.iml**: Source roots (odoo/, addons/, projects/)
 
-## All (`/odoo-ide all`)
+## All (`/ide all`)
 
 Generates everything above plus `.editorconfig` for universal formatting.
 

@@ -7,7 +7,7 @@ author: TaqaTechno
 version: 0.5.0
 ---
 
-# /rag-projects
+# /projects
 
 CRUD on ragtools projects via the HTTP API at `127.0.0.1:21420`. **Never edits `config.toml` directly** — every write goes through `POST /api/projects`, `DELETE /api/projects/{id}`, or `POST /api/projects/{id}/rebuild`. The HTTP API funnels writes through `get_config_write_path()`, which is the only path that survived the v2.4.1 audit (F-001).
 
@@ -29,8 +29,8 @@ Follow the canonical recipe in `${CLAUDE_PLUGIN_ROOT}/rules/state-detection.md`.
 
 | Detected state | Action |
 |---|---|
-| `install_mode == not-installed` | Refuse: `ragtools is not installed. run /rag-setup first.` Stop. |
-| `service_mode == BROKEN` | Refuse: `service is broken. run /rag-doctor --full --fix.` Stop. |
+| `install_mode == not-installed` | Refuse: `ragtools is not installed. run /setup first.` Stop. |
+| `service_mode == BROKEN` | Refuse: `service is broken. run /doctor --full --fix.` Stop. |
 | `service_mode == STARTING` | Ask user to retry in 10s once the encoder finishes loading. Stop. |
 | `service_mode == DOWN`, subcommand is a read op (`list`) | Print `cannot list projects with service down. start with: rag service start`. Stop. |
 | `service_mode == DOWN`, subcommand is a write op | Refuse writes (per D-005) — see Step 1. |
@@ -61,7 +61,7 @@ If the subcommand is a **write op AND `service_mode != UP`**, refuse:
 write operations require a running service.
 service mode: <DOWN|BROKEN>
 start with: rag service start
-then re-run: /rag-projects <subcommand>
+then re-run: /projects <subcommand>
 ```
 
 All MCP-using branches honor `${CLAUDE_PLUGIN_ROOT}/rules/mcp-envelope.md` — envelope → `error_code` → `mode` → fallback chain.
@@ -112,7 +112,7 @@ curl --max-time 2 -s http://127.0.0.1:21420/api/projects
 
 Parse the JSON response. Render as a markdown table with these columns: `ID`, `Name`, `Enabled`, `Files`, `Chunks`. Cap at 10 rows in compact mode; show `+N more — use --verbose` if exceeded.
 
-If the response is `[]` or the MCP returns `"No projects found in the knowledge base."`, print: `no projects configured. add one with: /rag-projects add <path>`.
+If the response is `[]` or the MCP returns `"No projects found in the knowledge base."`, print: `no projects configured. add one with: /projects add <path>`.
 
 If the service is DOWN, print: `cannot list projects with service down. start with: rag service start`. **Do not** parse `config.toml` ourselves.
 
@@ -137,7 +137,7 @@ Rich per-project health card. Requires `project_status` (MCP project-ops tool, d
      }
 3. Envelope handling:
    - error_code = SERVICE_DOWN | DEGRADED_MODE → "project_status requires proxy mode. start: rag service start"
-   - error_code = STARTUP_FAILED → show verbatim, suggest /rag-doctor --full
+   - error_code = STARTUP_FAILED → show verbatim, suggest /doctor --full
 4. Render a compact card:
      Project <id> — ENABLED — healthy
        Path:       <path>  (exists: true)
@@ -220,11 +220,11 @@ Complete file list for a project. Useful as the first step of the "why isn't X i
 
 5. **Verify by re-listing:** `GET /api/projects` and confirm the new entry is present.
 
-6. **Note about indexing:** `indexing started in background. use /rag-doctor to monitor.` — do **not** poll for completion in this command (that's `/rag-status`'s job).
+6. **Note about indexing:** `indexing started in background. use /doctor to monitor.` — do **not** poll for completion in this command (that's `/rag-status`'s job).
 
 #### `remove <id>`
 
-1. **Look up the project:** `GET /api/projects` and find the matching `id`. If not found: `no such project: <id>. see /rag-projects list`.
+1. **Look up the project:** `GET /api/projects` and find the matching `id`. If not found: `no such project: <id>. see /projects list`.
 
 2. **Confirmation gate:** show the project details (id, name, path, files, chunks) and ask:
    ```
@@ -235,7 +235,7 @@ Complete file list for a project. Useful as the first step of the "why isn't X i
    this removes the project from the index but does NOT delete files on disk.
    type the project id verbatim to confirm: 
    ```
-   The user must type the actual `id` value (not just "yes"). This is more deliberate than a blanket "yes" and matches the `/rag-doctor` confirmation discipline.
+   The user must type the actual `id` value (not just "yes"). This is more deliberate than a blanket "yes" and matches the `/doctor` confirmation discipline.
 
 3. **DELETE via API:**
    ```bash
@@ -301,11 +301,11 @@ Complete file list for a project. Useful as the first step of the "why isn't X i
         "reindex project <id>" (the skill's reindex workflow calls run_index first, only escalates to destructive on drift detection)
    ```
 
-4. **Print:** `rebuild started. monitor progress via /rag-doctor or the admin panel.` Do not poll for completion.
+4. **Print:** `rebuild started. monitor progress via /doctor or the admin panel.` Do not poll for completion.
 
 ### Step 4 — Final mode banner
 
-After any write op, re-probe `/health` and print the updated mode banner. If the service crashed mid-operation (rare but possible), route to `/rag-doctor`.
+After any write op, re-probe `/health` and print the updated mode banner. If the service crashed mid-operation (rare but possible), route to `/doctor`.
 
 ## Output examples
 
@@ -335,7 +335,7 @@ ragtools detected: packaged-windows
 service mode: UP (proxy)
 [paths...]
 
-no projects configured. add one with: /rag-projects add <path>
+no projects configured. add one with: /projects add <path>
 ```
 
 **Write op with service down:**
@@ -348,7 +348,7 @@ service mode: DOWN
 write operations require a running service.
 service mode: DOWN
 start with: rag service start
-then re-run: /rag-projects add <path>
+then re-run: /projects add <path>
 ```
 
 ## Failure handling
@@ -357,15 +357,15 @@ then re-run: /rag-projects add <path>
 |---|---|
 | Unknown subcommand | Print usage line and stop |
 | Write op + service down | Refuse with "start the service first" message |
-| Write op + service BROKEN | Refuse with "service is broken — run /rag-doctor" |
+| Write op + service BROKEN | Refuse with "service is broken — run /doctor" |
 | `add` path doesn't exist | Refuse and ask for valid path |
 | `add` path already configured | Refuse with "project already exists: <id>" |
-| `remove` id doesn't exist | "no such project: <id>" — show available via `/rag-projects list` |
+| `remove` id doesn't exist | "no such project: <id>" — show available via `/projects list` |
 | User confirmation token wrong (e.g. typed `yes` instead of project id) | Refuse, do not retry automatically |
 | Cloud-sync warning declined | Stop without writing |
 | HTTP API returns 4xx | Print the response body, do not retry |
-| HTTP API returns 5xx | Route to `/rag-doctor --logs` |
-| HTTP API times out | Route to `/rag-doctor` |
+| HTTP API returns 5xx | Route to `/doctor --logs` |
+| HTTP API times out | Route to `/doctor` |
 
 ## Boundary reminders
 
@@ -373,14 +373,14 @@ then re-run: /rag-projects add <path>
 - **Do NOT call any MCP tool.** Project management is a plugin concern; search lives in the running MCP server. (D-001)
 - **Do NOT delete files on disk** when a project is removed. Removal is a config-only operation that drops the project from the index. The user's source files are untouched.
 - **Do NOT retry failed writes automatically.** A failed write is information; silent retry hides it.
-- **Do NOT poll for indexing completion** here. That's `/rag-doctor`'s job.
+- **Do NOT poll for indexing completion** here. That's `/doctor`'s job.
 - **Do NOT bypass the cloud-sync warning** silently. Always show it before any write if the config path is inside a known synced dir.
 - **Compact-by-default** per D-008.
 
 ## See also
 
-- `/rag-doctor` — monitor indexing progress, diagnose write failures, classify known failures (e.g. F-006 "projects empty after restart"), walk repair playbooks. Absorbs the former `/rag-status` and `/rag-repair`.
-- `/rag-setup` — first-time setup including the first project add. Also handles upgrades.
+- `/doctor` — monitor indexing progress, diagnose write failures, classify known failures (e.g. F-006 "projects empty after restart"), walk repair playbooks. Absorbs the former `/rag-status` and `/rag-repair`.
+- `/setup` — first-time setup including the first project add. Also handles upgrades.
 - `rules/state-detection.md` — canonical state-detection recipe used by the preamble
 - `references/runtime-flow.md` — canonical HTTP API surface (`/api/projects`, etc.)
 - `references/configuration.md` — `config.toml` schema (read-only — never write directly)

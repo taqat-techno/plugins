@@ -7,8 +7,8 @@
 ```
 ┌────────────────────────────────────────────────────────────────┐
 │  COMMANDS (6 user + 1 maintainer) — v0.4.0                     │
-│  /rag-doctor, /rag-setup, /rag-projects, /rag-reset,           │
-│  /rag-config, /rag-sync-docs (maintainer-only)                 │
+│  /doctor, /setup, /projects, /reset,           │
+│  /config, /sync-docs (maintainer-only)                 │
 │  Smart state-aware entry points. Each one detects state via    │
 │  rules/state-detection.md, prints the mode banner, and         │
 │  branches to the right sub-flow. No command assumes an         │
@@ -36,7 +36,7 @@
 │  RULES (2) — v0.2.0+ / v0.4.0+                                 │
 │  rules/claude-md-retrieval-rule.md                             │
 │    Shipped plugin asset. Injected into ~/.claude/CLAUDE.md     │
-│    by /rag-config claude-md install (D-016).                   │
+│    by /config claude-md install (D-016).                   │
 │  rules/state-detection.md                                      │
 │    Shared contract for the state-detection preamble every      │
 │    command runs at Step 0. Single source of truth for install  │
@@ -55,7 +55,7 @@
 │  MCP server   search_knowledge_base, list_projects,            │
 │               index_status — auto-wired via plugin-level       │
 │               .mcp.json (D-015), cleaned up by                 │
-│               /rag-config mcp-dedupe (D-015 amendment)         │
+│               /config mcp-dedupe (D-015 amendment)         │
 │  Files        config.toml, service.log, qdrant/, state DB      │
 └────────────────────────────────────────────────────────────────┘
                        │
@@ -63,7 +63,7 @@
 │  USER CONFIG (external — owned by user, edited with care)     │
 │                                                                │
 │  ~/.claude/CLAUDE.md     ← rules/claude-md-retrieval-rule.md   │
-│                            injected by /rag-config claude-md   │
+│                            injected by /config claude-md   │
 │  ~/.claude.json          ← mcp-dedupe removes ragtools dups    │
 │  ~/.claude/.mcp.json     ← mcp-dedupe removes ragtools dups    │
 │  <plugin-root>/.mcp.json ← canonical ragtools registration     │
@@ -143,14 +143,14 @@ All 10 phases (0–9) of the rag-plugin roadmap are shipped, plus three post-roa
 
 - **Plugin manifest:** `.claude-plugin/plugin.json` (`v0.3.0`)
 - **9 slash commands:**
-  - User-facing (7): `/rag-status`, `/rag-doctor`, `/rag-setup`, `/rag-repair`, `/rag-projects`, `/rag-upgrade`, `/rag-reset`
-  - User-facing config (1): `/rag-config` — four subcommand groups: telemetry (D-012), claude-md (D-016), mcp-dedupe (D-015), hook-observability (D-017)
-  - Maintainer-only (1): `/rag-sync-docs` (`disable-model-invocation: true`, never auto-invoked)
+  - User-facing (7): `/rag-status`, `/doctor`, `/setup`, `/rag-repair`, `/projects`, `/rag-upgrade`, `/reset`
+  - User-facing config (1): `/config` — four subcommand groups: telemetry (D-012), claude-md (D-016), mcp-dedupe (D-015), hook-observability (D-017)
+  - Maintainer-only (1): `/sync-docs` (`disable-model-invocation: true`, never auto-invoked)
 - **1 skill:** `ragtools-ops` (`skills/ragtools-ops/SKILL.md`)
 - **2 hooks** (both in `hooks/hooks.json`):
   - **PreToolUse Bash** → `hooks/lock_conflict_check.py` (Python 3 stdlib, 7-pattern matcher + 1-second `/health` probe, `permissionDecision: ask` only when both conditions hold). Lock-conflict guardrail.
   - **UserPromptSubmit** `matcher: "*"` → `hooks/prompt_retrieval_reminder.py` (Python 3 stdlib, Phase A shape gate + Phase B `/api/search` probe, injects `additionalContext` reminder when both phases pass). Retrieval-reminder (D-017, v0.3.0).
-- **1 rules file:** `rules/claude-md-retrieval-rule.md` — the Section-0 canonical block installed into `~/.claude/CLAUDE.md` by `/rag-config claude-md install`.
+- **1 rules file:** `rules/claude-md-retrieval-rule.md` — the Section-0 canonical block installed into `~/.claude/CLAUDE.md` by `/config claude-md install`.
 - **1 Haiku agent:** `rag-log-scanner` (`agents/rag-log-scanner.md`)
 - **1 maintainer script:** `scripts/analyze_hook_decisions.py` — reads the hook-decisions log and prints aggregate stats (v0.3.0, D-017).
 - **23 reference files** under `skills/ragtools-ops/references/` (16 from Phase 1 + setup-walkthrough + output-conventions + upgrade-paths + macos-specifics + linux-dev-mode + INDEX + _meta)
@@ -184,4 +184,4 @@ When adding a new command, skill, agent, hook, or reference file:
 7. **Add a CHANGELOG entry.**
 8. **If the change implies a new binding decision**, append a `D-NNN` entry to `docs/decisions.md` with the same `Date / Phase / Status / Reverse only if` format as D-001..D-013.
 
-The plugin is **finished** in the sense that the original 10-phase roadmap is complete. It is **not finished** in the sense that ragtools itself will continue to evolve and Phase 9's `/rag-sync-docs` exists precisely so future maintainers can keep the references library aligned with the upstream product.
+The plugin is **finished** in the sense that the original 10-phase roadmap is complete. It is **not finished** in the sense that ragtools itself will continue to evolve and Phase 9's `/sync-docs` exists precisely so future maintainers can keep the references library aligned with the upstream product.

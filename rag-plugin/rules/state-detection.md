@@ -133,7 +133,7 @@ When `install_mode == not-installed`, all five non-first lines are `N/A` or `not
 ## Rules for commands consuming this contract
 
 1. **Do not re-implement the recipe.** Reference this file. If the probe needs to change, update this file once; every command picks it up.
-2. **Do not assume any state.** Every command must handle `not-installed` — the minimum behavior is a one-line refusal with a pointer at `/rag-setup`.
+2. **Do not assume any state.** Every command must handle `not-installed` — the minimum behavior is a one-line refusal with a pointer at `/setup`.
 3. **Do not skip the probe to save time.** The probe is ~150–400ms total (one `where rag`, one `curl /health`, optionally one `curl /api/status`). That is cheap compared to the cost of a command acting on a false assumption.
 4. **Do not let the banner be optional.** Users rely on it for at-a-glance orientation. Compact-by-default (D-008) does not allow dropping the banner — it allows dropping prose around the banner.
 

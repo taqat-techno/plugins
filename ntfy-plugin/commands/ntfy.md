@@ -1,6 +1,6 @@
 ---
 description: 'Push notifications to your phone - send, setup, test, status, history, config'
-argument-hint: '<message> | setup | test | status | history [--export|--search=X] | config <key> <value>'
+argument-hint: '[<message> | setup | test | status | history [--export|--search=X] | config <key> <value>]'
 ---
 
 # /ntfy - Push Notifications
@@ -9,13 +9,13 @@ Parse `$ARGUMENTS`:
 
 | Input | Action |
 |-------|--------|
+| *(no args)* | **Default: run `status`.** Show current config + connectivity. If config is missing, point the user at `/ntfy setup` and stop. |
 | `setup` | Interactive setup wizard (topic, server, auth) |
 | `test` | Send test notification to verify delivery |
 | `status` | Show current config and connectivity |
 | `history` | View notification history (--export, --search=X) |
 | `config <key> <value>` | Update configuration setting |
 | *(anything else)* | Quick send - treat entire argument as message |
-| *(no args)* | Show help with usage examples |
 
 Use the ntfy skill for:
 - Setup workflow (topic creation, server config, authentication)

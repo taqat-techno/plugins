@@ -1,22 +1,22 @@
 ---
 title: CLAUDE.md Retrieval Rule
 topic: rules
-version: 0.2.0
+version: 0.3.0
 target: ~/.claude/CLAUDE.md (user-level) or project-level CLAUDE.md
 purpose: Teach Claude to reach for the ragtools MCP before saying "I don't have information" on domain questions.
-managed-by: /rag-config claude-md install
+managed-by: /config claude-md install
 ---
 
 # CLAUDE.md Retrieval Rule
 
-This file is the **single source of truth** for the instruction block that tells Claude to use the ragtools MCP server as a knowledge base. It is injected into the user's `~/.claude/CLAUDE.md` (or a project-level CLAUDE.md) by `/rag-config claude-md install` and kept in sync by `/rag-setup`, `/rag-doctor`, and `/rag-repair`.
+This file is the **single source of truth** for the instruction block that tells Claude to use the ragtools MCP server as a knowledge base. It is injected into the user's `~/.claude/CLAUDE.md` (or a project-level CLAUDE.md) by `/config claude-md install` and kept in sync by `/setup`, `/doctor`, and `/rag-repair`.
 
 ## How it is managed
 
 The block is delimited by two machine-readable markers:
 
 ```
-<!-- rag-plugin:retrieval-rule:begin v=0.2.0 -->
+<!-- rag-plugin:retrieval-rule:begin v=0.3.0 -->
 ... content ...
 <!-- rag-plugin:retrieval-rule:end -->
 ```
@@ -32,7 +32,7 @@ Commands use these markers to:
 ## The block (verbatim — this is what gets injected)
 
 ```
-<!-- rag-plugin:retrieval-rule:begin v=0.2.0 -->
+<!-- rag-plugin:retrieval-rule:begin v=0.3.0 -->
 ### 0. Knowledge Base Retrieval (ragtools MCP)
 
 **If a `ragtools` MCP server is loaded in this session** (check for tools named `mcp__plugin_rag-plugin_ragtools__*` or `mcp__*__ragtools__*`), treat it as a **local knowledge base of my own docs, notes, code, and past decisions**.
@@ -60,10 +60,28 @@ The MCP server is proxy-mode forwarded to a running local service at `127.0.0.1:
 
 **Do NOT call the MCP for:**
 - Questions about current context / recent messages (that's not retrieval).
-- Questions about the ragtools product's own operations (use `/rag-status`, `/rag-doctor`, etc.).
+- Questions about the ragtools product's own operations (use `/rag-status`, `/doctor`, etc.).
 - Trivia, general programming questions, math, etc.
 
-_Managed by rag-plugin. To update, run `/rag-config claude-md install`. To remove, run `/rag-config claude-md remove`._
+### 0a. Override: Operational / Inspection Questions Skip the MCP
+
+This rule **overrides Section 0** for a specific class of questions. The retrieval-reminder hook fires on phrase similarity and cannot tell knowledge questions from operational ones — you must.
+
+**Skip `search_knowledge_base` and the hook reminder when the question is about the user's own machine state**, including:
+
+- "How do I start / stop / restart X?" (X is something installed locally)
+- "Where is Y on my disk / in WSL / in this folder?"
+- "What's running / listening / scheduled?"
+- "Is Z installed? What version?"
+- "Why is this process / service failing?"
+- "Fix this on my system" / "set up auto-start" / "wire up systemd"
+- Anything answerable by `ls`, `which`, `--help`, `Get-Process`, `Get-ScheduledTask`, `wsl -- ...`, reading a config file, or inspecting a folder
+
+For these questions the **filesystem, processes, and tool `--help` output are the source of truth**, not the user's notes. Inspect first; only fall back to the MCP if the artifact isn't found and the question converts into "what did we decide" or "how do we usually do this".
+
+If the retrieval-reminder hook fires on one of these prompts, treat it as a false positive and proceed with inspection. (rag-plugin v0.4.0 hook also classifies operational intent server-side and silent-passes — but the override here is the canonical rule.)
+
+_Managed by rag-plugin. To update, run `/config claude-md install`. To remove, run `/config claude-md remove`._
 <!-- rag-plugin:retrieval-rule:end -->
 ```
 
@@ -75,13 +93,13 @@ Commands that install this block must follow these steps:
 2. **If the file does not exist**, create it with just this block + a trailing newline.
 3. **If the file exists and already contains `<!-- rag-plugin:retrieval-rule:begin`**:
    - Parse the version from the begin marker
-   - If version matches the bundled `0.2.0`, skip (no-op)
+   - If version matches the bundled `0.3.0`, skip (no-op)
    - If version differs, locate the full begin→end range and replace with the new block
 4. **If the file exists and does not contain the marker**:
    - Append a blank line + the block + a trailing newline
 5. **Never use string-replace on the rule content itself** — always splice by markers.
 6. **Show a diff summary** to the user before writing (lines added / removed / unchanged).
-7. **Ask for confirmation** unless the command was invoked with `--yes` or from inside `/rag-setup`'s first-install branch.
+7. **Ask for confirmation** unless the command was invoked with `--yes` or from inside `/setup`'s first-install branch.
 
 ## Why this exists
 

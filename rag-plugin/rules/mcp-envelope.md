@@ -28,14 +28,14 @@ Core tools (`search_knowledge_base`, `list_projects`, `index_status`) return **s
 |---|---|---|
 | `SERVICE_DOWN` | Tool needs proxy mode; service not responding | Offer `rag service start`; do not retry immediately |
 | `DEGRADED_MODE` | Same as SERVICE_DOWN but set via `require_proxy` guard | Same as SERVICE_DOWN |
-| `STARTUP_FAILED` | MCP initialization crashed; MCP is in failed mode | **Show error verbatim**; route to `/rag-doctor --full`; do not retry |
+| `STARTUP_FAILED` | MCP initialization crashed; MCP is in failed mode | **Show error verbatim**; route to `/doctor --full`; do not retry |
 | `INVALID_ARG` | Plugin or user passed bad arg (empty query, bad source name, unknown tool) | **Never retry with same args.** Surface `hint` field to user — it usually names the valid values |
 | `CONFIRM_TOKEN_MISMATCH` | `reindex_project` called with wrong confirm_token | **Never auto-retry.** This is a plugin-logic bug — the plugin always sets `confirm_token = project_id`. Surface to developer. |
 | `COOLDOWN` | Write tool called inside its cooldown window | Read `retry_after_seconds`, sleep, retry **exactly once**. On second COOLDOWN, surface to user; do not hammer |
 | `PROXY_CONNECT_FAILED` | HTTP connect error during proxy call | Service died mid-session; offer restart |
 | `PROXY_HTTP_4XX` | Service returned 4xx | Request was malformed — surface verbatim, do not retry |
 | `PROXY_HTTP_5XX` | Service returned 5xx | Server-side bug; chain into `tail_logs` for diagnostic context |
-| `BACKEND_ERROR` | Filesystem / SQLite / Qdrant exception | Show error; likely state-DB or disk issue; route to `/rag-doctor --full` |
+| `BACKEND_ERROR` | Filesystem / SQLite / Qdrant exception | Show error; likely state-DB or disk issue; route to `/doctor --full` |
 | `UNKNOWN` | Code missing from server-side classification | Log warning (these are fix candidates upstream); treat as opaque error |
 
 **Canonical pattern:**
@@ -47,7 +47,7 @@ if not r["ok"]:
             tell_user("Service down. Start with: rag service start")
         case "STARTUP_FAILED":
             show_verbatim(r["error"])
-            suggest("/rag-doctor --full")
+            suggest("/doctor --full")
         case "INVALID_ARG":
             show_verbatim(r["error"] + " — hint: " + r.get("hint",""))
         case "COOLDOWN":
@@ -154,7 +154,7 @@ On `COOLDOWN` response:
 
 Each `rag-mcp` process generates a 4-char hex session ID (e.g. `a3f2`) at startup. It's stamped on proxy HTTP requests via `X-MCP-Session` header and visible in `recent_activity` events as `source: "mcp:a3f2"`.
 
-When the plugin writes observability logs (via `/rag-config hook-observability`), it should include the session ID where available so users can diff against the admin UI's activity drawer. Useful when two Claude Code windows are open simultaneously — writes are distinguishable by the suffix.
+When the plugin writes observability logs (via `/config hook-observability`), it should include the session ID where available so users can diff against the admin UI's activity drawer. Useful when two Claude Code windows are open simultaneously — writes are distinguishable by the suffix.
 
 ## 8. Non-goals
 
@@ -165,7 +165,7 @@ The MCP **intentionally excludes** these tools for blast-radius reasons:
 - `backup_restore(id)` — full state replacement; too destructive
 - `set_active_project()` — stateful MCP = confusion vector
 
-The plugin currently exposes `POST /api/projects` (add) and `DELETE /api/projects/{id}` (remove) via its `/rag-projects` command over HTTP. This is legacy: if the plugin retains these paths, it must carry **equal or stronger** gates than the MCP would have (typed project ID confirmation, cloud-sync check, etc.). Better long-term: migrate these to CLI-only or admin-UI-only paths, matching the MCP's posture.
+The plugin currently exposes `POST /api/projects` (add) and `DELETE /api/projects/{id}` (remove) via its `/projects` command over HTTP. This is legacy: if the plugin retains these paths, it must carry **equal or stronger** gates than the MCP would have (typed project ID confirmation, cloud-sync check, etc.). Better long-term: migrate these to CLI-only or admin-UI-only paths, matching the MCP's posture.
 
 Do not add any of these five as plugin commands that go through MCP.
 
@@ -175,18 +175,18 @@ A quick reference for which tools each command path depends on. Gray = optional 
 
 | Command / workflow | Core | Project ops (default ON) | Debug (default OFF) |
 |---|---|---|---|
-| `/rag-doctor` default | `index_status` | — | *(optional: `service_status`)* |
-| `/rag-doctor --full` | `index_status` | — | `system_health`, `crash_history`, *(optional: `service_status`)* |
-| `/rag-doctor --logs` | — | — | `tail_logs` (filesystem fallback — works even in degraded) |
-| `/rag-projects` (list) | `list_projects` | — | — |
-| `/rag-projects status` | `list_projects` | `project_status` | — |
-| `/rag-projects summary` | `list_projects` | `project_summary` | — |
-| `/rag-projects files` | `list_projects` | `list_project_files` | — |
-| `/rag-projects rebuild` | `list_projects` | `run_index`, `reindex_project` | — |
+| `/doctor` default | `index_status` | — | *(optional: `service_status`)* |
+| `/doctor --full` | `index_status` | — | `system_health`, `crash_history`, *(optional: `service_status`)* |
+| `/doctor --logs` | — | — | `tail_logs` (filesystem fallback — works even in degraded) |
+| `/projects` (list) | `list_projects` | — | — |
+| `/projects status` | `list_projects` | `project_status` | — |
+| `/projects summary` | `list_projects` | `project_summary` | — |
+| `/projects files` | `list_projects` | `list_project_files` | — |
+| `/projects rebuild` | `list_projects` | `run_index`, `reindex_project` | — |
 | Skill: ignore-rules workflow | `list_projects` | `get_project_ignore_rules`, `preview_ignore_effect`, `add_project_ignore_rule`, `remove_project_ignore_rule`, `run_index` | — |
 | Skill: why-not-indexed workflow | `list_projects` | `list_project_files`, `get_project_ignore_rules`, `preview_ignore_effect`, `project_status`, `run_index`, `remove_project_ignore_rule` | — |
-| `/rag-reset --soft` | `list_projects` | `reindex_project` | — |
-| `/rag-setup` verify | `index_status`, `list_projects` | `project_status` | *(optional: `system_health`)* |
+| `/reset --soft` | `list_projects` | `reindex_project` | — |
+| `/setup` verify | `index_status`, `list_projects` | `project_status` | *(optional: `system_health`)* |
 
 ## 10. Summary rules (quick reference)
 

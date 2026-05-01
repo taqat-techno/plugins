@@ -1,6 +1,6 @@
 ---
 name: rag-log-scanner
-description: Scans a ragtools service.log file for known failure patterns from the F-001..F-012 catalog and returns structured findings JSON. Use when /rag-repair is invoked with --scan-logs, when /rag-doctor --logs needs structured findings, or when triaging a ragtools failure from log evidence alone. Narrow scope — does NOT diagnose; only matches patterns.
+description: Scans a ragtools service.log file for known failure patterns from the F-001..F-012 catalog and returns structured findings JSON. Use when /rag-repair is invoked with --scan-logs, when /doctor --logs needs structured findings, or when triaging a ragtools failure from log evidence alone. Narrow scope — does NOT diagnose; only matches patterns.
 tools: Read, Bash
 model: haiku
 color: yellow

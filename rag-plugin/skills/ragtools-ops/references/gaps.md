@@ -19,7 +19,7 @@ This file is the **honest "what we don't promise" list**. The rag-plugin plugin 
 
 **Status (updated for v2.5.1):** Linux **ARM64** is now shipped as `RAGTools-{version}-linux-arm64.tar.gz` with the same replaceable-app vs persistent-user-data model as macOS. Linux **x86_64** (Intel/AMD) is still unpackaged — code works in dev mode via `pip install -e ".[dev]"` but CI does not produce a packaged binary yet.
 
-**Plugin behavior (post-v2.5.1):** `/rag-setup` on Linux must detect arch:
+**Plugin behavior (post-v2.5.1):** `/setup` on Linux must detect arch:
 - `aarch64` / `arm64` → walk A.4 (packaged tarball path).
 - `x86_64` → walk A.5 (source install fallback); tell the user "no packaged x86_64 Linux artifact yet — source install is the path".
 
@@ -29,7 +29,7 @@ This file is the **honest "what we don't promise" list**. The rag-plugin plugin 
 
 **Status:** Not implemented. Confirmed unimplemented in upstream `src/ragtools/service/startup.py`: `_check_windows()` returns `False` on other platforms.
 
-**Plugin behavior:** `/rag-setup` on macOS must NOT promise auto-start. The status banner must show "auto-start: not supported on macOS".
+**Plugin behavior:** `/setup` on macOS must NOT promise auto-start. The status banner must show "auto-start: not supported on macOS".
 
 ---
 
@@ -45,7 +45,7 @@ This file is the **honest "what we don't promise" list**. The rag-plugin plugin 
 
 **Status:** The `macos-14` runner only builds arm64. An x86_64 build would require adding `macos-13` (or similar) to the matrix. **Not implemented.**
 
-**Plugin behavior:** Detect arch on macOS. If `x86_64`, refuse `/rag-setup` with "Intel Macs are not supported by ragtools — Apple Silicon required". Do not let users download an arm64 tarball that won't run.
+**Plugin behavior:** Detect arch on macOS. If `x86_64`, refuse `/setup` with "Intel Macs are not supported by ragtools — Apple Silicon required". Do not let users download an arm64 tarball that won't run.
 
 ---
 
@@ -56,7 +56,7 @@ This file is the **honest "what we don't promise" list**. The rag-plugin plugin 
 - Windows users may see SmartScreen warnings on first install.
 - macOS users must bypass Gatekeeper manually with `xattr -cr rag/`.
 
-**Plugin behavior:** `/rag-setup` must warn about SmartScreen / Gatekeeper friction up front. Do not pretend the install is friction-free.
+**Plugin behavior:** `/setup` must warn about SmartScreen / Gatekeeper friction up front. Do not pretend the install is friction-free.
 
 ---
 

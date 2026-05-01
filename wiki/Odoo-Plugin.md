@@ -12,14 +12,14 @@ The plugin exists because Odoo-specific Claude workflows share enough infrastruc
 
 | Capability area | Sub-skill | Representative commands |
 |---|---|---|
-| **Version upgrade** (14 → 19 migrations) | `skills/upgrade/` | `/odoo-upgrade <path> [version]`, `/odoo-precheck <path> [version]`, `/odoo-quickfix <path>` |
-| **Frontend / theme development** | `skills/frontend/` | `/odoo-frontend`, `/create-theme <name> <path>` |
-| **Email templates & QWeb reports** | `skills/report/` | `/odoo-report [sub]` |
-| **Security auditing** | `skills/security/` | `/odoo-security <module>` |
-| **Internationalization** | `skills/i18n/` | `/odoo-i18n [sub]` |
-| **Testing** | `skills/test/` | `/odoo-test [sub] <model>` |
-| **Server lifecycle management** | `skills/service/` | `/odoo-service`, `/odoo-start [config]`, `/odoo-stop`, `/odoo-init`, `/odoo-db [op]`, `/odoo-ide [target]`, `/odoo-scaffold <name> <project>` |
-| **Docker infrastructure** | `skills/docker/` | `/odoo-docker [sub]` |
+| **Version upgrade** (14 → 19 migrations) | `skills/upgrade/` | `/upgrade <path> [version]`, `/precheck <path> [version]`, `/quickfix <path>` |
+| **Frontend / theme development** | `skills/frontend/` | `/frontend`, `/create-theme <name> <path>` |
+| **Email templates & QWeb reports** | `skills/report/` | `/report [sub]` |
+| **Security auditing** | `skills/security/` | `/security <module>` |
+| **Internationalization** | `skills/i18n/` | `/i18n [sub]` |
+| **Testing** | `skills/test/` | `/test [sub] <model>` |
+| **Server lifecycle management** | `skills/service/` | `/service`, `/start [config]`, `/stop`, `/init`, `/db [op]`, `/ide [target]`, `/scaffold <name> <project>` |
+| **Docker infrastructure** | `skills/docker/` | `/docker [sub]` |
 
 ## How it works (high level)
 
@@ -36,46 +36,46 @@ The plugin exists because Odoo-specific Claude workflows share enough infrastruc
 
 | Command | Purpose |
 |---|---|
-| `/odoo-upgrade <path> [version]` | Full upgrade pipeline — detect current version, apply patterns, run validator, offer fixes |
-| `/odoo-precheck <path> [version]` | **Read-only** compatibility scan — what would change, what would break |
-| `/odoo-quickfix <path>` | Apply safe mechanical fixes only — no judgment calls |
+| `/upgrade <path> [version]` | Full upgrade pipeline — detect current version, apply patterns, run validator, offer fixes |
+| `/precheck <path> [version]` | **Read-only** compatibility scan — what would change, what would break |
+| `/quickfix <path>` | Apply safe mechanical fixes only — no judgment calls |
 
 ### Frontend area
 
 | Command | Purpose |
 |---|---|
-| `/odoo-frontend` | Environment status + theme capabilities |
+| `/frontend` | Environment status + theme capabilities |
 | `/create-theme <name> <path>` | Scaffold a complete theme module |
 
 ### Service lifecycle area
 
 | Command | Purpose |
 |---|---|
-| `/odoo-service` | Server lifecycle overview |
-| `/odoo-start [config]` | Start the Odoo server |
-| `/odoo-stop` | Stop the Odoo server |
-| `/odoo-init` | Initialize a fresh environment (venv, PostgreSQL, configs) |
-| `/odoo-db [operation]` | Database ops: backup, restore, create, drop |
-| `/odoo-ide [target]` | Generate IDE configs (PyCharm, VSCode) |
-| `/odoo-scaffold <name> <project>` | Create a new module skeleton |
+| `/service` | Server lifecycle overview |
+| `/start [config]` | Start the Odoo server |
+| `/stop` | Stop the Odoo server |
+| `/init` | Initialize a fresh environment (venv, PostgreSQL, configs) |
+| `/db [operation]` | Database ops: backup, restore, create, drop |
+| `/ide [target]` | Generate IDE configs (PyCharm, VSCode) |
+| `/scaffold <name> <project>` | Create a new module skeleton |
 
 ### Domain-specific area
 
 | Command | Purpose |
 |---|---|
-| `/odoo-test [sub] <model>` | Generate test skeletons, run suites, mock data, coverage analysis |
-| `/odoo-security <module>` | Model access rule audit, HTTP route auth audit, `sudo()` usage analysis |
-| `/odoo-i18n [sub]` | Extract translatable strings to `.po`, validate completeness, Arabic/RTL support |
-| `/odoo-report [sub]` | Email templates + QWeb PDF reports, version-aware syntax |
-| `/odoo-docker [sub]` | Docker infrastructure: nginx, CI/CD, production configs |
+| `/test [sub] <model>` | Generate test skeletons, run suites, mock data, coverage analysis |
+| `/security <module>` | Model access rule audit, HTTP route auth audit, `sudo()` usage analysis |
+| `/i18n [sub]` | Extract translatable strings to `.po`, validate completeness, Arabic/RTL support |
+| `/report [sub]` | Email templates + QWeb PDF reports, version-aware syntax |
+| `/docker [sub]` | Docker infrastructure: nginx, CI/CD, production configs |
 
 ## Agents (4)
 
 | Agent | Used by | Role |
 |---|---|---|
-| `upgrade-analyzer` | `/odoo-upgrade` | Deep analysis of what will change during a version jump |
-| `security-auditor` | `/odoo-security` | Walks access rules, routes, `sudo()` calls |
-| `test-analyzer` | `/odoo-test` | Coverage analysis and test-skeleton generation |
+| `upgrade-analyzer` | `/upgrade` | Deep analysis of what will change during a version jump |
+| `security-auditor` | `/security` | Walks access rules, routes, `sudo()` calls |
+| `test-analyzer` | `/test` | Coverage analysis and test-skeleton generation |
 | `theme-generator` | `/create-theme` | Complete theme module scaffolding |
 
 ## Inputs and outputs
@@ -90,8 +90,8 @@ Write operations go through confirmation gates per the house convention. Upgrade
 - **`config/`** directory holds area-specific configs. Most are auto-managed.
 - **`memories/`** holds session-learning artifacts — not user-configurable.
 - **Environment:** Python 3.10+ for the plugin's own scripts. Odoo itself has its own Python requirements (documented per Odoo version).
-- **PostgreSQL:** required for server lifecycle commands. `/odoo-init` bootstraps a dev PostgreSQL if missing.
-- **Docker:** required for `/odoo-docker` and `/odoo-service` Docker paths.
+- **PostgreSQL:** required for server lifecycle commands. `/init` bootstraps a dev PostgreSQL if missing.
+- **Docker:** required for `/docker` and `/service` Docker paths.
 
 ## Dependencies
 
@@ -104,16 +104,16 @@ Write operations go through confirmation gates per the house convention. Upgrade
 
 ```
 "Upgrade my_module from Odoo 16 to Odoo 19"
-→ /odoo-upgrade ~/projects/my_module 19
+→ /upgrade ~/projects/my_module 19
 
 "Create a new Odoo 17 website theme"
 → /create-theme my_theme ~/projects
 
 "Audit my_module for security issues"
-→ /odoo-security my_module
+→ /security my_module
 
 "Generate tests for the sale.order model"
-→ /odoo-test generate sale.order
+→ /test generate sale.order
 ```
 
 ## Known limitations
@@ -127,7 +127,7 @@ Write operations go through confirmation gates per the house convention. Upgrade
 ## Related plugins and integrations
 
 - **devops** — track Odoo work items and sprints in Azure DevOps.
-- **ntfy** — notify when long-running `/odoo-upgrade` completes.
+- **ntfy** — notify when long-running `/upgrade` completes.
 - **pandoc** — export QWeb reports to PDF/Word from the same workflow.
 
 ## See also

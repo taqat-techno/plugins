@@ -343,7 +343,7 @@ def cmd_set(args: argparse.Namespace) -> int:
             "cwd": str(cwd),
             "candidates": [_project_name(p) for p in projects],
             "hint": "no configured ragtools project matches this directory. "
-                    "Pass an explicit name: /project-focus <name>, or run /rag:rag-projects add.",
+                    "Pass an explicit name: /project-focus <name>, or run /rag:projects add.",
         }, indent=2))
         return 2
 

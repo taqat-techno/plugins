@@ -195,7 +195,7 @@ def main() -> None:
     print()
     print("=" * 64)
     print("to disable observability logging:")
-    print("  /rag-config hook-observability off")
+    print("  /config hook-observability off")
     print("to clear the log:")
     print(f"  rm {LOG_PATH}")
     print("(the plugin never deletes this file for you — user owns it)")

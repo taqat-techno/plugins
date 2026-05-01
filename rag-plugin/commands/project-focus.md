@@ -56,7 +56,7 @@ The script:
    - **descendant-path** (project path is below CWD; lower score)
 4. If a single best match exists, writes `~/.claude/rag-plugin/state/project-focus.json` and returns `{ok: true, set: {...}, alternatives: [...]}`.
 5. If multiple candidates are equally specific, returns `{ok: false, reason: "ambiguous", candidates: [...]}` — the user must rerun with an explicit name.
-6. If no match, returns `{ok: false, reason: "no-match", candidates: [...]}` — the user can pass an explicit name or run `/rag:rag-projects add` first.
+6. If no match, returns `{ok: false, reason: "no-match", candidates: [...]}` — the user can pass an explicit name or run `/rag:projects add` first.
 
 If `service_reachable: false` and a manual name was given, the script writes the state with `match_method: "manual-no-config"` and a `warning` field — the focus is set by name only, not cross-checked.
 
@@ -134,9 +134,9 @@ The v0.10.0 plan (D-025 reverse criteria) is to wire a wrapper through the plugi
 
 Tell the user what to run (do not run it):
 
-- Project not in `list_projects` at all → `/rag:rag-projects add <path>` then `/rag:rag-projects rebuild <name>`
-- Project in `list_projects` but no chunks → `/rag:rag-projects rebuild <name>` or `mcp__plugin_rag_ragtools__reindex_project`
-- Project disabled → `/rag:rag-projects enable <name>`
+- Project not in `list_projects` at all → `/rag:projects add <path>` then `/rag:projects rebuild <name>`
+- Project in `list_projects` but no chunks → `/rag:projects rebuild <name>` or `mcp__plugin_rag_ragtools__reindex_project`
+- Project disabled → `/rag:projects enable <name>`
 
 ## Manual validation checklist
 
@@ -149,8 +149,8 @@ Tell the user what to run (do not run it):
 
 ## See also
 
-- `/rag-projects` — list / add / remove / rebuild ragtools projects
-- `/rag-doctor` — service + index status before activating focus
+- `/projects` — list / add / remove / rebuild ragtools projects
+- `/doctor` — service + index status before activating focus
 - `hooks/project_focus_inject.py` — the UserPromptSubmit hook that injects focus context
 - `scripts/project_focus.py` — the matcher + state engine
 - `docs/decisions.md` — D-025 (focus contract + filter fallback policy)

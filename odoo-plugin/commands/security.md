@@ -3,16 +3,26 @@ title: 'Odoo Security'
 read_only: true
 type: 'command'
 description: 'Comprehensive Odoo module security audit - access rules, routes, sudo, SQL injection'
-argument-hint: '<module> [--severity=critical|high|medium|low] [--layer=access|routes|sudo|all]'
+argument-hint: '[<module>] [--severity=critical|high|medium|low] [--layer=access|routes|sudo|all] [--fix] [--json]'
 ---
 
-# /odoo-security
+# /security
 
-Parse `$ARGUMENTS` for:
+## Bare-invocation behavior (no args)
+
+When invoked with no arguments, auto-detect the target module:
+
+1. Walk up from `$CWD` until a `__manifest__.py` is found → use that module.
+2. If `$CWD` contains multiple direct subdirectories each with a manifest → list and ask which.
+3. If none found → ask for the explicit form `/security <module>`.
+
+Defaults applied when omitted: `--severity=low`, `--layer=all`, no `--fix`, no `--json`.
+
+## Arguments
 
 | Token | Type | Default | Description |
 |-------|------|---------|-------------|
-| First positional | path/name | _(required)_ | Module path or name |
+| First positional | path/name | _auto-detect from CWD_ | Module path or name |
 | `--severity=` | enum | `low` | Minimum severity: `critical`, `high`, `medium`, `low` |
 | `--layer=` | enum | `all` | Audit layer: `access`, `routes`, `sudo`, `sql`, `all` |
 | `--fix` | flag | off | Generate and apply safe remediations |

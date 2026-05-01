@@ -88,7 +88,7 @@ metadata:
 
 # Odoo Testing Toolkit Skill (v2.0)
 
-> **v2.0 Architecture**: All testing operations available via `/odoo-test` sub-commands or natural language.
+> **v2.0 Architecture**: All testing operations available via `/test` sub-commands or natural language.
 
 A comprehensive skill for generating, running, and analyzing tests across Odoo 14-19. Covers unit tests, integration tests, HTTP controller tests, mock data creation, and test coverage analysis. Includes CI/CD integration patterns for Azure DevOps pipelines.
 
@@ -109,7 +109,7 @@ A comprehensive skill for generating, running, and analyzing tests across Odoo 1
 
 | Command | Purpose | Example |
 |---------|---------|---------|
-| `/odoo-test` | Full testing workflow | `/odoo-test my_module` |
+| `/test` | Full testing workflow | `/test my_module` |
 | `/test-generate` | Generate test skeleton | `/test-generate --model my.model --module /path/to/module` |
 | `/test-run` | Run test suite | `/test-run my_module --tags post_install` |
 | `/test-coverage` | Analyze coverage | `/test-coverage /path/to/module` |
