@@ -2,7 +2,7 @@
 
 > Operations and support plugin for the **ragtools** local-first RAG product. Install, configure, diagnose, repair, upgrade, and run the local Markdown knowledge base from inside Claude Code.
 
-**Status:** `v0.7.0` — All 10 phases shipped + 10 post-roadmap amendments. 7 generic state-aware commands + 9 skill-level MCP workflows + 3 skills (`ragtools-ops` operator-facing, `ragtools-release` maintainer-facing, `markdown-authoring` content-authoring-facing). Production-ready for ragtools 2.5.x including v2.5.1 Linux ARM64. New in v0.7.0: `markdown-authoring` skill + `/md-rag-enhance` always-safe Markdown improver command for RAG-optimized chunking and embedding.
+**Status:** `v0.9.0` — All 10 phases shipped + 12 post-roadmap amendments. 9 generic state-aware commands + 9 skill-level MCP workflows + 3 skills + 4 hook files. Production-ready for ragtools 2.5.x including v2.5.1 Linux ARM64. New in v0.9.0: `/project-focus` — scope ragtools retrieval to the current project so Claude does not pull context from unrelated indexed projects. State persists at `~/.claude/rag-plugin/state/project-focus.json`; a UserPromptSubmit hook injects strict-mode reminders on every prompt while focus is active.
 
 ---
 
@@ -47,7 +47,7 @@ If you want one of these things, you want the upstream ragtools product, not thi
 
 ---
 
-## Command catalog (v0.4.0 — 6 user + 1 maintainer)
+## Command catalog (v0.9.0 — 9 user + 1 maintainer)
 
 Every command detects state and branches intelligently. See `rules/state-detection.md` for the shared contract and D-021 for the consolidation rationale.
 
@@ -58,6 +58,8 @@ Every command detects state and branches intelligently. See `rules/state-detecti
 | **`/rag-projects`** | Project CRUD via HTTP API. | State-gate preamble refuses writes gracefully when the service is DOWN or BROKEN. Cloud-sync warning on write ops. Subcommands: `list` / `add` / `remove` / `enable` / `disable` / `rebuild`. |
 | **`/rag-reset`** | Destructive three-level reset. | State-gate preamble refuses on not-installed / BROKEN. Pre-v2.4.1 block remains. `--soft` (via HTTP API) / `--data` / `--nuclear` with typed-DELETE gates (1×/2×/3×). |
 | **`/rag-config`** | Plugin-layer config. | `telemetry {status\|on\|off}` / `claude-md {status\|install\|remove}` / `mcp-dedupe {status\|clean}` / `hook-observability {status\|on\|off\|analyze\|clear}`. Atomic writes, backup-first discipline. |
+| **`/project-focus`** | Scope retrieval to the current project. | Auto-detects via CWD + git root, matches against `list_projects`, persists state at `~/.claude/rag-plugin/state/project-focus.json`. UserPromptSubmit hook injects scope-this-to-X reminders. Subcommands: `set` (default) / `<name>` (manual) / `status` / `clear`. |
+| **`/rag-bug-report`** | Maintainer-feedback bug-report diagnostics. | Generates two reports (application setup + plugin behavior) plus GitHub-ready issue bodies for `taqat-techno/rag` and `taqat-techno/plugins`. Privacy-safe redaction, no auto-upload, no config mutation. `--no-sessions` / `--max-sessions N` / `--out <dir>`. |
 | **`/rag-sync-docs`** | Maintainer-only. `disable-model-invocation: true`. | Reports drift between bundled references and upstream `ragtools_doc.md`. Never auto-rewrites. |
 
 Plus:

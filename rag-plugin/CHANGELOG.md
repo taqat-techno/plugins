@@ -2,6 +2,86 @@
 
 All notable changes to `rag-plugin` are documented here. Format is loosely based on [Keep a Changelog](https://keepachangelog.com/). Versioning follows [SemVer](https://semver.org/).
 
+## [0.9.0] — 2026-05-01
+
+Project-focus mode. Ships `/project-focus`, a command that scopes ragtools retrieval to the user's current project so Claude does not pull context from unrelated indexed projects. Persists focus state in a single local JSON file and injects scope-this-to-X context on every UserPromptSubmit via a new bundled hook.
+
+### Added
+
+- **`commands/project-focus.md`** — new user-facing command, ninth in the catalog. Subcommands: `set` (auto-detect from CWD + git root, default), `<name>` (manual focus), `status`, `clear`. Refuses to mutate ragtools project config — if the focused project isn't indexed, it tells the user which `/rag-projects` invocation to run.
+- **`scripts/project_focus.py`** — stdlib-only Python matcher + state CRUD engine. Resolves CWD + git root, calls `GET /api/projects` to enumerate configured projects, scores matches by exact-path / ancestor-path / descendant-path / name, persists `~/.claude/rag-plugin/state/project-focus.json` atomically. Built-in `self-test` covers exact-match, ancestor-match, manual-name-match, no-match, and state file round-trip.
+- **`hooks/project_focus_inject.py`** — new UserPromptSubmit hook that reads the focus state file and injects a strict-mode reminder when focus is active. Silent-passes on missing/malformed state. Composes alongside the existing retrieval-reminder hook (Claude Code supports multiple UserPromptSubmit entries). Never reads or logs the prompt.
+- **D-025** in `docs/decisions.md` — binding decision covering the focus state-file contract, the filter-fallback policy (try project parameter → post-filter results → warn if neither possible), the cross-project retrieval gate (explicit phrase required), and the no-auto-mutation rule.
+
+### Changed
+
+- **`.claude-plugin/plugin.json`** — version `0.8.0` → `0.9.0`.
+- **`hooks/hooks.json`** — second UserPromptSubmit entry registered for `project_focus_inject.py`. Top-level `description` updated to enumerate three hooks.
+
+### Behavior while focus is active
+
+Every UserPromptSubmit injects a system reminder telling Claude to:
+
+1. Pass `project="<name>"` to `search_knowledge_base` if the tool supports the parameter.
+2. Otherwise, post-filter result metadata (source/path/name) to keep only entries matching the focused project.
+3. Warn if neither path can guarantee strict focus for a given query — never silently fall back.
+4. Allow cross-project retrieval only when the user explicitly asks ("across all projects", "compare projects", "global knowledge").
+
+### Safety invariants
+
+- Never auto-mutates ragtools project config (no auto `add_project`, no auto `reindex_project`).
+- Atomic state writes (tmp + `os.replace`).
+- Single source of truth — the hook reads only the state file; no env vars, no second config location.
+- Hook silent-passes on every error; the retrieval-reminder hook continues to fire independently.
+- Cross-project retrieval gated on explicit user phrase.
+
+### Verification
+
+- **Self-test:** `python scripts/project_focus.py self-test` passes (exact, ancestor, manual, no-match, round-trip).
+- **Hook smoke test:** with a synthetic state file and a fake stdin payload, the injector emits valid `hookSpecificOutput.additionalContext` JSON; with no state file, it silent-passes.
+- **Validator:** `python validate_plugin_simple.py rag-plugin` passes — 9 commands, 3 skills, 4 hook files.
+
+## [0.8.0] — 2026-05-01
+
+Maintainer-feedback diagnostic command. Ships `/rag-bug-report`, an evidence-collection command that produces two reports — one targeted at the upstream `ragtools` product (github.com/taqat-techno/rag) and one targeted at this plugin (github.com/taqat-techno/plugins). The reports are designed to be copy-pasted into a maintainer issue without follow-up questions about environment, install state, or repro context.
+
+### Added
+
+- **`commands/rag-bug-report.md`** — new user-facing command, eighth in the catalog. State-aware: produces both reports even when ragtools is not installed (the app report simply leads with that as the top finding). Privacy-safe by design — no auto-upload, no config mutation, secrets redacted, home paths normalized, session snippets clipped to 220 chars.
+- **`scripts/rag_report.py`** — stdlib-only Python report engine (~700 lines, Python 3.10+). Probes install state, service runtime, MCP wiring, plugin layout, Claude configuration, hook-decisions log, recent service log tails, and recent Claude session JSONL files for RAC/RAG-related signals only. Redaction layer covers bearer tokens, API keys, GitHub PATs (`ghp_*`, `github_pat_*`), AWS keys, Slack tokens, cookies, and PEM private keys. `--self-test` mode runs lightweight stdlib unit-style checks. `--no-sessions` opts out of session scanning entirely. `--max-sessions N` caps the scan budget. Output is six files in a timestamped directory.
+- **D-024** in `docs/decisions.md` — binding decision covering the dual-report architecture, the privacy invariants, the no-upload posture, the redaction surface, and the session-scan signal taxonomy.
+
+### Changed
+
+- **`.claude-plugin/plugin.json`** — version `0.7.0` → `0.8.0`.
+
+### Reports produced
+
+Each invocation creates `~/.claude/rag-plugin/reports/YYYY-MM-DD-HHMMSS/` containing:
+
+1. `rag-application-setup-report.md` — RAC/RAG install / runtime / config / data / logs health, with severity-ranked `A-NNN` findings.
+2. `rag-plugin-behavior-report.md` — plugin install state, Claude configuration, MCP wiring, hook behavior, session-behavior analysis with severity-ranked `P-NNN` findings.
+3. `summary.md` — top-level executive summary.
+4. `github-rag-issue.md` — copy-pasteable issue body for the rag repo.
+5. `github-plugins-issue.md` — copy-pasteable issue body for the plugins repo.
+6. `redacted-diagnostics.json` — machine-readable structured findings.
+
+### Privacy properties
+
+- Secrets, tokens, bearer headers, cookies, and private keys are redacted before any text reaches a report.
+- Home directory paths are normalized to `~/...`.
+- Hostname is partially masked (first 2 + last 2 chars).
+- Session JSONL snippets are clipped to 220 characters and stripped of newlines.
+- Only RAC/RAG-related signals are extracted from sessions — no unrelated user activity is summarized.
+- The command never uploads anything; the user copies into GitHub manually.
+
+### Verification
+
+- **Self-test:** `python scripts/rag_report.py --self-test` passes (redaction samples, snippet scrubbing, home normalization, finding render, severity sort).
+- **Live run:** `python scripts/rag_report.py --max-sessions 8` produces six files in `~/.claude/rag-plugin/reports/<ts>/` with correct state detection (packaged-windows / UP / v2.5.2 / plugin v0.8.0) and surfaces a real session-side `MCP error phrases` signal at medium severity.
+- **Cross-platform:** stdout is forced to UTF-8 with `errors='replace'` so the script is safe on Windows cp1252 consoles.
+- **Validator:** `python validate_plugin.py rag-plugin` passes (pre-existing SKILL.md YAML false-positive unchanged).
+
 ## [0.7.0] — 2026-04-19
 
 Markdown authoring standard + always-safe Markdown enhancer. Ships a third skill (`markdown-authoring`) and a seventh user-facing command (`/md-rag-enhance`) that together optimize any Markdown-heavy project for the ragtools chunker + MiniLM-L6-v2 embedder.
