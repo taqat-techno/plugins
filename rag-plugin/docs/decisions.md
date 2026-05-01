@@ -763,4 +763,74 @@ Three safety and design properties fall out of this split:
 
 ---
 
+## D-024 — Maintainer-feedback diagnostic reports (`/rag-bug-report`)
+
+Date: 2026-05-01
+Phase: Post-9
+Status: binding
+Ships in: v0.8.0
+
+Decision:
+
+1. The plugin ships a single command — `/rag-bug-report` — that produces **two** reports (application-setup + plugin-behavior) plus a summary, two GitHub-ready issue bodies, and a structured JSON diagnostics blob, in a single timestamped directory at `~/.claude/rag-plugin/reports/YYYY-MM-DD-HHMMSS/`.
+2. The command **never uploads** anything. It never creates a GitHub issue. It never mutates user configuration. It only reads filesystem + HTTP. The user copies the GitHub-ready files into an issue manually.
+3. Findings are severity-ranked (`critical / high / medium / low / info`) and namespaced by target repo: `A-NNN` for findings filed against `taqat-techno/rag`, `P-NNN` for findings filed against `taqat-techno/plugins`. The two reports never share findings.
+4. Privacy invariants (binding):
+   - Secrets, tokens, bearer headers, cookies, PEM keys, GitHub PATs, AWS access keys, and Slack tokens are redacted via a single redaction layer applied before any text reaches a report.
+   - Home directory paths are normalized to `~/...`.
+   - Hostname is partially masked.
+   - Session snippets are clipped to 220 chars and stripped of newlines.
+   - Only RAC/RAG-related signals are extracted from sessions — no unrelated user activity is summarized.
+5. Session JSONL scanning is opt-out via `--no-sessions` and budget-capped via `--max-sessions N` (default 60, newest-first). The signal taxonomy covers: `rag-mention`, `rag-port`, `mcp-error`, `retrieval-skipped`, `user-correct-search`, `rag-error-line`, `connect-refused`, `port-in-use`. New signals are added by extending `_SIGNAL_PATTERNS` in `scripts/rag_report.py`.
+6. The command degrades gracefully when ragtools is not installed (top finding becomes "ragtools not installed on this device"), the service is down (skips API probes, falls back to platform-default paths), the hook log is missing (notes "no hook-decisions log"), and the session directory is missing (notes "no Claude session directory found"). No path through the script crashes when the environment is incomplete.
+
+Non-violation of prior decisions:
+
+- **D-001 / D-022 / D-007:** the report does not call `search_knowledge_base` or any MCP retrieval tool. It reads filesystem + HTTP only. No tool-call blocking.
+- **D-008 (compact by default):** the slash command's output to the user is compact (banner + summary table + paths). Verbose detail is in the report files, not in the chat response.
+- **D-012 (telemetry opt-in):** the report writes only to its own timestamped output directory. No usage events are recorded outside that directory unless `/rag-config telemetry on` is independently set.
+- **D-021 (decrease commands, increase skills):** this is a +1 command because the maintainer-feedback flow needs a single explicit user-triggered entry point — running it as a side-effect of another command (skill-driven activation) would be wrong. The script behind it is a pure analyzer with no MCP coupling, so it does not belong in a skill body.
+
+Reverse only if:
+
+- A future Claude Code platform feature lets the plugin produce structured diagnostic output through a sanctioned channel (e.g. an issue-creation API) that supersedes the copy-paste workflow. At that point, the command would gain an opt-in `--submit` flag with explicit confirmation rather than producing markdown files.
+- The privacy invariants prove insufficient (a maintainer reports a leaked secret through a report). Then the redaction layer expands and the snippet length cap shrinks; the architecture stays.
+
+---
+
+## D-025 — Project-focus mode (`/project-focus`)
+
+Date: 2026-05-01
+Phase: Post-9
+Status: binding
+Ships in: v0.9.0
+
+Decision:
+
+1. Focus state lives in a single local JSON file at `~/.claude/rag-plugin/state/project-focus.json`. Atomic writes (tmp + `os.replace`). The file is the single source of truth — no env vars, no second config location, no per-project overrides.
+2. The injector hook (`hooks/project_focus_inject.py`) reads only that file, never the user's prompt. On missing/malformed state, it silent-passes. The hook composes alongside the existing retrieval-reminder hook — both fire independently per Claude Code's multi-hook support for `UserPromptSubmit`.
+3. Filter-fallback policy when `search_knowledge_base` does not accept a `project` parameter:
+   - Try the parameter first; if accepted, use it.
+   - Otherwise post-filter results by metadata (`source` / `path` / `project` / `name`) and keep only entries matching the focused project.
+   - If neither path can guarantee strict focus for a given query, **warn the user** that strict focus is not technically enforceable for that response. Do not silently fall back.
+4. Cross-project retrieval is gated on an explicit user phrase ("across all projects", "compare projects", "global knowledge", "all of them"). A weaker phrasing keeps focus.
+5. The command **never auto-mutates ragtools project config**. No auto `add_project`, no auto `reindex_project`, no auto `add_project_ignore_rule`. If the focused project is missing from `list_projects` or has zero chunks, the command tells the user which `/rag-projects` invocation to run; it does not run it.
+6. Match scoring is deterministic: exact-path > ancestor-path (longer prefix wins) > descendant-path > name. Ambiguity (top two scores within 10 points and same method, with similar path lengths) returns `{ok: false, reason: "ambiguous"}` — the user must rerun with an explicit name.
+
+Non-violation of prior decisions:
+
+- **D-001 / D-022 / D-007:** the command does not call `search_knowledge_base` or any retrieval tool. The hook does not call any MCP. The script reads the local HTTP API only to enumerate `list_projects`. No tool-call blocking.
+- **D-008 (compact by default):** the chat output is compact (4-6 lines on success). The detailed JSON from the script is parsed by the command renderer, not dumped raw.
+- **D-012 (telemetry opt-in):** the focus state file is the only artifact written outside the user's CWD. No usage events, no prompts, no result content persisted.
+- **D-017 (Tier 2 retrieval reminder):** the project-focus reminder composes additively with the retrieval reminder. They do not interfere — Claude can receive both injections in one turn.
+- **D-021 (decrease commands, increase skills):** this is a +1 command because the focus toggle needs an explicit user-triggered entry point with persistent state. Skill-driven activation would be wrong (no clear "off" semantic).
+
+Reverse only if:
+
+- A future ragtools release exposes a stable `project=` parameter on `search_knowledge_base`. At that point the post-filter fallback can be removed and the hook reminder simplifies to "always pass project=<name>".
+- The ambiguity-detection thresholds prove too conservative or too loose in practice. Adjust the score-gap and same-method criteria; do not remove the ambiguity gate.
+- Multi-project focus is requested as a feature. Implement as `mode: "set"` with an array of project names rather than promoting a second config location.
+
+---
+
 *Append new decisions below. Never rewrite or delete an entry — supersede with a new dated entry that references the old one.*

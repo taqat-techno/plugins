@@ -1,5 +1,5 @@
 {
-  "description": "rag-plugin hooks. (1) PreToolUse Bash guardrail that warns before commands that would fight the Qdrant single-process file lock while the ragtools service is up — asks, never denies, only when both the command pattern matches and /health is reachable. (2) UserPromptSubmit retrieval-reminder (v0.3.0, D-017) that injects a system reminder when the user's prompt has a likely match in the indexed knowledge base, so Claude reaches for search_knowledge_base before saying 'I don't have information'. Neither hook blocks or denies.",
+  "description": "rag-plugin hooks. (1) PreToolUse Bash guardrail that warns before commands that would fight the Qdrant single-process file lock while the ragtools service is up. (2) UserPromptSubmit retrieval-reminder (v0.3.0, D-017) that injects a system reminder when the user's prompt has a likely match in the indexed knowledge base. (3) UserPromptSubmit project-focus injector (v0.9.0, D-025) that injects scope-this-to-project-X context when /project-focus is active. None of these hooks block or deny.",
   "hooks": {
     "PreToolUse": [
       {
@@ -19,6 +19,15 @@
           {
             "type": "command",
             "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/prompt_retrieval_reminder.py"
+          }
+        ]
+      },
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/project_focus_inject.py"
           }
         ]
       }
