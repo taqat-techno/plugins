@@ -54,6 +54,7 @@ from dataclasses import dataclass, field, asdict
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
+from urllib import parse as urlparse
 from urllib import request as urlrequest
 from urllib.error import URLError, HTTPError
 
@@ -64,7 +65,7 @@ try:
 except Exception:
     pass
 
-REPORT_VERSION = "0.8.0"
+REPORT_VERSION = "0.9.0"
 DEFAULT_PORT = 21420
 DEFAULT_HOST = "127.0.0.1"
 
@@ -268,6 +269,11 @@ def probe_api(state: State) -> None:
     if state.service_mode != "UP":
         return
     base = f"http://{state.host}:{state.port}"
+
+    # /api/status — store the whole body, then resolve any path-like fields
+    # the running build exposes. ragtools v2.5.x exposes points_count, scale,
+    # total_files, total_chunks, last_indexed, projects[]; older builds expose
+    # config_path / data_path / log_path. Read both shapes.
     code, body, _ = _http_get_json(f"{base}/api/status", timeout=2.0)
     if code == 200 and isinstance(body, dict):
         state.api_status = body
@@ -275,9 +281,38 @@ def probe_api(state: State) -> None:
             v = body.get(key)
             if v and isinstance(v, str):
                 setattr(state, key, v)
+
+    # /api/projects — modern ragtools wraps the list as {"projects": [...]}
+    # with lean records ({project_id, files, chunks}). Older builds returned
+    # a bare list. Handle both. After the list is resolved, hydrate each
+    # project's full status (path, last_indexed, enabled) via
+    # /api/projects/<id>/status — the per-project endpoint.
     code, body, _ = _http_get_json(f"{base}/api/projects", timeout=2.0)
-    if code == 200 and isinstance(body, list):
-        state.api_projects = [p for p in body if isinstance(p, dict)]
+    raw_list: list[dict[str, Any]] = []
+    if code == 200:
+        if isinstance(body, list):
+            raw_list = [p for p in body if isinstance(p, dict)]
+        elif isinstance(body, dict) and isinstance(body.get("projects"), list):
+            raw_list = [p for p in body["projects"] if isinstance(p, dict)]
+    hydrated: list[dict[str, Any]] = []
+    for proj in raw_list:
+        pid = str(proj.get("project_id") or proj.get("id") or proj.get("name") or "").strip()
+        if pid:
+            code2, body2, _ = _http_get_json(
+                f"{base}/api/projects/{urlparse.quote(pid)}/status", timeout=1.5
+            )
+            merged = dict(proj)
+            if code2 == 200 and isinstance(body2, dict):
+                for k, v in body2.items():
+                    if v is not None:
+                        merged[k] = v
+            hydrated.append(merged)
+        else:
+            hydrated.append(proj)
+    state.api_projects = hydrated
+
+    # /api/watcher/status — modern ragtools also exposes this under /api/status,
+    # but the dedicated endpoint is more reliable on older builds.
     code, body, _ = _http_get_json(f"{base}/api/watcher/status", timeout=2.0)
     if code == 200 and isinstance(body, dict):
         state.watcher_status = body
@@ -777,14 +812,59 @@ def synthesize_findings(state: State, plugin: PluginInspection,
                     recommendation="POST /api/watcher/start or run `/rag:doctor --symptom F-004 --fix`.",
                     target="rag",
                 ))
-            if not state.api_projects:
+            # Project list — modern ragtools wraps as {"projects": [...]} so
+            # we trust state.api_projects only after the wrapped/bare-list
+            # parse in probe_api(). If that returned empty AND /api/status's
+            # `projects` key is also empty, the user genuinely has zero
+            # projects configured.
+            status_projects = state.api_status.get("projects") if state.api_status else None
+            has_status_projects = (
+                isinstance(status_projects, list) and len(status_projects) > 0
+            )
+            if not state.api_projects and not has_status_projects:
                 app.append(Finding(
                     id="A-008", title="no projects configured",
                     severity="info",
-                    evidence="/api/projects returned an empty list.",
+                    evidence="/api/projects returned an empty list and /api/status had no projects key.",
                     recommendation="Add a project with `/rag:projects add` so the knowledge base is populated.",
                     target="rag",
                 ))
+
+            # Scale-band warning (ragtools v2.5.x exposes a `scale` block in
+            # /api/status that classifies the local-mode collection size:
+            # `level` ∈ {none, approaching, warning, critical}; `message`
+            # carries human-readable guidance). When the level is anything
+            # other than "none", surface it as an A-NNN finding so the
+            # maintainer-facing report flags it.
+            scale = state.api_status.get("scale") if state.api_status else None
+            if isinstance(scale, dict):
+                lvl = str(scale.get("level", "")).lower()
+                pts = scale.get("points") or scale.get("points_count") or state.api_status.get("points_count")
+                cap = scale.get("limit") or scale.get("cap") or scale.get("max_points")
+                msg = redact(str(scale.get("message", "") or ""))[:240]
+                if lvl == "approaching":
+                    app.append(Finding(
+                        id="A-012", title="local Qdrant collection approaching scale limit",
+                        severity="medium",
+                        evidence=f"scale.level=approaching"
+                                 + (f" ({pts} / {cap} points)" if pts and cap else "")
+                                 + (f" — {msg}" if msg else ""),
+                        recommendation="Review `/rag:projects` for archive-able completed projects, "
+                                       "tighten `add_project_ignore_rule` patterns, or plan a sharding strategy.",
+                        target="rag",
+                    ))
+                elif lvl in ("warning", "critical", "near-limit"):
+                    app.append(Finding(
+                        id="A-013", title=f"local Qdrant collection at {lvl} scale level",
+                        severity="high",
+                        evidence=f"scale.level={lvl}"
+                                 + (f" ({pts} / {cap} points)" if pts and cap else "")
+                                 + (f" — {msg}" if msg else ""),
+                        recommendation="Archive completed projects, add ignore rules, or migrate to a sharded "
+                                       "configuration before retrieval quality degrades. File an issue at "
+                                       "github.com/taqat-techno/rag with the scale block from /api/status.",
+                        target="rag",
+                    ))
 
     # Log evidence
     if log_hits:
@@ -1017,10 +1097,23 @@ def render_application_report(state: State, log_hits: list[dict[str, Any]],
         md.append("_No /health response captured._")
     if state.api_status:
         md.append("\n**/api/status excerpt (redacted):**")
-        excerpt = {k: v for k, v in state.api_status.items() if k in
-                   ("version", "service", "watcher", "uptime", "config_path", "data_path", "log_path")}
+        # ragtools v2.5.x exposes points_count, scale, total_files, total_chunks,
+        # last_indexed, projects[]; older builds also expose version/service/uptime.
+        # Pick whatever the running build returned plus the path fields if any.
+        wanted_keys = (
+            "version", "service", "watcher", "uptime", "ready",
+            "points_count", "total_files", "total_chunks", "last_indexed",
+            "scale", "collection", "embedding_model", "score_threshold",
+            "projects", "config_path", "data_path", "log_path",
+        )
+        excerpt = {k: v for k, v in state.api_status.items() if k in wanted_keys}
+        # Truncate the projects list inline so the excerpt doesn't bloat
+        if isinstance(excerpt.get("projects"), list) and len(excerpt["projects"]) > 5:
+            excerpt["projects"] = excerpt["projects"][:5] + [
+                f"... +{len(state.api_status['projects']) - 5} more"
+            ]
         md.append("```json")
-        md.append(redact(json.dumps(excerpt, indent=2, default=str))[:1500])
+        md.append(redact(json.dumps(excerpt, indent=2, default=str))[:2000])
         md.append("```")
     if state.watcher_status:
         md.append("\n**Watcher:**")
@@ -1041,15 +1134,48 @@ def render_application_report(state: State, log_hits: list[dict[str, Any]],
     md.append("")
 
     md.append("## 5. Data / index state\n")
-    if state.api_projects:
-        md.append(f"- Projects configured: **{len(state.api_projects)}**")
-        for p in state.api_projects[:10]:
-            md.append(f"  - `{p.get('name', '?')}` — files: `{p.get('files', '?')}`, "
-                      f"chunks: `{p.get('chunks', '?')}`, enabled: `{p.get('enabled', '?')}`")
-        if len(state.api_projects) > 10:
-            md.append(f"  - _+{len(state.api_projects) - 10} more_")
+    # Prefer the hydrated list from /api/projects + per-project status; fall
+    # back to the lean projects array embedded in /api/status when the
+    # primary endpoint returned nothing.
+    project_view: list[dict[str, Any]] = list(state.api_projects)
+    if not project_view and state.api_status:
+        embedded = state.api_status.get("projects")
+        if isinstance(embedded, list):
+            project_view = [p for p in embedded if isinstance(p, dict)]
+
+    if project_view:
+        md.append(f"- Projects configured: **{len(project_view)}**")
+        for p in project_view[:10]:
+            name = p.get("project_id") or p.get("id") or p.get("name") or "?"
+            files = p.get("files", "?")
+            chunks = p.get("chunks", "?")
+            enabled = p.get("enabled", "?")
+            path = normalize_home(str(p.get("path") or "")) or "?"
+            md.append(f"  - `{name}` — files: `{files}`, chunks: `{chunks}`, "
+                      f"enabled: `{enabled}`, path: `{path}`")
+        if len(project_view) > 10:
+            md.append(f"  - _+{len(project_view) - 10} more_")
     else:
         md.append("- No project list available (service down or no projects configured).")
+
+    # Aggregate stats from /api/status — these are the maintainer-relevant
+    # numbers: points, total files, total chunks, last_indexed, scale level.
+    if state.api_status:
+        pts = state.api_status.get("points_count")
+        tf = state.api_status.get("total_files")
+        tc = state.api_status.get("total_chunks")
+        li = state.api_status.get("last_indexed")
+        scale = state.api_status.get("scale")
+        scale_line = ""
+        if isinstance(scale, dict):
+            lvl = scale.get("level", "?")
+            scale_line = f" — scale.level=`{lvl}`"
+            limit = scale.get("limit") or scale.get("cap") or scale.get("max_points")
+            if limit:
+                scale_line += f" (limit `{limit}`)"
+        if pts or tf or tc or li or scale_line:
+            md.append(f"- **Index totals:** points=`{pts}`, files=`{tf}`, "
+                      f"chunks=`{tc}`, last_indexed=`{li}`{scale_line}")
     md.append("")
 
     md.append("## 6. Logs and diagnostics\n")
@@ -1234,7 +1360,20 @@ def render_summary(state: State, app_findings: list[Finding], plugin_findings: l
 
 
 def render_github_issue(target: str, findings: list[Finding], state: State,
-                        plugin: PluginInspection, meta: dict[str, str]) -> str:
+                        plugin: PluginInspection, cci: ClaudeConfigInspection,
+                        hook_stats: HookLogStats, scan: SessionScanResult,
+                        meta: dict[str, str]) -> str:
+    """Render a substantive, ready-to-paste GitHub issue body for the target repo.
+
+    The output is designed so a user (anyone running rag-plugin) can copy it
+    straight into a new issue and the maintainer gets enough context to triage
+    without follow-up questions: install state, service runtime, structured
+    /api/status excerpt, hook injection rate, session-signal counts, plugin
+    configuration state, and severity-ranked findings with reproduction hints.
+
+    All content is redacted by `redact()` and `normalize_home()` before this
+    function sees it. This function only assembles, never raw-strings user data.
+    """
     repo = "taqat-techno/rag" if target == "rag" else "taqat-techno/plugins"
     sev_counts: dict[str, int] = {}
     for f in findings:
@@ -1248,40 +1387,222 @@ def render_github_issue(target: str, findings: list[Finding], state: State,
 
     top_sev = _severity_label()
     title_subject = "ragtools" if target == "rag" else "rag-plugin"
-    suggested_title = f"[diagnostic] {title_subject} — {top_sev} findings from rag-plugin v{plugin.manifest_version} report"
-    labels = ["diagnostic", f"severity:{top_sev}"]
-    labels.append("source:rag-plugin-report")
+    non_info_findings = [f for f in findings if f.severity != "info"]
+
+    # Title is auto-derived from the highest-severity finding so collected
+    # issues (across many users) cluster naturally by symptom.
+    if non_info_findings:
+        primary = _sort_findings(non_info_findings)[0]
+        suggested_title = f"[{title_subject}] {primary.severity}: {primary.title}"
+    else:
+        suggested_title = f"[{title_subject}] healthy report from rag-plugin v{plugin.manifest_version} (info-only findings)"
+
+    labels = ["diagnostic", f"severity:{top_sev}", "source:rag-plugin-report"]
+    if target == "rag":
+        labels.append(f"install-mode:{state.install_mode}")
+        if state.service_mode != "N/A":
+            labels.append(f"service:{state.service_mode.lower()}")
 
     md: list[str] = []
-    md.append(f"# Suggested issue for github.com/{repo}\n")
+    md.append(f"# Suggested issue for `github.com/{repo}`\n")
     md.append(f"**Suggested title:** `{suggested_title}`\n")
     md.append(f"**Suggested labels:** `{', '.join(labels)}`\n")
+    md.append("Paste everything from `---` down into a new GitHub issue. The "
+              "fields below are already redacted (secrets, tokens, cookies, "
+              "PEM keys, long base64 trailing tokens, home-path normalization, "
+              "hostname masking) — verify once more before posting publicly.\n")
     md.append("---\n")
+
+    # ------------------------------------------------------------------ #
+    # Section 1 — Summary                                                  #
+    # ------------------------------------------------------------------ #
+    md.append("## Summary\n")
+    if non_info_findings:
+        primary = _sort_findings(non_info_findings)[0]
+        md.append(f"`{primary.id}` ({primary.severity}) — {primary.title}.\n")
+        md.append(f"**Recommended action:** {primary.recommendation}\n")
+    else:
+        md.append("No critical / high / medium / low findings — this report is informational. "
+                  "Filing as a healthy-state datapoint for maintainers.\n")
+    md.append(f"Findings breakdown: " + ", ".join(
+        f"{n} {sev}" for sev, n in sorted(sev_counts.items(),
+                                          key=lambda kv: _SEVERITY_ORDER.get(kv[0], 9))
+    ) + ".\n")
+
+    # ------------------------------------------------------------------ #
+    # Section 2 — Environment                                              #
+    # ------------------------------------------------------------------ #
     md.append("## Environment\n")
-    md.append(f"- Generated by `rag-plugin` v{plugin.manifest_version} report engine v{REPORT_VERSION} on {meta['timestamp']}")
-    md.append(f"- OS: `{meta['platform']}`")
+    md.append(f"- Generated: `{meta['timestamp']}` by report engine v{REPORT_VERSION}")
+    md.append(f"- Hostname (masked): `{meta['hostname']}`")
+    md.append(f"- OS / platform: `{meta['platform']}`")
     md.append(f"- Python: `{meta['python']}`")
+    md.append(f"- Shell: `{meta['shell']}`")
+    md.append(f"- Plugin version: **`rag-plugin v{plugin.manifest_version}`**")
     if target == "rag":
-        md.append(f"- ragtools install: `{state.install_mode}`, version: `{state.version or 'unknown'}`")
-        md.append(f"- service mode: `{state.service_mode}`")
+        md.append(f"- ragtools install mode: **`{state.install_mode}`**")
+        md.append(f"- ragtools binary: `{normalize_home(state.binary_path) or 'not found'}`")
+        md.append(f"- ragtools version: **`{state.version or 'unknown'}`**")
+        md.append(f"- ragtools service mode: **`{state.service_mode}`**")
+        md.append(f"- ragtools host:port: `{state.host}:{state.port}`")
+        md.append(f"- ragtools data path: `{normalize_home(state.data_path) or 'not found'}`")
+        md.append(f"- ragtools log path: `{normalize_home(state.log_path) or 'not found'}`")
     md.append("")
+
+    # ------------------------------------------------------------------ #
+    # Section 3 — Findings table + per-finding detail                      #
+    # ------------------------------------------------------------------ #
     md.append("## Findings\n")
     md.append(_render_findings_table(findings))
-    md.append("\n## Detail\n")
+    md.append("\n### Detail\n")
     md.append(_render_findings_detail(findings))
+
+    # ------------------------------------------------------------------ #
+    # Section 4 — target-specific evidence dumps                           #
+    # ------------------------------------------------------------------ #
+    if target == "rag":
+        # Application-side evidence: /health body, /api/status excerpt,
+        # watcher status, recent log error patterns. All redacted.
+        md.append("## Runtime evidence\n")
+        if state.health_status:
+            md.append("**`GET /health`:**")
+            md.append("```json")
+            md.append(redact(json.dumps(state.health_status, indent=2, default=str))[:1200])
+            md.append("```\n")
+        if state.api_status:
+            wanted = ("points_count", "total_files", "total_chunks", "last_indexed",
+                      "scale", "collection", "embedding_model", "score_threshold",
+                      "version", "service", "ready", "uptime")
+            excerpt = {k: state.api_status[k] for k in wanted if k in state.api_status}
+            md.append("**`GET /api/status` (key fields):**")
+            md.append("```json")
+            md.append(redact(json.dumps(excerpt, indent=2, default=str))[:1500])
+            md.append("```\n")
+        if state.watcher_status:
+            md.append("**`GET /api/watcher/status`:**")
+            md.append("```json")
+            md.append(redact(json.dumps(state.watcher_status, indent=2, default=str))[:600])
+            md.append("```\n")
+
+        # Project inventory — concise; many users care about the count + scale
+        project_view: list[dict[str, Any]] = list(state.api_projects)
+        if not project_view and state.api_status:
+            embedded = state.api_status.get("projects")
+            if isinstance(embedded, list):
+                project_view = [p for p in embedded if isinstance(p, dict)]
+        if project_view:
+            md.append(f"**Projects configured: {len(project_view)}**\n")
+            md.append("| Name | Files | Chunks | Enabled |")
+            md.append("|---|---|---|---|")
+            for p in project_view[:15]:
+                name = p.get("project_id") or p.get("id") or p.get("name") or "?"
+                md.append(f"| `{name}` | {p.get('files', '?')} | "
+                          f"{p.get('chunks', '?')} | {p.get('enabled', '?')} |")
+            if len(project_view) > 15:
+                md.append(f"\n_+{len(project_view) - 15} more not shown._")
+            md.append("")
+    else:
+        # Plugin-side evidence: plugin layout inventory, Claude config state,
+        # hook decisions stats, redacted session-signal counts.
+        md.append("## Plugin layout (`rag-plugin/`)\n")
+        md.append(f"- Plugin source dir: `{normalize_home(plugin.plugin_dir) or 'not found'}`")
+        md.append(f"- Cached plugin dir(s): `{normalize_home(plugin.cache_dir) or 'none detected'}`")
+        md.append(f"- Commands ({len(plugin.commands)}): {', '.join(plugin.commands) or '_none_'}")
+        md.append(f"- Skills ({len(plugin.skills)}): {', '.join(plugin.skills) or '_none_'}")
+        md.append(f"- Agents ({len(plugin.agents)}): {', '.join(plugin.agents) or '_none_'}")
+        md.append(f"- Hooks ({len(plugin.hooks)}): {', '.join(plugin.hooks) or '_none_'}")
+        md.append(f"- Rules ({len(plugin.rules)}): {', '.join(plugin.rules) or '_none_'}")
+        md.append(f"- Scripts ({len(plugin.scripts)}): {', '.join(plugin.scripts) or '_none_'}")
+        if plugin.expected_missing:
+            md.append(f"- **Missing expected files:** {', '.join(plugin.expected_missing)}")
+        md.append("")
+
+        md.append("## Claude configuration\n")
+        md.append(f"- `~/.claude/CLAUDE.md` present: `{cci.user_claude_md_exists}`")
+        md.append(f"- Retrieval rule installed: `{cci.retrieval_rule_present}`"
+                  + (f" (v{cci.retrieval_rule_marker_version})" if cci.retrieval_rule_marker_version else ""))
+        md.append(f"- `~/.claude/settings.json` present: `{cci.settings_exists}`")
+        md.append(f"- User-level MCP configs: {', '.join(normalize_home(p) for p in cci.user_mcp_paths) or '_none_'}")
+        md.append(f"- ragtools entries in user-level MCP configs: **{len(cci.user_mcp_ragtools_entries)}**")
+        md.append(f"- Plugin-level `.mcp.json` present: `{cci.plugin_mcp_present}`")
+        if cci.duplicate_mcp_warning:
+            md.append(f"- ⚠ {cci.duplicate_mcp_warning}")
+        md.append(f"- User settings.json hooks block present: `{cci.user_hooks_present}`"
+                  + (f" ({cci.user_hooks_summary})" if cci.user_hooks_summary else ""))
+        md.append("")
+
+        md.append("## Retrieval-reminder hook decisions\n")
+        if hook_stats.log_exists and hook_stats.total_lines > 0:
+            md.append(f"- Log: `{normalize_home(hook_stats.log_path)}`")
+            md.append(f"- Total decisions logged: **{hook_stats.total_lines}**")
+            if hook_stats.last_entry_ts:
+                md.append(f"- Most recent entry: `{hook_stats.last_entry_ts}`")
+            md.append("- Action breakdown:")
+            total = max(hook_stats.total_lines, 1)
+            for act, n in hook_stats.actions.items():
+                pct = 100.0 * n / total
+                md.append(f"  - `{act}`: {n} ({pct:.1f}%)")
+        else:
+            md.append("- No hook decision log present (hook never fired or observability disabled).")
+        md.append("")
+
+        md.append("## Session-behavior signals\n")
+        md.append(f"- Sessions discovered in `~/.claude/projects/`: **{scan.sessions_found}**")
+        md.append(f"- Sessions scanned (newest-first, capped): **{scan.sessions_scanned}**")
+        md.append(f"- Sessions with at least one RAC/RAG signal: **{scan.sessions_with_signal}**")
+        if scan.signal_counts:
+            md.append("- Signal counts:")
+            for sig, n in sorted(scan.signal_counts.items(), key=lambda kv: -kv[1]):
+                md.append(f"  - `{sig}`: {n}")
+        if scan.examples:
+            md.append("\n_Redacted example snippets (≤220 chars each, single-line, secret-redacted):_\n")
+            for i, e in enumerate(scan.examples[:6], 1):
+                md.append(f"{i}. `[{e['signal']}]` from `{e['session_file']}`:")
+                md.append(f"   > {e['snippet']}")
+        md.append("")
+
+    # ------------------------------------------------------------------ #
+    # Section 5 — Reproduction                                             #
+    # ------------------------------------------------------------------ #
     md.append("## Reproduction\n")
     if target == "rag":
-        md.append("1. `rag service status` (or `rag service start` if down)")
+        md.append("To regenerate this evidence on any device with `rag-plugin` installed:")
+        md.append("")
+        md.append("1. `rag service status` (start with `rag service start` if it returns DOWN)")
         md.append("2. `rag doctor` for the layered dependency report")
-        md.append("3. tail the most recent service log\n")
+        md.append("3. `/rag:doctor --full` from inside Claude Code for the structured version")
+        md.append("4. `/rag:report` to regenerate this whole document")
+        md.append("")
+        md.append("Maintainer: the structured findings are also in "
+                  "`redacted-diagnostics.json` next to this file in the user's "
+                  "`~/.claude/rag-plugin/reports/<timestamp>/` directory.")
     else:
-        md.append("1. `/rag:doctor` to confirm state")
-        md.append("2. `/rag:config status` for plugin config snapshot")
-        md.append("3. `/rag:rag-report` to regenerate this evidence on a fresh device\n")
-    md.append("## Privacy\n")
-    md.append("Secrets, tokens, bearer headers, cookies, and private keys were redacted before this issue was generated. ")
-    md.append("Home directories are normalized to `~`. Snippets are short and single-line. ")
-    md.append("Verify the redaction once more before posting publicly.\n")
+        md.append("To regenerate this evidence on any device with `rag-plugin` installed:")
+        md.append("")
+        md.append("1. `/rag:doctor` to confirm state and detect plugin assertions")
+        md.append("2. `/rag:config status` for plugin configuration snapshot")
+        md.append("3. `/rag:report` to regenerate this whole document")
+        md.append("")
+        md.append("Maintainer: the structured findings + per-session signal counts "
+                  "are in `redacted-diagnostics.json` next to this file.")
+    md.append("")
+
+    # ------------------------------------------------------------------ #
+    # Section 6 — Privacy notice (always last)                             #
+    # ------------------------------------------------------------------ #
+    md.append("## Privacy notice\n")
+    md.append("This report was redacted before generation:")
+    md.append("- Secrets, API keys, bearer headers, cookies, PEM private keys, GitHub PATs, AWS keys, Slack tokens.")
+    md.append("- Home directory paths normalized to `~/...`.")
+    md.append("- Hostname masked (first 2 + last 2 chars).")
+    md.append("- Session JSONL snippets clipped to ≤220 chars and stripped of newlines.")
+    md.append("- Only RAC/RAG-related signals were extracted from sessions — never full conversations.")
+    md.append("- The command never auto-uploads anything; the user is copying this manually.")
+    md.append("")
+    md.append("**Before posting publicly, scan the body once more for anything project-specific "
+              "you do not want to share.** The redaction is high-precision but not exhaustive — "
+              "team names, internal hostnames, branch names, and file paths under your home dir "
+              "may still leak through.")
     return "\n".join(md)
 
 
@@ -1457,9 +1778,9 @@ def main(argv: Optional[list[str]] = None) -> int:
     plugin_md = render_plugin_report(state, plugin, cci, hook_stats, scan, plugin_findings, meta)
     summary_md = render_summary(state, app_findings, plugin_findings, plugin, meta, outdir)
     issue_rag = render_github_issue("rag", [f for f in app_findings if f.target == "rag"],
-                                    state, plugin, meta)
+                                    state, plugin, cci, hook_stats, scan, meta)
     issue_plg = render_github_issue("plugins", [f for f in plugin_findings if f.target == "plugins"],
-                                    state, plugin, meta)
+                                    state, plugin, cci, hook_stats, scan, meta)
 
     # Structured diagnostics (machine-readable, redacted)
     diag = {

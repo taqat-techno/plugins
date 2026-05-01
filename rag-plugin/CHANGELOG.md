@@ -2,6 +2,48 @@
 
 All notable changes to `rag-plugin` are documented here. Format is loosely based on [Keep a Changelog](https://keepachangelog.com/). Versioning follows [SemVer](https://semver.org/).
 
+## [0.12.0] — 2026-05-01 — `/rag:report` becomes maintainer-issue-ready
+
+The `/rag:report` command was producing thin reports because the report engine had three latent bugs against ragtools v2.5.x and the GitHub-ready issue body it emitted was too sparse for a maintainer to triage without follow-up. v0.12.0 fixes all three bugs and rewrites the issue-body renderer to be ready-to-paste from any user's machine — which is the point of the command: **anyone running rag-plugin should be able to file a useful issue back to the maintainer with one copy-paste**.
+
+### Bug fixes in `scripts/rag_report.py`
+
+- **`/api/projects` parser** now handles both shapes: bare list `[...]` (older builds) and modern wrapped object `{"projects": [...]}`. Each project record is hydrated via `/api/projects/<id>/status` to pull path, last_indexed, and enabled — the list endpoint returns lean records (`{project_id, files, chunks}`) which is why the report previously showed "No project list available" despite 14 projects being configured.
+- **`/api/status` excerpt key list** updated to ragtools v2.5.x fields: `points_count`, `total_files`, `total_chunks`, `last_indexed`, `scale`, `collection`, `embedding_model`, `score_threshold`, `projects`. The previous list referenced fields that the running build doesn't expose, so §3 emitted `{}`.
+- **Scale-band findings (A-012, A-013)** added to the application-side synthesizer. ragtools v2.5.x exposes a `scale` block with `level ∈ {none, approaching, warning, critical}` and human-readable `message`. The synthesizer now emits A-012 (medium) on `approaching` and A-013 (high) on `warning`/`critical`/`near-limit`, so collection-size pressure is visible in the report instead of silently ignored.
+- **A-008 false-positive fix**: "no projects configured" is no longer emitted when `/api/projects` parser fell through but `/api/status.projects` is non-empty. The synthesizer now cross-checks both sources.
+- **§5 Data/index state** in the application report now also shows aggregate index totals (`points`, `total_files`, `total_chunks`, `last_indexed`, `scale.level`) when available.
+
+### Issue-body renderer rewrite
+
+`render_github_issue()` now produces a substantively bigger body (~135 lines vs ~40 before), structured for collection across many users:
+
+- **Symptom-driven title** — derived from the highest-severity finding (e.g. `[ragtools] medium: local Qdrant collection approaching scale limit`) so issues collected across multiple users cluster by symptom, not by user.
+- **Auto-derived labels** — `severity:<level>`, `install-mode:<mode>`, `service:<state>` (rag target only) added alongside the static `diagnostic` and `source:rag-plugin-report` labels.
+- **Environment block** — rich and ready-to-paste: install mode, binary path, version, service mode, host:port, data path, log path, plus generator metadata.
+- **Findings table + per-finding detail** — both rendered.
+- **Target-specific evidence dump:**
+  - rag target gets `/health` body, `/api/status` key fields, watcher status, and a project inventory table — all redacted.
+  - plugins target gets plugin layout inventory, Claude config state (CLAUDE.md retrieval rule version, MCP wiring), full hook-decisions breakdown with percentages, session-behavior signal counts, and up to 6 redacted single-line snippet examples.
+- **Reproduction steps** — concrete commands the maintainer can ask any user to run.
+- **Privacy notice** — explicit list of what was redacted (secrets, tokens, cookies, PEM keys, GitHub PATs, AWS keys, Slack tokens, home-path normalization, hostname masking, snippet clipping) + a manual scrub reminder for project-specific names that may slip through.
+
+The report engine version is now `v0.9.0` (was `v0.8.0`); plugin version `0.11.0 → 0.12.0`.
+
+### Verification
+
+- `python scripts/rag_report.py --self-test` — all redaction + render checks pass.
+- Live run against the production ragtools service at `127.0.0.1:21420` (v2.5.2, packaged-windows, 14 projects, 16,510 points, scale.level=approaching) correctly:
+  - Surfaces A-012 (Qdrant scale approaching) instead of silently ignoring it.
+  - Lists all 14 projects with files/chunks/enabled/path (was "No project list available").
+  - Emits a `/api/status` excerpt with the structured `scale` block (was `{}`).
+  - Generates a 137-line `github-rag-issue.md` ready to paste, including a symptom-driven title and auto-labels.
+- `python validate_plugin_simple.py rag-plugin` — 9 commands, 3 skills, 1 hooks file, all OK.
+
+### Why this matters for the maintainer feedback loop
+
+Before v0.12.0, anyone running `/rag:report` got an issue file that lacked the scale-band signal, missed the project inventory, and had a generic title. Collecting issues across many users was hard because: (a) the most-actionable signals weren't surfaced, and (b) the body was too thin to triage without follow-up questions. v0.12.0 makes the issue body self-contained — environment, runtime evidence, hook-injection rate, session signals, severity-ranked findings — so the maintainer can read once, triage, and route improvements back to the plugin.
+
 ## [0.11.0] — 2026-05-01
 
 Closes the LESSONS.md TODO "rag-plugin enhancement (future work)" — the retrieval-reminder hook now distinguishes operational/inspection questions from knowledge questions and silent-passes the former. Source: `~/.claude/LESSONS.md` "Inspect the machine before asking clarifying questions" (2026-04-28).
