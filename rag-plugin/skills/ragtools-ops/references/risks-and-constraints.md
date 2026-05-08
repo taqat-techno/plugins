@@ -33,6 +33,27 @@ Qdrant local mode has scaling limits that the plugin must respect when bulk-addi
 
 **How the plugin honors this:** before bulk-adding projects (Odoo source trees, monorepos, archives), check current chunk count via `/api/status` and warn the user if approaching the limit. Specifically — for users who say "add this entire monorepo", surface the soft limit before doing it.
 
+### Qdrant local-mode `scale.level="over"` — past the hard limit
+
+ragtools v2.5.x exposes a `scale` block in `/api/status` that classifies the current collection size into bands:
+
+| `scale.level` | Meaning | Plugin report severity |
+|---|---|---|
+| `none` | Below soft limit (~15k points). | A-OK (info) |
+| `approaching` | Crossing the soft limit. | A-012 (medium) |
+| `warning` / `critical` / `near-limit` | Forecasting saturation; index still functional but degrading. | A-013 (high) |
+| **`over`** (or `exceeded` / `past-limit`) | **Past the hard limit** (~20k points). Search latency and memory degrade in measurable ways; this is an objective state, not a forecast. | **A-014 (high)** |
+
+When the report engine sees `scale.level="over"`, it emits **A-014 high-severity** with a recommendation that lists three remediation steps **in this order**:
+
+1. **Tighten `ignore_patterns` first.** Many over-band collections are inflated by build artifacts, lockfiles, vendored sources, or Odoo source trees that should never have been indexed. `add_project_ignore_rule` is non-destructive — it only changes which files are eligible going forward; combined with a reindex it shrinks the collection.
+2. **Remove unnecessary indexed projects.** `/rag:projects remove` is destructive at the project level (drops that project's chunks) but preserves every other project. Use it for retired or low-value projects.
+3. **Migrate Qdrant to server mode.** Only consider this if the large index is intentional and the first two steps don't bring the collection back under the hard limit. Server mode is a heavier setup but lifts the local-mode size constraint.
+
+**Why the order matters.** Pruning `ignore_patterns` is reversible, low-risk, and often produces the biggest wins (e.g. 30% reductions just from excluding `node_modules/`, `.venv/`, build dirs). Removing whole projects is a bigger commitment but still cheap operationally. Server-mode migration is last because it's the most expensive change and only worth it once the plugin-side wins have been exhausted.
+
+**What "over" actually feels like.** External diagnostics from a real user on 2026-05-06 showed a collection at 26,242 points (31% past the 20k hard limit). Search still returned results — the failure mode is **degradation**, not breakage. Latency growth and memory pressure are gradual. Users may not notice until results take noticeably longer or until OOM kills the service on a retry. The whole point of A-014 is to flag the over-band state explicitly so the user can act before degradation becomes visible.
+
 ## Qdrant `delete_collection` is unreliable while a client holds the lock
 
 Calling `client.delete_collection(...)` while the same client is also indexing or holding the Qdrant lock can return success without truncating SQLite storage. A subsequent `recreate_collection` call sees the collection still exists and skips creation — **stale data survives the rebuild**.

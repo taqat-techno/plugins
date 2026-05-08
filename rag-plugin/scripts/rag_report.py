@@ -643,15 +643,45 @@ def tail_recent_errors(log_dir: str, max_files: int = 4, lines_per_file: int = 2
 # --------------------------------------------------------------------------- #
 
 
+# Patterns are tightened to specific failure idioms. v0.13.1 narrowed:
+#
+#   - port-in-use: was `port .* in use` (matched "imPORT was in use of ..." via
+#     re.IGNORECASE); now requires EADDRINUSE, "address already in use", or
+#     "port <digits> ... in use" with a numeric port.
+#   - connect-refused: dropped `HTTPConnectionPool.*Failed` (matched any prose
+#     mentioning the class name); now requires ECONNREFUSED or
+#     "connection refused", optionally near an HTTPConnectionPool marker.
+#   - mcp-error: was `MCP[^\n]{0,40}(error|failed|disconnected|not connect)`
+#     (matched generic "Exit code 2 ... mcp ... error" shell prose); now
+#     requires concrete MCP failure idioms: explicit "MCP server" verbs,
+#     "plugin:rag" reconnection failures, "tools/list" failures, or
+#     "STARTUP_FAILED".
 _SIGNAL_PATTERNS = [
     ("rag-mention", re.compile(r"\b(ragtools|rac/rag|rag-plugin|search_knowledge_base|knowledge base)\b", re.IGNORECASE)),
     ("rag-port", re.compile(r"127\.0\.0\.1:21420|:21420\b")),
-    ("mcp-error", re.compile(r"MCP[^\n]{0,40}(error|failed|disconnected|not connect)", re.IGNORECASE)),
+    ("mcp-error", re.compile(
+        r"(MCP server (?:failed|crashed|disconnected|not (?:responding|connecting))"
+        r"|MCP[^\n]{0,20}STARTUP_FAILED"
+        r"|mcp_server\.STARTUP_FAILED"
+        r"|[Ff]ailed to (?:re)?connect to plugin:rag"
+        r"|MCP tools/list (?:failed|timeout|timed out)"
+        r"|tools/list (?:failed|timeout|timed out) for plugin:rag"
+        r"|\[MCP\] (?:error|failed))",
+        re.IGNORECASE,
+    )),
     ("retrieval-skipped", re.compile(r"(I don't have (enough )?information|I don't have access|I don't have any information)", re.IGNORECASE)),
     ("user-correct-search", re.compile(r"(why didn'?t you search|use the knowledge base|search first|did you check the (rag|knowledge))", re.IGNORECASE)),
     ("rag-error-line", re.compile(r"\[RAG ERROR\]|\[RAG STATUS\].*failed", re.IGNORECASE)),
-    ("connect-refused", re.compile(r"(connection refused|ECONNREFUSED|HTTPConnectionPool.*Failed)", re.IGNORECASE)),
-    ("port-in-use", re.compile(r"(EADDRINUSE|address already in use|port .* in use)", re.IGNORECASE)),
+    ("connect-refused", re.compile(
+        r"(\bECONNREFUSED\b"
+        r"|[Cc]onnection refused"
+        r"|HTTPConnectionPool[^\"\n]{0,200}(?:refused|Failed to establish|Max retries))",
+    )),
+    ("port-in-use", re.compile(
+        r"(\bEADDRINUSE\b"
+        r"|[Aa]ddress already in use"
+        r"|\bport \d{2,5}\b[^\n]{0,40}\b(?:is|already)\b[^\n]{0,20}\bin use\b)",
+    )),
 ]
 
 
@@ -831,16 +861,18 @@ def synthesize_findings(state: State, plugin: PluginInspection,
                 ))
 
             # Scale-band warning (ragtools v2.5.x exposes a `scale` block in
-            # /api/status that classifies the local-mode collection size:
-            # `level` ∈ {none, approaching, warning, critical}; `message`
-            # carries human-readable guidance). When the level is anything
-            # other than "none", surface it as an A-NNN finding so the
-            # maintainer-facing report flags it.
+            # /api/status that classifies the local-mode collection size).
+            # Recognized levels: none / approaching / warning / critical /
+            # near-limit / over (or exceeded / past-limit). "over" means the
+            # collection has crossed the hard limit — objective state, not a
+            # forecast — so it is treated as the most serious band.
             scale = state.api_status.get("scale") if state.api_status else None
             if isinstance(scale, dict):
                 lvl = str(scale.get("level", "")).lower()
                 pts = scale.get("points") or scale.get("points_count") or state.api_status.get("points_count")
-                cap = scale.get("limit") or scale.get("cap") or scale.get("max_points")
+                # Prefer hard_limit when reported; fall back to legacy limit/cap fields.
+                cap = (scale.get("hard_limit") or scale.get("limit")
+                       or scale.get("cap") or scale.get("max_points"))
                 msg = redact(str(scale.get("message", "") or ""))[:240]
                 if lvl == "approaching":
                     app.append(Finding(
@@ -863,6 +895,31 @@ def synthesize_findings(state: State, plugin: PluginInspection,
                         recommendation="Archive completed projects, add ignore rules, or migrate to a sharded "
                                        "configuration before retrieval quality degrades. File an issue at "
                                        "github.com/taqat-techno/rag with the scale block from /api/status.",
+                        target="rag",
+                    ))
+                elif lvl in ("over", "exceeded", "past-limit"):
+                    # The collection is past the hard limit. Search latency
+                    # and memory degrade noticeably. This is an objective
+                    # state, so it always emits at high severity. The
+                    # recommendation lists the maintainer-approved
+                    # remediation order from
+                    # `skills/ragtools-ops/references/risks-and-constraints.md`.
+                    app.append(Finding(
+                        id="A-014",
+                        title=f"local Qdrant collection over hard limit (scale.level={lvl})",
+                        severity="high",
+                        evidence=f"scale.level={lvl}"
+                                 + (f" ({pts} / {cap} points hard limit)" if pts and cap else "")
+                                 + (f" — {msg}" if msg else ""),
+                        recommendation=(
+                            "Remediation order: "
+                            "(1) tighten ignore_patterns via "
+                            "`/rag:projects` `add-ignore` to drop build artifacts and vendored sources from the index; "
+                            "(2) remove unnecessary indexed projects with `/rag:projects remove`; "
+                            "(3) if the large index is intentional, consider migrating Qdrant to server mode. "
+                            "See `skills/ragtools-ops/references/risks-and-constraints.md` "
+                            "for the full guidance."
+                        ),
                         target="rag",
                     ))
 

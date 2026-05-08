@@ -2,6 +2,38 @@
 
 All notable changes to `rag-plugin` are documented here. Format is loosely based on [Keep a Changelog](https://keepachangelog.com/). Versioning follows [SemVer](https://semver.org/).
 
+## [0.13.1] — 2026-05-08 — Report-engine fixes for `scale.level="over"` and false-positive session signals
+
+Patch release surfacing two P0 issues found in external user diagnostics (2026-05-06).
+
+### Fixed
+
+- **`scale.level="over"` no longer reported as A-OK / healthy** (`scripts/rag_report.py`). The synthesizer recognized `approaching` (A-012 medium) and `warning|critical|near-limit` (A-013 high) but treated `over` (collection past the hard limit) as unrecognized and fell through to the A-OK info-only verdict. A real user's report on 2026-05-08 had `scale.level="over"` with 26,242 points (31% past the 20k hard limit) and the banner read "ragtools application looks healthy on this device." Fix introduces **A-014 (high)** — `local Qdrant collection over hard limit` — emitted whenever `scale.level ∈ {over, exceeded, past-limit}`. Recommendation lists the three-step remediation order from `skills/ragtools-ops/references/risks-and-constraints.md`: (1) tighten `ignore_patterns`, (2) remove unnecessary indexed projects, (3) migrate to Qdrant server mode if the large index is intentional.
+- **Session-scan classifier no longer matches generic shell output as `mcp-error` / `port-in-use` / `connect-refused`** (`scripts/rag_report.py:_SIGNAL_PATTERNS`). Verified false positives in the 2026-05-06 diagnostics: `imPORT was in use of ...` was matching `port-in-use`; `Exit code 2\ntotal 12\ndrwxr-xr-x` was matching `mcp-error`; ordinary `ls -la` listings were matching `connect-refused`. Patterns are tightened to require concrete failure idioms:
+  - `port-in-use` requires `EADDRINUSE`, `Address already in use`, or `port <2-5 digits> ... is/already in use`.
+  - `connect-refused` requires `ECONNREFUSED`, `Connection refused`, or `HTTPConnectionPool ... refused/Failed to establish/Max retries`.
+  - `mcp-error` requires `MCP server failed/crashed/disconnected/not responding`, `STARTUP_FAILED`, `Failed to (re)connect to plugin:rag`, `MCP tools/list failed/timeout`, or `[MCP] error/failed`. Generic shell prose no longer matches.
+
+### Added
+
+- `scripts/test_rag_report.py` (new): 24 unit tests covering scale-band classification (including `over`), classifier false-positive regressions (using verbatim snippets from the 2026-05-06 user report), and classifier positive-match coverage for `EADDRINUSE`, `ECONNREFUSED`, `[RAG ERROR]`, `MCP server failed`, `Failed to reconnect to plugin:rag`, `tools/list timeout`, and `STARTUP_FAILED`.
+- `skills/ragtools-ops/references/risks-and-constraints.md`: new "Qdrant local-mode `scale.level=\"over\"`" subsection documenting what the band means, why local-mode degrades there, and the three-step remediation order with rationale for the ordering.
+
+### Verification
+
+- `python rag-plugin/scripts/test_rag_report.py` → 24/24 OK.
+- `python rag-plugin/scripts/test_project_focus.py` → 30/30 OK (existing v0.13.0 tests).
+- `python rag-plugin/scripts/project_focus.py self-test` → all checks pass.
+- `python plugins/validate_plugin_simple.py rag-plugin` → 0 errors.
+
+### Out of scope (deferred)
+
+- `--json` flag on plugin commands.
+- `--ci` flag on `/rag:report`.
+- `project_focus` block in diagnostics.
+- App-side findings about `/health` JSON shape, `rag service status` exit codes, or `rag doctor --json`. These remain backend concerns to file at `https://github.com/taqat-techno/rag`.
+- Snippet-locality fix (showing the matched substring in session-scan examples instead of the buffer head). Tracked separately.
+
 ## [0.13.0] — 2026-05-08 — Per-workspace project focus (D-028, supersedes D-025 §1)
 
 **Breaking (auto-migrated):** the `~/.claude/rag-plugin/state/project-focus.json` state file format changed from v1 single-record to v2 workspace-keyed map. Migration runs automatically on first read; the original v1 file is backed up to `project-focus.v1.bak.json` for manual rollback.
