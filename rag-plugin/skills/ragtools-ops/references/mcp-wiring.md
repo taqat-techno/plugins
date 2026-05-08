@@ -88,6 +88,41 @@ GET http://127.0.0.1:21420/api/mcp-config
 - **Project-level:** `<repo>/.mcp.json` — per-project, team-shared
 - **User-level:** `~/.claude/.mcp.json` — per-user, all projects
 
+### `claude mcp add -s user` actually writes to `~/.claude.json`, NOT `~/.claude/mcp.json`
+
+**Common misconception trap.** A misnamed `~/.claude/mcp.json` (note the slash, not a dot) is **not** a recognized config location — Claude Code never reads it. `claude mcp add -s user` writes to the dotfile **`~/.claude.json`**, which lives at the same level as the `.claude/` directory but is a separate file:
+
+```
+~/.claude/             ← directory: plugins, sessions, debug logs, settings
+~/.claude.json         ← FILE: where user-level MCP servers actually live
+~/.claude/.mcp.json    ← legitimate user-level MCP config (Option C above)
+~/.claude/mcp.json     ← NOT A REAL CONFIG PATH — Claude Code never reads this
+```
+
+**When debugging "my MCP server doesn't load":**
+1. Run `claude mcp list` first; if the server isn't listed, the manifest write went somewhere Claude isn't reading.
+2. Edit `~/.claude.json` directly (or use `claude mcp add`).
+3. Never trust a hand-edited `~/.claude/mcp.json` — that path is a common stumble.
+
+### `~/.claude.json` is rewritten on session events; concurrent Claude Code instances clobber each other
+
+Claude Code rewrites `~/.claude.json` on session events (login, model switch, plugin reload, etc.). **Two open Claude Code instances with different sessions can race-write this file**, silently dropping each other's `mcpServers` entries. After a wipe, a manually-added MCP server vanishes and the user concludes "the file is corrupted."
+
+**Mitigation:**
+- Before adding/changing MCP servers via `claude mcp add`, **close other Claude Code instances** first.
+- If an MCP entry mysteriously disappears, suspect concurrent-session clobber, not corruption — re-run `claude mcp add` and continue.
+- `~/.claude.json` is per-machine config; **add it to Syncthing's ignore list** if the workspace is sync-replicated. Cross-machine sync of this file produces conflicts and lost state.
+
+### After `.mcp.json` edits: full restart, not `/reload-plugins`
+
+The agent-visible **deferred-tool registry** is populated **at session start**. `/reload-plugins` reports updated server counts but does NOT re-index the tool catalog reaching the agent. After every plugin install, upgrade, or `.mcp.json` edit, the user must **fully restart Claude Code** — closing and reopening the application — not just run `/reload-plugins`.
+
+**Symptom that flags the trap:** `/reload-plugins` reports "N plugin MCP servers" (one higher than before) but `ToolSearch` finds zero tools from the new server. The registry is frozen at startup.
+
+**Verification after a restart:** in a fresh session, run `ToolSearch query="+<server-name>"` — the new tools should be discoverable.
+
+**Empirical-pattern check before changing any plugin's `.mcp.json` shape:** before "fixing" a plugin's `.mcp.json` because it looks wrong, grep every working `~/.claude/plugins/cache/*/.mcp.json` for the same shape. The "right" shape is whatever the working examples on disk are using, not what the documentation claims. The rag-plugin v0.3.0→v0.3.3 launcher saga (D-018→D-019→D-020) cost three release cycles and would have been avoided by one empirical check upfront.
+
 ## Dual-mode MCP server
 
 The MCP server (`src/ragtools/integration/mcp_server.py`) probes `http://127.0.0.1:{service_port}/health` at startup:
