@@ -41,6 +41,29 @@ git pull
 
 Then restart Claude Code. This is the #1 "my fix isn't working" cause during development — documented in [`HOOK_STABILIZATION_REPORT.md`](../../HOOK_STABILIZATION_REPORT.md).
 
+### `EBUSY: resource busy or locked` on plugin install/upgrade
+
+**Symptoms:** `Failed to install: EBUSY: resource busy or locked, rm '...\plugins\cache\...'` during a `/plugins` install or upgrade — typically Windows.
+
+**Reason:** A live MCP child process spawned by **another running Claude Code session** has the plugin cache directory open. The installer cannot clear the old cache while another session's MCP child holds a file inside it.
+
+**Fix:**
+1. Close all other Claude Code windows and terminals running `claude`.
+2. In the surviving session, run `/reload-plugins` to release stale references.
+3. Retry the install.
+
+If the error persists after closing every Claude Code window, check Task Manager for orphaned `rag.exe`, `node.exe` (npx-based MCP servers), or other plugin-spawned binaries; kill them and retry.
+
+### Tool catalog stale after `.mcp.json` edit or plugin upgrade
+
+**Symptoms:** `/mcp` and `/reload-plugins` both show the newly-added MCP server as connected, but `ToolSearch` cannot find any tool from it and `mcp__plugin_<name>__<tool>` is uncallable from the agent.
+
+**Reason:** the agent-visible **deferred-tool registry** is populated **at session start** and is not refreshed by `/reload-plugins`. The registry is frozen on first launch.
+
+**Fix:** **fully restart Claude Code** — close and reopen the application. After restart, run `ToolSearch query="+<server-name>"` in a fresh session to confirm tools are discoverable. This applies after every plugin install, plugin upgrade, or `.mcp.json` edit.
+
+For the rag-plugin specifically, see [`mcp-wiring.md` § After `.mcp.json` edits: full restart, not /reload-plugins`](../../rag-plugin/skills/ragtools-ops/references/mcp-wiring.md).
+
 ### Marketplace README shows plugins that don't exist
 
 **Symptoms:** the table in `plugins/README.md` lists plugin X but clicking through returns 404.

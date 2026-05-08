@@ -2,6 +2,78 @@
 
 All notable changes to `rag-plugin` are documented here. Format is loosely based on [Keep a Changelog](https://keepachangelog.com/). Versioning follows [SemVer](https://semver.org/).
 
+## [0.13.0] — 2026-05-08 — Per-workspace project focus (D-028, supersedes D-025 §1)
+
+**Breaking (auto-migrated):** the `~/.claude/rag-plugin/state/project-focus.json` state file format changed from v1 single-record to v2 workspace-keyed map. Migration runs automatically on first read; the original v1 file is backed up to `project-focus.v1.bak.json` for manual rollback.
+
+### Why this exists
+
+In v0.9.x → v0.12.x, focus was a single global record. Setting `/project-focus` in workspace A meant every other workspace silently inherited that focus — every prompt in workspace B injected a "search only project A" reminder, and Claude would dutifully filter out B's own knowledge. The leak was documented in `LESSONS.md` (2026-05-08) and the prior D-025 design depended on it.
+
+v0.13.0 closes the leak by storing focus as a **map keyed by the normalized workspace root** (git root or cwd) plus an optional explicit **global** record. Workspace records do not affect other workspaces. Global is opt-in via `--global`, never inherited.
+
+### What changed
+
+- `scripts/project_focus.py`
+  - New v2 state schema: `{schema_version: 2, workspaces: {<key>: <record>}, global: <record>|null}`.
+  - New `resolve_workspace_key(cwd)` — git root or cwd, normalized.
+  - New `resolve_effective_focus(bundle, key)` returning `(record, source)` where source ∈ `{workspace, global, other-workspace-only, none}`.
+  - New `clear_workspace`, `clear_global`, `clear_all` with corresponding subcommand variants.
+  - New `set --global <name>` flag — explicit global focus. Auto-detect is rejected for global (must name a project).
+  - v1 → v2 auto-migration on read: prefers `_norm(git_root_at_set)` → falls back to `_norm(cwd_at_set)`. If neither exists or resolves to a real directory, focus is **disabled** during migration and the user is prompted to rerun `/rag:project-focus`. v1 records are never auto-promoted to global.
+  - One-time backup at `project-focus.v1.bak.json` before first migration; never overwritten.
+  - `cmd_status` now prints `workspace_key`, `workspace_focus`, `global_focus`, `effective_focus`, `effective_source`, all known workspaces, and `migrated_from_v1_at` / `migration_log`.
+- `hooks/project_focus_inject.py`
+  - Reads v2 state via the script's loader (so migration runs on first hook fire).
+  - Resolves effective focus by current cwd.
+  - **Workspace source** → standard reminder.
+  - **Global source** → reminder begins with `EXPLICIT GLOBAL FOCUS` and tells Claude the focus applies because of `--global`, not because of cwd match.
+  - **Other-workspace-only source** → injects a neutral notice that does NOT include the foreign project's name. Phrases like "not applied here" are literal so Claude cannot accidentally use foreign focus.
+  - Honors `RAG_PLUGIN_FOCUS_STATE_FILE` env var for test harnesses.
+- `scripts/test_project_focus.py` (NEW)
+  - 30 unit tests covering migration, workspace key resolution, CRUD, effective-focus resolver, hook injection paths, and a regression test for the cross-workspace leak.
+- `commands/project-focus.md`
+  - Rewritten subcommand table.
+  - Replaced "Cross-project leak warning" with "Per-workspace focus model".
+  - New machine-local + Syncthing guidance.
+  - Manual validation checklist updated with leak-regression and explicit-global tests.
+- `docs/decisions.md`
+  - Added **D-028** (per-workspace focus + explicit global, supersedes D-025 §1).
+  - Added **RFC-001** placeholder for future MCP-level enforcement (out of scope for this release).
+
+### Migration notes
+
+Existing v1 state files migrate cleanly:
+
+```
+v1 record  →  workspaces[_norm(git_root_at_set or cwd_at_set)]
+```
+
+If you used the old global behavior intentionally and want to keep it, run `/rag:project-focus set --global <name>` after the upgrade. v1 records are not auto-promoted to global by design — auto-promotion would recreate the leak.
+
+If migration disables your focus (because the v1 record had no usable cwd anchor), `/rag:project-focus status` will show `migration_log` explaining why. Rerun `/rag:project-focus` to re-establish.
+
+### Rollback
+
+```
+cp ~/.claude/rag-plugin/state/project-focus.v1.bak.json \
+   ~/.claude/rag-plugin/state/project-focus.json
+```
+
+then downgrade the plugin to v0.12.x. The `.bak` is never overwritten so this is safe.
+
+### Verification
+
+- `python rag-plugin/scripts/test_project_focus.py` → 30/30 OK.
+- `python rag-plugin/scripts/project_focus.py self-test` → all checks pass.
+- `python plugins/validate_plugin_simple.py rag-plugin` → 0 errors.
+
+### Out of scope (not in this release)
+
+- Auto-detect-on-prompt (deferred to potential Phase 2).
+- MCP server-side default `project=` enforcement (RFC-001).
+- `clear --workspace <key>` for explicit cleanup of stale Syncthing entries.
+
 ## [0.12.0] — 2026-05-01 — `/rag:report` becomes maintainer-issue-ready
 
 The `/rag:report` command was producing thin reports because the report engine had three latent bugs against ragtools v2.5.x and the GitHub-ready issue body it emitted was too sparse for a maintainer to triage without follow-up. v0.12.0 fixes all three bugs and rewrites the issue-body renderer to be ready-to-paste from any user's machine — which is the point of the command: **anyone running rag-plugin should be able to file a useful issue back to the maintainer with one copy-paste**.

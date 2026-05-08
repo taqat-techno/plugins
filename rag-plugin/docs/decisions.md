@@ -899,3 +899,64 @@ Reverse only if:
 ---
 
 *Append new decisions below. Never rewrite or delete an entry — supersede with a new dated entry that references the old one.*
+
+---
+
+## D-028 — Per-workspace project-focus + explicit global (supersedes D-025 §1)
+
+Date: 2026-05-08
+Phase: Post-12
+Status: binding (BREAKING — auto-migrated)
+Ships in: v0.13.0
+Supersedes: D-025 §1 (single-record global state). Other clauses of D-025 (filter-fallback policy, no-auto-mutation, ambiguity gating, cross-project gate phrases) remain binding and unchanged.
+
+### The decision
+
+1. The state file at `~/.claude/rag-plugin/state/project-focus.json` becomes a v2 schema: a map of focus records keyed by **normalized workspace root** (`workspaces`) plus an optional explicit global record (`global`). The single-record v1 shape is auto-migrated on first read; the original v1 file is backed up exactly once to `project-focus.v1.bak.json`.
+2. The workspace key is computed from the current cwd as `_norm(detect_git_root(cwd) or cwd)` — git root preferred, cwd fallback. Normalization resolves symlinks, posix-slashes, and lowercases on Windows so the same workspace produces the same key across runs on one machine.
+3. `set` (auto or manual) writes to `workspaces[<current_workspace_key>]`. `set --global <name>` writes to `global` (manual name required; auto-detect is meaningless for global).
+4. Effective focus precedence is **workspace > global > none**. The hook honors precedence on every prompt by reading the same engine code that powers `set`/`status` — no duplicate logic.
+5. **Strict mismatch behavior.** When the state has focus records for OTHER workspaces but neither this workspace nor a global applies, the hook injects a neutral notice that does NOT include the foreign project's name. The phrase `not applied here` is literal, so Claude cannot accidentally use the foreign project name as a `project=` filter.
+6. **Explicit-global labeling.** When global focus is the effective source, the injected reminder begins with `EXPLICIT GLOBAL FOCUS` and explains that the focus applies because the user used `--global`, not because it matches the current cwd. Workspace-source reminders carry no such label.
+7. `clear` clears only the current workspace's record. `clear --global` clears only the global. `clear --all` clears both. Bare `clear` no longer wipes everything.
+8. v1 → v2 migration is **strictly into `workspaces[<key>]` only**. v1 records are NEVER auto-promoted to `global` — global focus is opt-in and explicit; auto-elevating an old single-record state would re-create the leak this decision exists to fix.
+9. The state file is **machine-local**. Workspace keys are absolute paths on the local disk. The plugin documents that `~/.claude/rag-plugin/state/` should be excluded from Syncthing / iCloud / OneDrive / Dropbox; cross-machine sync produces ghost entries.
+
+### Non-violation of prior decisions
+
+- **D-001 / D-022:** the plugin still does not call `search_knowledge_base`. The hook injects context; Claude does the call. Backend untouched.
+- **D-002 (transport mix):** unchanged. The script enumerates projects via HTTP `GET /api/projects`; nothing else changed.
+- **D-007 (hook posture):** the hook still never blocks or denies. Strict mismatch is a non-injection or a neutral-notice injection, not a deny.
+- **D-008 (compact by default):** the workspace-source reminder shape is unchanged. The new global-source reminder is bounded; the new neutral notice is one paragraph.
+- **D-012 (telemetry):** no telemetry added. The state file remains the only artifact.
+- **D-016 / D-017 / D-027 (CLAUDE.md retrieval rule + classifier hook):** independent and unaffected. The two UserPromptSubmit hooks compose additively.
+- **D-021 (decrease commands):** no command count change.
+- **D-025 (project-focus contract):** §1 superseded; all other clauses preserved.
+
+### Rollback path
+
+If v0.13.0 misbehaves on real state files, users can revert by:
+
+```bash
+cp ~/.claude/rag-plugin/state/project-focus.v1.bak.json \
+   ~/.claude/rag-plugin/state/project-focus.json
+```
+
+then downgrade to v0.12.x. The `.bak` is never overwritten on subsequent migrations, so this command is safe even if the user has already used v0.13 for a while (they only lose v0.13-era focus state, not their original v0.9.x state).
+
+### Reverse only if
+
+- A future ragtools release exposes a richer focus API that supersedes plugin-side state entirely.
+- Workspace-key normalization proves unreliable across user environments (test plan §9 covers Windows + WSL specifically; widen the normalization rule, do not abandon the per-workspace model).
+- Multi-project union focus per workspace is requested. Implement as a list value inside a workspace record (`{... "project_names": [...]}`); do not promote a second top-level key.
+
+---
+
+## RFC-001 — MCP-level enforcement of project focus (deferred from Phase 1)
+
+Date: 2026-05-08
+Status: deferred / RFC
+
+D-028 closes the cross-workspace leak by making the plugin's hook cwd-aware, but the actual filtering of `search_knowledge_base` calls remains an honor-system contract: Claude must read the injected reminder and pass `project=<name>`. A future change could move enforcement into the ragtools MCP server itself by having it read the same state file (or a shared lookup) at startup and apply the focus as a default `project=` when the caller does not specify one.
+
+This crosses the D-001 boundary (the plugin currently never wraps `search_knowledge_base`) and likely needs an upstream ragtools change. Out of scope for v0.13.0. Filed here so the option is recorded; revisit if honor-system bypass becomes a real complaint after v0.13 ships.

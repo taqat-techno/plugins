@@ -171,6 +171,19 @@ Hooks are JSON registrations in `hooks/hooks.json` + sibling scripts in `hooks/`
 6. **Don't spawn Python for simple checks.** A hook that fires on every `Write` / `Edit` costs interpreter startup time. Use bash for speed or pre-compiled tools. Python is fine for one-shot SessionStart hooks with real logic.
 7. **Windows cross-platform.** `os.execvp` has different stdio-pipe semantics on Windows. Scripts must not assume POSIX behavior. Test on both platforms.
 
+**Tiered SessionStart hook design (probe / background / full):**
+
+A naïve "run the full sync pipeline on every session start" hook has multiple failure modes — latency (30s+), network dependency, accidental writes, concurrent-session conflicts on `git worktree add`. For any plugin whose SessionStart needs to do real work, design a three-tier mode:
+
+| Mode         | Behavior                                                                  | Latency | Network  | Writes    | When to use         |
+|--------------|---------------------------------------------------------------------------|---------|----------|-----------|---------------------|
+| `disabled`   | Exit silently                                                             | 0 ms    | —        | —         | User opt-out        |
+| `probe`      | Read manifest mtimes vs `.workspace_signature`. One-line note if stale.   | ~50 ms  | None     | None      | Daily driver default|
+| `background` | Probe → if stale, fork via `nohup` / detached process                     | ~50 ms  | Yes (bg) | Yes (bg)  | Auto-sync, non-blocking |
+| `full`       | Run the pipeline synchronously                                            | 30 s+   | Yes      | Yes       | CI / pipelines only |
+
+**Hook timeout is a hard backstop.** Set `"timeout": 10` in `hooks.json` so even `probe` cannot stall the session. Probe should finish in ~50 ms; the timeout is for safety only.
+
 ### MCP servers
 
 Plugin-level MCP registration is a `.mcp.json` file at the plugin root. **Flat shape** (no `mcpServers` wrapper) — verified empirically against every working plugin in the cache.
@@ -190,6 +203,11 @@ Plugin-level MCP registration is a `.mcp.json` file at the plugin root. **Flat s
 1. **Flat shape at plugin level.** Wrapped shape (`mcpServers: {...}`) is for user-level (`~/.claude/.mcp.json`) and project-level (`<repo>/.mcp.json`) files, not plugin-level. The `rag-plugin` v0.3.1→v0.3.2 retraction (D-019) is the cautionary tale.
 2. **Spawn the binary directly.** Do not wrap in a Python launcher script — Python's `os.execvp` on Windows doesn't preserve stdio pipe inheritance, and the spawned process never gets the handshake. D-020 codifies this.
 3. **Register, don't wrap.** The plugin registers the MCP server so Claude can call its tools directly. The plugin itself never wraps content-retrieval tools (e.g., `search_knowledge_base` in `rag-plugin`). Ops tools are fair game (D-022).
+4. **Empirical-pattern check before changing manifest shape.** Before "fixing" a plugin's `.mcp.json` because it looks wrong, grep every working `~/.claude/plugins/cache/*/.mcp.json` for the same shape. The "right" shape is whatever the working examples on disk are using, not what the documentation claims. If 4-of-4 working plugins use shape A and your broken one uses shape B, A is the answer regardless of what the spec says.
+5. **Never allowlist execution-shaped MCP tools too broadly.** When defining `allowed-tools` on a command or building a `.claude/settings.json` permissions allowlist, treat the following as arbitrary code execution and require explicit user approval: `mcp__*__evaluate_script`, `mcp__*__browser_evaluate`, `mcp__*__browser_run_code_unsafe`, and any tool that takes a free-form script string. Wildcarded interpreters (`wsl *`, `curl *`, `python3 *`, `node *`, `npx *`) are equivalent.
+6. **Mode is locked at MCP startup; never switch mid-session.** When an MCP server can operate in two modes (proxy vs direct, online vs offline, dev vs production), the server must pick the mode at init and lock it. If the dependency later goes down, return a clean `[ERROR] Service unavailable` and require a restart — do NOT auto-switch mode mid-session. Mid-session mode switching multiplies edge cases (half-loaded resources, stale clients, dangling state) and rarely solves a real user problem. The `rag-plugin` MCP encodes this in `rules/mcp-envelope.md` §3.
+
+**Restart discipline after MCP changes:** any time you edit a plugin's `.mcp.json`, install or upgrade a plugin, or toggle an MCP tool grant in the server's admin panel, **fully restart Claude Code** — not `/reload-plugins`. The agent-visible deferred-tool registry is populated at session start; `/reload-plugins` reports updated server counts but does not re-index the tool catalog reaching the agent. After restart, verify with `ToolSearch query="+<server-name>"`.
 
 ### Rules
 
@@ -202,6 +220,50 @@ Behavioral contracts referenced by skills, agents, and commands. Single-owner la
 - `rules/claude-md-retrieval-rule.md` — shipped asset installed into the user's CLAUDE.md.
 
 **Convention:** referenced at `${CLAUDE_PLUGIN_ROOT}/rules/<name>.md` from commands/skills. Don't duplicate.
+
+## Cross-cutting plugin design patterns
+
+These patterns recur in multi-component plugins. Read once, apply where the plugin actually needs them.
+
+### Layered config: frozen plugin tree vs user-owned workspace
+
+For plugins that need user-specific configuration (project paths, custom rules, persona overrides, classifier weights), split config into two layers so a forced plugin update doesn't clobber user customizations:
+
+| Layer | Lives at | Owned by | Survives plugin update? |
+|---|---|---|---|
+| Defaults + detection logic | `<plugin>/skills/<skill>/config.env`, `refs/example/*.json` | Plugin maintainer | N/A — refreshed on every update |
+| User overrides (resolved paths, custom rules) | `<workspace>/.claude/<skill-name>/config.env`, `<workspace>/.claude/<skill-name>/refs/*.json` | User | ✅ Always — outside the plugin tree |
+
+Skill loads them in order; second wins:
+
+```bash
+source "$SKILL_DIR/config.env"                                                  # plugin defaults
+[ -f "$WS/.claude/<skill>/config.env" ] && source "$WS/.claude/<skill>/config.env"  # user overrides
+```
+
+**Rule:** the plugin tree is frozen on every install. User data **never** lives there. A plugin force-update replaces every plugin file but never touches the workspace directory — so the user can `force-update` and zero of their resolved paths / classifier rules / persona overrides are touched.
+
+### Service-owner architecture (single-process resource lock)
+
+For plugins that wrap a tool with a single-owner resource (Qdrant local mode, exclusive port, OS-level lock, SQLite-on-network-share, etc.), the right architecture is:
+
+1. **One service process owns the resource.** Lock-protected accessors only; never raw exports.
+2. **CLI commands probe `/health` first** — route through HTTP if up, fall back to direct access if down.
+3. **MCP server probes once at startup** and locks itself into proxy mode (httpx forwarder, ~15ms cold start, no encoder load) or direct mode for the session.
+4. **Watcher / background work runs as a daemon thread inside the service process** using the owner's shared client; never opens its own.
+5. **Mid-session mode-switching is forbidden.** See the MCP servers §6 rule above — fail clean and require a restart.
+
+The `rag-plugin` is the canonical implementation; see `rag-plugin/skills/ragtools-ops/references/risks-and-constraints.md` § "Single-process constraint" for the concrete invariants.
+
+### Three-strategy auto-discovery (zero-config → signature scan → interactive)
+
+For plugins that need to find user repos / projects / configurations in arbitrary workspace layouts:
+
+1. **Standard layout (zero config).** Workspace root contains direct children matching canonical names. If everything is found, run with no further questions.
+2. **Signature scan (handles renames + nesting).** Walk the workspace tree up to depth 3. For each `.git/` dir, read `git remote get-url origin` and content fingerprints. Match by **git remote URL + content fingerprint**, never by folder name. Handles bundled / renamed / vendored layouts.
+3. **Interactive prompt (only for what survived 1+2).** Tell the user once: "I couldn't locate the **<name>** repo automatically. Tell me a path, or say *skip* to disable it for this run." Persist the answer to the workspace config so step 2 never re-asks.
+
+Hardcoding paths makes the plugin unusable for anyone with a different layout. Pure interactive prompting on every run is annoying. Three-strategy ladder asks the minimum.
 
 ## Binding decisions (D-NNN)
 
