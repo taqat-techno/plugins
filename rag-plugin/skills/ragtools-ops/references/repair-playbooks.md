@@ -117,6 +117,33 @@ If the indexer truly hangs (no CPU activity, no log progress for several minutes
 
 ---
 
+## fresh-project-reindex-is-noop
+
+**Symptom:** the user just registered a project (`/rag:projects add ...`), then ran `/api/projects/<id>/reindex` and the chunk count is still zero.
+
+**Why:** `POST /api/projects/<id>/reindex` for a project that was just registered with `files=0` runs as a no-op — the log line `Project data deleted: <id> (0 files)` followed by a full-index pass that finds nothing because the project has no indexed file rows yet.
+
+**Fix:**
+1. Trigger a **global** full index instead — `POST /api/index {"full": true}` (synchronous; slow on large repos).
+2. Or **restart the service** — startup sync triggers a global index pass that picks up newly-added projects.
+
+**Rule:** after bulk-adding ragtools projects, never rely on per-project reindex for first-time indexing. Use the global path. Document this when walking the user through `add` → `index` flows.
+
+---
+
+## bulk-destructive-operation-confirmation
+
+**When the user asks for a bulk refactor** (delete N projects, add M new ones, prune all node_modules across all projects), do not execute immediately:
+
+1. **Enumerate** the proposed remove and add lists with IDs and paths.
+2. **Flag concerns** — chunk-count overflow against the 20k hard limit, suspicious paths (system dirs, dotfiles), ID collisions with existing projects.
+3. **Wait for explicit `go`** before executing anything destructive.
+4. **Do not** pre-prefix project names (`my-`, `tq-`) unless asked. The convention is leaf-folder kebab-case IDs.
+
+This applies to `/rag:projects remove`, `/rag:reset` (any level), `/rag:projects rebuild`, and any combined "remove + add" bulk flow. The confirmation discipline at the top of this file is the general rule; this section is the bulk-operation specialization.
+
+---
+
 ## Quick playbook lookup
 
 | Failure ID | Symptom keyword | Playbook anchor |
@@ -129,6 +156,8 @@ If the indexer truly hangs (no CPU activity, no log progress for several minutes
 | F-007 | indexing stuck or slow | `#indexing-slow-or-stuck` |
 | F-008 | port already in use / panel won't load | `#admin-panel-port-collision` |
 | F-009 | MCP not connecting from Claude Code | `#mcp-not-connecting` |
+| —    | reindex no-op on fresh project          | `#fresh-project-reindex-is-noop` |
+| —    | bulk destructive op (remove/add many)   | `#bulk-destructive-operation-confirmation` |
 
 ## See also
 

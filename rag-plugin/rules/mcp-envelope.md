@@ -60,6 +60,8 @@ else:
 
 ## 3. Mode-first branching (binding)
 
+**Mode is locked at MCP startup; do not try to switch in mid-session.** The MCP server probes `/health` once at init: if reachable, it sets `_mode = 'proxy'` and builds the httpx client; if not, it sets `_mode = 'direct'`, loads the encoder, and opens Qdrant. **If the service later goes down while in proxy mode, the plugin returns a clear `[RAG ERROR] Service unavailable. Restart with: rag service start` — it does NOT attempt to fall over into direct mode mid-session.** The clean failure mode beats the "best-effort fallback" that nobody can reason about. This is a binding architectural choice (ragtools D-roadmap Phase 3); plugin code must not work around it.
+
 **Check `mode` before calling proxy-only tools.** If the last envelope reported `mode == "degraded"` or `mode == "failed"`, do not call tools that require proxy — they'll return `DEGRADED_MODE`.
 
 | `mode` | What the plugin can call |

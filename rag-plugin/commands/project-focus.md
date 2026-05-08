@@ -1,24 +1,34 @@
 ---
-description: Restrict ragtools knowledge-base retrieval to the current working project so Claude does not pull context from unrelated indexed projects. Auto-detects the project from CWD + git root, matches against ragtools list_projects, and persists state at ~/.claude/rag-plugin/state/project-focus.json. A bundled UserPromptSubmit hook injects scope-this-to-X reminders into every subsequent prompt while focus is active. Subcommands — set / status / clear — plus optional manual project name argument.
-argument-hint: "[set|status|clear|<project-name>] [--auto]"
+description: Per-workspace ragtools knowledge-base focus. Default — focus is keyed by the current workspace (git root or cwd). State at ~/.claude/rag-plugin/state/project-focus.json holds a workspace map plus an optional explicit global record. The bundled UserPromptSubmit hook injects scope-this-to-X reminders only when an enabled focus applies to the current cwd; if focus exists for other workspaces but not this one, a neutral notice fires that does NOT leak the other project's name. Subcommands — set / status / clear — plus --global for explicit global focus and --all / --global for clear variants.
+argument-hint: "[set|status|clear|<project-name>] [--auto] [--global] [--all]"
 allowed-tools: Bash(python:*), Bash(python3:*), Bash(curl:*), Bash(git:*), Read, mcp__plugin_rag_ragtools__list_projects, mcp__plugin_rag_ragtools__index_status
 disable-model-invocation: false
 author: TaqaTechno
-version: 0.9.0
+version: 0.13.0
 ---
 
 # /project-focus
 
-Make Claude focus ragtools retrieval on **only the current project**. After activation, every UserPromptSubmit inserts a reminder that scopes `search_knowledge_base` to the focused project — by passing a project filter parameter when supported, or by post-filtering results by project metadata when not. Cross-project retrieval is allowed **only when the user explicitly asks** (e.g. "compare across projects", "all projects").
+Make Claude focus ragtools retrieval on **the current workspace's project**. After activation, every UserPromptSubmit inserts a reminder that scopes `search_knowledge_base` to the focused project — by passing a project filter parameter when supported, or by post-filtering results by project metadata when not. Cross-project retrieval is allowed **only when the user explicitly asks** (e.g. "compare across projects", "all projects").
+
+**v0.13.0 model (D-028, supersedes D-025 §1):**
+
+- Focus is **per-workspace** by default. The workspace key is the normalized git root (or cwd when no `.git/` is present).
+- An **explicit global** focus is opt-in via `--global` and is **clearly labelled in every reminder** so Claude understands it applies because the user used `--global`, not because it matches the current cwd.
+- Effective focus precedence: **workspace > global > none**.
+- If focus exists for other workspaces but none applies to the current cwd AND no global is set, the hook emits a **neutral notice** that does NOT include the foreign project's name. Claude will not accidentally use unrelated focus.
 
 ## Subcommands
 
 | Invocation | Behavior |
 |---|---|
-| `/project-focus` | Auto-detect: CWD → git root → match against `list_projects` → persist focus state. |
-| `/project-focus <project-name>` | Manual: focus on the named project. The name must appear in `list_projects` (case-insensitive). |
-| `/project-focus status` | Print the current focus state, match method, and whether the project still exists in `list_projects`. |
-| `/project-focus clear` | Remove the focus state file; subsequent prompts get no project-focus reminder. |
+| `/project-focus` | Auto-detect: CWD → git root → match against `list_projects` → persist focus for the **current workspace**. |
+| `/project-focus <project-name>` | Manual workspace focus: focus the **current workspace** on the named project. |
+| `/project-focus --global <project-name>` | **Explicit global focus.** Applies whenever no workspace-specific focus exists. Requires a project name (auto-detection is meaningless globally). |
+| `/project-focus status` | Show current workspace key, workspace focus, global focus, **effective focus**, and any drift signals. |
+| `/project-focus clear` | Clear ONLY the current workspace's focus. Global, if any, is untouched. |
+| `/project-focus clear --global` | Clear ONLY the global focus. Workspaces map untouched. |
+| `/project-focus clear --all` | Clear all workspace focuses AND the global. |
 
 ## Step 0 — State detection
 
@@ -120,6 +130,46 @@ Claude must follow this reminder in every subsequent turn until `/project-focus 
 5. **Hook silent-passes on any error.** Missing file, malformed JSON, or unreadable state → no output, exit 0. The retrieval-reminder hook still fires independently.
 6. **Cross-project retrieval requires an explicit user phrase.** "across all projects", "global knowledge", "compare projects", "all of them" — anything weaker keeps focus.
 
+## Per-workspace focus model (v0.13.0 — closes the v0.9 leak)
+
+In v0.9.x, focus was a single global record. Setting focus in workspace A meant every other workspace silently inherited it. v0.13.0 fixes this by storing focus as a **map keyed by normalized workspace root** plus an optional explicit **global** record.
+
+**State file shape (v2 schema):**
+
+```json
+{
+  "schema_version": 2,
+  "engine_version": "0.13.0",
+  "workspaces": {
+    "<normalized-workspace-key>": { "<focus-record>", "scope": "workspace" }
+  },
+  "global": null | { "<focus-record>", "scope": "global" }
+}
+```
+
+**Hook behavior — strict by default:**
+
+| Situation | Hook output |
+|---|---|
+| Workspace record matches current cwd (enabled) | Inject the focused project; standard reminder. |
+| No workspace record; explicit global is set | Inject the global project, **labelled as `EXPLICIT GLOBAL FOCUS`** — Claude is told this applies because the user ran `--global`, not because it matches cwd. |
+| Other workspaces have focus but neither this workspace nor a global applies | Inject a **neutral notice** that focus exists elsewhere but is **NOT applied here**. The other project's name is **never included** so Claude cannot accidentally use it. |
+| Nothing applies | Silent-pass. |
+
+**State migration from v0.9 → v0.13:**
+
+- v1 state files are auto-migrated on first read.
+- Migration key = `_norm(git_root_at_set)` → fallback `_norm(cwd_at_set)`.
+- If neither is usable (empty or non-existent), focus is **disabled** and the user is asked to rerun `/rag:project-focus`.
+- v1 records are NEVER auto-promoted to global.
+- Before migration, the original v1 file is copied once to `~/.claude/rag-plugin/state/project-focus.v1.bak.json` for manual rollback.
+
+## Machine-local state (do not Syncthing this directory)
+
+The state file lives at `~/.claude/rag-plugin/state/project-focus.json`. It encodes per-machine workspace paths (e.g. `c:/my-workspace/...` on Windows, `/home/.../workspace/...` on WSL) which **do not normalize to the same key across machines**. Add the directory to Syncthing's `.stignore` (or your sync tool's equivalent) so machine-A's workspace keys do not appear on machine-B as ghost entries that the hook silent-passes on.
+
+If you do hit ghost entries from another machine after a sync, list them with `/rag:project-focus status` (the `all_workspaces` field) and remove specific stale keys with `/rag:project-focus clear --all` — there is no `clear --workspace <key>` in v0.13.0; that is potential Phase 2 work.
+
 ## What if `search_knowledge_base` doesn't support a project filter?
 
 This is the v0.9.0 reality: the tool may or may not accept a `project=...` parameter depending on the ragtools version. The hook reminder asks Claude to:
@@ -141,11 +191,15 @@ Tell the user what to run (do not run it):
 ## Manual validation checklist
 
 1. `python scripts/project_focus.py self-test` → all checks pass.
-2. From inside a known-indexed project: `/project-focus` → state file appears, `project-focus: ON` confirmation prints.
-3. `/project-focus status` → prints the focused project + match method.
-4. From an unrelated directory with `/project-focus` active: a domain question retrieves only focused-project results (verify via Claude's response citing only the focused project's source files).
-5. `/project-focus clear` → state file removed; subsequent prompts get no focus reminder.
-6. `/project-focus nonexistent-name` → `no-match` with candidate list.
+2. `python scripts/test_project_focus.py` → all 30 tests green (covers v1→v2 migration, workspace-keyed CRUD, hook injection paths).
+3. From inside a known-indexed project: `/project-focus` → status shows `effective_source: workspace`.
+4. **Leak regression:** open a Claude Code session in a different workspace. Status should show `effective_source: none` or `other-workspace-only` (NOT a workspace value carried over from the previous session). The hook either silent-passes or injects only the neutral notice — no project name leaks.
+5. **Explicit global:** `/project-focus --global royal-preps`. From any workspace without its own focus, status shows `effective_source: global`, and the injected reminder contains the literal phrase `EXPLICIT GLOBAL FOCUS`.
+6. `/project-focus clear` → only the current workspace's record is removed; global, if set, remains.
+7. `/project-focus clear --global` → global removed; workspaces map remains.
+8. `/project-focus clear --all` → both removed.
+9. `/project-focus nonexistent-name` → `no-match` with candidate list.
+10. **v1 migration smoke:** with the live state file backed up, manually write a v1 single-record file and run `/project-focus status` — confirm v2 schema, `migrated_from_v1_at` populated, `~/.claude/rag-plugin/state/project-focus.v1.bak.json` exists.
 
 ## See also
 
