@@ -2,6 +2,110 @@
 
 All notable changes to `rag-plugin` are documented here. Format is loosely based on [Keep a Changelog](https://keepachangelog.com/). Versioning follows [SemVer](https://semver.org/).
 
+## [0.13.1] — 2026-05-08 — Report-engine fixes for `scale.level="over"` and false-positive session signals
+
+Patch release surfacing two P0 issues found in external user diagnostics (2026-05-06).
+
+### Fixed
+
+- **`scale.level="over"` no longer reported as A-OK / healthy** (`scripts/rag_report.py`). The synthesizer recognized `approaching` (A-012 medium) and `warning|critical|near-limit` (A-013 high) but treated `over` (collection past the hard limit) as unrecognized and fell through to the A-OK info-only verdict. A real user's report on 2026-05-08 had `scale.level="over"` with 26,242 points (31% past the 20k hard limit) and the banner read "ragtools application looks healthy on this device." Fix introduces **A-014 (high)** — `local Qdrant collection over hard limit` — emitted whenever `scale.level ∈ {over, exceeded, past-limit}`. Recommendation lists the three-step remediation order from `skills/ragtools-ops/references/risks-and-constraints.md`: (1) tighten `ignore_patterns`, (2) remove unnecessary indexed projects, (3) migrate to Qdrant server mode if the large index is intentional.
+- **Session-scan classifier no longer matches generic shell output as `mcp-error` / `port-in-use` / `connect-refused`** (`scripts/rag_report.py:_SIGNAL_PATTERNS`). Verified false positives in the 2026-05-06 diagnostics: `imPORT was in use of ...` was matching `port-in-use`; `Exit code 2\ntotal 12\ndrwxr-xr-x` was matching `mcp-error`; ordinary `ls -la` listings were matching `connect-refused`. Patterns are tightened to require concrete failure idioms:
+  - `port-in-use` requires `EADDRINUSE`, `Address already in use`, or `port <2-5 digits> ... is/already in use`.
+  - `connect-refused` requires `ECONNREFUSED`, `Connection refused`, or `HTTPConnectionPool ... refused/Failed to establish/Max retries`.
+  - `mcp-error` requires `MCP server failed/crashed/disconnected/not responding`, `STARTUP_FAILED`, `Failed to (re)connect to plugin:rag`, `MCP tools/list failed/timeout`, or `[MCP] error/failed`. Generic shell prose no longer matches.
+
+### Added
+
+- `scripts/test_rag_report.py` (new): 24 unit tests covering scale-band classification (including `over`), classifier false-positive regressions (using verbatim snippets from the 2026-05-06 user report), and classifier positive-match coverage for `EADDRINUSE`, `ECONNREFUSED`, `[RAG ERROR]`, `MCP server failed`, `Failed to reconnect to plugin:rag`, `tools/list timeout`, and `STARTUP_FAILED`.
+- `skills/ragtools-ops/references/risks-and-constraints.md`: new "Qdrant local-mode `scale.level=\"over\"`" subsection documenting what the band means, why local-mode degrades there, and the three-step remediation order with rationale for the ordering.
+
+### Verification
+
+- `python rag-plugin/scripts/test_rag_report.py` → 24/24 OK.
+- `python rag-plugin/scripts/test_project_focus.py` → 30/30 OK (existing v0.13.0 tests).
+- `python rag-plugin/scripts/project_focus.py self-test` → all checks pass.
+- `python plugins/validate_plugin_simple.py rag-plugin` → 0 errors.
+
+### Out of scope (deferred)
+
+- `--json` flag on plugin commands.
+- `--ci` flag on `/rag:report`.
+- `project_focus` block in diagnostics.
+- App-side findings about `/health` JSON shape, `rag service status` exit codes, or `rag doctor --json`. These remain backend concerns to file at `https://github.com/taqat-techno/rag`.
+- Snippet-locality fix (showing the matched substring in session-scan examples instead of the buffer head). Tracked separately.
+
+## [0.13.0] — 2026-05-08 — Per-workspace project focus (D-028, supersedes D-025 §1)
+
+**Breaking (auto-migrated):** the `~/.claude/rag-plugin/state/project-focus.json` state file format changed from v1 single-record to v2 workspace-keyed map. Migration runs automatically on first read; the original v1 file is backed up to `project-focus.v1.bak.json` for manual rollback.
+
+### Why this exists
+
+In v0.9.x → v0.12.x, focus was a single global record. Setting `/project-focus` in workspace A meant every other workspace silently inherited that focus — every prompt in workspace B injected a "search only project A" reminder, and Claude would dutifully filter out B's own knowledge. The leak was documented in `LESSONS.md` (2026-05-08) and the prior D-025 design depended on it.
+
+v0.13.0 closes the leak by storing focus as a **map keyed by the normalized workspace root** (git root or cwd) plus an optional explicit **global** record. Workspace records do not affect other workspaces. Global is opt-in via `--global`, never inherited.
+
+### What changed
+
+- `scripts/project_focus.py`
+  - New v2 state schema: `{schema_version: 2, workspaces: {<key>: <record>}, global: <record>|null}`.
+  - New `resolve_workspace_key(cwd)` — git root or cwd, normalized.
+  - New `resolve_effective_focus(bundle, key)` returning `(record, source)` where source ∈ `{workspace, global, other-workspace-only, none}`.
+  - New `clear_workspace`, `clear_global`, `clear_all` with corresponding subcommand variants.
+  - New `set --global <name>` flag — explicit global focus. Auto-detect is rejected for global (must name a project).
+  - v1 → v2 auto-migration on read: prefers `_norm(git_root_at_set)` → falls back to `_norm(cwd_at_set)`. If neither exists or resolves to a real directory, focus is **disabled** during migration and the user is prompted to rerun `/rag:project-focus`. v1 records are never auto-promoted to global.
+  - One-time backup at `project-focus.v1.bak.json` before first migration; never overwritten.
+  - `cmd_status` now prints `workspace_key`, `workspace_focus`, `global_focus`, `effective_focus`, `effective_source`, all known workspaces, and `migrated_from_v1_at` / `migration_log`.
+- `hooks/project_focus_inject.py`
+  - Reads v2 state via the script's loader (so migration runs on first hook fire).
+  - Resolves effective focus by current cwd.
+  - **Workspace source** → standard reminder.
+  - **Global source** → reminder begins with `EXPLICIT GLOBAL FOCUS` and tells Claude the focus applies because of `--global`, not because of cwd match.
+  - **Other-workspace-only source** → injects a neutral notice that does NOT include the foreign project's name. Phrases like "not applied here" are literal so Claude cannot accidentally use foreign focus.
+  - Honors `RAG_PLUGIN_FOCUS_STATE_FILE` env var for test harnesses.
+- `scripts/test_project_focus.py` (NEW)
+  - 30 unit tests covering migration, workspace key resolution, CRUD, effective-focus resolver, hook injection paths, and a regression test for the cross-workspace leak.
+- `commands/project-focus.md`
+  - Rewritten subcommand table.
+  - Replaced "Cross-project leak warning" with "Per-workspace focus model".
+  - New machine-local + Syncthing guidance.
+  - Manual validation checklist updated with leak-regression and explicit-global tests.
+- `docs/decisions.md`
+  - Added **D-028** (per-workspace focus + explicit global, supersedes D-025 §1).
+  - Added **RFC-001** placeholder for future MCP-level enforcement (out of scope for this release).
+
+### Migration notes
+
+Existing v1 state files migrate cleanly:
+
+```
+v1 record  →  workspaces[_norm(git_root_at_set or cwd_at_set)]
+```
+
+If you used the old global behavior intentionally and want to keep it, run `/rag:project-focus set --global <name>` after the upgrade. v1 records are not auto-promoted to global by design — auto-promotion would recreate the leak.
+
+If migration disables your focus (because the v1 record had no usable cwd anchor), `/rag:project-focus status` will show `migration_log` explaining why. Rerun `/rag:project-focus` to re-establish.
+
+### Rollback
+
+```
+cp ~/.claude/rag-plugin/state/project-focus.v1.bak.json \
+   ~/.claude/rag-plugin/state/project-focus.json
+```
+
+then downgrade the plugin to v0.12.x. The `.bak` is never overwritten so this is safe.
+
+### Verification
+
+- `python rag-plugin/scripts/test_project_focus.py` → 30/30 OK.
+- `python rag-plugin/scripts/project_focus.py self-test` → all checks pass.
+- `python plugins/validate_plugin_simple.py rag-plugin` → 0 errors.
+
+### Out of scope (not in this release)
+
+- Auto-detect-on-prompt (deferred to potential Phase 2).
+- MCP server-side default `project=` enforcement (RFC-001).
+- `clear --workspace <key>` for explicit cleanup of stale Syncthing entries.
+
 ## [0.12.0] — 2026-05-01 — `/rag:report` becomes maintainer-issue-ready
 
 The `/rag:report` command was producing thin reports because the report engine had three latent bugs against ragtools v2.5.x and the GitHub-ready issue body it emitted was too sparse for a maintainer to triage without follow-up. v0.12.0 fixes all three bugs and rewrites the issue-body renderer to be ready-to-paste from any user's machine — which is the point of the command: **anyone running rag-plugin should be able to file a useful issue back to the maintainer with one copy-paste**.

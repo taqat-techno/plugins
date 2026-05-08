@@ -1,28 +1,46 @@
 #!/usr/bin/env python3
-"""rag-plugin /project-focus state engine (v0.9.0).
+"""rag-plugin /project-focus state engine (v0.10.0).
 
-Manages a single local state file at:
+Schema v2 — per-workspace focus map + optional explicit global focus.
+See `docs/decisions.md#d-028` for the design rationale and migration policy.
 
-  ~/.claude/rag-plugin/state/project-focus.json
+State file: ``~/.claude/rag-plugin/state/project-focus.json``.
 
-Subcommands (all stdlib-only, no MCP, no HTTP except the optional
-`set --auto` matcher which calls `GET /api/projects` to enumerate
-configured ragtools projects):
+v2 shape::
 
-  set [<project-name-or-id>] [--auto]   activate focus
-  status                                  show current focus
-  clear                                   remove the state file
+    {
+      "schema_version": 2,
+      "engine_version": "0.10.0",
+      "workspaces": { "<normalized-workspace-key>": <focus-record>, ... },
+      "global":     null | <focus-record>,
+      "migrated_from_v1_at": null | "<iso8601>",
+      "migration_log": [ "..." ]
+    }
 
-`set` with no args is equivalent to `set --auto`. The auto matcher
-detects the current project from the working directory + git root
-and matches against `list_projects` by:
-  1. exact path
-  2. closest parent path (longest match)
-  3. project name
-  4. case-insensitive comparison on Windows
+A focus record has the same field set v0.9.0 wrote, plus:
 
-Never mutates ragtools project config. Never adds projects.
-Never reindexes. Atomic state writes (tmp + os.replace).
+  - ``scope``:           ``"workspace"`` | ``"global"``
+  - ``workspace_key``:   normalized path (workspace records); empty for global
+
+Subcommands (all stdlib-only, no MCP):
+
+  set  [<project-name>] [--auto] [--global]   activate workspace OR global focus
+  status                                        show effective focus + drift
+  clear                                         clear ONLY the current workspace
+  clear --global                                clear ONLY the global record
+  clear --all                                   clear both
+
+Migration:
+  - v1 state files are auto-migrated to v2 on first read.
+  - The chosen workspace key is ``_norm(git_root_at_set or cwd_at_set)``.
+  - If neither path is usable (empty or non-existent), focus is disabled and
+    the user is asked to rerun ``/rag:project-focus``. v1 records are NEVER
+    auto-migrated into ``global`` (per the v0.10.0 design decision).
+  - Before the first migration, the original v1 file is copied once to
+    ``project-focus.v1.bak.json`` so the user can roll back manually.
+
+Never mutates ragtools project config. Never adds projects. Never reindexes.
+Atomic state writes (tmp + ``os.replace``).
 
 Exit codes:
   0  success
@@ -55,10 +73,12 @@ except Exception:
 
 STATE_DIR = Path.home() / ".claude" / "rag-plugin" / "state"
 STATE_FILE = STATE_DIR / "project-focus.json"
+V1_BACKUP_NAME = "project-focus.v1.bak.json"
 
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 21420
-SCRIPT_VERSION = "0.9.0"
+SCRIPT_VERSION = "0.10.0"
+SCHEMA_VERSION = 2
 
 
 # --------------------------------------------------------------------------- #
@@ -68,7 +88,7 @@ SCRIPT_VERSION = "0.9.0"
 
 def _http_json(url: str, timeout: float = 1.5) -> Any:
     try:
-        req = urllib.request.Request(url, headers={"User-Agent": "rag-plugin-focus/0.9.0"})
+        req = urllib.request.Request(url, headers={"User-Agent": f"rag-plugin-focus/{SCRIPT_VERSION}"})
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             body = resp.read().decode("utf-8", errors="replace")
             return json.loads(body)
@@ -80,12 +100,7 @@ def fetch_configured_projects(host: str = DEFAULT_HOST,
                               port: int = DEFAULT_PORT,
                               timeout: float = 1.5,
                               hydrate_paths: bool = True) -> list[dict[str, Any]]:
-    """GET /api/projects from the local ragtools service. Empty list on any error.
-
-    The list endpoint returns lean records: {project_id, files, chunks}. To get
-    paths for path-based matching, call /api/projects/<id>/status per project
-    (only if hydrate_paths=True).
-    """
+    """GET /api/projects from the local ragtools service. Empty list on any error."""
     data = _http_json(f"http://{host}:{port}/api/projects", timeout=timeout)
     raw: list[dict[str, Any]] = []
     if isinstance(data, list):
@@ -112,7 +127,7 @@ def fetch_configured_projects(host: str = DEFAULT_HOST,
 
 
 # --------------------------------------------------------------------------- #
-# Current-directory + git-root detection                                      #
+# Path normalization + workspace key resolution                               #
 # --------------------------------------------------------------------------- #
 
 
@@ -121,7 +136,6 @@ def detect_git_root(start: Path) -> Optional[Path]:
     for ancestor in [p] + list(p.parents):
         if (ancestor / ".git").exists():
             return ancestor
-    # Fallback: try `git rev-parse --show-toplevel` if available
     try:
         r = subprocess.run(
             ["git", "rev-parse", "--show-toplevel"],
@@ -138,22 +152,239 @@ def detect_git_root(start: Path) -> Optional[Path]:
 
 
 def _norm(p: str) -> str:
-    """Normalize path for comparison (resolve, posix slashes, lowercase on Windows)."""
+    """Normalize a path for comparison (resolve, posix slashes, lowercase on Windows)."""
+    if not p:
+        return ""
     try:
         out = str(Path(p).expanduser().resolve())
     except Exception:
         out = str(p)
     out = out.replace("\\", "/")
+    while out.endswith("/") and len(out) > 1:
+        out = out[:-1]
     if os.name == "nt":
         out = out.lower()
     return out
 
 
+def resolve_workspace_key(cwd: Path) -> str:
+    """Compute the workspace key for the given cwd: normalized git root or cwd."""
+    root = detect_git_root(cwd) or cwd
+    return _norm(str(root))
+
+
+def _now_iso() -> str:
+    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+# --------------------------------------------------------------------------- #
+# v1 record validity helpers                                                  #
+# --------------------------------------------------------------------------- #
+
+
+def _v1_pick_migration_path(record: dict[str, Any]) -> tuple[Optional[str], str]:
+    """Return (chosen_normalized_key, source_label) or (None, reason).
+
+    Prefer git_root_at_set, fall back to cwd_at_set. Both must:
+      - be non-empty after stripping
+      - resolve to an existing directory on disk
+    """
+    for field in ("git_root_at_set", "cwd_at_set"):
+        raw = str(record.get(field) or "").strip()
+        if not raw:
+            continue
+        try:
+            p = Path(raw).expanduser().resolve()
+        except Exception:
+            continue
+        if not p.exists() or not p.is_dir():
+            continue
+        return _norm(str(p)), field
+    return None, "no usable git_root_at_set or cwd_at_set"
+
+
+# --------------------------------------------------------------------------- #
+# State file CRUD + migration                                                 #
+# --------------------------------------------------------------------------- #
+
+
+def _empty_v2_bundle() -> dict[str, Any]:
+    return {
+        "schema_version": SCHEMA_VERSION,
+        "engine_version": SCRIPT_VERSION,
+        "workspaces": {},
+        "global": None,
+        "migrated_from_v1_at": None,
+        "migration_log": [],
+    }
+
+
+def _migrate_v1_to_v2(old_record: dict[str, Any]) -> dict[str, Any]:
+    bundle = _empty_v2_bundle()
+    chosen_key, source = _v1_pick_migration_path(old_record)
+    if chosen_key is None:
+        bundle["migrated_from_v1_at"] = _now_iso()
+        bundle["migration_log"].append(
+            f"v1->v2: focus disabled during migration ({source}); rerun /rag:project-focus to re-establish."
+        )
+        return bundle
+    record = dict(old_record)
+    record["scope"] = "workspace"
+    record["workspace_key"] = chosen_key
+    record.setdefault("enabled", True)
+    record["engine_version"] = SCRIPT_VERSION
+    bundle["workspaces"][chosen_key] = record
+    bundle["migrated_from_v1_at"] = _now_iso()
+    bundle["migration_log"].append(
+        f"v1->v2: migrated single-record focus into workspaces[{chosen_key}] using {source}"
+    )
+    return bundle
+
+
+def write_state(state: dict[str, Any]) -> None:
+    STATE_DIR.mkdir(parents=True, exist_ok=True)
+    tmp = STATE_FILE.with_suffix(".json.tmp")
+    tmp.write_text(json.dumps(state, indent=2, ensure_ascii=False), encoding="utf-8")
+    os.replace(tmp, STATE_FILE)
+
+
+def _backup_v1_once(raw_text: str) -> None:
+    bak = STATE_DIR / V1_BACKUP_NAME
+    if bak.exists():
+        return
+    STATE_DIR.mkdir(parents=True, exist_ok=True)
+    bak.write_text(raw_text, encoding="utf-8")
+
+
+def read_state() -> Optional[dict[str, Any]]:
+    """Read the state file, auto-migrating v1 to v2 on first encounter.
+
+    Returns None if the state file does not exist OR is malformed beyond
+    rescue. v2 files are returned as-is. v1 files are migrated, the
+    migrated bundle is persisted, and a one-time backup is written to
+    ``project-focus.v1.bak.json``.
+    """
+    if not STATE_FILE.exists():
+        return None
+    try:
+        raw_text = STATE_FILE.read_text(encoding="utf-8", errors="replace")
+        bundle = json.loads(raw_text)
+    except Exception:
+        return None
+    if not isinstance(bundle, dict):
+        return None
+
+    # v2+: passthrough.
+    if int(bundle.get("schema_version") or 0) >= SCHEMA_VERSION:
+        return bundle
+
+    # v1 single-record shape (top-level "enabled" or "project_name").
+    if "enabled" in bundle or "project_name" in bundle:
+        _backup_v1_once(raw_text)
+        migrated = _migrate_v1_to_v2(bundle)
+        try:
+            write_state(migrated)
+        except Exception:
+            # Even if the persistence write fails, return the in-memory
+            # migrated bundle so callers see the v2 shape this run.
+            pass
+        return migrated
+
+    # Unrecognized shape — treat as missing.
+    return None
+
+
+def clear_workspace(workspace_key: str) -> bool:
+    bundle = read_state() or _empty_v2_bundle()
+    if workspace_key in bundle.get("workspaces", {}):
+        del bundle["workspaces"][workspace_key]
+        write_state(bundle)
+        return True
+    # Persist the (possibly newly initialized) v2 bundle so future reads are clean.
+    write_state(bundle)
+    return False
+
+
+def clear_global() -> bool:
+    bundle = read_state() or _empty_v2_bundle()
+    had = bundle.get("global") is not None
+    bundle["global"] = None
+    write_state(bundle)
+    return had
+
+
+def clear_all() -> bool:
+    bundle = read_state() or _empty_v2_bundle()
+    had = bool(bundle.get("workspaces")) or bundle.get("global") is not None
+    bundle["workspaces"] = {}
+    bundle["global"] = None
+    write_state(bundle)
+    return had
+
+
+def clear_state_file() -> bool:
+    """Remove the state file entirely. Used by ``clear --file`` and tests."""
+    if not STATE_FILE.exists():
+        return False
+    try:
+        STATE_FILE.unlink()
+        return True
+    except Exception:
+        return False
+
+
+# --------------------------------------------------------------------------- #
+# Effective focus resolver (workspace > global > none)                        #
+# --------------------------------------------------------------------------- #
+
+
+def _is_enabled(record: Optional[dict[str, Any]]) -> bool:
+    return bool(record and record.get("enabled"))
+
+
+def resolve_effective_focus(bundle: dict[str, Any], workspace_key: str
+                            ) -> tuple[Optional[dict[str, Any]], str]:
+    """Return (effective_record, source_tag).
+
+    source_tag is one of:
+      - "workspace"            — current workspace has an enabled record
+      - "global"               — no workspace record; explicit global is in use
+      - "other-workspace-only" — at least one OTHER workspace has an enabled
+                                  record but neither this workspace nor global
+                                  applies (signals the hook to inject a neutral
+                                  notice without leaking the other project name)
+      - "none"                 — nothing applies
+    """
+    workspaces = bundle.get("workspaces") or {}
+    ws_record = workspaces.get(workspace_key)
+    if _is_enabled(ws_record):
+        return ws_record, "workspace"
+
+    glob = bundle.get("global")
+    if _is_enabled(glob):
+        return glob, "global"
+
+    # No effective focus, but check whether ANY enabled record exists for a
+    # different workspace. If so, the hook should surface a neutral notice.
+    for k, rec in workspaces.items():
+        if k == workspace_key:
+            continue
+        if _is_enabled(rec):
+            return None, "other-workspace-only"
+
+    return None, "none"
+
+
+# --------------------------------------------------------------------------- #
+# Match scoring                                                               #
+# --------------------------------------------------------------------------- #
+
+
 @dataclass
 class MatchResult:
     project: dict[str, Any]
-    method: str  # "exact-path" | "ancestor-path" | "name" | "manual"
-    score: int    # higher = better; used for tie-breaking
+    method: str
+    score: int
 
 
 def _candidate_paths(project: dict[str, Any]) -> list[str]:
@@ -162,7 +393,6 @@ def _candidate_paths(project: dict[str, Any]) -> list[str]:
         v = project.get(key)
         if isinstance(v, str) and v.strip():
             paths.append(v)
-    # Some ragtools shapes store `paths` as a list
     plist = project.get("paths")
     if isinstance(plist, list):
         for v in plist:
@@ -181,7 +411,6 @@ def _project_name(project: dict[str, Any]) -> str:
 
 def match_project(cwd: Path, projects: list[dict[str, Any]],
                   manual_name: Optional[str] = None) -> tuple[Optional[MatchResult], list[MatchResult]]:
-    """Return (best_match, all_candidates). Caller decides on ambiguity."""
     candidates: list[MatchResult] = []
     if manual_name:
         wanted = manual_name.strip().lower()
@@ -192,7 +421,6 @@ def match_project(cwd: Path, projects: list[dict[str, Any]],
                 candidates.append(MatchResult(proj, "name", 100))
         if candidates:
             return candidates[0], candidates
-        # Allow substring match as last resort
         for proj in projects:
             n = _project_name(proj).lower()
             if wanted and wanted in n:
@@ -208,18 +436,15 @@ def match_project(cwd: Path, projects: list[dict[str, Any]],
             pn = _norm(raw_path)
             if not pn:
                 continue
-            # Exact match
             if pn == cwd_n or (git_n and pn == git_n):
                 candidates.append(MatchResult(proj, "exact-path", 1000 + len(pn)))
                 continue
-            # Ancestor match — project path is ancestor of CWD or git_root
             if cwd_n.startswith(pn + "/") or cwd_n == pn:
                 candidates.append(MatchResult(proj, "ancestor-path", 500 + len(pn)))
                 continue
             if git_n and (git_n.startswith(pn + "/") or git_n == pn):
                 candidates.append(MatchResult(proj, "ancestor-path", 500 + len(pn)))
                 continue
-            # CWD/git_root is ancestor of project path (less common but valid)
             if pn.startswith(cwd_n + "/") or (git_n and pn.startswith(git_n + "/")):
                 candidates.append(MatchResult(proj, "descendant-path", 200 + len(pn)))
                 continue
@@ -227,7 +452,6 @@ def match_project(cwd: Path, projects: list[dict[str, Any]],
     if not candidates:
         return None, []
 
-    # Sort by score desc, dedupe by project name
     candidates.sort(key=lambda r: -r.score)
     seen: set[str] = set()
     unique: list[MatchResult] = []
@@ -239,47 +463,14 @@ def match_project(cwd: Path, projects: list[dict[str, Any]],
         unique.append(c)
 
     best = unique[0]
-    # Ambiguity check: if top two are within 10 score points of each other AND same method, ambiguous
     if len(unique) >= 2 and unique[0].score - unique[1].score < 10 and unique[0].method == unique[1].method:
-        # Tie-break by longest path
         unique.sort(key=lambda r: -max((len(p) for p in _candidate_paths(r.project)), default=0))
         if abs(len(_candidate_paths(unique[0].project)[0] if _candidate_paths(unique[0].project) else "")
                - len(_candidate_paths(unique[1].project)[0] if _candidate_paths(unique[1].project) else "")) < 3:
-            return None, unique  # ambiguous
+            return None, unique
         best = unique[0]
 
     return best, unique
-
-
-# --------------------------------------------------------------------------- #
-# State file CRUD                                                             #
-# --------------------------------------------------------------------------- #
-
-
-def write_state(state: dict[str, Any]) -> None:
-    STATE_DIR.mkdir(parents=True, exist_ok=True)
-    tmp = STATE_FILE.with_suffix(".json.tmp")
-    tmp.write_text(json.dumps(state, indent=2, ensure_ascii=False), encoding="utf-8")
-    os.replace(tmp, STATE_FILE)
-
-
-def read_state() -> Optional[dict[str, Any]]:
-    if not STATE_FILE.exists():
-        return None
-    try:
-        return json.loads(STATE_FILE.read_text(encoding="utf-8", errors="replace"))
-    except Exception:
-        return None
-
-
-def clear_state() -> bool:
-    if not STATE_FILE.exists():
-        return False
-    try:
-        STATE_FILE.unlink()
-        return True
-    except Exception:
-        return False
 
 
 # --------------------------------------------------------------------------- #
@@ -287,13 +478,45 @@ def clear_state() -> bool:
 # --------------------------------------------------------------------------- #
 
 
+def _build_record(proj: dict[str, Any], best: MatchResult,
+                  cwd: Path, scope: str, workspace_key: str,
+                  manual: bool) -> dict[str, Any]:
+    paths = _candidate_paths(proj)
+    return {
+        "enabled": True,
+        "mode": "strict",
+        "scope": scope,
+        "workspace_key": workspace_key,
+        "project_id": str(proj.get("id", "")),
+        "project_name": _project_name(proj),
+        "project_path": paths[0] if paths else "",
+        "project_paths": paths,
+        "match_method": best.method,
+        "cwd_at_set": str(cwd),
+        "git_root_at_set": str(detect_git_root(cwd) or ""),
+        "service_reachable": True,
+        "created_at": _now_iso(),
+        "source": ("/project-focus (manual)" if manual else "/project-focus (auto)") +
+                  (" --global" if scope == "global" else ""),
+        "engine_version": SCRIPT_VERSION,
+    }
+
+
 def cmd_set(args: argparse.Namespace) -> int:
     cwd = Path.cwd()
-    projects = fetch_configured_projects(host=args.host, port=args.port)
+    is_global = bool(getattr(args, "global_", False))
 
+    if is_global and not args.project:
+        print(json.dumps({
+            "ok": False,
+            "reason": "global-requires-name",
+            "hint": "explicit global focus must name a project: /project-focus --global <name>",
+        }, indent=2))
+        return 2
+
+    projects = fetch_configured_projects(host=args.host, port=args.port)
     service_up = bool(projects)
     if not service_up:
-        # Try a hard probe so we can distinguish "down" from "no projects"
         try:
             urllib.request.urlopen(
                 f"http://{args.host}:{args.port}/health", timeout=1.0
@@ -302,29 +525,42 @@ def cmd_set(args: argparse.Namespace) -> int:
         except Exception:
             service_up = False
 
+    workspace_key = resolve_workspace_key(cwd)
     manual = args.project if (args.project and not args.auto) else None
+    bundle = read_state() or _empty_v2_bundle()
+
     if not projects:
-        # Service down or no projects configured — still allow a manual name with a warning
         if manual:
-            state = {
+            scope = "global" if is_global else "workspace"
+            record = {
                 "enabled": True,
                 "mode": "strict",
+                "scope": scope,
+                "workspace_key": "" if is_global else workspace_key,
                 "project_name": manual,
-                "project_path": "",
                 "project_id": "",
+                "project_path": "",
+                "project_paths": [],
                 "match_method": "manual-no-config",
                 "warning": "ragtools service unreachable or no projects configured; "
                            "focus is set by name only and cannot be cross-checked against list_projects",
                 "service_reachable": service_up,
-                "created_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-                "source": "/project-focus",
+                "cwd_at_set": str(cwd),
+                "git_root_at_set": str(detect_git_root(cwd) or ""),
+                "created_at": _now_iso(),
+                "source": "/project-focus" + (" --global" if is_global else ""),
+                "engine_version": SCRIPT_VERSION,
             }
+            if is_global:
+                bundle["global"] = record
+            else:
+                bundle["workspaces"][workspace_key] = record
             try:
-                write_state(state)
+                write_state(bundle)
             except Exception as e:
                 print(f"error writing state: {e}", file=sys.stderr)
                 return 4
-            print(json.dumps({"ok": True, "set": state, "candidates": []}, indent=2))
+            print(json.dumps({"ok": True, "set": record, "candidates": []}, indent=2))
             return 0
         print(json.dumps({
             "ok": False,
@@ -335,14 +571,22 @@ def cmd_set(args: argparse.Namespace) -> int:
         }, indent=2))
         return 2
 
-    best, candidates = match_project(cwd, projects, manual_name=manual)
+    best, candidates = match_project(cwd, projects,
+                                     manual_name=manual if not is_global else (args.project or None))
+    # In --global mode the workspace path doesn't matter; only manual_name is used.
+    if is_global and best is None and candidates:
+        best = candidates[0]
+
     if best is None and not candidates:
         print(json.dumps({
             "ok": False,
             "reason": "no-match",
             "cwd": str(cwd),
             "candidates": [_project_name(p) for p in projects],
-            "hint": "no configured ragtools project matches this directory. "
+            "hint": ("named project not found in list_projects. "
+                     "Try /project-focus --global <name> only after running /rag:projects add.")
+                    if is_global else
+                    "no configured ragtools project matches this directory. "
                     "Pass an explicit name: /project-focus <name>, or run /rag:projects add.",
         }, indent=2))
         return 2
@@ -362,24 +606,16 @@ def cmd_set(args: argparse.Namespace) -> int:
         return 3
 
     proj = best.project
-    paths = _candidate_paths(proj)
-    state = {
-        "enabled": True,
-        "mode": "strict",
-        "project_id": str(proj.get("id", "")),
-        "project_name": _project_name(proj),
-        "project_path": paths[0] if paths else "",
-        "project_paths": paths,
-        "match_method": best.method,
-        "cwd_at_set": str(cwd),
-        "git_root_at_set": str(detect_git_root(cwd) or ""),
-        "service_reachable": True,
-        "created_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-        "source": "/project-focus" + (" (manual)" if manual else " (auto)"),
-        "engine_version": SCRIPT_VERSION,
-    }
+    scope = "global" if is_global else "workspace"
+    key = "" if is_global else workspace_key
+    record = _build_record(proj, best, cwd, scope=scope,
+                           workspace_key=key, manual=bool(manual))
+    if is_global:
+        bundle["global"] = record
+    else:
+        bundle["workspaces"][workspace_key] = record
     try:
-        write_state(state)
+        write_state(bundle)
     except Exception as e:
         print(f"error writing state: {e}", file=sys.stderr)
         return 4
@@ -388,30 +624,71 @@ def cmd_set(args: argparse.Namespace) -> int:
         {"name": _project_name(c.project), "method": c.method, "score": c.score}
         for c in candidates[1:5]
     ]
-    print(json.dumps({"ok": True, "set": state, "alternatives": other_candidates}, indent=2))
+    print(json.dumps({"ok": True, "set": record, "alternatives": other_candidates}, indent=2))
     return 0
 
 
 def cmd_status(args: argparse.Namespace) -> int:
-    state = read_state()
-    if not state:
-        print(json.dumps({"ok": True, "enabled": False,
-                          "hint": "no /project-focus active. Run /project-focus to activate."}, indent=2))
+    bundle = read_state()
+    if not bundle:
+        print(json.dumps({
+            "ok": True, "enabled": False,
+            "workspace_key": resolve_workspace_key(Path.cwd()),
+            "hint": "no /project-focus active. Run /project-focus to activate."}, indent=2))
         return 0
-    # Re-probe project presence to flag staleness
+
+    cwd = Path.cwd()
+    workspace_key = resolve_workspace_key(cwd)
+    effective, source = resolve_effective_focus(bundle, workspace_key)
+    workspaces = bundle.get("workspaces") or {}
+    glob = bundle.get("global")
+
+    # Re-probe project presence to flag staleness.
     projects = fetch_configured_projects(host=args.host, port=args.port)
-    name = state.get("project_name", "")
-    still_present = any(_project_name(p) == name for p in projects) if projects else None
-    out = dict(state)
-    out["still_in_list_projects"] = still_present
-    out["state_file"] = str(STATE_FILE)
-    print(json.dumps({"ok": True, "focus": out}, indent=2))
+    project_names = {_project_name(p) for p in projects} if projects else set()
+
+    def _staleness(rec: Optional[dict[str, Any]]) -> Optional[bool]:
+        if rec is None or not project_names:
+            return None
+        return rec.get("project_name") in project_names
+
+    out = {
+        "ok": True,
+        "schema_version": int(bundle.get("schema_version") or SCHEMA_VERSION),
+        "engine_version": bundle.get("engine_version", SCRIPT_VERSION),
+        "workspace_key": workspace_key,
+        "workspace_focus": workspaces.get(workspace_key),
+        "global_focus": glob,
+        "effective_focus": effective,
+        "effective_source": source,
+        "all_workspaces": sorted(workspaces.keys()),
+        "still_in_list_projects": {
+            "workspace": _staleness(workspaces.get(workspace_key)),
+            "global": _staleness(glob),
+        },
+        "state_file": str(STATE_FILE),
+        "migrated_from_v1_at": bundle.get("migrated_from_v1_at"),
+        "migration_log": bundle.get("migration_log") or [],
+    }
+    print(json.dumps(out, indent=2))
     return 0
 
 
 def cmd_clear(args: argparse.Namespace) -> int:
-    existed = clear_state()
-    print(json.dumps({"ok": True, "cleared": existed,
+    if args.all:
+        had = clear_all()
+        print(json.dumps({"ok": True, "cleared": "all", "had_state": had,
+                          "state_file": str(STATE_FILE)}, indent=2))
+        return 0
+    if getattr(args, "global_", False):
+        had = clear_global()
+        print(json.dumps({"ok": True, "cleared": "global", "had_state": had,
+                          "state_file": str(STATE_FILE)}, indent=2))
+        return 0
+    workspace_key = resolve_workspace_key(Path.cwd())
+    had = clear_workspace(workspace_key)
+    print(json.dumps({"ok": True, "cleared": "workspace", "had_state": had,
+                      "workspace_key": workspace_key,
                       "state_file": str(STATE_FILE)}, indent=2))
     return 0
 
@@ -421,14 +698,13 @@ def cmd_self_test(args: argparse.Namespace) -> int:
     print("[project_focus] self-test")
     failed = 0
 
-    # match_project: exact + ancestor path
     cwd = Path.cwd()
     fake_projects = [
         {"name": "alpha", "path": str(cwd)},
         {"name": "beta", "path": str(cwd.parent)},
         {"name": "gamma", "path": "/totally/unrelated"},
     ]
-    best, all_c = match_project(cwd, fake_projects)
+    best, _ = match_project(cwd, fake_projects)
     if best is None or _project_name(best.project) != "alpha":
         print(f"  [FAIL] exact-path match expected 'alpha', got "
               f"{_project_name(best.project) if best else None}")
@@ -436,7 +712,6 @@ def cmd_self_test(args: argparse.Namespace) -> int:
     else:
         print("  [OK] exact-path match")
 
-    # ancestor wins over descendant: cwd is `.../foo/bar`, project=`.../foo` should match
     deep = cwd / "subdir"
     fake_projects2 = [{"name": "outer", "path": str(cwd)}]
     best2, _ = match_project(deep, fake_projects2)
@@ -446,7 +721,6 @@ def cmd_self_test(args: argparse.Namespace) -> int:
     else:
         print("  [OK] ancestor-path match")
 
-    # manual name match
     best3, _ = match_project(cwd, fake_projects, manual_name="beta")
     if best3 is None or _project_name(best3.project) != "beta":
         print("  [FAIL] manual name match")
@@ -454,7 +728,6 @@ def cmd_self_test(args: argparse.Namespace) -> int:
     else:
         print("  [OK] manual name match")
 
-    # no-match
     best4, _ = match_project(Path("/no/such/path/here/at/all"),
                               [{"name": "x", "path": "/different/place"}])
     if best4 is not None:
@@ -463,7 +736,7 @@ def cmd_self_test(args: argparse.Namespace) -> int:
     else:
         print("  [OK] no-match returns None")
 
-    # state file round-trip (use temp dir so we don't clobber real state)
+    # State-file round-trip in a temp dir.
     import tempfile
     global STATE_DIR, STATE_FILE
     saved_dir, saved_file = STATE_DIR, STATE_FILE
@@ -471,13 +744,15 @@ def cmd_self_test(args: argparse.Namespace) -> int:
         with tempfile.TemporaryDirectory() as td:
             STATE_DIR = Path(td) / "state"
             STATE_FILE = STATE_DIR / "project-focus.json"
-            sample = {"enabled": True, "project_name": "test"}
+            sample = _empty_v2_bundle()
+            sample["workspaces"]["/x/y"] = {"enabled": True, "project_name": "t"}
             write_state(sample)
             r = read_state()
-            assert r == sample, f"round-trip mismatch: {r}"
-            assert clear_state() is True
-            assert read_state() is None
-            print("  [OK] state file round-trip + clear")
+            assert r and r.get("workspaces", {}).get("/x/y", {}).get("project_name") == "t", \
+                f"round-trip mismatch: {r}"
+            assert clear_workspace("/x/y") is True
+            assert read_state()["workspaces"] == {}
+            print("  [OK] v2 state file round-trip + clear_workspace")
     except AssertionError as e:
         print(f"  [FAIL] state file: {e}")
         failed += 1
@@ -498,20 +773,29 @@ def cmd_self_test(args: argparse.Namespace) -> int:
 
 def main(argv: Optional[list[str]] = None) -> int:
     ap = argparse.ArgumentParser(prog="project_focus.py",
-                                 description="rag-plugin /project-focus state engine")
+                                 description=f"rag-plugin /project-focus state engine v{SCRIPT_VERSION}")
     ap.add_argument("--host", default=DEFAULT_HOST)
     ap.add_argument("--port", type=int, default=DEFAULT_PORT)
     sub = ap.add_subparsers(dest="cmd", required=True)
 
-    s = sub.add_parser("set", help="activate focus")
+    s = sub.add_parser("set", help="activate workspace OR global focus")
     s.add_argument("project", nargs="?", default=None,
                    help="optional manual project name; default = auto-detect")
     s.add_argument("--auto", action="store_true",
                    help="force auto-detection even if a project name is given")
+    s.add_argument("--global", dest="global_", action="store_true",
+                   help="set explicit global focus (requires a project name)")
     s.set_defaults(func=cmd_set)
 
     sub.add_parser("status", help="show current focus").set_defaults(func=cmd_status)
-    sub.add_parser("clear", help="remove the state file").set_defaults(func=cmd_clear)
+
+    c = sub.add_parser("clear", help="clear focus state")
+    c.add_argument("--global", dest="global_", action="store_true",
+                   help="clear ONLY the explicit global focus")
+    c.add_argument("--all", action="store_true",
+                   help="clear ALL workspace focuses AND the global focus")
+    c.set_defaults(func=cmd_clear)
+
     sub.add_parser("self-test", help="run internal sanity checks").set_defaults(func=cmd_self_test)
 
     args = ap.parse_args(argv)
