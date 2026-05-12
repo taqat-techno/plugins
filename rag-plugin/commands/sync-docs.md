@@ -3,8 +3,6 @@ description: MAINTAINER-ONLY. Compare bundled references against the upstream ra
 argument-hint: "[--source <path-to-ragtools_doc.md>]"
 allowed-tools: Bash(diff:*), Bash(wc:*), Bash(test:*), Bash(grep:*), Bash(sha256sum:*), Bash(shasum:*), Bash(certutil:*), Read
 disable-model-invocation: true
-author: TaqaTechno
-version: 0.1.0
 ---
 
 # /sync-docs

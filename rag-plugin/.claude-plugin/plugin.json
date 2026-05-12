@@ -6,18 +6,5 @@
     "name": "TaqaTechno",
     "email": "info@taqatechno.com",
     "url": "https://github.com/taqat-techno"
-  },
-  "homepage": "https://github.com/taqat-techno/plugins/tree/main/rag-plugin",
-  "keywords": [
-    "ragtools",
-    "rag",
-    "qdrant",
-    "knowledge-base",
-    "mcp",
-    "operations",
-    "diagnostics",
-    "support",
-    "local-first",
-    "claude-code"
-  ]
+  }
 }

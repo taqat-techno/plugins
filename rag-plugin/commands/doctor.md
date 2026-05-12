@@ -1,10 +1,8 @@
 ---
-description: Smart ragtools diagnose. Detects install and service state, runs the right probe, classifies findings against F-001..F-012 + P-RULE/P-DEDUPE, and optionally walks the repair playbook inline. Prefers MCP ops tools (system_health, crash_history, tail_logs, service_status) when granted; falls back to HTTP API + CLI gracefully. Absorbs the former /rag-status and /rag-repair commands (v0.4.0) and the MCP-first integration from v0.5.0.
+description: Smart ragtools diagnose. Detects install and service state, runs the right probe.
 argument-hint: "[<free-text symptom>] [--full] [--symptom F-NNN] [--logs] [--fix] [--verbose]"
 allowed-tools: Bash(curl:*), Bash(rag doctor:*), Bash(rag version:*), Bash(rag service:*), Bash(where rag:*), Bash(which rag:*), Bash(test:*), Bash(tail:*), Bash(grep:*), Bash(netstat:*), Bash(lsof:*), Bash(tasklist:*), Bash(ps:*), Bash(printenv:*), Bash(echo:*), Read, mcp__plugin_rag_ragtools__index_status, mcp__plugin_rag_ragtools__system_health, mcp__plugin_rag_ragtools__crash_history, mcp__plugin_rag_ragtools__service_status, mcp__plugin_rag_ragtools__tail_logs, mcp__plugin_rag_ragtools__recent_activity, mcp__plugin_rag_ragtools__list_projects
 disable-model-invocation: false
-author: TaqaTechno
-version: 0.5.0
 ---
 
 # /doctor

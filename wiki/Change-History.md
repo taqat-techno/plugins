@@ -98,7 +98,7 @@ Major audit reports produced in this era:
 | **Plugins with MCP servers** | 2 (`devops`, `rag`) |
 | **Plugins with hooks** | All 7 |
 | **Marketplace maintainer** | Single (Ahmed Lakosha, 4 git identity variants, 132+ commits) |
-| **Vendored references** | `claude-plugins-official-main/` (read-only) |
+| **Vendored references** | `claude-plugins-official/` (read-only) |
 
 ## Milestones on the roadmap
 

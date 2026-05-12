@@ -1,10 +1,8 @@
 ---
-description: Reset ragtools state with three escalation levels — soft (MCP-backed rebuild with auto-backup), data (delete data dir), nuclear (delete everything). Standalone (no flag) enters an interactive picker that explains each level. Each level requires typing DELETE verbatim. Blocks on pre-v2.4.1 versions.
+description: Reset ragtools state with three escalation levels — soft (MCP-backed rebuild with auto-backup), data (delete data dir).
 argument-hint: "[--soft | --data | --nuclear]"
 allowed-tools: Bash(curl:*), Bash(rag version:*), Bash(rag service:*), Bash(where rag:*), Bash(which rag:*), Bash(test:*), Read, mcp__plugin_rag_ragtools__index_status, mcp__plugin_rag_ragtools__list_projects, mcp__plugin_rag_ragtools__reindex_project
 disable-model-invocation: false
-author: TaqaTechno
-version: 0.5.0
 ---
 
 # /reset

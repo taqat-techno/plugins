@@ -1,6 +1,6 @@
 ---
 name: ragtools-ops
-description: Operational console for the ragtools local RAG product. Activates on ragtools-related keywords ("ragtools", "rag tools", "rag service", "rag doctor", "rag-mcp", "Qdrant lock", "knowledge base setup", "MCP server for rag", "local rag", "markdown_kb", "rag.exe", "RAGTools", "127.0.0.1:21420", "service.log"), error messages ("Storage folder data/qdrant is already accessed", "Permission denied: 'ragtools.toml'", "Collection NOT FOUND", "Startup sync skipped", "Application startup failed"), AND operational user intents — "why isn't this file in search?", "why is my project missing results?", "add an ignore rule", "exclude node_modules", "reindex my project", "why didn't Claude find X in the KB?", "what MCP tools does rag have?", "show me recent crashes", "tail the service log", "check which projects are indexed". When the ragtools MCP is loaded in the session, the skill chains MCP ops tools directly; when the MCP is unavailable, it falls back to HTTP/CLI per rules/mcp-envelope.md. Never wraps or re-implements search_knowledge_base (D-001) — content retrieval is always Claude's direct call.
+description: Operational console for the ragtools local RAG product. Activates on ragtools-related keywords ("ragtools", "rag tools", "rag service", "rag doctor", "rag-mcp", "Qdrant lock", "knowledge base setup", "MCP server for rag", "local rag", "markdown_kb", "rag.exe", "RAGTools".
 version: 0.5.0
 ---
 

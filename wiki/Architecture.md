@@ -12,14 +12,14 @@ C:\MY-WorkSpace\claude_plugins\
 │   ├── wiki/                             ← this wiki's source
 │   └── validate_plugin.py
 │
-└── claude-plugins-official-main/         ← READ-ONLY REFERENCE
+└── claude-plugins-official/         ← READ-ONLY REFERENCE
     └── plugins/
         ├── plugin-dev/                   ← canonical patterns
         ├── skill-creator/
         └── hookify/
 ```
 
-`claude-plugins-official-main/` is a vendored copy of Anthropic's official marketplace. It exists **only** to look up canonical patterns. Project-level settings (`.claude/settings.local.json`) actively deny `Edit`, `Write`, `MultiEdit`, and `NotebookEdit` against it.
+`claude-plugins-official/` is a vendored copy of Anthropic's official marketplace. It exists **only** to look up canonical patterns. Project-level settings (`.claude/settings.local.json`) actively deny `Edit`, `Write`, `MultiEdit`, and `NotebookEdit` against it.
 
 When a pattern is needed, **copy it into the working plugin under `plugins/`** — never edit the reference.
 

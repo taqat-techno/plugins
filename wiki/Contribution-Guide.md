@@ -14,7 +14,7 @@ How to contribute to **taqat-techno-plugins**. This page supplements (and overri
 
 - **New commands** in existing plugins. Consolidation is preferred. Open an issue first; propose why a new command is better than a flag on an existing command.
 - **Breaking changes** to a plugin's manifest, command surface, or binding decisions. These need a new D-NNN entry in the plugin's `docs/decisions.md`.
-- **Changes to `claude-plugins-official-main/`.** This is vendored read-only. Copy patterns into `plugins/` instead.
+- **Changes to `claude-plugins-official/`.** This is vendored read-only. Copy patterns into `plugins/` instead.
 - **Workspace-level infrastructure** (`validate_plugin.py`, `marketplace.json` schema). Open an issue to discuss impact across all plugins.
 
 ## Workflow

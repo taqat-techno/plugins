@@ -1,6 +1,6 @@
 ---
 name: ragtools-release
-description: Maintainer-facing release-lifecycle checklist for the upstream ragtools product. Activates on maintainer release phrasing — "pre-release check", "release checklist", "ready to ship ragtools", "v2.5.x pre-flight", "verify release invariants", "release go/no-go", "RELEASE_LIFECYCLE", "ragtools release audit", "about to tag ragtools", "cutting a ragtools release". Walks the six permanent release invariants (data/install-dir boundary, schema versioning, dev-mode isolation, upgrade-path manual test, uninstall opt-in prompt, RELEASE_LIFECYCLE.md accuracy) with structured ack or hold per item. Never ships or promotes a release itself — pure gating and documentation. Separate from the operator-facing ragtools-ops skill.
+description: Maintainer-facing release-lifecycle checklist for the upstream ragtools product. Activates on maintainer release phrasing — "pre-release check", "release checklist", "ready to ship ragtools", "v2.5.x pre-flight", "verify release invariants", "release go/no-go".
 version: 0.1.0
 ---
 

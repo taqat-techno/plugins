@@ -1,10 +1,8 @@
 ---
-description: Manage ragtools projects. Standalone (no args) defaults to list. Subcommands list / status / summary / files / add / remove / enable / disable / rebuild. Prefers MCP project-ops tools (project_status, project_summary, list_project_files, reindex_project) when loaded; falls back to HTTP API. Refuses writes when the service is down. Never touches config.toml directly.
+description: Manage ragtools projects. Standalone (no args) defaults to list. Subcommands list / status / summary / files / add / remove / enable /...
 argument-hint: "[list | status <id> | summary <id> [<top_n>] | files <id> [<limit>] | add <path> [<name>] | remove <id> | enable <id> | disable <id> | rebuild [<id>]]"
 allowed-tools: Bash(curl:*), Bash(test:*), Bash(printenv:*), Bash(echo:*), Bash(rag service:*), Bash(rag version:*), Bash(where rag:*), Bash(which rag:*), Read, mcp__plugin_rag_ragtools__list_projects, mcp__plugin_rag_ragtools__project_status, mcp__plugin_rag_ragtools__project_summary, mcp__plugin_rag_ragtools__list_project_files, mcp__plugin_rag_ragtools__run_index, mcp__plugin_rag_ragtools__reindex_project
 disable-model-invocation: false
-author: TaqaTechno
-version: 0.5.0
 ---
 
 # /projects

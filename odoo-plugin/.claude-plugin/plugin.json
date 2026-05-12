@@ -5,11 +5,5 @@
   "author": {
     "name": "TaqaTechno",
     "email": "info@taqatechno.com"
-  },
-  "homepage": "https://github.com/taqat-techno/plugins",
-  "license": "LGPL-3.0-or-later",
-  "keywords": [
-    "odoo", "erp", "upgrade", "migration", "frontend", "theme",
-    "testing", "security", "i18n", "docker", "reports", "qweb"
-  ]
+  }
 }
