@@ -3,8 +3,6 @@ description: Manage rag-plugin local plugin configuration. Controls the opt-in u
 argument-hint: "[status | telemetry <on|off> | claude-md <status|install|remove> [--yes] [--project] | mcp-dedupe <status|clean> [--yes] | hook-observability <status|on|off|analyze|clear>]"
 allowed-tools: Bash(test:*), Bash(mkdir:*), Bash(echo:*), Bash(cat:*), Bash(printenv:*), Bash(grep:*), Bash(diff:*), Bash(sed:*), Bash(wc:*), Bash(rm:*), Bash(python3:*), Read, Write, Edit
 disable-model-invocation: false
-author: TaqaTechno
-version: 0.3.0
 ---
 
 # /config

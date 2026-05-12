@@ -6,20 +6,5 @@
     "name": "TaqaTechno",
     "email": "info@taqatechno.com",
     "url": "https://github.com/taqat-techno"
-  },
-  "homepage": "https://github.com/taqat-techno/plugins/tree/main/devops-plugin",
-  "repository": "https://github.com/taqat-techno/plugins",
-  "license": "MIT",
-  "keywords": [
-    "azure-devops",
-    "devops",
-    "cli",
-    "mcp",
-    "work-items",
-    "pipelines",
-    "pull-requests",
-    "ci-cd",
-    "agile",
-    "time-tracking"
-  ]
+  }
 }

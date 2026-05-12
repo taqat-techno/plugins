@@ -30,11 +30,11 @@ plugins/                              ← the working marketplace (what you edit
 ├── README.md                        ← marketplace-level overview
 └── LICENSE
 
-claude-plugins-official-main/         ← READ-ONLY vendored reference from Anthropic
+claude-plugins-official/         ← READ-ONLY vendored reference from Anthropic
                                      ← Never modify. Consult for canonical patterns only.
 ```
 
-A second directory, `claude-plugins-official-main/`, is a vendored read-only copy of Anthropic's official marketplace. It exists purely as a reference library for canonical patterns (hook JSON shape, MCP config, skill frontmatter, etc.). Project-level settings actively deny `Edit`/`Write`/`NotebookEdit` operations against it — copy patterns into `plugins/<your-plugin>/` instead.
+A second directory, `claude-plugins-official/`, is a vendored read-only copy of Anthropic's official marketplace. It exists purely as a reference library for canonical patterns (hook JSON shape, MCP config, skill frontmatter, etc.). Project-level settings actively deny `Edit`/`Write`/`NotebookEdit` operations against it — copy patterns into `plugins/<your-plugin>/` instead.
 
 ## Plugin registration
 
