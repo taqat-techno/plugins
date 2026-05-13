@@ -142,6 +142,8 @@ db_password: "odoo"
 
 These values are used by scaffold and init commands. If not present, sensible defaults apply.
 
+The `.local.md` file is user-specific and must be gitignored. Add `.claude/*.local.md` to the project's `.gitignore`.
+
 For the full version compatibility matrix (Python, Docker base, PostgreSQL, Node.js, gevent key, entry point), read `${CLAUDE_PLUGIN_ROOT}/reference/version-matrix.md`.
 
 ## Version-Specific Notes
