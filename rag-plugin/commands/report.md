@@ -1,10 +1,8 @@
 ---
-description: Generate two evidence-based diagnostic reports for the maintainers — (1) RAC/RAG application setup report (target repo github.com/taqat-techno/rag) and (2) rag-plugin behavior report (target repo github.com/taqat-techno/plugins). Inspects local install, service runtime, performance signals, MCP wiring, hooks, Claude configuration, and recent session JSONL files for RAC/RAG-related signals. Surfaces findings whether the system is healthy, degraded, or broken — not just bugs but also performance issues, config drift, missed retrievals, manual workarounds, and improvement opportunities. Privacy-safe — secrets are redacted, home paths normalized, no auto-upload, no config mutation.
+description: Generate two evidence-based diagnostic reports for the maintainers — (1) RAC/RAG application setup report (target repo...
 argument-hint: "[--no-sessions] [--max-sessions N] [--out <dir>] [--quiet]"
 allowed-tools: Bash(python:*), Bash(python3:*), Bash(where rag:*), Bash(which rag:*), Bash(rag version:*), Bash(curl:*), Read
 disable-model-invocation: false
-author: TaqaTechno
-version: 0.10.0
 ---
 
 # /report

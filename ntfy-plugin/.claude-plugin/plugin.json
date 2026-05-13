@@ -6,20 +6,5 @@
     "name": "TaqaTechno",
     "email": "info@taqatechno.com",
     "url": "https://github.com/taqat-techno"
-  },
-  "homepage": "https://github.com/taqat-techno/plugins/tree/main/ntfy-plugin",
-  "repository": "https://github.com/taqat-techno/plugins",
-  "license": "MIT",
-  "keywords": [
-    "notifications",
-    "push",
-    "ntfy",
-    "mobile",
-    "alerts",
-    "automation",
-    "claude-code",
-    "agent",
-    "async",
-    "background-tasks"
-  ]
+  }
 }

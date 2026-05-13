@@ -6,30 +6,5 @@
     "name": "TaqaTechno",
     "email": "info@taqatechno.com",
     "url": "https://www.taqatechno.com"
-  },
-  "license": "MIT",
-  "keywords": [
-    "ui-design",
-    "ux-design",
-    "figma",
-    "wireframe",
-    "prototype",
-    "responsive-design",
-    "accessibility",
-    "wcag",
-    "design-system",
-    "color-theory",
-    "typography",
-    "layout",
-    "mobile-design",
-    "web-design",
-    "desktop-design",
-    "ios",
-    "material-design",
-    "screen-design",
-    "figma-mcp",
-    "design-to-code"
-  ],
-  "homepage": "https://github.com/taqat-techno/plugins/tree/main/paper-plugin",
-  "repository": "https://github.com/taqat-techno/plugins"
+  }
 }

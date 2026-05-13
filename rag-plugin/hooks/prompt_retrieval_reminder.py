@@ -393,7 +393,7 @@ def main() -> None:
         return
 
     # The UserPromptSubmit stdin field is `user_prompt` per the official
-    # plugin-dev hook schema (claude-plugins-official-main/.../hook-development/SKILL.md
+    # plugin-dev hook schema (claude-plugins-official/.../hook-development/SKILL.md
     # line 317). Accept `prompt` as a fallback for compatibility with older
     # runtimes or custom harnesses.
     prompt = payload.get("user_prompt") or payload.get("prompt") or ""

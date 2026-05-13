@@ -4,7 +4,7 @@ Authoring conventions for plugins in the **taqat-techno-plugins** marketplace. T
 
 - **Anthropic's spec:** [`plugins/CLAUDE_CODE_PLUGIN_DEVELOPMENT_GUIDE.md`](../../CLAUDE_CODE_PLUGIN_DEVELOPMENT_GUIDE.md) — 1500-line workspace-level guide.
 - **Skills spec:** [`plugins/agent_skills_spec.md`](../../agent_skills_spec.md).
-- **Reference patterns (read-only):** `claude-plugins-official-main/plugins/plugin-dev/skills/` — canonical examples of plugin-structure, command-development, agent-development, hook-development, skill-development, mcp-integration, plugin-settings.
+- **Reference patterns (read-only):** `claude-plugins-official/plugins/plugin-dev/skills/` — canonical examples of plugin-structure, command-development, agent-development, hook-development, skill-development, mcp-integration, plugin-settings.
 
 This wiki page is the **house-style overview** — what we consistently do in this repo on top of Anthropic's spec.
 
@@ -318,4 +318,4 @@ Load-bearing choices — "which schema shape?", "ops tools are fair game?" — g
 - [[Contribution Guide|Contribution-Guide]] — PR workflow, account switching, commit discipline
 - [`CLAUDE_CODE_PLUGIN_DEVELOPMENT_GUIDE.md`](../../CLAUDE_CODE_PLUGIN_DEVELOPMENT_GUIDE.md) — workspace-level spec
 - [`agent_skills_spec.md`](../../agent_skills_spec.md) — skills spec
-- `claude-plugins-official-main/plugins/plugin-dev/skills/` — Anthropic's canonical examples (read-only, do not modify)
+- `claude-plugins-official/plugins/plugin-dev/skills/` — Anthropic's canonical examples (read-only, do not modify)
