@@ -119,7 +119,7 @@ This skill handles all template and report workflows via natural language:
 - **Core Model**: `mail.template`
 - **Rendering Engines**: inline_template (Jinja2-like) for headers, QWeb for body_html
 
-**User overrides**: Check for `odoo-report.local.md` in the project `.claude/` directory. If found, use its YAML frontmatter settings (default_version, author, default_layout) as defaults.
+**User overrides**: Check for `odoo-report.local.md` in the project `.claude/` directory. If found, use its YAML frontmatter settings (default_version, author, default_layout) as defaults. The file is user-specific and must be gitignored — add `.claude/*.local.md` to the project's `.gitignore`.
 
 ---
 

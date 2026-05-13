@@ -25,3 +25,9 @@ Thumbs.db
 ntfy-plugin/ntfy/scripts/config.json
 ntfy-plugin/ntfy/scripts/notification_history.json
 ntfy-plugin/ntfy/scripts/failed_notifications.log
+
+# Per-project plugin settings (user-local; templates with .example/.template suffix pass through)
+*.local.md
+*.local.json
+.claude/*.local.md
+.claude/*.local.json
