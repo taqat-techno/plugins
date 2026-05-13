@@ -6,22 +6,5 @@
     "name": "TaqaTechno",
     "email": "info@taqatechno.com",
     "url": "https://github.com/taqat-techno"
-  },
-  "homepage": "https://github.com/taqat-techno/plugins/tree/main/pandoc-plugin",
-  "repository": "https://github.com/taqat-techno/plugins",
-  "license": "MIT",
-  "keywords": [
-    "pandoc",
-    "document-conversion",
-    "pdf",
-    "docx",
-    "html",
-    "epub",
-    "latex",
-    "slides",
-    "presentations",
-    "citations",
-    "academic",
-    "documentation"
-  ]
+  }
 }

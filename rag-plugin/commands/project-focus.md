@@ -1,10 +1,8 @@
 ---
-description: Per-workspace ragtools knowledge-base focus. Default — focus is keyed by the current workspace (git root or cwd). State at ~/.claude/rag-plugin/state/project-focus.json holds a workspace map plus an optional explicit global record. The bundled UserPromptSubmit hook injects scope-this-to-X reminders only when an enabled focus applies to the current cwd; if focus exists for other workspaces but not this one, a neutral notice fires that does NOT leak the other project's name. Subcommands — set / status / clear — plus --global for explicit global focus and --all / --global for clear variants.
+description: Per-workspace ragtools knowledge-base focus. Default — focus is keyed by the current workspace (git root or cwd).
 argument-hint: "[set|status|clear|<project-name>] [--auto] [--global] [--all]"
 allowed-tools: Bash(python:*), Bash(python3:*), Bash(curl:*), Bash(git:*), Read, mcp__plugin_rag_ragtools__list_projects, mcp__plugin_rag_ragtools__index_status
 disable-model-invocation: false
-author: TaqaTechno
-version: 0.13.0
 ---
 
 # /project-focus

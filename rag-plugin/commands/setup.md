@@ -1,10 +1,8 @@
 ---
-description: Smart ragtools install/upgrade/verify. Detects state and branches — install walkthrough when missing, start-service + verify when down, upgrade walkthrough when outdated, idempotent plugin-layer verify when healthy. Absorbs the former /rag-upgrade command (v0.4.0).
+description: Smart ragtools install/upgrade/verify. Detects state and branches — install walkthrough when missing, start-service + verify when down.
 argument-hint: "[--project <path>] [--upgrade] [--verify]"
 allowed-tools: Bash(curl:*), Bash(rag service:*), Bash(rag version:*), Bash(where rag:*), Bash(which rag:*), Bash(test:*), Bash(printenv:*), Bash(echo:*), Bash(uname:*), Bash(ver:*), Bash(arch:*), Read, Write
 disable-model-invocation: false
-author: TaqaTechno
-version: 0.4.0
 ---
 
 # /setup

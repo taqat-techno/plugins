@@ -1,10 +1,8 @@
 ---
-description: Enhance Markdown files against the rag-plugin authoring standard (RAG-optimized for the ragtools chunker + MiniLM-L6-v2 embedder). Always safe mode — applies only the two mechanical fixes that cannot change semantic meaning (pseudo-heading → real heading, blank-line normalization around headings and code fences), reports every structural finding for manual review, writes atomic backups. No args → enhance every .md in the project. Optional positional file argument → enhance just that file.
+description: Enhance Markdown files against the rag-plugin authoring standard (RAG-optimized for the ragtools chunker + MiniLM-L6-v2 embedder).
 argument-hint: "[<file-path>] [--verbose] [--no-backup]"
 allowed-tools: Bash(python:*), Read, Write, Glob, Grep
 disable-model-invocation: false
-author: TaqaTechno
-version: 0.7.0
 ---
 
 # /md-rag-enhance

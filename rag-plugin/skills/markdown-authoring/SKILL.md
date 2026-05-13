@@ -1,6 +1,6 @@
 ---
 name: markdown-authoring
-description: Use this skill when Claude is creating or drafting Markdown files — READMEs, runbooks, SOPs, architecture pages, reference docs, troubleshooting guides, concept pages, design notes, or any .md content that will be indexed into a ragtools knowledge base. Activates on phrasing like "write a README for X", "document this component", "create a runbook for Y", "draft an SOP for Z", "add documentation", "write up the architecture", "make chunks well", "RAG-friendly markdown", "optimize for retrieval". Loads the 8 hard rules + 5 page templates + anti-pattern catalog from references/ and produces Markdown that satisfies the ragtools chunker invariants (single-topic sections ≤ 300 words, keyword-rich headings, no YAML frontmatter carrying knowledge, no content-before-first-heading, no pseudo-headings). Never auto-saves files — Claude proposes content; the user accepts/edits/rejects.
+description: Use this skill when Claude is creating or drafting Markdown files — READMEs, runbooks, SOPs, architecture pages, reference docs, troubleshooting guides, concept pages, design notes, or any .md content that will be indexed into a ragtools knowledge base.
 version: 0.7.0
 ---
 

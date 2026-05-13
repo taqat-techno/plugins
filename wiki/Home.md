@@ -50,7 +50,7 @@ The marketplace targets a single power-user workflow: real client projects at TA
 - **Plugin development guide (source):** `plugins/CLAUDE_CODE_PLUGIN_DEVELOPMENT_GUIDE.md`
 - **Skills spec:** `plugins/agent_skills_spec.md`
 - **Structural validator:** `plugins/validate_plugin.py` (plus `validate_plugin_simple.py` for fast PyYAML-free checks)
-- **Reference marketplace (read-only):** `claude-plugins-official-main/` — Anthropic's official patterns, consulted not modified
+- **Reference marketplace (read-only):** `claude-plugins-official/` — Anthropic's official patterns, consulted not modified
 
 ## Support and maintenance
 
