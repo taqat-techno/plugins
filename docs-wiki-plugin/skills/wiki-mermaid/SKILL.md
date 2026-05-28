@@ -1,0 +1,261 @@
+---
+name: wiki-mermaid
+description: Mermaid diagram authoring rules for wiki pages — top-down direction by default, a small shape vocabulary, a four-class colour palette (ok / block / external / audit), strict label hygiene (no inline code, no secrets, no file paths in business diagrams), and the code-path scrub for business-process diagrams. Activates when adding or editing any Mermaid block inside a wiki page.
+version: 0.2.0
+last_reviewed: 2026-05-28
+owns:
+  - top-down (flowchart TD) direction as default for process diagrams
+  - shape vocabulary (stadium / rectangle / diamond / cylinder / parallelogram / hexagon — meanings fixed)
+  - four-class colour palette (ok / block / external / audit) with hex values
+  - label hygiene (Title Case; no code; no secrets; no paths in business diagrams)
+  - code-path scrub rule (business diagrams describe people and decisions, not modules)
+  - sequence-diagram and ER-diagram exception scope
+  - diagram-as-source rule (the .md is the source; do NOT paste rendered PNG)
+defers_to:
+  - wiki-authoring (placement within a page; when a diagram is appropriate vs prose)
+  - wiki-safe-updates (the workflow for applying the diagram change)
+  - wiki-link-validation (diagram node text that doubles as wiki link targets must follow link convention)
+user_invocable: false
+---
+
+# wiki-mermaid
+
+## Purpose
+
+Mermaid diagrams ship the picture inside the markdown. Done well, they survive grep, render on GitHub Wiki / GitLab / Azure DevOps without extra tooling, and let the next maintainer change one node without redrawing the whole picture. Done poorly, they become 60-node rats' nests in landscape orientation with file-path labels and embedded secrets.
+
+This skill owns the small rule set that keeps diagrams legible across the wiki.
+
+## When to use
+
+Activate when:
+
+- Adding a new Mermaid block to a wiki page.
+- Editing an existing Mermaid block.
+- Refactoring a business diagram that imported code-path details.
+- Migrating a diagram from another format (Visio / draw.io / PNG) into Mermaid.
+
+Skip when:
+
+- The diagram is a one-off whiteboard sketch (use a PNG attached to the page if necessary; do not invest in Mermaid for throwaway).
+
+## Inputs
+
+- The wiki page in scope.
+- The diagram's purpose: business process / user flow / system architecture / sequence / data model.
+- The audience: engineers / operators / business owners / external auditors.
+
+## Direction default — `flowchart TD` (top-down)
+
+```mermaid
+flowchart TD
+  Start([Request received]) --> Decision{Has account?}
+  Decision -- yes --> Process[Verify credentials]
+  Decision -- no --> Reject[Return 403]
+```
+
+- **TD (top-down)** for process flows that have a single entry and a small number of exits.
+- **LR (left-right)** for pipelines with many parallel branches or wide-fan-out architectures.
+- **TB / BT / RL** are valid but uncommon; pick one of TD or LR and stay consistent across a wiki.
+
+Reason: wiki pages render in a vertical column. Top-down flows match the page direction; left-right flows force horizontal scroll for large diagrams.
+
+## Shape vocabulary (meanings fixed)
+
+A small set of shapes with stable meanings. Use ONLY these — adding more shapes adds noise without adding clarity.
+
+| Shape | Syntax | Meaning |
+|---|---|---|
+| Stadium | `(["Label"])` | Start / End nodes (entry / exit) |
+| Rectangle | `["Label"]` | Action / step (something happens) |
+| Diamond | `{"Label"}` | Decision (yes / no / multi-branch) |
+| Cylinder | `[("Label")]` | Data store (database / cache / queue) |
+| Parallelogram | `[/"Label"/]` | Input / output (user-facing or external) |
+| Hexagon | `{{"Label"}}` | Preparation / configuration step |
+
+Anti-shapes (do NOT introduce):
+
+- Circles, double-circles, asymmetric shapes, custom SVG. They confuse Mermaid's auto-layout and add no semantic value.
+
+## Four-class colour palette
+
+```mermaid
+flowchart TD
+  A[Normal step] --> B{Decision}
+  B -- yes --> C[Successful path]
+  B -- no --> D[Blocked path]
+  C --> E[External call]
+  D --> F[Audit logged]
+
+  classDef ok fill:#dcfce7,stroke:#16a34a,color:#14532d
+  classDef block fill:#fee2e2,stroke:#dc2626,color:#7f1d1d
+  classDef ext fill:#dbeafe,stroke:#2563eb,color:#1e3a8a
+  classDef audit fill:#fef3c7,stroke:#ca8a04,color:#713f12
+
+  class C ok
+  class D block
+  class E ext
+  class F audit
+```
+
+| Class | Fill | Stroke | Text | Meaning |
+|---|---|---|---|---|
+| `ok` | `#dcfce7` | `#16a34a` | `#14532d` | Successful path, allowed outcome |
+| `block` | `#fee2e2` | `#dc2626` | `#7f1d1d` | Blocked / rejected / error path |
+| `ext` | `#dbeafe` | `#2563eb` | `#1e3a8a` | External service, third-party, out-of-band |
+| `audit` | `#fef3c7` | `#ca8a04` | `#713f12` | Audit / logging / compliance side effect |
+
+Why four:
+
+- More classes → readers cannot remember the mapping. Four is the comfort ceiling.
+- The palette is colour-blind-aware (the hue + saturation combinations remain distinguishable).
+- The text-on-fill contrast meets WCAG AA at the diagram's typical render size.
+
+Default (untyped) nodes inherit Mermaid's default fill — neutral, semantically meaningless. Use it for "normal steps in the happy path."
+
+## Label hygiene
+
+Rules for every label:
+
+| Rule | Why | Example |
+|---|---|---|
+| Title Case for nouns | Reads as a thing, not a sentence | `Verify Credentials` not `verify credentials` |
+| Imperative for actions | Action steps are commands, not descriptions | `Send Confirmation` not `Sending confirmation` |
+| Question for decisions | A diamond IS a question | `Has Active Subscription?` not `Subscription Check` |
+| Max ~30 characters | Auto-layout collapses around long labels | `Issue Refund` not `Issue Refund to Original Payment Method` |
+| No inline code | Backticks confuse some renderers; labels are not code | `Send SMS` not `` `sms.send()` `` |
+| No file paths | Business diagrams describe domain, not files | `Calculate Tax` not `src/services/tax.ts` |
+| No secrets / tokens / customer data | Diagrams ship as plain text in wiki | `Send Email` not `Send Email to customer@real.com` |
+| No emoji in node labels | Some renderers garble them; greppability suffers | use color class for emphasis |
+
+## Code-path scrub for business diagrams
+
+A business-process diagram describes WHAT happens and WHO decides — not which module runs.
+
+```
+BUSINESS DIAGRAM                    NOT THIS (code diagram)
++---------------------+             +---------------------+
+| User submits form   |             | POST /api/order     |
++---------+-----------+             | → orders.controller |
+          v                         | → orders.service    |
++---------+-----------+             | → orders.repository |
+| Validate inventory  |             | → db.orders.insert  |
++---------+-----------+             +---------------------+
+          v
++---------+-----------+
+| Reserve inventory   |
++---------------------+
+```
+
+The left version is durable: it survives refactors, microservice splits, framework changes. The right version rots the day the codebase moves.
+
+Code diagrams (sequence diagrams of HTTP exchanges, ER diagrams of tables, deployment diagrams of components) are legitimate — but they live on engineering pages, not on business / operator pages. Tag them explicitly:
+
+```markdown
+## Sequence (engineering reference)
+```
+
+vs
+
+```markdown
+## Process
+```
+
+## Diagram type defaults
+
+| Purpose | Mermaid type | Notes |
+|---|---|---|
+| Process / decision flow | `flowchart TD` | Most common |
+| Two-actor exchange (request / response) | `sequenceDiagram` | One per scenario; do not collapse multiple |
+| Data model | `erDiagram` | Use for entities, not for code classes |
+| State machine | `stateDiagram-v2` | Use for explicit state transitions (order: pending → paid → shipped) |
+| Timeline / Gantt | `gantt` | For project timelines; not for daily process |
+| Architecture | `flowchart LR` with `subgraph` | Group by tier; use `ext` class for third-party |
+
+Skip:
+
+- `pie` (pie charts in a process wiki are usually a smell; use a table)
+- `mindmap` (rarely renders well; usually a brain dump)
+- `journey` (rarely useful in operator/business wikis)
+
+## Diagram-as-source rule
+
+The `.md` file's Mermaid block IS the source of truth. Do NOT:
+
+- Paste rendered PNGs of the same diagram alongside the source (they go stale on the first edit).
+- Maintain the diagram in a separate tool (draw.io, Lucid, Miro) and re-export. Single-source the Mermaid; reference the external tool only if Mermaid genuinely cannot express the diagram (rare).
+
+Exception: a high-fidelity architecture diagram that needs custom layout / custom icons / multi-page navigation may justify staying in a dedicated tool. Then ship a screenshot in the wiki AND link to the source tool. Tag the screenshot's source.
+
+## Safety gates
+
+- **Never** include secrets, tokens, credentials, real customer identifiers, or real internal hostnames in diagram labels.
+- **Never** include code path labels (file paths, function names, module names) in business diagrams.
+- **Never** introduce new shapes beyond the vocabulary.
+- **Never** introduce new colour classes beyond the four-class palette without surfacing the proposal to the user.
+- **Never** keep a stale PNG alongside the live Mermaid source.
+
+## Validation checklist
+
+Before committing a diagram change:
+
+- [ ] Direction is `TD` (default) or `LR` (justified).
+- [ ] Every shape is from the fixed vocabulary.
+- [ ] Every coloured node uses one of the four classes.
+- [ ] Every label is Title Case (nouns), imperative (actions), or question form (decisions).
+- [ ] No inline code, no file paths, no secrets, no real PII in labels.
+- [ ] Business diagram does not contain code-path nodes; if it does, move to a separate "engineering reference" section.
+- [ ] No stale PNG of the same diagram alongside.
+- [ ] Mermaid block renders cleanly (paste-test on the target wiki platform).
+
+## Output format
+
+When generating a new diagram, output the Mermaid block ready to paste. Include the `classDef` and `class` lines if any node is coloured.
+
+When auditing existing diagrams, output a per-block findings table:
+
+```
+DIAGRAM AUDIT — <wiki-page>
+  Block 1 (line N)
+    Direction: TD — OK
+    Shape violations: 0
+    Colour violations: 1 — `customClass` not in palette
+    Label hygiene: 2 — inline code in node X; file path in node Y
+    Code-path scrub: FAIL — node "src/handlers/order.ts" looks like a code path
+    Verdict: MEDIUM — surface to maintainer for cleanup
+```
+
+## Anti-patterns (and why)
+
+| Anti-pattern | Why it's wrong | Correct |
+|---|---|---|
+| 50-node flowchart in LR with horizontal scroll | Unreadable; nobody scrolls | Decompose into multiple smaller TD flowcharts |
+| Six different colours, no legend | Reader cannot remember meanings | Four-class palette; consistent across wiki |
+| Inline-code labels (`` `processOrder()` ``) | Couples to code; rots on rename | Use the business action ("Process Order") |
+| File-path labels (`src/services/order.ts`) | Couples to file layout; rots on refactor | Use the business action |
+| Real customer email in label | PII leaks into wiki | Use placeholder |
+| PNG + Mermaid source side-by-side | PNG goes stale; readers trust the wrong one | Source only |
+| Sequence diagram on the business overview page | Engineering detail in a business doc | Engineering-reference subsection |
+| Circles + cubes + custom shapes | Auto-layout breaks; readers wonder what each means | Fixed vocabulary |
+| Untagged colour with stylesheet override | Style intent unclear; renders differently elsewhere | classDef + class |
+
+## Portability rationale
+
+Mermaid renders on:
+
+- GitHub Wiki (native)
+- GitLab Wiki (native)
+- Azure DevOps Wiki (native)
+- MkDocs (with mermaid plugin)
+- Most modern Markdown renderers (with mermaid plugin)
+
+The palette hex values render consistently across these platforms. The shape vocabulary is the Mermaid-standard subset.
+
+No platform-specific Mermaid features are required.
+
+## Cross-references
+
+- `wiki-authoring` — where in a page diagrams belong.
+- `wiki-safe-updates` — diff preview before applying the diagram change.
+- `wiki-link-validation` — if a node label is a clickable wiki link, it follows the link convention.
+- `wiki-structure` — the page hosting the diagram follows the structure rules.
