@@ -83,6 +83,39 @@
       "source": "./rag-plugin",
       "category": "productivity",
       "homepage": "https://github.com/taqat-techno/plugins/tree/main/rag-plugin"
+    },
+    {
+      "name": "react-admin-kit",
+      "description": "Reusable patterns for building and auditing React / Next.js admin panels — admin shell, CRUD lists, forms, role-aware UI, dangerous-action confirmations, import/export, RTL/LTR, loading/error/empty states, and the UI-level security rules every admin panel needs (UI hide is not authorization, PII masking, audit visibility, file upload safety). Ships 8 skills + 3 commands (/admin-scaffold, /admin-audit, /admin-role-matrix) + admin-route-auditor agent.",
+      "author": {
+        "name": "TaqaTechno",
+        "email": "info@taqatechno.com"
+      },
+      "source": "./react-admin-kit-plugin",
+      "category": "development",
+      "homepage": "https://github.com/taqat-techno/plugins/tree/main/react-admin-kit-plugin"
+    },
+    {
+      "name": "qa-browser",
+      "description": "Framework-agnostic browser QA and role-based smoke testing. Drives chrome-devtools / playwright MCP servers to login as each role, walk modals and table actions, verify UI vs API permissions, capture console / network / screenshot evidence, and produce PASS / BLOCKED / NOT-TESTABLE reports for UAT signoff. Ships 9 skills + 5 commands (/qa-target, /qa-smoke, /qa-roles, /qa-route, /qa-report) + 2 agents (qa-evidence-collector, qa-failure-classifier) + production-URL gate hook. Refuses destructive actions on non-disposable data.",
+      "author": {
+        "name": "TaqaTechno",
+        "email": "info@taqatechno.com"
+      },
+      "source": "./qa-browser-plugin",
+      "category": "productivity",
+      "homepage": "https://github.com/taqat-techno/plugins/tree/main/qa-browser-plugin"
+    },
+    {
+      "name": "docs-wiki",
+      "description": "Generic toolkit for creating, organising, editing, validating, and auditing a project Wiki. Adapts to GitHub Wiki sibling repos, in-repo wiki/ folders, GitLab Wiki, and Azure DevOps Wiki. Ships 7 skills + 6 commands (/wiki-init, /wiki-audit, /wiki-update, /wiki-new, /wiki-drift, /wiki-sync-audit) + 3 agents (wiki-link-auditor, wiki-cleanup-validator, wiki-drift-reporter) + push-approval gate + stray-docs warning hooks. Owns flat-namespace + filename-uniqueness + internal-link conventions, Mermaid authoring rules, broken-link sweeps, and code-vs-wiki drift reporting. Does NOT handle wiki-to-memory sync (separate future plugin).",
+      "author": {
+        "name": "TaqaTechno",
+        "email": "info@taqatechno.com"
+      },
+      "source": "./docs-wiki-plugin",
+      "category": "productivity",
+      "homepage": "https://github.com/taqat-techno/plugins/tree/main/docs-wiki-plugin"
     }
   ]
 }

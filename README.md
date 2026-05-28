@@ -1,9 +1,9 @@
 # TAQAT Techno Plugins — Claude Code Marketplace
 
-![Plugins](https://img.shields.io/badge/plugins-7-blue.svg)
+![Plugins](https://img.shields.io/badge/plugins-10-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 
-Production-ready Claude Code plugins for professional development — Odoo ERP, Azure DevOps, UI/UX design, video creation, document conversion, local RAG knowledge bases, and mobile push notifications.
+Production-ready Claude Code plugins for professional development — Odoo ERP, Azure DevOps, UI/UX design, video creation, document conversion, local RAG knowledge bases, mobile push notifications, React/Next.js admin panels, browser QA, and project wikis.
 
 ---
 
@@ -18,6 +18,9 @@ Production-ready Claude Code plugins for professional development — Odoo ERP, 
 | 5 | **pandoc** | `2.1.0` | productivity | Universal document conversion powered by Pandoc — convert between 50+ input and 60+ output formats. PDF, Word, HTML, EPUB, presentations, citations, Arabic/RTL support. | [README](./pandoc-plugin/README.md) |
 | 6 | **remotion** | `2.1.0` | development | Create professional videos with smooth voice narration using Remotion. Continuous audio pipeline that prevents voice cutting between slides, free edge-tts voice generation, full video creation from text prompts. | [README](./remotion-plugin/README.md) |
 | 7 | **ntfy-notifications** | `3.0.0` | productivity | Push notifications to your phone via [ntfy.sh](https://ntfy.sh) when Claude completes tasks, needs input, or encounters errors. Two-way Q&A. 100% free, no account required. | [README](./ntfy-plugin/README.md) |
+| 8 | **react-admin-kit** | `0.2.0` | development | Reusable patterns for building and auditing React / Next.js admin panels — shell, CRUD, role-aware UI, dangerous-action confirmations, import/export, RTL/LTR. 8 skills + 3 commands (`/admin-scaffold`, `/admin-audit`, `/admin-role-matrix`) + `admin-route-auditor` agent. | [README](./react-admin-kit-plugin/README.md) |
+| 9 | **qa-browser** | `0.2.0` | productivity | Framework-agnostic browser QA + role-based smoke tests via chrome-devtools / playwright MCP. 9 skills + 5 commands (`/qa-target`, `/qa-smoke`, `/qa-roles`, `/qa-route`, `/qa-report`) + 2 agents + production-URL gate hook. | [README](./qa-browser-plugin/README.md) |
+| 10 | **docs-wiki** | `0.2.0` | productivity | Generic toolkit for creating, organising, editing, validating, and auditing a project Wiki. GitHub Wiki / GitLab / Azure DevOps / MkDocs. 7 skills + 6 commands (`/wiki-init`, `/wiki-audit`, `/wiki-update`, `/wiki-new`, `/wiki-drift`, `/wiki-sync-audit`) + 3 agents + push-approval + stray-docs hooks. No wiki-to-memory sync (separate future plugin). | [README](./docs-wiki-plugin/README.md) |
 
 ---
 
@@ -31,7 +34,7 @@ Production-ready Claude Code plugins for professional development — Odoo ERP, 
 4. Enter the repository URL: `https://github.com/taqat-techno/plugins.git`
 5. Click **Install**.
 
-All 7 plugins will become available automatically.
+All 10 plugins will become available automatically.
 
 ### Method 2 — Manual clone
 
@@ -49,7 +52,7 @@ git clone https://github.com/taqat-techno/plugins.git taqat-techno-plugins
 
 ### Verify installation
 
-In Claude Code, run `/plugins` and confirm all 7 plugins appear under the **taqat-techno-plugins** marketplace.
+In Claude Code, run `/plugins` and confirm all 10 plugins appear under the **taqat-techno-plugins** marketplace.
 
 ---
 
@@ -156,6 +159,58 @@ Push notifications to your phone via [ntfy.sh](https://ntfy.sh) whenever Claude 
 
 ---
 
+### 8. react-admin-kit — React / Next.js admin panel patterns *(v0.2.0)*
+
+> 📖 [**Full documentation → `react-admin-kit-plugin/README.md`**](./react-admin-kit-plugin/README.md)
+
+Reusable patterns for building and auditing React / Next.js admin panels. Packages the engineering decisions every internal admin makes — sidebar shell, CRUD list/detail/filter shape, role-aware menus, dangerous-action confirmations, import/export safety, RTL/LTR utilities — into a single skill set that any project can pick up without dragging in a business domain.
+
+**Skills (8):** `admin-roles-and-permissions`, `admin-shell`, `admin-crud`, `admin-forms`, `admin-dangerous-actions`, `admin-import-export`, `admin-states`, `admin-rtl-ltr`.
+
+**Commands:** `/admin-scaffold`, `/admin-audit`, `/admin-role-matrix`.
+
+**Agents:** `admin-route-auditor` (read-only findings table grouped by section, severity-tagged).
+
+**Framework scope:** React 18+, Next.js 13+ App Router (primary); Remix / Vite-React / Pages Router (secondary). NOT for Django/Laravel/Odoo admin authoring (use `qa-browser` to TEST those).
+
+---
+
+### 9. qa-browser — Role-based browser QA *(v0.2.0)*
+
+> 📖 [**Full documentation → `qa-browser-plugin/README.md`**](./qa-browser-plugin/README.md)
+
+Framework-agnostic browser QA and role-based smoke testing. Drives `chrome-devtools-mcp` or `playwright-mcp` to log in as each role, walk through modals and table actions, verify UI-vs-API permissions, capture console / network / screenshot evidence, and produce a PASS / BLOCKED / NOT-TESTABLE table for UAT signoff.
+
+**Skills (9):** `browser-qa-discipline`, `runtime-reality-check`, `role-smoke-tests`, `route-access-matrix`, `modal-and-action-walkthroughs`, `import-export-ui-checks`, `console-and-network-capture`, `safe-destructive-testing`, `uat-readiness-report`.
+
+**Commands:** `/qa-target`, `/qa-smoke <role>`, `/qa-roles`, `/qa-route <url>`, `/qa-report`.
+
+**Agents:** `qa-evidence-collector`, `qa-failure-classifier`.
+
+**Hooks:** `SessionStart` target-config reminder; `PreToolUse` production-URL gate (refuses navigation to URLs matching `prod`/`production` substrings unless `QA_BROWSER_ALLOW_PRODUCTION=1` is set per-session).
+
+**Safety:** production-URL gate, destructive-action gate, credential redaction at capture time, refuse-on-tracked-credentials, fresh-context-per-role enforced.
+
+---
+
+### 10. docs-wiki — Project Wiki toolkit *(v0.2.0)*
+
+> 📖 [**Full documentation → `docs-wiki-plugin/README.md`**](./docs-wiki-plugin/README.md)
+
+Generic toolkit for creating, organising, editing, validating, and auditing a project Wiki. Owns flat-namespace + filename-uniqueness + internal-link conventions (GitHub Wiki primary), Mermaid diagram authoring rules, broken-link sweeps, code-vs-wiki drift reporting, and a push-approval gate. Adapts to GitLab / Azure DevOps / MkDocs.
+
+**Skills (7):** `wiki-code-vs-docs-discrepancy`, `wiki-structure`, `wiki-mermaid`, `wiki-link-validation`, `wiki-safe-updates`, `wiki-authoring`, `wiki-vs-stray-docs`.
+
+**Commands:** `/wiki-init`, `/wiki-audit`, `/wiki-update`, `/wiki-new`, `/wiki-drift`, `/wiki-sync-audit`.
+
+**Agents:** `wiki-link-auditor`, `wiki-cleanup-validator`, `wiki-drift-reporter`.
+
+**Hooks:** `PreToolUse` on `Bash(git push)` — push-approval gate refusing wiki push without `DOCS_WIKI_PUSH_APPROVED=1` per-session; force-push always blocked. `PreToolUse` on `Write|Edit` — stray-docs check refusing new files in `docs/`/`doc/`/`documentation/`/`project-docs/` when a wiki exists; advisory warning on edits.
+
+**Explicit boundary:** wiki-to-memory sync is **out of scope**. That will be a separate future plugin.
+
+---
+
 ## Repository structure
 
 ```
@@ -169,6 +224,9 @@ taqat-techno-plugins/
 ├── pandoc-plugin/                # Universal document conversion
 ├── remotion-plugin/              # Video creation with voice narration
 ├── ntfy-plugin/                  # Mobile push notifications (ntfy.sh)
+├── react-admin-kit-plugin/       # React / Next.js admin panel patterns (scaffold)
+├── qa-browser-plugin/            # Browser QA + role-based smoke tests (scaffold)
+├── docs-wiki-plugin/             # Project Wiki toolkit (scaffold)
 ├── agent_skills_spec.md          # Claude Code skills specification
 ├── CLAUDE_CODE_PLUGIN_DEVELOPMENT_GUIDE.md  # Plugin development guide
 ├── CONTRIBUTING.md               # Contribution guidelines
@@ -260,4 +318,4 @@ Individual plugins may ship their own license (e.g., `odoo-plugin` uses LGPL-3.0
 
 ---
 
-**Plugins:** 7 &nbsp;·&nbsp; **Maintainer:** TAQAT Techno &nbsp;·&nbsp; **Marketplace:** `taqat-techno-plugins`
+**Plugins:** 10 &nbsp;·&nbsp; **Maintainer:** TAQAT Techno &nbsp;·&nbsp; **Marketplace:** `taqat-techno-plugins`
