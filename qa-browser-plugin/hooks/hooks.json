@@ -1,0 +1,29 @@
+{
+  "description": "qa-browser hooks — SessionStart target reminder + PreToolUse production URL gate. Both hooks are advisory unless they detect a clear safety violation; the production gate is the only one that BLOCKS.",
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python \"${CLAUDE_PLUGIN_ROOT}/hooks/session_start_target_check.py\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "mcp__.*__navigate_page|mcp__.*__browser_navigate",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python \"${CLAUDE_PLUGIN_ROOT}/hooks/pre_navigate_prod_gate.py\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}
