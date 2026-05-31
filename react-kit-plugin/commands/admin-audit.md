@@ -1,5 +1,5 @@
 ---
-description: Audit an existing admin route against the react-admin-kit skill rules. Read-only — produces a Markdown table of findings with file:line citations. Optionally suggests a fix per finding.
+description: Audit an existing admin route against the react-kit skill rules. Read-only — produces a Markdown table of findings with file:line citations. Optionally suggests a fix per finding.
 argument-hint: "<path-to-admin-route> [--suggest-fixes]"
 author: TAQAT Techno
 version: 0.2.0
@@ -8,7 +8,7 @@ allowed-tools: Read, Glob, Grep
 
 # /admin-audit
 
-You are auditing one admin route (a single page, a folder, or a whole admin tree) against the `react-admin-kit` skill set. **Read-only.** No edits. Produce a findings table.
+You are auditing one admin route (a single page, a folder, or a whole admin tree) against the `react-kit` skill set. **Read-only.** No edits. Produce a findings table.
 
 The skill rules being applied:
 
@@ -33,7 +33,7 @@ Confirm the path exists. If it does not, ask the user to recheck.
 
 ## Step 1 — Read the adapter cache
 
-Load `.react-admin-kit.local.json` if present. This gives you the project's role list, PII fields, auth helper, and audit helper names — so the audit checks against actual identifiers, not generic ones.
+Load `.react-kit.local.json` if present. This gives you the project's role list, PII fields, auth helper, and audit helper names — so the audit checks against actual identifiers, not generic ones.
 
 If the cache is absent, run the audit with generic checks and note in the report that role / PII / auth specifics could not be verified.
 
