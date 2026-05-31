@@ -1,6 +1,6 @@
 {
   "name": "docs-wiki",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Generic toolkit for creating, organising, editing, validating, and auditing a project Wiki. Adapts to GitHub Wiki sibling repos, in-repo wiki/ folders, GitLab Wiki, and Azure DevOps Wiki. Owns flat-namespace + filename-uniqueness + internal-link conventions, Mermaid diagram authoring rules, broken-link sweeps, code-vs-wiki drift reporting, and a push-approval gate. Does NOT handle wiki-to-memory sync — that is a separate future plugin.",
   "author": {
     "name": "TAQAT Techno",

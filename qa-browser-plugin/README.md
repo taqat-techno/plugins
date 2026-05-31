@@ -86,7 +86,7 @@ This plugin drives one of:
 
 - Replace a unit / integration test suite. This is acceptance-level UI QA, not the test pyramid base.
 - Drive headless API testing without a browser. Use a dedicated API testing tool for that.
-- Author the admin panel itself. See [`react-admin-kit`](../react-admin-kit-plugin/README.md) for that.
+- Author the admin panel itself. See [`react-kit`](../react-kit-plugin/README.md) for that.
 - Document QA SOPs / runbooks. See [`docs-wiki`](../docs-wiki-plugin/README.md) for that.
 - Manage credentials in any way other than the local gitignored file. No vault, no secrets manager.
 

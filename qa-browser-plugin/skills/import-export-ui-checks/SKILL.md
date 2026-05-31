@@ -153,7 +153,7 @@ For each export the admin offers:
 2. Click Export.
 3. Wait for download.
 4. Inspect the downloaded file:
-   - Filename includes entity + filter context + timestamp (per react-admin-kit/admin-import-export).
+   - Filename includes entity + filter context + timestamp (per react-kit/admin-import-export).
    - File parses cleanly in the expected format.
    - Row count matches the list's totalCount.
    - PII fields masked unless the export was an explicit "include PII" opt-in (which writes an audit row).
@@ -234,7 +234,7 @@ SUMMARY
 
 ## Portability rationale
 
-The upload-preview-commit pattern applies to any import flow that follows the contract from `react-admin-kit/admin-import-export` (or equivalent). The skill does not depend on:
+The upload-preview-commit pattern applies to any import flow that follows the contract from `react-kit/admin-import-export` (or equivalent). The skill does not depend on:
 
 - A specific file format (CSV / Excel / JSON all work)
 - A specific upload library
@@ -248,4 +248,4 @@ The upload-preview-commit pattern applies to any import flow that follows the co
 - `modal-and-action-walkthroughs` — the upload-commit flow IS a confirm pattern.
 - `console-and-network-capture` — capture upload progress, commit response, error payloads.
 - `uat-readiness-report` — import / export rows feed the final report.
-- `react-admin-kit/admin-import-export` — the contract this skill verifies against.
+- `react-kit/admin-import-export` — the contract this skill verifies against.

@@ -1,16 +1,26 @@
-# react-admin-kit
+# react-kit
 
 ![Version](https://img.shields.io/badge/version-0.2.0-blue.svg)
 ![Status](https://img.shields.io/badge/status-functional-green.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 
-Reusable patterns for building and auditing React / Next.js admin panels.
+Reusable patterns for building and auditing React / Next.js applications.
 
-This plugin packages the engineering decisions that every internal admin panel makes — sidebar shell, CRUD list/detail/filter shape, role-aware menus, dangerous-action confirmations, import/export safety, RTL/LTR utilities — into a single skill set that any project can pick up without dragging in a specific business domain.
+`react-kit` packages the recurring engineering decisions of React / Next.js work — data-fetching and async UI states, lint/diagnostic triage, React 19 migration, plus a full admin-panel toolkit (sidebar shell, CRUD list/detail/filter shape, role-aware menus, dangerous-action confirmations, import/export safety, RTL/LTR utilities) — into a single skill set that any project can pick up without dragging in a specific business domain. Admin panels are one capability here, not the whole plugin.
 
 ## What this plugin owns
 
 ### Skills (under `skills/`)
+
+**General React / Next.js skills** (apply to any app):
+
+| Skill | Owns |
+|---|---|
+| `react-lint-triage` | Reading and prioritizing ESLint / TypeScript / build diagnostics, grouping by root cause, safe-fix vs. needs-review classification |
+| `data-fetching-states` | Loading / error / empty / success state machines, async boundaries, cache + revalidation patterns across client and server components |
+| `react19-migration` | Migrating to React 19 — Actions, `use`, ref-as-prop, removed APIs, codemods, and incremental upgrade strategy |
+
+**Admin-panel skills** (one capability of the kit):
 
 | Skill | Owns |
 |---|---|
@@ -78,7 +88,7 @@ This plugin is published as part of the `taqat-techno-plugins` marketplace. To i
 1. Open Claude Code.
 2. Run `/plugins`.
 3. Click **Add Marketplace** and enter `https://github.com/taqat-techno/plugins.git` (skip if already installed).
-4. Find **react-admin-kit** and click **Install**.
+4. Find **react-kit** and click **Install**.
 
 ## Roadmap
 

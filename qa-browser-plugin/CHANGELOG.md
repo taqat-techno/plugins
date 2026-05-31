@@ -2,6 +2,20 @@
 
 All notable changes to `qa-browser-plugin` are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/). Versioning follows [SemVer](https://semver.org/).
 
+## [0.3.0] — 2026-05-31 — Live identity/RBAC proof + host-scoped headers
+
+### Added
+
+- `verify-identity-and-rbac` skill — trust the auth/identity endpoint over UI role labels; prove RBAC changes via status codes (401/403 = blocked, 400/409 = authorized-but-business-rule); report Shape A (UI hides, API allows) and Shape B (API denies, UI advertises).
+- `host-scoped-auth-headers` skill — inject preview-bypass/auth headers host-scoped only; avoids CORS-preflight killing cross-origin data calls.
+- Enhanced `safe-destructive-testing` — scope out external side-effect routes (SMS/payment/email/provider) + the cancel-first (open->assert->cancel) pattern.
+- Verified the production-URL gate hook already matches case-insensitively (no change needed).
+
+### Validation
+
+- `python validate_plugin.py qa-browser-plugin` -> 0 errors.
+- Genericness sweep: 0 project-specific tokens outside labeled examples.
+
 ## [0.2.0] — 2026-05-28 — Phase 2 content
 
 Skills, commands, agents, and safety hooks — the plugin is now functional, not just a scaffold.

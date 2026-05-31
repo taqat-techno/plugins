@@ -2,6 +2,19 @@
 
 All notable changes to `odoo-plugin` are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/). Versioning follows [SemVer](https://semver.org/).
 
+## [2.1.0] — 2026-05-31 — i18n/PO + volume/PG + theme-load references
+
+### Added
+
+- `skills/i18n/references/po-gettext-discipline.md` — typed PO references, source-string-invalidation audit, .pot/msgmerge workflow, UTF-8 decode (no unicode_escape).
+- `skills/docker/references/volume-and-pg-safety.md` — never blind `down -v`, orphan-volume drift, preserve Postgres major version.
+- `skills/upgrade/references/theme-load-and-cli-upgrade.md` — `_theme_load` after website/languages, prefer odoo-bin CLI over RPC immediate-upgrade, declare all translatable theme fields.
+
+### Validation
+
+- `python validate_plugin.py odoo-plugin` -> 0 errors.
+- Genericness sweep: 0 project-specific tokens outside labeled examples.
+
 ## [2.0.0] — 2026-05-01 — BREAKING command rename + bare-invocation discipline
 
 Two binding rules adopted across the marketplace are now applied to odoo-plugin:

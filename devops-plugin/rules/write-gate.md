@@ -16,6 +16,14 @@ Before calling ANY write MCP tool or CLI command, you **MUST**:
 
 ---
 
+## Remote git / GitHub writes
+
+This gate governs **work-item and PR MCP/CLI writes** against the project management provider (e.g. Azure DevOps). It does **not** cover pushes to a git remote.
+
+Pushing commits, creating pull requests via a git host, and merging branches on any remote follow a **separate, provider-neutral gate** documented in `rules/git-remote-write-gate.md` (permission-first plus identity-correctness). Consult that rule before any remote git write; do not duplicate its checks here.
+
+---
+
 ## Classified Operations
 
 ### CREATE (HIGH risk) — Require Confirmation

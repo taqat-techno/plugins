@@ -397,6 +397,8 @@ No destructive steps.
 
 **Note (v0.4.0):** this playbook no longer applies to plugin-level MCP wiring on rag-plugin v0.3.3+ — the plugin spawns `rag serve` directly from a flat-shape `.mcp.json` (see D-020). The playbook remains relevant for project-level or user-level `.mcp.json` wired manually by the user.
 
+**Generic MCP-not-loading problems → defer to claude-env-doctor.** P-mcp covers only the *ragtools-specific* slice: is `rag serve` reachable, does the canonical `.mcp.json` match `curl /api/mcp-config`, is stdio pure. For *generic* "an MCP server won't load" symptoms that are not ragtools-specific — the user's own dotfile (e.g. `~/.claude.json`) being the real config location rather than a plugin file, concurrent-session config clobber where two Claude Code windows overwrite each other's MCP block, or the general spawn/version diagnosis ladder (binary on PATH → spawns standalone → speaks the protocol → version compatible) — point the user at the **claude-env-doctor** plugin's `env-doctor` skill / `/env-doctor` command, which is the canonical home for generic environment and MCP-wiring diagnosis. Do not re-run that generic ladder here; keep the ragtools-specific checks above and hand off the generic part.
+
 ## Final state check
 
 After the playbook walk completes (or the user stops), re-run **Step 0 — state detection** and print the new mode banner. Compare with the starting banner — did anything change? If the symptom is gone, congratulate briefly. If it persists, recommend `--logs`.
