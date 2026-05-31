@@ -1,14 +1,20 @@
 ---
 name: admin-forms
 description: Admin form patterns — field components, validation, save / cancel / dirty handling, row actions, bulk actions, optimistic vs pessimistic update. Owns the "client validation mirrors server, server is authoritative" rule, the dirty-state warn-on-leave pattern, and the bulk-action batching contract. Activates when building any admin form, edit page, row action, or bulk action. Generic and portable — form library and field types are project-supplied.
-version: 0.2.0
-last_reviewed: 2026-05-28
+version: 0.4.0
+last_reviewed: 2026-05-31
 owns:
   - field-component-per-type pattern
   - client-side validation mirrors server-side
   - submit / dirty / cancel flow
   - row-action and bulk-action contract
   - optimistic-update reconciliation rule
+  - sections / tabs split for long forms (one form, one save)
+  - read-only vs editable field resolution (permission + state)
+  - relation-picker behavior (async search, cascade clear, create-related guardrails)
+  - file / attachment staging (no auto-commit before save)
+  - archive / delete / reset flow distinct from save / cancel
+  - audit-metadata read-only display
 defers_to:
   - admin-roles-and-permissions (which fields the actor can edit; per-action authorization)
   - admin-dangerous-actions (confirmation flow for destructive submits)
@@ -149,13 +155,86 @@ Bulk mutations on selected rows:
 - **Per-item failure report**: not every item succeeds. Return `{ succeeded: [ids], failed: [{id, error}] }`. UI shows which failed and lets the user retry just those.
 - **Bulk destructive actions**: even with confirmation, prefer a slower opt-in flow ("type DELETE 1247 to confirm").
 
-### File upload fields
+### File / attachment inputs
 
 - Show file size before upload starts; reject above limit before sending.
-- Validate MIME by magic bytes server-side (extension is not enough).
+- Enforce both type and size limits client-side AND server-side. Validate MIME by magic bytes server-side (extension is not enough).
 - Show progress bar on upload.
-- After upload, show preview where possible (image thumb, PDF first page, file icon otherwise).
-- On replace: confirm "Replace existing file?" if a file is already attached.
+- After staging, show preview where possible (image thumb, document first page, file icon otherwise).
+- **No auto-commit before save.** Selecting / staging a file is part of the dirty form state — it must not persist on the server until the form's explicit save. If your storage requires a pre-upload (e.g., to a temp/staging bucket), the *record* still does not reference the file until save succeeds; orphaned staged files are cleaned up out-of-band, never auto-attached.
+- On replace: confirm "Replace existing file?" if a file is already attached. Removal of an existing attachment is a dirty-state edit, committed on save — not an immediate destructive action.
+
+### Sections and tabs (long forms)
+
+Short forms (≤ ~8 fields) are a single flat list — do not over-structure them. Split only when length or grouping genuinely helps the actor.
+
+| Structure | When to use | Notes |
+|---|---|---|
+| Flat list | Few fields, one logical group | Default. No headings needed. |
+| Grouped sections | One long form, fields fall into 2–4 clear groups (e.g., "Details", "Contact", "Settings") | Section headings on one scrolling page; all fields submit together as one record. |
+| Tabs | Many fields across distinct concerns, or the actor rarely touches all of them at once | One form, multiple tabs; **still one save**. |
+
+Rules when splitting:
+
+- **One form, one save.** Sections and tabs are presentational grouping — they do not become separate forms or separate submits unless the project explicitly models them as separate records.
+- **Dirty state spans all sections/tabs.** A change on tab 1 must keep the single Save active and must not be lost when the actor switches to tab 2.
+- **Surface errors across hidden tabs.** On submit, if a field on a non-active tab fails validation, mark that tab (badge / dot) and focus the first invalid tab — never leave the actor staring at a valid-looking tab while save silently fails.
+- **Do not lazy-discard.** Switching tabs must not unmount and reset field state for the inactive tab.
+
+### Read-only vs editable fields
+
+A field's editability is decided by two independent axes; resolve both before rendering:
+
+1. **Permission** — may this actor edit this field at all? This is authorization. **Defer to `admin-roles-and-permissions`** for who-can-edit-what and PII masking. The form only *consumes* the resolved per-field decision; it does not invent its own role logic.
+2. **State** — is this field editable in the record's *current* state? Some fields are immutable after creation (an identifier, an immutable relation), or locked once the record reaches a terminal/processed state.
+
+Rendering rules:
+
+- A field the actor cannot edit renders **read-only** (shown as a value/badge), not as a disabled-but-present input that hints it could be edited.
+- Read-only fields are **excluded from the submit payload** — never send a value the actor was not allowed to change.
+- A field that is editable-for-this-actor but locked-by-state shows the value plus a short reason ("locked after processing"), not a silent disabled input.
+- Do not gate on the client alone. The server re-checks both axes on submit; client read-only is ergonomics, not the boundary (same rule as validation).
+
+### Relation pickers
+
+A field that selects a related record (single or multiple). Project supplies the picker component; this skill owns the behavior.
+
+- **Async search.** Above a small option count, do not preload every option — search server-side as the actor types. Debounce input, show a loading affordance, and never block the rest of the form while options load.
+- **Dependent / cascading relations.** When a parent selection narrows a child's options, changing the parent **clears the dependent child** rather than leaving a now-invalid value. Cascade clears downward through the chain.
+- **Immutable relations.** A relation that cannot change after creation (or after a state transition) renders read-only per the rules above — show the current value as a badge, disable the picker.
+- **Create-related guardrails.** A "create new related record" affordance inside a picker is convenient but dangerous:
+  - It must respect the actor's permission to create that related record (defer to `admin-roles-and-permissions`).
+  - The newly created related record is itself a real write — confirm it the same as any create, do not silently persist it as a side effect of editing the parent.
+  - Never let inline-create produce orphaned/half-valid related records if the parent form is then cancelled. Either the related record is fully valid on its own, or its creation is deferred until parent save.
+- **No circular relations.** A picker must not allow selecting the record itself (or an ancestor) as its own relation.
+
+### Archive / delete / reset (distinct from save / cancel)
+
+Save and cancel manage the *edit*. Archive, delete, and reset act on the *record or the form* and must be visually and behaviorally separate from the primary Save / Cancel pair.
+
+| Action | Acts on | Reversible? | Routing |
+|---|---|---|---|
+| **Save** | Pending edits → record | n/a | Primary submit (above) |
+| **Cancel** | Pending edits (discards) | yes (re-edit) | Confirm if dirty |
+| **Reset** | The *form*, back to last-saved baseline | yes | Confirm if dirty; does **not** touch the server |
+| **Archive** | The *record* (soft, recoverable) | yes (unarchive) | Destructive-lite → confirm |
+| **Delete** | The *record* (hard, often irreversible) | usually no | **Defer to `admin-dangerous-actions`** |
+
+Rules:
+
+- **Reset ≠ Cancel.** Reset reverts the form's fields to the loaded baseline and stays on the page (actor keeps editing); Cancel leaves. Reset never calls the server.
+- **Destructive actions are not the Save button's siblings in prominence.** Place Archive / Delete apart from Save / Cancel (e.g., a separate menu or a "danger zone"), so they are not fat-fingered.
+- **Confirmation for destructive submits is owned by `admin-dangerous-actions`** — this skill routes to it and does not re-implement the confirmation UX.
+- A destructive action on a dirty form must tell the actor their unsaved edits will be lost (or are irrelevant, for delete) before proceeding.
+
+### Audit metadata display
+
+Most records carry provenance: who created/updated them and when. Display it, read-only.
+
+- Show **created by / created at** and **updated by / updated at** (and last-action actor if the project tracks it) in a clearly read-only region — a footer strip or a side panel, never as editable inputs.
+- Render timestamps in the actor's timezone; store/transport UTC (consistent with the datetime field rule).
+- Audit metadata is **never** part of the submit payload and is **never** editable from the form, regardless of the actor's permission level.
+- If the record is new (create mode), audit metadata is absent — do not render empty "created by —" placeholders.
 
 ## Safety gates
 
@@ -181,6 +260,12 @@ Before committing a form change:
 - [ ] Sensitive fields are masked; `autocomplete` set conservatively.
 - [ ] Row actions: destructive go through `admin-dangerous-actions`.
 - [ ] Bulk actions call a batch endpoint with per-item progress + per-item failure report.
+- [ ] Long forms split into sections/tabs still submit as one record; errors surface across hidden tabs.
+- [ ] Read-only fields render as values (not disabled inputs) and are excluded from the submit payload.
+- [ ] Relation pickers search async, cascade-clear dependents, and gate inline-create on permission.
+- [ ] File/attachment selection does not auto-commit before save; removal is a dirty-state edit.
+- [ ] Archive/delete/reset are separated from Save/Cancel; destructive ones route through `admin-dangerous-actions`.
+- [ ] Audit metadata (created/updated by/at) is read-only and never in the payload.
 - [ ] No PII logged on submit / failure / success.
 
 ## Output format
@@ -225,6 +310,13 @@ BULK ACTION
 | Toast says "Saved!" before the server confirms | UI lies on failure | Wait for response |
 | Auto-save destructive settings | One stray click disables a feature | Explicit save for destructive |
 | File upload validated by extension only | `.jpg` rename of `.exe` accepted | Magic-byte validation server-side |
+| File auto-attached to the record on selection | Cancelling the form leaves an orphaned/committed file | Staging only; attach on save |
+| Read-only field rendered as a disabled input | Hints it could be edited; may still ride along in payload | Render as a value/badge; drop from payload |
+| Each tab is its own form with its own save | Dirty state and validation fragment; partial saves | One form, one save; group presentationally |
+| Submit succeeds-looking while an error sits on a hidden tab | Actor can't find the broken field | Badge the failing tab and focus it |
+| Reset wired to the Cancel/leave action | Actor loses the page when they wanted to revert in place | Reset reverts fields and stays; never calls server |
+| Inline "create related" persists silently on parent save | Orphaned/half-valid related records | Confirm the create; defer or fully validate it |
+| Audit fields shown as editable inputs | Actor can rewrite provenance | Read-only region; never in payload |
 
 ## Portability rationale
 
@@ -251,3 +343,4 @@ The skill does not depend on:
 - `admin-states` — loading affordances during submit; error display catalogue.
 - `admin-import-export` — bulk create / update via file is a related but distinct flow.
 - `admin-route-auditor` (agent) — checks for missing server validation, missing dirty warning, fire-and-forget submits.
+- `references/admin-form-pattern.md` — the worked reference for the form-view pieces above (sections/tabs split, read-only resolution, relation-picker behavior, file staging, archive/delete/reset routing, audit-metadata display). Consult it when implementing a concrete form.

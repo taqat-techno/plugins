@@ -1,7 +1,7 @@
 ---
 name: react-lint-triage
 description: Treats analyzer and linter findings (react-doctor, eslint, deslop, knip, and similar) as hypotheses to verify, not commands to obey. Owns the four-bucket classification (safe-mechanical, needs-judgment, false-positive, forbidden-zone), the false-positive catalog, and the rules against score-chasing and ruleset drift. Activates when triaging lint, static-analysis, or quality-tool output, before applying any auto-fix, before deleting a file a dead-code tool flagged, or when a tool reports a quality score to improve.
-version: 0.1.0
+version: 0.4.0
 last_reviewed: 2026-05-31
 owns:
   - four-bucket finding classification (safe-mechanical / needs-judgment / false-positive / forbidden-zone)
@@ -101,6 +101,25 @@ These are recurring cases where the tool is usually wrong. Examples are illustra
 | `dangerouslySetInnerHTML` flagged as XSS | When the HTML is trusted server-rendered or staff-authored content, this is AUDIT-ONLY. | false-positive for the cosmetic auto-fix — do NOT add a sanitizer dependency mid-cleanup; record an audit note instead |
 | `control-has-associated-label` / `jsx-a11y` label rule | Over-fires when a visible `<label for>` already associates the control (adding `aria-label` clobbers the visible label) and on empty table header cells used for spacing. | false-positive — verify a visible label is absent before adding one; do not double-label |
 | Dead-file / unused-export (knip, ts-prune) flags a file for deletion | Detectors that ignore path aliases and the framework route graph are ~95% false positive — alias imports and route-graph entrypoints look "unreferenced." | false-positive until proven — verify with an alias+route-aware tool (ALIAS_ROUTE_MAP) before deleting anything |
+
+### Admin-panel triage
+
+Admin UIs (list/detail tables, toolbars, drawers, status pipelines, bulk actions) produce a recurring family of findings. Triage them with the same four buckets and the same never-chase-the-score rule — these are just the shapes that show up most in data-grid code. Defer any domain verdict to the owning `admin-*` skill.
+
+| Finding shape in admin code | How to triage | Bucket |
+|---|---|---|
+| Array-index `key` on table rows (`key={i}`) | Fix **only** when a stable unique id already exists on the row record (`key={row.id}`). If no stable id exists, **never invent a synthetic key** to silence the rule — index keys are correct for append/replace-at-index lists. | safe-mechanical when a stable id is present; otherwise false-positive (record why) |
+| Complex conditional logic inline in render (nested ternaries choosing a status label/color/icon) | Extract a **small** helper or a flat status map (e.g. `STATUS_STYLE[status]`). Do **not** over-abstract into a config layer, a hook, or a component just to flatten one ternary. | needs-judgment — apply only the minimal extraction; the rule is advisory |
+| Duplicated action/transition logic across a row action, a bulk action, and a detail-drawer action (the same approve/delete/advance written three times) | This is a **real maintainability finding**, not style. Consolidate into one action handler that takes one-or-many ids, so row/bulk/drawer all call the same path and stay consistent. | needs-judgment — genuine consolidation; verify all three call sites share semantics before merging |
+| Component over-splitting flagged (a table + toolbar + pagination shattered into many tiny single-use files) | A cohesive data-grid living in one well-organized file is fine. Sometimes the splitter finding is simply **wrong** — do not merge or split files just to move a count. Only consolidate when the fragments are truly single-use and obscure the grid. | needs-judgment, and often false-positive — never restructure files to satisfy the metric |
+
+Admin-specific false positives to skip outright:
+
+- **Permission-gated action handlers flagged as "unreachable" / dead.** A handler only invoked when `canEdit`/`canManage` is true looks dead to a static tool that cannot see the runtime gate. Verify the gate, then skip — do not delete the handler. (Treat the route/handler the same way the dead-file rule treats alias-reached files: false-positive until proven.)
+- **Backend-enforced scoping marked as "missing UI filter."** When the API already scopes records (viewer sees own, manager sees team, admin sees all), a finding that the list "does not filter client-side" is a false positive — client-side filtering is not the security boundary and must not be added to satisfy it.
+- **Conditionally rendered cell/field flagged as a missing `key` or empty element.** Cells hidden by a field-access gate (redacted/role-gated columns) over-fire the same a11y/empty-element rules already in the catalog. Verify the gate before touching.
+
+Never restructure an admin component, merge/split its files, or add a client-side filter purely to lower a count — the changed-file diff carries risk for a vanity number. Same rule as everywhere else: eliminate one rule to zero, or skip.
 
 ## Safety gates
 

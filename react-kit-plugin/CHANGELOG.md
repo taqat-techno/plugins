@@ -2,6 +2,31 @@
 
 All notable changes to `react-kit-plugin` are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/). Versioning follows [SemVer](https://semver.org/).
 
+## [0.4.0] — 2026-05-31 — Flexible admin view patterns
+
+Adds an Odoo-inspired (not Odoo-rebuilding) flexible admin-view methodology. Patterns were generalized from a study of a reference React/Next.js admin project; all project-specific business logic, names, routes, and roles were stripped — the skills are domain-agnostic and adapter-driven.
+
+### Added
+
+- **Skills (4):**
+  - `admin-panel-architecture` — design-before-coding: project adapter, route + navigation-builder model, role/menu model, view registry, data/state + action/workflow contracts, component inventory, plan template.
+  - `admin-view-patterns` — view-type chooser (list / tree / kanban / form / dashboard / settings / detail-drawer / import-export / audit) that routes to the owning skill without re-implementing it.
+  - `admin-kanban-workflow` — kanban/board view + workflow state machine: columns from a project state set, collapsible columns, full-height layout, role-gated + validated transitions, audit-on-move (states never hardcoded).
+  - `admin-dashboard-overview` — KPI/overview cards, role-aware metrics, quick actions, activity feed, data-freshness, no-data-vs-failed-KPI states.
+- **References (8):** `admin-panel-adapter.md`, `admin-view-registry.md`, `admin-state-contract.md` (under admin-panel-architecture); `admin-list-tree-pattern.md` (admin-crud); `admin-kanban-pattern.md`, `admin-action-workflow-pattern.md` (admin-kanban-workflow); `admin-form-pattern.md` (admin-forms); `admin-dashboard-pattern.md` (admin-dashboard-overview).
+
+### Changed
+
+- `admin-crud` — added tree / nested-list / parent-child hierarchy (expandable rows, lazy children, nested-route detail, cascade-aware bulk actions, virtualization note).
+- `admin-forms` — added grouped sections + tabs, relation pickers (async search), file attachments (no pre-save commit), archive/delete/reset flow, read-only-vs-editable by permission/state, audit-metadata display.
+- `data-fetching-states` — added admin-panel examples (empty-vs-access-denied board, no-data-vs-failed-KPI dashboard, empty-vs-filtered list, not-found-vs-forbidden detail, 409 business-rule, partial-error).
+- `react-lint-triage` — added admin-panel triage (row keys, render conditionals, duplicated row/bulk/drawer action consolidation, component over-splitting, admin false positives).
+
+### Validation
+
+- `python validate_plugin.py react-kit-plugin` → 0 errors.
+- Genericness sweep: 0 project-specific tokens (no royal/preps/sales/contact/material/etc.) outside labeled illustrative examples.
+
 ## [0.3.0] — 2026-05-31 — Generalized to react-kit + React quality skills
 
 ### Added

@@ -1,37 +1,57 @@
 # react-kit
 
-![Version](https://img.shields.io/badge/version-0.2.0-blue.svg)
+![Version](https://img.shields.io/badge/version-0.4.0-blue.svg)
 ![Status](https://img.shields.io/badge/status-functional-green.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 
-Reusable patterns for building and auditing React / Next.js applications.
+Reusable patterns for building and auditing React / Next.js applications — with a flexible, Odoo-inspired admin-panel toolkit.
 
-`react-kit` packages the recurring engineering decisions of React / Next.js work — data-fetching and async UI states, lint/diagnostic triage, React 19 migration, plus a full admin-panel toolkit (sidebar shell, CRUD list/detail/filter shape, role-aware menus, dangerous-action confirmations, import/export safety, RTL/LTR utilities) — into a single skill set that any project can pick up without dragging in a specific business domain. Admin panels are one capability here, not the whole plugin.
+`react-kit` packages the recurring engineering decisions of React / Next.js work — data-fetching and async UI states, lint/diagnostic triage, React 19 migration — plus a **flexible admin-panel methodology** that guides an agent to plan and build list, tree, kanban, form, and dashboard views from one consistent architecture. It is generic: entity names, roles, APIs, and libraries are project-supplied adapter inputs, never baked in. Admin panels are a major capability here, not the whole plugin.
+
+> **Inspiration, not implementation:** the admin-view model draws on Odoo's "one resource, many views" idea (list / tree / kanban / form / dashboard) but targets idiomatic React / Next.js — it does not rebuild Odoo.
 
 ## What this plugin owns
 
-### Skills (under `skills/`)
-
-**General React / Next.js skills** (apply to any app):
+### General React / Next.js skills
 
 | Skill | Owns |
 |---|---|
-| `react-lint-triage` | Reading and prioritizing ESLint / TypeScript / build diagnostics, grouping by root cause, safe-fix vs. needs-review classification |
-| `data-fetching-states` | Loading / error / empty / success state machines, async boundaries, cache + revalidation patterns across client and server components |
-| `react19-migration` | Migrating to React 19 — Actions, `use`, ref-as-prop, removed APIs, codemods, and incremental upgrade strategy |
+| `react-lint-triage` | Treat analyzer findings as hypotheses; classify safe-mechanical / needs-judgment / false-positive / forbidden-zone; never chase the score; false-positive catalog (incl. admin-panel triage) |
+| `data-fetching-states` | The status→state contract (loading / empty / no-results / access-required / forbidden / not-found / business-rule / error / partial / stale); never a silent empty shell; admin-panel examples |
+| `react19-migration` | forwardRef→ref-prop, `useContext`→`use`, server/client metadata split; behavior-preserving, type-check-gated |
 
-**Admin-panel skills** (one capability of the kit):
+### Admin-panel skills
+
+**Plan & choose:**
 
 | Skill | Owns |
 |---|---|
-| `admin-shell` | Sidebar + header + layout shell, i18n context, language toggle, persistent locale, route guard composition |
-| `admin-crud` | List / table / detail / filter / pagination patterns |
-| `admin-forms` | Field components, validation, row actions, bulk actions |
-| `admin-roles-and-permissions` | Role-aware menus, "UI hide is NOT authorization" rule, PII masking, audit visibility |
-| `admin-dangerous-actions` | Confirmation dialog patterns for destructive operations |
-| `admin-import-export` | Preview, row caps, typed errors, per-row report, idempotency, no-auto-create |
-| `admin-states` | Loading / error / empty state conventions |
+| `admin-panel-architecture` | Design-before-coding: project adapter, route structure, navigation-builder model, role/menu model, **view registry**, data/state + action/workflow contracts, component inventory, plan template |
+| `admin-view-patterns` | The **view-type chooser** — when to use list / tree / kanban / form / dashboard / settings / detail-drawer / import-export / audit; routes to the owning skill (does not re-implement) |
+
+**Build views:**
+
+| Skill | Owns |
+|---|---|
+| `admin-shell` | Sidebar + header + layout shell, responsive collapse + mobile overlay, longest-prefix active-route, i18n context, route-guard composition |
+| `admin-crud` | List / table / detail / filter / pagination **and** tree / nested-list / parent-child hierarchy (expandable rows, lazy children, nested-route detail) |
+| `admin-kanban-workflow` | Kanban / board view **and** the workflow state machine — columns from a project state set, collapsible columns, role-gated + validated transitions, audit-on-move (states never hardcoded) |
+| `admin-forms` | Fields, inline + server validation, grouped sections + tabs, relation pickers, file attachments, dirty-state, save / cancel / reset / archive / delete, read-only-vs-editable, audit metadata |
+| `admin-dashboard-overview` | KPI / overview cards, role-aware metrics, quick actions, recent-activity feed, data-freshness, no-data-vs-failed-KPI states, chart-vs-table balance |
+
+**Cross-cutting rules:**
+
+| Skill | Owns |
+|---|---|
+| `admin-roles-and-permissions` | Role/module-aware menus + actions + field editability, "UI hide is NOT authorization", PII masking, audit visibility, paired UI/API gates |
+| `admin-dangerous-actions` | Confirmation patterns for destructive operations (friction proportional to blast radius) |
+| `admin-import-export` | Upload→preview→commit, row caps, typed per-row errors, idempotency, no auto-create |
+| `admin-states` | Loading / error / empty / no-results / partial-error **display** conventions |
 | `admin-rtl-ltr` | Direction-aware utilities, locale-driven layout direction |
+
+### References (progressive disclosure, under the owning skill)
+
+`admin-panel-architecture/references/`: `admin-panel-adapter.md`, `admin-view-registry.md`, `admin-state-contract.md` · `admin-crud/references/admin-list-tree-pattern.md` · `admin-kanban-workflow/references/`: `admin-kanban-pattern.md`, `admin-action-workflow-pattern.md` · `admin-forms/references/admin-form-pattern.md` · `admin-dashboard-overview/references/admin-dashboard-pattern.md`.
 
 ### Commands
 
@@ -47,56 +67,40 @@ Reusable patterns for building and auditing React / Next.js applications.
 |---|---|
 | `admin-route-auditor` | Read-only scan of one admin route for missing role gates, missing audit-log, unmasked PII, missing confirmation on destructive actions |
 
-### Hooks (deferred to v0.3.0)
-
-`PreToolUse` reminder on `Write|Edit` matching `admin/**` paths is planned for v0.3.0. Will be opt-in and configurable in `hooks/hooks.json`.
-
 ## Framework scope
 
 | Tier | Frameworks |
 |---|---|
 | Primary | React 18+, Next.js 13+ App Router |
 | Secondary | Remix, Vite + React, Pages Router |
-| Out of scope | Django admin, Laravel Nova, Odoo backend, Vue/Svelte/Angular (use [`qa-browser`](../qa-browser-plugin/README.md) to TEST those, but not to author them) |
+| Out of scope | Django admin, Laravel Nova, Odoo backend, Vue/Svelte/Angular (use [`qa-browser`](../qa-browser-plugin/README.md) to TEST those, not to author them) |
+
+## How react-kit fits with other plugins
+
+- **Aesthetics / visual design** → the official `frontend-design` plugin owns net-new visual style. react-kit owns **structure, state, CRUD, views, and workflow methodology**, not the look.
+- **Testing the running UI** → `qa-browser` (layered over the official Playwright MCP) verifies roles, RBAC, and that the API enforces what the UI hides.
+- **Docs / SOPs** → `docs-wiki`.
+- **Environment problems** → `claude-env-doctor`.
 
 ## Adapter inputs (asked the first time you invoke a command)
 
-The plugin makes **no assumptions** about your project. The first invocation asks for:
-
-1. Admin base path (e.g. `app/admin`, `src/admin`, `pages/admin`).
-2. i18n provider location, or "none".
-3. Role list + a short brief on which roles can do what.
-4. PII field list (names + masking rule).
-5. Auth helper import (e.g. `getServerSession`, `getUser`, a custom one).
-6. Audit-log helper import, or "none".
-7. RTL languages list, or "none".
-8. Import format (CSV / Excel / JSON).
-
-Adapter answers are cached locally (not committed) so you don't re-answer every time.
+The plugin makes **no assumptions** about your project. The first invocation asks for: admin base path; role/module model + level semantics; auth + audit helper imports; data-fetching library; UI/component library + status-badge palette; PII field list + masking rule; RTL languages; import format. Answers are cached locally (gitignored), never committed.
 
 ## What this plugin deliberately does NOT do
 
 - Define your business domain models, role names, or PII fields.
 - Replace your auth / authorization. UI hide is **not** authorization — backend re-checks always required.
-- Replace API-level access control. See [`qa-browser`](../qa-browser-plugin/README.md) for verifying that the API actually enforces what the UI hides.
-- Document the wiki / SOPs / runbooks that explain admin operations. See [`docs-wiki`](../docs-wiki-plugin/README.md) for that.
-
-## Installation
-
-This plugin is published as part of the `taqat-techno-plugins` marketplace. To install:
-
-1. Open Claude Code.
-2. Run `/plugins`.
-3. Click **Add Marketplace** and enter `https://github.com/taqat-techno/plugins.git` (skip if already installed).
-4. Find **react-kit** and click **Install**.
+- Replace API-level access control (see `qa-browser`).
+- Hardcode any workflow states — your state set is an adapter input.
 
 ## Roadmap
 
 | Version | Scope |
 |---|---|
-| `0.1.0` | Scaffold, manifest, marketplace registration, README, CHANGELOG, LICENSE |
-| `0.2.0` (this release) | All 8 skills + 3 commands + 1 agent |
-| `0.3.0` | End-to-end example admin built against the skills; optional `hooks/hooks.json` |
+| `0.1.0` | Scaffold, manifest, marketplace registration |
+| `0.2.0` | 8 admin skills + 3 commands + 1 agent |
+| `0.3.0` | Renamed `react-admin-kit`→`react-kit`; added `react-lint-triage`, `data-fetching-states`, `react19-migration` |
+| `0.4.0` (this release) | Flexible admin **view patterns** — `admin-panel-architecture`, `admin-view-patterns`, `admin-kanban-workflow`, `admin-dashboard-overview`; tree/nested + form-tabs/relations/attachments enhancements; 8 reference docs |
 | `1.0.0` | First stable release after real-project shakedown |
 
 ## License
