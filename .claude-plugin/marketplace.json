@@ -86,7 +86,7 @@
     },
     {
       "name": "react-kit",
-      "description": "Reusable React / Next.js implementation patterns — app & component architecture, admin panels, dashboards, CRUD lists, forms, role-aware UI, loading/error/empty/access states, data-fetching error handling, import/export UI, RTL/LTR, accessibility, React-19 migration, and analyzer/lint finding triage. Admin-panel creation is one capability inside the kit, not its only scope. Generic and portable — entity names, roles, APIs, and libraries are project-supplied adapter inputs.",
+      "description": "Reusable React / Next.js implementation patterns with a flexible, Odoo-inspired admin-panel toolkit — app & component architecture, view-type chooser (list / tree / kanban / form / dashboard), CRUD + nested hierarchies, kanban workflow state machines, forms with tabs/relations/attachments, dashboards/KPIs, role-aware UI, loading/error/empty/access states, data-fetching error handling, RTL/LTR, React-19 migration, and analyzer/lint finding triage. 15 skills + 3 commands + admin-route-auditor agent. Generic and adapter-driven — entities, roles, APIs, and libraries are project-supplied.",
       "author": {
         "name": "TaqaTechno",
         "email": "info@taqatechno.com"

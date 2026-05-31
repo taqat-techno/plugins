@@ -1,7 +1,7 @@
 ---
 name: data-fetching-states
 description: Data-layer contract that maps a fetch result to exactly one UI state, sitting beneath admin-states which owns display. Owns the rule that a data hook MUST surface the error and never swallow it into a nullish or empty value, the UI state enum (loading, empty, no-results, access-required, error, partial-error), and the HTTP-status-to-state mapping where 401 or 403 means access-required, 404 means not-found, 400 or 409 means business-rule-error, and 5xx or network means retryable error. Activates when writing or reviewing any data-fetching hook, query, or loader, and when debugging a blank screen or empty shell that appears for only some users. Generic and portable — the data-fetching library and the auth status convention are project-supplied adapter inputs.
-version: 0.1.0
+version: 0.4.0
 last_reviewed: 2026-05-31
 owns:
   - surface-the-error rule (a data hook never collapses an error into null/[]/{})
@@ -115,6 +115,28 @@ Rule: the consumer reaches the `data.length === 0` branch ONLY after the request
 - Auto-retry is for transient classes only. A 4xx is a decision by the server, not a transient failure.
 - Bound retries (finite count + backoff); an unbounded retry on a flapping 5xx is a self-inflicted load spike.
 
+### Admin-panel examples
+
+Concrete admin situations mapped to the one correct state. These reinforce the status->state contract above; the plugin never depends on the specific surface (board / dashboard / list / detail) — it depends on the resolved state.
+
+| Admin situation | Correct state | Why — and the bug to avoid |
+|---|---|---|
+| Board with zero cards in one column (request 200, column genuinely has no items) | `empty` (per-column) | Legitimately empty. Show the column with an empty affordance, not an error. |
+| Board fails to load because the viewer cannot access it (401/403) | `access-required` | Never render an empty board that looks like "no work exists" — that is the 0/0 shell bug for a denied request. |
+| Dashboard where a metric genuinely has zero records (200 + 0) | `empty` / `no-data` | A real zero is data. Render `0` as a value only when the request resolved successfully. |
+| Dashboard KPI whose API errored (5xx/network) | `error` (retryable) | NEVER render `0` for a failed KPI request — a fabricated zero misleads. Show a retryable error tile, not the number 0. |
+| List that is truly empty (200 + 0 rows, no active filter) | `empty` | Show "Nothing here yet" + primary create CTA. |
+| List that returns zero rows because a filter/search is active (200 + 0 rows, filter on) | `no-results` | Show "No matches" + clear-filters CTA — never the create-first CTA. |
+| Detail / form where the record does not exist (404) | `error` (not-found) | The record is gone or never existed; retrying will not conjure it. |
+| Detail / form the viewer is not allowed to open (401/403) | `access-required` (forbidden) | Distinct from not-found: the record may exist; the viewer lacks permission. Do not leak existence by showing not-found, and do not show an empty form. |
+| Action returns 409 (e.g. transition not allowed in current status, or duplicate) | `error` (business-rule) | Surface the rule the server stated ("already processed", "cannot transition from X"), NOT a generic "something went wrong". The viewer reached the resource and was authorized — only the operation was rejected. |
+| Composite view where some widgets/rows loaded and one failed | `partial-error` | Keep the resolved widgets/rows; flag only the failed one with a per-item retry. One failed widget must not blank the whole page. |
+
+- `empty` vs `access-required`: a zero count is only honest after a 2xx. A 401/403 that renders as zero is the canonical bug this skill prevents.
+- `no-data` vs `error` on a KPI: do not let a failed metric request silently render `0`. Resolve the request first; `0` is a value, an error is a state.
+- `empty` vs `no-results`: the difference is the active-filter signal, not the row count.
+- `not-found` (404) vs `forbidden` (401/403): both block the detail view, but they are different facts and produce different states and different copy.
+
 ## Safety gates
 
 - **Never** return only `data` and discard the error — the hook's return shape MUST carry status + error alongside data.
@@ -192,5 +214,7 @@ Only the status extractor and the auth-status convention are project-specific, a
 
 - `admin-states` — renders each resolved state (loading / empty / no-results / error / partial-error); owns the visual contract. This skill decides WHICH state; that skill decides how it LOOKS.
 - `admin-roles-and-permissions` — UI hide is NOT authorization; the `access-required` state pairs with an API-side gate, never a UI-only hide.
-- `admin-crud` — consumes the resolved state for list/detail wiring.
+- `admin-crud` — consumes the resolved state for list/detail wiring; the list/detail examples above feed it.
+- `admin-dashboard-overview` — KPI/metric tiles must apply the `no-data` (200 + 0) vs `error` (request failed) split; never render `0` for an errored KPI.
+- `admin-kanban-workflow` — per-column `empty` vs board-level `access-required`; a denied board is never an empty board.
 - `qa-browser` (agent) verify-identity-and-rbac — live proof that 401/403/404 produce `access-required`/not-found and never a silent empty shell.

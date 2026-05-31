@@ -1,8 +1,8 @@
 ---
 name: admin-crud
-description: List / table / detail / filter / pagination patterns for admin CRUD pages. Owns the "URL is the source of truth for filters/page/sort" rule, server-side pagination as default, the filter chip pattern, the detail-page tab convention, and the loading-skeleton-matches-final-layout rule. Activates when building any admin list page, table, filter bar, search input, or detail view. Generic and portable — entity names, columns, and APIs are project-supplied.
-version: 0.2.0
-last_reviewed: 2026-05-28
+description: List / table / tree / detail / filter / pagination patterns for admin CRUD pages. Owns the "URL is the source of truth for filters/page/sort" rule, server-side pagination as default, the filter chip pattern, the detail-page tab convention, the loading-skeleton-matches-final-layout rule, and how a parent-child tree behaves (expand/collapse, lazy-load, depth/breadcrumb, nested-route detail, cascade-aware bulk actions). Activates when building any admin list page, table, tree, filter bar, search input, or detail view. Generic and portable — entity names, columns, and APIs are project-supplied.
+version: 0.4.0
+last_reviewed: 2026-05-31
 owns:
   - URL-as-source-of-truth for filters, page, sort
   - server-side pagination contract (default)
@@ -11,7 +11,11 @@ owns:
   - detail-page tab convention (overview / edit / related / audit)
   - row-action affordance (where actions live in the row)
   - empty-state and "no results match filters" distinction
+  - tree / grouped-row behavior (expand/collapse, lazy-load children, depth + breadcrumb, nested-route detail)
+  - tree bulk-action cascade semantics (selected nodes vs nodes + descendants)
+  - server-side virtualization note for very large lists
 defers_to:
+  - admin-view-patterns (flat-list-vs-tree and inline-expand-vs-nested-route presentation choice)
   - admin-roles-and-permissions (per-row visibility, action authorization)
   - admin-forms (the form rendered on the edit tab)
   - admin-states (loading skeleton, error, empty patterns)
@@ -52,6 +56,7 @@ Skip when:
 6. **Row actions** — which actions per row (`view`, `edit`, `archive`, `delete`, `impersonate`, custom).
 7. **Bulk actions** — actions on selected rows (often: archive, export, assign). Optional.
 8. **Pagination strategy** — page-based (default), cursor-based (for high-cardinality), offset (rarely correct).
+9. **Hierarchy** (optional) — is the entity flat, two-level grouped, or self-referential (`parent_id`)? If hierarchical: inline-expand or nested-route, and do bulk actions cascade to descendants? (Flat-vs-tree presentation choice is `admin-view-patterns`.)
 
 ## Read-only investigation steps
 
@@ -153,6 +158,69 @@ Destructive actions (delete, suspend) always go through `admin-dangerous-actions
 - Bulk action calls a batch endpoint; never N parallel calls.
 - Show per-item progress for long batches; the user must know "200 of 1247 done."
 
+### Tree / nested-list / hierarchy
+
+When records form a parent-child hierarchy (self-referential `parent_id`, or a fixed two-level grouping), a flat table is not enough. **Whether a list should be flat or a tree is a presentation decision — defer it to `admin-view-patterns`.** This subsection owns *how* a tree behaves once that choice is made.
+
+#### Expandable / grouped rows
+
+```
+▾ Parent A                          (12)   [bulk-select ☐]
+    ├─ Child A1        …row data…           [☐]
+    └─ Child A2        …row data…           [☐]
+▸ Parent B                          (3)    [bulk-select ☐]
+```
+
+- Render parent header rows and child data rows as **sibling table rows**, not children nested inside a parent cell (`colspan`). Separate rows keep column alignment and per-row styling intact.
+- Track expand/collapse state as a set of collapsed (or expanded) parent IDs — independent from selection state. **Collapse state and selection state are orthogonal; never couple them.**
+- Memoize the grouping transform on the data input only; do not recompute the group map on every render.
+- A toggle on the parent header must `stopPropagation` so expanding a group does not also fire a row action.
+- Show a count badge on each parent (`Parent A (12)`) so collapsed groups still convey scale.
+
+#### Self-referential hierarchy display (depth)
+
+- For unbounded `parent_id` trees, convey depth by **indentation + a disclosure chevron** per node (`▸` collapsed, `▾` expanded). Indent by depth × a fixed step.
+- Keep one depth indicator only — chevron *or* indent rail — not three competing affordances per row.
+- For deep trees, add a **breadcrumb / path affordance** ("ancestor ▸ ancestor ▸ current") so the user never loses position. The breadcrumb only navigates; it does not enforce permissions (the destination route does). Filter out opaque ID segments from the breadcrumb so it never renders a dead link.
+
+#### Lazy-loading children on expand
+
+- For large or deep trees, do not fetch the whole tree up front. Fetch a node's children **on first expand**, keyed by `parent_id`, and cache them so re-expanding does not refetch.
+- Show a per-node loading indicator on the expanding row (not a full-table spinner).
+- A node with unknown child count shows a chevron optimistically; resolve "has children / is leaf" from the API (`hasChildren` flag) rather than guessing.
+
+#### Nested-route detail (alternative to inline expand)
+
+Instead of expanding inline, a parent can navigate to its own detail page that lists its children:
+
+```
+/records                         → parent collection (list)
+/records/:id                     → parent detail + child table below
+/records/:id/items/:itemId       → child detail / edit
+```
+
+- Each level reads its parent from route params, validates it exists (404 → error state + back-link), then loads children with a `parent_id` filter — **reusing the server-side list patterns from this skill** (pagination, search, sort).
+- Creating a child navigates to a dedicated create route with the parent context in the query string (`?parent_id=…`); do not embed a child create form on the parent detail page.
+- Cache parent metadata so navigating between siblings does not refetch the parent on every mount.
+- Inline-expand vs nested-route is a view choice — defer it to `admin-view-patterns`. Rule of thumb: inline expand for shallow browse-in-place; nested routes when each level has its own filters, actions, or deep-link needs.
+
+#### Bulk actions on a tree
+
+Tree bulk actions extend the flat bulk-action contract with one added concern — **cascade semantics**:
+
+- A parent checkbox that selects "all children" must make the cascade explicit. State clearly whether a bulk action applies to **selected nodes only** or **selected nodes and their descendants**; never leave it ambiguous.
+- A parent is "partially selected" (indeterminate checkbox) when some but not all of its children are selected.
+- Honor per-node permissions inside a cascade: if a parent cascade-selects children the user cannot act on, partition into eligible / ineligible and show the eligible count (`Archive 3 of 5`) rather than failing the whole batch.
+- The action still calls one batch endpoint with the resolved ID set and still reports per-item progress (per the flat bulk-action rules above).
+
+(Full worked patterns: `references/admin-list-tree-pattern.md`.)
+
+### Server-side virtualization (very large lists)
+
+- Pagination is the default. **Virtualization (windowed rendering) is a rendering optimization, not a substitute for server-side paging or filtering** — never fetch the whole dataset to virtualize it client-side.
+- Reach for virtualization only when a single page legitimately renders thousands of DOM rows (dense operator views, append-on-scroll). Pair it with cursor-based pagination so the window fetches more as it scrolls.
+- A virtualized list must still keep filters/sort/cursor in the URL and keep the skeleton matching the row height, so scroll position and state survive refresh.
+
 ### Detail page tabs
 
 Default detail-page layout:
@@ -217,6 +285,11 @@ Before committing a list/detail change:
 - [ ] Bulk actions call a batch endpoint, with per-item progress.
 - [ ] Per-row permissions come from the API (not computed only on the client).
 - [ ] Back / forward / refresh / bookmark / share all preserve filter state.
+- [ ] If hierarchical: collapse/expand state is independent from selection state.
+- [ ] If hierarchical: parent/child rows are sibling rows (no `colspan` nesting); grouping is memoized.
+- [ ] If hierarchical: tree bulk-action cascade semantics (nodes only vs nodes + descendants) are explicit.
+- [ ] If lazy-loaded: children fetch on first expand and are cached; per-node loading indicator (not full-table).
+- [ ] If virtualized: server-side paging/filter still in use and in the URL (no whole-dataset client fetch).
 
 ## Output format
 
@@ -257,6 +330,12 @@ DETAIL PAGE
 | Bulk action button "Delete" first | Easy misclick | Safe actions first; destructive last + confirmed |
 | Refetch on every keystroke | API hammered; race conditions | Debounce 250–400ms |
 | Sort applied client-side after server pagination | Sort only affects current page (wrong) | Sort goes to the server as a param |
+| Coupling collapse state with selection state | Expanding a group toggles selections (surprising) | Keep the two sets independent |
+| Children rendered inside the parent cell via `colspan` | Breaks column alignment + per-row styling | Render parent/child as sibling rows |
+| Recomputing the group map on every render | Re-renders thrash a large tree | Memoize grouping on the data input |
+| Fetching the whole tree to expand one node | Slow first paint; ships the whole tree | Lazy-load children on first expand, cached |
+| Ambiguous tree bulk action (cascade or not?) | User archives descendants by accident | State cascade scope explicitly before run |
+| Virtualizing a list fetched whole client-side | Defeats the point; still loads everything | Virtualize over server-paged/cursored data |
 
 ## Portability rationale
 
@@ -278,6 +357,8 @@ The skill does not depend on:
 
 ## Cross-references
 
+- `admin-view-patterns` — the flat-list-vs-tree and inline-expand-vs-nested-route presentation decisions.
+- `references/admin-list-tree-pattern.md` — worked tree / grouped-row / lazy-load / cascade-selection patterns.
 - `admin-roles-and-permissions` — per-row permissions, audit visibility.
 - `admin-forms` — the form on the Edit tab.
 - `admin-dangerous-actions` — destructive row + bulk actions.
