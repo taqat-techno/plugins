@@ -2,6 +2,17 @@
 
 All notable changes to `rag-plugin` are documented here. Format is loosely based on [Keep a Changelog](https://keepachangelog.com/). Versioning follows [SemVer](https://semver.org/).
 
+## [0.13.2] — 2026-05-31 — Defer generic MCP diagnosis to claude-env-doctor
+
+### Added
+
+- `commands/doctor.md` now defers GENERIC "MCP not loading" diagnosis (user-dotfile config location, concurrent-session clobber, spawn/version ladder) to the claude-env-doctor plugin; ragtools-specific checks stay local. Avoids duplicated environment docs.
+
+### Validation
+
+- `python validate_plugin.py rag-plugin` -> 0 errors.
+- Genericness sweep: 0 project-specific tokens outside labeled examples.
+
 ## [0.13.1] — 2026-05-08 — Report-engine fixes for `scale.level="over"` and false-positive session signals
 
 Patch release surfacing two P0 issues found in external user diagnostics (2026-05-06).

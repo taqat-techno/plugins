@@ -108,7 +108,7 @@ This plugin is published as part of the `taqat-techno-plugins` marketplace. To i
 
 ## Related plugins
 
-- [`react-admin-kit`](../react-admin-kit-plugin/README.md) — for building the admin panel itself.
+- [`react-kit`](../react-kit-plugin/README.md) — for building the admin panel itself.
 - [`qa-browser`](../qa-browser-plugin/README.md) — for verifying the admin panel actually works as the wiki claims.
 
 ## License

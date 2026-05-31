@@ -2,6 +2,18 @@
 
 All notable changes to `docs-wiki-plugin` are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/). Versioning follows [SemVer](https://semver.org/).
 
+## [0.3.0] — 2026-05-31 — Source-of-truth doctrine + page templates
+
+### Added
+
+- `wiki-source-of-truth` skill — declare a knowledge-layer order; separate current-state vs target docs; distrust stale checkboxes; flag config-constant drift; resolve code-vs-wiki conflicts as doc fixes.
+- `templates/` — generic, placeholder-only Wiki page templates: sop, runbook, role-guide, user-manual, workflow (Mermaid), release-handover, onboarding.
+
+### Validation
+
+- `python validate_plugin.py docs-wiki-plugin` -> 0 errors.
+- Genericness sweep: 0 project-specific tokens outside labeled examples.
+
 ## [0.2.0] — 2026-05-28 — Phase 3 content
 
 Skills, commands, agents, and safety hooks — the plugin is now functional, not just a scaffold.

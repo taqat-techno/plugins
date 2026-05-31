@@ -110,7 +110,7 @@ After every walkthrough:
 |---|---|
 | Simple confirm modal with Cancel + OK | Click Cancel for pattern 1; click OK for pattern 2 |
 | Modal with consequence summary + checkbox "I understand" | The checkbox must be ticked before the confirm button enables |
-| Modal with type-to-confirm input | Must type the exact expected string (case-sensitive by default per `react-admin-kit/admin-dangerous-actions`) |
+| Modal with type-to-confirm input | Must type the exact expected string (case-sensitive by default per `react-kit/admin-dangerous-actions`) |
 | Two-step button (click → "click again to confirm" → click) | Wait briefly between clicks; do not auto-click |
 | Native browser `confirm()` | Use the MCP's dialog handler (`handle_dialog`) to accept or dismiss |
 
@@ -137,7 +137,7 @@ The walkthrough captures which paths are supported per dialog and reports incons
 
 ## Dirty-leave warning verification
 
-For forms (per `react-admin-kit/admin-forms`):
+For forms (per `react-kit/admin-forms`):
 
 ```
 1. Open the edit form.
@@ -152,7 +152,7 @@ For forms (per `react-admin-kit/admin-forms`):
 10. ASSERT: form reset OR navigation completes.
 ```
 
-A form without dirty-leave warning is a finding (MEDIUM per `react-admin-kit/admin-forms`).
+A form without dirty-leave warning is a finding (MEDIUM per `react-kit/admin-forms`).
 
 ## Per-action evidence row
 

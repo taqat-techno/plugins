@@ -25,7 +25,7 @@ Without a single matrix, role logic scatters across components and APIs, drifts,
 
 ## Step 0 — Read the adapter cache
 
-Load `.react-admin-kit.local.json`. Required keys:
+Load `.react-kit.local.json`. Required keys:
 
 - `roleList` — array of role names.
 - `adminBasePath` — where admin pages live (for `--validate` / `--diff`).

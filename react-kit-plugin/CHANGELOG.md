@@ -1,6 +1,21 @@
 # Changelog
 
-All notable changes to `react-admin-kit-plugin` are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/). Versioning follows [SemVer](https://semver.org/).
+All notable changes to `react-kit-plugin` are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/). Versioning follows [SemVer](https://semver.org/).
+
+## [0.3.0] — 2026-05-31 — Generalized to react-kit + React quality skills
+
+### Added
+
+- Renamed plugin `react-admin-kit` -> `react-kit`; broadened scope to general React/Next.js patterns (admin panels are now one capability, not the whole identity). Local cache file renamed `.react-admin-kit.local.json` -> `.react-kit.local.json`.
+- `react-lint-triage` skill — classify analyzer findings as safe-mechanical / needs-judgment / false-positive / forbidden-zone; never chase the score; bundled false-positive catalog.
+- `data-fetching-states` skill — data hooks must surface errors (401/403 -> access-required, 404 -> not-found, 400/409 -> business-rule); never render an empty shell on an access error.
+- `react19-migration` skill — forwardRef -> ref-prop, useContext -> use, server/client metadata split; behavior-preserving, type-check-gated.
+- README broadened to reflect general scope; the 8 admin-* skills are preserved unchanged.
+
+### Validation
+
+- `python validate_plugin.py react-kit-plugin` -> 0 errors.
+- Genericness sweep: 0 project-specific tokens outside labeled examples.
 
 ## [0.2.0] — 2026-05-28 — Phase 1 content
 
@@ -18,7 +33,7 @@ Skills, commands, and agent — the plugin is now functional, not just a scaffol
   - `admin-states` — loading skeleton matches layout, error contract (what / next-step / support-hint), empty vs no-results distinct, per-row partial-error.
   - `admin-rtl-ltr` — logical CSS properties only, dir attribute placement, icon-mirroring catalogue, LTR-locked content (code / URLs / numerics).
 - **Commands** — 3 commands:
-  - `/admin-scaffold` — generate a CRUD page skeleton from an entity description, asks for adapter inputs on first invocation, caches to `.react-admin-kit.local.json`.
+  - `/admin-scaffold` — generate a CRUD page skeleton from an entity description, asks for adapter inputs on first invocation, caches to `.react-kit.local.json`.
   - `/admin-audit` — read-only audit of an existing admin route against the skill rules; produces a findings table grouped by section.
   - `/admin-role-matrix` — generate / validate / diff the role × resource × operation permission matrix; produces a Markdown table + a code config.
 - **Agents** — 1 agent:
@@ -39,11 +54,11 @@ The plugin assumes nothing project-specific. On first command invocation, the us
 - Role list, PII field list, RTL locale list.
 - Validation library, form library, CSS framework, import format.
 
-Cached locally in `.react-admin-kit.local.json` (must be gitignored).
+Cached locally in `.react-kit.local.json` (must be gitignored).
 
 ### Validation
 
-- `python validate_plugin.py react-admin-kit-plugin` → 0 errors.
+- `python validate_plugin.py react-kit-plugin` → 0 errors.
 - Genericness sweep — grep over all skill / command / agent files for `aqraboon|beneficiar|coupon|qid|qatar|taqat|AdminUser|AppConfig|HELPDESK|MANAGER|SUPER_ADMIN`: 0 hits outside example-block contexts.
 
 ### Out of scope (deferred to 0.3.0)
@@ -65,7 +80,7 @@ Initial scaffold. No skill, command, agent, or hook content yet — those land i
 
 ### Validation
 
-- `python validate_plugin.py react-admin-kit-plugin` → 0 errors.
+- `python validate_plugin.py react-kit-plugin` → 0 errors.
 
 ### Out of scope (deferred to 0.2.0 — Phase 1)
 

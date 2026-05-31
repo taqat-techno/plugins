@@ -1,6 +1,6 @@
 {
   "name": "qa-browser",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Framework-agnostic browser QA + role-based smoke testing. Drives chrome-devtools or playwright MCP servers to login as each role, walk modals and table actions, verify UI vs API permissions, capture console / network / screenshot evidence, and produce PASS / BLOCKED / NOT-TESTABLE reports for UAT signoff. Refuses to run destructive actions on non-disposable data and gates production URLs.",
   "author": {
     "name": "TAQAT Techno",

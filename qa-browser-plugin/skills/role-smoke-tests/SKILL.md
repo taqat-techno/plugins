@@ -99,7 +99,7 @@ COMPARE
   viewer:   sees [orders]
 ```
 
-Then verify against the project's permission matrix (if available — typically owned by `react-admin-kit/admin-roles-and-permissions/_matrix.ts` or equivalent):
+Then verify against the project's permission matrix (if available — typically owned by `react-kit/admin-roles-and-permissions/_matrix.ts` or equivalent):
 
 | Inconsistency | Severity | Example |
 |---|---|---|

@@ -141,6 +141,30 @@ For these:
 4. User answer is recorded in the report (PASS with explicit approval | SKIPPED).
 ```
 
+## External side effects and the cancel-first pattern
+
+Disposable **data** is not the same as a disposable **action**. Two extra guards apply even when the target record is provably disposable:
+
+### External side-effect routes
+
+Some actions reach outside the system under test — an SMS / OTP send, a payment authorization, an outbound email, a third-party provider call. The record may be disposable, but the side effect is not: a real phone rings, a real charge posts, a real provider quota is consumed. **Scope these routes OUT** of the destructive pass:
+
+- Identify routes/actions that fire an external integration (auth/OTP, payments, email, push, webhooks to non-test endpoints).
+- Where the project supports it, use a **test allowlist** (e.g., a whitelisted test phone/email the provider routes to a sink) or **disable the integration flag** (e.g., a sandbox/mock-provider toggle) for the QA run.
+- If neither is available, treat the route as not-disposable and BLOCK it; escalate per the irreversible-action rule rather than committing.
+
+Example (illustrative — not required): a project exposes a `INTEGRATIONS_LIVE=false` env flag and a `qa-allowlist` of test recipients; the QA run sets the flag off and targets only allowlisted recipients, so no real message leaves the system.
+
+### Cancel-first pattern
+
+For a destructive action, prefer **open → assert → cancel** before ever committing:
+
+1. **Open** the destructive control (Delete, Suspend, Refund, …) to surface its confirm dialog / guard.
+2. **Assert** the dialog appears, names the target correctly, and its confirm/cancel affordances behave (e.g., confirm is disabled until typed confirmation, cancel dismisses cleanly).
+3. **Cancel** — dismiss without committing. This verifies the guard exists and works WITHOUT mutating state.
+
+Only **commit** (proceed past the confirm) when the target data is provably disposable *and* scoped (no external side effect, classified disposable above, reversible or user-approved). Cancel-first lets the bulk of destructive-UI coverage run with zero state change; the commit path is the rare, deliberate exception.
+
 ## Safety gates (the rule set)
 
 - **Refuse** any navigation to a URL matching the production-marker list, unless the user explicitly opts in for this session.

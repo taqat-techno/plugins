@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [6.4.0] — 2026-05-31 — Provider-neutral remote-write gate + CI hardening reference
+
+### Added
+
+- `rules/git-remote-write-gate.md` — provider-neutral permission-first + identity-correctness gate for git pushes/PRs/merges (report identity mismatch, do not auto-switch unless configured). Defers PR/commit ergonomics to official plugins.
+- `devops/CI_HARDENING.md` — review checklist: SHA-pin third-party actions, `environment:` is not an approval gate, enumerate real workflows, do not weaken established gates.
+- Cross-reference added from `rules/write-gate.md` (which scopes Azure work-item/PR MCP writes).
+
+### Validation
+
+- `python validate_plugin.py devops-plugin` -> 0 errors.
+- Genericness sweep: 0 project-specific tokens outside labeled examples.
+
 ## [6.3.0] - 2026-03-26 - P2 Polish & Documentation
 
 ### Added
