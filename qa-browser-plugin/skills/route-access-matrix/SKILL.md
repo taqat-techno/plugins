@@ -37,7 +37,7 @@ Activate when:
 
 - **Reality check passed**.
 - **Role list** + credentials (from adapter cache, gitignored).
-- **Route × role denial expectation matrix** — for each restricted route, the list of roles that should be denied. Generated from the project's permission matrix (e.g., `react-admin-kit/_matrix.ts`) or supplied by the user.
+- **Route × role denial expectation matrix** — for each restricted route, the list of roles that should be denied. Generated from the project's permission matrix (e.g., `react-kit/_matrix.ts`) or supplied by the user.
 - **API endpoint map** — for each restricted route, the corresponding API endpoint(s). Format: `{ uiRoute, apiEndpoint, method }`. Typically inferable from the route's network panel; can also be supplied.
 
 ## The matrix shape

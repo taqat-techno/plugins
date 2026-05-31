@@ -1,5 +1,5 @@
 ---
-description: Scaffold an admin CRUD page (list + detail + form) for a given entity, applying the react-admin-kit skill set. Asks for adapter inputs the first time, caches answers locally.
+description: Scaffold an admin CRUD page (list + detail + form) for a given entity, applying the react-kit skill set. Asks for adapter inputs the first time, caches answers locally.
 argument-hint: "[entity-name] [--list-only | --detail-only | --form-only]"
 author: TAQAT Techno
 version: 0.2.0
@@ -8,7 +8,7 @@ allowed-tools: Read, Glob, Grep, Write, Edit
 
 # /admin-scaffold
 
-You are scaffolding an admin CRUD surface for one entity. Apply the patterns from the `react-admin-kit` skill set:
+You are scaffolding an admin CRUD surface for one entity. Apply the patterns from the `react-kit` skill set:
 
 - `admin-roles-and-permissions` — paired UI/API gates, PII masking, audit visibility.
 - `admin-shell` — the new pages must compose into the existing shell (do not duplicate chrome).
@@ -21,7 +21,7 @@ You are scaffolding an admin CRUD surface for one entity. Apply the patterns fro
 
 ## Step 0 — Read the adapter cache
 
-Look for `.react-admin-kit.local.json` in the project root.
+Look for `.react-kit.local.json` in the project root.
 
 - If present, load: `adminBasePath`, `i18nProvider`, `roleList`, `piiFields`, `authHelperImport`, `auditHelperImport`, `rtlLocales`, `importFormat`, `validationLibrary`, `formLibrary`, `cssFramework`.
 - If absent, fall through to Step 1.
@@ -41,7 +41,7 @@ Ask the user (one short batch via AskUserQuestion if available, otherwise plain 
 9. **CSS framework** — `tailwind`, `css-modules`, `vanilla`, `styled-components`?
 10. **Import format** (optional) — `csv`, `xlsx`, `json`, or `not now`.
 
-Write the answers to `.react-admin-kit.local.json` (gitignored). Tell the user to add it to `.gitignore` if not already there.
+Write the answers to `.react-kit.local.json` (gitignored). Tell the user to add it to `.gitignore` if not already there.
 
 ## Step 2 — Entity intake
 

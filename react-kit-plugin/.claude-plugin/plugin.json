@@ -1,0 +1,30 @@
+{
+  "name": "react-kit",
+  "version": "0.3.0",
+  "description": "Reusable React / Next.js implementation patterns — application & component architecture, admin panels, dashboards, CRUD lists, forms, role-aware UI, loading/error/empty/access states, data-fetching error handling, import/export UI, RTL/LTR, accessibility basics, React-19 migration, and analyzer/lint finding triage. Admin-panel creation is one capability inside the kit, not its only scope. Generic and portable — entity names, roles, APIs, and libraries are project-supplied adapter inputs.",
+  "author": {
+    "name": "TAQAT Techno",
+    "email": "info@taqatechno.com",
+    "url": "https://github.com/taqat-techno"
+  },
+  "homepage": "https://github.com/taqat-techno/plugins/tree/main/react-kit-plugin",
+  "repository": "https://github.com/taqat-techno/plugins",
+  "license": "MIT",
+  "keywords": [
+    "react",
+    "nextjs",
+    "admin",
+    "admin-panel",
+    "crud",
+    "rbac",
+    "rtl",
+    "ui-patterns",
+    "dashboard",
+    "forms",
+    "data-fetching",
+    "react-19",
+    "lint-triage",
+    "frontend",
+    "patterns"
+  ]
+}

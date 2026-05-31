@@ -53,7 +53,7 @@ support  sees [<routes>]
 viewer   sees [<routes>]
 ```
 
-If the project provides a permission matrix (e.g., from `react-admin-kit/admin-roles-and-permissions/_matrix.ts`), verify each role's seen menu against their matrix-allowed routes:
+If the project provides a permission matrix (e.g., from `react-kit/admin-roles-and-permissions/_matrix.ts`), verify each role's seen menu against their matrix-allowed routes:
 
 | Inconsistency | Severity |
 |---|---|
