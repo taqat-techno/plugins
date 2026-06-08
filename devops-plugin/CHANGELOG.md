@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [Unreleased]
+
+### Added
+
+- `commands/create.md` — **Sizing Fields (PBI / Story)**: when creating or updating a Product Backlog Item, set **Story Points** (`Microsoft.VSTS.Scheduling.StoryPoints`), never **Effort** (`Microsoft.VSTS.Scheduling.Effort`). Effort is deprecated/hidden for PBIs in the TaqaTechno Scrum process; Task hour fields (`OriginalEstimate`/`RemainingWork`/`CompletedWork`) are unaffected. Both fields are org-ReadOnly once **Done**.
+
 ## [6.4.0] — 2026-05-31 — Provider-neutral remote-write gate + CI hardening reference
 
 ### Added
