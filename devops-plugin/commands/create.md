@@ -56,6 +56,15 @@ If no type flag is given, detect from title keywords:
 7. **Execute** via `wit_create_work_item` + `wit_work_items_link` for parent
 8. **Report** created item with ID and hierarchy tree
 
+## Sizing Fields (PBI / Story)
+
+When creating a **`--story`** (Product Backlog Item / User Story) and recording an estimate:
+
+- Set **Story Points** (`Microsoft.VSTS.Scheduling.StoryPoints`).
+- **Never set Effort** (`Microsoft.VSTS.Scheduling.Effort`) on a PBI — Effort is deprecated for PBIs and is hidden on the PBI form in the TaqaTechno Scrum process. The same applies when **updating** a PBI: estimates go in Story Points, never Effort.
+- This is PBI/Story-specific. **Tasks** use the hour fields (`OriginalEstimate` / `RemainingWork` / `CompletedWork`), which are unaffected.
+- Note: both Effort and Story Points are org-ReadOnly once the item is **Done** — record the estimate at creation or while the item is active.
+
 ## Example
 
 ```
