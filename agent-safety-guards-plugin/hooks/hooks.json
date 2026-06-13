@@ -1,0 +1,16 @@
+{
+  "description": "agent-safety-guards advisory hooks. ONE non-fatal UserPromptSubmit hook that prints a single short reminder when the submitted prompt contains a token-shaped string (common key prefixes, a Bearer marker, a long base64 run, or a PEM header). It never blocks, never denies, and never echoes the matched value. Exit 0 always.",
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/credential_paste_advisory.py"
+          }
+        ]
+      }
+    ]
+  }
+}

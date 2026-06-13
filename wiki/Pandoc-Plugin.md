@@ -94,7 +94,7 @@ All five subcommands share a single `.md` file under `commands/`. The subcommand
 
 ## Related plugins and integrations
 
-- **paper** — export design docs (Markdown spec + design system) to PDF / Word / HTML using the same `/pandoc convert` workflow.
+- **ui-ux-mechanics** — export design docs (Markdown spec + design system) to PDF / Word / HTML using the same `/pandoc convert` workflow.
 - **odoo** — convert QWeb reports or email templates between formats during migration.
 - Any Markdown-heavy workflow — Pandoc is the universal conversion hub.
 

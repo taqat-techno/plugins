@@ -1,6 +1,6 @@
 # react-kit
 
-![Version](https://img.shields.io/badge/version-0.4.0-blue.svg)
+![Version](https://img.shields.io/badge/version-0.5.0-blue.svg)
 ![Status](https://img.shields.io/badge/status-functional-green.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 
@@ -16,7 +16,8 @@ Reusable patterns for building and auditing React / Next.js applications — wit
 
 | Skill | Owns |
 |---|---|
-| `react-lint-triage` | Treat analyzer findings as hypotheses; classify safe-mechanical / needs-judgment / false-positive / forbidden-zone; never chase the score; false-positive catalog (incl. admin-panel triage) |
+| `react-lint-triage` | Treat analyzer findings as hypotheses; classify safe-mechanical / needs-judgment / false-positive / forbidden-zone; never chase the score; false-positive catalog (incl. admin-panel triage); lint the new file by path before push |
+| `frontend-build-traps` | Deterministic recovery for build/dev-server/test/CI traps where the symptom layer ≠ cause layer — Turbopack HMR stale-module 500 full reset, vitest/rolldown-vite jsx-preserve (oxc not esbuild), lockfile CI-PM-major mismatch, TipTap `addAttributes` casing + `renderHTML` serialization scope, ORM client/schema drift via mtime, lint-the-new-file-before-push |
 | `data-fetching-states` | The status→state contract (loading / empty / no-results / access-required / forbidden / not-found / business-rule / error / partial / stale); never a silent empty shell; admin-panel examples |
 | `react19-migration` | forwardRef→ref-prop, `useContext`→`use`, server/client metadata split; behavior-preserving, type-check-gated |
 
@@ -100,7 +101,8 @@ The plugin makes **no assumptions** about your project. The first invocation ask
 | `0.1.0` | Scaffold, manifest, marketplace registration |
 | `0.2.0` | 8 admin skills + 3 commands + 1 agent |
 | `0.3.0` | Renamed `react-admin-kit`→`react-kit`; added `react-lint-triage`, `data-fetching-states`, `react19-migration` |
-| `0.4.0` (this release) | Flexible admin **view patterns** — `admin-panel-architecture`, `admin-view-patterns`, `admin-kanban-workflow`, `admin-dashboard-overview`; tree/nested + form-tabs/relations/attachments enhancements; 8 reference docs |
+| `0.4.0` | Flexible admin **view patterns** — `admin-panel-architecture`, `admin-view-patterns`, `admin-kanban-workflow`, `admin-dashboard-overview`; tree/nested + form-tabs/relations/attachments enhancements; 8 reference docs |
+| `0.5.0` (this release) | `frontend-build-traps` skill — deterministic recovery for HMR stale-module 500s, vitest/rolldown-vite jsx-preserve, lockfile PM-major mismatch, TipTap attributes, ORM client/schema drift; `react-lint-triage` gains the lint-the-new-file-before-push rule |
 | `1.0.0` | First stable release after real-project shakedown |
 
 ## License

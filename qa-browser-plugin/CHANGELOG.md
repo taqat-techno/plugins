@@ -2,6 +2,30 @@
 
 All notable changes to `qa-browser-plugin` are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/). Versioning follows [SemVer](https://semver.org/).
 
+## [0.4.0] — 2026-06-13 — Anti-fraud + guard hygiene, RBAC three-layer, UAT template
+
+### Added
+
+- `anti-fraud-and-guard-hygiene` skill — two runtime checks static review misses:
+  (1) a client-rendered barcode / QR / SVG token / printed badge is NOT authentication unless the
+  server verifies a signature AND binds it to the presenter AND enforces expiry/single-use — proven by
+  the identical-screenshot test (two identities scan to the same value) and a replay probe;
+  (2) server-guard hygiene — lowercase + canonicalize a host before allow/deny matching, and treat a
+  state-changing request with NEITHER an Origin NOR a Referer as a CSRF reject (absence is not innocence).
+  Deep detail in `references/anti-fraud-and-guard-hygiene.md`.
+- `verify-identity-and-rbac` — added `references/rbac-three-layer-checklist.md`: assert denial at the
+  route/API edge AND the service/backend layer (cross-owner / IDOR data-scope probe) AND the UI,
+  together. Surfaces the most-missed *service-layer* Shape-A (a sibling list/search/export route leaks
+  data the named endpoint correctly gates). Skill body now points to it.
+- `uat-readiness-report` — added `references/uat-smoke-report-template.md`: a copy-paste role × route
+  matrix (PASS / BLOCKED / NOT-TESTABLE per cell), severity tables, and the mechanical sign-off rule.
+  Severity table extended with the new artifact-is-not-auth and no-Origin-CSRF HIGH findings.
+
+### Validation
+
+- `python validate_plugin.py qa-browser-plugin` -> 0 errors (2 pre-existing warnings unchanged).
+- Genericness sweep: 0 project-specific tokens; all hosts/routes/roles are labeled placeholders.
+
 ## [0.3.0] — 2026-05-31 — Live identity/RBAC proof + host-scoped headers
 
 ### Added
@@ -71,7 +95,7 @@ The `/qa-target` command pre-checks for at least one. The plugin does NOT auto-i
 ### Validation
 
 - `python validate_plugin.py qa-browser-plugin` → 0 errors.
-- Genericness sweep — grep over all skill / command / agent / hook files for `aqraboon|beneficiar|coupon|qid|qatar|taqatfortechnology|AdminUser|AppConfig|HELPDESK|SUPER_ADMIN|alaqraboon|indogate`: 0 hits.
+- Genericness sweep — grep over all skill / command / agent / hook files for known client/project tokens: 0 hits.
 
 ### Out of scope (deferred to 0.3.0)
 

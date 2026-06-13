@@ -17,17 +17,19 @@ on any specific repository, organization, tool, or secret.
 
 ## How to use this checklist
 
-Walk the five items below in order against the *changed* pipeline files, not the whole
+Walk the six items below in order against the *changed* pipeline files, not the whole
 repo. For each item: read the rule, then run the "How to verify" step and record pass/flag.
 A flag is not an automatic block — it is a thing to justify in the PR description or fix.
 
-The five items:
+The six items:
 
 1. SHA-pin third-party CI actions/steps
 2. An approval-looking YAML block is not itself an approval gate
 3. Don't trust the docs' workflow inventory — enumerate the real files
 4. Don't weaken established gates
 5. Distinguish a real secret leak from an ephemeral in-job credential
+6. "Merged" is not "deployed" — reconcile the deployed SHA to the environment before
+   calling a fix shipped, and diff env-driven secrets between source and target first
 
 ## 1. SHA-pin third-party actions and steps
 
@@ -171,6 +173,82 @@ later? If no, it is plumbing. If yes, it is a finding.
   reachable from an untrusted trigger is a finding.
 - **Never print, paste, or echo the secret value itself** while verifying — reference it by
   name and reason about its lifetime and reachability only.
+
+## 6. "Merged" is not "deployed" — reconcile the SHA to the environment first
+
+**Rule.** A change reaching a branch is **not** the same as that change running in an
+environment. "It's merged to the release branch" answers *what code exists*, not *what code
+is live*. Before telling anyone a fix is shipped — or before promoting one environment to
+the next — establish two facts independently, with evidence, never by inference:
+
+- **Deployed-SHA reconciliation.** Find the commit SHA the target environment is *actually
+  running* (from the deploy record, the release artifact, a `/version` or build-info
+  endpoint, or the platform's last-successful-deploy metadata), then prove the fix's commit
+  is an ancestor of it. Branch containment alone is insufficient: a commit can sit on the
+  release branch for days while the environment still runs an older SHA, or a hotfix can be
+  live on the environment without ever touching the branch you are looking at.
+- **Branch-to-environment mapping.** "Which environment does this branch deploy to?" is
+  answered by the **deploy configuration** (the pipeline's environment/branch map, the
+  deploy target rules, the GitOps target ref), not by the branch name or by convention. A
+  branch called `release` does not necessarily feed the environment you assume; confirm the
+  mapping in config before reasoning about where its commits run.
+
+A fix is "shipped" only when both hold: the fix commit is an ancestor of the SHA the target
+environment is running, **and** the deploy config confirms that branch maps to that
+environment. Until then it is "merged," which is a different, weaker claim.
+
+**How to verify.**
+
+- Get the environment's live SHA from a source of truth that reflects *runtime*, not source
+  control: the deploy/release record, the artifact's embedded build metadata, or a
+  version/health endpoint the running service exposes. Treat the branch tip as a candidate,
+  not as the answer.
+- Prove ancestry with the merge-base ancestor check rather than eyeballing the branch:
+
+  **Example (illustrative — not required).**
+
+  ```bash
+  # Is <fix-sha> contained in what the environment is running (<deployed-sha>)?
+  # Exit 0 => <fix-sha> is an ancestor of <deployed-sha> => the fix is in that build.
+  # Exit 1 => it is NOT deployed yet, even if it is merged to the branch.
+  git merge-base --is-ancestor <fix-sha> <deployed-sha> && echo "DEPLOYED" || echo "NOT DEPLOYED"
+  ```
+
+- Map the branch to its environment from the deploy config, not from its name. Open the
+  pipeline's environment/branch rules (or the GitOps target) and confirm which environment
+  the branch you merged into actually feeds. Note any branch whose name implies one
+  environment but whose config points at another — that mismatch is a finding.
+- Only after both checks pass should the status move from "merged" to "deployed" / "shipped."
+  Record the deployed SHA and the environment in the report so the claim is auditable.
+
+### 6a. Diff env-driven secrets between source and target BEFORE promoting
+
+**Rule.** Before promoting a build/release from one environment to the next (e.g. staging →
+production), **diff the set of environment-driven configuration keys** the two environments
+provide — by **key name and presence**, never by value. Environments drift: a key added for
+a feature in the lower environment is frequently missing in the higher one. The most
+dangerous case is a **secret or config key a data migration depends on** (an encryption key
+the migration uses to re-encrypt rows, a connection string the migration reads, a feature
+flag the migration branches on). If that key is absent or different in the target, the
+migration can fail mid-run or — worse — silently write wrong/unrecoverable data.
+
+**How to verify.**
+
+- Enumerate the configuration **key names** each environment supplies (from the platform's
+  env/variable-group/secret-store listing). Compare the two **sets**: which keys exist in
+  source but not target, and vice versa. Compare presence and shape only.
+- Pay special attention to keys any pending **data migration** reads. List the env keys the
+  migration code references and confirm each one exists in the *target* environment before
+  the migration runs there. A missing migration-critical key is a hard pre-promotion flag.
+- Confirm value *shape* compatibility without reading the values: same kind of key (e.g. a
+  URL vs. a token), same expected format, same scope. You are checking for "present and of
+  the right kind in both," not comparing the secrets themselves.
+- **Never print, paste, echo, log, or diff the secret values.** Reconcile by key name,
+  presence, and shape only. A value-level diff would leak secrets into the transcript or
+  report — reason about the key inventory, not the contents.
+- If the key sets differ in a way that touches a migration or a runtime dependency, treat
+  promotion as blocked until the target environment is reconciled. A clean app deploy with a
+  missing migration key is still a broken release.
 
 ## Scope and ownership
 

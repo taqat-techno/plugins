@@ -65,7 +65,7 @@ DATA (state machines, pattern libraries, templates — single source of truth)
 - **Behavior** lives one layer down.
 - **State gate** at Step 0 branches on detected state before dispatching.
 
-Consolidation history: `pandoc` (8→1), `paper` (5→1), `ntfy` (8→2), `remotion` (5→1), `devops` (24→9), `rag` (9→6). Sprawl is actively reversed.
+Consolidation history: `pandoc` (8→1), `ui-ux-mechanics` (5→1), `ntfy` (8→2), `remotion` (5→1), `devops` (24→9), `rag` (9→6). Sprawl is actively reversed.
 
 ## Skills own workflows
 

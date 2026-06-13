@@ -1,8 +1,8 @@
 ---
 name: env-doctor
 description: Routes a broken-local-environment symptom to the right diagnostic branch, runs read-only probes, classifies the failure, and proposes one safe next action without mutating config. Owns the diagnose-don't-mutate discipline for Claude Code and dev-environment problems. Activates when an MCP server will not load, a tool errors with a spawn / ENOENT / encoding failure, Claude Code login loops on a 401, an LSP or language server is missing, a Playwright or browser tool cannot find a browser, or any "my local environment is broken" symptom surfaces.
-version: 0.1.0
-last_reviewed: 2026-05-31
+version: 0.2.0
+last_reviewed: 2026-06-13
 owns:
   - the diagnose-don't-mutate discipline (probe before recommend, recommend before apply)
   - the symptom -> diagnostic-branch router
@@ -10,10 +10,10 @@ owns:
   - the ENVIRONMENT REPORT output contract
   - secret redaction by key-name and JWT/opaque shape
 defers_to:
-  - the six reference files for per-branch platform specifics (references/*.md)
+  - the eight reference files for per-branch platform specifics (references/*.md)
   - env-probe-reporter agent (runs the probes and drafts the report)
   - env-doctor command (entry point and flag surface)
-  - each consuming plugin for its own product internals (rag-plugin, odoo-plugin, qa-browser-plugin, paper-plugin)
+  - each consuming plugin for its own product internals (rag-plugin, odoo-plugin, qa-browser-plugin, ui-ux-mechanics-plugin)
 user_invocable: false
 ---
 
@@ -33,6 +33,8 @@ Activate when any of these symptoms appear:
 - An LSP or language server is missing, or a Node CLI invoked by a tool cannot be spawned.
 - Output is mojibake, a `UnicodeDecodeError`/`UnicodeEncodeError` appears, or a subprocess garbles non-ASCII text.
 - A Playwright or browser-MCP tool reports it cannot find or launch a browser.
+- An IDE remote-dev session hangs at "Connecting" or drops mid-session even though the network path checks out.
+- `/doctor` runs the wrong skill, an interactive health TUI hangs in a non-interactive shell, or a managed cloud connector will not authorize.
 - Any vague "my local environment is broken" report where the failing branch is not yet known.
 
 Do NOT activate for application logic bugs, test assertions, or product-internal issues — those belong to the owning project, not the environment layer.
@@ -71,8 +73,10 @@ If an adapter value is unknown, the first probe is to discover it read-only (e.g
 | LSP / Node CLI spawn | `ENOENT`, `command not found`, language server absent, Node CLI fails to spawn | `references/lsp-node-spawn.md` |
 | Python encoding | mojibake, `UnicodeDecodeError`/`UnicodeEncodeError`, subprocess garbles non-ASCII | `references/python-encoding.md` |
 | Playwright / browser-MCP | "browser not found", missing browser binary, headless launch fails | `references/playwright-browser.md` |
+| IDE remote-dev backend | remote-dev "Connecting" hang or mid-session "No connection" while the wire probes pass | `references/ide-remote-dev.md` |
+| `/doctor` ambiguity / health TUI hangs | `/doctor` lands on the wrong skill, the interactive doctor TUI hangs non-interactively, managed-connector auth | `references/doctor-command-ambiguity.md` |
 
-When two branches seem to match, pick the one matching the *first* failure in the chain (a spawn failure that surfaces as MCP-not-loading is a spawn failure — start at the binary, then revisit MCP wiring).
+When two branches seem to match, pick the one matching the *first* failure in the chain (a spawn failure that surfaces as MCP-not-loading is a spawn failure — start at the binary, then revisit MCP wiring). A remote-dev "connection" symptom whose network probes all pass belongs to the IDE-backend branch (a backend heap OOM), not the networking branch.
 
 ### Failure taxonomy (classify every finding)
 
@@ -150,7 +154,7 @@ ENVIRONMENT REPORT
 
 ## Portability rationale
 
-The router, taxonomy, safety gates, and report contract are OS- and shell-agnostic — they describe *how to reason*, not *what to type*. Every platform-specific command, path, and quirk lives in the six reference files, selected by the `os_family`/`shell`/`wsl_involved` adapter. Adding support for a new platform means adding probe variants to a reference file, not changing this skill.
+The router, taxonomy, safety gates, and report contract are OS- and shell-agnostic — they describe *how to reason*, not *what to type*. Every platform-specific command, path, and quirk lives in the eight reference files, selected by the `os_family`/`shell`/`wsl_involved` adapter. Adding support for a new platform means adding probe variants to a reference file, not changing this skill.
 
 Example (illustrative — not required): on `os_family=windows`, `shell=powershell`, a missing-binary probe might use `Get-Command`; on `linux`/`bash` it might use `command -v`. The skill picks the variant from the adapter; neither command is baked into the routing logic.
 
@@ -162,6 +166,8 @@ Example (illustrative — not required): on `os_family=windows`, `shell=powershe
 - `references/lsp-node-spawn.md` — LSP and Node-CLI spawn / missing-binary / version probes.
 - `references/python-encoding.md` — subprocess encoding and locale probes.
 - `references/playwright-browser.md` — browser-binary discovery and headless-launch probes.
+- `references/ide-remote-dev.md` — remote-dev backend heap-OOM diagnosis (the "connection" symptom that is really a JVM OOM).
+- `references/doctor-command-ambiguity.md` — `/doctor` routing ambiguity, non-interactive CLI health checks vs. the hanging TUI, managed-connector auth, and permissions-allowlist hygiene.
 - `env-probe-reporter` (agent) — runs the read-only probes and drafts the ENVIRONMENT REPORT.
 - `env-doctor` (command) — user entry point; surfaces flags and invokes this skill.
-- Consuming plugins (`rag-plugin`, `odoo-plugin`, `qa-browser-plugin`, `paper-plugin`) should REFERENCE this skill for generic environment issues instead of duplicating its probes or taxonomy.
+- Consuming plugins (`rag-plugin`, `odoo-plugin`, `qa-browser-plugin`, `ui-ux-mechanics-plugin`) should REFERENCE this skill for generic environment issues instead of duplicating its probes or taxonomy.

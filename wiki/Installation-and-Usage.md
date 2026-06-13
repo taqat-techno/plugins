@@ -46,7 +46,7 @@ taqat-techno-plugins
   - odoo                   ✓ enabled
   - devops                 ✓ enabled
   - rag                    ✓ enabled
-  - paper                  ✓ enabled
+  - ui-ux-mechanics        ✓ enabled
   - pandoc                 ✓ enabled
   - remotion               ✓ enabled
   - ntfy-notifications     ✓ enabled
@@ -63,7 +63,7 @@ Most plugins have a one-time setup step:
 | odoo | no setup required — works on any Odoo source tree | — |
 | devops | `/init` then `/init profile` | Install Azure CLI + MCP; configure auth; generate persistent user profile |
 | rag | `/rag-setup` | Detect install state; walk install/upgrade/verify. Installers live in the **upstream ragtools repo at [github.com/taqat-techno/rag/releases](https://github.com/taqat-techno/rag/releases)**. Covers Windows (x64), macOS (Apple Silicon), Linux (ARM64 — v2.5.1+), plus universal source-install fallback for any other platform (clone [github.com/taqat-techno/rag](https://github.com/taqat-techno/rag) + `pip install -e ".[dev]"`). Auto-installs CLAUDE.md rule; dedupes MCP registrations. |
-| paper | `/paper` (status check) | Verify Figma MCP installation status if using figma-workflow |
+| ui-ux-mechanics | `/ui-ux-mechanics` (status check) | Verify Figma MCP installation status if using figma-workflow / figma-mcp-mechanics |
 | pandoc | `/pandoc setup` | Install Pandoc + LaTeX if missing |
 | remotion | `/remotion <project-name>` | Scaffold a Remotion project with continuous-audio skeleton |
 | ntfy | `/ntfy setup` | Pick a topic, configure server, test delivery |
@@ -74,7 +74,7 @@ Most plugins are **auto-activating on user intent** via their skills. You rarely
 
 - Say "upgrade my Odoo module" → `odoo-plugin` skills take over.
 - Say "why isn't this file in my search results?" → `rag-plugin`'s `ragtools-ops` skill runs the why-not-indexed workflow.
-- Say "design a login page for iOS" → `paper-plugin`'s `design` skill produces a wireframe + HTML.
+- Say "design a login page for iOS" → `ui-ux-mechanics-plugin`'s `design` skill produces a wireframe + HTML.
 
 Slash commands are there for **deliberate dispatch** when you want a specific operation — `/rag-doctor --full`, `/sprint --full`, `/pandoc convert`, etc.
 

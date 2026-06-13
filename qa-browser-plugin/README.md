@@ -1,6 +1,6 @@
 # qa-browser
 
-![Version](https://img.shields.io/badge/version-0.2.0-blue.svg)
+![Version](https://img.shields.io/badge/version-0.4.0-blue.svg)
 ![Status](https://img.shields.io/badge/status-functional-green.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 
@@ -22,7 +22,10 @@ This plugin drives the [`chrome-devtools-mcp`](https://github.com/anthropics/chr
 | `import-export-ui-checks` | Upload → preview → commit → verify result |
 | `console-and-network-capture` | What to capture, when to fail, redaction rules for credentials in logs |
 | `safe-destructive-testing` | Disposable-data-only rule, never run delete on production data |
-| `uat-readiness-report` | Composing the final PASS / BLOCKED report |
+| `verify-identity-and-rbac` | Live identity + RBAC proof via status codes; three-layer denial checklist (route/API + service/backend + UI) |
+| `host-scoped-auth-headers` | Host-scope preview-bypass/auth headers so cross-origin data calls survive CORS preflight |
+| `anti-fraud-and-guard-hygiene` | A client-rendered barcode/QR/SVG/badge is NOT authentication (no signature/binding/expiry); host canonicalization + no-Origin-and-no-Referer CSRF reject |
+| `uat-readiness-report` | Composing the final PASS / BLOCKED report; includes a copy-paste role × route smoke-report template |
 
 ### Commands
 
@@ -112,8 +115,10 @@ This plugin is published as part of the `taqat-techno-plugins` marketplace. To i
 | Version | Scope |
 |---|---|
 | `0.1.0` | Scaffold |
-| `0.2.0` (this release) | 9 skills + 5 commands + 2 agents + 2 hooks (target check + production gate) |
-| `0.3.0` | Recorded evidence retention + report archival conventions; built-in fixtures; `/qa-action` command |
+| `0.2.0` | 9 skills + 5 commands + 2 agents + 2 hooks (target check + production gate) |
+| `0.3.0` | Live identity/RBAC proof skill + host-scoped auth-header skill |
+| `0.4.0` (this release) | Anti-fraud + guard-hygiene skill (artifact-is-not-auth, host canonicalization, CSRF no-Origin reject); RBAC three-layer checklist; UAT smoke-report template |
+| `0.5.0` | Recorded evidence retention + report archival conventions; built-in fixtures; `/qa-action` command |
 | `1.0.0` | First stable release after real-project shakedown |
 
 ## License

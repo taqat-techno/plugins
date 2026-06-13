@@ -2,7 +2,7 @@
 
 A comprehensive Azure DevOps integration plugin for Claude Code, enabling natural language interaction with your DevOps workflows through **HYBRID** CLI + MCP architecture.
 
-**Version**: 6.0.0 | **Mode**: Hybrid (CLI + MCP)
+**Version**: 6.5.0 | **Mode**: Hybrid (CLI + MCP)
 
 ---
 
@@ -75,7 +75,7 @@ This creates `~/.claude/devops.md` with your identity, role, team members, and p
 |----------|-------------|
 | "mark #1234 as done" | Updates work item with pre-flight validation |
 | "comment on #1234 @teammate" | Adds comment with validated @mentions |
-| "switch to relief center" | Changes project context |
+| "switch to billing service" | Changes project context |
 | "any failing builds?" | Shows pipeline status |
 | "create PR from feature to main" | Creates pull request |
 | "set up CI/CD" | Generates GitHub Actions workflows |
@@ -167,10 +167,12 @@ devops-plugin/
 |   +-- write-gate.md                  # Confirmation protocol for all writes
 |   +-- guards.md                      # Tool selection, mentions, repo resolution
 |   +-- profile-loader.md             # Profile loading + project context
-+-- hooks/                             # Lifecycle hooks (6 files)
++-- hooks/                             # Lifecycle hooks (7 files)
 |   +-- hooks.json                     # Hook configuration
 |   +-- session-start.sh               # Profile check + staleness
 |   +-- pre-write-validate.sh          # State/hierarchy/mention validation
+|   +-- pre_git_write_gate.py          # Conservative git remote-write gate
+|   |                                  #   (force-push-to-protected + no-access block)
 |   +-- pre-bash-check.sh, post-bash-suggest.sh, error-recovery.sh
 +-- agents/                            # Specialized subagents (3)
 |   +-- work-item-ops.md              # Haiku — CRUD, queries
@@ -186,7 +188,7 @@ devops-plugin/
 +-- CHANGELOG.md, LICENSE, README.md
 ```
 
-**Totals**: 9 commands | 5 data files | 3 rule files | 3 agents | 6 hooks | 4 test files | ~40 files
+**Totals**: 9 commands | 5 data files | 4 rule files | 3 agents | 7 hooks | 4 test files | ~40 files
 
 ---
 
@@ -216,6 +218,27 @@ pytest tests/test_scripts.py -v
 ```
 
 Tests validate plugin structure and contracts — they do **not** require Azure DevOps API access.
+
+---
+
+## Safety hooks
+
+The plugin layers conservative, false-positive-averse safety hooks (see `ARCHITECTURE.md`
+for layer ownership):
+
+| Hook | Event | Behavior |
+|------|-------|----------|
+| `pre-write-validate.sh` | PreToolUse (ADO MCP writes) | Injects state/hierarchy context; hard-blocks bug-creation authority, close/remove restriction, unresolved @mentions |
+| `pre_git_write_gate.py` | PreToolUse (Bash) | **Blocks** force-push to a protected branch (main/master/production/prod/staging/release) and writes to a repo the active `gh` account provably cannot access. **Warns** (non-blocking) on plain protected-branch pushes and `gh pr/release/api` writes. **Ignores** everything else. Stdlib-only, fail-open, prints no secrets. |
+
+The git-write gate enforces only the deterministic subset of `rules/git-remote-write-gate.md`
+that can be detected reliably from a shell command — a name difference between the repo owner
+and the `gh` login is **not** treated as a block (org pushes are normal); a block requires a
+confirmed no-access probe. Everything nuanced (permission-first disclosure, mapped
+auto-switch) stays with the rule and the assistant.
+
+Release-safety review guidance — deployed-SHA-to-environment reconciliation and pre-promotion
+secret-key diffing — lives in `devops/CI_HARDENING.md` (items 6 and 6a).
 
 ---
 

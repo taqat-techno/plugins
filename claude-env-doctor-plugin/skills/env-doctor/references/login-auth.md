@@ -115,6 +115,67 @@ billing keeps writing a subscription OAuth token. Pin the API-key flow in
 settings, back up the credentials file, clear the OAuth token, then log in with
 the API-key flow. The next request returns 200 instead of 401.
 
+## Pinning the login method to the org billing type
+
+The deterministic break for the 401 loop is to **force the login method to match the org's
+billing type** so the next login cannot write the wrong credential shape again. Claude Code
+exposes a setting that pins which flow login uses (a `forceLoginMethod`-style setting in
+settings); set it to the flow the org's billing model expects:
+
+| Org / billing type | Pin login method to | Resulting credential shape |
+|---|---|---|
+| Subscription / interactive (Pro/Max-style) | the interactive subscription login flow | subscription OAuth-style token |
+| API / Console billing | the API-key (Console) flow | API key issued for that org |
+
+Once pinned, clear the stale credential and re-login through the pinned flow (the back-up →
+clear → re-login → verify-by-one-real-request steps above). The pin is what stops the loop from
+re-arming; verify success with a real request returning non-401, never by the login UI alone.
+
+Safe action: this is a **settings change the user applies**, not one to write automatically.
+Propose the exact key and value for their settings scope, back up the settings file first, and let
+them apply it. Never paste a credential into settings to "fix" auth.
+
+## Env vars in `settings.json` can silently override OAuth login
+
+A subtler cousin of the committed-env trap below: an auth-related environment variable placed in
+`settings.json` (for example an API-key env var) is applied to the session and can **silently win
+over an interactive OAuth login**. The user logs in via OAuth, the status line shows the logged-in
+account, yet every request uses the settings-injected key — producing a 401 loop (mismatch) or a
+wrong-identity session that "follows the settings file."
+
+Diagnose by inspecting **shape, not value**, of the env block in the effective settings files:
+
+- Enumerate the settings precedence chain (user settings, then project settings, then
+  project-local settings) and check each `env` block for a key whose **name** matches
+  token / key / secret / auth (case-insensitive).
+- Report only presence + key name + non-revealing shape — never the value. The presence of an
+  auth-shaped env var while the user expects OAuth is the smoking gun.
+
+Safe action: report which settings file injects the override and that it shadows the OAuth login.
+Recommend removing it from the shared/committed settings and (if a key is genuinely needed) moving
+it to project-local settings or a launch wrapper. The user makes the edit; you do not.
+
+## One Claude Code process is single-tenant — mixing providers needs a routing proxy
+
+A single Claude Code process is **single-tenant**: it resolves exactly **one base URL and one auth
+header** for the whole session. There is no built-in per-request switch between, say, a
+subscription account and an API endpoint, or between two different providers/gateways. Attempts to
+"use account A for some calls and endpoint B for others" inside one process fail or silently pick
+whichever single credential the precedence chain resolved — another way a 401 loop or
+wrong-identity session appears.
+
+Localize:
+
+- If the symptom is "it keeps using the wrong endpoint/account even though I configured both,"
+  recognize this as the single-tenant constraint, not a credential bug. Inspect which single base
+  URL + auth header the session actually resolved (shape only).
+
+Safe action: to genuinely mix providers/endpoints, the correct architecture is an **external
+routing proxy** that fronts one stable base URL and routes per-request to the right upstream — the
+Claude Code process points at the proxy, and the proxy holds the multiple credentials. Describe
+this as the design; do not attempt to make one process multi-tenant, and never embed multiple raw
+credentials in config to "make both work."
+
 ## Per-project env override trap
 
 An auth token or API key placed in a **per-project committed settings env

@@ -1,13 +1,14 @@
 ---
 name: wiki-link-validation
-description: Sweep the wiki for broken internal links, missing pages referenced by sidebar / Home, filename collisions (GitHub Wiki), wrong internal-link convention (e.g. .md extension on GitHub Wiki), visible numeric prefixes, and orphan pages. Produces a severity-tagged findings table; never auto-fixes. Activates on any wiki audit and before any wiki push.
-version: 0.2.0
-last_reviewed: 2026-05-28
+description: Sweep the wiki for broken internal links, missing pages referenced by sidebar / Home, filename collisions (GitHub Wiki), wrong internal-link convention (e.g. .md extension on GitHub Wiki), broken section-anchor links, visible numeric prefixes, and orphan pages. Produces a severity-tagged findings table; never auto-fixes. Activates on any wiki audit and before any wiki push.
+version: 0.3.0
+last_reviewed: 2026-06-13
 owns:
   - broken-internal-link detection
   - missing-page-from-sidebar detection
   - filename-collision audit (GitHub Wiki flat-namespace)
   - internal-link convention check (no .md extension on GitHub Wiki; tree-paths on other flavours)
+  - heading-anchor slug rules (how a GitHub Wiki heading becomes a #anchor) + broken-anchor detection
   - visible-numeric-prefix scan
   - orphan-page detection (page exists but not linked from anywhere)
 defers_to:
@@ -48,7 +49,7 @@ Skip when:
 
 ## Read-only investigation steps
 
-The audit performs five scans, each producing its own findings rows.
+The audit performs six scans, each producing its own findings rows.
 
 ### Scan 1 — Filename collisions (GitHub Wiki only)
 
@@ -135,12 +136,66 @@ ORPHAN: wiki/Old-Architecture-Plan.md
 
 Orphan severity is LOW because orphans are sometimes intentional (drafts, work-in-progress). The audit surfaces; the maintainer decides.
 
+### Scan 6 — Broken section-anchor links
+
+A link like `[Steps](Deploy-SOP#run-the-deploy)` points at a heading *inside* a page. The page can exist while the anchor does not — a renamed heading silently breaks every inbound `#anchor` link, and the link still resolves to the page so Scan 2 misses it. This scan validates the fragment.
+
+To validate an anchor you must first know how the platform turns a heading into a slug. The GitHub Wiki (and GitHub-flavoured Markdown generally) slug rules are deterministic:
+
+1. Take the heading text (the rendered text, after stripping Markdown like `**bold**` or backticks).
+2. Lowercase every letter (`A-Z` → `a-z`).
+3. Drop every character that is **not** `a-z`, `0-9`, space, or hyphen. (Punctuation — `.,:;!?()[]{}'"/\@#&` etc. — is removed, not replaced.)
+4. Replace each remaining space with a single hyphen. Spaces are **not** collapsed first: two spaces become two hyphens.
+5. Trim leading and trailing hyphens from the final slug. **Internal** multi-hyphen runs are preserved.
+6. If two headings on the same page produce the same slug, the second gets `-1`, the third `-2`, and so on (the de-duplication suffix).
+
+Worked examples (heading → anchor):
+
+```
+## Run the deploy            → run-the-deploy
+## Step 2: Verify (health)   → step-2-verify-health        (":" and "()" dropped, not hyphenated)
+## CI / CD pipeline          → ci--cd-pipeline             (space-/-space → three chars → hyphen, dropped /, hyphen → "--")
+## -- internal note --       → internal-note               (leading/trailing hyphens trimmed; internal "--" kept)
+## FAQ                       → faq
+## FAQ                       → faq-1                        (second identical heading → -1 suffix)
+```
+
+The two rules that trip people up most:
+
+- **Punctuation is dropped, not replaced.** `Verify (health)` becomes `verify-health`, NOT `verify--health-` and NOT `verify-health-`. Only spaces become hyphens.
+- **Leading/trailing hyphens are trimmed; internal multi-hyphens are kept.** A link anchor must never *start* with a hyphen — `#-run-the-deploy` will never match any heading because the leading hyphen is trimmed off the heading's slug. `#ci--cd-pipeline` (internal `--`) is legitimate.
+
+Validation procedure:
+
+1. For each link with a `#fragment`, resolve the target page (same page if the link is `#fragment` only; another page for `Page#fragment`).
+2. If the target page is missing, that is a Scan 2 broken-link finding (not this scan).
+3. Build the set of valid anchors for the target page by applying the slug rules above to every heading, including the de-dup suffixes.
+4. If the link's fragment is not in that set, it is a broken anchor.
+
+```
+BROKEN ANCHOR: wiki/Operations.md:88 → [Steps](Deploy-SOP#run-the-deploy)
+  Target page Deploy-SOP exists; anchor "run-the-deploy" not found.
+  Page headings produce anchors: deploy-overview, run-the-deployment, verification
+  Did you mean: #run-the-deployment (heading "Run the deployment" was renamed)
+  Severity: MEDIUM
+  Fix: update the fragment to #run-the-deployment OR restore the heading text
+
+ANCHOR STARTS WITH HYPHEN: wiki/Home.md:31 → [Notes](Guide#-internal-note)
+  A heading slug never starts with a hyphen (leading hyphens are trimmed).
+  The matching heading "-- internal note --" produces anchor "internal-note".
+  Severity: MEDIUM
+  Fix: change fragment to #internal-note
+```
+
+For non-GitHub flavours, the slug algorithm differs (GitLab keeps a similar scheme; Azure DevOps and MkDocs differ on punctuation and case). When the flavour is not `github-wiki`, apply the adapter's slug rule if declared; otherwise report anchors as `UNKNOWN — slug rule not declared for <flavour>` rather than guessing.
+
 ## Decision framework
 
 | Finding type | Default severity | Auto-fixable? |
 |---|---|---|
 | Filename collision (GitHub Wiki) | HIGH | No — requires rename + cross-reference update |
 | Broken internal link | MEDIUM | No — needs maintainer judgement (rename target? update link? create missing page?) |
+| Broken section anchor | MEDIUM | No — needs maintainer judgement (was the heading renamed? is the fragment a typo?) |
 | Internal-link convention violation (GitHub Wiki) | MEDIUM | Sometimes — link convention fixes are mechanical but the audit still reports rather than fixing silently |
 | Visible numeric prefix | MEDIUM | No — rename has cascading impact |
 | Orphan page | LOW | Never — orphan may be intentional |
@@ -172,7 +227,7 @@ Report the suggestion but DO NOT apply. The maintainer confirms.
 WIKI LINK VALIDATION — <wiki-path> — <date>
   Flavour: github-wiki
   Pages: <count>
-  Scans run: collisions, broken-links, convention, numeric-prefix, orphans
+  Scans run: collisions, broken-links, convention, anchors, numeric-prefix, orphans
 
 SCAN RESULTS
 
@@ -190,6 +245,11 @@ Convention Violations (MEDIUM severity)
 | ID | Source | Issue | Fix |
 |----|--------|-------|-----|
 | V-1 | Home.md:14 | uses .md extension + folder path | rewrite per flavour |
+
+Broken Section Anchors (MEDIUM severity)
+| ID | Source | Target#fragment | Suggested fix |
+|----|--------|-----------------|---------------|
+| A-1 | Operations.md:88 | Deploy-SOP#run-the-deploy | #run-the-deployment |
 
 Numeric Prefixes (MEDIUM severity)
 | ID | Item | Issue | Fix |
@@ -221,9 +281,11 @@ SUMMARY
 
 Before reporting the audit:
 
-- [ ] All five scans ran.
+- [ ] All six scans ran.
 - [ ] Per-scan finding counts surfaced.
 - [ ] HIGH findings listed at top.
+- [ ] Anchor slugs were derived by the documented rule (drop punctuation, spaces→hyphens uncollapsed, trim outer hyphens) — not guessed.
+- [ ] No reported anchor fragment starts with a hyphen unless the maintainer is shown why it can never match.
 - [ ] Fuzzy-match suggestions are tagged as suggestions, not fixes.
 - [ ] Orphan section explicitly notes "orphan may be intentional".
 - [ ] No PII / secrets visible in any quoted line.
@@ -238,6 +300,9 @@ Before reporting the audit:
 | Skip the collision scan because "we use folders" | Folders silently overwrite on GitHub Wiki | Audit anyway; surface |
 | Validate external links by hitting them | Flaky; rate-limited; out-of-scope | External link checker is a separate tool |
 | Report `.md` extension as a violation on a GitLab wiki | GitLab supports `.md` in links | Adapter-aware |
+| Build an anchor by hyphenating punctuation (`verify-(health)` → `verify--health-`) | GitHub drops punctuation; it never becomes a hyphen | Drop non-`[a-z0-9 -]`; only spaces become hyphens |
+| Collapse double spaces before slugging | GitHub maps each space to its own hyphen | Two spaces → two hyphens; trim only the outer ones |
+| Author a link anchor that starts with a hyphen (`#-notes`) | The heading's leading hyphen is trimmed, so it can never match | Trim outer hyphens from the expected slug; never lead with `-` |
 | Delete the `_archived/` folder because "orphan pages" | The folder is the archive — deleting it loses history | Respect explicit archive folders |
 
 ## Portability rationale

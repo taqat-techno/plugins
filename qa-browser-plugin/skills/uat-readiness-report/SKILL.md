@@ -140,7 +140,7 @@ Implicit acceptance — "they didn't say anything" — does NOT count. Silence i
 
 | Severity | Examples (across skills) |
 |---|---|
-| HIGH | Shape-A failure (UI hides but API allows); missing audit-log row on destructive action; 5xx on a critical path endpoint; commit-on-upload behavior; unmasked PII in evidence |
+| HIGH | Shape-A failure (UI hides but API allows); service-layer Shape-A (sibling route leaks another principal's data / IDOR); client-rendered artifact used as authentication (no signature/binding/expiry); mutating endpoint accepts a no-Origin-and-no-Referer request (CSRF surface); missing audit-log row on destructive action; 5xx on a critical path endpoint; commit-on-upload behavior; unmasked PII in evidence |
 | MEDIUM | Shape-B failure (UI advertises but API denies); missing dirty-leave warning; inconsistent modal behavior (Esc does not close); slow page (>5s) on a routine view; missing per-row error report on import |
 | LOW | Cosmetic: wrong icon mirror in RTL; missing favicon; bare export filename; console warning |
 
@@ -219,5 +219,6 @@ Adapter: project release SOP can override severity defaults, critical-path defin
 ## Cross-references
 
 - `browser-qa-discipline` — vocabulary at the row level.
-- `runtime-reality-check`, `role-smoke-tests`, `route-access-matrix`, `modal-and-action-walkthroughs`, `import-export-ui-checks`, `console-and-network-capture`, `safe-destructive-testing` — all produce rows that feed this skill.
+- `runtime-reality-check`, `role-smoke-tests`, `route-access-matrix`, `modal-and-action-walkthroughs`, `import-export-ui-checks`, `console-and-network-capture`, `safe-destructive-testing`, `verify-identity-and-rbac`, `anti-fraud-and-guard-hygiene` — all produce rows that feed this skill.
+- `references/uat-smoke-report-template.md` — copy-paste fill-in skeleton: per-role × route matrix (PASS / BLOCKED / NOT-TESTABLE), severity tables, and the sign-off recommendation rule.
 - `/qa-report` — the command that invokes this skill at the end of a pass.

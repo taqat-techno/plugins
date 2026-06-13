@@ -28,9 +28,20 @@ Unified Odoo development toolkit for Claude Code — covering upgrade, frontend 
 
 | Hook | Event | Behavior |
 |------|-------|----------|
-| Core file guard | PreToolUse | **BLOCKS** edits to core Odoo framework files |
-| Inline JS check | PreToolUse | **BLOCKS** inline JavaScript in XML templates |
+| Core file guard | PreToolUse (Write/Edit) | **BLOCKS** edits to core Odoo framework files |
+| Inline JS check | PreToolUse (Write/Edit) | **BLOCKS** inline JavaScript in XML templates |
+| Volume-destruction guard | PreToolUse (Bash) | **BLOCKS** `compose down -v`, `docker volume rm/prune` on Odoo-stack volumes unless an explicit override token (`ALLOW_VOLUME_DELETE` / `--i-understand-data-loss`) is present |
 | Version detection | SessionStart | Detects Odoo version for context |
+
+## Audit / Doctor Skills
+
+These activate from natural-language symptoms (no command needed) and encode the
+gettext-discipline and stack-safety rules:
+
+| Skill | Activates when… |
+|-------|-----------------|
+| `odoo-i18n-audit` | A translation's `msgstr` is filled but the UI still shows the source language; reviewing a `.po` diff; after editing a translatable label/selection/help/view term; before shipping a second language |
+| `odoo-stack-doctor` | A volume-destruction command is about to run; a mount-point change orphaned data; Postgres won't boot after regeneration; an upgrade "ran" but nothing changed; a theme is selected but renders blank |
 
 ## Domains
 

@@ -2,6 +2,25 @@
 
 All notable changes to `odoo-plugin` are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/). Versioning follows [SemVer](https://semver.org/).
 
+## [2.2.0] — 2026-06-13 — volume-destruction Bash guard + audit/doctor skills
+
+### Added
+
+- `hooks/pre_odoo_volume_guard.py` — PreToolUse hook on the **Bash** tool. Hard-blocks (exit 2) `docker compose down -v`/`--volumes` (and legacy `docker-compose down -v`), `docker volume rm`, and `docker volume prune`, which destroy the Postgres DB + Odoo filestore volumes. Passes silently unless an explicit override token (`ALLOW_VOLUME_DELETE` or `--i-understand-data-loss`) is present in the same command. Stdlib-only, fail-OPEN on internal error/timeout. Reads and non-destructive docker commands (`down` without `-v`, `volume ls/inspect`, `run -v` bind mounts, `--volumes-from`) pass silently.
+- `skills/i18n-audit/SKILL.md` (`odoo-i18n-audit`) — audit checklist for translations that look complete but fall back to source: typed PO references (not source paths), source-string-edit → msgid invalidation, explicit-UTF-8 decode (no latin-1 / unicode_escape), one-arch/one-.po-per-language pipeline (no forked `_<lang>` views). Version-aware 14-19.
+- `skills/stack-doctor/SKILL.md` (`odoo-stack-doctor`) — diagnostic checklist for a stack that "comes up clean but is wrong": mount-point change orphans the old volume (copy forward, never `down -v`), preserve the running Postgres major (forward-incompatible data dir), upgrade via `odoo-bin --stop-after-init` not the RPC button (website configurator hijack silently skips reload), theme-load post-copy after languages are active, theme-translated-fields mapping completeness. Version-aware 14-19.
+
+### Changed
+
+- `hooks/hooks.json` — added the Bash-matched volume-destruction guard to `PreToolUse` (existing core-file and inline-JS guards unchanged).
+- `README.md` — Safety Hooks table documents the new volume-destruction guard.
+
+### Validation
+
+- `python validate_plugin.py odoo-plugin` -> 0 errors.
+- Hook self-test: 22/22 classification cases pass (8 blocks, 3 override-allows, 11 safe-allows including bind-mount/`--volumes-from`/bare-`down` false-positive guards).
+- Genericness sweep: 0 project-specific tokens outside labeled examples.
+
 ## [2.1.0] — 2026-05-31 — i18n/PO + volume/PG + theme-load references
 
 ### Added

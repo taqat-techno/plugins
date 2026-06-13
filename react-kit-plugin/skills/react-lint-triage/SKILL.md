@@ -1,8 +1,8 @@
 ---
 name: react-lint-triage
 description: Treats analyzer and linter findings (react-doctor, eslint, deslop, knip, and similar) as hypotheses to verify, not commands to obey. Owns the four-bucket classification (safe-mechanical, needs-judgment, false-positive, forbidden-zone), the false-positive catalog, and the rules against score-chasing and ruleset drift. Activates when triaging lint, static-analysis, or quality-tool output, before applying any auto-fix, before deleting a file a dead-code tool flagged, or when a tool reports a quality score to improve.
-version: 0.4.0
-last_reviewed: 2026-05-31
+version: 0.5.0
+last_reviewed: 2026-06-13
 owns:
   - four-bucket finding classification (safe-mechanical / needs-judgment / false-positive / forbidden-zone)
   - the false-positive catalog (runtime-throwing destructure, intentional derived state, array-index keys, trusted dangerouslySetInnerHTML, label over-fire, alias-blind dead-file detectors)
@@ -131,6 +131,7 @@ Never restructure an admin component, merge/split its files, or add a client-sid
 - **Never** treat counts from two runs with different TOOL_VERSIONS as comparable.
 - **Never** mass-apply `--fix` across the repo; scope to CHANGED_FILE_SET and review the diff.
 - **Never** re-litigate a recorded false-positive on the next run — the record exists so it stays skipped.
+- **Never** trust a green whole-repo lint as proof a *new* file is clean — a repo-wide run can exit 0 while ignore globs, cache, or a changed-scope config skip an untracked path. Lint the specific new file by path (`<linter> path/to/NewFile.tsx`) before push, in addition to any whole-repo run.
 
 ## Validation checklist
 
@@ -145,6 +146,7 @@ Before committing a triage's edits:
 - [ ] TOOL_VERSIONS recorded; counts compared only against a same-version run.
 - [ ] Impact measured on CHANGED_FILE_SET only.
 - [ ] If a rule was fully eliminated, it is (or can be) promoted to error to stay at zero.
+- [ ] Each new file in CHANGED_FILE_SET was linted by its own path before push (not just via a whole-repo run that may exit 0 while skipping it).
 
 ## Output format
 
@@ -178,6 +180,7 @@ SUMMARY: <n applied> / <n deferred> / <n skipped> / <n forbidden>
 | Add `aria-label` wherever the a11y rule fires | Clobbers an existing visible `<label for>`; over-fires on empty header cells | Verify no visible label first; skip empty-cell false positives |
 | "Fix" no-derived-state everywhere it fires | Breaks intentional form-reset / debounce-mirror / snapshot patterns | Inspect intent; defer as needs-judgment |
 | Compare finding counts across runs with different tool versions | Ruleset drift moves counts independently of the code | Pin TOOL_VERSIONS; compare same-version runs only |
+| Trust whole-repo lint exit 0 that a new file is clean | Ignore globs / cache / changed-scope can skip an untracked path | Lint the new file by its path before push |
 
 ## Portability rationale
 
@@ -186,6 +189,7 @@ This skill is framework- and tool-agnostic. It hardcodes no project, path, domai
 ## Cross-references
 
 - `react-doctor` (separate tool/skill) — produces the findings this skill triages; this skill does not scan, it judges.
+- `frontend-build-traps` — owns build/dev-server/test-runner/package-manager/ORM-codegen failure recovery (Turbopack HMR stale-module 500, vitest jsx-preserve, lockfile PM-major, TipTap attributes, ORM client/schema drift, lint-the-new-file-before-push). When a "finding" is actually a build/tooling trap, route there.
 - `data-fetching-states` — owns verdicts on loading/error/empty-state findings.
 - `react19-migration` — owns verdicts on deprecated/removed-API findings.
 - `admin-states`, `admin-crud`, `admin-forms` and other `admin-*` skills — own verdicts on admin-UI-specific findings; defer there.

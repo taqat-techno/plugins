@@ -1,6 +1,6 @@
 # docs-wiki
 
-![Version](https://img.shields.io/badge/version-0.2.0-blue.svg)
+![Version](https://img.shields.io/badge/version-0.4.0-blue.svg)
 ![Status](https://img.shields.io/badge/status-functional-green.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 
@@ -19,11 +19,12 @@ This plugin packages the rules every project needs when its team-facing document
 | Skill | Owns |
 |---|---|
 | `wiki-structure` | Flat-namespace + filename-uniqueness + internal-link convention (GitHub Wiki primary, others adapter-configurable) |
-| `wiki-authoring` | Business docs / engineering SOPs / user manuals / role guides / workflow docs / release & handover / onboarding templates |
+| `wiki-authoring` | Business docs / engineering SOPs / user manuals / role guides / workflow docs / release & handover / onboarding templates; tenant/client neutralization discipline (per-hit classify-then-act) |
 | `wiki-mermaid` | Mermaid diagram authoring rules — TD direction, shape vocabulary, four-class colour palette, label hygiene, code-path scrub from business diagrams |
-| `wiki-link-validation` | Broken-link sweep, missing-page detection, visible-numeric-prefix scan, internal-link convention check |
+| `wiki-link-validation` | Broken-link sweep, missing-page detection, broken section-anchor detection + heading-anchor slug rules, visible-numeric-prefix scan, internal-link convention check |
 | `wiki-code-vs-docs-discrepancy` | Report wiki-vs-code drift with `file:line` evidence; never silently choose one side |
-| `wiki-safe-updates` | Diff preview before write, no force-push, push-approval gate, retired-folder awareness |
+| `wiki-source-of-truth` | Declared knowledge-layer order; current-state vs target separation; config-constant single-location rule; stale-checkbox distrust; provenance-vs-active-prose judgement |
+| `wiki-safe-updates` | Diff preview before write, no force-push, push-approval gate, retired-folder awareness, pre-deletion gate (capture-check + cross-reference sweep) |
 | `wiki-vs-stray-docs` | Refuse to create stray `docs/` folders when a wiki exists; surface the conflict to the user |
 
 ### Commands
@@ -87,6 +88,8 @@ This plugin packages the rules every project needs when its team-facing document
 4. **No force-push** — ever.
 5. **Never silently choose** — code-vs-wiki drift is always surfaced to the user with `file:line` evidence; the plugin never picks a side on its own.
 6. **Retired-folder awareness** — folders the user has marked retired are never flagged as drift, but stray-docs warnings still apply.
+7. **Safe doc deletion** — before removing a docs tree / page / section, every named final decision must be confirmed captured in the source-of-truth wiki (scattered-but-unnamed counts as a migration gap), and every inbound reference (wiki pages, code comments, CI workflows, root README / instruction files, build artifacts) must be categorized rewrite / accept-stale / delete-with-target.
+8. **Neutralization is per-hit, never global** — tenant/client names are classified before replacement: active prose is neutralized to a deterministic placeholder, provenance / decision-record names are preserved byte-identical, operator/platform context is preserved. No blind find/replace.
 
 ## Installation
 
@@ -102,8 +105,10 @@ This plugin is published as part of the `taqat-techno-plugins` marketplace. To i
 | Version | Scope |
 |---|---|
 | `0.1.0` | Scaffold |
-| `0.2.0` (this release) | 7 skills + 6 commands + 3 agents + 2 hooks (push gate + stray-docs warning) |
-| `0.3.0` | Polished GitLab / Azure DevOps Wiki adapters; `/wiki-archive` command; ADR numbering helper |
+| `0.2.0` | 7 skills + 6 commands + 3 agents + 2 hooks (push gate + stray-docs warning) |
+| `0.3.0` | `wiki-source-of-truth` skill + generic page templates |
+| `0.4.0` (this release) | Heading-anchor slug rules + broken-anchor scan in `wiki-link-validation`; safe-doc-deletion gate in `wiki-safe-updates`; tenant/client neutralization discipline in `wiki-authoring` + `wiki-source-of-truth` |
+| `0.5.0` | Polished GitLab / Azure DevOps Wiki adapters; `/wiki-archive` command; ADR numbering helper |
 | `1.0.0` | First stable release after real-project shakedown |
 
 ## Related plugins

@@ -1,0 +1,25 @@
+{
+  "name": "release-safety",
+  "version": "0.1.0",
+  "description": "Provider-neutral release-safety toolkit. Proves a fix is actually deployed to the target environment (not just merged) by reconciling the deployed commit SHA to the environment; diffs env-driven secrets between source and target before promotion; detects migration drift; and runs risky cutovers and migrations through a discover -> backup -> stage -> additive-then-cutover -> archive skeleton with destructive/CASCADE safeguards. Works across any Git host, CI system, and hosting provider.",
+  "author": {
+    "name": "TaqaTechno",
+    "email": "info@taqatechno.com",
+    "url": "https://github.com/taqat-techno"
+  },
+  "homepage": "https://github.com/taqat-techno/plugins/tree/main/release-safety-plugin",
+  "repository": "https://github.com/taqat-techno/plugins",
+  "license": "MIT",
+  "keywords": [
+    "release",
+    "deployment",
+    "verification",
+    "migration",
+    "cutover",
+    "secrets-diff",
+    "drift",
+    "provider-neutral",
+    "ci-cd",
+    "safety"
+  ]
+}

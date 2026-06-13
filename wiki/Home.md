@@ -12,7 +12,7 @@ A curated Claude Code plugin catalog published at **[github.com/taqat-techno/plu
 > |---|---|
 > | [[Rag Plugin\|Rag-Plugin]] | **[github.com/taqat-techno/rag](https://github.com/taqat-techno/rag)** — the ragtools local RAG application (installers, source, release history, product docs) |
 > | [[DevOps Plugin\|DevOps-Plugin]] | [Azure DevOps Services](https://dev.azure.com/) via the [`@azure-devops/mcp`](https://www.npmjs.com/package/@azure-devops/mcp) server |
-> | [[Paper Plugin\|Paper-Plugin]] | [Figma](https://www.figma.com/) via the user-installed Figma MCP (separate install) |
+> | [[Ui Ux Mechanics Plugin\|Ui-Ux-Mechanics-Plugin]] | [Figma](https://www.figma.com/) via the user-installed Figma MCP (separate install) |
 > | [[Pandoc Plugin\|Pandoc-Plugin]] | [Pandoc](https://pandoc.org/) — auto-installed by `/pandoc setup` |
 > | [[Remotion Plugin\|Remotion-Plugin]] | [Remotion](https://remotion.dev) — installed by `/remotion <name>` |
 > | [[Ntfy Plugin\|Ntfy-Plugin]] | [ntfy.sh](https://ntfy.sh) |
@@ -39,7 +39,7 @@ The marketplace targets a single power-user workflow: real client projects at TA
 | **odoo** | Unified Odoo 14–19 toolkit — upgrade, frontend, testing, security, i18n, reports, Docker, service lifecycle | [[Odoo Plugin\|Odoo-Plugin]] |
 | **devops** | Azure DevOps HYBRID (CLI + MCP) — work items, PRs, pipelines, wiki, role-based state machine | [[DevOps Plugin\|DevOps-Plugin]] |
 | **rag** | Ragtools local RAG operations console — install, diagnose, repair, ignore rules, project ops via MCP | [[Rag Plugin\|Rag-Plugin]] |
-| **paper** | UI/UX design specialist — screens, wireframes, Figma MCP, WCAG 2.1 AA, design systems | [[Paper Plugin\|Paper-Plugin]] |
+| **ui-ux-mechanics** | UI/UX design specialist — screens, wireframes, safe Figma MCP write mechanics, WCAG 2.1 AA, design systems | [[Ui Ux Mechanics Plugin\|Ui-Ux-Mechanics-Plugin]] |
 | **pandoc** | Universal document conversion — 50+ input × 60+ output formats, RTL support, Pandoc-powered | [[Pandoc Plugin\|Pandoc-Plugin]] |
 | **remotion** | Video creation with smooth voice narration — continuous audio pipeline, edge-tts | [[Remotion Plugin\|Remotion-Plugin]] |
 | **ntfy-notifications** | Mobile push notifications via ntfy.sh — free, no account, two-way Q&A | [[Ntfy Plugin\|Ntfy-Plugin]] |

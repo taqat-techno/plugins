@@ -17,7 +17,7 @@ plugins/                              ← the working marketplace (what you edit
 ├── odoo-plugin/
 ├── devops-plugin/
 ├── rag-plugin/
-├── paper-plugin/
+├── ui-ux-mechanics-plugin/
 ├── pandoc-plugin/
 ├── remotion-plugin/
 ├── ntfy-plugin/
@@ -101,7 +101,7 @@ Not every plugin uses every directory, but the shape is stable:
 | odoo | ✓ (17) | ✓ (4) | ✓ (8 sub-skills) | ✓ | — | ✓ | ✓ | ✓ |
 | devops | ✓ (9) | ✓ (3) | — | ✓ | ✓ | ✓ | ✓ | — |
 | rag | ✓ (6) | ✓ (1) | ✓ (1) | ✓ | ✓ | ✓ | — | — |
-| paper | ✓ (1) | ✓ (2) | ✓ (2) | ✓ | — | — | — | — |
+| ui-ux-mechanics | ✓ (1) | ✓ (2) | ✓ (3) | ✓ | — | — | — | — |
 | pandoc | ✓ (1) | — | — | ✓ | — | — | — | — |
 | remotion | ✓ (1) | — | — | ✓ | — | — | — | ✓ |
 | ntfy | ✓ (2) | — | — | ✓ | — | — | — | — |
@@ -110,7 +110,7 @@ Not every plugin uses every directory, but the shape is stable:
 
 Distilled from the repo's history, three audit reports (`HOOK_AUDIT_REPORT.md`, `HOOK_STABILIZATION_REPORT.md`, `PLUGIN_ENHANCEMENT_REPORT_FEB_2026.md`), and the binding-decisions logs of mature plugins:
 
-1. **Consolidate aggressively.** Every mature plugin has gone through at least one "N narrow commands → 1 smart command" pass. `pandoc` (8→1), `paper` (5→1), `ntfy` (8→2), `remotion` (5→1), `devops` (24→9), and 8 Odoo plugins merged into one `odoo-plugin` with sub-skills. Sprawl is a regression.
+1. **Consolidate aggressively.** Every mature plugin has gone through at least one "N narrow commands → 1 smart command" pass. `pandoc` (8→1), `ui-ux-mechanics` (5→1), `ntfy` (8→2), `remotion` (5→1), `devops` (24→9), and 8 Odoo plugins merged into one `odoo-plugin` with sub-skills. Sprawl is a regression.
 2. **Commands are thin dispatchers.** Behavior lives in skills, rules, agents, and data files. Commands route to those layers and expose flags.
 3. **Single-owner layering.** Each concern lives in exactly one file. If two files have the same logic, one of them is wrong. Documented in `rag-plugin/ARCHITECTURE.md` and `devops-plugin/ARCHITECTURE.md`.
 4. **Hooks enforce, they don't reason.** Hooks are command-type bash/python, fail fast, return structured JSON. No prompt-type hooks (they trigger Claude Code's prompt-injection detection). Minimal SessionStart output.
