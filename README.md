@@ -13,7 +13,7 @@ Production-ready Claude Code plugins for professional development — Odoo ERP, 
 
 | # | Plugin | Version | Category | Description | Documentation |
 |---|--------|---------|----------|-------------|---------------|
-| 1 | **odoo** | `2.2.0` | development | Unified Odoo development toolkit — upgrade, frontend themes, testing, security auditing, i18n/PO, reports, Docker infrastructure, and server lifecycle across Odoo 14–19. | [README](./odoo-plugin/README.md) |
+| 1 | **odoo** | `2.3.0` | development | Unified Odoo development toolkit — upgrade, frontend themes, testing, security auditing, i18n/PO, reports, Docker infrastructure, stack & DB lifecycle safety, and server lifecycle across Odoo 14–19. | [README](./odoo-plugin/README.md) |
 | 2 | **devops** | `6.5.0` | productivity | Azure DevOps HYBRID integration — work items, PRs, pipelines, repos, wiki via CLI + MCP, persistent profile, role-based state machine, plus a provider-neutral remote-write gate and CI-hardening checklist. | [README](./devops-plugin/README.md) |
 | 3 | **rag** | `0.13.2` | productivity | Operational console for the ragtools local RAG product — install, configure, diagnose, repair, upgrade, run. Knows the Qdrant lock, dual-mode MCP, and failure modes. Defers generic environment/MCP diagnosis to `claude-env-doctor`. | [README](./rag-plugin/README.md) |
 | 4 | **ui-ux-mechanics** | `3.1.0` | design | UI/UX design + Figma-MCP execution mechanics — screen design, wireframing, design review, design systems, WCAG 2.1 AA accessibility auditing, plus safe Figma MCP write workflows (write-access probing, metadata-lossiness handling, auto-layout/variant mechanics, prototype-link-safe edits). | [README](./ui-ux-mechanics-plugin/README.md) |
