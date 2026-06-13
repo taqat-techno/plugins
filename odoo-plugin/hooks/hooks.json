@@ -1,5 +1,5 @@
 {
-  "description": "Unified Odoo plugin hooks — core file protection, inline JS blocking, Odoo-stack volume-destruction guard, and version detection",
+  "description": "Unified Odoo plugin hooks — core file protection, inline JS blocking, Odoo-stack volume-destruction guard, restart/clone safety advisories, and version detection",
   "hooks": {
     "SessionStart": [
       {
@@ -40,6 +40,16 @@
           {
             "type": "command",
             "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/pre_odoo_volume_guard.py\"",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/pre_odoo_restart_guard.py\"",
             "timeout": 10
           }
         ]

@@ -2,6 +2,24 @@
 
 All notable changes to `odoo-plugin` are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/). Versioning follows [SemVer](https://semver.org/).
 
+## [2.3.0] — 2026-06-13 — Odoo stack & DB lifecycle safety (restart/clone advisory + stack-doctor expansion)
+
+### Added
+
+- `hooks/pre_odoo_restart_guard.py` — PreToolUse hook on the **Bash** tool. **Advisory only** (stdlib-only, fail-OPEN, **always exits 0**, never blocks, never mutates files, never kills processes). Prints a one-line nudge to stderr on three documented-dangerous shapes: an unbounded Odoo readiness poll (`curl --retry-connrefused` against an Odoo-like port/endpoint with no `--max-time`/`--retry-max-time`/`--retry-delay`); a combined `pkill … && … odoo-bin` chain (the pkill self-matches and SIGTERMs the chain → exit 144); and a raw Odoo DB clone (`CREATE DATABASE … TEMPLATE` / `createdb -T`, which copies SQL only and breaks the filestore). Stays silent on bounded curls, split stop/start, `odoo-bin db duplicate`, and non-Odoo commands.
+- `skills/stack-doctor/references/db-safety.md` — snapshot backup + sha256 before regeneration; real Odoo uninstall/upgrade (not SQL hacks); filestore-aware clone (`odoo-bin db duplicate` / `exp_duplicate_database`) vs the `psql TEMPLATE` trap; re-inventory + `pg_stat_activity` before destructive DB action on a shared instance; multi-instance isolation (own hostname / HTTP+gevent port pair / `db_filter` / filestore / log / addons_path); separate local config from the Docker config.
+
+### Changed
+
+- `skills/stack-doctor/SKILL.md` (`odoo-stack-doctor`, 0.1.0 → 0.2.0) — added a **Stack & DB lifecycle safety** section: standalone-Postgres-via-its-own-`pg_ctl` (a WAL-recovery timeout/exit is not failure — verify with `pg_isready`/log); shared-instance re-inventory before destructive DB actions; restart hygiene (kill by PID, never `pkill && odoo-bin`, split stop/start, free the port, tail the right log); bounded readiness polling only; verify install/upgrade from the LOG not the wrapper/background exit code; filestore-aware clone; separate local config. Updated frontmatter (description, `owns`, `defers_to`, metadata), When-to-use triggers, Doctor checklist, and Anti-patterns.
+- `hooks/hooks.json` — added the Bash-matched advisory restart/clone guard to `PreToolUse` (all existing hooks — core-file, inline-JS, volume-destruction, session-start — unchanged).
+- `README.md` — Safety Hooks table documents the new advisory guard.
+
+### Validation
+
+- `python validate_plugin.py odoo-plugin` → 0 errors.
+- `python -m py_compile hooks/pre_odoo_restart_guard.py` → clean; hook self-tested across 12 cases (every case exits 0; warns only on the three risky shapes).
+
 ## [2.2.0] — 2026-06-13 — volume-destruction Bash guard + audit/doctor skills
 
 ### Added
