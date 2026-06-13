@@ -2,6 +2,19 @@
 
 All notable changes to `docs-wiki-plugin` are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/). Versioning follows [SemVer](https://semver.org/).
 
+## [0.4.0] — 2026-06-13 — Anchor rules + safe doc deletion + neutralization discipline
+
+### Added
+
+- `wiki-link-validation` — heading-ANCHOR slug rules (lowercase; drop punctuation outside `a-z 0-9` space hyphen; spaces → hyphens uncollapsed; trim leading/trailing hyphens, keep internal multi-hyphens; de-dup suffix) plus a sixth scan that detects broken section-anchor links. New rule: a link anchor never starts with a hyphen.
+- `wiki-safe-updates` — safe-doc-deletion gate: before removing a docs tree / page / section, a capture-check (every named final decision genuinely captured in the source-of-truth wiki; scattered-but-unnamed = migration gap = NOT captured) and a cross-reference sweep (wiki pages, code comments, CI workflows, root README / instruction files, build/coverage artifacts) categorizing every hit as rewrite / accept-stale / delete-with-target. New `references/safe-doc-deletion.md`.
+- `wiki-authoring` + `wiki-source-of-truth` — tenant/client neutralization discipline: classify each name hit as active-target prose (neutralize to a deterministic placeholder), legacy reference / provenance (preserve byte-identical), or operator/platform context (preserve) — never a blind global find/replace. New `references/neutralization-discipline.md` (under `wiki-authoring`); `wiki-source-of-truth` supplies the current-state-vs-provenance judgement.
+
+### Validation
+
+- `python validate_plugin.py docs-wiki-plugin` -> 0 errors.
+- Genericness sweep: 0 project-specific tokens; example name `AcmeCorp` used only as a labeled placeholder in neutralization examples.
+
 ## [0.3.0] — 2026-05-31 — Source-of-truth doctrine + page templates
 
 ### Added
@@ -75,7 +88,7 @@ Every SKILL.md follows the standard contract: frontmatter (`name`, `description`
 ### Validation
 
 - `python validate_plugin.py docs-wiki-plugin` → 0 errors.
-- Genericness sweep — grep over all skill / command / agent / hook files for `aqraboon|beneficiar|coupon|qid|qatar|taqatfortechnology|AdminUser|AppConfig|HELPDESK|SUPER_ADMIN|alaqraboon|indogate`: 0 hits.
+- Genericness sweep — grep over all skill / command / agent / hook files for known client/project tokens: 0 hits.
 
 ### Out of scope (deferred to 0.3.0 — and permanent)
 

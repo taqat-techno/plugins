@@ -17,7 +17,7 @@ wiki/
 ├── Odoo-Plugin.md
 ├── DevOps-Plugin.md
 ├── Rag-Plugin.md
-├── Paper-Plugin.md
+├── Ui-Ux-Mechanics-Plugin.md
 ├── Pandoc-Plugin.md
 ├── Remotion-Plugin.md
 ├── Ntfy-Plugin.md

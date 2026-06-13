@@ -161,7 +161,7 @@ For the rag-plugin specifically, see [`mcp-wiring.md` § After `.mcp.json` edits
 | odoo | `/service` (lifecycle status) |
 | devops | `/init` (re-run to validate auth + connectivity) |
 | rag | `/rag-doctor --full --fix` (structured diagnosis + inline repair) |
-| paper | `/paper` (status + Figma MCP check) |
+| ui-ux-mechanics | `/ui-ux-mechanics` (status + Figma MCP check) |
 | pandoc | `/pandoc status` |
 | remotion | `/remotion` (status only, no args) |
 | ntfy | `/ntfy status` then `/ntfy test` |

@@ -1,8 +1,8 @@
 ---
 name: wiki-safe-updates
-description: Safe workflow for editing and publishing wiki pages — diff preview before write, push-approval gate (no push without explicit user "push approved"), no force-push ever, retired-folder awareness (folders intentionally archived are not "drift"), rollback strategy via revert (never reset --hard). Activates before any wiki write or wiki git push.
-version: 0.2.0
-last_reviewed: 2026-05-28
+description: Safe workflow for editing and publishing wiki pages — diff preview before write, push-approval gate (no push without explicit user "push approved"), no force-push ever, retired-folder awareness (folders intentionally archived are not "drift"), rollback strategy via revert (never reset --hard), and a pre-deletion verification gate before removing a docs tree or page. Activates before any wiki write, wiki git push, or removal of a docs folder / page / section.
+version: 0.3.0
+last_reviewed: 2026-06-13
 owns:
   - diff-preview-before-write contract
   - push-approval gate (explicit user phrase required)
@@ -10,6 +10,7 @@ owns:
   - retired-folder awareness
   - revert-based rollback strategy
   - one-purpose-per-commit rule for wiki changes
+  - safe-doc-deletion gate (capture-check + cross-reference sweep before removing a docs tree / page / section)
 defers_to:
   - wiki-structure (the structural rules a change must respect)
   - wiki-link-validation (run before push to catch breakage)
@@ -33,6 +34,7 @@ Activate before:
 - Any `Write` or `Edit` to a file inside the wiki repo path.
 - Any `git push` from the wiki repo.
 - Any wiki-side cleanup ("remove orphan pages", "rename for collision").
+- Any removal of a docs tree, a wiki page, or a documented section ("delete the old docs/ folder", "drop the legacy decisions", "we migrated this to the wiki, remove the source").
 - Any rollback action.
 
 Skip when:
@@ -143,6 +145,21 @@ Effect:
 - `wiki-vs-stray-docs` does not warn about retired folder existence.
 - Diff-preview still applies to retired-folder writes — historical content is still editable.
 
+## Safe doc deletion (pre-deletion gate)
+
+Deleting a docs tree, a wiki page, or a documented section is irreversible from a reader's point of view — inbound links break and the only record left is git history nobody re-reads. Before any such removal, two checks are mandatory:
+
+1. **Capture-check** — every NAMED final decision in the doomed content must be genuinely captured in the source-of-truth wiki. "Scattered across three pages but never named" is a migration gap, not a capture; treat it as NOT captured.
+2. **Cross-reference sweep** — grep every place that could link to the content (other wiki pages, code comments, CI workflows, root README / instruction files, build/coverage artifacts) and categorize each hit as **rewrite** / **accept-stale** / **delete-with-target** before removing anything.
+
+The full procedure, the grep target list, and the reference-categorization rules live in `references/safe-doc-deletion.md`. Deletion still flows through the diff-preview and push-approval gates above; this is an extra gate in front of them, not a replacement.
+
+```
+REFUSED — proposed deletion of docs content
+  Reason: <decision "X" not found named in the wiki> | <N inbound references uncategorized>
+  Next: run the capture-check + cross-reference sweep (references/safe-doc-deletion.md)
+```
+
 ## One-purpose-per-commit rule
 
 Wiki commits should be one-purpose:
@@ -198,6 +215,8 @@ For multi-commit rollback: `git revert <oldest-bad>..<newest-bad>` produces one 
 - **Never** flag retired-folder content as drift.
 - **Never** auto-resolve a `wiki-link-validation` finding without user review.
 - **Never** modify `_Sidebar.md` or `Home.md` without diff preview + maintainer confirmation.
+- **Never** delete a docs tree / page / section before the capture-check and cross-reference sweep are done and every inbound reference is categorized (see `references/safe-doc-deletion.md`).
+- **Never** treat "the decision is scattered across other pages" as "captured" — unnamed-but-scattered is a migration gap, so deletion stays blocked.
 
 ## Validation checklist
 
@@ -215,6 +234,13 @@ Before each wiki push:
 - [ ] `git log <branch> --not <remote>/<branch>` shows the commits about to publish.
 - [ ] Link validation ran AND surfaced no HIGH findings.
 - [ ] No force-push flag in the command.
+
+Before deleting any docs tree / page / section (see `references/safe-doc-deletion.md`):
+
+- [ ] Every NAMED final decision in the doomed content is confirmed captured in the source-of-truth wiki (scattered-but-unnamed counts as NOT captured).
+- [ ] Cross-reference sweep ran across wiki pages, code comments, CI workflows, root README / instruction files, and build/coverage artifacts.
+- [ ] Every inbound reference is categorized rewrite / accept-stale / delete-with-target.
+- [ ] All `rewrite` and `delete-with-target` references are handled in the same change set as the deletion.
 
 ## Output format
 
@@ -245,7 +271,7 @@ For a refused operation:
 
 ```
 REFUSED — <action>
-  Reason: <missing diff preview | no push approval | force-push attempted | secret detected | retired-folder spurious flag>
+  Reason: <missing diff preview | no push approval | force-push attempted | secret detected | retired-folder spurious flag | deletion without capture-check / cross-reference sweep>
   How to proceed: <step the user can take>
 ```
 
@@ -261,6 +287,9 @@ REFUSED — <action>
 | Apply a `wiki-link-validation` suggestion automatically | The suggestion may be wrong | User confirms |
 | Silently overwrite an existing wiki page on `/wiki-new` | Content loss with no diff trail | Refuse; surface the collision |
 | Skip diff preview "because it's a small typo" | Small typos sometimes turn out to be in a code block where they break the example | Always preview |
+| Delete the old `docs/` tree right after "migrating" it | A decision may be paraphrased in the wiki but never NAMED, and inbound links break silently | Capture-check named decisions + sweep references first |
+| Treat a decision as captured because "it's mentioned somewhere in the wiki" | Scattered-but-unnamed is a migration gap, not a capture | Require the decision to be named in the source-of-truth wiki |
+| Delete content with inbound CI / README references and "fix later" | The broken reference ships in the same change; readers and pipelines hit it immediately | Categorize every reference and handle rewrite / delete-with-target in the same change set |
 
 ## Portability rationale
 
@@ -280,4 +309,6 @@ For non-git wikis (Confluence, etc.), the diff-preview and approval-gate concept
 - `wiki-vs-stray-docs` — refuses certain new-file writes outside the wiki.
 - `wiki-link-auditor` (agent) — automates the pre-push link validation.
 - `wiki-cleanup-validator` (agent) — pre-delete reference check before removing a wiki page.
+- `references/safe-doc-deletion.md` — the full pre-deletion procedure: capture-check, cross-reference sweep target list, and reference categorization (rewrite / accept-stale / delete-with-target).
+- `wiki-source-of-truth` — supplies the "is this decision genuinely captured" judgement the capture-check relies on.
 - Plugin `hooks/hooks.json` — implements the push-approval gate at tool level.

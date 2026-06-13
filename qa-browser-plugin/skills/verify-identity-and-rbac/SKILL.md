@@ -107,6 +107,8 @@ When the UI gate and the API gate disagree, name the shape:
 
 Shape A is the dangerous one and must be flagged as a security finding, not a UX nit. Shape B is a UX/correctness bug. Agreement (both deny, or both allow for a permitted role) is the only passing outcome.
 
+For the stricter **three-layer** form — assert denial at the route/API edge AND the service/backend layer (data scope / cross-owner IDOR probe) AND the UI, together — see `references/rbac-three-layer-checklist.md`. The most-missed cell is a *service-layer* Shape A: the named endpoint is gated, but a sibling list/search/export route reaches the same records without re-applying the ownership/tenant filter.
+
 ## Safety gates
 
 - **Never** run a probe against production or any non-disposable target — defer the environment/target classification to `safe-destructive-testing`.
@@ -196,3 +198,5 @@ Every project-specific value (identity endpoint, role list, restricted routes, d
 - `console-and-network-capture` — captures the actual response status the proof reads.
 - `react-kit-plugin` `data-fetching-states` (`admin-states`) — defines the UI states (403 page, denied affordance, error display) these statuses should produce on the client.
 - `role-smoke-tests` — the positive path (what a role CAN reach); this skill is the proof layer behind both positive and negative checks.
+- `references/rbac-three-layer-checklist.md` — the route/API-edge + service/backend + UI three-layer denial assertion (includes the cross-owner / IDOR service-layer probe).
+- `anti-fraud-and-guard-hygiene` — the server-guard counterpart: host canonicalization and the no-Origin-and-no-Referer CSRF reject; also "a client-rendered artifact is not authentication."

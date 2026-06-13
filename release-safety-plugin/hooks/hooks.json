@@ -1,0 +1,15 @@
+{
+  "description": "release-safety advisory hooks",
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/session_start_release_advisory.py"
+          }
+        ]
+      }
+    ]
+  }
+}

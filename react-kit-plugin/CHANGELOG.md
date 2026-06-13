@@ -2,6 +2,24 @@
 
 All notable changes to `react-kit-plugin` are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/). Versioning follows [SemVer](https://semver.org/).
 
+## [0.5.0] — 2026-06-13 — Frontend build-and-tooling trap catalog
+
+Adds a sibling to `react-lint-triage` for the build/dev-server/test-runner/package-manager/ORM-codegen failures whose symptom surfaces in a different layer than the cause. Patterns were generalized from real debugging sessions; all project-specific names, versions, and paths were stripped — the skill is domain-agnostic and adapter-driven.
+
+### Added
+
+- **Skill (1):**
+  - `frontend-build-traps` — deterministic recovery for: Turbopack HMR stale-module 500 (`module factory is not available`) via a full 4-step reset (kill server, clear build-cache dir, one fresh dev server, clear browser/automation cache); vitest 4.x / rolldown-vite honoring tsconfig `jsx: preserve` (fix with oxc jsx-automatic, NOT esbuild; keep runner + coverage on the same major); lockfile regeneration with the CI package-manager MAJOR (different majors hoist optional deps differently and reject each other's lockfile); TipTap `addAttributes` camelCase keys + `renderHTML` being serialization-only (not the live editing DOM); ORM client/schema drift verification via generated-client-vs-schema mtime before calling a type error "drift" (and the inline-mock-missing-method → resolved-`undefined` corollary); lint-the-specific-new-file-before-push.
+
+### Changed
+
+- `react-lint-triage` — added the lint-the-new-file-by-path-before-push discipline (whole-repo lint can exit 0 while skipping an untracked path) to safety gates, validation checklist, and anti-patterns; cross-reference to `frontend-build-traps` for failures that are build/tooling traps rather than analyzer findings. Bumped to 0.5.0.
+
+### Validation
+
+- `python validate_plugin.py react-kit-plugin` → 0 errors.
+- Genericness sweep: 0 project-specific tokens, hostnames, versions, or product names outside labeled illustrative examples.
+
 ## [0.4.0] — 2026-05-31 — Flexible admin view patterns
 
 Adds an Odoo-inspired (not Odoo-rebuilding) flexible admin-view methodology. Patterns were generalized from a study of a reference React/Next.js admin project; all project-specific business logic, names, routes, and roles were stripped — the skills are domain-agnostic and adapter-driven.
@@ -84,7 +102,7 @@ Cached locally in `.react-kit.local.json` (must be gitignored).
 ### Validation
 
 - `python validate_plugin.py react-kit-plugin` → 0 errors.
-- Genericness sweep — grep over all skill / command / agent files for `aqraboon|beneficiar|coupon|qid|qatar|taqat|AdminUser|AppConfig|HELPDESK|MANAGER|SUPER_ADMIN`: 0 hits outside example-block contexts.
+- Genericness sweep — grep over all skill / command / agent files for known client/project tokens: 0 hits outside example-block contexts.
 
 ### Out of scope (deferred to 0.3.0)
 

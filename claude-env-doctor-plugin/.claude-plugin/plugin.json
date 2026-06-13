@@ -1,6 +1,6 @@
 {
   "name": "claude-env-doctor",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Generic local-environment doctor for Claude Code. Diagnoses (never blindly mutates) MCP wiring, Windows/WSL networking, Claude Code login/auth, LSP / Node-CLI spawn, Python output encoding, and Playwright browser-MCP setup. Produces a symptom -> environment -> probes -> classification -> safe-next-action report with no secrets. The canonical environment-troubleshooting home other plugins reference.",
   "author": {
     "name": "TAQAT Techno",

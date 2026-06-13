@@ -1,0 +1,10 @@
+{
+  "name": "ui-ux-mechanics",
+  "version": "3.1.0",
+  "description": "UI/UX design plus Figma-MCP execution mechanics — screen design, wireframing, design review, design systems, accessibility auditing, and safe Figma MCP write workflows (write-access probing, metadata-lossiness handling, auto-layout/variant mechanics, prototype-link-safe edits) for web, mobile, and desktop platforms.",
+  "author": {
+    "name": "TaqaTechno",
+    "email": "info@taqatechno.com",
+    "url": "https://www.taqatechno.com"
+  }
+}

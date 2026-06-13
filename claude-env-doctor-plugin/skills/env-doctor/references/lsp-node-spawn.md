@@ -137,6 +137,25 @@ If the only place a setting can live is a tool-managed file, treat that as a
 limitation to report rather than a fix to bake in, and document the override so
 it can be re-applied after an update.
 
+## Windows specific: LSP plugins can't launch an npm shim under `shell: false`
+
+On Windows this class bites hardest. A global npm install of a language server puts a `.cmd`
+batch shim (plus a `.ps1` and an extensionless script) on `PATH` — not a real executable. An LSP
+plugin that spawns its server with `shell: false` (the safe default) hands that `.cmd` straight to
+the OS process-creation call, which cannot interpret a batch wrapper; recent Node releases also
+**refuse** to spawn `.cmd`/`.bat` without a shell for security. The result is `spawn ... EINVAL`
+(or `ENOENT`) at launch even though `<server> --version` works fine when you type it in a terminal.
+
+Localize: confirm the configured `command` points at a `.cmd`/`.ps1`/extensionless npm shim rather
+than at the runtime, and that the host spawns with no shell.
+
+Safe action: **point the command at `node` and pass the package's JS entrypoint as an argument**
+(plus the stdio/transport flag), per the Fix pattern above — never at the bare `.cmd` shim.
+Resolve the entrypoint via the package's declared `bin` (query the npm global location) instead of
+hardcoding a per-machine path. Apply this in a durable user-scope config, then reload the host.
+Do not "fix" it by re-enabling a shell spawn globally — that re-introduces the security exposure
+Node closed; correct the command target instead.
+
 ## Quick checklist
 
 - Identify whether the host spawns with no shell (the usual default).

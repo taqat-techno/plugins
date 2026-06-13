@@ -10,7 +10,7 @@
 - [[Odoo Plugin|Odoo-Plugin]]
 - [[DevOps Plugin|DevOps-Plugin]]
 - [[Rag Plugin|Rag-Plugin]]
-- [[Paper Plugin|Paper-Plugin]]
+- [[Ui Ux Mechanics Plugin|Ui-Ux-Mechanics-Plugin]]
 - [[Pandoc Plugin|Pandoc-Plugin]]
 - [[Remotion Plugin|Remotion-Plugin]]
 - [[Ntfy Plugin|Ntfy-Plugin]]

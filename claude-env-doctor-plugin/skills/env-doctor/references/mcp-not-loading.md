@@ -62,6 +62,64 @@ The ladder is platform-neutral. Concrete launcher and path forms differ per OS; 
 
 The diagnostic *behavior* — list, read the spawn command, run it manually, classify — does not change across platforms. Only the literal command text and path syntax do.
 
+## User MCP servers live in the user-level Claude JSON config — not a separate `mcp.json`
+
+A recurring dead end: looking for a standalone `mcp.json` to hold **user-scope** servers. There
+isn't one. User-scope MCP servers are stored as an `mcpServers` block **inside the single
+user-level Claude JSON config in the home directory** (the same dotfile the CLI owns). Creating or
+editing a separate `mcp.json` for user servers has no effect — the client never reads it for that
+scope.
+
+Decision rule restated for this trap:
+
+- **User-scope** server missing → inspect the `mcpServers` object inside the **user-level Claude
+  JSON config**, and prefer changing it through the `claude mcp` CLI rather than hand-editing.
+- **Plugin-declared** server missing → inspect the plugin's own `.mcp.json` (that file *is* the
+  right place for a plugin's servers; it is not the user-scope store).
+
+If you cannot find a user server's entry, you are almost certainly reading the wrong file. Confirm
+the user-level config path for the platform and look for the `mcpServers` key there before
+concluding the server was never registered.
+
+## Concurrent instances race-write the user config and drop each other's `mcpServers`
+
+The "Concurrent-session clobber" above has a sharper edge worth stating explicitly: two Claude
+Code instances open at once **race-write the same user-level JSON config**. Because each instance
+serializes its whole in-memory view of the file on a session event, the last writer wins and can
+**silently drop the `mcpServers` entries the other instance added** — there is no merge. A server
+you just registered in one window disappears when the other window saves.
+
+Localize before re-registering:
+
+- If a previously-working server vanished from `claude mcp list` (Rung 1) with no config edit of
+  your own, suspect a concurrent instance overwrote the file rather than a spawn fault.
+- Confirm whether another instance is (or recently was) open.
+
+Safe action: **close other instances so a single writer owns the config**, re-register the missing
+server, then re-run `claude mcp list` to confirm the entry survived. Do not script repeated
+re-writes while a second instance is live — they will keep clobbering each other.
+
+## A plugin MCP failing with `-32000` almost always means its spawned CLI isn't runnable
+
+A plugin MCP server that surfaces a JSON-RPC `-32000` (server/connection) error is rarely a
+protocol bug — it almost always means **the CLI command the plugin spawns cannot actually run**:
+the binary is missing from the host's `PATH`, the runtime version is wrong, an argument is bad, or
+a wrapper script can't be executed at the no-shell spawn layer (see `references/lsp-node-spawn.md`
+for the shim/`EINVAL` variant).
+
+This is exactly Rungs 2–4 above, applied to a `-32000`:
+
+1. Read the plugin's `.mcp.json` for the **literal** `command` + `args` of the failing server
+   (Rung 2). Do not paraphrase.
+2. **Run that exact command yourself in a plain terminal** (Rung 3). The client swallows the
+   server's startup output; running it by hand converts the opaque `-32000` into the real,
+   readable error.
+3. Classify the real error (Rung 4): missing binary / spawn failure / auth / wrong version.
+
+Safe action: report the manual-spawn output and the classification; propose the single matching
+fix (correct the command path, install the binary, point at the real runtime + JS entrypoint).
+Never echo any environment value the `.mcp.json` injects — report only its key names.
+
 ## For domain plugins: reference this ladder, do not copy it
 
 Domain-specific plugins that ship their own MCP server should **point their troubleshooting docs at this ladder** rather than restating it. Copying the steps into each plugin leads to drift: when the diagnosis procedure improves, copies go stale. Keep the single owning copy here and link to it; add only the plugin-specific facts (the server name, the binary it spawns, and its auth channel) in the plugin's own docs.

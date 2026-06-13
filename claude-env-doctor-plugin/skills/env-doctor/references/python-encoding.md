@@ -64,4 +64,23 @@ Notes on the snippet:
 - `errors="backslashreplace"` keeps the program running on the rare stream that still cannot encode a character, emitting a visible escape instead of crashing. Use the default strict errors if a crash is preferable to lossy output.
 - Setting `PYTHONIOENCODING=utf-8` in the environment and reconfiguring inside the script are complementary; doing both gives robust behavior whether the script is launched directly or wrapped by another process.
 
+## Diagnosis quick-path (Windows, non-ASCII / emoji output)
+
+When the symptom is precisely "a Python script crashes the moment it prints an emoji, accent, or
+box-drawing glyph on Windows" and the traceback names `cp1252`/`charmap`:
+
+1. **Observe** — confirm the failing call is an output (`print`/logging) of a non-ASCII character,
+   and the same script runs clean when output is redirected to a file or run on POSIX. That
+   confirms it is the *write*-side console codec, not a *read*-side BOM issue (see the Cause
+   section for why they are diagnosed separately).
+2. **Safe fix** — set `PYTHONIOENCODING=utf-8` for the process (the shell snippets above), and for
+   plugin-shipped scripts also reconfigure the streams at start-up. Setting both is complementary
+   and idempotent.
+3. **Do not** strip, transliterate, or delete the offending characters — that hides real data and
+   masks the same bug in the next script. The codec is what changes, not the data.
+
+When a plugin launches the script through a host that spawns with no shell, the env-var alone may
+not reach the child reliably — that is why the in-script `reconfigure()` wrapper exists, and why
+the spawn target matters (see `references/lsp-node-spawn.md` for the no-shell spawn discipline).
+
 Never echo secrets, tokens, or raw environment values as part of diagnosing or demonstrating an encoding problem.

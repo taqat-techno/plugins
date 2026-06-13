@@ -1,8 +1,8 @@
 ---
 name: wiki-source-of-truth
 description: Owns the source-of-truth doctrine for a project's knowledge — the declared order in which artifacts win, the target-vs-current-state separation, the single-location rule for config constants, and stale-checkbox distrust. Activates when onboarding a project from its docs and wiki, when auditing whether documentation still matches reality, or when two artifacts disagree and someone must decide which one is authoritative. Resolves conflicts with evidence rather than guessing, and routes per-claim verification to wiki-code-vs-docs-discrepancy.
-version: 0.1.0
-last_reviewed: 2026-05-31
+version: 0.2.0
+last_reviewed: 2026-06-13
 owns:
   - the declared knowledge-layer ORDER (which artifact wins for "what the system does now")
   - the TARGET/aspirational vs CURRENT-STATE doc separation rule (folder + label)
@@ -10,6 +10,7 @@ owns:
   - stale-checkbox distrust (doc checkboxes and percent-complete are never ground truth for scope)
   - the conflict-resolution decision (doc-fix vs queued-code-change) framing
   - the SOURCE-OF-TRUTH DECLARATION output block and the discrepancy-line format
+  - the provenance-preservation rule (a named decision's anchoring record is preserved, not neutralized) feeding tenant/client neutralization
 defers_to:
   - wiki-code-vs-docs-discrepancy (the per-claim code-vs-docs check that gathers the evidence)
   - wiki-structure (where pages live and how the wiki tree is shaped)
@@ -103,6 +104,18 @@ conflict found
 
 When a doc is misfiled, the recommended fix is to add `target_label` and/or move it to `target_location` — never to delete the content and never to treat it as present reality in the meantime.
 
+### Tenant/client neutralization vs provenance
+
+When a doc is being generalized or shared and contains a real tenant / client / customer name, the source-of-truth layer decides whether the name is incidental or load-bearing — and that decision drives whether it may be neutralized:
+
+| Where the name sits | Source-of-truth role | Neutralization decision |
+|---|---|---|
+| Current-state prose describing present behavior | incidental to a present-tense fact | NEUTRALIZE to a deterministic placeholder (active-target prose) |
+| A decision record / ADR-context / incident log that anchors a named decision | the **evidence** the decision rests on | PRESERVE byte-identical — the named event is provenance |
+| Operator / platform / vendor / team context | the context the operator needs | PRESERVE |
+
+The rule: **a named decision's anchoring record is provenance, not active prose.** Neutralizing it would make the decision unverifiable and could turn a true historical statement into a false generic one. Never run a blind global find/replace across a page that mixes current-state prose with provenance. Hand the per-hit classification to `references/neutralization-discipline.md` (owned alongside `wiki-authoring`); this skill only supplies the current-state-vs-provenance judgement it depends on. If a name hit's neutralization would change a config constant or a named decision's meaning, it is no longer cosmetic — route it through the conflict-resolution path above, not a scrub.
+
 ## Safety gates
 
 - **Never** silently pick a side on a conflict — always present the evidence and the recommended fix, and let the owner confirm.
@@ -112,6 +125,7 @@ When a doc is misfiled, the recommended fix is to add `target_label` and/or move
 - **Never** accept a checkbox or percent-complete as proof that scope is done without cross-checking `history_source` + `reports_source`.
 - **Never** invent intent for undocumented behavior — document what the code does, not what it "probably" means.
 - **Never** print secret values, tokens, or env contents while locating a config constant — reference the location, not the secret.
+- **Never** neutralize a tenant/client name inside a decision record / ADR-context / incident log — that record is provenance for a named decision; preserve it byte-identical.
 
 ## Validation checklist
 
@@ -123,6 +137,7 @@ When a doc is misfiled, the recommended fix is to add `target_label` and/or move
 - [ ] Each conflict carries evidence and a recommended fix — none was resolved silently.
 - [ ] No code was edited to match a doc unless the change was explicitly queued.
 - [ ] No secret value was printed during investigation.
+- [ ] If any tenant/client name was neutralized, current-state prose was classified separately from provenance records; no anchoring record was scrubbed.
 
 ## Output format
 
@@ -166,6 +181,7 @@ Discrepancy line (single-line form, when a compact list is preferred):
 | Editing code so it matches an out-of-date doc | Changes behavior to satisfy stale text; reverses the authority order | Fix the doc; only touch code when that change is explicitly queued |
 | Silently picking code-or-doc and moving on | Owner never sees the conflict or the decision | Present evidence + recommended fix; await confirmation |
 | Treating undocumented behavior as a bug to "fix" toward an imagined spec | Invents intent the project never stated | Document what the code does; flag the gap, don't guess intent |
+| Global find/replace of a client name across a page that includes a decision record | Scrubs the provenance a named decision rests on; makes it unverifiable | Neutralize current-state prose only; preserve the anchoring record byte-identical |
 
 ## Portability rationale
 
@@ -176,4 +192,5 @@ The doctrine is project-agnostic. The skill depends only on named adapter inputs
 - `wiki-code-vs-docs-discrepancy` — performs the per-claim code-vs-docs comparison and supplies the evidence this skill resolves on.
 - `wiki-structure` — owns where pages live and the shape of the wiki tree (informs `current_state_location` / `target_location`).
 - `wiki-vs-stray-docs` — decides whether a loose document belongs in the wiki at all before it can be classified here.
-- `wiki-safe-updates` — applies the DOC-FIX once a conflict's resolution is confirmed.
+- `wiki-safe-updates` — applies the DOC-FIX once a conflict's resolution is confirmed; also owns the safe-doc-deletion gate, whose capture-check relies on this skill's "is this decision genuinely captured" judgement.
+- `wiki-authoring` › `references/neutralization-discipline.md` — the per-hit tenant/client classification this skill's current-state-vs-provenance judgement feeds into.

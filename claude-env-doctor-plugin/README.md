@@ -29,14 +29,16 @@ Optional flags narrow the scope to one area (for example, focus only on MCP wiri
 
 ### `env-doctor`
 
-The routing skill that owns the diagnostic workflow. It decides which probes to run, interprets their output, and assembles the report. It pulls detailed, OS-specific guidance from six bundled reference documents:
+The routing skill that owns the diagnostic workflow. It decides which probes to run, interprets their output, and assembles the report. It pulls detailed, OS-specific guidance from eight bundled reference documents:
 
-1. **`references/mcp-wiring.md`** — MCP server start-up, transport, and configuration diagnosis.
-2. **`references/windows-wsl-networking.md`** — loopback, port-forwarding, and firewall checks across the Windows/WSL boundary.
-3. **`references/login-401-auth.md`** — credential, token-refresh, 401, and proxy/TLS diagnosis.
-4. **`references/lsp-node-spawn.md`** — language-server and Node process spawn failures, runtime and `PATH` checks.
-5. **`references/python-encoding.md`** — locale, code-page, and `PYTHONIOENCODING` issues that corrupt output.
-6. **`references/playwright-browser-mcp.md`** — browser-binary, headless-launch, and browser-MCP readiness diagnosis.
+1. **`references/mcp-not-loading.md`** — MCP server start-up, wiring, config-shadowing, concurrent-clobber, and `-32000` spawn diagnosis.
+2. **`references/windows-wsl.md`** — distro discovery, DNS-vs-TCP isolation, VPN/DNS conflicts, mirrored/nat networking quirks, `/tmp` path mapping, and content-search confirmation across the Windows/WSL boundary.
+3. **`references/login-auth.md`** — credential-shape vs. org-billing diagnosis, `forceLoginMethod` pinning, `settings.json` env override, single-tenant routing, and the per-project env trap.
+4. **`references/lsp-node-spawn.md`** — language-server and Node process spawn failures, the Windows npm-shim / `shell: false` trap, runtime and `PATH` checks.
+5. **`references/python-encoding.md`** — code-page and `PYTHONIOENCODING` issues that crash non-ASCII/emoji output on Windows.
+6. **`references/playwright-browser.md`** — browser-binary, headless-launch, and persistent-profile-lock diagnosis.
+7. **`references/ide-remote-dev.md`** — IDE remote-dev backend heap-OOM diagnosis (the "connection" symptom that is really a JVM OOM).
+8. **`references/doctor-command-ambiguity.md`** — `/doctor` routing ambiguity, non-interactive CLI health checks vs. the hanging TUI, managed-connector auth, and permissions-allowlist hygiene.
 
 Reference docs hold the heavy, platform-specific detail so the skill body stays a thin router. Add new failure modes by extending a reference doc first, then wiring it into the skill.
 

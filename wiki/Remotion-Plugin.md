@@ -102,7 +102,7 @@ cd my-video && npm run dev
 ## Related plugins and integrations
 
 - **ntfy** — push a notification to your phone when a long render finishes.
-- **paper** — use the design system output as visual templates for the video.
+- **ui-ux-mechanics** — use the design system output as visual templates for the video.
 - **pandoc** — convert a written article into a narration script, then feed it to Remotion.
 
 ## See also

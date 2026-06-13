@@ -257,6 +257,115 @@ Additional caveats:
 Safe action: recommend the WSL-native copy path for small-file-heavy transfers and a post-copy
 verification step. Do not delete the source until the destination is verified.
 
+## Bash `/tmp` maps to a Windows temp dir — write artifacts to an explicit path
+
+A common surprise when an agent runs commands through a Git-Bash-style shell on Windows (not
+inside a WSL distro): the shell's `/tmp` is **not** a Linux tmpfs. It is silently mapped onto the
+Windows per-user temp directory (the `LocalAppData` Temp area). A file the shell writes to
+`/tmp/foo.txt` lands at a Windows path, and the Read tool — which resolves real OS paths — cannot
+open it as `/tmp/foo.txt`. The artifact "vanishes" even though the write succeeded.
+
+Observe → localize:
+
+- A command reports it wrote `/tmp/<name>`, but a Read of `/tmp/<name>` (or of the literal
+  Windows temp path) fails or returns nothing.
+- Resolve where `/tmp` actually points before concluding the write failed:
+
+```bash
+# What the shell thinks /tmp is, and where it physically lands
+echo "$TMPDIR"
+cd /tmp && pwd -W   # pwd -W prints the Windows path form under Git Bash
+```
+
+Safe action: **have the command write its artifact to an explicit, agreed absolute path** (a
+project-relative path, or a Windows path you then Read directly) rather than to `/tmp`. Do not
+assume `/tmp` is Read-tool-resolvable on a Windows Git-Bash shell. This is a path-mapping quirk,
+not a missing-file fault — no mutation is warranted.
+
+## Confirm an "empty" content-search with a direct Read on an absolute path
+
+A content search (ripgrep-style) that returns zero hits is **not proof the string is absent**.
+On Windows the searched glob may exclude the file, the file may be outside the search root, an
+encoding/BOM may defeat the matcher, or the path may sit behind a boundary the indexer skipped.
+Treating an empty search as "the code doesn't contain X" sends the whole diagnosis down the wrong
+branch.
+
+Observe → localize → safe action:
+
+- When a search you expected to match comes back empty, **corroborate with a direct Read of the
+  specific absolute path** before believing the negative. The Read either confirms the string is
+  genuinely absent or exposes why the search missed it (wrong root, excluded glob, encoding).
+- Only after the direct Read agrees should you treat the symptom as "string truly absent." This
+  is read-only confirmation; never edit or regenerate a file to "make the search work."
+
+## WSL mirrored networking + persisted IDE port-forward = squat / feedback loop
+
+WSL2 *mirrored* networking mode shares the Windows network namespace with the distro, so a port a
+dev server binds **inside** WSL is reachable on Windows `localhost:<PORT>` with no manual
+forwarding. If an IDE (or a previous nat-mode setup) has *also* persisted an explicit port-forward
+for that same port, the forward now squats on the port on the Windows side — so the IDE's stale
+forwarder answers `localhost:<PORT>` instead of the live in-WSL server, or the two fight in a
+bind/forward feedback loop and the port behaves erratically.
+
+This is a cousin of the localhost-masquerade above, specific to the mirrored-mode + stale-forward
+combination. Diagnose by checking the networking mode and who owns the port on the Windows side:
+
+```powershell
+# Is mirrored mode actually in effect? (read the effective config)
+Get-Content "$env:USERPROFILE\.wslconfig" | Select-String -Pattern 'networkingMode'
+
+# Who is listening on the port on the Windows side, and which PID owns it?
+Get-NetTCPConnection -State Listen -LocalPort <PORT> |
+  Select-Object LocalAddress, LocalPort, OwningProcess
+```
+
+If mirrored mode is on **and** a separate IDE/forwarder PID owns the port (distinct from the WSL
+relay), the persisted forward is redundant and is the likely squatter.
+
+Safe action: **clear the stale IDE port-forward** (remove that one forwarding rule in the IDE's
+config) so the mirrored-mode pass-through reaches the live in-WSL server directly. Identify the
+owning PID first; do not blanket-kill listeners or flip the networking mode mid-diagnosis — both
+are more disruptive than removing the one redundant forward.
+
+## Mirrored-mode DNS can hang when a VPN mesh + its DNS overlap
+
+A second mirrored-mode pitfall: because the distro shares the Windows DNS path, a VPN mesh client
+running on Windows (one that installs its own overlay resolver / split-DNS for a private name
+suffix) can make name resolution **inside WSL hang** when the mesh's DNS and the system DNS
+overlap or contend. Public lookups stall or time out even though connectivity is otherwise fine —
+the in-WSL resolver is waiting on the contended overlay resolver.
+
+This overlaps the VPN/DNS-conflict section above; the mirrored-mode twist is that WSL inherits the
+contention rather than having its own resolver. Diagnose with the same resolver-latency comparison
+(system default vs. an explicit public resolver) from inside the distro, and confirm mirrored mode
+is in effect (see the `networkingMode` check above).
+
+Safe action: report the overlapping mesh-DNS interface and the mirrored-mode dependency to the
+user. The remedy (scoping the mesh's DNS to its private suffix only, or temporarily disconnecting
+the mesh to confirm) is the user's call — do not disconnect the VPN mesh or rewrite DNS scoping
+automatically.
+
+## nat-mode idle-stops the WSL VM
+
+In the default *nat* networking mode the lightweight WSL utility VM can be **idle-stopped** when
+no distro shell is active, releasing its virtual NIC and IP. A long-lived connection that targeted
+the old VM IP then drops, and the first reconnect pays a cold-start penalty while the VM and its
+NIC come back. This looks like an intermittent network fault but is the VM lifecycle, not a broken
+route.
+
+Observe → localize:
+
+- `wsl --list --verbose` shows the distro `Stopped` between uses; the VM IP changes across
+  cold-starts.
+- Mirrored mode does not exhibit the IP-churn variant (it uses the Windows namespace), so the
+  symptom appearing only in nat mode is itself a localizing signal.
+
+Safe action: prefer to **address services by name / the current relayed `localhost`** rather than
+pinning a captured VM IP, and expect a cold-start delay after idle. If stable in-WSL service
+reachability across idle periods is required, switching to mirrored mode is an option to *propose*
+(it changes networking semantics) — never flip `.wslconfig` automatically; surface the trade-off
+and let the user decide.
+
 ## Summary
 
 | Symptom | Section | First safe move |
@@ -267,3 +376,8 @@ verification step. Do not delete the source until the destination is verified.
 | Shell hangs / HCS timeout | HCS escalation ladder | terminate distro, stop at first that recovers |
 | "Fixed" service unchanged | localhost masquerade | check both sides, stop WSL-side service first |
 | Slow/failed bulk file copy | File-transfer caveats | copy from inside WSL to mounted drive |
+| Wrote `/tmp/...`, Read can't find it | `/tmp` maps to Windows temp | write to an explicit absolute path |
+| Empty content-search "proves" absence | Confirm with direct Read | Read the absolute path before believing the negative |
+| Port behaves erratically under mirrored mode | mirrored + stale forward | clear the redundant IDE port-forward |
+| In-WSL name lookups hang with a VPN mesh | mirrored-mode DNS overlap | compare resolver latency; report the overlap |
+| Intermittent drop, IP churn (nat mode) | nat-mode idle-stop | address by name; expect cold-start delay |

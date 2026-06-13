@@ -13,17 +13,19 @@ Production-ready Claude Code plugins for professional development — Odoo ERP, 
 
 | # | Plugin | Version | Category | Description | Documentation |
 |---|--------|---------|----------|-------------|---------------|
-| 1 | **odoo** | `2.1.0` | development | Unified Odoo development toolkit — upgrade, frontend themes, testing, security auditing, i18n/PO, reports, Docker infrastructure, and server lifecycle across Odoo 14–19. | [README](./odoo-plugin/README.md) |
-| 2 | **devops** | `6.4.0` | productivity | Azure DevOps HYBRID integration — work items, PRs, pipelines, repos, wiki via CLI + MCP, persistent profile, role-based state machine, plus a provider-neutral remote-write gate and CI-hardening checklist. | [README](./devops-plugin/README.md) |
+| 1 | **odoo** | `2.2.0` | development | Unified Odoo development toolkit — upgrade, frontend themes, testing, security auditing, i18n/PO, reports, Docker infrastructure, and server lifecycle across Odoo 14–19. | [README](./odoo-plugin/README.md) |
+| 2 | **devops** | `6.5.0` | productivity | Azure DevOps HYBRID integration — work items, PRs, pipelines, repos, wiki via CLI + MCP, persistent profile, role-based state machine, plus a provider-neutral remote-write gate and CI-hardening checklist. | [README](./devops-plugin/README.md) |
 | 3 | **rag** | `0.13.2` | productivity | Operational console for the ragtools local RAG product — install, configure, diagnose, repair, upgrade, run. Knows the Qdrant lock, dual-mode MCP, and failure modes. Defers generic environment/MCP diagnosis to `claude-env-doctor`. | [README](./rag-plugin/README.md) |
-| 4 | **paper** | `3.0.0` | design | UI/UX design specialist — screen design, wireframing, design review, Figma MCP sync, design systems, WCAG 2.1 AA accessibility auditing. | [README](./paper-plugin/README.md) |
+| 4 | **ui-ux-mechanics** | `3.1.0` | design | UI/UX design + Figma-MCP execution mechanics — screen design, wireframing, design review, design systems, WCAG 2.1 AA accessibility auditing, plus safe Figma MCP write workflows (write-access probing, metadata-lossiness handling, auto-layout/variant mechanics, prototype-link-safe edits). | [README](./ui-ux-mechanics-plugin/README.md) |
 | 5 | **pandoc** | `2.1.0` | productivity | Universal document conversion powered by Pandoc — 50+ input and 60+ output formats, citations, Arabic/RTL support. | [README](./pandoc-plugin/README.md) |
 | 6 | **remotion** | `2.1.0` | development | Create professional videos with smooth voice narration using Remotion — continuous audio pipeline, free edge-tts voices, video from text prompts. | [README](./remotion-plugin/README.md) |
 | 7 | **ntfy-notifications** | `3.0.0` | productivity | Push notifications to your phone via [ntfy.sh](https://ntfy.sh) when Claude completes tasks, needs input, or errors. Two-way Q&A. Free, no account. | [README](./ntfy-plugin/README.md) |
-| 8 | **react-kit** | `0.3.0` | development | Reusable React / Next.js patterns — architecture, admin panels, dashboards, CRUD/forms, role-aware UI, loading/error/empty/access states, data-fetching error handling, RTL/LTR, React-19 migration, and analyzer/lint finding triage. 11 skills + 3 commands + `admin-route-auditor` agent. | [README](./react-kit-plugin/README.md) |
-| 9 | **qa-browser** | `0.3.0` | productivity | Framework-agnostic browser QA + role-based smoke tests, layered over chrome-devtools / playwright MCP. Live identity/RBAC proof, host-scoped headers, disposable-data safety. 11 skills + 5 commands + 2 agents + production-URL gate. | [README](./qa-browser-plugin/README.md) |
-| 10 | **docs-wiki** | `0.3.0` | productivity | Generic toolkit for creating, organising, editing, validating, and auditing a project Wiki. Source-of-truth doctrine, page templates, flat-namespace + link conventions, code-vs-wiki drift. 8 skills + 6 commands + 3 agents + hooks. No wiki-to-memory sync. | [README](./docs-wiki-plugin/README.md) |
-| 11 | **claude-env-doctor** | `0.1.0` | productivity | Diagnose (never blindly mutate) the local Claude Code / dev environment — MCP wiring, Windows/WSL networking, login/401, LSP/Node spawn, Python encoding, Playwright browser setup. The canonical environment-troubleshooting home other plugins reference. | [README](./claude-env-doctor-plugin/README.md) |
+| 8 | **react-kit** | `0.5.0` | development | Reusable React / Next.js patterns — architecture, admin panels, dashboards, CRUD/forms, role-aware UI, loading/error/empty/access states, data-fetching error handling, RTL/LTR, React-19 migration, and analyzer/lint finding triage. 11 skills + 3 commands + `admin-route-auditor` agent. | [README](./react-kit-plugin/README.md) |
+| 9 | **qa-browser** | `0.4.0` | productivity | Framework-agnostic browser QA + role-based smoke tests, layered over chrome-devtools / playwright MCP. Live identity/RBAC proof, host-scoped headers, disposable-data safety. 11 skills + 5 commands + 2 agents + production-URL gate. | [README](./qa-browser-plugin/README.md) |
+| 10 | **docs-wiki** | `0.4.0` | productivity | Generic toolkit for creating, organising, editing, validating, and auditing a project Wiki. Source-of-truth doctrine, page templates, flat-namespace + link conventions, code-vs-wiki drift. 8 skills + 6 commands + 3 agents + hooks. No wiki-to-memory sync. | [README](./docs-wiki-plugin/README.md) |
+| 11 | **claude-env-doctor** | `0.2.0` | productivity | Diagnose (never blindly mutate) the local Claude Code / dev environment — MCP wiring, Windows/WSL networking, login/401, LSP/Node spawn, Python encoding, Playwright browser setup, IDE remote-dev OOM, `/doctor` ambiguity. The canonical environment-troubleshooting home other plugins reference. | [README](./claude-env-doctor-plugin/README.md) |
+| 12 | **agent-safety-guards** | `0.1.0` | productivity | Generic agent-session safety + multi-agent workflow-reliability guardrails — credential-compromise response, read-only immutability, authorization verification, no-fabrication discipline, and reliable fan-out orchestration. Advisory, never auto-mutates. | [README](./agent-safety-guards-plugin/README.md) |
+| 13 | **release-safety** | `0.1.0` | productivity | Provider-neutral release / deployment / migration safety — verify a fix is actually deployed to the target environment (not just merged), diff environment secrets before promotion, detect migration drift, run risky cutovers/migrations safely. | [README](./release-safety-plugin/README.md) |
 
 ---
 
@@ -120,13 +122,13 @@ Operations and support layer for the [ragtools](https://github.com/taqat-techno/
 
 ---
 
-### 4. Paper — UI/UX design specialist
+### 4. UI-UX-Mechanics — UI/UX design + Figma-MCP execution mechanics
 
-> 📖 [**Full documentation → `paper-plugin/README.md`**](./paper-plugin/README.md)
+> 📖 [**Full documentation → `ui-ux-mechanics-plugin/README.md`**](./ui-ux-mechanics-plugin/README.md)
 
-Transforms Claude into a professional UI/UX designer — screens, wireframes, and full design systems for web, iOS, Android, or desktop. Integrates with Figma via MCP. Enforces WCAG 2.1 AA accessibility.
+Transforms Claude into a professional UI/UX designer — screens, wireframes, and full design systems for web, iOS, Android, or desktop. Integrates with Figma via MCP and adds safe Figma MCP write mechanics (write-access probing, metadata-lossiness handling, auto-layout/variant mechanics, prototype-link-safe edits). Enforces WCAG 2.1 AA accessibility.
 
-**Key commands:** `/paper`, `/design`, `/design-review`, `/design-system`, `/figma-sync`, `/wireframe`. **Agents:** `design-reviewer`, `wireframe-builder`.
+**Key commands:** `/ui-ux-mechanics`, `/design`, `/design-review`, `/design-system`, `/figma-sync`, `/wireframe`. **Skills:** `design`, `figma-workflow`, `figma-mcp-mechanics`. **Agents:** `design-reviewer`, `wireframe-builder`.
 
 ---
 
@@ -219,11 +221,11 @@ Generic doctor for the local **Claude Code / dev environment**. It **diagnoses, 
 ```
 taqat-techno-plugins/
 ├── .claude-plugin/
-│   └── marketplace.json          # Marketplace metadata (11 plugins)
+│   └── marketplace.json          # Marketplace metadata (13 plugins)
 ├── odoo-plugin/                  # Unified Odoo development toolkit (v14-19)
 ├── devops-plugin/                # Azure DevOps HYBRID integration (CLI + MCP)
 ├── rag-plugin/                   # Ragtools local RAG operations console
-├── paper-plugin/                 # UI/UX design specialist (Figma MCP)
+├── ui-ux-mechanics-plugin/       # UI/UX design + Figma-MCP execution mechanics
 ├── pandoc-plugin/                # Universal document conversion
 ├── remotion-plugin/              # Video creation with voice narration
 ├── ntfy-plugin/                  # Mobile push notifications (ntfy.sh)
@@ -231,6 +233,8 @@ taqat-techno-plugins/
 ├── qa-browser-plugin/            # Browser QA + role-based smoke tests
 ├── docs-wiki-plugin/             # Project Wiki toolkit
 ├── claude-env-doctor-plugin/     # Local Claude Code / dev environment doctor
+├── agent-safety-guards-plugin/   # Agent-session safety + multi-agent workflow reliability
+├── release-safety-plugin/        # Provider-neutral release / deployment / migration safety
 ├── agent_skills_spec.md          # Claude Code skills specification
 ├── CLAUDE_CODE_PLUGIN_DEVELOPMENT_GUIDE.md  # Plugin development guide
 ├── CONTRIBUTING.md               # Contribution guidelines

@@ -63,15 +63,15 @@
       "homepage": "https://github.com/taqat-techno/plugins/tree/main/remotion-plugin"
     },
     {
-      "name": "paper",
-      "description": "UI/UX design specialist - design screens, wireframes, and design systems with Figma MCP integration and WCAG accessibility",
+      "name": "ui-ux-mechanics",
+      "description": "UI/UX design plus Figma-MCP execution mechanics - design screens, wireframes, and design systems, and safe Figma MCP write workflows (net-zero write probe, metadata-lossiness handling, auto-layout/variant mechanics, prototype-link-safe edits) with WCAG accessibility auditing",
       "author": {
         "name": "TaqaTechno",
         "email": "info@taqatechno.com"
       },
-      "source": "./paper-plugin",
+      "source": "./ui-ux-mechanics-plugin",
       "category": "design",
-      "homepage": "https://github.com/taqat-techno/plugins/tree/main/paper-plugin"
+      "homepage": "https://github.com/taqat-techno/plugins/tree/main/ui-ux-mechanics-plugin"
     },
     {
       "name": "rag",
@@ -127,6 +127,28 @@
       "source": "./claude-env-doctor-plugin",
       "category": "productivity",
       "homepage": "https://github.com/taqat-techno/plugins/tree/main/claude-env-doctor-plugin"
+    },
+    {
+      "name": "agent-safety-guards",
+      "description": "Generic agent-session safety and multi-agent workflow-reliability guardrails for Claude Code — credential-compromise response, read-only immutability, authorization verification, no-fabrication discipline, and reliable fan-out orchestration (small waves, null-safe reduce, journaled resume, verify-before-done). Advisory, never auto-mutates.",
+      "author": {
+        "name": "TaqaTechno",
+        "email": "info@taqatechno.com"
+      },
+      "source": "./agent-safety-guards-plugin",
+      "category": "productivity",
+      "homepage": "https://github.com/taqat-techno/plugins/tree/main/agent-safety-guards-plugin"
+    },
+    {
+      "name": "release-safety",
+      "description": "Provider-neutral release, deployment, and migration safety — verify a fix is actually deployed to the target environment (not just merged), diff environment secrets before promotion, detect migration drift, and run risky cutovers/migrations safely (discover, backup, stage+validate, additive cutover, archive-by-rename).",
+      "author": {
+        "name": "TaqaTechno",
+        "email": "info@taqatechno.com"
+      },
+      "source": "./release-safety-plugin",
+      "category": "productivity",
+      "homepage": "https://github.com/taqat-techno/plugins/tree/main/release-safety-plugin"
     }
   ]
 }

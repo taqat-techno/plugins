@@ -1,14 +1,15 @@
 ---
 name: wiki-authoring
 description: Content templates and authoring conventions for wiki pages — SOP, runbook, role guide, onboarding, release-and-handover, user manual, workflow doc, architecture overview, decision record. Each template names its required sections, its audience, its last-reviewed convention, and the anti-patterns the template prevents. Activates when creating a new wiki page (via /wiki-new) or significantly restructuring an existing page.
-version: 0.2.0
-last_reviewed: 2026-05-28
+version: 0.3.0
+last_reviewed: 2026-06-13
 owns:
   - page-template catalogue (SOP / runbook / role-guide / onboarding / release-handover / user-manual / workflow / architecture / decision-record)
   - last-reviewed convention (date + reviewer; surfaced at page top)
   - audience-declaration convention (who the page is for; surfaced at page top)
   - canonical-section ordering per template
   - linkable subsection convention (anchor-friendly headings)
+  - tenant/client neutralization discipline (per-hit classify-then-act; never a blind global find/replace)
 defers_to:
   - wiki-structure (filename + URL slug rules; sidebar placement)
   - wiki-mermaid (diagrams inside any page)
@@ -67,6 +68,16 @@ Every wiki page starts with:
 - **Summary** is the page's first paragraph and answers "what is this page".
 
 After the summary, the body follows the template.
+
+## Tenant / client neutralization
+
+Before a page is published or shared beyond the team that owns a name, every real tenant / client / customer / product name in it must be handled — but **not** by a blind global find/replace. Each occurrence plays a different role, so each hit is classified, then acted on:
+
+- **Active-target prose** (a tenant name in present-tense descriptive prose, incidental to a fact true of any tenant) → **neutralize** to a deterministic placeholder (`<TENANT>`, `Tenant-A`), mapping every spelling variant of the same real name to the same placeholder.
+- **Legacy reference / provenance** (a name inside a quoted record, incident log, ADR-context paragraph, or an example that anchors a rule) → **preserve byte-identical**; the rule or audit trail depends on it. If exposure is a concern, escalate whether the whole record belongs in a shared wiki — do not scrub the name.
+- **Operator / platform context** (the operating company, a vendor, a tool, the owning team) → **preserve**; neutralizing it would make the doc wrong.
+
+The full classification, the determinism rules, the decision flow, and the output plan live in `references/neutralization-discipline.md`. Apply the plan through `wiki-safe-updates` diff-preview so the owner sees which lines changed and which were deliberately left intact.
 
 ## Template catalogue
 
@@ -513,6 +524,7 @@ Default to "freeform" only when the page genuinely does not fit a template (Home
 - **Never** auto-populate the page body with placeholder content the user did not provide. The template is structure; the user supplies substance.
 - **Never** assume "Last reviewed" is today's date. Either ask the user or leave a placeholder.
 - **Never** include real PII / customer identifiers / secrets in template examples (the templates above use placeholders intentionally).
+- **Never** neutralize tenant/client names with a blind global find/replace — classify each hit first (active prose → neutralize; provenance → preserve byte-identical; operator/platform → preserve). See `references/neutralization-discipline.md`.
 - **Never** prescribe a wiki page when a code-side comment / commit message / PR description is the right place.
 - **Never** lock a page into one template after creation — pages evolve; allow the maintainer to restructure.
 
@@ -527,6 +539,7 @@ Before saving a new page:
 - [ ] Diagrams (if any) follow `wiki-mermaid` rules.
 - [ ] Internal links follow `wiki-structure` convention.
 - [ ] Filename matches the page title per `wiki-structure`.
+- [ ] Any real tenant/client name was classified per `references/neutralization-discipline.md` (no blind global replace); provenance lines preserved byte-identical.
 
 ## Output format
 
@@ -555,6 +568,7 @@ PROPOSED NEW PAGE — <path>
 | ADR rewritten after being accepted | Future readers cannot tell what changed and why | New ADR supersedes old |
 | User manual that screenshots every screen | Screenshots go stale fast; multiply edits | Screenshot the few that need pixel-level guidance |
 | FAQ as a dumping ground for things nobody actually asks | Wastes reader attention | Only real questions; each linked to where the answer lives in detail |
+| `sed s/AcmeCorp/<TENANT>/g` over the whole page to "anonymize" it | Corrupts provenance lines and rule-anchoring examples; changes what the page asserts | Classify each name hit; neutralize active prose, preserve provenance + platform context |
 
 ## Portability rationale
 
@@ -573,4 +587,6 @@ The skill does not depend on:
 - `wiki-safe-updates` — workflow for the actual write.
 - `wiki-link-validation` — verifies cross-references in templates.
 - `wiki-code-vs-docs-discrepancy` — applied if the page makes a claim contradicted by code.
+- `references/neutralization-discipline.md` — per-hit classification for tenant/client names (neutralize / preserve-provenance / preserve-platform).
+- `wiki-source-of-truth` — pairs with neutralization: current-state pages neutralize active prose; provenance / decision records preserve the named event.
 - `/wiki-new` (command) — invokes this skill.

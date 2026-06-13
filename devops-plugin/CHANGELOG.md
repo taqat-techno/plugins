@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [6.5.0] — 2026-06-13 — Release-safety reconciliation + conservative git-write hook
+
+### Added
+
+- `hooks/pre_git_write_gate.py` — PreToolUse/Bash hook enforcing the deterministic subset of `rules/git-remote-write-gate.md`. **HARD-BLOCKS (exit 2)** only on a force push (`--force` / `-f` / `--force-with-lease`) to a protected branch (main, master, production, prod, staging, release) OR a write whose target repo the **active `gh` account provably cannot access** (name mismatch alone never blocks — org pushes stay allowed; the block requires a confirmed-no-access `gh repo view` probe). **ADVISORY-WARNS (exit 0, one line)** on a plain push to a protected branch and on `gh pr create` / `gh release` / `gh api` writes. **IGNORES** reads, non-protected branches, and non-git commands. Stdlib-only, fail-open, never prints secrets/tokens.
+- `devops/CI_HARDENING.md` item 6 — release reconciliation: "merged" is not "deployed" (reconcile the environment's live SHA with the `git merge-base --is-ancestor` containment check AND map branch → environment from deploy config before calling a fix shipped), plus 6a — diff env-driven secrets between source and target environments **by key name/presence/shape only** before promoting, with special attention to keys a data migration depends on.
+
+### Changed
+
+- `hooks/hooks.json` — added a `Bash` PreToolUse matcher wired to `pre_git_write_gate.py` (existing Azure DevOps MCP and `PostToolUseFailure` entries unchanged).
+
+### Validation
+
+- `python validate_plugin.py devops-plugin` → 0 errors.
+- Hook battery: authorized org push to a feature branch, force-push to a feature branch, reads, and non-Bash tools all pass silently; force-push to protected branches and a confirmed-no-access target block (exit 2); plain protected-branch pushes and gh writes warn only.
+- Genericness sweep: 0 project-specific tokens outside labeled examples.
+
 ## [6.4.0] — 2026-05-31 — Provider-neutral remote-write gate + CI hardening reference
 
 ### Added
@@ -153,7 +170,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 #### Moved to Skill (Natural Language)
 - `/update-workitem` → Say "mark #1234 as done"
 - `/add-comment` → Say "comment on #1234"
-- `/switch-project` → Say "switch to relief center"
+- `/switch-project` → Say "switch to billing service"
 - `/build-status` → Say "any failing builds?"
 - `/create-pr` → Say "create PR from feature/login to main"
 - `/ci-setup` → Say "set up CI/CD for my project"

@@ -22,7 +22,7 @@ Started as a single `odoo-upgrade` plugin in **Oct 2025**. Grew rapidly:
 - `ntfy-plugin` — mobile push notifications.
 - `pandoc-plugin` — document conversion.
 - `remotion-plugin` — video creation with narration.
-- `paper-plugin` — UI/UX design.
+- `ui-ux-mechanics-plugin` (shipped this era as `paper-plugin`) — UI/UX design.
 
 Peak count: **13 plugins**. Every new Odoo capability got its own plugin directory. Every plugin had 5–10 narrow commands.
 
@@ -31,7 +31,7 @@ Peak count: **13 plugins**. Every new Odoo capability got its own plugin directo
 A striking commit pattern: `feat(<plugin>): v2.0 — consolidate N commands into 1 unified /X command`:
 
 - `pandoc`: **8 commands → 1** (`/pandoc setup|status|convert|formats|help`)
-- `paper`: **5 → 1** (`/paper` dispatcher)
+- `ui-ux-mechanics` (then named `paper`): **5 → 1** (single dispatcher command)
 - `ntfy`: **8 → 2** (`/ntfy` + `/ntfy-mode`)
 - `remotion`: **5 → 1** (`/remotion`)
 - `devops`: **24 → 9** with user profiles & role-based state permissions (`feat(devops-plugin): v4.2`)
@@ -86,6 +86,11 @@ Major audit reports produced in this era:
 **Marketplace README** — rewritten Apr 2026 to reflect actual 7-plugin filesystem state (previously listed 13 plugins with many broken links to removed Odoo sub-plugins).
 
 **Wiki** — `plugins/wiki/` directory created Apr 2026 with this documentation system.
+
+### Era 4 — Rename + safety-plugin expansion (Jun 2026)
+
+- **2026-06-13 — `paper` renamed to `ui-ux-mechanics`.** The design plugin was renamed: directory `paper-plugin/` → `ui-ux-mechanics-plugin/`, command `/paper` → `/ui-ux-mechanics`, package `paper` → `ui-ux-mechanics` (v3.0.0 → v3.1.0). The rename reflects the expanded scope: a new `figma-mcp-mechanics` skill adds safe Figma MCP write workflows (write-access probing, metadata-lossiness handling, auto-layout/variant mechanics, prototype-link-safe edits) alongside the existing `design` and `figma-workflow` skills. Wiki page renamed `Paper-Plugin` → `Ui-Ux-Mechanics-Plugin` with all inbound links updated.
+- **2026-06-13 — two new safety plugins added this cycle:** `agent-safety-guards` and `release-safety`. Both focus on guardrails around agent actions and release operations.
 
 ## Current state (Apr 2026)
 

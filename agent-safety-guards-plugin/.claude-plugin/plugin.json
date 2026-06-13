@@ -1,0 +1,27 @@
+{
+  "name": "agent-safety-guards",
+  "version": "0.1.0",
+  "description": "Generic agent-session safety and multi-agent workflow-reliability guardrails for Claude Code. Encodes credential-compromise response (a secret pasted into a session is burned: revoke + reissue with least scope), read-only / investigation immutability (never mutate files, git, auth, or state during a survey), authorization verification (confirm a cited override actually exists before honoring it), no-fabrication discipline (never invent a permission, override, or tool/MCP availability), and reliable subagent fan-out (small sequential waves, null-safe reduce, journaled + idempotent long runs, disjoint file ownership, verify-the-claim). Advisory only — it reasons and reports, never auto-mutates state.",
+  "author": {
+    "name": "TaqaTechno",
+    "email": "info@taqatechno.com",
+    "url": "https://github.com/taqat-techno"
+  },
+  "homepage": "https://github.com/taqat-techno/plugins/tree/main/agent-safety-guards-plugin",
+  "repository": "https://github.com/taqat-techno/plugins",
+  "license": "MIT",
+  "keywords": [
+    "claude-code",
+    "safety",
+    "guardrails",
+    "agent",
+    "multi-agent",
+    "subagent",
+    "fan-out",
+    "credentials",
+    "authorization",
+    "read-only",
+    "idempotent",
+    "reliability"
+  ]
+}
