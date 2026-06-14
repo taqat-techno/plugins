@@ -41,6 +41,7 @@ gettext-discipline and stack-safety rules:
 
 | Skill | Activates when… |
 |-------|-----------------|
+| `odoo-reviewer` | Reviewing, auditing, refactoring, or estimating technical debt for an Odoo 17/19 module; a `.py` / `.xml` / `__manifest__.py` from an addon is in scope; "Odoo code review", "manifest review", "is this best practice", "mixed-version cluster", "migrate to Odoo 19". 12-section checklist + severity rubric + v17→v19 deltas, every rule cited from the official Odoo docs |
 | `odoo-i18n-audit` | A translation's `msgstr` is filled but the UI still shows the source language; reviewing a `.po` diff; after editing a translatable label/selection/help/view term; before shipping a second language |
 | `odoo-stack-doctor` | A volume-destruction command is about to run; a mount-point change orphaned data; Postgres won't boot after regeneration; an upgrade "ran" but nothing changed; a theme is selected but renders blank; a standalone Postgres won't start; a restart self-kills (exit 144) or ports collide; a `-i`/`-u` was reported "exit 0" but is broken; a readiness poll or DB clone/drop is about to run |
 
@@ -50,6 +51,7 @@ gettext-discipline and stack-safety rules:
 - **frontend** — Theme creation, SCSS variables, snippets, Figma integration
 - **i18n** — String extraction, translation validation, Arabic/RTL
 - **report** — Email templates, QWeb PDF reports
+- **reviewer** — Code review & technical-debt knowledge base (12-section checklist, severity rubric, v17→v19 deltas) for Odoo 17/19
 - **security** — Access rules, route auth, sudo() audit, SQL injection scan
 - **service** — Server lifecycle, database ops, IDE config, module scaffold
 - **test** — Test generation, mock data, coverage analysis, E2E
