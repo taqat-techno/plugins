@@ -6,6 +6,7 @@ This plugin is licensed under **LGPL-3.0-or-later**.
 
 | Domain | Original Plugin | Original License | Version Merged |
 |--------|----------------|-----------------|----------------|
+| reviewer | odoo-reviewer | MIT | 2.4.0 |
 | docker | odoo-docker-plugin | MIT | 2.1.0 |
 | frontend | odoo-frontend-plugin | MIT | 8.4.0 |
 | i18n | odoo-i18n-plugin | MIT | 2.0.0 |

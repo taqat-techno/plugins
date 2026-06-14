@@ -2,6 +2,27 @@
 
 All notable changes to `odoo-plugin` are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/). Versioning follows [SemVer](https://semver.org/).
 
+## [2.4.0] — 2026-06-14 — Consolidate the Odoo code-review knowledge base (`odoo-reviewer` skill)
+
+### Added
+
+- `skills/reviewer/` (`odoo-reviewer`) — Authoritative Odoo 17 + 19 code-review and technical-debt knowledge base, moved in from the standalone `odoo-reviewer` plugin (Taqat-Trading-Business-Solutions/Plugins) and folded into this unified toolkit. Auto-activates on review/audit/tech-debt phrasing and whenever a `.py` / `.xml` / `__manifest__.py` from an Odoo addon is in scope. Ships:
+  - **12-section review checklist** in `SKILL.md` (manifest hygiene, module layout & file naming, XML conventions, Python style, symbols & class-attribute order, ORM patterns & inheritance, security, performance, views, JS/Owl/assets, testing, translation `_()`), v17 baseline with v19 deltas inlined.
+  - **8 reference files** — `coding_guidelines.md`, `orm_patterns.md`, `security_pitfalls.md`, `performance.md`, `module_manifest.md`, `testing.md`, `severity_model.md` (BLOCKER/MAJOR/MINOR/STYLE rubric + effort table), and `v19_deltas.md` (every reviewer-relevant 17→19 change + mixed-version cluster checklist).
+  - Every rule traces back to the official Odoo 17/19 documentation and cites its source.
+
+### Changed
+
+- Skill **normalized to the plugin's naming convention**: folder `odoo-17-reviewer` → `reviewer`, frontmatter `name: odoo-17-reviewer` → `odoo-reviewer` (the skill already covers 17+19, matching sibling skills `odoo-i18n-audit` / `odoo-stack-doctor`).
+- Skill content **genericized** for this fleet-agnostic toolkit: workspace-specific tokens (`TAQAT`, `Cluster1/Shared/Hub`) replaced with generic mixed-version / multi-cluster wording. No rule, citation, or severity changed.
+- `.claude-plugin/plugin.json` — version 2.3.0 → 2.4.0; description now leads with "code review & technical-debt".
+- `README.md` — `odoo-reviewer` added to the Audit/Doctor skills table and a `reviewer` domain added to the Domains list.
+
+### Validation
+
+- `python validate_plugin.py odoo-plugin` → 0 errors.
+- Genericness sweep over `skills/reviewer/` → 0 `TAQAT`/`Cluster1` tokens.
+
 ## [2.3.0] — 2026-06-13 — Odoo stack & DB lifecycle safety (restart/clone advisory + stack-doctor expansion)
 
 ### Added
