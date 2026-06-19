@@ -8,15 +8,15 @@ model: haiku
 tools:
   - Read
   - Bash
-  - mcp__azure-devops__wit_my_work_items
-  - mcp__azure-devops__wit_get_work_item
-  - mcp__azure-devops__wit_get_work_items_batch_by_ids
-  - mcp__azure-devops__wit_get_work_items_for_iteration
-  - mcp__azure-devops__wit_create_work_item
-  - mcp__azure-devops__wit_update_work_item
-  - mcp__azure-devops__wit_add_work_item_comment
-  - mcp__azure-devops__wit_work_items_link
-  - mcp__azure-devops__core_get_identity_ids
+  - mcp__plugin_devops_azure-devops__wit_my_work_items
+  - mcp__plugin_devops_azure-devops__wit_get_work_item
+  - mcp__plugin_devops_azure-devops__wit_get_work_items_batch_by_ids
+  - mcp__plugin_devops_azure-devops__wit_get_work_items_for_iteration
+  - mcp__plugin_devops_azure-devops__wit_create_work_item
+  - mcp__plugin_devops_azure-devops__wit_update_work_item
+  - mcp__plugin_devops_azure-devops__wit_add_work_item_comment
+  - mcp__plugin_devops_azure-devops__wit_work_items_link
+  - mcp__plugin_devops_azure-devops__core_get_identity_ids
 ---
 
 # Work Item Operations Agent

@@ -41,6 +41,11 @@ emit_json() {
 # Extract tool name
 TOOL_NAME=$(echo "$INPUT" | grep -o '"tool_name"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*"tool_name"[[:space:]]*:[[:space:]]*"//' | sed 's/"$//')
 
+# Normalize so the case below is namespace-agnostic. Claude Code names plugin MCP
+# tools "mcp__plugin_devops_azure-devops__<tool>"; legacy was "mcp__azure-devops__<tool>".
+# Strip any "...azure-devops__" prefix, leaving the bare tool segment (e.g. wit_create_work_item).
+TOOL_NAME="${TOOL_NAME##*azure-devops__}"
+
 # Helper: extract role from profile (supports YAML and Markdown table formats)
 get_user_role() {
   if [ ! -f "$PROFILE" ]; then
@@ -57,7 +62,7 @@ get_user_role() {
 }
 
 case "$TOOL_NAME" in
-  mcp__azure-devops__wit_update_work_item)
+  wit_update_work_item)
     # Extract target state if this is a state change
     TARGET_STATE=""
     if echo "$INPUT" | grep -q '"System\.State"'; then
@@ -87,7 +92,7 @@ case "$TOOL_NAME" in
     exit 0
     ;;
 
-  mcp__azure-devops__wit_create_work_item)
+  wit_create_work_item)
     # Extract work item type
     WI_TYPE=$(echo "$INPUT" | grep -oE '"workItemType"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*"workItemType"[[:space:]]*:[[:space:]]*"//' | sed 's/"$//')
 
@@ -114,7 +119,7 @@ case "$TOOL_NAME" in
     exit 0
     ;;
 
-  mcp__azure-devops__wit_add_work_item_comment)
+  wit_add_work_item_comment)
     # HARD BLOCK: Unresolved @mentions
     if echo "$INPUT" | grep -qE '@[a-zA-Z]'; then
       if ! echo "$INPUT" | grep -q 'data-vss-mention'; then
@@ -125,7 +130,7 @@ case "$TOOL_NAME" in
     exit 0
     ;;
 
-  mcp__azure-devops__repo_create_pull_request)
+  repo_create_pull_request)
     # Check if repositoryId is a name instead of GUID
     REPO_ID=$(echo "$INPUT" | grep -oE '"repositoryId"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*"repositoryId"[[:space:]]*:[[:space:]]*"//' | sed 's/"$//')
     if [ -n "$REPO_ID" ]; then

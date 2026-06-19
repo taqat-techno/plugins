@@ -42,11 +42,9 @@ class TestFileExistence:
         "agents/sprint-planner.md",
         "agents/pr-reviewer.md",
         "hooks/hooks.json",
-        "hooks/session-start.sh",
+        "hooks/session_start_check.py",
         "hooks/pre-write-validate.sh",
-        "hooks/pre-bash-check.sh",
-        "hooks/post-bash-suggest.sh",
-        "hooks/error-recovery.sh",
+        "hooks/pre_git_write_gate.py",
         ".claude-plugin/plugin.json",
     ])
     def test_expected_file_exists(self, path):
@@ -171,18 +169,21 @@ class TestHooksConsistency:
         assert len(pre_hooks) >= 2, "Should have at least Bash check and write validation hooks"
 
     def test_write_validation_hook_targets_correct_tools(self, hooks_config):
+        # The write-validation hook uses a string regex matcher targeting ADO write tools.
+        # It must be NAMESPACE-AGNOSTIC: matching both the legacy "mcp__azure-devops__*"
+        # name and the current plugin-namespaced "mcp__plugin_devops_azure-devops__*" name.
         pre_hooks = hooks_config["hooks"]["PreToolUse"]
-        # Find the hook with tool_names matcher
         write_hook = None
         for h in pre_hooks:
             matcher = h.get("matcher", "")
-            if isinstance(matcher, dict) and "tool_names" in matcher:
+            if isinstance(matcher, str) and "azure-devops" in matcher and "wit_create_work_item" in matcher:
                 write_hook = h
                 break
-        assert write_hook is not None, "Should have a write validation hook with tool_names matcher"
-        tool_names = write_hook["matcher"]["tool_names"]
-        assert "mcp__azure-devops__wit_update_work_item" in tool_names
-        assert "mcp__azure-devops__wit_create_work_item" in tool_names
+        assert write_hook is not None, "Should have a write-validation hook matching ADO write tools"
+        matcher = write_hook["matcher"]
+        assert re.search(matcher, "mcp__azure-devops__wit_create_work_item")
+        assert re.search(matcher, "mcp__plugin_devops_azure-devops__wit_create_work_item")
+        assert re.search(matcher, "mcp__plugin_devops_azure-devops__wit_update_work_item")
 
 
 # ─── State Names Consistency ────────────────────────────────────

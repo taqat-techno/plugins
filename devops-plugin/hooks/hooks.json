@@ -1,9 +1,21 @@
 {
-  "description": "Azure DevOps integration hooks - role-based write validation, conservative git remote-write gate, and error recovery",
+  "description": "Azure DevOps integration hooks - lightweight SessionStart profile/data health check, role-based write validation, and a conservative git remote-write gate. Matchers are namespace-agnostic: they match both the legacy 'mcp__azure-devops__*' and the current plugin-namespaced 'mcp__plugin_devops_azure-devops__*' tool names. (MCP error-recovery guidance is provided in-context via devops/MCP_FAILURE_MODES.md; Claude Code has no per-tool-failure hook event.)",
   "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python \"${CLAUDE_PLUGIN_ROOT}/hooks/session_start_check.py\"",
+            "timeout": 8
+          }
+        ]
+      }
+    ],
     "PreToolUse": [
       {
-        "matcher": "mcp__azure-devops__wit_create_work_item|mcp__azure-devops__wit_update_work_item|mcp__azure-devops__wit_add_work_item_comment|mcp__azure-devops__wit_work_items_link|mcp__azure-devops__repo_create_pull_request",
+        "matcher": "mcp__(plugin_devops_)?azure-devops__wit_create_work_item|mcp__(plugin_devops_)?azure-devops__wit_update_work_item|mcp__(plugin_devops_)?azure-devops__wit_add_work_item_comment|mcp__(plugin_devops_)?azure-devops__wit_work_items_link|mcp__(plugin_devops_)?azure-devops__repo_create_pull_request",
         "hooks": [
           {
             "type": "command",
@@ -19,18 +31,6 @@
             "type": "command",
             "command": "python \"${CLAUDE_PLUGIN_ROOT}/hooks/pre_git_write_gate.py\"",
             "timeout": 6
-          }
-        ]
-      }
-    ],
-    "PostToolUseFailure": [
-      {
-        "matcher": "mcp__azure-devops__.*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/error-recovery.sh\"",
-            "timeout": 10
           }
         ]
       }

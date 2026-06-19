@@ -208,13 +208,15 @@ class TestMcpServerDeclared:
     def test_mcp_json_declares_azure_devops(self):
         with open(PLUGIN_ROOT / ".mcp.json") as f:
             config = json.load(f)
-        servers = config.get("mcpServers", {})
+        # Plugin .mcp.json uses a top-level server map; tolerate a legacy mcpServers wrapper.
+        servers = config.get("mcpServers", config)
         assert "azure-devops" in servers, ".mcp.json must declare azure-devops server"
 
     def test_mcp_json_uses_env_vars(self):
         with open(PLUGIN_ROOT / ".mcp.json") as f:
             content = f.read()
-        assert "${ADO_PAT_TOKEN}" in content, ".mcp.json should use ADO_PAT_TOKEN env var"
+        # @azure-devops/mcp with "--authentication envvar" reads the PAT from ADO_MCP_AUTH_TOKEN.
+        assert "${ADO_MCP_AUTH_TOKEN}" in content, ".mcp.json should use ADO_MCP_AUTH_TOKEN env var"
         assert "${ADO_ORGANIZATION}" in content, ".mcp.json should use ADO_ORGANIZATION env var"
 
 
@@ -232,7 +234,7 @@ class TestStalenessConfigurable:
         assert isinstance(wt["profileStalenessThresholdDays"], int)
 
     def test_session_start_reads_from_config(self):
-        content = (HOOKS_DIR / "session-start.sh").read_text(encoding="utf-8")
+        content = (HOOKS_DIR / "session_start_check.py").read_text(encoding="utf-8")
         assert "profileStalenessThresholdDays" in content, (
             "session-start.sh should read threshold from project_defaults.json"
         )
@@ -248,23 +250,23 @@ class TestSessionStartConsistencyChecks:
     """Verify session-start.sh has lightweight consistency checks."""
 
     def test_json_validation_in_session_start(self):
-        content = (HOOKS_DIR / "session-start.sh").read_text(encoding="utf-8")
+        content = (HOOKS_DIR / "session_start_check.py").read_text(encoding="utf-8")
         assert "json.load" in content, "session-start should validate JSON syntax"
         assert "state_machine.json" in content
         assert "project_defaults.json" in content
 
     def test_plugin_version_check(self):
-        content = (HOOKS_DIR / "session-start.sh").read_text(encoding="utf-8")
+        content = (HOOKS_DIR / "session_start_check.py").read_text(encoding="utf-8")
         assert "plugin.json" in content, "session-start should check plugin version"
 
     def test_profile_field_check(self):
-        content = (HOOKS_DIR / "session-start.sh").read_text(encoding="utf-8")
+        content = (HOOKS_DIR / "session_start_check.py").read_text(encoding="utf-8")
         assert "teamMembers:" in content, "session-start should check for teamMembers field"
 
     def test_data_file_existence_check(self):
-        content = (HOOKS_DIR / "session-start.sh").read_text(encoding="utf-8")
+        content = (HOOKS_DIR / "session_start_check.py").read_text(encoding="utf-8")
         assert "hierarchy_rules.json" in content, "session-start should verify core data files exist"
 
     def test_profile_schema_version_check(self):
-        content = (HOOKS_DIR / "session-start.sh").read_text(encoding="utf-8")
+        content = (HOOKS_DIR / "session_start_check.py").read_text(encoding="utf-8")
         assert "schemaVersion" in content, "session-start should check profile schema version"

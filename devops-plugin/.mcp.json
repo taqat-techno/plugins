@@ -2,7 +2,7 @@
   "azure-devops": {
     "type": "stdio",
     "command": "npx",
-    "args": ["-y", "@azure-devops/mcp", "${ADO_ORGANIZATION}", "--authentication", "envvar"],
+    "args": ["-y", "@azure-devops/mcp@2.7.0", "${ADO_ORGANIZATION}", "--authentication", "envvar"],
     "env": {
       "ADO_MCP_AUTH_TOKEN": "${ADO_MCP_AUTH_TOKEN}"
     }
