@@ -32,7 +32,7 @@ Run these checks silently and build a status table:
 | **ADO_MCP_AUTH_TOKEN** | Read `$ADO_MCP_AUTH_TOKEN` env var. If empty on Windows, also check registry: `powershell.exe -Command "[Environment]::GetEnvironmentVariable('ADO_MCP_AUTH_TOKEN','User')"` | Non-empty string |
 | **ADO_ORGANIZATION** | Read `$ADO_ORGANIZATION` env var. If empty on Windows, also check registry: `powershell.exe -Command "[Environment]::GetEnvironmentVariable('ADO_ORGANIZATION','User')"` | Org name only (no URL) |
 | **Profile** | Check if `~/.claude/devops.md` exists. If yes, read `lastRefresh` date. | Exists, <30 days old |
-| **MCP Server** | Try `mcp__azure-devops__core_list_projects({})`. If it works, MCP is live. | Returns project list |
+| **MCP Server** | Try `mcp__plugin_devops_azure-devops__core_list_projects({})`. If it works, MCP is live. | Returns project list |
 | **Azure CLI** | Run `az --version 2>/dev/null` | Installed |
 | **CLI Extension** | Run `az extension show --name azure-devops 2>/dev/null` | Installed |
 | **Pending Init** | Check if `~/.claude/devops-init-pending.json` exists | Usually absent |
@@ -218,7 +218,7 @@ Verify the plugin's `@azure-devops/mcp` MCP server connects successfully:
 
 ```javascript
 // Test MCP connectivity
-mcp__azure-devops__core_list_projects({})
+mcp__plugin_devops_azure-devops__core_list_projects({})
 // Should return a list of projects the user has access to
 ```
 
@@ -271,20 +271,22 @@ If the user picks option 1, run the "Profile Refresh" workflow instead.
 
 ### Step 1: Resolve Current User Identity
 
-**Method A (MCP preferred)**:
+**Method A (MCP — only if available in your server version)**:
 ```javascript
-mcp__azure-devops__core_get_connection_data({})
+// NOTE: @azure-devops/mcp 2.7.0 does NOT expose a connection-data/whoami tool.
+// If this tool is unavailable, use Method B (CLI) or Method C below.
+mcp__plugin_devops_azure-devops__core_get_connection_data({})
 // Returns: { authenticatedUser: { id, displayName, uniqueName } }
 ```
 
-**Method B (CLI fallback)**:
+**Method B (CLI fallback — reliable)**:
 ```bash
 az devops user show --user "me" --output json
 ```
 
 **Method C (Identity search)**:
 ```javascript
-mcp__azure-devops__core_get_identity_ids({ "searchFilter": authenticatedUser.uniqueName })
+mcp__plugin_devops_azure-devops__core_get_identity_ids({ "searchFilter": authenticatedUser.uniqueName })
 ```
 
 Extract: `displayName`, `email`/`uniqueName`, `guid`/`id`

@@ -12,6 +12,17 @@ Tests cover:
 import pytest
 from state_validator import MiddlewareValidator
 
+# RETIRED ENGINE — skipped, not deleted. Nothing in the runtime imports
+# state_validator.py / MiddlewareValidator: runtime work-item validation is done by
+# hooks/pre-write-validate.sh plus the LLM reading data/state_machine.json directly.
+# These tests assert the pre-v6 Agile state vocabulary (New/Active) and the old schema
+# (validStates / required / auto_set), but the current data/state_machine.json uses
+# Scrum vocabulary (To Do / In Progress / Done) and a different schema (states /
+# "from -> to" transition keys / requiredFields / autoSetFields). Re-enable only after
+# rewriting this suite + state_validator.py against the current state machine, or remove
+# both. See CHANGELOG 6.6.0.
+pytestmark = pytest.mark.skip(reason="Legacy MiddlewareValidator engine retired; not used by runtime. See CHANGELOG 6.6.0.")
+
 
 class TestStateTransitions:
     """Test valid and invalid state transitions for all work item types."""

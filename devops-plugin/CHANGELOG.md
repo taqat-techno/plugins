@@ -7,6 +7,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [6.6.0] — 2026-06-20 — MCP tool-name namespace fix (hooks + agents) + auth-var doc alignment
+
+### Fixed
+
+- **MCP tool-name namespace drift (root cause of "DevOps not working").** Claude Code now exposes plugin MCP tools as `mcp__plugin_devops_azure-devops__*`, but the plugin still referenced the legacy bare `mcp__azure-devops__*`. Effect: the role-based write-validation hook never matched, and the `work-item-ops` / `pr-reviewer` / `sprint-planner` agents were spawned with **zero** Azure DevOps tools (verified empirically). Fixes:
+  - `hooks/hooks.json` — write-validation matcher is now namespace-agnostic: `mcp__(plugin_devops_)?azure-devops__…` (matches both legacy and current names).
+  - `hooks/pre-write-validate.sh` — normalizes the tool name (`TOOL_NAME="${TOOL_NAME##*azure-devops__}"`) so the `case` is namespace-agnostic.
+  - `agents/work-item-ops.md`, `agents/pr-reviewer.md`, `agents/sprint-planner.md` — `tools:` grants updated to `mcp__plugin_devops_azure-devops__*`.
+  - `commands/init.md` — MCP verification/identity tool references namespaced.
+- **Agent tool reconciliation to `@azure-devops/mcp` 2.7.0** (tools renamed/removed upstream): `repo_list_pull_requests` → `repo_list_pull_requests_by_repo_or_project`; `work_get_team_iterations` → `work_list_team_iterations`; dropped removed `repo_get_commit_diffs` (pr-reviewer now diffs via local `git`) and redundant `work_get_iteration_work_items`. Flagged `core_get_connection_data` (no 2.7.0 equivalent) in `init.md`.
+- **Auth env-var + package-name doc drift.** `devops/SKILL.md` and `devops/MCP_FAILURE_MODES.md` told users to set `ADO_PAT_TOKEN` and reference `@anthropic-ai/azure-devops-mcp`; corrected to `ADO_MCP_AUTH_TOKEN` and `@azure-devops/mcp` (the manifest `.mcp.json` was already correct — verified against the official server docs).
+
+### Added
+
+- `hooks/session_start_check.py` — lightweight **single-process** SessionStart hook (profile existence/staleness/required-fields/schemaVersion checks + core data-file JSON validation), wired into `hooks/hooks.json` (`SessionStart`/`startup`, `timeout: 8`). Replaces the legacy `session-start.sh`, which spawned 4+ separate Python subprocesses (the latency the prior stabilization flagged). Emits the official `hookSpecificOutput` JSON, fails open via a cancelled daemon watchdog + top-level try/except, exits 0 in all cases. Runs in ~0.1s.
+
+### Removed
+
+- Invalid `PostToolUseFailure` hook block from `hooks/hooks.json` — `PostToolUseFailure` is not a Claude Code hook event, so it never fired. MCP error-recovery guidance remains available in `devops/MCP_FAILURE_MODES.md`.
+- Four dead/unwired hook scripts deleted: `hooks/error-recovery.sh` (was bound to the invalid event), `hooks/session-start.sh` (replaced by `session_start_check.py`), `hooks/pre-bash-check.sh`, `hooks/post-bash-suggest.sh` (orphaned by a prior stabilization; never referenced by `hooks.json`).
+
+### Changed
+
+- `.mcp.json` — pinned the server to `@azure-devops/mcp@2.7.0` (was unpinned/floating).
+
+### Tests
+
+- `tests/test_consistency.py` — `test_write_validation_hook_targets_correct_tools` rewritten to assert the new string matcher is namespace-agnostic (matches both legacy and plugin-namespaced names); `TestFileExistence` list updated to the current hook scripts (`session_start_check.py`, `pre-write-validate.sh`, `pre_git_write_gate.py`).
+- `tests/test_integration_flows.py` — `.mcp.json` env-var test now expects `ADO_MCP_AUTH_TOKEN`; server-declaration test tolerates the top-level (plugin) shape; SessionStart content checks repointed to `session_start_check.py`.
+- `tests/test_legacy_validator.py` — **quarantined (module-level skip)**. The `MiddlewareValidator` engine it tests is retired: nothing in the runtime imports it (runtime validation is `hooks/pre-write-validate.sh` + the LLM reading `data/state_machine.json`). Its assertions use the pre-v6 Agile vocabulary (New/Active) and old schema, while the current `data/state_machine.json` uses Scrum vocabulary (To Do/In Progress) and a different schema. Skipped rather than fake-passed; recommend a future rewrite-against-current-data or removal of the suite + `state_validator.py`.
+
+### Validation
+
+- `python validate_plugin.py devops-plugin` → exit 0, 0 errors (also confirmed without the `PYTHONUTF8` workaround after the validator's Windows-console fix).
+- `pytest tests/` → **181 passed, 68 skipped (legacy suite), 0 failed**.
+- `python -m json.tool` on `hooks/hooks.json` and `.mcp.json`; `bash -n` on `pre-write-validate.sh`; `py_compile` on `pre_git_write_gate.py` and `session_start_check.py` → all pass. New SessionStart hook runs in ~0.1s and exits 0 with valid JSON.
+- Empirical: a spawned `work-item-ops` agent confirmed the pre-fix bare grants resolved to **no** ADO tools.
+
+*(Workspace-level: `validate_plugin.py` gained a `sys.stdout`/`stderr` UTF-8 reconfigure so it no longer crashes with `UnicodeEncodeError` on Windows cp1252 consoles. Committed alongside this change.)*
+
 ## [6.5.0] — 2026-06-13 — Release-safety reconciliation + conservative git-write hook
 
 ### Added

@@ -12,6 +12,16 @@ import re
 from typing import Dict, List, Tuple, Optional
 import argparse
 
+# Ensure the emoji/Unicode status output works on Windows consoles. Without this the
+# default cp1252 encoding raises UnicodeEncodeError on the first emoji and aborts the run.
+for _stream in (sys.stdout, sys.stderr):
+    _reconfigure = getattr(_stream, "reconfigure", None)
+    if callable(_reconfigure):
+        try:
+            _reconfigure(encoding="utf-8")
+        except Exception:
+            pass
+
 try:
     import yaml
     HAS_YAML = True

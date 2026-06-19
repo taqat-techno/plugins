@@ -1,6 +1,6 @@
 # MCP Server Failure Modes & Recovery
 
-When the Azure DevOps MCP server (`@anthropic-ai/azure-devops-mcp`) is unavailable or errors occur, use this guide for recovery and CLI fallback.
+When the Azure DevOps MCP server (`@azure-devops/mcp`) is unavailable or errors occur, use this guide for recovery and CLI fallback.
 
 ---
 
@@ -11,14 +11,14 @@ When the Azure DevOps MCP server (`@anthropic-ai/azure-devops-mcp`) is unavailab
 **Common Causes**:
 - `npx` installation failed (network issue, npm registry down)
 - Node.js not installed or wrong version (requires 16+)
-- Environment variables not set (`ADO_PAT_TOKEN`, `ADO_ORGANIZATION`)
+- Environment variables not set (`ADO_MCP_AUTH_TOKEN`, `ADO_ORGANIZATION`)
 
 **Recovery**:
 1. Check Node.js: `node --version` (expect 16+)
 2. Check npx: `npx --version`
-3. Verify env vars: `echo $ADO_PAT_TOKEN` (should not be empty)
+3. Verify env vars: `echo $ADO_MCP_AUTH_TOKEN` (should not be empty)
 4. Reinstall: Run `/init` to reconfigure MCP server
-5. Manual test: `npx -y @anthropic-ai/azure-devops-mcp@latest`
+5. Manual test: `npx -y @azure-devops/mcp@latest`
 
 **Prevention**: Pin MCP version in `.mcp.json` instead of using `@latest` for production stability.
 
@@ -31,7 +31,7 @@ When the Azure DevOps MCP server (`@anthropic-ai/azure-devops-mcp`) is unavailab
 **Recovery**:
 1. Regenerate PAT at `https://dev.azure.com/{org}/_usersSettings/tokens`
 2. Required scopes: **Code** (Read/Write), **Work Items** (Read/Write), **Build** (Read/Execute)
-3. Set env var: `export ADO_PAT_TOKEN="your-new-pat"`
+3. Set env var: `export ADO_MCP_AUTH_TOKEN="your-new-pat"`
 4. Verify: `az devops login` (for CLI fallback)
 
 **CLI Fallback**: `az login` uses device code authentication (no PAT needed).
@@ -86,8 +86,8 @@ When MCP is unavailable, the CLI (`az devops`) can handle many operations:
 **Cause**: `@latest` in `.mcp.json` pulled a breaking MCP server update.
 
 **Recovery**:
-1. Check current version: `npx @anthropic-ai/azure-devops-mcp --version`
-2. Pin to known-good version in `.mcp.json`: change `@latest` to `@6.2.0`
+1. Check current version: `npx @azure-devops/mcp --version`
+2. Pin to known-good version in `.mcp.json` (e.g. `@azure-devops/mcp@2.7.0`)
 3. Clear npx cache: `npx clear-npx-cache`
 
 **Prevention**: Pin the MCP server version in `.mcp.json` for production use.

@@ -44,7 +44,7 @@ metadata:
   allowed-tools: "Read, Write, Bash, WebFetch, Glob, Grep"
   organization: "YOUR-ORG"
   mode: "hybrid"
-  mcp-server: "@anthropic-ai/azure-devops-mcp"
+  mcp-server: "@azure-devops/mcp"
   cli-extension: "azure-devops"
   tools-count: "100+ MCP tools + full CLI"
 ---
@@ -55,10 +55,10 @@ metadata:
 
 - **Organization**: YOUR-ORG
 - **Mode**: HYBRID (CLI + MCP)
-- **MCP Server**: `@anthropic-ai/azure-devops-mcp`
+- **MCP Server**: `@azure-devops/mcp`
 - **CLI Extension**: `azure-devops` (via Azure CLI 2.30.0+)
 - **Auth CLI**: `AZURE_DEVOPS_EXT_PAT` env var
-- **Auth MCP**: `ADO_PAT_TOKEN` env var
+- **Auth MCP**: `ADO_MCP_AUTH_TOKEN` env var
 - **Tools**: 100+ MCP tools + full CLI
 - **MCP Failures**: If MCP server is unavailable, see `devops/MCP_FAILURE_MODES.md` for recovery and CLI fallback matrix.
 

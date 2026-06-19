@@ -11,17 +11,16 @@ tools:
   - Bash
   - Glob
   - Grep
-  - mcp__azure-devops__wit_my_work_items
-  - mcp__azure-devops__wit_get_work_item
-  - mcp__azure-devops__wit_get_work_items_batch_by_ids
-  - mcp__azure-devops__wit_get_work_items_for_iteration
-  - mcp__azure-devops__wit_get_query_results_by_id
-  - mcp__azure-devops__work_get_team_iterations
-  - mcp__azure-devops__work_get_team_capacity
-  - mcp__azure-devops__work_get_iteration_work_items
-  - mcp__azure-devops__core_list_projects
-  - mcp__azure-devops__core_get_identity_ids
-  - mcp__azure-devops__search_workitem
+  - mcp__plugin_devops_azure-devops__wit_my_work_items
+  - mcp__plugin_devops_azure-devops__wit_get_work_item
+  - mcp__plugin_devops_azure-devops__wit_get_work_items_batch_by_ids
+  - mcp__plugin_devops_azure-devops__wit_get_work_items_for_iteration
+  - mcp__plugin_devops_azure-devops__wit_get_query_results_by_id
+  - mcp__plugin_devops_azure-devops__work_list_team_iterations
+  - mcp__plugin_devops_azure-devops__work_get_team_capacity
+  - mcp__plugin_devops_azure-devops__core_list_projects
+  - mcp__plugin_devops_azure-devops__core_get_identity_ids
+  - mcp__plugin_devops_azure-devops__search_workitem
 ---
 
 # Sprint Planner Agent
@@ -39,7 +38,7 @@ You produce analytical reports and planning artifacts for Azure DevOps sprints.
 ## Data Gathering Pattern
 
 1. Load profile per `rules/profile-loader.md`
-2. Get current iteration via `work_get_team_iterations`
+2. Get current iteration via `work_list_team_iterations`
 3. Fetch iteration work items via `wit_get_work_items_for_iteration`
 4. Get full details via `wit_get_work_items_batch_by_ids`
 5. Aggregate, analyze, format report

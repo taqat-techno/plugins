@@ -10,19 +10,18 @@ tools:
   - Bash
   - Glob
   - Grep
-  - mcp__azure-devops__repo_get_repo_by_name_or_id
-  - mcp__azure-devops__repo_get_branch_by_name
-  - mcp__azure-devops__repo_list_pull_requests
-  - mcp__azure-devops__repo_get_pull_request_by_id
-  - mcp__azure-devops__repo_create_pull_request
-  - mcp__azure-devops__repo_update_pull_request
-  - mcp__azure-devops__repo_update_pull_request_reviewers
-  - mcp__azure-devops__repo_list_pull_request_threads
-  - mcp__azure-devops__repo_create_pull_request_thread
-  - mcp__azure-devops__repo_reply_to_comment
-  - mcp__azure-devops__repo_get_commit_diffs
-  - mcp__azure-devops__wit_link_work_item_to_pull_request
-  - mcp__azure-devops__core_get_identity_ids
+  - mcp__plugin_devops_azure-devops__repo_get_repo_by_name_or_id
+  - mcp__plugin_devops_azure-devops__repo_get_branch_by_name
+  - mcp__plugin_devops_azure-devops__repo_list_pull_requests_by_repo_or_project
+  - mcp__plugin_devops_azure-devops__repo_get_pull_request_by_id
+  - mcp__plugin_devops_azure-devops__repo_create_pull_request
+  - mcp__plugin_devops_azure-devops__repo_update_pull_request
+  - mcp__plugin_devops_azure-devops__repo_update_pull_request_reviewers
+  - mcp__plugin_devops_azure-devops__repo_list_pull_request_threads
+  - mcp__plugin_devops_azure-devops__repo_create_pull_request_thread
+  - mcp__plugin_devops_azure-devops__repo_reply_to_comment
+  - mcp__plugin_devops_azure-devops__wit_link_work_item_to_pull_request
+  - mcp__plugin_devops_azure-devops__core_get_identity_ids
 ---
 
 # PR Reviewer Agent
@@ -79,7 +78,7 @@ You manage all pull request operations — creation, review, threads, and merges
 After fetching PR data via MCP tools, perform analysis directly:
 
 1. Get PR details via `repo_get_pull_request_by_id`
-2. Get diffs via `repo_get_commit_diffs`
+2. Get diffs locally via Bash `git fetch` + `git diff origin/{target}...origin/{source}` (the ADO MCP server exposes no commit-diff tool; use the local checkout)
 3. Count files, additions, deletions from diff data
 4. Assess risk based on: file count, change scope, affected areas
 5. Format output using the PR Review Format template above
