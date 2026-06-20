@@ -79,10 +79,10 @@ deletion requested
   └─ Cross-reference sweep: all surfaces grepped, every hit categorized?
         ├─ any uncategorized hit → BLOCK; finish the sweep
         ├─ any rewrite / delete-with-target unhandled → BLOCK; handle in this change set
-        └─ all resolved → deletion may proceed (still via diff-preview + push-approval)
+        └─ all resolved → deletion may proceed
 ```
 
-The deletion itself still flows through the diff-preview and push-approval gates in the parent skill. This reference adds a gate *in front of* those; it does not replace them. Removal is a `git rm` + commit, never a force-push or history rewrite — the file stays recoverable from history.
+This checklist is an **optional, advisory** sanity check before deleting wiki content — it does not block you. Removal is typically a `git rm` + commit; `revert` keeps the file recoverable from history if you change your mind.
 
 ---
 

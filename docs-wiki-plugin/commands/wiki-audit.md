@@ -57,7 +57,7 @@ WIKI AUDIT — <wiki-path> — <date>
   Adapter cache: <loaded | not loaded>
 
 SUMMARY
-  HIGH: <count> — block push until resolved
+  HIGH: <count> — recommend fixing before push (advisory)
   MEDIUM: <count>
   LOW: <count>
 
@@ -109,7 +109,7 @@ OR `--out <path>` to override.
 
 Suggest next steps:
 
-- HIGH findings → block any wiki push; fix first.
+- HIGH findings → recommend fixing before push (advisory; not enforced).
 - MEDIUM → fix opportunistically; track in maintainer's queue.
 - LOW (orphans) → confirm intent; either link, archive, or accept.
 

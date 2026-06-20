@@ -1,6 +1,6 @@
 ---
 name: wiki-vs-stray-docs
-description: Refuse to create or grow stray docs/ folders inside a code repo when a project wiki exists; surface the conflict to the user; document the wiki-is-the-source rule. Activates on any Write or Edit to a path matching docs/ or doc/ or documentation/ in a repo that has a sibling wiki clone or an in-repo wiki/ folder. Respects retired-folder list.
+description: Advisory (non-blocking) — when a code repo also has a project wiki and a new docs/ file appears, gently surface the wiki-is-the-source option to the user; never blocks or refuses the write. Activates on any Write or Edit to a path matching docs/ or doc/ or documentation/ in a repo that has a sibling wiki clone or an in-repo wiki/ folder. Respects retired-folder list.
 version: 0.2.0
 last_reviewed: 2026-05-28
 owns:
