@@ -1,27 +1,4 @@
 {
-  "description": "docs-wiki hooks — PreToolUse push-approval gate on wiki git push + stray-docs warning on Write/Edit to docs/ paths when a wiki is present. Push gate is BLOCKING; stray-docs is advisory unless a clear conflict is detected.",
-  "hooks": {
-    "PreToolUse": [
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python \"${CLAUDE_PLUGIN_ROOT}/hooks/pre_wiki_push_gate.py\"",
-            "timeout": 5
-          }
-        ]
-      },
-      {
-        "matcher": "Write|Edit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python \"${CLAUDE_PLUGIN_ROOT}/hooks/pre_stray_docs_check.py\"",
-            "timeout": 5
-          }
-        ]
-      }
-    ]
-  }
+  "description": "docs-wiki has no hooks. The plugin is a non-blocking GitHub-wiki helper (skills, commands, templates, link/drift audits). It does NOT gate git push, force-push, or Write/Edit — there are no restrictions.",
+  "hooks": {}
 }

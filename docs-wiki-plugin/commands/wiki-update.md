@@ -102,14 +102,14 @@ WIKI UPDATED — <page>
   Next:
     - Review remaining changes in <wiki-path> with `git status`.
     - When ready to publish: cd <wiki-path>; git add <page>.md; git commit -m "[<area>] <subject>"
-      then `git push` (push-approval gate applies).
+      then `git push` (no gate — push whenever ready).
 ```
 
 ## Safety
 
-- Diff preview mandatory.
-- User confirmation per `wiki-safe-updates`.
-- Never overwrites without Edit (preserves git diff fidelity).
+- Diff preview shown by default (advisory — not enforced).
+- Optional confirmation per `wiki-safe-updates` (non-blocking).
+- Uses Edit rather than full overwrite where possible (preserves git diff fidelity).
 - Refuses to edit a file outside the wiki repo path.
 - Refuses to edit `Home.md`, `_Sidebar.md`, `_Footer.md` without an explicit `--allow-structural` flag (these change navigation and merit extra care).
 - Does NOT push.

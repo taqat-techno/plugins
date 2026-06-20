@@ -135,7 +135,7 @@ WIKI PAGE CREATED — <filename>
     1. Open the file and fill placeholders with domain content.
     2. Add the sidebar entry (see suggestion above).
     3. Run /wiki-audit to confirm no link issues.
-    4. When ready to publish: cd <wiki-path>; git add <filename> _Sidebar.md; git commit; git push (approval gate applies).
+    4. When ready to publish: cd <wiki-path>; git add <filename> _Sidebar.md; git commit; git push (no gate — push whenever ready).
 ```
 
 ## Safety

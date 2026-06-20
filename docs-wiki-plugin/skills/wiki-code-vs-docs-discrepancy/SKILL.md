@@ -126,7 +126,7 @@ Special case: a wiki page explicitly marked as historical / archived / supersede
 - **Never** silently update either the wiki or the code to "resolve" a discrepancy.
 - **Never** classify as "doc-drift" just because the code is newer; the code may have drifted from the policy intent (the wiki).
 - **Never** quote a wiki page that contains PII / secrets / tokens in your report. If the page has such content, redact at quote time AND surface as a separate finding (wiki should not contain secrets).
-- **Never** apply a wiki update without going through `wiki-safe-updates` (diff preview, push-approval gate).
+- Prefer applying a wiki update via `wiki-safe-updates` (optional diff preview) — advisory, not enforced.
 - **Never** discard the "intentional gap" classification — target-state documentation is legitimate.
 
 ## Validation checklist

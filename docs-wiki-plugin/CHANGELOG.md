@@ -2,6 +2,43 @@
 
 All notable changes to `docs-wiki-plugin` are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/). Versioning follows [SemVer](https://semver.org/).
 
+## [0.5.0] — 2026-06-20 — Remove all restrictions: non-blocking GitHub-wiki helper
+
+The plugin no longer blocks, gates, or restricts any git/file operation. It is now a
+purely advisory helper for working on a wiki. Wiki-quality safeguards that prevent a
+*broken/unrenderable* wiki (basename-collision and PII checks) are kept as help, not gates.
+
+### Removed
+
+- **Both blocking hooks.** `hooks/hooks.json` is now empty (`{"hooks":{}}`). Deleted
+  `hooks/pre_wiki_push_gate.py` (the wiki `git push` approval gate, incl. force-push
+  refusal) and `hooks/pre_stray_docs_check.py` (the Write/Edit stray-docs block). No
+  hook fires; `DOCS_WIKI_PUSH_APPROVED` / `DOCS_WIKI_ALLOW_STRAY` are no longer needed.
+- The whole env-var-set → restart → push → unset approval dance is gone.
+
+### Changed
+
+- `skills/wiki-safe-updates` rewritten as **optional, non-blocking tips** (diff preview
+  for big overwrites, revert-over-reset rollback, one-purpose commits, retired-folder
+  awareness, optional pre-deletion reference check). Removed the push-approval gate,
+  the "no force-push ever" rule, the diff-preview-non-negotiable mandate, and the
+  pre-deletion gate. `git push` / force-push are explicitly unrestricted. (skill 1.0.0)
+- `skills/wiki-vs-stray-docs` description reframed from "Refuse to create stray docs" to
+  advisory surfacing only (it already only surfaced; the framing now matches).
+- `plugin.json`, `README.md`, and `commands/{wiki-init,wiki-new,wiki-update,wiki-audit}.md`
+  updated to drop "push-approval gate applies" / "block push" / "mandatory" wording.
+
+### Kept (help, not restriction)
+
+- Filename-uniqueness (basename-collision) and PII/secret checks — these prevent a wiki
+  GitHub cannot render or a leak, and never block your push.
+- Link-validation and code-vs-wiki drift audits remain advisory reports.
+
+### Validation
+
+- `python validate_plugin.py docs-wiki-plugin` → exit 0, 0 errors.
+- `python -m json.tool hooks/hooks.json` → valid (empty hooks).
+
 ## [0.4.0] — 2026-06-13 — Anchor rules + safe doc deletion + neutralization discipline
 
 ### Added

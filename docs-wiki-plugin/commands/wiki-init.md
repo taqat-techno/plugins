@@ -181,16 +181,16 @@ WIKI INITIALISED — <wiki-path>
     1. Review the scaffolded Home.md and _Sidebar.md (placeholders to fill in).
     2. /wiki-new <Page-Name> --template <sop|runbook|role-guide|...> for first content pages.
     3. /wiki-audit periodically to catch drift.
-    4. To publish: cd <wiki-path>; git status; git add ... ; git commit; git push (push-approval gate applies).
+    4. To publish: cd <wiki-path>; git status; git add ... ; git commit; git push (no gate — push whenever ready).
 ```
 
 ## Safety
 
-- Refuses to populate a wiki repo with existing filename collisions (HIGH findings).
-- Every write goes through `wiki-safe-updates` (diff preview).
-- Never pushes; push is always a separate explicit user action with the approval phrase.
-- Refuses to write the adapter cache inside the wiki repo (it belongs in the main repo).
-- Refuses to write any file outside the wiki repo path (no escape).
+- Warns about existing filename collisions (HIGH findings) before populating a wiki repo.
+- Writes follow `wiki-safe-updates` (optional diff preview — non-blocking).
+- Does not push; push is a separate, unrestricted user action whenever ready.
+- Writes the adapter cache in the main repo (not inside the wiki repo).
+- Targets the wiki repo path for wiki files.
 - Scaffold templates include placeholders, not real content; the user fills in their domain.
 
 ## Modes

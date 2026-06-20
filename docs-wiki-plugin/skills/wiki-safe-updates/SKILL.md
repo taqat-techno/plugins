@@ -1,20 +1,18 @@
 ---
 name: wiki-safe-updates
-description: Safe workflow for editing and publishing wiki pages — diff preview before write, push-approval gate (no push without explicit user "push approved"), no force-push ever, retired-folder awareness (folders intentionally archived are not "drift"), rollback strategy via revert (never reset --hard), and a pre-deletion verification gate before removing a docs tree or page. Activates before any wiki write, wiki git push, or removal of a docs folder / page / section.
-version: 0.3.0
-last_reviewed: 2026-06-13
+description: Optional best-practice tips for editing and publishing a GitHub wiki — preview a diff before a big overwrite, prefer git revert over reset --hard for rollback, one purpose per commit, retired-folder awareness, and an optional reference check before deleting a page. Purely advisory and non-blocking — the plugin does NOT gate git push, force-push, or Write/Edit. Help, not gates.
+version: 1.0.0
+last_reviewed: 2026-06-20
 owns:
-  - diff-preview-before-write contract
-  - push-approval gate (explicit user phrase required)
-  - no-force-push rule
+  - diff-preview suggestion (optional)
+  - revert-based rollback tip
+  - one-purpose-per-commit tip
   - retired-folder awareness
-  - revert-based rollback strategy
-  - one-purpose-per-commit rule for wiki changes
-  - safe-doc-deletion gate (capture-check + cross-reference sweep before removing a docs tree / page / section)
+  - optional reference check before deleting a page
 defers_to:
-  - wiki-structure (the structural rules a change must respect)
-  - wiki-link-validation (run before push to catch breakage)
-  - wiki-code-vs-docs-discrepancy (when a wiki update would resolve a code/wiki gap; the user must decide direction first)
+  - wiki-structure (structural conventions a write may follow)
+  - wiki-link-validation (optional pre-push broken-link sweep)
+  - wiki-code-vs-docs-discrepancy (optional code-vs-wiki drift report)
   - project release SOP (any project-specific wiki-publishing convention)
 user_invocable: false
 ---
@@ -23,292 +21,57 @@ user_invocable: false
 
 ## Purpose
 
-A wiki publishes to readers the moment its repo is pushed. There is no review queue, no PR by default, no staging — `git push` is the deploy. This skill owns the safeguards that prevent the most-painful classes of accidents: silent overwrites, premature pushes, force-pushes that erase history, and "drift" reports on folders that were intentionally archived.
+Helpful, **optional** tips for working on a GitHub wiki. None of this blocks you — the
+plugin imposes **no gates** on writing, pushing, force-pushing, or deleting. Use what's
+useful; skip what isn't. A GitHub wiki publishes the moment its repo is pushed
+(`git push` is the deploy), so these tips just help avoid the common foot-guns.
 
-The skill is the gate. Every command that writes the wiki (`/wiki-init`, `/wiki-new`, `/wiki-update`, `/wiki-audit --fix`) goes through it.
+## Tips
 
-## When to use
+**Preview before a big overwrite (optional).** For a large edit to an existing page it
+can help to glance at the diff first so a wrong edit is easy to catch — but writing the
+file directly is completely fine when you already know what you want.
 
-Activate before:
-
-- Any `Write` or `Edit` to a file inside the wiki repo path.
-- Any `git push` from the wiki repo.
-- Any wiki-side cleanup ("remove orphan pages", "rename for collision").
-- Any removal of a docs tree, a wiki page, or a documented section ("delete the old docs/ folder", "drop the legacy decisions", "we migrated this to the wiki, remove the source").
-- Any rollback action.
-
-Skip when:
-
-- The work is purely a read / audit (`/wiki-audit` without `--fix`).
-- The work is on the main repo, not the wiki repo (the main repo has its own review process).
-
-## Inputs
-
-- Wiki repo path (from adapter cache).
-- The specific files being written / edited.
-- The user's expectation (initialise / add page / edit existing / push / rollback).
-- The retired-folder list (folders intentionally archived; see `wiki-vs-stray-docs`).
-
-## The diff-preview-before-write rule
-
-For ANY edit to an existing wiki file:
-
-1. Read the current file content.
-2. Compute the diff between current and proposed.
-3. Show the diff to the user inline.
-4. Wait for explicit confirmation before applying.
-
-```
-PROPOSED CHANGE — wiki/Deploy-SOP.md
-
-  --- current
-  +++ proposed
-  @@ -42,7 +42,9 @@
-   1. Run `./deploy.sh` from the build server.
-  -2. Verify the deploy via `/health`.
-  +2. Verify the deploy via the `/api/health` endpoint.
-  +3. Confirm the env label on the landing page matches the URL.
-   4. Update the deploy log.
-
-  Apply this change? [yes / no / edit]
-```
-
-Three response paths:
-
-- `yes` → apply the edit; report the new file path.
-- `no` → discard the proposed edit; report no change.
-- `edit` → user wants to refine; surface the proposal and let them adjust before applying.
-
-For NEW files (no existing content to diff):
-
-```
-PROPOSED NEW PAGE — wiki/Restart-API-Runbook.md
-  Size: 142 lines
-  Template: runbook
-  First 20 lines:
-    # Restart the API
-    ...
-  Apply? [yes / no / edit]
-```
-
-The diff-preview is non-negotiable. The plugin does not allow "just write the file" mode.
-
-## The push-approval gate
-
-The wiki repo's `git push` is a publish. Apply this rule:
-
-```
-NEVER push the wiki without an explicit user statement to push.
-```
-
-Implementation:
-
-- The plugin's `PreToolUse` hook on `Bash(git push)` against any path containing `.wiki` (or matching the adapter's wiki-path pattern) BLOCKS the push.
-- The block prints the explicit confirmation phrase required: `push approved` (configurable, lowercase, exact match).
-- The user must type the phrase in the conversation before the next `git push` invocation runs.
-- The approval is for one push. The next push re-prompts.
-
-The plugin commands never call `git push` themselves. Push is always an explicit human action.
-
-## No force-push, ever
-
-The wiki repo's history is the record of what was published when. Force-push erases that record and breaks any external link to a specific revision.
-
-```
-REFUSE: git push --force / git push -f / git push --force-with-lease
-```
-
-The plugin's PreToolUse hook also blocks force-push variants. If the user truly needs to rewrite history (rare and dangerous), they must:
-
-1. Disable the hook for the session (explicit step).
-2. Document the reason in the wiki repo's commit message or notes.
-3. Re-enable the hook.
-
-The plugin never automates around this.
-
-## Retired-folder awareness
-
-Some folders in a wiki are intentionally archived: `_archived/`, `_deprecated/`, `historical/`, `_old/`, `attic/`. Their contents are NOT current; readers should not follow links from them; auditors should not flag them as "drift".
-
-The retired-folder list is per-project, supplied via adapter:
-
-```json
-{
-  "retiredFolders": ["_archived/", "_deprecated/", "_legacy/"]
-}
-```
-
-Effect:
-
-- `wiki-link-validation` skips orphan reporting for pages inside retired folders.
-- `wiki-code-vs-docs-discrepancy` does not flag a retired page as in contradiction with current code.
-- `wiki-vs-stray-docs` does not warn about retired folder existence.
-- Diff-preview still applies to retired-folder writes — historical content is still editable.
-
-## Safe doc deletion (pre-deletion gate)
-
-Deleting a docs tree, a wiki page, or a documented section is irreversible from a reader's point of view — inbound links break and the only record left is git history nobody re-reads. Before any such removal, two checks are mandatory:
-
-1. **Capture-check** — every NAMED final decision in the doomed content must be genuinely captured in the source-of-truth wiki. "Scattered across three pages but never named" is a migration gap, not a capture; treat it as NOT captured.
-2. **Cross-reference sweep** — grep every place that could link to the content (other wiki pages, code comments, CI workflows, root README / instruction files, build/coverage artifacts) and categorize each hit as **rewrite** / **accept-stale** / **delete-with-target** before removing anything.
-
-The full procedure, the grep target list, and the reference-categorization rules live in `references/safe-doc-deletion.md`. Deletion still flows through the diff-preview and push-approval gates above; this is an extra gate in front of them, not a replacement.
-
-```
-REFUSED — proposed deletion of docs content
-  Reason: <decision "X" not found named in the wiki> | <N inbound references uncategorized>
-  Next: run the capture-check + cross-reference sweep (references/safe-doc-deletion.md)
-```
-
-## One-purpose-per-commit rule
-
-Wiki commits should be one-purpose:
-
-- One commit for content edits on one topic.
-- A separate commit for a rename.
-- A separate commit for a sidebar update.
-- A separate commit for a navigation reorganization.
-
-Why: when a wiki page goes wrong (e.g., a broken link slipped through), the maintainer reverts THAT commit. Mixed-purpose commits force "revert + manually re-add" recovery.
-
-Commit message format (project may override):
-
-```
-[<area>] <one-line subject>
-
-<optional body explaining the change>
-
-Reviewed-by: <person> (optional)
-```
-
-`<area>`:
-
-- `[SOP]` SOP page change
-- `[RUNBOOK]` runbook change
-- `[ARCH]` architecture / system doc
-- `[NAV]` sidebar / Home navigation
-- `[ARCHIVE]` move to retired folder
-- `[FIX]` link fix, typo, collision rename
-- `[STRUCT]` structural change
-
-## Revert-based rollback
-
-When a wiki change goes wrong:
+**Rollback with revert (keeps history).** If a change goes wrong:
 
 ```
 git -C <wiki-repo-path> revert <commit-sha>
-# review the revert commit's diff
-# git push (with the push-approval gate)
+git -C <wiki-repo-path> push
 ```
 
-Never `git reset --hard`, never `git push --force`. Revert keeps history intact and signals "we tried; we rolled back" rather than "we pretend this never happened."
+`git reset --hard` and force-push also work if you prefer them — your call. `revert` is
+just friendlier because it preserves the published history.
 
-For multi-commit rollback: `git revert <oldest-bad>..<newest-bad>` produces one revert commit per bad commit (or use `-n` to stage all and commit once with a clear message).
+**One purpose per commit (optional, tidier rollback).** Keeping content edits, renames,
+and sidebar/navigation changes in separate commits makes a single `revert` clean. Mixed
+commits are fine too.
 
-## Safety gates
+**Retired-folder awareness.** Folders intentionally archived (`_archived/`,
+`_deprecated/`, `historical/`, `_old/`, `attic/`) hold non-current content. The audit
+skills skip them so they aren't flagged as "drift":
 
-- **Never** write a wiki file without diff preview.
-- **Never** push the wiki without the explicit user confirmation phrase.
-- **Never** force-push (`--force`, `-f`, `--force-with-lease`).
-- **Never** use `git reset --hard` on the wiki repo.
-- **Never** combine multiple unrelated changes in one wiki commit.
-- **Never** flag retired-folder content as drift.
-- **Never** auto-resolve a `wiki-link-validation` finding without user review.
-- **Never** modify `_Sidebar.md` or `Home.md` without diff preview + maintainer confirmation.
-- **Never** delete a docs tree / page / section before the capture-check and cross-reference sweep are done and every inbound reference is categorized (see `references/safe-doc-deletion.md`).
-- **Never** treat "the decision is scattered across other pages" as "captured" — unnamed-but-scattered is a migration gap, so deletion stays blocked.
-
-## Validation checklist
-
-Before each wiki write:
-
-- [ ] Diff preview shown.
-- [ ] User explicitly confirmed `yes`.
-- [ ] Target file inside the wiki repo path (no escape).
-- [ ] No secrets / PII in the proposed content (scan before write).
-
-Before each wiki push:
-
-- [ ] User typed the confirmation phrase in this session.
-- [ ] `git status` is clean except for the intended commits.
-- [ ] `git log <branch> --not <remote>/<branch>` shows the commits about to publish.
-- [ ] Link validation ran AND surfaced no HIGH findings.
-- [ ] No force-push flag in the command.
-
-Before deleting any docs tree / page / section (see `references/safe-doc-deletion.md`):
-
-- [ ] Every NAMED final decision in the doomed content is confirmed captured in the source-of-truth wiki (scattered-but-unnamed counts as NOT captured).
-- [ ] Cross-reference sweep ran across wiki pages, code comments, CI workflows, root README / instruction files, and build/coverage artifacts.
-- [ ] Every inbound reference is categorized rewrite / accept-stale / delete-with-target.
-- [ ] All `rewrite` and `delete-with-target` references are handled in the same change set as the deletion.
-
-## Output format
-
-For a write proposal:
-
-```
-PROPOSED WRITE — <file>
-  Mode: <new | edit>
-  Diff: <inline diff for edits | first N lines for new files>
-  Scan: no secrets detected | <finding>
-  Apply? [yes / no / edit]
+```json
+{ "retiredFolders": ["_archived/", "_deprecated/", "_legacy/"] }
 ```
 
-For a push proposal:
+**Before deleting a page (optional sanity check).** Deleting a page breaks any inbound
+links to it. If you'd like, grep for references first — `references/safe-doc-deletion.md`
+has a checklist — but it's a suggestion, not a requirement.
+
+## Pushing
+
+Pushing the wiki is **unrestricted** — there is no approval gate and no force-push block.
+Push whenever you're ready:
 
 ```
-PROPOSED PUSH — <wiki-repo-path>
-  Branch: master
-  Commits about to publish: <count>
-    <sha-short> <subject>
-    <sha-short> <subject>
-  Link validation: PASS (0 HIGH findings)
-  Confirmation phrase required: push approved
-  (waiting for user input...)
+git -C <wiki-repo-path> push origin master
 ```
-
-For a refused operation:
-
-```
-REFUSED — <action>
-  Reason: <missing diff preview | no push approval | force-push attempted | secret detected | retired-folder spurious flag | deletion without capture-check / cross-reference sweep>
-  How to proceed: <step the user can take>
-```
-
-## Anti-patterns (and why)
-
-| Anti-pattern | Why it's wrong | Correct |
-|---|---|---|
-| Write the wiki file in one shot, no diff | User has no chance to catch a wrong edit | Diff preview |
-| Push the wiki because the user said "okay" earlier | Approval drift; "okay" was for the edit, not the publish | Explicit phrase per push |
-| Force-push to fix a bad commit | Erases the bad commit AND anyone else's parallel work | Revert + push |
-| Bundle navigation + content edits in one commit | Rollback either reverts both or neither | One purpose per commit |
-| Flag `_archived/Old-SOP.md` as drift | The archive is intentional | Retired-folder awareness |
-| Apply a `wiki-link-validation` suggestion automatically | The suggestion may be wrong | User confirms |
-| Silently overwrite an existing wiki page on `/wiki-new` | Content loss with no diff trail | Refuse; surface the collision |
-| Skip diff preview "because it's a small typo" | Small typos sometimes turn out to be in a code block where they break the example | Always preview |
-| Delete the old `docs/` tree right after "migrating" it | A decision may be paraphrased in the wiki but never NAMED, and inbound links break silently | Capture-check named decisions + sweep references first |
-| Treat a decision as captured because "it's mentioned somewhere in the wiki" | Scattered-but-unnamed is a migration gap, not a capture | Require the decision to be named in the source-of-truth wiki |
-| Delete content with inbound CI / README references and "fix later" | The broken reference ships in the same change; readers and pipelines hit it immediately | Categorize every reference and handle rewrite / delete-with-target in the same change set |
-
-## Portability rationale
-
-The diff preview, approval gate, and force-push refusal apply to any wiki backed by git. The skill does not depend on:
-
-- A specific git hosting platform
-- A specific markdown renderer
-- A specific commit-message format (project overrides)
-
-For non-git wikis (Confluence, etc.), the diff-preview and approval-gate concepts still apply but the implementation differs; this skill targets git-backed wikis explicitly.
 
 ## Cross-references
 
-- `wiki-structure` — rules a write must respect.
-- `wiki-link-validation` — runs before push.
-- `wiki-code-vs-docs-discrepancy` — runs before a wiki edit that intends to resolve a code-wiki gap.
-- `wiki-vs-stray-docs` — refuses certain new-file writes outside the wiki.
-- `wiki-link-auditor` (agent) — automates the pre-push link validation.
-- `wiki-cleanup-validator` (agent) — pre-delete reference check before removing a wiki page.
-- `references/safe-doc-deletion.md` — the full pre-deletion procedure: capture-check, cross-reference sweep target list, and reference categorization (rewrite / accept-stale / delete-with-target).
-- `wiki-source-of-truth` — supplies the "is this decision genuinely captured" judgement the capture-check relies on.
-- Plugin `hooks/hooks.json` — implements the push-approval gate at tool level.
+- `wiki-structure` — structural conventions a write may follow.
+- `wiki-link-validation` — optional pre-push broken-link sweep.
+- `wiki-code-vs-docs-discrepancy` — optional code-vs-wiki drift report.
+- `wiki-vs-stray-docs` — suggests (does not force) keeping team docs in the wiki.
+- `references/safe-doc-deletion.md` — optional pre-deletion checklist.
+- `wiki-link-auditor` (agent) — automates the optional pre-push link validation.
