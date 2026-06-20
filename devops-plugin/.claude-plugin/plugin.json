@@ -1,6 +1,6 @@
 {
   "name": "devops",
-  "version": "6.6.0",
+  "version": "6.6.1",
   "description": "Azure DevOps HYBRID integration with Work Tracking System. Features: persistent user profile, unified /create command, /workday dashboard, time logging, /init setup with CLI + MCP, intelligent routing with specialized subagents, and 100+ MCP tools.",
   "author": {
     "name": "TaqaTechno",

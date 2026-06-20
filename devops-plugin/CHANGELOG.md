@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [6.6.1] — 2026-06-20 — Fix: GitHub Wiki (.wiki) push false-block in pre_git_write_gate (issue #16)
+
+### Fixed
+
+- `hooks/pre_git_write_gate.py` Gate 2 (identity/owner access check) **no longer false-blocks GitHub Wiki pushes**. A wiki's remote is `<owner>/<repo>.wiki.git`, but a wiki is not a separate API repository — `gh repo view <owner>/<repo>.wiki` returns 404, which `_active_account_lacks_access` misread as a *confirmed* lack of access and hard-blocked the push (exit 2) even when the active account is an admin/collaborator on the base repo. New `_base_repo()` strips the `.wiki` suffix so the access probe (and the deny message) run against the BASE repo, whose permissions actually govern wiki writes. Force-push detection and the rest of Gate logic are unchanged. Fixes issue #16.
+
+### Tests
+
+- `tests/test_git_write_gate.py` (new) — first dedicated coverage for the git-write gate: `_base_repo` normalization, faithful `.wiki` URL parse, a wiki push by an authorized member is **not** blocked and probes the base repo, and a genuine no-access push to a protected branch **still** hard-blocks (exit 2).
+
+### Validation
+
+- `pytest tests/` → **185 passed, 68 skipped (legacy suite), 0 failed**.
+- `python validate_plugin.py devops-plugin` → exit 0, 0 errors.
+
 ## [6.6.0] — 2026-06-20 — MCP tool-name namespace fix (hooks + agents) + auth-var doc alignment
 
 ### Fixed

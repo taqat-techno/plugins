@@ -102,6 +102,7 @@ def main() -> int:
     # If access is confirmed, or the probe is inconclusive (offline, no repo,
     # gh missing, timeout), we do NOT block — when uncertain, allow.
     owner, repo = _target_owner_repo(command)
+    repo = _base_repo(repo)  # wiki pushes authorize against the base repo (issue #16)
     active_identity = _active_gh_account()
     if (
         owner
@@ -265,6 +266,21 @@ def _clean(seg: str | None) -> str | None:
     seg = seg.strip().strip("/")
     seg = re.sub(r"\.git$", "", seg)
     return seg or None
+
+
+def _base_repo(repo: str | None) -> str | None:
+    """
+    Map a GitHub Wiki repo name to its base repo.
+
+    A wiki's git remote is `<owner>/<repo>.wiki.git`, but the wiki is NOT a separate
+    API repository — `gh repo view <owner>/<repo>.wiki` (and GET /repos/.../<repo>.wiki)
+    returns 404. A wiki push is authorized by the BASE repo's permissions, so the access
+    probe and the user-facing message must use the base repo, not the `.wiki` pseudo-repo.
+    Without this, an admin/collaborator pushing a wiki update gets a false BLOCK (issue #16).
+    """
+    if not repo:
+        return repo
+    return re.sub(r"\.wiki$", "", repo)
 
 
 def _active_account_lacks_access(owner: str, repo: str) -> bool | None:
