@@ -167,13 +167,11 @@ devops-plugin/
 |   +-- write-gate.md                  # Confirmation protocol for all writes
 |   +-- guards.md                      # Tool selection, mentions, repo resolution
 |   +-- profile-loader.md             # Profile loading + project context
-+-- hooks/                             # Lifecycle hooks (7 files)
++-- hooks/                             # Lifecycle hooks (3 files)
 |   +-- hooks.json                     # Hook configuration
-|   +-- session-start.sh               # Profile check + staleness
-|   +-- pre-write-validate.sh          # State/hierarchy/mention validation
-|   +-- pre_git_write_gate.py          # Conservative git remote-write gate
-|   |                                  #   (force-push-to-protected + no-access block)
-|   +-- pre-bash-check.sh, post-bash-suggest.sh, error-recovery.sh
+|   +-- session_start_check.py         # Lightweight profile/data health check (advisory)
+|   +-- pre-write-validate.sh          # Azure DevOps work-item write validation (role-based)
+|                                      #   (no git-push gate — git pushes are unrestricted)
 +-- agents/                            # Specialized subagents (3)
 |   +-- work-item-ops.md              # Haiku — CRUD, queries
 |   +-- sprint-planner.md             # Sonnet — reports, capacity
@@ -228,14 +226,13 @@ for layer ownership):
 
 | Hook | Event | Behavior |
 |------|-------|----------|
+| `session_start_check.py` | SessionStart | Advisory profile / data-file health check; always exits 0, never blocks. |
 | `pre-write-validate.sh` | PreToolUse (ADO MCP writes) | Injects state/hierarchy context; hard-blocks bug-creation authority, close/remove restriction, unresolved @mentions |
-| `pre_git_write_gate.py` | PreToolUse (Bash) | **Blocks** force-push to a protected branch (main/master/production/prod/staging/release) and writes to a repo the active `gh` account provably cannot access. **Warns** (non-blocking) on plain protected-branch pushes and `gh pr/release/api` writes. **Ignores** everything else. Stdlib-only, fail-open, prints no secrets. |
 
-The git-write gate enforces only the deterministic subset of `rules/git-remote-write-gate.md`
-that can be detected reliably from a shell command — a name difference between the repo owner
-and the `gh` login is **not** treated as a block (org pushes are normal); a block requires a
-confirmed no-access probe. Everything nuanced (permission-first disclosure, mapped
-auto-switch) stays with the rule and the assistant.
+There is **no git-push gate** — git pushes (including force-push) are **not** gated by this plugin.
+`rules/git-remote-write-gate.md` remains as advisory guidance only (permission-first +
+identity-correctness) and is not enforced by any hook; the assistant applies it judgmentally
+(and your global `CLAUDE.md` permission/auto-switch policy still governs pushes).
 
 Release-safety review guidance — deployed-SHA-to-environment reconciliation and pre-promotion
 secret-key diffing — lives in `devops/CI_HARDENING.md` (items 6 and 6a).

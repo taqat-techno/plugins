@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [6.7.0] — 2026-06-20 — Remove the git-push gate (frictionless git pushes)
+
+### Removed
+
+- **`hooks/pre_git_write_gate.py` and its `Bash` PreToolUse wiring** — deleted. git pushes
+  (including force-push and protected-branch pushes) are **no longer gated** by this plugin;
+  nothing slows down a `git push` anymore. Removed `tests/test_git_write_gate.py` accordingly.
+- Updated `hooks/hooks.json` description, `README.md` (hook inventory + behavior table), and
+  `tests/test_consistency.py` (file-existence list) to match.
+
+### Kept
+
+- SessionStart profile/data health check (`session_start_check.py`, advisory) and the
+  Azure DevOps work-item write validation (`pre-write-validate.sh`, role-based) are unchanged.
+- `rules/git-remote-write-gate.md` stays as **advisory** guidance only (no hook enforces it);
+  your global `CLAUDE.md` permission-first / account-auto-switch policy still governs pushes.
+
+### Validation
+
+- `python validate_plugin.py devops-plugin` → exit 0, 0 errors.
+- `pytest tests/` → all pass (git-write-gate suite removed; no remaining reference to the gate).
+
 ## [6.6.1] — 2026-06-20 — Fix: GitHub Wiki (.wiki) push false-block in pre_git_write_gate (issue #16)
 
 ### Fixed

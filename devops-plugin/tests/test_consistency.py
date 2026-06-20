@@ -44,7 +44,6 @@ class TestFileExistence:
         "hooks/hooks.json",
         "hooks/session_start_check.py",
         "hooks/pre-write-validate.sh",
-        "hooks/pre_git_write_gate.py",
         ".claude-plugin/plugin.json",
     ])
     def test_expected_file_exists(self, path):
@@ -164,9 +163,12 @@ class TestHooksConsistency:
         assert "SessionStart" in hooks_config["hooks"]
 
     def test_has_pre_tool_use_hooks(self, hooks_config):
+        # The plugin has the Azure DevOps work-item write-validation PreToolUse hook.
+        # There is intentionally NO git-push gate (removed in 6.7.0), so a single
+        # PreToolUse entry is expected.
         assert "PreToolUse" in hooks_config["hooks"]
         pre_hooks = hooks_config["hooks"]["PreToolUse"]
-        assert len(pre_hooks) >= 2, "Should have at least Bash check and write validation hooks"
+        assert len(pre_hooks) >= 1, "Should have the ADO write-validation hook"
 
     def test_write_validation_hook_targets_correct_tools(self, hooks_config):
         # The write-validation hook uses a string regex matcher targeting ADO write tools.

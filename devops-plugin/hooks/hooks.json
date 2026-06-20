@@ -1,5 +1,5 @@
 {
-  "description": "Azure DevOps integration hooks - lightweight SessionStart profile/data health check, role-based write validation, and a conservative git remote-write gate. Matchers are namespace-agnostic: they match both the legacy 'mcp__azure-devops__*' and the current plugin-namespaced 'mcp__plugin_devops_azure-devops__*' tool names. (MCP error-recovery guidance is provided in-context via devops/MCP_FAILURE_MODES.md; Claude Code has no per-tool-failure hook event.)",
+  "description": "Azure DevOps integration hooks - lightweight SessionStart profile/data health check and role-based Azure DevOps work-item write validation. Matchers are namespace-agnostic: they match both the legacy 'mcp__azure-devops__*' and the current plugin-namespaced 'mcp__plugin_devops_azure-devops__*' tool names. No git-push gate — git pushes are unrestricted. (MCP error-recovery guidance is in devops/MCP_FAILURE_MODES.md; Claude Code has no per-tool-failure hook event.)",
   "hooks": {
     "SessionStart": [
       {
@@ -21,16 +21,6 @@
             "type": "command",
             "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/pre-write-validate.sh\"",
             "timeout": 10
-          }
-        ]
-      },
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python \"${CLAUDE_PLUGIN_ROOT}/hooks/pre_git_write_gate.py\"",
-            "timeout": 6
           }
         ]
       }
