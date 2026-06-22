@@ -1,7 +1,7 @@
 ---
 name: wiki-plantuml
 description: BPMN-style swimlane authoring for wiki pages in PlantUML activity-beta — |Actor| lanes plus one system lane, balanced if/elseif/else/endif gateways, the end-of-line suffix-stereotype colour rule, a four-class palette, and the per-flavour render then attach then embed pipeline (Azure base64 attachment REST, GitHub commit-to-.wiki.git, GitLab/MkDocs native). Mermaid stays authoritative for flowchart/sequence/state. Activates when a wiki page needs an actor-lane / BPMN-pool swimlane that no wiki renders natively from text.
-version: 0.1.0
+version: 0.1.1
 last_reviewed: 2026-06-22
 owns:
   - PlantUML activity-beta as the ONLY swimlane/BPMN engine (Mermaid stays authoritative for flowchart/sequence/state)
@@ -113,7 +113,7 @@ stop
 
 ## Colour rule + four-class palette (the BIG gotcha)
 
-**The colour gotcha, loud and first:** in PlantUML **1.2026.x** an activity's colour is the **end-of-line suffix stereotype** form — `:text; <<#RRGGBB>>` (or `<<#ColorName>>`). The legacy **prefix** form `#color:text;` is the OLD activity-diagram style and is **deprecated for activity-beta** — never mix it in. (The breaking change "require stereotypes at end of line" landed ~1.2026.2beta1.)
+**The colour gotcha, loud and first:** in PlantUML **1.2026.x** an activity's colour is the **end-of-line suffix stereotype** form — `:text; <<#RRGGBB>>` (or `<<#ColorName>>`). The legacy **prefix** form `#color:text;` is the OLD (non-beta) activity-diagram style and is **not supported in activity-beta** — never mix it in. (This is independent of version; PlantUML activity syntax shifts across releases, so always render-verify the exact form on your build.)
 
 - **Lanes are coloured differently from activities.** A lane uses the **pipe** form `|#RRGGBB|Name|` (or a named tint). Only `:activity;` nodes take the trailing `<<#...>>` stereotype.
 - Keep the `<<#color>>` on the **last/own line** of a multi-line activity — multi-line activities historically broke stereotype parsing, which is exactly why the end-of-line rule exists.
@@ -155,7 +155,7 @@ PlantUML **never** native; Mermaid only a restricted subset (no swimlane). Pipel
 - **PNG is the correct attachment format** — the official supported list is PNG/GIF/JPEG/ICO (**SVG not listed**; Azure sanitizes SVG and strips multiline `<text>`).
 - Reference **root-relative** `![Alt](/.attachments/swimlane-<epic>-<slug>.png)` — **not** relative to the `.md`.
 - **NEVER hotlink** a live render URL — the renderer applies `crossorigin="anonymous"` to all external images.
-- **VERIFY-ON-FAIL quirk:** the attachment PUT commonly returns **HTTP 500 even though the attachment WAS written**. Do **not** treat 500 as fatal — re-list `/.attachments` (or GET the attachment) and treat as success if present; only retry/fail if genuinely missing. Re-uploading the same name creates a new ETag version, not an error. `"Wiki not found"` on write = the wiki is not provisioned yet (a human creates it once), **not** a permission error.
+- **VERIFY-ON-FAIL quirk:** the attachment PUT commonly returns **HTTP 500 even though the attachment WAS written**. Do **not** treat 500 as fatal — the Wiki Attachments API (7.1) is **Create-only (there is no GET-by-name endpoint)**, so verify by **re-PUTting the same name**: re-uploading is idempotent (a new ETag version, not an error), so a clean re-PUT confirms it landed; only fail if the re-PUT also errors. `"Wiki not found"` on write = the wiki is not provisioned yet (a human creates it once), **not** a permission error.
 
 ### gitlab-wiki
 
@@ -197,7 +197,7 @@ PlantUML **never** native; Mermaid only a restricted subset (no swimlane). Pipel
 - **Never** hand-edit the generated SVG/PNG; **never** keep a stale image whose `.puml` changed.
 - **Never** send a private diagram's source to public `kroki.io` / the public PlantUML server.
 - **Never** echo/log the PAT; **never** send the Azure attachment body un-base64'd on the CLI/REST path.
-- **Never** treat the Azure HTTP 500 as fatal without the verify-on-fail re-list; **never** hotlink a live render URL on GitHub/Azure.
+- **Never** treat the Azure HTTP 500 as fatal without the verify-on-fail re-PUT; **never** hotlink a live render URL on GitHub/Azure.
 - **Never** push the wiki or publish an attachment outside `wiki-safe-updates`' preview + approval.
 
 ## Validation checklist
@@ -242,7 +242,7 @@ SWIMLANE AUDIT — <wiki-page>
 | Embed SVG on Azure/GitHub by default | Both sanitize SVG (Azure strips `<text>`, GitHub strips inline `<svg>`) | PNG default; SVG only where verified |
 | Hotlink a live `kroki.io`/PlantUML render URL | `crossorigin=anonymous` + paste-leak + Camo block | Render locally → commit/attach the image |
 | Trust Maven "latest" for the jar | Resolves to the 2012 build `8059` | Pin a `1.2026.x` version |
-| Treat Azure attachment HTTP 500 as failure | The PUT commonly 500s yet succeeds | Verify-on-fail: re-list `/.attachments` |
+| Treat Azure attachment HTTP 500 as failure | The PUT commonly 500s yet succeeds | Verify-on-fail: re-PUT the same name (idempotent) |
 | Hand-edit the generated SVG/PNG | Lost on next render; image drifts from source | Edit the `.puml`, re-render |
 | One giant end-to-end swimlane | Rasterizes illegibly in the fixed wiki column | Decompose by phase into linked sub-diagrams |
 

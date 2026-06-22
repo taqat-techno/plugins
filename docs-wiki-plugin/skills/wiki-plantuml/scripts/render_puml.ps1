@@ -64,10 +64,11 @@ if ($PlantumlJar -match '8059') {
 $src = Get-Content -LiteralPath $Puml -Raw
 $lines = $src -split "`r?`n"
 
-# (1) Deprecated PREFIX colour form: a line whose activity starts with #<color>:
+# (1) Deprecated PREFIX colour form on an ACTIVITY: a line like "#PaleGreen:Step;".
+#     Require a trailing ';' so <style>/skinparam hex lines do NOT false-positive.
 $prefixColour = @()
 for ($i = 0; $i -lt $lines.Count; $i++) {
-  if ($lines[$i] -match '^\s*#[0-9A-Za-z]+\s*:') { $prefixColour += ($i + 1) }
+  if ($lines[$i] -match '^\s*#[0-9A-Za-z]+\s*:.+;\s*$') { $prefixColour += ($i + 1) }
 }
 if ($prefixColour.Count -gt 0) {
   Fail ("Deprecated PREFIX colour form on line(s) $($prefixColour -join ', '). " +
