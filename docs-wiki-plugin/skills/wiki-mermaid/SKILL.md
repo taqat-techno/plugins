@@ -1,8 +1,8 @@
 ---
 name: wiki-mermaid
-description: Mermaid diagram authoring rules for wiki pages — top-down direction by default, a small shape vocabulary, a four-class colour palette (ok / block / external / audit), strict label hygiene (no inline code, no secrets, no file paths in business diagrams), and the code-path scrub for business-process diagrams. Activates when adding or editing any Mermaid block inside a wiki page.
-version: 0.2.0
-last_reviewed: 2026-05-28
+description: Mermaid diagram authoring rules for wiki pages — top-down direction by default, a small shape vocabulary, a four-class colour palette (ok / block / external / audit), strict label hygiene (no inline code, no secrets, no file paths in business diagrams), the code-path scrub for business-process diagrams, and per-platform rendering compatibility (Azure DevOps Wiki needs a colon-container Mermaid fence, graph not flowchart, and no subgraph links). Activates when adding or editing any Mermaid block inside a wiki page.
+version: 0.3.0
+last_reviewed: 2026-06-22
 owns:
   - top-down (flowchart TD) direction as default for process diagrams
   - shape vocabulary (stadium / rectangle / diamond / cylinder / parallelogram / hexagon — meanings fixed)
@@ -11,6 +11,7 @@ owns:
   - code-path scrub rule (business diagrams describe people and decisions, not modules)
   - sequence-diagram and ER-diagram exception scope
   - diagram-as-source rule (the .md is the source; do NOT paste rendered PNG)
+  - platform compatibility (Azure DevOps Wiki colon-container fence, graph not flowchart, no subgraph links)
 defers_to:
   - wiki-authoring (placement within a page; when a diagram is appropriate vs prose)
   - wiki-safe-updates (the workflow for applying the diagram change)
@@ -38,6 +39,7 @@ Activate when:
 Skip when:
 
 - The diagram is a one-off whiteboard sketch (use a PNG attached to the page if necessary; do not invest in Mermaid for throwaway).
+- The diagram is an **actor-lane / BPMN swimlane** — delegate to `wiki-plantuml`. Mermaid has no swimlane primitive; faking lanes with `subgraph` does not align them (and Azure DevOps forbids subgraph links, killing the cross-lane handoff arrows). No wiki renders swimlanes natively, so they are pre-rendered images.
 
 ## Inputs
 
@@ -206,7 +208,8 @@ Before committing a diagram change:
 - [ ] No inline code, no file paths, no secrets, no real PII in labels.
 - [ ] Business diagram does not contain code-path nodes; if it does, move to a separate "engineering reference" section.
 - [ ] No stale PNG of the same diagram alongside.
-- [ ] Mermaid block renders cleanly (paste-test on the target wiki platform).
+- [ ] If the target is Azure DevOps Wiki: `::: mermaid` colon-container (not ` ```mermaid `), `graph` (not `flowchart`), and no subgraph links.
+- [ ] Mermaid block renders cleanly (paste-test on the target wiki platform — view the rendered page, do not trust the markdown or the docs).
 
 ## Output format
 
@@ -239,22 +242,37 @@ DIAGRAM AUDIT — <wiki-page>
 | Circles + cubes + custom shapes | Auto-layout breaks; readers wonder what each means | Fixed vocabulary |
 | Untagged colour with stylesheet override | Style intent unclear; renders differently elsewhere | classDef + class |
 
+## Platform compatibility — Azure DevOps Wiki
+
+Azure DevOps Wiki does NOT render Mermaid the GitHub way. A GitHub→Azure copy looks done but **every diagram silently degrades to a raw code block**. Three conversions are mandatory when the target is `azure-devops-wiki`:
+
+| GitHub-flavoured (source) | Azure DevOps Wiki (target) | Why |
+|---|---|---|
+| ` ```mermaid ` … ` ``` ` code fence | `::: mermaid` … `:::` colon-container | Azure renders Mermaid ONLY inside the colon container; the code fence falls back to plain text. (MS Learn claims both fences work — trust the rendered page, not the docs.) |
+| `flowchart TD/LR` | `graph TD/LR` | Azure's restricted parser does not recognise the `flowchart` keyword |
+| links to / from a `subgraph` | link the inner nodes instead | `subgraph`→`subgraph` and node→`subgraph` arrows are unsupported |
+
+Supported on Azure unchanged: `sequenceDiagram`, `stateDiagram-v2`, `classDef`, `<br/>`.
+
+GitHub renders the **opposite** way (the colon container does nothing there), so the Azure copy and the GitHub/source copy must **diverge on the fence**. A migration converter must be a stateful line scanner that retargets only the **closing** fence of a mermaid block, so unrelated ` ```bash `/` ``` ` code fences stay intact. CRLF line endings defeat `$`-anchored grep counts — verify conversions with plain-substring counts, not `$`-anchored regex.
+
+For one source that must render on BOTH platforms, prefer `graph` over `flowchart` and avoid subgraph links from the start (both render on GitHub and Azure); the fence is the only irreducible divergence. This makes the skill's `flowchart TD` default and the `flowchart LR` + `subgraph` architecture default GitHub-only — swap them for `graph` when the target includes Azure DevOps.
+
 ## Portability rationale
 
 Mermaid renders on:
 
-- GitHub Wiki (native)
+- GitHub Wiki (native, ` ```mermaid ` code fence)
 - GitLab Wiki (native)
-- Azure DevOps Wiki (native)
+- Azure DevOps Wiki (native, but ONLY via the `::: mermaid` colon-container + restricted syntax — see Platform compatibility above)
 - MkDocs (with mermaid plugin)
 - Most modern Markdown renderers (with mermaid plugin)
 
-The palette hex values render consistently across these platforms. The shape vocabulary is the Mermaid-standard subset.
-
-No platform-specific Mermaid features are required.
+The palette hex values and the shape vocabulary (the Mermaid-standard subset) are portable across all of these. What is NOT portable is the **wrapper**: GitHub uses a ` ```mermaid ` code fence and accepts `flowchart`; Azure DevOps Wiki requires the `::: mermaid` colon-container and rejects `flowchart` + subgraph links. Diagram CONTENT is portable; the fence + keyword are platform-specific.
 
 ## Cross-references
 
+- `wiki-plantuml` — the peer engine for **BPMN-style swimlanes** (actor lanes / pools), which Mermaid cannot express and no wiki renders natively. Mermaid stays authoritative for flowchart/sequence/state.
 - `wiki-authoring` — where in a page diagrams belong.
 - `wiki-safe-updates` — diff preview before applying the diagram change.
 - `wiki-link-validation` — if a node label is a clickable wiki link, it follows the link convention.

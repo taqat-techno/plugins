@@ -2,6 +2,51 @@
 
 All notable changes to `docs-wiki-plugin` are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/). Versioning follows [SemVer](https://semver.org/).
 
+## [0.6.0] — 2026-06-22 — PlantUML BPMN swimlanes (the diagram Mermaid can't draw)
+
+Adds a peer to `wiki-mermaid` for **actor-lane / BPMN-pool swimlanes** — the one diagram
+class no wiki renders natively from text and Mermaid has no primitive for. Backed by an
+`ultracode` multi-agent research pass that compared PlantUML, D2, bpmn.io, Kroki, and
+Mermaid across both GitHub and Azure DevOps wikis.
+
+### Added
+
+- **`skills/wiki-plantuml`** (skill 0.1.0) — BPMN-style swimlane authoring in **PlantUML
+  activity-beta** (the `.puml` is the diffable source). Owns: the scope boundary (PlantUML
+  = swimlanes only; Mermaid stays authoritative for flowchart/sequence/state), the
+  `|Actor|`-lane + one-system-lane rules, the **end-of-line suffix-stereotype colour rule**
+  (`:text; <<#RRGGBB>>`; the prefix `#color:` form is deprecated in 1.2026.x), the
+  four-class palette, and the **per-flavour render → attach → embed pipeline**.
+- **`commands/wiki-swimlane.md`** — `/wiki-swimlane <page> [--render local|kroki] [--format svg|png]`.
+- **`skills/wiki-plantuml/scripts/`** — `render_puml.ps1` (pinned `1.2026.x` jar, lints the
+  deprecated colour + unbalanced gateways, `PLANTUML_LIMIT_SIZE`), `upload_attachment.ps1`
+  (Azure `/.attachments` REST; **PAT from `$env:AZDO_PAT`, never echoed; base64 body;
+  verify-on-HTTP-500**), `embed_swimlane.py` (idempotent `### Swimlane` block), and
+  `publish_update.py` (render → attach/stage → embed → diff-preview → `--approve` gate).
+
+### Pipeline facts encoded (from the research)
+
+- **PlantUML never renders natively** on GitHub Wiki or Azure DevOps Wiki → pre-render to an
+  image and embed. **GitHub** = commit the image into the `OWNER/REPO.wiki.git` sibling repo,
+  reference with a leading-slash wiki-link `[[/images/x.png|alt]]`. **Azure** = PUT to
+  `/.attachments` (base64 body, `api-version=7.1`), reference root-relative
+  `![alt](/.attachments/x.png)`. **GitLab/MkDocs** render the same `.puml` natively (fence /
+  build-time) — no attach.
+- **PNG is the safe default**, not SVG: GitHub strips inline `<svg>`/`data:` URIs and the
+  Camo proxy blocks hotlinked SVG; Azure's supported attachment list is PNG/GIF/JPEG/ICO and
+  it sanitizes SVG. SVG only where verified per-instance.
+- **Maven "latest" trap:** the 2012 build `8059` numeric-sorts above the `1.20xx` date-scheme
+  releases — pin a `1.2026.x` jar. activity-beta needs **no Graphviz**.
+- Privacy: local-jar render is the default; **public `kroki.io` is refused** (paste-leak) —
+  self-hosted Kroki only.
+
+### Changed
+
+- `skills/wiki-mermaid` (→ 0.4.0) — added a "skip → use `wiki-plantuml`" rule for swimlanes
+  and a cross-reference; `wiki-authoring`, `wiki-safe-updates`, `wiki-structure` cross-linked
+  to the new skill (diagram-order guidance, governed publish, artifact placement).
+- `plugin.json` 0.5.0 → 0.6.0; keywords add `azure-devops-wiki`, `plantuml`, `swimlane`, `bpmn`.
+
 ## [0.5.0] — 2026-06-20 — Remove all restrictions: non-blocking GitHub-wiki helper
 
 The plugin no longer blocks, gates, or restricts any git/file operation. It is now a
