@@ -1,0 +1,36 @@
+{
+  "name": "django",
+  "version": "0.1.0",
+  "description": "Reusable Django / Django REST Framework engineering toolkit — ORM & model design, migration safety (zero-downtime), views & DRF API patterns, settings/12-factor config, security auditing, testing (pytest-django), and performance/caching. 7 auto-activating skills + 4 commands + 3 agents + session/version + migration-safety + destructive-command guards. Generic and adapter-driven — project layout, settings module, and test runner are project-supplied inputs.",
+  "author": {
+    "name": "TaqaTechno",
+    "email": "info@taqatechno.com",
+    "url": "https://github.com/taqat-techno"
+  },
+  "homepage": "https://github.com/taqat-techno/plugins/tree/main/django-plugin",
+  "repository": "https://github.com/taqat-techno/plugins",
+  "license": "MIT",
+  "keywords": [
+    "django",
+    "drf",
+    "django-rest-framework",
+    "orm",
+    "migrations",
+    "zero-downtime",
+    "settings",
+    "12-factor",
+    "security",
+    "pytest-django",
+    "factory-boy",
+    "performance",
+    "caching",
+    "n-plus-one",
+    "select-related",
+    "celery",
+    "asgi",
+    "python",
+    "backend",
+    "api",
+    "scaffold"
+  ]
+}
