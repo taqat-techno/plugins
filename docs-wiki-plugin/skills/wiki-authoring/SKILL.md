@@ -381,7 +381,9 @@ A: <answer with link if longer than 2 sentences>
 
 ## Overview
 
-<diagram of the workflow — use wiki-mermaid TD flowchart>
+<diagram of the workflow — use wiki-mermaid TD flowchart; if the workflow crosses multiple actor lanes, use a wiki-plantuml swimlane instead>
+
+> **Diagram order on a workflow page:** a single-actor process flow → `wiki-mermaid` `flowchart TD`; a multi-actor handoff (who does what across lanes) → `wiki-plantuml` swimlane; a request/response exchange → `wiki-mermaid` `sequenceDiagram`; an explicit lifecycle → `wiki-mermaid` `stateDiagram-v2`. Mermaid renders inline; a swimlane is a pre-rendered image (see `wiki-plantuml`).
 
 ## Participants
 
@@ -583,7 +585,8 @@ The skill does not depend on:
 ## Cross-references
 
 - `wiki-structure` — filename rules; sidebar placement.
-- `wiki-mermaid` — diagrams inside any template.
+- `wiki-mermaid` — diagrams inside any template (flowchart/sequence/state, rendered inline).
+- `wiki-plantuml` — BPMN-style swimlanes for multi-actor workflow pages (pre-rendered image).
 - `wiki-safe-updates` — workflow for the actual write.
 - `wiki-link-validation` — verifies cross-references in templates.
 - `wiki-code-vs-docs-discrepancy` — applied if the page makes a claim contradicted by code.

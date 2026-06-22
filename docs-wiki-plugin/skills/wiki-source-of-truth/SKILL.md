@@ -1,11 +1,13 @@
 ---
 name: wiki-source-of-truth
-description: Owns the source-of-truth doctrine for a project's knowledge — the declared order in which artifacts win, the target-vs-current-state separation, the single-location rule for config constants, and stale-checkbox distrust. Activates when onboarding a project from its docs and wiki, when auditing whether documentation still matches reality, or when two artifacts disagree and someone must decide which one is authoritative. Resolves conflicts with evidence rather than guessing, and routes per-claim verification to wiki-code-vs-docs-discrepancy.
-version: 0.2.0
-last_reviewed: 2026-06-13
+description: Owns the source-of-truth doctrine for a project's knowledge — the declared order in which artifacts win, the target-vs-current-state separation (including wiki-ahead-of-code / zero-commit-repo detection), the cross-system planning-vs-code/wiki host split, the single-location rule for config constants, and stale-checkbox distrust. Activates when onboarding a project from its docs and wiki, when auditing whether documentation still matches reality, or when two artifacts disagree and someone must decide which one is authoritative. Resolves conflicts with evidence rather than guessing, and routes per-claim verification to wiki-code-vs-docs-discrepancy.
+version: 0.3.0
+last_reviewed: 2026-06-22
 owns:
   - the declared knowledge-layer ORDER (which artifact wins for "what the system does now")
   - the TARGET/aspirational vs CURRENT-STATE doc separation rule (folder + label)
+  - the wiki-ahead-of-code detection signal (a zero-commit / empty repo means a fully-described stack is TARGET, not current)
+  - the cross-system source-of-truth split (planning platform vs the host that actually owns code + wiki; empty decoy repos)
   - the single-source-of-truth-location rule for security/config constants
   - stale-checkbox distrust (doc checkboxes and percent-complete are never ground truth for scope)
   - the conflict-resolution decision (doc-fix vs queued-code-change) framing
@@ -101,8 +103,25 @@ conflict found
 | Carries `target_label` (regardless of folder) | TARGET | No — intent only |
 | Lives in `target_location` | TARGET | No — intent only |
 | Forward-looking content but in `current_state_location` and no label | MISFILED — finding | No — flag for relabel/move |
+| Describes a fully-implemented stack, but the repo it describes has **zero commits / is empty** | WIKI-AHEAD-OF-CODE — TARGET in effect | No — the document is the design, not the build |
 
 When a doc is misfiled, the recommended fix is to add `target_label` and/or move it to `target_location` — never to delete the content and never to treat it as present reality in the meantime.
+
+**Wiki-ahead-of-code signal.** A Technical-Reference (or any current-state-located page) that reads as fully built, paired with a repo that has **zero commits**, is the strongest tell that the page is aspirational regardless of where it sits or whether it carries `target_label`: there is no code for it to be current *about*. Classify it as TARGET in effect and recommend the `target_label` even if the author intended it as current-state — the empty repo, not the folder, settles it. Verify the emptiness against `history_source` (no commits) before applying this signal; do not infer "empty" from a failed clone or a wrong repo path. (Repo-population confirmation itself is owned by `wiki-code-vs-docs-discrepancy`.)
+
+### Cross-system source-of-truth split
+
+A project's knowledge layers do not have to live on one host. A common split: one platform is used for **planning only** (e.g. work items / boards on Azure DevOps), while the actual **code and wiki** live on a different host (e.g. `github.com/<org>/<Product>` plus its `/wiki`). The planning platform's own Git repo is then frequently an **empty decoy** — it exists because the platform created it, but nothing was ever pushed there.
+
+The split itself is a **governance finding**, not just a routing detail: if `layer_order` names "the repo" without saying *which* host owns code, every downstream audit risks pointing at the decoy and concluding the project is empty when it is merely hosted elsewhere.
+
+| Symptom | Reading | Action |
+|---|---|---|
+| Work items live on platform P; no code ever lands there | P is the **planning** layer only | Record P as planning-only in `layer_order`; do not treat its repo as the code authority |
+| Platform P's repo has zero commits / no default branch, but a different host has the populated repo + wiki | P's repo is a **decoy**; the other host owns code + wiki | Point all "audit the repo" work at the populated host; flag the decoy so no one re-audits it |
+| `layer_order` says "the code" without naming a host, and two hosts exist | ambiguous authority | Surface as a finding; make `layer_order` name the host that actually owns code before resolving any conflict |
+
+The rule: **identify which host owns code and which owns the wiki before resolving any code-vs-doc conflict; point repo audits at the populated host, never the planning system's decoy.** Confirming a given repo is the populated one (vs an empty placeholder) is owned by `wiki-code-vs-docs-discrepancy`; this skill only records the split into `layer_order` and treats it as a governance finding.
 
 ### Tenant/client neutralization vs provenance
 
@@ -121,6 +140,8 @@ The rule: **a named decision's anchoring record is provenance, not active prose.
 - **Never** silently pick a side on a conflict — always present the evidence and the recommended fix, and let the owner confirm.
 - **Never** edit code to make it match a doc unless that exact code change is already explicitly queued.
 - **Never** treat a TARGET/aspirational doc as a description of present behavior.
+- **Never** treat a fully-described stack as current when the repo it describes has zero commits — that is wiki-ahead-of-code; the page is TARGET in effect.
+- **Never** record "the code" in `layer_order` without naming which host owns it when a planning platform and a separate code/wiki host both exist; never point a repo audit at the planning platform's (often empty decoy) repo.
 - **Never** trust a doc literal for a security/config constant over the value in `config_constant_locations`.
 - **Never** accept a checkbox or percent-complete as proof that scope is done without cross-checking `history_source` + `reports_source`.
 - **Never** invent intent for undocumented behavior — document what the code does, not what it "probably" means.
@@ -131,7 +152,8 @@ The rule: **a named decision's anchoring record is provenance, not active prose.
 
 - [ ] `layer_order` is declared (or the default was proposed and explicitly confirmed).
 - [ ] Every doc reviewed is classified CURRENT-STATE or TARGET, by folder and by `target_label`.
-- [ ] No TARGET doc was trusted as present reality.
+- [ ] No TARGET doc was trusted as present reality; any fully-described page over a zero-commit repo was flagged wiki-ahead-of-code.
+- [ ] If a planning platform and a separate code/wiki host both exist, `layer_order` names which host owns code; no repo audit was pointed at the planning platform's decoy repo.
 - [ ] Every config constant cited in docs was checked against `config_constant_locations`; divergences are flagged.
 - [ ] No scope conclusion rests on a checkbox alone; each was cross-checked against `history_source` + `reports_source`.
 - [ ] Each conflict carries evidence and a recommended fix — none was resolved silently.
@@ -175,6 +197,8 @@ Discrepancy line (single-line form, when a compact list is preferred):
 | Anti-pattern | Why it is wrong | Correct |
 |---|---|---|
 | Trusting a forward-looking handbook as present reality | Onboards people onto a system that does not exist yet | Classify TARGET vs CURRENT-STATE; trust only current-state + code |
+| Reading a fully-built-sounding Technical-Reference as current when the repo has zero commits | There is no code for it to be current about; it is the design, not the build | Treat as wiki-ahead-of-code → TARGET in effect; recommend `target_label` |
+| Auditing "the repo" on the planning platform when code + wiki actually live on another host | Audits an empty decoy and falsely concludes the project is empty | Record the planning-vs-code/wiki split in `layer_order`; audit the populated host |
 | No declared `layer_order`; deciding ad hoc per conflict | Different conflicts resolve inconsistently; no audit trail | Declare the order once; resolve every conflict against it |
 | Copying a config constant's value into prose and treating prose as canonical | Two sources for one constant drift; the doc goes stale silently | One owner per constant in `config_constant_locations`; docs point to it |
 | Reading a checked box as "this is done" | Checkboxes are edited by hand and lie | Cross-check `history_source` + `reports_source` before claiming scope |

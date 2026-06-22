@@ -1,10 +1,11 @@
 ---
 name: wiki-code-vs-docs-discrepancy
-description: Report disagreements between a project Wiki and the actual code (or runtime config, deploy scripts, schema, CI workflow) with concrete file-line evidence. Owns the never-silently-choose rule, the discrepancy classification (doc-drift / code-drift / intentional gap / unknown), and the evidence-pinning convention. Activates whenever a wiki page claims one behavior and the code shows another; activates on wiki-says / doc-says / spec-says prompts.
-version: 0.2.0
-last_reviewed: 2026-05-28
+description: Report disagreements between a project Wiki and the actual code (or runtime config, deploy scripts, schema, CI workflow) with concrete file-line evidence. Owns the never-silently-choose rule, the discrepancy classification (doc-drift / code-drift / intentional gap / unknown), the repo-is-populated precondition (an empty placeholder repo yields "unknown / not verifiable", never fabricated drift), and the evidence-pinning convention. Activates whenever a wiki page claims one behavior and the code shows another; activates on wiki-says / doc-says / spec-says prompts.
+version: 0.3.0
+last_reviewed: 2026-06-22
 owns:
   - discrepancy classification (doc-drift / code-drift / intentional gap / unknown)
+  - the repo-is-populated precondition (confirm commits + branches + a real code-search hit before classifying confirmed-or-drift; empty repo → unknown)
   - evidence-pinning convention (file-path plus line number plus last-modified)
   - never-silently-choose gate
   - two-author suspicion heuristic (when wiki and code each look right in isolation)
@@ -44,6 +45,7 @@ Skip when:
 
 ## Read-only investigation steps
 
+0. **Confirm the repo is actually populated (precondition).** Before comparing any wiki claim against "the code," verify the code exists. A repo can be an empty placeholder: size 0, no `defaultBranch`, an empty branch list `[]`, and a code search that returns nothing (e.g. Azure DevOps `infoCode 15`). Require **all** of: at least one commit/branch AND a real code-search hit for the topic. If the repo is empty, do **not** classify — the verdict is `unknown` ("not verifiable from this source"), never a fabricated drift finding. Also check the topic's code is not on a *different host* than the one you opened (planning systems often carry an empty decoy repo while code + wiki live elsewhere — see `wiki-source-of-truth` › Cross-system source-of-truth split); re-point at the populated repo before continuing.
 1. **Pin each side verbatim.** Quote the relevant lines from the wiki page AND the code file, with `file:line` plus the file's last-modified date.
 2. **Classify by authority.** Some sources are authoritative by policy (a SOP wiki page for process rules). Some are authoritative by execution (code that ships, config that loads). Decide which is which for the topic at hand.
 3. **Probe runtime if the claim is behavioral.** Reading the code may not be enough — a feature flag, environment value, or runtime config may divert the actual path. Run a read-only probe.
@@ -124,6 +126,8 @@ Special case: a wiki page explicitly marked as historical / archived / supersede
 ## Safety gates
 
 - **Never** silently update either the wiki or the code to "resolve" a discrepancy.
+- **Never** classify a claim as confirmed OR as drift until the repo is proven populated (commits + branches + a real code-search hit). An empty placeholder repo means the verdict is `unknown` / not verifiable — fabricating a drift finding against absent code is the worse error.
+- **Never** assume the repo you opened is where the code lives — when a populated repo can't be found, check whether code + wiki are on a different host than the planning system before declaring drift.
 - **Never** classify as "doc-drift" just because the code is newer; the code may have drifted from the policy intent (the wiki).
 - **Never** quote a wiki page that contains PII / secrets / tokens in your report. If the page has such content, redact at quote time AND surface as a separate finding (wiki should not contain secrets).
 - Prefer applying a wiki update via `wiki-safe-updates` (optional diff preview) — advisory, not enforced.
@@ -133,6 +137,7 @@ Special case: a wiki page explicitly marked as historical / archived / supersede
 
 Before reporting a discrepancy:
 
+- [ ] The repo is confirmed populated (≥1 commit/branch AND a real code-search hit); an empty repo was reported as `unknown`, not as drift. Code-on-a-different-host was ruled out.
 - [ ] Both sides pinned with `file:line` + last-modified.
 - [ ] Wiki quote verbatim; not paraphrased.
 - [ ] Code quote verbatim OR runtime probe captured with command + output.
@@ -151,6 +156,8 @@ For batch reports (e.g., when `/wiki-drift` finds many): one block per discrepan
 | Anti-pattern | Why it's wrong | Correct |
 |---|---|---|
 | "The code is newer, so the wiki must be wrong" | Drift may be from code; the wiki could be the team-policy intent | Surface; user picks |
+| Declaring drift against a repo you never confirmed has code | The repo may be an empty placeholder (size 0, no default branch, code search returns nothing) — the "drift" is fabricated | Confirm commits + branches + a code-search hit first; empty repo → `unknown` |
+| Auditing the repo on the planning platform when code lives on another host | You compare the wiki against an empty decoy and report phantom drift | Re-point at the populated host before classifying (see `wiki-source-of-truth`) |
 | Update the wiki to match the code without asking | Erases the historical intent; loses the policy record | Report; ask |
 | Update the code to match the wiki without asking | Could revert an intentional fix | Report; ask |
 | Quote a wiki page that has an embedded secret | Secret in the report | Redact; flag the page as a separate finding |
@@ -169,6 +176,7 @@ The four-classification model and the never-silently-choose rule apply to any pr
 
 ## Cross-references
 
+- `wiki-source-of-truth` — owns the cross-system planning-vs-code/wiki host split and the wiki-ahead-of-code (zero-commit repo) reading this skill's repo-populated precondition feeds into.
 - `wiki-structure` — when the discrepancy is about wiki organization / link convention, not behavior.
 - `wiki-link-validation` — when the discrepancy is a missing cross-reference.
 - `wiki-safe-updates` — applied AFTER the user picks the direction.

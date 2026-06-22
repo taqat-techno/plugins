@@ -1,6 +1,6 @@
 # docs-wiki
 
-![Version](https://img.shields.io/badge/version-0.4.0-blue.svg)
+![Version](https://img.shields.io/badge/version-0.6.0-blue.svg)
 ![Status](https://img.shields.io/badge/status-functional-green.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 
@@ -21,6 +21,7 @@ This plugin packages the conventions and helpers every project needs when its te
 | `wiki-structure` | Flat-namespace + filename-uniqueness + internal-link convention (GitHub Wiki primary, others adapter-configurable) |
 | `wiki-authoring` | Business docs / engineering SOPs / user manuals / role guides / workflow docs / release & handover / onboarding templates; tenant/client neutralization discipline (per-hit classify-then-act) |
 | `wiki-mermaid` | Mermaid diagram authoring rules — TD direction, shape vocabulary, four-class colour palette, label hygiene, code-path scrub from business diagrams |
+| `wiki-plantuml` | BPMN-style **swimlane** authoring in PlantUML activity-beta + the per-flavour render → attach → embed pipeline (Azure `/.attachments` base64 REST, GitHub commit-to-`.wiki`, GitLab/MkDocs native). Mermaid stays authoritative for flowchart/sequence/state |
 | `wiki-link-validation` | Broken-link sweep, missing-page detection, broken section-anchor detection + heading-anchor slug rules, visible-numeric-prefix scan, internal-link convention check |
 | `wiki-code-vs-docs-discrepancy` | Report wiki-vs-code drift with `file:line` evidence; never silently choose one side |
 | `wiki-source-of-truth` | Declared knowledge-layer order; current-state vs target separation; config-constant single-location rule; stale-checkbox distrust; provenance-vs-active-prose judgement |
@@ -37,6 +38,7 @@ This plugin packages the conventions and helpers every project needs when its te
 | `/wiki new <page>` | Create a new page with template (SOP / role guide / runbook / onboarding) |
 | `/wiki drift` | Code-vs-wiki discrepancy sweep — produces a table; never edits silently |
 | `/wiki sync-audit` | Audit-first sync mode — reports differences without applying changes |
+| `/wiki swimlane <page>` | Author/refresh a BPMN swimlane (PlantUML) — render → embed per flavour → governed publish |
 
 ### Agents
 
@@ -108,6 +110,7 @@ This plugin is published as part of the `taqat-techno-plugins` marketplace. To i
 | `0.3.0` | `wiki-source-of-truth` skill + generic page templates |
 | `0.4.0` (this release) | Heading-anchor slug rules + broken-anchor scan in `wiki-link-validation`; safe-doc-deletion gate in `wiki-safe-updates`; tenant/client neutralization discipline in `wiki-authoring` + `wiki-source-of-truth` |
 | `0.5.0` | Polished GitLab / Azure DevOps Wiki adapters; `/wiki-archive` command; ADR numbering helper |
+| `0.6.0` (this release) | `wiki-plantuml` skill + `/wiki-swimlane` command + 4 render/embed scripts — BPMN swimlanes that render on neither GitHub nor Azure wiki natively (PlantUML → PNG → per-flavour embed) |
 | `1.0.0` | First stable release after real-project shakedown |
 
 ## Related plugins
