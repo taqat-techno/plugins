@@ -47,26 +47,26 @@ if (-not $pat) { Fail "AZDO_PAT not set in the environment (scope vso.wiki_write
 $auth = 'Basic ' + [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(":$pat"))
 $headers = @{ Authorization = $auth }
 
-# Body MUST be base64 for the CLI/REST path.
+# Body for the CLI/REST path. NOTE: the official spec documents a raw octet-stream body,
+# but on this org's instance base64 transport is the verified-working path (raw bytes via
+# Invoke-RestMethod can mis-encode). If your instance renders a broken image, switch to
+# raw bytes: set $body = $bytes below and keep Content-Type application/octet-stream.
 $bytes = [System.IO.File]::ReadAllBytes((Resolve-Path -LiteralPath $File))
 $body = [Convert]::ToBase64String($bytes)
 
 $encodedName = [System.Uri]::EscapeDataString($Name)
 $base = "$($Org.TrimEnd('/'))/$Project/_apis/wiki/wikis/$WikiId"
 $putUri = "$base/attachments?name=$encodedName&api-version=$ApiVersion"
-$getUri = "$base/attachments/$encodedName" + "?api-version=$ApiVersion"
-
-function Test-AttachmentExists {
-  try {
-    Invoke-RestMethod -Method Get -Uri $getUri -Headers $headers -ErrorAction Stop | Out-Null
-    return $true
-  } catch { return $false }
+# The Wiki Attachments API (7.1) is Create-only -- there is NO GET-by-name endpoint, so
+# the 500-but-succeeded quirk is verified by RE-PUTting (idempotent), never by a GET.
+function Invoke-AttachmentPut {
+  Invoke-RestMethod -Method Put -Uri $putUri -Headers $headers `
+    -ContentType 'application/octet-stream' -Body $body -ErrorAction Stop | Out-Null
 }
 
 Write-Host "Uploading $Name to wiki $WikiId (.attachments) ..."
 try {
-  Invoke-RestMethod -Method Put -Uri $putUri -Headers $headers `
-    -ContentType 'application/octet-stream' -Body $body -ErrorAction Stop | Out-Null
+  Invoke-AttachmentPut
   Write-Host "OK: uploaded."
 }
 catch {
@@ -79,12 +79,19 @@ catch {
   }
 
   if ($status -eq 500) {
-    # KNOWN QUIRK: PUT often returns 500 yet the attachment was written. Verify, don't abort.
-    Write-Warning "PUT returned HTTP 500 - verifying whether the attachment was actually written..."
-    if (Test-AttachmentExists) {
-      Write-Host "OK: attachment present despite HTTP 500 (verify-on-fail succeeded)."
-    } else {
-      Fail "HTTP 500 and the attachment is genuinely missing on re-fetch - real failure."
+    # KNOWN QUIRK: the PUT commonly returns HTTP 500 yet the attachment WAS written.
+    # Re-uploading the same name is idempotent (new ETag version, not an error), so a
+    # clean re-PUT confirms the attachment is in place. This replaces the old GET-by-name
+    # check, which always failed because that endpoint does not exist in this API.
+    Write-Warning "PUT returned HTTP 500 - re-PUTting (idempotent) to confirm the attachment landed..."
+    try {
+      Invoke-AttachmentPut
+      Write-Host "OK: re-PUT succeeded - the attachment is present (the first 500 was spurious)."
+    }
+    catch {
+      $status2 = $null
+      if ($_.Exception.Response) { $status2 = [int]$_.Exception.Response.StatusCode }
+      Fail "HTTP 500 on the first PUT and the idempotent re-PUT also failed (HTTP $status2) - real failure."
     }
   }
   else {

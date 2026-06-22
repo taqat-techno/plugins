@@ -2,6 +2,31 @@
 
 All notable changes to `docs-wiki-plugin` are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/). Versioning follows [SemVer](https://semver.org/).
 
+## [0.6.1] — 2026-06-22 — wiki-plantuml fixes (post-review of #17)
+
+Fixes from an independent code review of the 0.6.0 swimlane feature.
+
+### Fixed
+
+- **`upload_attachment.ps1` — verify-on-500 used a non-existent endpoint.** The Wiki
+  Attachments API (7.1) is **Create-only (no GET-by-name)**, so the old `Test-AttachmentExists`
+  GET always failed and would misreport a 500-but-succeeded upload as a hard failure. Now
+  verifies by **re-PUTting the same name** (idempotent — a new ETag version, not an error).
+- **`embed_swimlane.py` — silent CRLF→LF conversion.** Read with newline-translation but
+  wrote with `newline=""`, converting a CRLF wiki page to LF on the first run (huge spurious
+  diff on Windows clones). Now reads raw, preserves the page's line endings, and writes them
+  back unchanged.
+- **`render_puml.ps1` — colour lint false-positive.** The deprecated-prefix-colour check now
+  requires a trailing `;` so `<style>` / skinparam hex lines don't trip it.
+
+### Notes
+
+- The Azure attachment **base64 body** is retained (the verified-working path on this org's
+  instance per the prototype); the script documents the raw-octet-stream escape hatch for
+  instances where base64 renders broken. The colour-syntax guidance is softened from a
+  version-dated breaking-change claim to "the prefix form is unsupported in activity-beta —
+  render-verify on your build."
+
 ## [0.6.0] — 2026-06-22 — PlantUML BPMN swimlanes (the diagram Mermaid can't draw)
 
 Adds a peer to `wiki-mermaid` for **actor-lane / BPMN-pool swimlanes** — the one diagram
