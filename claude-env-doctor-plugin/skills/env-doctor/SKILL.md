@@ -1,12 +1,13 @@
 ---
 name: env-doctor
-description: Routes a broken-local-environment symptom to the right diagnostic branch, runs read-only probes, classifies the failure, and proposes one safe next action without mutating config. Owns the diagnose-don't-mutate discipline for Claude Code and dev-environment problems. Activates when an MCP server will not load, a tool errors with a spawn / ENOENT / encoding failure, Claude Code login loops on a 401, an LSP or language server is missing, a Playwright or browser tool cannot find a browser, or any "my local environment is broken" symptom surfaces.
-version: 0.2.0
-last_reviewed: 2026-06-13
+description: Routes a broken-local-environment symptom to the right diagnostic branch, runs read-only probes, classifies the failure, and proposes one safe next action without mutating config. Owns the diagnose-don't-mutate discipline for Claude Code and dev-environment problems. Activates when an MCP server will not load, a tool errors with a spawn / ENOENT / encoding failure, Claude Code login loops on a 401, an LSP or language server is missing, a Playwright or browser tool cannot find a browser, a plugin hook never fires or an agent spawns without its MCP tools, or any "my local environment is broken" symptom surfaces.
+version: 0.3.0
+last_reviewed: 2026-06-22
 owns:
   - the diagnose-don't-mutate discipline (probe before recommend, recommend before apply)
   - the symptom -> diagnostic-branch router
   - the seven-class failure taxonomy (spawn / auth / missing-binary / wrong-version / network-DNS / encoding / config-shadowing)
+  - the Claude Code plugin & MCP gotchas (tool-name namespacing, plugin-cache staleness, valid hook events, wiki write-gate false positives)
   - the ENVIRONMENT REPORT output contract
   - secret redaction by key-name and JWT/opaque shape
 defers_to:
@@ -97,6 +98,22 @@ symptom --> [router] --> branch --> read-only probes --> [classify: 1 of 7]
                                                               |
                                                    user applies (or declines)
 ```
+
+### Claude Code plugin & MCP gotchas
+
+Diagnostic facts for "MCP not loading / hook never fires / agent missing its tools". Each maps to a failure class; check these before blaming the user's wiring.
+
+| Symptom | Root cause | Read-only check | Classification |
+|---|---|---|---|
+| Agent spawns without its MCP tools (e.g. a devops agent comes up with only Read+Bash); a hook never fires | Plugin-provided MCP tools are namespaced `mcp__plugin_<plugin>_<server>__<tool>`, NOT bare `mcp__<server>__<tool>`. Hook matchers and agent `tools:` grants written in the bare form silently fail to resolve | Compare the tool names in the hook matcher / agent grant against the actual namespaced names emitted by the plugin | config-shadowing |
+| Editing + pushing plugin source changes nothing in the running session; a stale version (e.g. 0.3.0/0.4.0) keeps running | Plugins and their hooks load from the CACHED copy under `~/.claude/plugins/` at SESSION START, not from the dev checkout | Inspect the installed/cached copy the session points at, not the dev tree; check its version | config-shadowing |
+| A hook bound to `PostToolUseFailure` never fires | `PostToolUseFailure` is NOT a valid Claude Code hook event. (`PostToolUse` fires on success, not failures.) Valid events: `PreToolUse`, `PostToolUse`, `SessionStart`, `UserPromptSubmit`, `Stop`, `SubagentStop`, `PreCompact`, `Notification`, `SessionEnd` | Read the hook's event name and compare against the valid-events list | config-shadowing |
+| A git write-gate hard-blocks a legitimate GitHub **wiki** push as "no access" | The gate parses `<owner>/<repo>.wiki.git` → `repo="<repo>.wiki"`, and `gh repo view <owner>/<repo>.wiki` returns 404 (a wiki is not a separate API repo); the naive gate misreads that 404 as "no access" | Strip the trailing `.wiki` and check the BASE repo's permission instead | auth failure (false positive) |
+
+Fixes (propose, don't apply):
+
+- **Namespacing mismatch (L1):** use namespace-agnostic matchers `mcp__(plugin_<plugin>_)?<server>__…` in hooks, and the full namespaced form `mcp__plugin_<plugin>_<server>__<tool>` in agent `tools:` grants.
+- **Stale cache (L2):** to kill a misbehaving hook immediately, neutralize the exact cached script the session points at (make it `exit 0`) or restart the session; pushing the dev tree alone will not take effect mid-session.
 
 ## Safety gates
 

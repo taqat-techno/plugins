@@ -1,14 +1,15 @@
 ---
 name: release-verification
 description: Proves a fix is actually deployed to the TARGET environment, not merely merged. Reconciles the deployed commit SHA to the environment (verify the fix commit is contained in the branch AND that the branch maps to that environment per the deploy config); diffs env-driven secrets between source and target before promoting (a migration or feature needing an env key the target lacks fails the deploy); forces the resolved connection host/name to be printed FIRST because a remote DB command can silently fall back to a local DB / sqlite when the public connection URL is empty; and catches lockfile / package-manager MAJOR mismatches that break CI installs. Provider-neutral across any Git host, CI system, and hosting provider. Activates when someone asks "is the fix live?", "did it deploy?", "verify the release", or before promoting between environments.
-version: 0.1.0
-last_reviewed: 2026-06-13
+version: 0.2.0
+last_reviewed: 2026-06-22
 owns:
   - the "FIXED means proven in the target environment, not merged" discipline
   - the deployed-SHA -> environment reconciliation (branch containment AND branch-to-environment mapping)
   - the env-secret diff (by key NAME and presence only) before promotion
   - the resolved-connection-target print-first rule (guard against silent local fallback)
   - the lockfile / package-manager parity check
+  - the report-only-gate detection (a gate with `|| true` / `continue-on-error` surfaces findings but does not block)
   - the RELEASE VERIFICATION REPORT output contract
 defers_to:
   - migration-safety skill for the risky-migration / cutover skeleton and destructive/CASCADE review
@@ -93,6 +94,13 @@ Two independent facts must both be true: containment (the code is on the branch)
 | Connection target | resolved host/name is the intended remote | empty/blank URL -> silent fallback to local DB / sqlite |
 | Lockfile parity | lockfile matches manifest; PM major matches CI | lockfile drift or PM major mismatch -> CI install breaks |
 
+### Report-only gates (a green check that cannot block)
+
+A green pipeline is not proof the code is safe even when the gate ran: a CI step is only **enforcing** if its exit code can fail the run. Append `|| true`, or set `continue-on-error: true` (or a custom `fail_action`/soft-fail flag) on the step, and the non-zero exit is swallowed — the gate becomes **report-only**: it still surfaces findings, but it will NOT block a PR or merge. So "the security/lint/test job is green" can mean either "passed" or "found problems and was told to pass anyway."
+
+- **Map which checks actually block:** grep the workflow files for `\|\| true`, `continue-on-error`, and `fail_action` (or the CI's soft-fail equivalent). Every gate carrying one of these is report-only; treat its green as informational, not as a barrier.
+- **Prove a gate blocks** (don't assume): feed the enforcing check input that must make it exit non-zero — e.g. a deliberate syntax error for a linter/compiler — and confirm the run fails. A gate you have never seen fail is an unproven gate.
+
 ### The silent-local-fallback trap (print connection target FIRST)
 
 A command meant to run against a remote database can **silently fall back to a local DB or an on-disk sqlite file when the public connection URL is empty or unset** — and then "succeed" against the wrong target, producing a confidently false verification. The defence is deterministic: **resolve and print the connection host / database name BEFORE running the command**, and refuse to proceed if it is local when a remote was intended. See `references/env-secret-diff.md` for resolving the connection string by name without printing its value.
@@ -143,6 +151,7 @@ RELEASE VERIFICATION REPORT
 |---|---|---|
 | "PR merged, so it's fixed" | Merge != deployed to the target the user is hitting | Reconcile deployed SHA: containment AND branch->env mapping |
 | Trust a green CI run as proof of deploy | CI proves the build, not what the environment is running | Read the SHA the target actually runs |
+| Trust a green gate that has `\|\| true` / `continue-on-error` | The flag swallows the exit code -> the gate is report-only, never blocks | Grep workflows for those flags; prove the gate fails on bad input |
 | Run the remote DB command without checking the target | Empty URL silently falls back to local DB / sqlite -> false pass | Print resolved host/name FIRST; abort on local fallback |
 | Promote, then discover a missing env key | The migration/feature fails mid-deploy | Diff env keys by name source->target BEFORE promoting |
 | Paste env values to "compare them" | Leaks secrets into the transcript | Compare by key name and presence only |

@@ -1,13 +1,14 @@
 ---
 name: runtime-reality-check
-description: Verify the QA target is actually reachable, healthy, and on the expected build BEFORE running any checks. Owns the "is it actually running" gate, the build-identity check (commit / version / deploy timestamp), the env-claim-vs-actual check, and the "dead infrastructure" labels. Activates at the start of any QA pass, before re-running a failed check, and whenever a run's evidence smells stale.
-version: 0.2.0
-last_reviewed: 2026-05-28
+description: Verify the QA target is actually reachable, healthy, and on the expected build BEFORE running any checks. Owns the "is it actually running" gate, the build-identity check (commit / version / deploy timestamp), the env-claim-vs-actual check, the restart-stale-dev-server-before-QC step, and the "dead infrastructure" labels. Activates at the start of any QA pass, before re-running a failed check, and whenever a run's evidence smells stale.
+version: 0.3.0
+last_reviewed: 2026-06-22
 owns:
   - target-reachability gate (HEAD probe + landing render)
   - build identity check (commit / version / deploy timestamp)
   - dead-infrastructure / deferred-path / wrong-environment labels
   - env-claim-vs-actual comparison
+  - restart-stale-dev-server-before-QC (next start chunk pin; runserver --noreload)
 defers_to:
   - browser-qa-discipline (evidence vocabulary for the reality-check outputs)
   - safe-destructive-testing (any probe must not mutate data)
@@ -83,6 +84,17 @@ If neither match nor mismatch is conclusive (e.g., no health endpoint exists, no
 - Mark the reality-check as BLOCKED with a named precondition: "no build identity surface — need /health or visible env label."
 - Do NOT continue the QA pass as if reality is confirmed.
 
+## Stale local server — restart before QC
+
+When the target is a dev server you started yourself and you just changed the code under test, the running process is the stale build — restart it **before** the QA pass, then re-probe build identity. A "looks like a code bug" or "looks like an access bug" is often just a process that never picked up the new code. Two concrete signatures:
+
+| Signature | What you see | Why | Fix |
+|---|---|---|---|
+| `next start` serving a prebuilt `.next/`, then rebuilt underneath it | Every route 500s with `ChunkLoadError` (the served HTML references chunk hashes that no longer exist on disk) | `next start` pins the build at boot; a rebuild swaps the chunks but not the running process | Stop, rebuild, restart `next start` (or use `next dev` which recompiles per request) |
+| Django `runserver --noreload` | A **new** route 404s while **old** routes still 200 — partial, not total, failure | `--noreload` disables the autoreloader, so the URLconf / new view is never re-imported | Restart `runserver` (drop `--noreload` for QC so it picks up edits) |
+
+The tell is the split: old paths work, new paths don't (Django), or *everything* breaks with a chunk/asset error after a rebuild (Next). Restart first, then decide whether it's a real bug.
+
 ## Labels for the report
 
 When reality-check produces a finding, use one of:
@@ -143,6 +155,7 @@ If status is BLOCKED, the rest of the QA pass writes itself as NOT-TESTABLE pend
 | Mark reality-check PASS without recording build identity | Cannot reproduce later | Capture build identity |
 | Treat 200 OK as healthy — the page may be a maintenance / "service unavailable" 200 | False positive | Render the page; check content |
 | Test "production" by typing `staging.example.com` because "they share a build" | They do not always; one fix lands in staging only | Test the actual URL of the env claimed |
+| QC code you just changed against the dev server that was already running | The process holds the old build (`next start` pins chunks; `runserver --noreload` skips re-import) — you debug a phantom bug | Restart the server first, then re-probe build identity |
 
 ## Portability rationale
 
