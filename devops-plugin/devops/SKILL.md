@@ -1,7 +1,7 @@
 ---
 name: devops
 description: |
-  Azure DevOps HYBRID integration skill for your Azure DevOps organization. Combines CLI power with MCP convenience for optimal performance. Uses CLI for automation, batch operations, variables, and extensions. Uses MCP for interactive queries, code reviews, test plans, search, and security alerts. Intelligent routing automatically selects the best tool for each task.
+  Azure DevOps HYBRID integration skill for your Azure DevOps organization. Combines CLI power with MCP convenience for optimal performance. Uses CLI for automation, batch operations, variables, and extensions. Uses MCP for interactive queries, code reviews, test plans, search, and security alerts. Intelligent routing automatically selects the best tool for each task. Includes operational notes on MCP auth env vars (ADO_MCP_AUTH_TOKEN silent-unauth trap), tool-name drift across MCP versions, and the default-branch-change human handoff.
 
   <example>
   Context: User wants to create a work item in Azure DevOps
@@ -39,7 +39,8 @@ description: |
   </example>
 license: "MIT"
 metadata:
-  version: "6.3.0"
+  version: "6.4.0"
+  last_reviewed: "2026-06-22"
   author: "TAQAT Techno"
   allowed-tools: "Read, Write, Bash, WebFetch, Glob, Grep"
   organization: "YOUR-ORG"
@@ -61,6 +62,30 @@ metadata:
 - **Auth MCP**: `ADO_MCP_AUTH_TOKEN` env var
 - **Tools**: 100+ MCP tools + full CLI
 - **MCP Failures**: If MCP server is unavailable, see `devops/MCP_FAILURE_MODES.md` for recovery and CLI fallback matrix.
+
+---
+
+## Operational Notes (Setup & Capability Boundaries)
+
+Durable facts that prevent the most common "DevOps doesn't work" reports. For full recovery flows see `devops/MCP_FAILURE_MODES.md`.
+
+### MCP auth env vars (the silent-unauth trap)
+
+The official `@azure-devops/mcp` server in `--authentication envvar` mode reads the PAT from `ADO_MCP_AUTH_TOKEN` — **not** `ADO_PAT_TOKEN`. Setting the wrong variable leaves the server unauthenticated, which surfaces as "DevOps doesn't work / no tools appear" rather than a clear 401. The organization is passed as a **positional argument**, and you should also export `ADO_ORGANIZATION`.
+
+| Item | Correct value | Common mistake |
+|------|---------------|----------------|
+| PAT env var | `ADO_MCP_AUTH_TOKEN` | `ADO_PAT_TOKEN` (leaves server silently unauthenticated) |
+| Organization | positional arg **and** `ADO_ORGANIZATION` env var | omitting it / only setting one |
+| Auth mode | `--authentication envvar` | mismatched mode vs. the var you set |
+
+### Tool names drift across MCP versions
+
+The MCP's tool **names** are renamed between server versions. Verify against the live tool set rather than hardcoding a name (observed: `repo_list_pull_requests` → `repo_list_pull_requests_by_repo_or_project`). If a call fails with "Unknown tool", list the available tools and re-resolve before retrying — do not assume the name is stable. (Version-pinning guidance: `devops/MCP_FAILURE_MODES.md` §5.)
+
+### Default-branch changes are a human handoff
+
+The REST API / MCP **can** create branches (`repo_create_branch`) and edit wiki pages, but **cannot** change a repository's default branch or delete the old one. That requires the portal (**Project Settings → Repositories**) or `az` CLI — i.e., a human. It is also disruptive: existing clones don't auto-follow, and branch policies/pipelines pinned to the old branch must be re-pointed. Do the API-doable parts (create the new branch, open the PR, update docs), then hand the human the exact portal clicks and remind the team to run `git remote set-head` on their clones.
 
 ---
 
