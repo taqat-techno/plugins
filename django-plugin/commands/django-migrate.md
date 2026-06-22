@@ -12,7 +12,7 @@ You drive Django migrations through the safety gate from the `django-migrations`
 
 ## Step 0 — Context
 
-Read `.django-kit.local.json` for `managePrefix`, `dbBackend`, `settingsModules`. If absent, detect like `/django-init`. Determine whether the target DB has real/live data (ask if unknown) — that decides whether zero-downtime sequencing is mandatory.
+Read `.django-kit.local.json` for `managePrefix`, `dbBackend`, `settingsModules`. If absent, detect them yourself (read-only): locate `manage.py` and its invocation prefix, the database backend, and the settings modules. Determine whether the target DB has real/live data (ask if unknown) — that decides whether zero-downtime sequencing is mandatory.
 
 ## Modes
 

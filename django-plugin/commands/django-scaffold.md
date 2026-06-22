@@ -19,7 +19,7 @@ You are scaffolding Django code that matches the project's existing conventions.
 
 ## Step 0 — Load context
 
-Read `.django-kit.local.json`. If absent, run the detection from `/django-init` first (don't ask the user to do it manually). You need: `managePrefix`, `localApps`, `settingsModules`, `dbBackend`, `drf.present`, `testRunner`, base-model convention.
+Read `.django-kit.local.json`. If absent, detect the project yourself first (read-only — don't ask the user to do it manually). You need: `managePrefix`, `localApps`, `settingsModules`, `dbBackend`, `drf.present`, `testRunner`, base-model convention.
 
 ## Step 1 — Decide what to scaffold
 

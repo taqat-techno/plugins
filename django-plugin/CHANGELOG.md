@@ -16,10 +16,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); this plugin uses
   - `django-security-audit` — settings hardening, `DEBUG`/`SECRET_KEY`, CSRF, SQLi, mass-assignment, auth/permissions, dependency CVEs.
   - `django-testing` — pytest-django + `factory_boy` patterns, DB/transaction test strategy, coverage.
   - `django-performance` — query optimization, caching layers, pagination at scale, async.
-- **5 commands**: `/django-init`, `/django-scaffold`, `/django-migrate`, `/django-test`, `/django-security`.
+- **4 commands**: `/django-scaffold`, `/django-migrate`, `/django-test`, `/django-security`. Each detects the project layout on first run (no separate init step needed).
 - **3 agents**: `migration-safety-analyzer`, `django-security-auditor`, `orm-query-optimizer`.
 - **3 hooks**:
   - SessionStart — detect Django/DRF version + project layout, inject context.
   - PreToolUse (Write/Edit) — advisory guard on risky migration ops and hardcoded settings secrets.
   - PreToolUse (Bash) — destructive-management-command guard (`flush`, `sqlflush`, `reset_db`, `migrate --fake`, raw `DROP`/`DROP DATABASE`).
-- **pytest suite** under `tests/` — plugin-structure tests + behavioral tests for all three hooks (67 tests). Run with `pytest django-plugin/tests/ -q`.
+- **pytest suite** under `tests/` — plugin-structure tests + behavioral tests for all three hooks (65 tests). Run with `pytest django-plugin/tests/ -q`.

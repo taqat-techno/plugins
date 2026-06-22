@@ -26,7 +26,6 @@ Auto-activating from natural-language symptoms (no command needed). None are use
 
 | Command | Description |
 |---------|-------------|
-| `/django-init [--path DIR] [--refresh]` | Read-only orientation — detect version, settings layout, apps, DB, DRF, test runner, migration health; cache adapter inputs to `.django-kit.local.json`. |
 | `/django-scaffold [app] [--model Name] [--api]` | Scaffold an app or model surface (model + admin + migration + tests, optional DRF serializer/viewset/urls), applying every skill. Plans the diff and waits for approval. |
 | `/django-migrate [app] [--make\|--apply\|--plan\|--check]` | Drive the migration safety gate — make, review the SQL, check reversibility/locking, then apply. Produces an expand-contract plan for risky changes; never blind-applies. |
 | `/django-test [app-or-path] [--keepdb] [--parallel] [--cov] [--failed]` | Run the suite with the detected runner and **test** settings, classify failures (regression vs fragile vs env), and surface coverage gaps. |
@@ -61,13 +60,7 @@ From the TAQAT Techno marketplace:
 
 ## Usage
 
-Start by orienting in a project so the other commands have their adapter inputs:
-
-```
-/django-init
-```
-
-Then the skills activate automatically as you work (review a queryset → `django-orm-models`; touch a migration → `django-migrations`; edit settings → `django-settings-config`). Use the commands for explicit workflows and the agents for read-only sweeps:
+The skills activate automatically as you work (review a queryset → `django-orm-models`; touch a migration → `django-migrations`; edit settings → `django-settings-config`). Each command detects the project's layout on first run (caching non-secret adapter inputs to `.django-kit.local.json`), so you can run them directly in any Django repo. Use the commands for explicit workflows and the agents for read-only sweeps:
 
 ```
 /django-migrate --check
