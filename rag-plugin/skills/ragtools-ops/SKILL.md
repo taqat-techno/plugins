@@ -1,7 +1,8 @@
 ---
 name: ragtools-ops
-description: Operational console for the ragtools local RAG product. Activates on ragtools-related keywords ("ragtools", "rag tools", "rag service", "rag doctor", "rag-mcp", "Qdrant lock", "knowledge base setup", "MCP server for rag", "local rag", "markdown_kb", "rag.exe", "RAGTools".
-version: 0.5.0
+description: Operational console for the ragtools local RAG product. Activates on ragtools-related keywords ("ragtools", "rag tools", "rag service", "rag doctor", "rag-mcp", "Qdrant lock", "knowledge base setup", "MCP server for rag", "local rag", "markdown_kb", "rag.exe", "RAGTools"). Covers Windows service launcher reliability (autostart, Scheduled Task, native-stderr pitfalls).
+version: 0.6.0
+last_reviewed: 2026-06-22
 ---
 
 # ragtools-ops
@@ -284,6 +285,18 @@ After loading the right reference, decide:
 
 - **Read ops** (status, doctor, project list) — allowed in CLI direct mode with a clear "service down → encoder will load (5–10 s)" warning.
 - **Write ops** (add/remove project, rebuild, watcher control) — refused with "service must be running for write operations — run `rag service start` first".
+
+## Windows service launcher reliability
+
+When you set up or repair autostart for the long-lived ragtools service (Scheduled Task, login launcher, or a hand-rolled wrapper), these are the failure modes that silently kill the process ~1 min after launch. Prefer the product's own first-party `rag service install / start / status` tooling over hand-rolled task mechanics; only reach for the patterns below when wiring autostart yourself.
+
+| Anti-pattern (and why it kills the service) | Do instead |
+|---|---|
+| In PowerShell 5.1, redirecting a **native exe's** stderr (`rag.exe ... 2>$log`) while `$ErrorActionPreference='Stop'`. PS 5.1 wraps every native stderr line in a `NativeCommandError` record and **throws on the first write**, terminating PowerShell and its child. One harmless stderr warning kills the service ~1 min in. | Capture native stderr with `Start-Process -RedirectStandardError <file>` (does not wrap) plus `WaitForExit()`. |
+| A **Scheduled Task action pointing at a `.cmd` wrapper** that runs the service. The spawned `cmd.exe` shares console handles and receives `CTRL_BREAK_EVENT` when the launch context tears down — propagating to the child as `0xC000013A` (STATUS_CONTROL_C_EXIT) ~1 min in. | Action = `powershell.exe -File launcher.ps1` directly (no cmd wrapper); spawn the service via `Start-Process -WindowStyle Hidden` so it **detaches**. If the Ctrl+C exit persists, wrap the launcher in a `wscript` VBS shim so PowerShell runs fully orphaned and exits 0. |
+| A non-idempotent launcher that **spawns a duplicate** every time autostart re-fires — duplicates then fight for the Qdrant lock (F-003). | Probe the target port first and `exit 0` if the service is already listening, so re-running never spawns a duplicate. |
+
+Before swapping any task XML or config, keep a rollback backup of both (task XML + config) so a bad launcher change is reversible.
 
 ## When the user asks something the references don't cover
 

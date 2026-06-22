@@ -1,11 +1,12 @@
 ---
 name: frontend-build-traps
-description: A catalog of recurring React / Next.js build-and-tooling traps that cost hours because the symptom points at the wrong layer — Turbopack HMR stale-module 500s, vitest/rolldown-vite jsx-preserve breaking tsx test imports, lockfile package-manager-major mismatches that only fail in CI, TipTap addAttributes casing + renderHTML serialization scope, ORM client-vs-schema drift mistaken for a real type error, and the lint-the-new-file-before-push discipline. Each entry gives the deterministic recovery, not a guess. Activates when an HMR reload throws "module factory is not available", a tsx test fails to import after a vitest/vite upgrade, CI rejects a lockfile or hoists deps differently than local, a TipTap attribute won't persist, an ORM type error appears right after a schema change, or whole-repo lint passes but a new file is broken.
-version: 0.1.0
-last_reviewed: 2026-06-13
+description: A catalog of recurring React / Next.js build-and-tooling traps that cost hours because the symptom points at the wrong layer — Turbopack HMR stale-module 500s, vitest/rolldown-vite jsx-preserve breaking tsx test imports, lockfile package-manager-major mismatches that only fail in CI, TipTap addAttributes casing + renderHTML serialization scope, ORM client-vs-schema drift mistaken for a real type error, the lint-the-new-file-before-push discipline, and a stale prebuilt/no-reload server serving old code (ChunkLoadError under `next start` after rebuilding underneath it; new route 404s while old routes 200) that masquerades as a code bug — restart before QC. Each entry gives the deterministic recovery, not a guess. Activates when an HMR reload throws "module factory is not available", a tsx test fails to import after a vitest/vite upgrade, CI rejects a lockfile or hoists deps differently than local, a TipTap attribute won't persist, an ORM type error appears right after a schema change, whole-repo lint passes but a new file is broken, or a ChunkLoadError / new-route-404 points at a server still serving a stale build.
+version: 0.2.0
+last_reviewed: 2026-06-22
 owns:
-  - the build/tooling trap catalog (HMR stale-module, vitest jsx-preserve, lockfile PM-major, TipTap attribute casing, ORM client/schema drift, lint-new-file-before-push)
+  - the build/tooling trap catalog (HMR stale-module, vitest jsx-preserve, lockfile PM-major, TipTap attribute casing, ORM client/schema drift, lint-new-file-before-push, stale prebuilt/no-reload server serving old code)
   - the "symptom layer != cause layer" discipline for build/dev-server/test/CI failures
+  - the restart-before-QC rule for a prebuilt/no-reload server (ChunkLoadError under `next start`; new route 404s while old routes 200 == stale server owning the port, not a routing bug)
   - the deterministic full-reset recipe for Turbopack HMR stale-module 500s
   - the drift-vs-real-error decision (compare generated-client mtime against schema before calling it drift)
 defers_to:
@@ -35,6 +36,7 @@ Activate when any of these surface:
 - A TipTap (ProseMirror) custom attribute won't persist, or serializes but doesn't show while editing.
 - A type error against an ORM client appears immediately after a schema change, or an inline ORM mock returns `undefined` from a method.
 - Whole-repo lint exits 0 but a file you just added is actually broken.
+- A `ChunkLoadError: Failed to load chunk` appears under a running `next start` (often after rebuilding underneath it), or a brand-new route 404s while existing routes still 200.
 
 Do NOT use this for application logic bugs, runtime state bugs (see `data-fetching-states`), analyzer-finding triage (see `react-lint-triage`), or generic environment breakage like a missing binary or auth loop (see `env-doctor`).
 
@@ -118,6 +120,18 @@ Two distinct traps in one extension API:
 
 **Rule.** Lint the **specific new file by path** before push (`<linter> path/to/NewFile.tsx`), in addition to any whole-repo run. A targeted lint on the exact new path is the only reliable signal that the new file is clean.
 
+### 7. Stale prebuilt / no-reload server serves stale code — restart before QC
+
+Distinct from trap 1 (a dev server's in-memory HMR graph): here a **production-style serve of a prebuilt artifact** keeps serving the OLD output after you change code, so a clean compile still looks broken.
+
+**Symptom (Next).** A running `next start` serves a PREBUILT `.next/`. Running `npm run build` while `next start` is still up **overwrites `.next/` underneath the live process**, so it keeps serving the OLD chunk manifest and every route 500s with `ChunkLoadError: Failed to load chunk ... from module`. The build compiled clean — this is not a code bug.
+
+**Fix (Next).** RESTART `next start`: stop the PID on the port, then re-run the start command (e.g. `npm run start`) so the process serves the **fresh** build. Never rebuild under a live `next start` and expect the running process to pick it up.
+
+**Cross-cutting rule.** Any server started with a no-reload flag, or serving a prebuilt artifact, never picks up NEW code until it is restarted — the process **owning the port** is the live one. A telltale of this (not just in Next) is **"404 on a brand-new route while existing routes still 200"** — e.g. a backend started with a no-reload flag (Django `runserver --noreload`, or similar) where a new endpoint 404s but list/retrieve still 200. That "new path broken, old paths fine" split is the stale-server signature, NOT an access/routing bug. Restart the process owning the port and re-check.
+
+**Discipline.** Before any local browser QC of code you just changed under a prebuilt/no-reload server, **restart the server first** — otherwise you are QCing the old artifact and will chase a phantom code bug.
+
 ## Decision framework
 
 ```
@@ -128,10 +142,11 @@ build/dev/test/CI failure
    ├─ CI rejects lockfile / different deps than local? ── regen lockfile with CI_PM_MAJOR (trap 3)
    ├─ TipTap attr won't persist / won't show? ── camelCase key + renderHTML is serialization-only (trap 4)
    ├─ ORM type error after schema change? ── mtime(client) vs mtime(schema) BEFORE calling it drift (trap 5)
-   └─ whole-repo lint green but new file broken? ── lint the new file by path (trap 6)
+   ├─ whole-repo lint green but new file broken? ── lint the new file by path (trap 6)
+   └─ ChunkLoadError under next start, or new route 404s while old routes 200? ── restart the prebuilt/no-reload server owning the port (trap 7)
 ```
 
-The unifying rule: **the layer that shows the error is often not the layer that holds the cause.** Identify the real layer (dev-server graph, transformer config, lockfile format, serialization vs editing DOM, codegen freshness, lint scope) before editing source.
+The unifying rule: **the layer that shows the error is often not the layer that holds the cause.** Identify the real layer (dev-server graph, transformer config, lockfile format, serialization vs editing DOM, codegen freshness, lint scope, stale-prebuilt/no-reload serving process) before editing source.
 
 ## Safety gates
 
@@ -142,6 +157,8 @@ The unifying rule: **the layer that shows the error is often not the layer that 
 - **Never** hand-edit a lockfile or push one generated by a different PM major than CI runs.
 - **Never** call an ORM type error "drift" without comparing client mtime to schema mtime first.
 - **Never** trust a green whole-repo lint as proof a new file is clean — lint the new file by path.
+- **Never** rebuild under a live `next start` and expect it to serve the new build — restart the process owning the port first.
+- **Never** QC code you just changed against a prebuilt/no-reload server without restarting it — a "new route 404s, old routes 200" split is a stale server, not a routing bug.
 - **Never** delete a file because a reload 500 names it — the symbol may be live; see `react-lint-triage` before any deletion.
 
 ## Validation checklist
@@ -152,6 +169,7 @@ The unifying rule: **the layer that shows the error is often not the layer that 
 - [ ] For a TipTap attribute: key is camelCase; renderHTML used only for serialization, not to fix editor display.
 - [ ] For an ORM error: client-vs-schema mtime compared; classified as stale-regenerate vs real-error; inline mocks audited for missing methods.
 - [ ] Before push: the specific new file linted by path (not only whole-repo).
+- [ ] For a ChunkLoadError / stale serve: the prebuilt/no-reload server owning the port was restarted before QC (not just rebuilt underneath); "new route 404s, old routes 200" treated as stale-server, not routing.
 
 ## Output format
 
@@ -180,6 +198,8 @@ BUILD TRAP
 | Edit `renderHTML` to make an attribute show while editing | renderHTML is serialization-only | Fix the node/mark view for editor display; renderHTML for output |
 | Call an ORM type error "drift" and regenerate blindly | If the client is newer than the schema, it's a real error | Compare mtimes first; regenerate only if client is older |
 | Trust whole-repo lint exit 0 | Ignore globs/cache/changed-scope can skip a new file | Lint the new file by its path before push |
+| Run `npm run build` under a live `next start`, then QC | The build overwrites `.next/` but the live process still serves the old chunk manifest — `ChunkLoadError` on every route | Restart `next start` (kill the PID on the port, re-run start) so it serves the fresh build |
+| Read "new route 404s, old routes 200" as an access/routing bug | It's a no-reload/prebuilt server that never loaded the new code | Restart the process owning the port and re-check before touching routing |
 
 ## Portability rationale
 
