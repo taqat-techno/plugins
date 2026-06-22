@@ -1,6 +1,6 @@
 {
   "name": "docs-wiki",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "description": "Non-blocking helper toolkit for creating, organising, editing, validating, and auditing a project Wiki. Adapts to GitHub Wiki sibling repos, in-repo wiki/ folders, GitLab Wiki, and Azure DevOps Wiki. Provides flat-namespace + filename-uniqueness + internal-link conventions, Mermaid diagram authoring rules, PlantUML BPMN-swimlane authoring + render/embed pipeline, broken-link sweeps, and code-vs-wiki drift reporting. Advisory only — it does NOT gate or block git push, force-push, or Write/Edit. Does NOT handle wiki-to-memory sync — that is a separate future plugin.",
   "author": {
     "name": "TAQAT Techno",
