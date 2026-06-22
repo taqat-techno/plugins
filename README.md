@@ -26,6 +26,7 @@ Production-ready Claude Code plugins for professional development — Odoo ERP, 
 | 11 | **claude-env-doctor** | `0.2.0` | productivity | Diagnose (never blindly mutate) the local Claude Code / dev environment — MCP wiring, Windows/WSL networking, login/401, LSP/Node spawn, Python encoding, Playwright browser setup, IDE remote-dev OOM, `/doctor` ambiguity. The canonical environment-troubleshooting home other plugins reference. | [README](./claude-env-doctor-plugin/README.md) |
 | 12 | **agent-safety-guards** | `0.1.0` | productivity | Generic agent-session safety + multi-agent workflow-reliability guardrails — credential-compromise response, read-only immutability, authorization verification, no-fabrication discipline, and reliable fan-out orchestration. Advisory, never auto-mutates. | [README](./agent-safety-guards-plugin/README.md) |
 | 13 | **release-safety** | `0.1.0` | productivity | Provider-neutral release / deployment / migration safety — verify a fix is actually deployed to the target environment (not just merged), diff environment secrets before promotion, detect migration drift, run risky cutovers/migrations safely. | [README](./release-safety-plugin/README.md) |
+| 14 | **django** | `0.1.0` | development | Reusable Django / Django REST Framework engineering toolkit — ORM & model design, migration safety (zero-downtime expand-contract), views & DRF API patterns, settings/12-factor config, security auditing, testing (pytest-django), and performance/caching. 7 skills + 5 commands + 3 agents + version/migration-safety/destructive-command guards. Generic and adapter-driven. | [README](./django-plugin/README.md) |
 
 ---
 
@@ -221,7 +222,7 @@ Generic doctor for the local **Claude Code / dev environment**. It **diagnoses, 
 ```
 taqat-techno-plugins/
 ├── .claude-plugin/
-│   └── marketplace.json          # Marketplace metadata (13 plugins)
+│   └── marketplace.json          # Marketplace metadata (14 plugins)
 ├── odoo-plugin/                  # Unified Odoo development toolkit (v14-19)
 ├── devops-plugin/                # Azure DevOps HYBRID integration (CLI + MCP)
 ├── rag-plugin/                   # Ragtools local RAG operations console
@@ -235,6 +236,7 @@ taqat-techno-plugins/
 ├── claude-env-doctor-plugin/     # Local Claude Code / dev environment doctor
 ├── agent-safety-guards-plugin/   # Agent-session safety + multi-agent workflow reliability
 ├── release-safety-plugin/        # Provider-neutral release / deployment / migration safety
+├── django-plugin/                # Django / DRF engineering toolkit (ORM, migrations, DRF, security, testing, perf)
 ├── agent_skills_spec.md          # Claude Code skills specification
 ├── CLAUDE_CODE_PLUGIN_DEVELOPMENT_GUIDE.md  # Plugin development guide
 ├── CONTRIBUTING.md               # Contribution guidelines
