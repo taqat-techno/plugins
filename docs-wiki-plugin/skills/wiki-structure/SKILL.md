@@ -1,8 +1,8 @@
 ---
 name: wiki-structure
 description: GitHub Wiki organization rules — flat-namespace, filename-uniqueness, internal-link convention without .md extension, Home and _Sidebar and _Footer ownership, sibling-clone path convention. Activates when initialising a new wiki, adding or renaming a wiki page, restructuring sidebar / Home navigation, or auditing the wiki for filename collisions. Adapter switches behavior for GitLab / Azure DevOps / MkDocs wikis (tree namespaces allowed).
-version: 0.2.0
-last_reviewed: 2026-05-28
+version: 0.3.0
+last_reviewed: 2026-06-22
 owns:
   - flat-namespace rule for GitHub Wiki (filenames become URLs)
   - filename-uniqueness rule across the wiki repo
@@ -12,6 +12,7 @@ owns:
   - rename-on-collision pattern
   - no-numeric-prefix-in-visible-labels rule
   - wiki-flavour adapter (github-wiki / gitlab-wiki / azure-devops-wiki / mkdocs-tree)
+  - azure-devops-wiki specifics (.order encoded basenames, auto-built nav, human-provisioned wiki, MCP reversed insert order)
 defers_to:
   - wiki-link-validation (the audit that enforces these rules at scan time)
   - wiki-safe-updates (the workflow that applies any structural change)
@@ -248,10 +249,23 @@ The flat-namespace and filename-uniqueness rules are specific to GitHub Wiki. Th
 |---|---|---|---|
 | `github-wiki` (default) | No (URL-flat) | Required | Basename only |
 | `gitlab-wiki` | Yes | Per-folder | Folder-path with optional `.md` |
-| `azure-devops-wiki` | Yes (`.order` controls hierarchy) | Per-folder | Folder-path with `.md` |
+| `azure-devops-wiki` | Yes (`.order` controls hierarchy) | Per-folder | Absolute `/Page-Name` (dashed); see adapter section |
 | `mkdocs-tree` | Yes | Per-folder | Folder-path with `.md` |
 
 Beyond the constraint list, the rest of the skill (Home / Sidebar / Footer authorship, the no-numeric-prefix rule, the curated-sidebar principle) applies to every flavour.
+
+## Azure DevOps Wiki adapter (`azure-devops-wiki`)
+
+Azure DevOps project wikis are git-backed but differ from GitHub Wiki in ways that silently break a naive copy:
+
+- **No `_Sidebar.md` / `_Footer.md`.** Azure auto-builds the left-hand navigation from the page tree and has no footer concept — those files just render as ordinary pages. Drop them on migration.
+- **A `.order` file controls nav order.** It lists page basenames, one per line. Azure encodes a literal hyphen in a page filename as `%2D`, so `.order` entries must use the exact **encoded** basenames or the ordering silently no-ops.
+- **Internal links are absolute.** Use `](/Page-Name)` (leading slash), not the GitHub basename-only `](Page-Name)`. Spaces in a title still map to hyphens in the path; Azure displays paths with spaces but resolves links against the dashed filename.
+- **Collapsible nav = sub-folders.** Nesting a page under a folder makes it a child in the tree but changes its path, so every inbound internal link to it must be rewritten.
+- **The wiki must already exist — a human provisions it.** Neither the Azure DevOps REST API nor the `azure-devops` MCP can *create* a project wiki; a human creates it once via Project Settings → Wiki ("Create project wiki"). A page-write that returns **"Wiki not found" is NOT a permission error** — it means no wiki exists yet. Ask the user to create it, then fill pages via MCP.
+- **MCP page-create order comes out reversed.** The MCP inserts each new sub-page at the **top** of the parent's order file, so pages land in reverse creation order. Reorder afterwards via the Page Moves REST API rather than re-creating pages.
+
+See `wiki-mermaid` → Platform compatibility for the matching Azure DevOps Mermaid fence rules (`::: mermaid`, `graph` not `flowchart`, no subgraph links).
 
 ## Cross-references
 
@@ -260,4 +274,6 @@ Beyond the constraint list, the rest of the skill (Home / Sidebar / Footer autho
 - `wiki-authoring` — content patterns inside the structure this skill defines.
 - `wiki-vs-stray-docs` — refuses to create `docs/` folders that compete with the wiki.
 - `wiki-code-vs-docs-discrepancy` — applied when wiki claims contradict the code.
+- `wiki-mermaid` — Azure DevOps Mermaid fence rules that pair with this adapter.
+- `wiki-plantuml` — where swimlane artifacts live under each flavour: GitHub commits the rendered image into the `.wiki` repo `/images/` (leading-slash wiki-link); Azure uploads to the hidden `/.attachments` folder (root-relative ref); the `.puml` source sits next to the wiki. Filename-uniqueness applies to the `swimlane-<epic>-<slug>` basename.
 - `wiki-link-auditor` (agent) — automates the audit.
