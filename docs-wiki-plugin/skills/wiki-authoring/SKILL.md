@@ -1,20 +1,26 @@
 ---
 name: wiki-authoring
-description: Content templates and authoring conventions for wiki pages — SOP, runbook, role guide, onboarding, release-and-handover, user manual, workflow doc, architecture overview, decision record. Each template names its required sections, its audience, its last-reviewed convention, and the anti-patterns the template prevents. Activates when creating a new wiki page (via /wiki-new) or significantly restructuring an existing page.
-version: 0.3.0
-last_reviewed: 2026-06-13
+description: Content templates and authoring conventions for wiki pages — SOP, runbook, role guide, onboarding, release-and-handover, user manual, hub page, workflow doc, workflow-journey page, architecture overview, decision record, plus a recommended page set for a business/product wiki. Each template names its required sections, its audience, its last-reviewed convention, and the anti-patterns the template prevents. Activates when creating a new wiki page (via /wiki-new) or significantly restructuring an existing page.
+version: 0.4.0
+last_reviewed: 2026-06-22
 owns:
-  - page-template catalogue (SOP / runbook / role-guide / onboarding / release-handover / user-manual / workflow / architecture / decision-record)
+  - page-template catalogue (SOP / runbook / role-guide / onboarding / release-handover / user-manual / hub-page / workflow / workflow-journey / architecture / decision-record)
+  - hub-page template (one-line purpose + responsibilities table + optional orientation map + curated links + summary-not-source note)
+  - workflow-journey-page template (actors + overview flow + one focused diagram + parity notes + authoritative-detail pointer)
+  - the master-hub-vs-journey-page content distinction (master swimlane + index on the hub; focused diagrams + deferred rules on journeys)
+  - recommended page-set catalogue for a business/product wiki (which template fills each page)
   - last-reviewed convention (date + reviewer; surfaced at page top)
   - audience-declaration convention (who the page is for; surfaced at page top)
   - canonical-section ordering per template
   - linkable subsection convention (anchor-friendly headings)
   - tenant/client neutralization discipline (per-hit classify-then-act; never a blind global find/replace)
 defers_to:
-  - wiki-structure (filename + URL slug rules; sidebar placement)
-  - wiki-mermaid (diagrams inside any page)
+  - wiki-structure (filename + URL slug rules; sidebar placement; IA hierarchy/tree-depth/sidebar order; Azure real-page mechanic; internal-link form)
+  - wiki-mermaid (diagrams inside any page; orientation maps + focused diagrams; the master swimlane placement rule)
+  - wiki-plantuml (the master swimlane artifact and its render/embed pipeline)
   - wiki-safe-updates (the workflow for writing a new page)
   - wiki-link-validation (cross-page links inside templates)
+  - wiki-source-of-truth (the summary-not-source doctrine; which page is authoritative)
   - project domain expertise (the content; the skill provides shape, not substance)
 user_invocable: false
 ---
@@ -365,7 +371,53 @@ A: <answer with link if longer than 2 sentences>
 <how to escalate within the product OR contact support>
 ```
 
+### Template: Hub page
+
+**Audience:** anyone navigating into a section — they need orientation, not the rules themselves.
+
+A hub is a section landing page. On Azure DevOps wikis a parent IS a real page (not a folder), so a section that exists must have a real landing page (the why and the IA mechanic are owned by `wiki-structure`). The hub's job is to orient and route, never to carry the rules its children own.
+
+```markdown
+# <Section Name>
+
+> **Audience:** <who navigates here>
+> **Last reviewed:** <YYYY-MM-DD> by <name> · **Reviewed every:** quarterly
+
+<one-line purpose of this section>
+
+---
+
+## What is in here / who should read it
+
+| Child page | What it covers | Who should read it |
+|------------|----------------|--------------------|
+| <child page link> | <one line> | <role> |
+
+## Orientation map
+
+<optional — a compact Mermaid map at hub altitude only (a few nodes), NEVER a full state machine; see wiki-mermaid>
+
+## In this section
+
+- <curated link to each child page>
+- <curated link to the matching workflow-journey page(s)>
+
+---
+
+> This hub summarises; the authoritative rules live on the child pages. (The "summary, not source" doctrine is owned by `wiki-source-of-truth`.)
+```
+
+Three hard rules:
+
+- A hub is **never** blank.
+- A hub is **never** a bare link list — it carries the purpose, the responsibilities table, and the curated links.
+- A hub **never** restates a child's rule body — it points to the child.
+
+Keep internal links in the adapter's form (the link syntax is owned by `wiki-structure`).
+
 ### Template: Workflow doc
+
+> **For a multi-workflow wiki where rules live on separate spec pages,** use the **Workflow-journey page** template (below) for each per-workflow child and read **"Workflow hub vs journey pages"** — so authors do not put rule bodies on journey pages. The "Workflow doc" template below is for a single self-contained process.
 
 **Audience:** anyone in the workflow.
 
@@ -408,6 +460,48 @@ A: <answer with link if longer than 2 sentences>
 
 <links to SOPs for individual steps>
 ```
+
+### Template: Workflow-journey page
+
+**Audience:** anyone tracing one end-to-end journey through the system.
+
+A journey page is a **child of a master workflow hub**. It traces one journey at journey altitude and **defers every rule** to its owning specification page. This is distinct from the "Workflow doc" above: a **Workflow doc** is a single self-contained multi-party process; a **Workflow-journey page** is one of many children under a master workflow hub, and the rules live on a separate spec page. Cross-link the two when a wiki uses both shapes.
+
+```markdown
+# <Journey Name>
+
+> **Audience:** anyone tracing this journey
+> **Last reviewed:** <YYYY-MM-DD> by <name>
+
+<one-paragraph summary of the journey and its outcome>
+
+> Part of <master workflow hub link>.
+
+---
+
+## Actors
+
+<the actors in this journey and what each contributes>
+
+## Overview flow
+
+1. <ordered/numbered step at journey altitude — actor does action, hands off to next>
+2. <step>
+
+## Diagram
+
+<ONE focused diagram for this journey — NOT the master swimlane; see wiki-mermaid for a focused diagram or wiki-plantuml for a single focused swimlane>
+
+## Parity notes
+
+<where the as-built behaviour differs from the documented intent>
+
+---
+
+> **Authoritative detail:** <link to the owning specification page>
+```
+
+**Refusal rule:** a journey page DEFERS every rule to its owning specification page. It **must not** emit a rule body, a contract, a state machine, or an event list — it references them through the "Authoritative detail" pointer. If the journey seems to need a rule, link to the spec page that owns it.
 
 ### Template: Architecture overview
 
@@ -501,6 +595,41 @@ Negative:
 
 ADRs are short, immutable once accepted, and live in a dedicated `decisions/` namespace inside the wiki (where the wiki flavour supports it) OR with the `ADR-NN-` prefix on flat-namespace wikis.
 
+## Workflow hub vs journey pages
+
+When a wiki documents many workflows, split them into a **master workflow hub** plus per-workflow **journey pages** (the journey-page template above). The two carry different content:
+
+- **Master workflow hub** — holds the SINGLE master end-to-end swimlane (the one diagram covering the full lifecycle across all actor lanes) exactly once, and an index table mapping each workflow to its journey page and its authoritative specification page.
+
+  | Workflow | Journey page | Authoritative spec page |
+  |----------|--------------|-------------------------|
+  | <name> | <journey page link> | <spec page link> |
+
+  The master swimlane lives on the hub only — never duplicated onto children (the swimlane placement rule is owned by `wiki-mermaid`; rendering/embedding the swimlane artifact is owned by `wiki-plantuml` / `wiki-mermaid`).
+
+- **Child journey pages** — focused diagrams only; they defer every rule to the spec page, carry the "Authoritative detail: <spec page>" pointer, and carry a "Part of <hub>" backlink.
+
+Single-source rules:
+
+- The master swimlane appears on the hub only.
+- Rule statements are single-sourced on the spec pages and only *referenced* from journeys — never restated.
+- Prefer **moving** an existing strong workflow page under the hub over re-creating a near-duplicate.
+
+## Recommended page set for a business/product wiki
+
+Catalogue-level guidance on which TEMPLATE fills each page (this is not a hierarchy spec — the tree nesting, sidebar/`.order`, depth, move/rename/repoint mechanics, and the section-label choice are owned by `wiki-structure` and `wiki-source-of-truth`). The exact section set is adapted per project.
+
+| Page role | Template to use |
+|-----------|-----------------|
+| Product-Specification landing | Hub page (the top of the business tree) |
+| Each themed section | Hub page |
+| Workflows-Overview master hub | Hub page carrying the master swimlane + workflow index (see "Workflow hub vs journey pages") |
+| Each per-workflow page | Workflow-journey page (defers rules to its spec page) |
+| Technical-Reference | Architecture overview |
+| Development-SOPs index | Hub page; each SOP under it uses the SOP template |
+
+Defer the actual tree nesting, sidebar ordering, depth, and the "Business-Source-of-Truth vs Product-Specification" label choice to `wiki-structure` (IA) and `wiki-source-of-truth` (which page is authoritative).
+
 ## Decision framework
 
 When the user invokes `/wiki-new` without a template, ask:
@@ -513,11 +642,15 @@ What kind of page is this?
   4. Onboarding (first weeks in role X)
   5. Release / handover (what shipped, who owns now)
   6. User manual (how to use a product)
-  7. Workflow doc (multi-party process)
-  8. Architecture overview (engineering reference)
-  9. Decision record (why we chose X)
+  7. Hub page (section landing / orientation)
+  8. Workflow doc (single self-contained multi-party process)
+  9. Workflow-journey page (child of a workflow hub that defers rules to a spec page)
+  10. Architecture overview (engineering reference)
+  11. Decision record (why we chose X)
   Or: freeform (no template)
 ```
+
+Disambiguator: pick **Workflow doc** for one self-contained process; pick **Workflow-journey page** when the workflow is one of many under a master hub and its rules live on a separate specification page.
 
 Default to "freeform" only when the page genuinely does not fit a template (Home, Index, About).
 
@@ -529,6 +662,10 @@ Default to "freeform" only when the page genuinely does not fit a template (Home
 - **Never** neutralize tenant/client names with a blind global find/replace — classify each hit first (active prose → neutralize; provenance → preserve byte-identical; operator/platform → preserve). See `references/neutralization-discipline.md`.
 - **Never** prescribe a wiki page when a code-side comment / commit message / PR description is the right place.
 - **Never** lock a page into one template after creation — pages evolve; allow the maintainer to restructure.
+- **Never** emit a blank or link-only hub — a hub carries purpose + responsibilities table + curated links + the "summary, not source" note.
+- **Never** restate a child's authoritative rule body on a hub or journey page — point to the owning page.
+- **Never** place the master swimlane on a child journey page — it lives on the master workflow hub only.
+- **Never** let a journey page emit a rule / contract / state-machine / event body — use an "Authoritative detail: <spec page>" pointer.
 
 ## Validation checklist
 
@@ -542,6 +679,11 @@ Before saving a new page:
 - [ ] Internal links follow `wiki-structure` convention.
 - [ ] Filename matches the page title per `wiki-structure`.
 - [ ] Any real tenant/client name was classified per `references/neutralization-discipline.md` (no blind global replace); provenance lines preserved byte-identical.
+- [ ] (Hub) non-empty — purpose + responsibilities table + curated links + "summary, not source" note.
+- [ ] (Hub) every child is reachable from the hub and backlinks to it.
+- [ ] (Journey) linked from the master workflow hub index and carries the "Authoritative detail: <spec page>" pointer.
+- [ ] (Workflow set) the master swimlane appears exactly once (on the hub).
+- [ ] No rule body / contract / state machine / event list on any hub or journey page.
 
 ## Output format
 
@@ -571,6 +713,10 @@ PROPOSED NEW PAGE — <path>
 | User manual that screenshots every screen | Screenshots go stale fast; multiply edits | Screenshot the few that need pixel-level guidance |
 | FAQ as a dumping ground for things nobody actually asks | Wastes reader attention | Only real questions; each linked to where the answer lives in detail |
 | `sed s/AcmeCorp/<TENANT>/g` over the whole page to "anonymize" it | Corrupts provenance lines and rule-anchoring examples; changes what the page asserts | Classify each name hit; neutralize active prose, preserve provenance + platform context |
+| Hub page that is a bare list of child links | Orients no one; a parent is a real page, not a folder | Purpose + responsibilities table + curated links + "summary, not source" note |
+| Hub that copies a child's rule body so readers "don't have to click" | Creates a competing second source; drifts from the child | Summarise and link; the child owns the rule |
+| Journey page that restates the spec's contract / state machine | Duplicates the authoritative rules; goes stale silently | Defer via the "Authoritative detail: <spec page>" pointer |
+| Master swimlane duplicated onto each journey page | Multiple copies drift; the hub stops being the single map | Master swimlane on the hub only; focused diagrams on journeys |
 
 ## Portability rationale
 
@@ -584,9 +730,10 @@ The skill does not depend on:
 
 ## Cross-references
 
-- `wiki-structure` — filename rules; sidebar placement.
-- `wiki-mermaid` — diagrams inside any template (flowchart/sequence/state, rendered inline).
-- `wiki-plantuml` — BPMN-style swimlanes for multi-actor workflow pages (pre-rendered image).
+- `wiki-structure` — filename rules; sidebar placement; IA hierarchy and tree-depth; the Azure real-page mechanic; the internal-link form for hub and journey links.
+- `wiki-source-of-truth` — owns the "summary, not source" doctrine that hubs and journey pages cite; which page is authoritative.
+- `wiki-mermaid` — diagrams inside any template (flowchart/sequence/state, rendered inline); orientation maps and focused diagrams; the master-swimlane placement rule. Already cross-referenced.
+- `wiki-plantuml` — BPMN-style swimlanes for multi-actor workflow pages (pre-rendered image); owns the master swimlane artifact and its render/embed pipeline. Already cross-referenced.
 - `wiki-safe-updates` — workflow for the actual write.
 - `wiki-link-validation` — verifies cross-references in templates.
 - `wiki-code-vs-docs-discrepancy` — applied if the page makes a claim contradicted by code.

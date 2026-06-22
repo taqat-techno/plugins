@@ -1,7 +1,7 @@
 ---
 name: wiki-structure
-description: GitHub Wiki organization rules — flat-namespace, filename-uniqueness, internal-link convention without .md extension, Home and _Sidebar and _Footer ownership, sibling-clone path convention. Activates when initialising a new wiki, adding or renaming a wiki page, restructuring sidebar / Home navigation, or auditing the wiki for filename collisions. Adapter switches behavior for GitLab / Azure DevOps / MkDocs wikis (tree namespaces allowed).
-version: 0.3.0
+description: GitHub Wiki organization rules — flat-namespace, filename-uniqueness, internal-link convention without .md extension, Home and _Sidebar and _Footer ownership, sibling-clone path convention. Also owns hub-first themed IA (parents are real hub pages, never empty folders) and a validated default structure template. Activates when initialising a new wiki, adding or renaming a wiki page, restructuring sidebar / Home navigation, or auditing the wiki for filename collisions. Adapter switches behavior for GitLab / Azure DevOps / MkDocs wikis (tree namespaces allowed); on azure-devops-wiki the reliable internal link is the page-ID URL form.
+version: 0.4.0
 last_reviewed: 2026-06-22
 owns:
   - flat-namespace rule for GitHub Wiki (filenames become URLs)
@@ -13,9 +13,15 @@ owns:
   - no-numeric-prefix-in-visible-labels rule
   - wiki-flavour adapter (github-wiki / gitlab-wiki / azure-devops-wiki / mkdocs-tree)
   - azure-devops-wiki specifics (.order encoded basenames, auto-built nav, human-provisioned wiki, MCP reversed insert order)
+  - hub-first themed-section IA (every parent is a real hub page, never an empty/link-only folder)
+  - reader-facing section labels (name the reader's target artifact, not internal provenance doctrine)
+  - validated default structure template for business/product wikis (adapt per project)
+  - azure-devops-wiki page-ID URL link convention (the reliable resolvable internal-link form)
+  - azure-devops-wiki pagemoves/REST mechanics (newOrder mandatory, REST-for-move/delete, tree-omits-id, childless-delete, no-auto-repoint of inbound links)
+  - azure-devops-wiki spaces-vs-hyphens slug risk (dashed relative links break on hyphen-titled pages)
 defers_to:
-  - wiki-link-validation (the audit that enforces these rules at scan time)
-  - wiki-safe-updates (the workflow that applies any structural change)
+  - wiki-link-validation (the audit that enforces these rules at scan time; owns the resolution-based audit that proves a page-ID link actually resolves)
+  - wiki-safe-updates (the workflow that applies any structural change; owns the approval/diff gate plus the repoint ordering for move/rename/delete)
   - wiki-code-vs-docs-discrepancy (when structural changes contradict code-side documentation)
   - project owner (the user picks the wiki flavour and resolves naming collisions)
 user_invocable: false
@@ -105,6 +111,51 @@ For GitHub Wiki:
 
 For `gitlab-wiki`, `azure-devops-wiki`, `mkdocs-tree`: folder paths and `.md` extensions in links may be valid per platform; the skill adjusts.
 
+## Hub-first themed IA (real hub pages, never empty folders)
+
+Every parent / section node is a **real hub page**, never a blank or link-only placeholder. A hub carries:
+
+- a one-line purpose;
+- a "what is in here / who should read it" responsibilities table;
+- an optional compact orientation map (a few Mermaid nodes — keep it small);
+- curated links to its children and to the matching workflow pages;
+- an explicit "this hub summarises; the authoritative rules live on the child pages" note.
+
+Section labels name the **reader's target artifact** (e.g. `Product-Specification`), not an internal provenance doctrine (e.g. `Business-Source-of-Truth`). "Source of truth" is a principle expressed *inside* the landing page, never a navigation label.
+
+Hard line: a hub **never** restates a child's authoritative rule bodies — that would create a competing second source. (Defer journey-vs-source separation and master-swimlane-once to `wiki-mermaid` / `wiki-source-of-truth`; only the IA shape is owned here.)
+
+On `azure-devops-wiki` this is **structurally enforced**: there is no empty-folder option, so a missing hub is a missing page.
+
+## Recommended default structure template (business/product wikis)
+
+A **validated default to adapt per project**, not a mandate. The exact section set should be tuned to the project; this is the validated shape that worked for a real business/product wiki.
+
+Compact top-level shape:
+
+```
+Home
+Product-Specification        (rich landing + themed hubs)
+Workflows-Overview           (master swimlane + journey pages)
+Technical-Reference          (engineering reference)
+Development-SOPs              (engineering governance)
+```
+
+| Section | Purpose | Expected child pages | Required hub content | Must NOT contain |
+|---|---|---|---|---|
+| **Home** | Wiki entry point + source-of-truth model + reading path | (none; links out) | What the wiki is; quickstart; by-role/by-topic links; source-of-truth assignments; "backlog is delivery tracking, not a wiki source" note | Full rule bodies; long prose |
+| **Product-Specification** | Business/system source-of-truth landing | the themed hubs below | Reading path; "how this section is organised" table; journey-view-vs-source-page explainer; doc-structure Mermaid map | Authoritative rule restatement |
+| **Overview-and-Scope** | Orientation: what the product is, in/out scope, actors | Product-Overview; Scope-and-Non-Scope; Actors-and-Operating-Model | Short product summary; scope posture; actor summary; page table | Detailed rules; full scope tables (link to child) |
+| **Administration-and-Configuration** | Platform vs tenant administration | Platform-Administration; Tenant-Administration | Platform-vs-tenant responsibility table; provision→configure mini-map | Per-field config contracts (live on children) |
+| **Core-Records-and-Processing** | Core workspace + document processing | Records-Workspace-and-Correspondence; OCR-Search-and-Document-Processing | How correspondence/records/OCR/search relate; compact capability map | The full letter state machine / OCR pipeline (children own these) |
+| **Workflows-Overview** | Journey hub | one journey page per workflow + a Deferred/Out-of-Scope notes page | The single master end-to-end swimlane; index table (workflow → detail page → optional backlog ref) | Authoritative rules; duplicated full diagrams |
+| **Rules-Audit-and-Governance** | Cross-cutting rules, SLA, audit, retention | Business-Rules-SLA-and-Audit | Summary of rule families with explicit "summary, not source" disclaimer | Re-derived rule bodies |
+| **Integrations-and-Contracts** | External integration contracts | one contract page per integration | Contract-vs-workflow distinction; integration list | Wire-level detail duplicated from the contract page |
+| **Technical-Reference** | Engineering reference (stack/architecture) | Technology-Stack-and-Architecture | "how it's built, not what it must do" framing | Business rules |
+| **Development-SOPs** | Engineering governance | the SOP set | Orientation + grouped SOP index | Business rules |
+
+General hub rule for every section (stated once): explainer + orienting table + curated links; **never** a blank or link-only parent, and **never** a restatement of a child's authoritative rules.
+
 ## Home, _Sidebar, _Footer authorship
 
 ### Home.md
@@ -184,6 +235,10 @@ The wiki repo has its own `git push`, its own commit history, its own branch (de
 - **Never** use `.md` extensions in internal links on GitHub Wiki.
 - **Never** push the wiki repo without going through `wiki-safe-updates` (approval gate).
 - **Never** modify `_Sidebar.md` or `Home.md` without diff preview (per `wiki-safe-updates`).
+- **Never** leave a parent/section as a blank or link-only folder — every parent is a real hub page (and a hub never restates a child's authoritative rules).
+- **Never** emit a relative `[text](/Dashed-Path)` link to a hyphen-titled page on `azure-devops-wiki` — use the page-ID URL form and validate by resolution (defer the audit to `wiki-link-validation`).
+- **Never** call `pagemoves` without `newOrder` (HTTP 500), and **never** delete a section page that still has children (move children out first).
+- **Never** assume "dashes = spaces" on `azure-devops-wiki`; pick one slug convention deliberately and never auto-migrate space-vs-hyphen titles.
 
 ## Validation checklist
 
@@ -197,6 +252,10 @@ Before committing a structural wiki change:
 - [ ] New page's basename matches its intended URL slug.
 - [ ] Cross-references from other pages updated for any rename.
 - [ ] Wiki sibling clone present (or in-repo `wiki/` folder for non-GitHub flavours).
+- [ ] Every parent/section is a real hub page (one-line purpose + responsibilities table + curated links; non-empty), and no hub restates a child's authoritative rules.
+- [ ] Section labels name the reader's target artifact, not internal provenance doctrine.
+- [ ] (`azure-devops-wiki`) Internal links use the page-ID URL form `/{pageId}/{Slug}`; no dashed relative links to hyphen-titled pages.
+- [ ] (`azure-devops-wiki`) Any move used `pagemoves` with `newOrder`; any section delete operated on a childless page; inbound links repointed (per `wiki-safe-updates`).
 
 ## Output format
 
@@ -249,7 +308,7 @@ The flat-namespace and filename-uniqueness rules are specific to GitHub Wiki. Th
 |---|---|---|---|
 | `github-wiki` (default) | No (URL-flat) | Required | Basename only |
 | `gitlab-wiki` | Yes | Per-folder | Folder-path with optional `.md` |
-| `azure-devops-wiki` | Yes (`.order` controls hierarchy) | Per-folder | Absolute `/Page-Name` (dashed); see adapter section |
+| `azure-devops-wiki` | Yes (`.order` controls hierarchy) | Per-folder | Page-ID URL `/{pageId}/{Slug}` (dashed relative links break on hyphen-titled pages); see adapter section |
 | `mkdocs-tree` | Yes | Per-folder | Folder-path with `.md` |
 
 Beyond the constraint list, the rest of the skill (Home / Sidebar / Footer authorship, the no-numeric-prefix rule, the curated-sidebar principle) applies to every flavour.
@@ -260,17 +319,30 @@ Azure DevOps project wikis are git-backed but differ from GitHub Wiki in ways th
 
 - **No `_Sidebar.md` / `_Footer.md`.** Azure auto-builds the left-hand navigation from the page tree and has no footer concept — those files just render as ordinary pages. Drop them on migration.
 - **A `.order` file controls nav order.** It lists page basenames, one per line. Azure encodes a literal hyphen in a page filename as `%2D`, so `.order` entries must use the exact **encoded** basenames or the ordering silently no-ops.
-- **Internal links are absolute.** Use `](/Page-Name)` (leading slash), not the GitHub basename-only `](Page-Name)`. Spaces in a title still map to hyphens in the path; Azure displays paths with spaces but resolves links against the dashed filename.
+- **Link by page-ID URL, not by dashed relative path.** The reliable resolvable internal-link form is the page-ID URL `.../_wiki/wikis/{WikiName}/{pageId}/{Slug}` (owner-confirmed). Do NOT emit a relative `[text](/Dashed-Path)` link to a hyphen-titled page: Azure resolves the hyphens as spaces (`?pagePath=/Dashed Path`) and the link 404s **even though the API path exists** — so a path-existence audit false-passes. Plain dashed relative links resolve ONLY for genuine space-titled pages. Pick one convention deliberately (page-ID URL recommended) and validate by resolution — defer that audit to `wiki-link-validation`.
 - **Collapsible nav = sub-folders.** Nesting a page under a folder makes it a child in the tree but changes its path, so every inbound internal link to it must be rewritten.
 - **The wiki must already exist — a human provisions it.** Neither the Azure DevOps REST API nor the `azure-devops` MCP can *create* a project wiki; a human creates it once via Project Settings → Wiki ("Create project wiki"). A page-write that returns **"Wiki not found" is NOT a permission error** — it means no wiki exists yet. Ask the user to create it, then fill pages via MCP.
-- **MCP page-create order comes out reversed.** The MCP inserts each new sub-page at the **top** of the parent's order file, so pages land in reverse creation order. Reorder afterwards via the Page Moves REST API rather than re-creating pages.
+- **MCP page-create order comes out reversed.** The MCP inserts each new sub-page at the **top** of the parent's order file, so pages land in reverse creation order. The fix is a `pagemoves` call with `newOrder` per page (see Move/delete/reorder below) rather than re-creating pages.
+
+### Move, delete, reorder — REST mechanics (`azure-devops-wiki`)
+
+The `azure-devops` MCP has **no move and no delete tool**. REST is required for move, delete, in-place reorder, ETag-based content edits, and page-id lookup. The MCP `wiki_*` tools cover create/update/read only.
+
+- **Move via REST.** `POST .../wiki/wikis/{id}/pagemoves` with body `{path, newPath, newOrder}`. **`newOrder` is MANDATORY** — omitting it returns HTTP 500 `"Nullable object must have a value."` A move/rename of a parent re-paths all of its descendants.
+- **Delete via REST, childless only.** `DELETE .../pages?path=<enc>` operates on a **childless** page. Move children out first; a section is a real page, so there is no "delete an empty folder" — deleting a section deletes a real page.
+- **Azure NEVER auto-repoints inbound links** on a move or rename. Every inbound reference (other pages, landing/index pages, intra-page anchors) must be repointed deterministically. Defer the repoint workflow, its approval gate, and the replacement ordering to `wiki-safe-updates`.
+- **The page-tree REST omits page id.** `GET .../wiki/wikis/{id}/pages?path=/&recursionLevel=full` returns the tree **without** page `id`; fetch each id per page (`GET .../pages?path=<enc>`) before building page-ID links or a `pagemoves` worklist.
+
+### Slug convention risk: spaces vs hyphens (`azure-devops-wiki`)
+
+A single Azure wiki can MIX space-titled pages (dashed relative links resolve) and hyphen-titled pages (dashed relative links break). Do NOT assume "dashes = spaces." Pick one convention deliberately and validate by resolution. Trade-off *(uncertain)*: converting to genuine space titles fixes dashed links but changes display titles and breaks `?pagePath=`-form links — decide per project, never auto-migrate.
 
 See `wiki-mermaid` → Platform compatibility for the matching Azure DevOps Mermaid fence rules (`::: mermaid`, `graph` not `flowchart`, no subgraph links).
 
 ## Cross-references
 
-- `wiki-link-validation` — enforces these rules during audit.
-- `wiki-safe-updates` — the workflow for applying structural changes.
+- `wiki-link-validation` — enforces these rules during audit; owns the resolution-based audit that proves a page-ID link actually resolves (not just that the API path exists).
+- `wiki-safe-updates` — the workflow for applying structural changes; owns the approval/diff gate and the repoint ordering for move/rename/delete (specific-child-paths first, bare-parent path last).
 - `wiki-authoring` — content patterns inside the structure this skill defines.
 - `wiki-vs-stray-docs` — refuses to create `docs/` folders that compete with the wiki.
 - `wiki-code-vs-docs-discrepancy` — applied when wiki claims contradict the code.
