@@ -69,6 +69,7 @@ git -C <wiki-repo-path> push origin master
 
 ## Cross-references
 
+- `wiki-plantuml` — its swimlane publish (page edit + the committed image / `/.attachments` upload) routes through this skill's diff-preview before push; `publish_update.py` enforces an explicit `--approve` step. (This skill itself stays advisory; the swimlane pipeline supplies the approval gate.)
 - `wiki-structure` — structural conventions a write may follow.
 - `wiki-link-validation` — optional pre-push broken-link sweep.
 - `wiki-code-vs-docs-discrepancy` — optional code-vs-wiki drift report.
