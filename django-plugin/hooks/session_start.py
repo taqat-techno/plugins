@@ -82,7 +82,7 @@ def detect():
         parts.append(f"Settings: {settings_layout}.")
 
     parts.append("Skills: orm/migrations/views-drf/settings/security/testing/performance. "
-                 "Commands: /django-init, /django-migrate, /django-test, /django-security, /django-scaffold.")
+                 "Commands: /django-migrate, /django-test, /django-security, /django-scaffold.")
 
     return "[Django] " + " ".join(parts)
 

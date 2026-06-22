@@ -12,7 +12,7 @@ You run an authorized defensive security audit of the user's own Django codebase
 
 ## Step 0 — Context
 
-Read `.django-kit.local.json` for `managePrefix`, `settingsModules`, `localApps`, `drf`, `dbBackend`. If absent, detect like `/django-init`. Establish which environment's settings are in scope (prod-bound settings make `DEBUG=True`, weak `SECRET_KEY`, and `ALLOWED_HOSTS=["*"]` critical).
+Read `.django-kit.local.json` for `managePrefix`, `settingsModules`, `localApps`, `drf`, `dbBackend`. If absent, detect them yourself (read-only): locate `manage.py` and its invocation prefix, the settings modules, local apps, DRF presence, and the database backend. Establish which environment's settings are in scope (prod-bound settings make `DEBUG=True`, weak `SECRET_KEY`, and `ALLOWED_HOSTS=["*"]` critical).
 
 ## Step 1 — Deploy check
 

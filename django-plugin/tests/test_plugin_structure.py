@@ -32,7 +32,6 @@ EXPECTED_FILES = [
     "hooks/session_start.py",
     "hooks/pre_write_guard.py",
     "hooks/pre_bash_guard.py",
-    "commands/django-init.md",
     "commands/django-scaffold.md",
     "commands/django-migrate.md",
     "commands/django-test.md",

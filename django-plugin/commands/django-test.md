@@ -12,7 +12,7 @@ You run the project's tests with the **correct runner and settings** and interpr
 
 ## Step 0 — Context
 
-Read `.django-kit.local.json` for `testRunner`, `managePrefix`, `settingsModules.test`. If absent, detect like `/django-init`. Confirm the **test settings module** (fast hasher, appropriate backends) — running tests on dev/prod settings is a flag.
+Read `.django-kit.local.json` for `testRunner`, `managePrefix`, `settingsModules.test`. If absent, detect them yourself (read-only): locate `manage.py` and its invocation prefix, the settings layout/test module, and the test runner. Confirm the **test settings module** (fast hasher, appropriate backends) — running tests on dev/prod settings is a flag.
 
 ## Step 1 — Build the command
 
