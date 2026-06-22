@@ -1,6 +1,6 @@
 # docs-wiki
 
-![Version](https://img.shields.io/badge/version-0.6.0-blue.svg)
+![Version](https://img.shields.io/badge/version-0.6.1-blue.svg)
 ![Status](https://img.shields.io/badge/status-functional-green.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 

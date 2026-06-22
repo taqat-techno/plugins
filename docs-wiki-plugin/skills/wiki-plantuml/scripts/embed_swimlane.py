@@ -74,10 +74,15 @@ def main() -> int:
         print("error: --alt must be meaningful (accessibility).", file=sys.stderr)
         return 2
 
-    with io.open(args.page, "r", encoding="utf-8") as f:
+    # Read raw (newline="") to PRESERVE the page's existing line endings; writing them
+    # back unchanged avoids a spurious whole-file CRLF<->LF diff on Windows wiki clones.
+    with io.open(args.page, "r", encoding="utf-8", newline="") as f:
         original = f.read()
+    nl = "\r\n" if "\r\n" in original else "\n"
 
     block = build_block(args.flavour, args.artifact, args.alt, args.puml_link, args.puml_source)
+    if nl != "\n":
+        block = block.replace("\n", nl)
 
     match = BLOCK_RE.search(original)
     if match:
@@ -85,7 +90,7 @@ def main() -> int:
         updated = original[:match.start()] + block + original[match.end():]
     else:
         # Append a new Swimlane section at the end, separated by a blank line.
-        sep = "" if original.endswith("\n\n") else ("\n" if original.endswith("\n") else "\n\n")
+        sep = "" if original.endswith(nl + nl) else (nl if original.endswith(nl) else nl + nl)
         updated = original + sep + block
 
     if updated == original:
