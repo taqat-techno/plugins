@@ -1,14 +1,18 @@
 ---
 name: wiki-mermaid
-description: Mermaid diagram authoring rules for wiki pages — top-down direction by default, a small shape vocabulary, a four-class colour palette (ok / block / external / audit), strict label hygiene (no inline code, no secrets, no file paths in business diagrams), the code-path scrub for business-process diagrams, and per-platform rendering compatibility (Azure DevOps Wiki needs a colon-container Mermaid fence, graph not flowchart, and no subgraph links). Activates when adding or editing any Mermaid block inside a wiki page.
-version: 0.3.0
+description: Mermaid diagram authoring rules for wiki pages — top-down direction by default, a small shape vocabulary, a four-class colour palette (ok / block / external / audit), the single-master-swimlane rule (one end-to-end swimlane, on the workflow hub, exactly once), the diagram-altitude rule (match diagram size to page role), reuse-the-project-palette, strict label hygiene (no inline code, no secrets, no file paths in business diagrams), the code-path scrub for business-process diagrams, the must-not-alter-business-meaning gate (diagrams transcribe, never author rules), and per-platform rendering compatibility (Azure DevOps Wiki needs a colon-container Mermaid fence, graph not flowchart, and no subgraph links). Activates when adding or editing any Mermaid block inside a wiki page.
+version: 0.4.0
 last_reviewed: 2026-06-22
 owns:
   - top-down (flowchart TD) direction as default for process diagrams
   - shape vocabulary (stadium / rectangle / diamond / cylinder / parallelogram / hexagon — meanings fixed)
   - four-class colour palette (ok / block / external / audit) with hex values
+  - single-master-swimlane rule (one end-to-end actor-lane swimlane, on the workflow hub, exactly once)
+  - diagram-altitude rule (hub compact orientation map / journey focused diagram / spec full state machine)
+  - palette-reuse principle (reuse the project's existing house palette when one exists)
   - label hygiene (Title Case; no code; no secrets; no paths in business diagrams)
   - code-path scrub rule (business diagrams describe people and decisions, not modules)
+  - no-business-meaning-change-via-diagram gate (a diagram transcribes a documented flow; it never authors a rule, branch, outcome, actor, or state)
   - sequence-diagram and ER-diagram exception scope
   - diagram-as-source rule (the .md is the source; do NOT paste rendered PNG)
   - platform compatibility (Azure DevOps Wiki colon-container fence, graph not flowchart, no subgraph links)
@@ -16,6 +20,8 @@ defers_to:
   - wiki-authoring (placement within a page; when a diagram is appropriate vs prose)
   - wiki-safe-updates (the workflow for applying the diagram change)
   - wiki-link-validation (diagram node text that doubles as wiki link targets must follow link convention)
+  - wiki-plantuml (how a true BPMN swimlane renders; this skill owns only its exactly-once placement on the hub)
+  - wiki-source-of-truth (the owning spec page's authoritative rules and full state machine that a diagram must not restate)
 user_invocable: false
 ---
 
@@ -115,6 +121,10 @@ Why four:
 
 Default (untyped) nodes inherit Mermaid's default fill — neutral, semantically meaningless. Use it for "normal steps in the happy path."
 
+### Reuse the project's existing palette
+
+The four-class palette above is the **default** for a wiki with no established convention. If the project already has a house palette, reuse THAT mapping — consistency within a wiki beats matching this skill's defaults. Whichever palette wins, keep the class count low and the meaning of each class stable across every diagram in the wiki.
+
 ## Label hygiene
 
 Rules for every label:
@@ -163,6 +173,17 @@ vs
 ## Process
 ```
 
+## Diagrams must not alter business meaning
+
+A diagram **transcribes** a documented flow; it never **authors** one. It must not introduce a rule, branch, decision outcome, actor, or state that is absent from the source page. A diamond's yes/no branches, an SLA threshold, an ordering constraint — each must match the source-of-truth page in meaning, not merely in wording.
+
+This is the **meaning-preservation companion** to the code-path scrub above, and it is orthogonal to it:
+
+- The **code-path scrub** bans the *form* of a label — file paths, module names, secrets — on a business diagram.
+- This gate bans **new business semantics** — a faithful, scrub-clean label can still smuggle in an undocumented rule (a branch the spec never states, an actor the spec never names, a threshold no page sets).
+
+A diagram passes the scrub and still fails here if it adds meaning the owning page does not carry. The authoritative rules and the full state machine live on the owning specification page — governed by `wiki-source-of-truth`; this skill only places the diagram and forbids it from restating or inventing those rules.
+
 ## Diagram type defaults
 
 | Purpose | Mermaid type | Notes |
@@ -180,6 +201,28 @@ Skip:
 - `mindmap` (rarely renders well; usually a brain dump)
 - `journey` (rarely useful in operator/business wikis)
 
+## Diagram altitude (where each diagram size lives)
+
+Match each diagram's size to the page's role. A page that orients carries a small map; a page that walks one journey carries one focused diagram; the full machine lives on the page that owns the rules. One altitude per page keeps each diagram single-sourced.
+
+| Page role | Diagram altitude | Example |
+|---|---|---|
+| Hub / landing page | Compact orientation map — a few nodes showing how the pieces connect | `Provision --> Configure` |
+| Child / journey page | One focused diagram of that single workflow, at journey altitude | The submit-and-approve journey, end to end, for that one flow |
+| Owning specification page | The full state machine, owned here and only here | A letter lifecycle `Pending --> ... --> Archived` |
+
+A journey page **references** the full state machine on the owning specification page; it never redraws it. Duplicating the full diagram across altitudes guarantees drift — one altitude per page keeps each diagram single-sourced, so a change is made in exactly one place.
+
+(Section labels — hub, journey page, owning specification page — and the hub-first themed IA they sit in are owned by `wiki-structure`.)
+
+## Single master swimlane — exactly once
+
+The one end-to-end actor-lane **master swimlane** — the full lifecycle, one lane per actor — lives in exactly ONE place: the workflow hub page, at overview altitude. NEVER duplicate it onto a child or journey page. A journey page links up to the hub for the end-to-end view and shows only its own focused diagram (see the altitude rule above).
+
+Example (an example, not a requirement): a validated master swimlane covered nine actor lanes — platform admin, tenant admin, author/sender, approver/manager, reviewer, receiver, auditor, external partner, and the system. The lane count follows the project; the rule is the placement, not the number.
+
+This is a **placement** rule, not a rendering rule. When the master swimlane is a true BPMN swimlane it is authored via `wiki-plantuml` — this skill owns only "exactly once, on the hub"; `wiki-plantuml` owns how it renders (see "Skip when" and Cross-references for the Mermaid-lanes-vs-true-BPMN trade-off).
+
 ## Diagram-as-source rule
 
 The `.md` file's Mermaid block IS the source of truth. Do NOT:
@@ -196,6 +239,8 @@ Exception: a high-fidelity architecture diagram that needs custom layout / custo
 - **Never** introduce new shapes beyond the vocabulary.
 - **Never** introduce new colour classes beyond the four-class palette without surfacing the proposal to the user.
 - **Never** keep a stale PNG alongside the live Mermaid source.
+- **Never** duplicate the single master swimlane onto a child/journey page — it lives once on the workflow hub.
+- **Never** let a diagram introduce a business rule/branch/outcome absent from the source/spec page — diagrams transcribe, they do not author.
 
 ## Validation checklist
 
@@ -208,6 +253,8 @@ Before committing a diagram change:
 - [ ] No inline code, no file paths, no secrets, no real PII in labels.
 - [ ] Business diagram does not contain code-path nodes; if it does, move to a separate "engineering reference" section.
 - [ ] No stale PNG of the same diagram alongside.
+- [ ] The master/end-to-end swimlane appears exactly once (on the workflow hub), not duplicated onto child/journey pages.
+- [ ] The diagram introduces no business rule/branch/outcome/actor/state absent from the owning source page (transcribes, does not author).
 - [ ] If the target is Azure DevOps Wiki: `::: mermaid` colon-container (not ` ```mermaid `), `graph` (not `flowchart`), and no subgraph links.
 - [ ] Mermaid block renders cleanly (paste-test on the target wiki platform — view the rendered page, do not trust the markdown or the docs).
 
@@ -272,7 +319,8 @@ The palette hex values and the shape vocabulary (the Mermaid-standard subset) ar
 
 ## Cross-references
 
-- `wiki-plantuml` — the peer engine for **BPMN-style swimlanes** (actor lanes / pools), which Mermaid cannot express and no wiki renders natively. Mermaid stays authoritative for flowchart/sequence/state.
+- `wiki-plantuml` — the peer engine for **BPMN-style swimlanes** (actor lanes / pools), which Mermaid cannot express and no wiki renders natively. Mermaid stays authoritative for flowchart/sequence/state. **Trade-off:** Mermaid lanes faked with `subgraph` do not align as cleanly as a true BPMN pool, and Azure's no-subgraph-links rule kills the cross-lane handoff arrows; an owner MAY still choose Mermaid lanes to stay Mermaid-native — accept the trade-off. For real swimlanes prefer `wiki-plantuml`. This skill owns only the swimlane's placement ("exactly once, on the hub"); `wiki-plantuml` owns the rendering.
+- `wiki-source-of-truth` — the owning specification page that holds the full state machine and the authoritative rules a diagram must not restate or invent; those rules are governed there. This skill only places the diagram.
 - `wiki-authoring` — where in a page diagrams belong.
 - `wiki-safe-updates` — diff preview before applying the diagram change.
 - `wiki-link-validation` — if a node label is a clickable wiki link, it follows the link convention.
