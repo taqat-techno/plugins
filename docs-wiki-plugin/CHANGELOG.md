@@ -2,6 +2,63 @@
 
 All notable changes to `docs-wiki-plugin` are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/). Versioning follows [SemVer](https://semver.org/).
 
+## [0.7.0] — 2026-06-22 — Build-any-wiki enhancement: hub-first IA, resolution-based links, single-master-swimlane, traceability
+
+A single-owner enhancement across the wiki skills, distilled by a multi-agent analysis of a
+real Azure DevOps wiki session report (Smart Archive). The goal: build any wiki with the best
+structure and avoid the mistakes that session hit — above all the Azure link-resolution bug
+where a path-existence audit false-passes while links are actually broken.
+
+### Fixed (corrections)
+
+- **`wiki-structure` (→ 0.4.0): Azure internal-link form was wrong.** The adapter told
+  generators to use a relative `](/Page-Name)` link, but on Azure DevOps a dashed relative link
+  to a **hyphen-titled** page resolves the hyphens as spaces and 404s **even though the API path
+  exists**. Corrected to the **page-ID URL** form `.../_wiki/wikis/{WikiName}/{pageId}/{Slug}`
+  (owner-confirmed), with "validate by resolution, not path existence."
+- **`wiki-link-validation` (→ 0.4.0):** Scan 2 changed from "verify the target page exists" to
+  "verify the target **resolves**"; Azure anchors are now validated with the declared Azure
+  slug algorithm (no whitespace collapse) instead of reported `UNKNOWN`.
+- **`wiki-safe-updates` (→ 1.1.0):** kept the GitHub-wiki git-push **advisory/unrestricted**
+  posture; added only a **scoped** approval gate for live-wiki (REST/MCP) and Azure work-item
+  writes, plus a per-target delete instruction.
+
+### Added
+
+- **`wiki-structure` (→ 0.4.0):** hub-first themed IA (parents are **real hub pages**, never
+  empty folders; reader-facing section labels); a validated default structure template; Azure
+  REST move/delete mechanics (`pagemoves` `newOrder` mandatory, REST-for-move/delete, tree omits
+  page id, childless-delete, no auto-repoint on move).
+- **`wiki-link-validation` (→ 0.4.0):** resolution-based verdict + `dashed-relative-on-hyphen-page`
+  finding; a **read-failure gate** (never report "0 broken" over a partial scan); stale-reference
+  and reachability/backlink scans; tree-namespace concept-collision; the Azure anchor-slug rule.
+- **`wiki-mermaid` (→ 0.4.0):** the **single-master-swimlane** rule (one end-to-end swimlane, on
+  the workflow hub, exactly once); the **diagram-altitude** rule (compact map on hubs / focused on
+  journeys / full state machine on the owning spec page); reuse-the-project-palette; a
+  no-business-meaning-change-via-diagram gate.
+- **`wiki-authoring` (→ 0.4.0):** a **Hub-page** template and a **Workflow-journey-page** template
+  (defers every rule to its owning spec page via an "authoritative detail" pointer); a
+  recommended business/product page-set catalogue.
+- **`wiki-source-of-truth` (→ 0.4.0):** the page-level single-source-of-truth rule
+  (journey-view vs source-page separation), hub-is-not-authoritative, backlog-as-source-of-truth
+  leakage detection, the navigation-only-traceability principle, and the
+  reorganization-preserves-meaning stance.
+- **`wiki-safe-updates` (→ 1.1.0):** plan-first/dry-run preview for multi-step restructures;
+  deterministic content-preserving edits (fetch → targeted string-replace → re-fetch verify);
+  governed safe move/rename/delete + link-repoint ordering (specific-child-first, bare-parent-last);
+  pre-write validation of generated datasets; the Azure visible-heading idempotency rule.
+- **NEW skill `wiki-traceability` (0.1.0):** the navigation-only bidirectional model linking
+  backlog work items ↔ wiki workflow pages ↔ Figma design nodes ↔ spec pages, plus the central
+  Epic→Feature Traceability Matrix. Owns the Figma node URL format + colon→dash conversion, the
+  **harvest-don't-invent** rule, the `&t=` share-token omission (hard safety gate), exact/lane/pending
+  coverage, visible-heading idempotency, and Description-only PBI patching.
+
+### Architecture
+
+- Single-owner layering preserved: cross-cutting facts (page-ID URL form, resolution-based audit,
+  single-master-swimlane placement, navigation-only principle, plan-first governance) each have one
+  owning skill; the others reference by name. `defers_to`/Cross-references updated across all seven.
+
 ## [0.6.1] — 2026-06-22 — wiki-plantuml fixes (post-review of #17)
 
 Fixes from an independent code review of the 0.6.0 swimlane feature.

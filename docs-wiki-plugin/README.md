@@ -1,6 +1,6 @@
 # docs-wiki
 
-![Version](https://img.shields.io/badge/version-0.6.1-blue.svg)
+![Version](https://img.shields.io/badge/version-0.7.0-blue.svg)
 ![Status](https://img.shields.io/badge/status-functional-green.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 
@@ -18,15 +18,16 @@ This plugin packages the conventions and helpers every project needs when its te
 
 | Skill | Owns |
 |---|---|
-| `wiki-structure` | Flat-namespace + filename-uniqueness + internal-link convention (GitHub Wiki primary, others adapter-configurable) |
+| `wiki-structure` | Flat-namespace + filename-uniqueness + internal-link convention (GitHub Wiki primary, others adapter-configurable); **hub-first themed IA** (real hub pages, never empty folders) + a validated default structure template; Azure DevOps **page-ID URL** links + `pagemoves`/REST move-delete mechanics |
 | `wiki-authoring` | Business docs / engineering SOPs / user manuals / role guides / workflow docs / release & handover / onboarding templates; tenant/client neutralization discipline (per-hit classify-then-act) |
 | `wiki-mermaid` | Mermaid diagram authoring rules — TD direction, shape vocabulary, four-class colour palette, label hygiene, code-path scrub from business diagrams |
 | `wiki-plantuml` | BPMN-style **swimlane** authoring in PlantUML activity-beta + the per-flavour render → attach → embed pipeline (Azure `/.attachments` base64 REST, GitHub commit-to-`.wiki`, GitLab/MkDocs native). Mermaid stays authoritative for flowchart/sequence/state |
-| `wiki-link-validation` | Broken-link sweep, missing-page detection, broken section-anchor detection + heading-anchor slug rules, visible-numeric-prefix scan, internal-link convention check |
+| `wiki-link-validation` | Broken-link sweep, missing-page detection, broken section-anchor detection + heading-anchor slug rules, visible-numeric-prefix scan, internal-link convention check; on Azure validates by **resolution** (not path-existence — flags dashed-relative-on-hyphen-page), tracks read-failures, plus stale-reference + reachability/backlink scans |
 | `wiki-code-vs-docs-discrepancy` | Report wiki-vs-code drift with `file:line` evidence; never silently choose one side |
 | `wiki-source-of-truth` | Declared knowledge-layer order; current-state vs target separation; config-constant single-location rule; stale-checkbox distrust; provenance-vs-active-prose judgement |
-| `wiki-safe-updates` | Optional tips (advisory, non-blocking): diff preview for big overwrites, revert-over-reset rollback, one-purpose commits, retired-folder awareness, optional pre-deletion reference check |
+| `wiki-safe-updates` | Optional tips (advisory, non-blocking): diff preview for big overwrites, revert-over-reset rollback, one-purpose commits, retired-folder awareness, optional pre-deletion reference check; **plan-first/dry-run** for multi-step restructures, deterministic content-preserving edits, safe move/rename/delete + link-repointing, and a scoped approval gate for live-wiki/work-item publishes (GitHub git-push stays unrestricted) |
 | `wiki-vs-stray-docs` | Refuse to create stray `docs/` folders when a wiki exists; surface the conflict to the user |
+| `wiki-traceability` | Navigation-only bidirectional traceability — backlog work items ↔ wiki workflow pages ↔ Figma design nodes ↔ spec pages, plus the central Epic→Feature matrix. Figma node URL format + colon→dash, harvest-don't-invent, `&t=` share-token omission, exact/lane/pending coverage, visible-heading idempotency, Description-only PBI patching |
 
 ### Commands
 
@@ -110,7 +111,8 @@ This plugin is published as part of the `taqat-techno-plugins` marketplace. To i
 | `0.3.0` | `wiki-source-of-truth` skill + generic page templates |
 | `0.4.0` (this release) | Heading-anchor slug rules + broken-anchor scan in `wiki-link-validation`; safe-doc-deletion gate in `wiki-safe-updates`; tenant/client neutralization discipline in `wiki-authoring` + `wiki-source-of-truth` |
 | `0.5.0` | Polished GitLab / Azure DevOps Wiki adapters; `/wiki-archive` command; ADR numbering helper |
-| `0.6.0` (this release) | `wiki-plantuml` skill + `/wiki-swimlane` command + 4 render/embed scripts — BPMN swimlanes that render on neither GitHub nor Azure wiki natively (PlantUML → PNG → per-flavour embed) |
+| `0.6.0` | `wiki-plantuml` skill + `/wiki-swimlane` command + 4 render/embed scripts — BPMN swimlanes that render on neither GitHub nor Azure wiki natively (PlantUML → PNG → per-flavour embed) |
+| `0.7.0` (this release) | Build-any-wiki enhancement from a real Azure DevOps wiki session — hub-first IA + default structure template (`wiki-structure`), resolution-based link validation + Azure page-ID URL **correction** (`wiki-structure`/`wiki-link-validation`), single-master-swimlane + diagram-altitude (`wiki-mermaid`), hub + workflow-journey templates (`wiki-authoring`), page-level source-of-truth + backlog-leakage guard (`wiki-source-of-truth`), plan-first restructure governance (`wiki-safe-updates`), and the new `wiki-traceability` skill |
 | `1.0.0` | First stable release after real-project shakedown |
 
 ## Related plugins

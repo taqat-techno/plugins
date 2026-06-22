@@ -1,7 +1,7 @@
 ---
 name: wiki-source-of-truth
-description: Owns the source-of-truth doctrine for a project's knowledge — the declared order in which artifacts win, the target-vs-current-state separation (including wiki-ahead-of-code / zero-commit-repo detection), the cross-system planning-vs-code/wiki host split, the single-location rule for config constants, and stale-checkbox distrust. Activates when onboarding a project from its docs and wiki, when auditing whether documentation still matches reality, or when two artifacts disagree and someone must decide which one is authoritative. Resolves conflicts with evidence rather than guessing, and routes per-claim verification to wiki-code-vs-docs-discrepancy.
-version: 0.3.0
+description: Owns the source-of-truth doctrine for a project's knowledge — the declared order in which artifacts win, the target-vs-current-state separation (including wiki-ahead-of-code / zero-commit-repo detection), the cross-system planning-vs-code/wiki host split, the single-location rule for config constants, stale-checkbox distrust, the single-source-of-truth-PAGE rule (a rule body lives on exactly one spec page; journey/hub/summary pages only reference it), backlog-as-source-of-truth leakage detection, and the reorganization-preserves-meaning stance. Activates when onboarding a project from its docs and wiki, when auditing whether documentation still matches reality, when two artifacts disagree and someone must decide which one is authoritative, or when a restructure/traceability pass risks duplicating or reinterpreting a rule body. Resolves conflicts with evidence rather than guessing, routes per-claim verification to wiki-code-vs-docs-discrepancy, and defers traceability mechanics to wiki-traceability.
+version: 0.4.0
 last_reviewed: 2026-06-22
 owns:
   - the declared knowledge-layer ORDER (which artifact wins for "what the system does now")
@@ -9,13 +9,20 @@ owns:
   - the wiki-ahead-of-code detection signal (a zero-commit / empty repo means a fully-described stack is TARGET, not current)
   - the cross-system source-of-truth split (planning platform vs the host that actually owns code + wiki; empty decoy repos)
   - the single-source-of-truth-location rule for security/config constants
+  - the single-source-of-truth-PAGE rule (a rule body is owned by exactly one spec page; journey-view-vs-source-page separation)
+  - the hub/summary-page-is-not-authoritative rule (a hub orients and summarises but never restates a rule body)
+  - backlog-as-source-of-truth leakage detection (a wiki page mirroring an externally-owned backlog is a second source)
+  - the navigation-only-traceability principle (traceability links point at the canonical owner, never restate it)
+  - the reorganization-preserves-meaning stance (a restructure is move + relink + additive orientation only; no rule re-derivation, no canonical-owner reassignment)
   - stale-checkbox distrust (doc checkboxes and percent-complete are never ground truth for scope)
   - the conflict-resolution decision (doc-fix vs queued-code-change) framing
   - the SOURCE-OF-TRUTH DECLARATION output block and the discrepancy-line format
   - the provenance-preservation rule (a named decision's anchoring record is preserved, not neutralized) feeding tenant/client neutralization
 defers_to:
   - wiki-code-vs-docs-discrepancy (the per-claim code-vs-docs check that gathers the evidence)
-  - wiki-structure (where pages live and how the wiki tree is shaped)
+  - wiki-traceability (the per-link traceability mechanics — link construction, matrix layout, exact/lane/pending coverage, idempotency anchoring; this skill owns only the navigation-only / not-a-second-source principle)
+  - wiki-structure (where pages live and how the wiki tree is shaped; owns hub shape/placement — this skill owns only the no-rule-restatement rule)
+  - wiki-safe-updates (the safe move/relink/approval EXECUTION; this skill owns only the preserve-meaning / preserve-canonical-owner invariant)
   - wiki-vs-stray-docs (deciding whether a loose doc belongs in the wiki at all)
   - the project's version-control history and dated reports (the evidence this skill cross-checks against)
 user_invocable: false
@@ -123,6 +130,52 @@ The split itself is a **governance finding**, not just a routing detail: if `lay
 
 The rule: **identify which host owns code and which owns the wiki before resolving any code-vs-doc conflict; point repo audits at the populated host, never the planning system's decoy.** Confirming a given repo is the populated one (vs an empty placeholder) is owned by `wiki-code-vs-docs-discrepancy`; this skill only records the split into `layer_order` and treats it as a governance finding.
 
+### Single-source-of-truth-PAGE rule (journey-view vs source-page separation)
+
+`layer_order` decides which *layer* wins; this rule decides which *page* within the wiki layer owns a given rule body. A rule body — a business rule, a contract, a state machine, an SLA — is single-sourced on exactly **one** authoritative SPECIFICATION page. Every other page that needs that rule **references** the owning page; it never copies, paraphrases, or re-derives it.
+
+Two page roles, and the boundary between them:
+
+| Page role | What it does with rule bodies | Example phrasing it uses |
+|---|---|---|
+| SOURCE / SPECIFICATION | **Owns and states** the rule body — this is where the rule lives | (states the rule directly) |
+| JOURNEY / WORKFLOW, HUB / SUMMARY | **Orients** and links; **defers** every rule to its owning spec | "the authoritative compose contract and `letter.*` events live on `<spec page>`" |
+
+Why this is a source-of-truth concern and not just an authoring nicety: a duplicated rule body becomes a **second copy with no owner**. It drifts silently from the spec, and onboarding trusts whichever copy it reads first — defeating `layer_order` itself, because the layer's "winner" now disagrees with itself. The single authoritative page is the page-level analogue of the single-location rule this skill already owns for config constants; here the owned artifact is a rule body on a page instead of a constant in config.
+
+**Detection.** A journey / hub / summary page that contains a full rule body, a re-derived contract, or a duplicated state machine **instead of a pointer** is a competing-source finding. Treat it like any other conflict: surface the duplicate, name the owning spec page, recommend collapsing the copy to a reference — never silently pick which copy is canonical.
+
+### Hub / summary page is NOT authoritative
+
+A hub or summary page orients and summarises a family of pages; it **never** restates or re-derives a rule body. A hub that summarises a rule family must carry an explicit disclaimer — a "summary, not source — authoritative rules live on `<page>`" note — so a reader is never misled into treating the summary as the rule.
+
+**Detection.** Flag a hub/summary whose body has accreted authoritative rule text: the summary growing into a rule page is the failure mode. The same single-source-of-truth-LOCATION rule that keeps a config constant in one place keeps a rule body on its one spec page; a hub re-stating the rule is that rule's second source. (Hub *shape and placement* — what a real hub must contain, where it sits in the tree — is owned by `wiki-structure`; this skill owns only the no-rule-restatement constraint.)
+
+### Backlog-as-source-of-truth leakage
+
+When the wiki's own declaration (typically Home) states the delivery backlog is maintained **outside** the wiki, every wiki page must stay **navigation-only** toward that backlog. A traceability page, a coverage matrix, or any other page must point *at* backlog items, never become an authoritative **mirror** of them. The backlog is the planning-layer artifact on a separate host — the same cross-system planning-platform-vs-code/wiki split this skill already owns; this rule is what that split implies for a page that links toward the planning layer.
+
+**Detection.** A page that restates backlog item bodies, acceptance criteria, scope, or status (rather than linking out to them) is leaking a second source. A navigation-only traceability/matrix page must carry an explicit "navigation only — not a source of truth" banner; the **absence** of that banner on a backlog-linking page is itself a finding.
+
+**Azure-flavoured example.** On an Azure DevOps project wiki whose Home states "the delivery backlog is tracked in Azure Boards, not the wiki," a `Traceability-Matrix` page may link each Epic→Feature→story to its workflow and spec pages, but it must not copy the stories' acceptance criteria or current State into the matrix — that would make the matrix a stale backlog clone with no owner.
+
+**Stop-and-report.** A restructure that would **add** backlog content while Home says the backlog stays outside the wiki is a contradiction with the declared model — halt and surface it; do not resolve it silently.
+
+### Navigation-only-traceability principle
+
+Traceability links — page→spec, page→journey, item→page — are **navigation aids**. They must never constitute a second source of truth: a traceability link points at the canonical owner of a fact, it never restates the fact. This skill holds only that invariant.
+
+The **mechanics** of traceability — how a link is constructed, how the matrix is laid out, how exact / lane / pending coverage is computed and reported, how the idempotency anchor is placed — are owned by `wiki-traceability`. Defer all of that there; do not re-derive link or matrix mechanics here.
+
+### Business-meaning preservation on restructure / traceability passes
+
+A reorganization is **move + relink + additive orientation only**. It introduces no source-of-truth reinterpretation, no rule re-derivation, and no rewording that shifts meaning, and it never reassigns which page is canonical for a rule body.
+
+- **Prefer deterministic, content-preserving edits.** Fetch → targeted string-replace → write, verified by a re-fetch, beats hand-reconstructing a page: hundreds of links can be repointed with zero business-text drift this way.
+- **Stop-and-report** on any edit that *might* change business meaning or reassign which page is canonical — surface it, do not apply it.
+
+Scope boundary: the mechanical safe-move / relink / approval **EXECUTION** is owned by `wiki-safe-updates` and `wiki-structure`. This skill owns only the **preserve-meaning / preserve-canonical-owner** invariant that gates whether such a move is allowed to proceed.
+
 ### Tenant/client neutralization vs provenance
 
 When a doc is being generalized or shared and contains a real tenant / client / customer name, the source-of-truth layer decides whether the name is incidental or load-bearing — and that decision drives whether it may be neutralized:
@@ -143,6 +196,10 @@ The rule: **a named decision's anchoring record is provenance, not active prose.
 - **Never** treat a fully-described stack as current when the repo it describes has zero commits — that is wiki-ahead-of-code; the page is TARGET in effect.
 - **Never** record "the code" in `layer_order` without naming which host owns it when a planning platform and a separate code/wiki host both exist; never point a repo audit at the planning platform's (often empty decoy) repo.
 - **Never** trust a doc literal for a security/config constant over the value in `config_constant_locations`.
+- **Never** let a journey / hub / summary page restate a rule body that an owning specification page owns — it must reference the spec, not copy it.
+- **Never** let a hub or summary page accrete authoritative rule text — a hub summarises and carries a "summary, not source" note; it never becomes a rule page.
+- **Never** let a traceability / matrix page mirror an externally-owned backlog — it stays navigation-only with the "not a source of truth" banner; halt a restructure that would add backlog content the wiki declares lives outside it.
+- **Never** reword a rule body, reinterpret a rule, or reassign which page is canonical while moving or relinking a page — a restructure is move + relink + additive orientation only.
 - **Never** accept a checkbox or percent-complete as proof that scope is done without cross-checking `history_source` + `reports_source`.
 - **Never** invent intent for undocumented behavior — document what the code does, not what it "probably" means.
 - **Never** print secret values, tokens, or env contents while locating a config constant — reference the location, not the secret.
@@ -155,6 +212,10 @@ The rule: **a named decision's anchoring record is provenance, not active prose.
 - [ ] No TARGET doc was trusted as present reality; any fully-described page over a zero-commit repo was flagged wiki-ahead-of-code.
 - [ ] If a planning platform and a separate code/wiki host both exist, `layer_order` names which host owns code; no repo audit was pointed at the planning platform's decoy repo.
 - [ ] Every config constant cited in docs was checked against `config_constant_locations`; divergences are flagged.
+- [ ] No journey/hub/summary page restates a rule body owned by a spec page; each defers to its owning spec with a pointer.
+- [ ] Every hub/summary over a rule family carries a "summary, not source — authoritative rules live on `<page>`" note and contains no accreted rule text.
+- [ ] No backlog-linking page mirrors backlog bodies/AC/scope/status; any traceability/matrix page is navigation-only and carries the "not a source of truth" banner.
+- [ ] Any restructure/traceability pass was move + relink + additive orientation only; no rule body was reworded and no page's canonical-owner role was reassigned.
 - [ ] No scope conclusion rests on a checkbox alone; each was cross-checked against `history_source` + `reports_source`.
 - [ ] Each conflict carries evidence and a recommended fix — none was resolved silently.
 - [ ] No code was edited to match a doc unless the change was explicitly queued.
@@ -201,6 +262,10 @@ Discrepancy line (single-line form, when a compact list is preferred):
 | Auditing "the repo" on the planning platform when code + wiki actually live on another host | Audits an empty decoy and falsely concludes the project is empty | Record the planning-vs-code/wiki split in `layer_order`; audit the populated host |
 | No declared `layer_order`; deciding ad hoc per conflict | Different conflicts resolve inconsistently; no audit trail | Declare the order once; resolve every conflict against it |
 | Copying a config constant's value into prose and treating prose as canonical | Two sources for one constant drift; the doc goes stale silently | One owner per constant in `config_constant_locations`; docs point to it |
+| Copying a rule body onto a journey/workflow page instead of linking the spec | A second copy with no owner; it drifts from the spec and onboarding trusts whichever it reads first | Single-source the rule on its spec page; the journey defers with "authoritative detail: `<spec page>`" |
+| A hub/summary page growing a full rule body | The summary becomes a competing rule page; readers treat the summary as authoritative | Keep the hub orienting; carry "summary, not source"; rule text stays on the child spec |
+| A traceability/matrix page restating backlog item bodies / AC / status | Mirrors a backlog the wiki declares lives outside it — a stale second source with no owner | Keep it navigation-only; link out; carry the "not a source of truth" banner |
+| Rewording a rule body while moving or relinking a page | A restructure silently reinterprets meaning or reassigns the canonical owner | Move + relink + additive orientation only; fetch→string-replace→re-fetch; stop-and-report on any meaning change |
 | Reading a checked box as "this is done" | Checkboxes are edited by hand and lie | Cross-check `history_source` + `reports_source` before claiming scope |
 | Editing code so it matches an out-of-date doc | Changes behavior to satisfy stale text; reverses the authority order | Fix the doc; only touch code when that change is explicitly queued |
 | Silently picking code-or-doc and moving on | Owner never sees the conflict or the decision | Present evidence + recommended fix; await confirmation |
@@ -214,7 +279,8 @@ The doctrine is project-agnostic. The skill depends only on named adapter inputs
 ## Cross-references
 
 - `wiki-code-vs-docs-discrepancy` — performs the per-claim code-vs-docs comparison and supplies the evidence this skill resolves on.
-- `wiki-structure` — owns where pages live and the shape of the wiki tree (informs `current_state_location` / `target_location`).
+- `wiki-traceability` — owns the traceability link/matrix **mechanics** (link construction, matrix layout, exact/lane/pending coverage, idempotency anchoring); this skill owns only the navigation-only / not-a-second-source **principle** those links must satisfy.
+- `wiki-structure` — owns where pages live, the shape of the wiki tree, and hub shape/placement (informs `current_state_location` / `target_location`); this skill owns only the no-rule-restatement rule on those hubs.
 - `wiki-vs-stray-docs` — decides whether a loose document belongs in the wiki at all before it can be classified here.
-- `wiki-safe-updates` — applies the DOC-FIX once a conflict's resolution is confirmed; also owns the safe-doc-deletion gate, whose capture-check relies on this skill's "is this decision genuinely captured" judgement.
+- `wiki-safe-updates` — applies the DOC-FIX once a conflict's resolution is confirmed and owns the mechanical safe-move / relink / approval EXECUTION on a restructure (this skill owns only the preserve-meaning / preserve-canonical-owner invariant that gates it); also owns the safe-doc-deletion gate, whose capture-check relies on this skill's "is this decision genuinely captured" judgement.
 - `wiki-authoring` › `references/neutralization-discipline.md` — the per-hit tenant/client classification this skill's current-state-vs-provenance judgement feeds into.
