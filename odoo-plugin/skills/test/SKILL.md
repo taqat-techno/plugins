@@ -1,7 +1,7 @@
 ---
 name: odoo-test
 description: |
-  Comprehensive Odoo testing toolkit for generating test skeletons, running test suites, creating mock data, and analyzing test coverage across Odoo 14-19. Supports TransactionCase, HttpCase, SavepointCase, and integrates with Azure DevOps for CI/CD test result reporting.
+  Comprehensive Odoo testing toolkit for planning, generating, reviewing, running, and diagnosing unit / integration tests across Odoo 14-19 — test skeletons, mock data, coverage, security & record-rule tests, wizard / controller / report tests, regression tests for bugfixes, and turning issue requirements into test cases. Mirrors how Odoo's own standard addons (base, account, stock, sale, mail, web, portal) test Odoo. Supports TransactionCase, HttpCase, SavepointCase (version-aware), the Form helper, assertRecordValues, the Command API, and integrates with Azure DevOps for CI/CD test result reporting.
 
 
   <example>
@@ -59,7 +59,28 @@ description: |
   assistant: "I will create Playwright test files covering login, navigation, form submission, and data validation for the module's web interface."
   <commentary>E2E test trigger.</commentary>
   </example>
-version: "2.0.0"
+
+  <example>
+  Context: User wants an existing test suite reviewed
+  user: "Review the unit tests for my custom module and tell me what's missing"
+  assistant: "I will use the odoo-test review workflow to inventory the existing tests, map them against the module's models / security / wizards / controllers, and report coverage gaps + anti-patterns + required changes."
+  <commentary>Test review trigger - auditing an existing suite.</commentary>
+  </example>
+
+  <example>
+  Context: User has failing tests
+  user: "These Odoo tests fail when I run them, explain why and fix them"
+  assistant: "I will use the odoo-test diagnose workflow to capture the real failure, isolate the failing test, and decide whether it is a test issue or a product bug before fixing."
+  <commentary>Failure diagnosis trigger.</commentary>
+  </example>
+
+  <example>
+  Context: User wants access-rights tests
+  user: "Add tests proving non-managers cannot edit this model"
+  assistant: "I will add with_user / @users tests asserting AccessError for the forbidden path and success for the allowed path, tagged post_install."
+  <commentary>Security / record-rule test trigger.</commentary>
+  </example>
+version: "2.1.0"
 author: "TaqaTechno"
 license: "MIT"
 allowed-tools:
@@ -82,9 +103,14 @@ metadata:
     - integration-tests
     - mock-data
     - coverage
+    - security-tests
+    - record-rules
+    - test-review
+    - regression
+    - diagnosis
   model: sonnet
 ---
-<!-- Last updated: 2026-03-26 -->
+<!-- Last updated: 2026-06-23 -->
 
 # Odoo Testing Toolkit Skill (v2.0)
 
@@ -100,6 +126,100 @@ A comprehensive skill for generating, running, and analyzing tests across Odoo 1
 - **Mock Data Generators**: 20+ field-type-aware generators
 - **Core Base Class**: `odoo.tests.common.TransactionCase`
 - **Test Runner**: Built-in Odoo test framework + CLI scripts
+
+---
+
+## Test Strategy Workflow (classify → write → review → run → diagnose)
+
+> Decide WHAT to test and HOW **before** writing code, and review/diagnose existing suites. This mirrors how Odoo's own standard addons (`base`, `account`, `stock`, `sale`, `mail`, `web`, `portal`) test Odoo. Deep, copy-ready material lives in `references/`. The pattern library, running, coverage, and CI sections below remain the detailed reference.
+
+### Step 1 — Classify before writing (REQUIRED)
+
+Inspect the module first — never write tests from prose alone:
+`__manifest__.py` (Odoo version, `depends`, data/demo) → `models/` (fields, `@api.depends` / `@api.constrains` / `@api.onchange`, state, `action_*` / `button_*`) → `views/` (buttons, wizards launched) → `security/ir.model.access.csv` + `security/*.xml` (groups, `ir.rule`) → `wizard/` → `controllers/` → `report/` → `data/` → existing `tests/`. If an issue / Required Changes / Acceptance Criteria is provided, extract each concrete behavior to assert.
+
+Then answer: **Odoo version?** module + deps? affected artifacts? work category (model / workflow / security / wizard / controller / report / frontend)? test DB & demo-data availability? `at_install` or `post_install`? HTTP/browser needed? multi-company / multi-user / security involved? regression needed? static-author-only or runtime-execute?
+
+### Step 2 — Pick base class, tag, and file
+
+| Work type | Base class | Tag | File | Key assertions |
+|---|---|---|---|---|
+| Computed / related field | `TransactionCase` | default | `test_models.py` | `assertRecordValues` |
+| `@api.constrains` | `TransactionCase` | default | `test_models.py` | `assertRaises(ValidationError)` |
+| `_sql_constraints` | `TransactionCase` | default | `test_models.py` | `mute_logger` + `IntegrityError` |
+| `@api.onchange` / view defaults | `TransactionCase` + `Form` | default | `test_models.py` | set on `Form`, assert dependent field |
+| Workflow / state machine | `TransactionCase` | default / `post_install` | `test_workflows.py` | assert `state` after each transition |
+| Access rights (CRUD) | `TransactionCase` | `post_install`,`-at_install` | `test_security.py` | `with_user` + `AccessError` + allowed path |
+| Record rules (`ir.rule`) | `TransactionCase` | `post_install`,`-at_install` | `test_security.py` | scoped user sees allowed, not forbidden |
+| Wizard (`TransientModel`) | `TransactionCase` (+`Form`) | default / `post_install` | `test_wizards.py` | `with_context(active_ids=…)` + action |
+| Controller / route | `HttpCase` | `post_install`,`-at_install` | `test_controllers.py` | status / headers / body |
+| Report / QWeb | `TransactionCase` / `HttpCase` | `post_install`,`-at_install` | `test_reports.py` | `_render_qweb_html` content |
+| Mail / activity | `TransactionCase` | default / `post_install` | `test_*.py` | messages / followers / activities (mocked) |
+
+Base-class detail + version deltas (`SavepointCase` vs `TransactionCase`, `Command` API, `<list>`/`<tree>`, `type='json'`→`'jsonrpc'`, `Form`): **`references/odoo-version-matrix.md`**. Recommended `tests/` layout + per-file skeletons: **`references/custom-module-test-blueprint.md`**. Reusable per-pattern code: **`references/test-pattern-catalogue.md`**.
+
+### Modern patterns the suite should prefer
+
+- **`Form()`** for onchange / view-driven tests — runs `default_get` + `@api.onchange` + view modifiers, the *same* path as a user filling the form. Raw `create()` skips onchange side-effects; use it only for fast fixtures.
+- **`assertRecordValues(recs, [{...}])`** for multi-record / multi-field checks (m2o→id, x2many→sorted ids) instead of many `assertEqual`s.
+- **`Command` API** (`from odoo.fields import Command` → `Command.create/set/link/unlink/clear`) for relational writes on Odoo 13+; the legacy `(0,0,{})` / `(6,0,[])` / `(4,id)` tuples only on older versions.
+
+### Security & access testing — do this RIGHT
+
+- Test as a **non-admin**: `record.with_user(self.user)` or the `@users('login')` decorator — never "verify" a permission with `sudo()`.
+- Assert **both** paths: the forbidden action raises `AccessError` (model/rule) / `UserError` (business rule); the allowed action succeeds.
+- For record rules, assert the scoped user sees the allowed records and **not** the forbidden ones.
+- **Invalidate cache between privilege levels** (`record.invalidate_recordset()` / `self.env.invalidate_all()`) — a value cached as admin hides an `AccessError` and yields a false pass.
+- `sudo()` is only for *deliberate* bypass (e.g. reading tracking values), never a crutch to make a failing test pass. (The setup-time `sudo()` shown in the Mock-Data / Troubleshooting sections is for *fixture creation*, not for testing the permission itself.) Tag security tests `@tagged('post_install', '-at_install')`.
+
+### Workflows
+
+- **Generate** — classify → pick base/tags → create only the relevant `test_*.py` + wire `tests/__init__.py` → cover happy + negative + edge + (bugfix) the exact regression → run → report.
+- **Review** — inventory existing tests → map vs module behavior → score against `references/review-checklist.md` → report gaps + required changes + CLI validation.
+- **Diagnose** — capture the real failure (grep `FAIL:` / `ERROR:` + traceback) → isolate with `--test-tags /<module>:Class.test_method` → decide **test-issue vs product-bug** (do NOT weaken an assertion that caught a real bug) → fix → re-run.
+- **Requirements → tests** — parse issue / Acceptance Criteria into discrete behaviors → write a test per behavior that would **FAIL on the unfixed code** → map each test back to its requirement.
+
+### Quality gates (before declaring "done")
+
+Every `test_*.py` imported once in `tests/__init__.py`; each class exactly one of `at_install`/`post_install`; fixtures in `setUpClass` (no dirty-DB / unguarded demo reliance); security-sensitive modules have non-admin `AccessError` + record-rule tests; business logic covers constraints / computed / state / negative cases; wizards launched via context or `Form`; controllers use `HttpCase` and are `post_install`; no real network/email (mock it), no `cr.commit()`, no sleeps, no install-order dependence; a bugfix ships a regression test that fails on the old code; runtime status reported honestly (verified-runtime vs static-only); no client/project data hardcoded.
+
+### Anti-patterns (never)
+
+Dirty-DB reliance · `sudo()` everywhere · happy-path only · broad / fragile tests · sleeps / time assumptions · accidental install-order dependence · direct SQL where the ORM is under test · testing local migration scripts as product behavior · machine-specific passes · hardcoded client/project data · skipping security tests on permission-sensitive modules · treating "module installs / imports" as coverage · empty test files for show · claiming runtime / browser / upgrade validation that was not actually run. Full catalogue with fixes: **`references/review-checklist.md`**.
+
+### Output templates
+
+Produce the matching template for the task:
+
+```markdown
+# Odoo Test Plan for `<module_name>`
+## 1. Module Understanding   ## 2. Test Scope Classification   ## 3. Required Test Files
+## 4. Test Cases — | Area | Test Case | Base Class | Setup Needed | Assertions | Priority |
+## 5. CLI Commands   ## 6. Risks / Manual Validation
+```
+```markdown
+# Odoo Test Review for `<module_name>`
+## 1. Existing Tests Found   ## 2. Coverage Against Module Behavior   ## 3. Missing Tests
+## 4. Security Coverage   ## 5. Workflow Coverage   ## 6. Anti-patterns Found
+## 7. Required Changes   ## 8. Suggested CLI Validation
+```
+```markdown
+# Odoo Test Implementation Report
+## 1. Files Created/Changed   ## 2. Test Classes Added   ## 3. Test Cases Added
+## 4. What Each Test Proves   ## 5. How to Run   ## 6. Known Limitations
+```
+```markdown
+# Odoo Test Failure Diagnosis
+## 1. Failing Command   ## 2. Failure Summary   ## 3. Real Root Cause
+## 4. Test Issue or Product Code Issue?   ## 5. Required Fix   ## 6. Re-run Command
+```
+
+### References
+
+- `references/test-pattern-catalogue.md` — reusable per-pattern test structures (model, computed, constraint, onchange via `Form`, workflow, access, record-rule, `@users`, wizard, controller, report, mail, multi-company, JS/tour, regression).
+- `references/custom-module-test-blueprint.md` — recommended `tests/` layout + copy-ready skeletons per file + the `tests/__init__.py` discovery rule.
+- `references/review-checklist.md` — review checklist (A–I) + anti-pattern catalogue with fixes.
+- `references/odoo-version-matrix.md` — version-specific differences (base classes, `Command`, `<list>`/`<tree>`, `json`/`jsonrpc`, `attrs`, helper availability).
 
 ---
 
