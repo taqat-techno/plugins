@@ -1,0 +1,42 @@
+{
+  "name": "fastapi",
+  "version": "0.1.0",
+  "description": "Reusable FastAPI engineering toolkit — Pydantic v2 schema design, async routing & dependency injection, SQLAlchemy/SQLModel ORM (sync & async sessions, N+1), Alembic migration safety (zero-downtime expand-contract), pydantic-settings/12-factor config, security auditing (OAuth2/JWT, CORS, injection), pytest + httpx testing, and async-correctness/performance. 8 auto-activating skills + 4 commands + 3 agents + session/event-loop/destructive-command guards. Generic and adapter-driven — app layout, ORM, async-vs-sync, and test runner are project-supplied inputs.",
+  "author": {
+    "name": "TaqaTechno",
+    "email": "info@taqatechno.com",
+    "url": "https://github.com/taqat-techno"
+  },
+  "homepage": "https://github.com/taqat-techno/plugins/tree/main/fastapi-plugin",
+  "repository": "https://github.com/taqat-techno/plugins",
+  "license": "MIT",
+  "keywords": [
+    "fastapi",
+    "pydantic",
+    "pydantic-v2",
+    "pydantic-settings",
+    "sqlalchemy",
+    "sqlmodel",
+    "async",
+    "asgi",
+    "uvicorn",
+    "alembic",
+    "migrations",
+    "zero-downtime",
+    "dependency-injection",
+    "oauth2",
+    "jwt",
+    "cors",
+    "security",
+    "pytest",
+    "httpx",
+    "n-plus-one",
+    "selectinload",
+    "event-loop",
+    "12-factor",
+    "python",
+    "backend",
+    "api",
+    "scaffold"
+  ]
+}

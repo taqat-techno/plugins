@@ -160,6 +160,17 @@
       "source": "./django-plugin",
       "category": "development",
       "homepage": "https://github.com/taqat-techno/plugins/tree/main/django-plugin"
+    },
+    {
+      "name": "fastapi",
+      "description": "Reusable FastAPI engineering toolkit — Pydantic v2 schema design, async routing & dependency injection, SQLAlchemy/SQLModel data layer (N+1 & async-session traps), Alembic migration safety (zero-downtime expand-contract), pydantic-settings/12-factor config, security auditing (OAuth2/JWT, CORS, injection), pytest + httpx testing, and async-correctness/performance. 8 auto-activating skills + 4 commands + 3 agents + version/event-loop/destructive-command guards. Generic and adapter-driven.",
+      "author": {
+        "name": "TaqaTechno",
+        "email": "info@taqatechno.com"
+      },
+      "source": "./fastapi-plugin",
+      "category": "development",
+      "homepage": "https://github.com/taqat-techno/plugins/tree/main/fastapi-plugin"
     }
   ]
 }
