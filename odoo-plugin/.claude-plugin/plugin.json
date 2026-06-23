@@ -1,6 +1,6 @@
 {
   "name": "odoo-plugin",
-  "version": "2.4.0",
+  "version": "2.5.0",
   "description": "Unified Odoo development toolkit — code review & technical-debt, upgrade, frontend themes, testing, security auditing, i18n, reports, Docker infrastructure, and server lifecycle across Odoo 14-19",
   "author": {
     "name": "TaqaTechno",

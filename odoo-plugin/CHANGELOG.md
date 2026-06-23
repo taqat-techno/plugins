@@ -2,6 +2,30 @@
 
 All notable changes to `odoo-plugin` are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/). Versioning follows [SemVer](https://semver.org/).
 
+## [2.5.0] — 2026-06-23 — Enhance the testing skill (`odoo-test`) with a classification-first test-units workflow
+
+### Added
+
+- `skills/test/SKILL.md` (`odoo-test`, skill v2.0.0 → v2.1.0) gains a **"Test Strategy Workflow (classify → write → review → run → diagnose)"** section at the top of the body — a test-units brain grafted onto the existing pattern library. It mirrors how Odoo's own standard addons (`base`, `account`, `stock`, `sale`, `mail`, `web`, `portal`) test Odoo. Adds:
+  - **Classification-first Step 1** — inspect `__manifest__.py` / `models` / `views` / `security` (`ir.model.access.csv` + `ir.rule`) / `wizard` / `controllers` / `report` / `data` / existing `tests` (and an issue's Required Changes / Acceptance Criteria) **before** writing, then answer the version / artifacts / category / runtime / phase / multi-company / regression questions.
+  - **Step 2 base-class + tag + file matrix** mapping each work type (computed, `@api.constrains`, `_sql_constraints`, onchange, workflow, access rights, record rules, wizard, controller, report, mail) to `TransactionCase`/`HttpCase`, `at_install`/`post_install`, the target `test_*.py`, and the key assertion.
+  - **Modern patterns** the existing skill lacked: the **`Form`** helper for onchange/view-driven tests, **`assertRecordValues`**, and the **`Command` API** (Odoo 13+) over legacy tuples.
+  - A **Security & access discipline** that corrects the prior "bypass security with `sudo()`" guidance: test as a non-admin (`with_user` / `@users`), assert both the forbidden (`AccessError`) and allowed paths, invalidate cache between privilege levels, and reserve `sudo()` for deliberate bypass / fixture setup only.
+  - **Four workflows** (Generate / Review / Diagnose / Requirements→tests), **quality gates**, a consolidated **anti-pattern** list, and the **four output templates** (Test Plan / Test Review / Implementation Report / Failure Diagnosis).
+- `skills/test/references/` — four new reference files: `test-pattern-catalogue.md` (reusable per-pattern structures incl. record-rule, `@users`, report/QWeb `_render_qweb_html`, mail, multi-company, regression), `custom-module-test-blueprint.md` (recommended `tests/` layout + per-file skeletons + the `tests/__init__.py` discovery rule), `review-checklist.md` (review checklist A–I + anti-pattern catalogue with fixes), and `odoo-version-matrix.md` (base classes, `Command`, `<list>`/`<tree>`, `json`/`jsonrpc`, helper availability across 14–19).
+
+### Changed
+
+- `skills/test/SKILL.md` frontmatter — `description` now advertises planning / reviewing / diagnosing / security / regression / requirements→tests triggers + three new `<example>` blocks (review, diagnose, security); `version` 2.0.0 → 2.1.0; `metadata.categories` add `security-tests`, `record-rules`, `test-review`, `regression`, `diagnosis`; last-updated date refreshed.
+- The existing pattern library, running, coverage, CI, version-table, and troubleshooting sections are **unchanged** (single-owner: the new workflow references them rather than duplicating). No existing example or command was removed.
+- `.claude-plugin/plugin.json` — version 2.4.0 → 2.5.0.
+- `README.md` — `test` domain line expanded with the new capabilities.
+
+### Validation
+
+- `python validate_plugin.py odoo-plugin` → 0 errors.
+- Genericness sweep over `skills/test/references/` and the added SKILL.md section → 0 client/project/host/credential tokens (placeholders only: `<module_name>`, etc.).
+
 ## [2.4.0] — 2026-06-14 — Consolidate the Odoo code-review knowledge base (`odoo-reviewer` skill)
 
 ### Added

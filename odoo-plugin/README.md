@@ -54,7 +54,7 @@ gettext-discipline and stack-safety rules:
 - **reviewer** — Code review & technical-debt knowledge base (12-section checklist, severity rubric, v17→v19 deltas) for Odoo 17/19
 - **security** — Access rules, route auth, sudo() audit, SQL injection scan
 - **service** — Server lifecycle, database ops, IDE config, module scaffold
-- **test** — Test generation, mock data, coverage analysis, E2E
+- **test** — Test planning & classification, generation, security/record-rule & wizard/controller/report tests, regression tests, review, failure diagnosis, mock data, coverage, E2E
 - **upgrade** — Version migration 14→19, pattern transforms, compatibility checks
 
 ## License
