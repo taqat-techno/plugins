@@ -367,6 +367,10 @@ class PluginInspection:
     rules: list[str] = field(default_factory=list)
     scripts: list[str] = field(default_factory=list)
     expected_missing: list[str] = field(default_factory=list)
+    # Advisory (UserPromptSubmit) hook commands in hooks.json that can return a
+    # blocking exit code on path-resolution failure (D-031 / P-013). Empty =
+    # every advisory hook is fail-open.
+    unsafe_advisory_hooks: list[str] = field(default_factory=list)
 
 
 def find_plugin_dir() -> str:
@@ -389,6 +393,62 @@ def find_cache_plugin_dirs() -> list[str]:
         if (child / ".claude-plugin" / "plugin.json").exists():
             out.append(str(child))
     return out
+
+
+# --- advisory hook fail-open analysis (D-031 / P-013) ---------------------- #
+#
+# A UserPromptSubmit (advisory) hook command is *unsafe* if it can return a
+# blocking exit code (Python exit 2) when its script path fails to resolve —
+# i.e. it invokes a `python ${VAR}/...py` script FILE without a fail-open
+# wrapper. Exit 2 on UserPromptSubmit cancels the prompt before the model
+# request (the D-031 vulnerability). Two shapes are fail-open and therefore
+# SAFE: an inline `python -c "..."` bootstrap (no script-file argument, so the
+# "can't open file -> exit 2" branch is structurally impossible), or an
+# explicit `|| exit 0` / `|| true` shell guard.
+
+# Advisory events only. The PreToolUse lock-conflict hook is *intentionally*
+# able to block a tool call and is deliberately excluded from this check.
+_ADVISORY_HOOK_EVENTS = ("UserPromptSubmit",)
+
+# python (optionally python3) runs a .py FILE whose path contains a ${VAR}
+# template token — exactly the host-expansion-dependent exit-2 trigger.
+_RAW_HOOK_SCRIPT = re.compile(r"\bpython\d?\b[^\n|]*\$\{[A-Za-z_]+\}[^\n|]*\.py")
+# Markers that make a command fail-open: inline -c bootstrap, or `|| exit/true`.
+_HOOK_FAILOPEN = re.compile(r"\bpython\d?\b[^\n]*\s-c\s|\|\|\s*exit\b|\|\|\s*true\b")
+
+
+def analyze_advisory_hook_safety(plugin_dir: str) -> list[str]:
+    """Return advisory (UserPromptSubmit) hook command strings in
+    ``hooks/hooks.json`` that can return a blocking exit code on a path-
+    resolution failure — raw ``python ${VAR}/...py`` invocations WITHOUT a
+    fail-open wrapper. An empty list means every advisory hook is fail-open.
+    Never raises."""
+    if not plugin_dir:
+        return []
+    hooks_json = Path(plugin_dir) / "hooks" / "hooks.json"
+    try:
+        data = json.loads(hooks_json.read_text(encoding="utf-8", errors="replace"))
+    except Exception:
+        return []
+    if not isinstance(data, dict):
+        return []
+    hooks = data.get("hooks", {})
+    if not isinstance(hooks, dict):
+        return []
+    unsafe: list[str] = []
+    for event in _ADVISORY_HOOK_EVENTS:
+        for group in hooks.get(event, []) or []:
+            if not isinstance(group, dict):
+                continue
+            for h in group.get("hooks", []) or []:
+                if not isinstance(h, dict):
+                    continue
+                cmd = h.get("command", "")
+                if not isinstance(cmd, str) or not cmd:
+                    continue
+                if _RAW_HOOK_SCRIPT.search(cmd) and not _HOOK_FAILOPEN.search(cmd):
+                    unsafe.append(cmd)
+    return unsafe
 
 
 def inspect_plugin(plugin_dir: str) -> PluginInspection:
@@ -435,6 +495,7 @@ def inspect_plugin(plugin_dir: str) -> PluginInspection:
     insp.expected_missing = [k for k, v in expected.items() if not v]
     cache = find_cache_plugin_dirs()
     insp.cache_dir = "; ".join(cache) if cache else ""
+    insp.unsafe_advisory_hooks = analyze_advisory_hook_safety(plugin_dir)
     return insp
 
 
@@ -682,6 +743,17 @@ _SIGNAL_PATTERNS = [
         r"(\bEADDRINUSE\b"
         r"|[Aa]ddress already in use"
         r"|\bport \d{2,5}\b[^\n]{0,40}\b(?:is|already)\b[^\n]{0,20}\bin use\b)",
+    )),
+    # D-031 / P-013: the precise stderr signature of a hook script that Python
+    # could not open (unresolved ${CLAUDE_PLUGIN_ROOT} / unset var / missing
+    # file) -> exit 2 -> blocked prompt. Keyed on the can't-open-file / [Errno 2]
+    # path error (NOT a bare "exit code 2", which matches ordinary shell output)
+    # so it does not regress the false-positive guards. Used only to ESCALATE an
+    # already-present static P-013 to critical — never to raise it alone.
+    ("hook-path-fatal", re.compile(
+        r"can'?t open file [^\n]{0,200}hooks[\\/][^\n]{0,80}\.py"
+        r"|\[Errno 2\][^\n]{0,120}hooks[\\/][^\n]{0,80}\.py"
+        r"|\$\{CLAUDE_PLUGIN_ROOT\}[^\n]{0,80}(?:\[Errno 2\]|can'?t open|No such file)",
     )),
 ]
 
@@ -968,6 +1040,49 @@ def synthesize_findings(state: State, plugin: PluginInspection,
                 severity="high",
                 evidence=", ".join(plugin.expected_missing),
                 recommendation="Reinstall the plugin or restore from the marketplace clone.",
+                target="plugins",
+            ))
+
+        # P-013 (D-031): advisory UserPromptSubmit hook that can BLOCK the prompt.
+        # A raw `python ${CLAUDE_PLUGIN_ROOT}/hooks/<x>.py` command exits 2 when
+        # the path fails to resolve, and exit 2 on UserPromptSubmit is a blocking
+        # error that cancels the prompt before the model request. We emit ONLY on
+        # *static* evidence (the current hooks.json actually contains such a
+        # command); the runtime `hook-path-fatal` signal merely ESCALATES the
+        # severity. Runtime-only would false-positive, because the same stderr
+        # text appears in transcripts that only *discuss* the failure.
+        if plugin.unsafe_advisory_hooks:
+            fatal_runtime = scan.signal_counts.get("hook-path-fatal", 0)
+            n = len(plugin.unsafe_advisory_hooks)
+            sample = plugin.unsafe_advisory_hooks[0][:160]
+            if fatal_runtime:
+                sev = "critical"
+                runtime_note = (
+                    f" Runtime evidence: {fatal_runtime} hook path-resolution failure "
+                    "signature(s) (can't-open-file / [Errno 2] / literal "
+                    "${CLAUDE_PLUGIN_ROOT}) seen in recent sessions — the blocking path "
+                    "has actually fired.")
+            else:
+                sev = "high"
+                runtime_note = ""
+            plg.append(Finding(
+                id="P-013",
+                title="advisory UserPromptSubmit hook can block the prompt "
+                      "(Python exit 2 on path-resolution failure)",
+                severity=sev,
+                evidence=(
+                    f"{n} advisory hook command(s) in hooks/hooks.json invoke a raw "
+                    f"`python ${{CLAUDE_PLUGIN_ROOT}}/hooks/<script>.py` without a fail-open "
+                    f"wrapper. If the host does not expand ${{CLAUDE_PLUGIN_ROOT}} (reported "
+                    f"on Cowork/headless Windows) or the script is missing, Python exits 2 — "
+                    f"a BLOCKING error on UserPromptSubmit that cancels the prompt before the "
+                    f"model request. The scripts' own sys.exit(0) fail-safe cannot run because "
+                    f"the file never loads. e.g. `{sample}`." + runtime_note),
+                recommendation=(
+                    "Make advisory hooks fail-open: route them through an inline `python -c` "
+                    "bootstrap + hooks/hook_launcher.py so an unresolved path can never make "
+                    "Python exit 2 (rag-plugin v0.15.1, D-031). Do NOT apply this to "
+                    "intentionally-blocking hooks (e.g. a permissionDecision gate)."),
                 target="plugins",
             ))
 
@@ -1561,11 +1676,19 @@ def render_plugin_report(state: State, plugin: PluginInspection,
     md.append("")
 
     md.append("## 4. Hook behavior state\n")
-    expected_hooks = {"hooks.json", "lock_conflict_check.py", "prompt_retrieval_reminder.py"}
+    expected_hooks = {"hooks.json", "lock_conflict_check.py",
+                      "prompt_retrieval_reminder.py", "hook_launcher.py"}
     present_hooks = set(plugin.hooks)
     missing = sorted(expected_hooks - present_hooks)
     md.append(f"- Bundled hooks: {', '.join(sorted(present_hooks)) or '_none_'}")
     md.append(f"- Missing hooks: {', '.join(missing) or '_none_'}")
+    if plugin.unsafe_advisory_hooks:
+        md.append(f"- **⚠ Advisory hooks NOT fail-open:** {len(plugin.unsafe_advisory_hooks)} "
+                  "UserPromptSubmit command(s) can block the prompt on path-resolution failure "
+                  "(see finding P-013 / D-031).")
+    else:
+        md.append("- Advisory hook fail-open: `OK` — UserPromptSubmit hooks cannot block the "
+                  "prompt (inline bootstrap + hook_launcher.py, D-031).")
     md.append(f"- User settings.json hooks block: `{cci.user_hooks_present}` "
               f"({cci.user_hooks_summary or 'none'})")
     md.append(f"- Hook decision log: `{normalize_home(hook_stats.log_path)}`")

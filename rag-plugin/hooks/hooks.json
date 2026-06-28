@@ -1,5 +1,5 @@
 {
-  "description": "rag-plugin hooks. (1) PreToolUse Bash guardrail that warns before commands that would fight the Qdrant single-process file lock while the ragtools service is up. (2) UserPromptSubmit retrieval-reminder (v0.3.0, D-017) that injects a system reminder when the user's prompt has a likely match in the indexed knowledge base. (3) UserPromptSubmit project-focus injector (v0.9.0, D-025) that injects scope-this-to-project-X context when /project-focus is active. None of these hooks block or deny.",
+  "description": "rag-plugin hooks, all routed through hooks/hook_launcher.py via a fail-open inline bootstrap (D-031, v0.15.1). Each command runs `python3 -c <bootstrap> <name> <fallback> || python -c ... || py -3 -c ...`: the `-c` form takes no script-file argument, so an unresolved ${CLAUDE_PLUGIN_ROOT} / missing script can never make Python exit 2 (the only blocking code) — and the interpreter chain lets the hook run where `python3` is not the name (a missing interpreter is non-blocking by spec). (1) PreToolUse Bash lock-conflict guard (GUARDED mode: its `ask`/exit code passes through, only path-resolution / unexpected errors fail open — it can still ask). (2) UserPromptSubmit retrieval-reminder (ADVISORY, D-017). (3) UserPromptSubmit project-focus injector (ADVISORY, D-025). None of these hooks deny; advisory hooks cannot block at all.",
   "hooks": {
     "PreToolUse": [
       {
@@ -7,7 +7,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/lock_conflict_check.py"
+            "command": "python3 -c \"import os,sys,runpy;r=os.environ.get('CLAUDE_PLUGIN_ROOT');p=os.path.join(r,'hooks','hook_launcher.py') if r else '';p=p if os.path.isfile(p) else (sys.argv[2] if len(sys.argv)>2 else '');runpy.run_path(p,run_name='__main__') if (p and os.path.isfile(p)) else None\" lock-conflict \"${CLAUDE_PLUGIN_ROOT}/hooks/hook_launcher.py\" || python -c \"import os,sys,runpy;r=os.environ.get('CLAUDE_PLUGIN_ROOT');p=os.path.join(r,'hooks','hook_launcher.py') if r else '';p=p if os.path.isfile(p) else (sys.argv[2] if len(sys.argv)>2 else '');runpy.run_path(p,run_name='__main__') if (p and os.path.isfile(p)) else None\" lock-conflict \"${CLAUDE_PLUGIN_ROOT}/hooks/hook_launcher.py\" || py -3 -c \"import os,sys,runpy;r=os.environ.get('CLAUDE_PLUGIN_ROOT');p=os.path.join(r,'hooks','hook_launcher.py') if r else '';p=p if os.path.isfile(p) else (sys.argv[2] if len(sys.argv)>2 else '');runpy.run_path(p,run_name='__main__') if (p and os.path.isfile(p)) else None\" lock-conflict \"${CLAUDE_PLUGIN_ROOT}/hooks/hook_launcher.py\""
           }
         ]
       }
@@ -18,7 +18,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/prompt_retrieval_reminder.py"
+            "command": "python3 -c \"import os,sys,runpy;r=os.environ.get('CLAUDE_PLUGIN_ROOT');p=os.path.join(r,'hooks','hook_launcher.py') if r else '';p=p if os.path.isfile(p) else (sys.argv[2] if len(sys.argv)>2 else '');runpy.run_path(p,run_name='__main__') if (p and os.path.isfile(p)) else None\" retrieval-reminder \"${CLAUDE_PLUGIN_ROOT}/hooks/hook_launcher.py\" || python -c \"import os,sys,runpy;r=os.environ.get('CLAUDE_PLUGIN_ROOT');p=os.path.join(r,'hooks','hook_launcher.py') if r else '';p=p if os.path.isfile(p) else (sys.argv[2] if len(sys.argv)>2 else '');runpy.run_path(p,run_name='__main__') if (p and os.path.isfile(p)) else None\" retrieval-reminder \"${CLAUDE_PLUGIN_ROOT}/hooks/hook_launcher.py\" || py -3 -c \"import os,sys,runpy;r=os.environ.get('CLAUDE_PLUGIN_ROOT');p=os.path.join(r,'hooks','hook_launcher.py') if r else '';p=p if os.path.isfile(p) else (sys.argv[2] if len(sys.argv)>2 else '');runpy.run_path(p,run_name='__main__') if (p and os.path.isfile(p)) else None\" retrieval-reminder \"${CLAUDE_PLUGIN_ROOT}/hooks/hook_launcher.py\""
           }
         ]
       },
@@ -27,7 +27,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/project_focus_inject.py"
+            "command": "python3 -c \"import os,sys,runpy;r=os.environ.get('CLAUDE_PLUGIN_ROOT');p=os.path.join(r,'hooks','hook_launcher.py') if r else '';p=p if os.path.isfile(p) else (sys.argv[2] if len(sys.argv)>2 else '');runpy.run_path(p,run_name='__main__') if (p and os.path.isfile(p)) else None\" project-focus \"${CLAUDE_PLUGIN_ROOT}/hooks/hook_launcher.py\" || python -c \"import os,sys,runpy;r=os.environ.get('CLAUDE_PLUGIN_ROOT');p=os.path.join(r,'hooks','hook_launcher.py') if r else '';p=p if os.path.isfile(p) else (sys.argv[2] if len(sys.argv)>2 else '');runpy.run_path(p,run_name='__main__') if (p and os.path.isfile(p)) else None\" project-focus \"${CLAUDE_PLUGIN_ROOT}/hooks/hook_launcher.py\" || py -3 -c \"import os,sys,runpy;r=os.environ.get('CLAUDE_PLUGIN_ROOT');p=os.path.join(r,'hooks','hook_launcher.py') if r else '';p=p if os.path.isfile(p) else (sys.argv[2] if len(sys.argv)>2 else '');runpy.run_path(p,run_name='__main__') if (p and os.path.isfile(p)) else None\" project-focus \"${CLAUDE_PLUGIN_ROOT}/hooks/hook_launcher.py\""
           }
         ]
       }

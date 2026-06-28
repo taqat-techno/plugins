@@ -1037,3 +1037,104 @@ D-024 deliberately stopped `/report` at local files + copy-paste issue bodies ("
 
 - Auto-creation produces misfiled or noisy issues in practice — tighten the confirmation (e.g. per-repo yes/no) or revert `/report` to D-024 local-only, rather than removing routing.
 - A future change wants comment/update of existing issues — design an explicit, idempotent update path first (the current skip-on-duplicate is the safe default).
+
+---
+
+## D-031 — Advisory hooks must be fail-open by construction (not just script-level)
+
+Date: 2026-06-29
+Phase: Post-15 amendment
+Status: binding
+Ships in: v0.15.1
+Relates to: D-007 (hooks ask, never deny), D-017 / D-027 (retrieval-reminder hook), D-025 / D-028 (project-focus hook); see `RAG_PLUGIN_HOOK_INVESTIGATION_REPORT.md`
+
+### Context
+
+The two `UserPromptSubmit` advisory hooks were invoked as the raw
+`python3 ${CLAUDE_PLUGIN_ROOT}/hooks/<script>.py` (unchanged since v0.3.0). When
+the host does not expand `${CLAUDE_PLUGIN_ROOT}` (reported on Cowork / headless
+Windows), the variable is unset, or the script is missing, **Python exits 2**
+because it cannot open the file. Per the Claude Code hook spec, **exit 2 on
+`UserPromptSubmit` is a *blocking* error** — the prompt is cancelled before the
+model request ("spinner / no response / no model call"). The scripts already
+`sys.exit(0)` on every internal error, but **that fail-safe cannot run if the
+script file never loads** — the failure is one layer *above* the script, at the
+command-invocation layer, which was unguarded.
+
+Four of the five causal links are proven by repo code + the official hook spec +
+empirical tests; only the Cowork-specific non-expansion *trigger* needs runtime
+Cowork logs. The fix is applied regardless, because an advisory/injection hook
+must never be *able* to cancel a prompt.
+
+### The rule (binding)
+
+1. **Advisory / injection / reminder hooks MUST be fail-open by construction.**
+   Any failure to resolve, load, or run them must yield exit `0`, never the
+   blocking exit `2` (and preferably never any non-zero).
+2. **Script-level `sys.exit(0)` is necessary but NOT sufficient.** The fail-open
+   guarantee must exist *above* the script — in the command-invocation layer —
+   so a path-resolution failure (the script never loading) still cannot block.
+3. **Any hook that can block a user prompt must be *intentionally* blocking and
+   documented as such.** Do not make an intentionally-blocking hook fail-open.
+
+### The mechanism
+
+- `hooks/hooks.json` no longer names a script file on the interpreter command
+  line for **any** hook. Each command runs a tiny inline `-c` bootstrap. Because
+  `-c` takes **no script-file argument**, the "can't open file → exit 2" branch
+  is *structurally impossible*. The bootstrap resolves the plugin root from the
+  `CLAUDE_PLUGIN_ROOT` **runtime environment variable** (with the host-expanded
+  `${CLAUDE_PLUGIN_ROOT}` path as a secondary fallback) and runs
+  `hooks/hook_launcher.py` only if it actually exists; otherwise it exits 0.
+- **Interpreter fallback (v0.15.1):** each command chains
+  `python3 -c … || python -c … || py -3 -c …` so the hook still runs where
+  `python3` is not the interpreter name (e.g. python.org Windows). Safe by spec:
+  the only blocking code is `2`, so a missing interpreter (127) or a stray shell
+  parse error is non-blocking; and because the bootstrap exits 0 on every
+  fail-open path, the chain only advances when an interpreter is genuinely absent
+  (no double execution of the real hook logic).
+- `hooks/hook_launcher.py` resolves the real target script *beside its own*
+  `__file__`, runs it in-process via `runpy` (stdin/stdout pass through, so
+  `additionalContext` / `permissionDecision` injection is preserved). It has two
+  per-target modes: **advisory** (the `UserPromptSubmit` injectors) normalizes
+  **every** exit — even a target `sys.exit(2)` — to `0`; **guarded** (the lock
+  hook) **passes the target's own exit code through** so a deliberate decision
+  survives. Both modes fail open (exit 0) on a path-resolution failure or an
+  unexpected exception.
+- **The PreToolUse lock-conflict hook IS routed through the launcher in GUARDED
+  mode (v0.15.1 enhancement).** Its `ask` (and any future deliberate block via
+  exit 2) passes through unchanged — D-007 preserved — but a path-resolution
+  failure or an internal crash now fails open instead of exiting 2. This fixes a
+  worse-than-advisory false-block: an unresolved `${CLAUDE_PLUGIN_ROOT}`
+  previously made the PreToolUse Bash hook exit 2 and block **every Bash tool
+  call**. Guarded mode removes the false block without weakening the `ask`.
+- **Report-engine detector `P-013`:** `scripts/rag_report.py` flags any advisory
+  `UserPromptSubmit` command in `hooks.json` that can return a blocking exit code
+  (raw `python ${VAR}/...py` without a fail-open wrapper) — **High** when the
+  risky command is present, **Critical** when runtime log signatures
+  (`can't open file …hooks…py` / `[Errno 2]` / literal `${CLAUDE_PLUGIN_ROOT}`)
+  confirm the path actually fired. P-013 emits only on **static** evidence
+  (current `hooks.json` is actually risky); runtime signatures only *escalate*,
+  because the same stderr text appears in transcripts that merely *discuss* the
+  failure. P-013 **supersedes** the old generic `P-012` ("MCP error phrases") as
+  the lead plugin issue — P-012 could never have detected this hook-fatal failure.
+
+### Non-violation of prior decisions
+
+- **D-007:** advisory hooks still never deny; this *strengthens* "never block" by
+  making blocking impossible. The lock hook's `ask` is preserved via guarded
+  mode (exit code passes through) — only its path-resolution *false-block* is
+  removed.
+- **D-017 / D-027 / D-025 / D-028:** the target scripts' logic, thresholds, and
+  injection behavior are unchanged — only the invocation layer moved.
+- **No new hook is added** (the launcher is a helper invoked by the existing
+  hooks, not a new hook registration).
+
+### Reverse only if
+
+- Claude Code guarantees host-side `${CLAUDE_PLUGIN_ROOT}` expansion *and* an
+  always-blocking-free invocation on every surface (incl. Cowork) — even then,
+  keep the launcher; it is pure upside and risk-free.
+- A future advisory hook genuinely needs to block — then it is by definition not
+  advisory; document it as intentionally blocking and route it outside the
+  launcher.

@@ -2,6 +2,32 @@
 
 All notable changes to `rag-plugin` are documented here. Format is loosely based on [Keep a Changelog](https://keepachangelog.com/). Versioning follows [SemVer](https://semver.org/).
 
+## [0.15.1] — 2026-06-29 — Hook invocation hardened: hooks are fail-open on path-resolution; advisory hooks cannot block; portable interpreter (D-031)
+
+Fixes a present, prompt/tool-blocking design vulnerability (unchanged since v0.3.0; see `RAG_PLUGIN_HOOK_INVESTIGATION_REPORT.md`). All hooks ran as the raw `python3 ${CLAUDE_PLUGIN_ROOT}/hooks/<script>.py`. If the host does not expand `${CLAUDE_PLUGIN_ROOT}` (reported on Cowork/headless Windows), the var is unset, or the script is missing, **Python exits 2 — the only *blocking* hook code** — cancelling the prompt (`UserPromptSubmit`) or blocking the tool call (`PreToolUse` Bash). The scripts' own `sys.exit(0)` fail-safe cannot run because the file never loads. **No behavior change when paths resolve; the lock hook's `ask`/exit semantics are preserved (guarded mode); no new hook registrations; no destructive-command changes.**
+
+### Added
+
+- **`hooks/hook_launcher.py`** — a resilient, fail-open launcher. Resolves the target beside its own `__file__`, runs it in-process via `runpy` (stdin/stdout pass through, so `additionalContext` / `permissionDecision` injection is preserved). Two per-target modes: **advisory** (`UserPromptSubmit` injectors) normalizes **every** exit — even `sys.exit(2)` — to `0`; **guarded** (the lock hook) **passes the target's exit code through** so a deliberate decision survives, while still failing open (0) on path-resolution failure or unexpected exception.
+- **`hooks/test_hook_launcher.py`** — 24 tests: the real `hooks.json` bootstrap returns exit `0` (never `2`) under unresolved literal `${CLAUDE_PLUGIN_ROOT}`, unset/nonexistent root, missing target, target raising, target `sys.exit(2)`, malformed/empty payload, service-down, Windows paths, project-focus target, fallback recovery; **guarded mode** (intentional exit-2 passes through; missing/exception/path-failure fail open; `ask` stdout passes through); stdout pass-through; wiring guards (every command uses the `-c` bootstrap + interpreter chain; lock hook guarded); and a `shell=True` full-string parse smoke test.
+- **`rules/hook-failopen.md`** — the binding contract (advisory = fail-open above the script layer; guarded = pass decision through but fail open on infrastructure failure).
+- **`scripts/rag_report.py`** — report-engine detector **`P-013`** ("advisory UserPromptSubmit hook can block the prompt"): `analyze_advisory_hook_safety()` flags any advisory `hooks.json` command that is not fail-open. **High** when present; **Critical** when runtime log signatures (`can't open file …hooks…py` / `[Errno 2]` / literal `${CLAUDE_PLUGIN_ROOT}`) confirm the fatal path fired. Emits only on static evidence (runtime signatures only escalate, to avoid false positives from transcripts that merely *discuss* the failure). A new `hook-path-fatal` session signal feeds the escalation. **P-013 supersedes the generic `P-012`** as the lead plugin issue.
+- **`scripts/test_rag_report.py`** — 14 new tests (hook-safety analyzer, P-013 High/Critical/absent + outranks-P-012, `hook-path-fatal` signal precision, regression guard that this plugin's own hooks stay fail-open).
+- **`docs/decisions.md`** — D-031. **`docs/issues/P-013-advisory-hook-blocking.md`** — the curated, ready-to-file GitHub issue draft.
+
+### Changed
+
+- **`hooks/hooks.json`** — **all three** commands now run an inline `-c` bootstrap (no script-file argument → "can't open file → exit 2" is structurally impossible) that resolves the plugin root from the `CLAUDE_PLUGIN_ROOT` runtime env var (host-expanded path fallback) and runs `hook_launcher.py` only if it exists. **Interpreter fallback:** each command chains `python3 -c … || python -c … || py -3 -c …` so the hook runs where `python3` is not the name (safe by spec — only exit 2 blocks). The PreToolUse lock-conflict hook is routed in **guarded** mode (fixes the false-block where an unresolved `${CLAUDE_PLUGIN_ROOT}` would block *every* Bash tool call; its `ask` is preserved).
+- **`scripts/rag_report.py`** — the plugin behavior report now reports advisory-hook fail-open status; `hook_launcher.py` added to the expected-hooks set.
+
+### Validation
+
+- `python hooks/test_hook_launcher.py` → 24 tests OK.
+- `python scripts/test_rag_report.py` → 54 tests OK (40 existing + 14 new).
+- `python scripts/rag_report.py --self-test` → pass.
+- `python validate_plugin.py rag-plugin` → exit 0, `hooks.json is valid`, 0 errors.
+- End-to-end `--dry-run` report: fixed plugin → no P-013, "Advisory hook fail-open: OK"; synthetic risky plugin → P-013 leads the generated `github-plugins-issue.md`.
+
 ## [0.15.0] — 2026-06-29 — `/report` files GitHub issues automatically after one yes/no confirmation (D-030)
 
 `/report` no longer stops at copy-paste issue bodies. By default it now generates the local artifacts, shows the routed issue plan (repo + title), asks **one** confirmation — `Create GitHub issue(s) now? [yes/no]` — and on `yes` files the issues via the GitHub CLI. Default behavior with no confirmation is unchanged for `--dry-run`, and creation falls back to local-only when `gh` is unavailable. **No hooks; no changes to `/doctor` or any destructive command; local artifacts preserved; redaction unchanged.**
