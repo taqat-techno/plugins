@@ -201,7 +201,7 @@ The rule is delimited by exactly two lines:
 <!-- rag-plugin:retrieval-rule:end -->
 ```
 
-Commands must **never** edit inside the markers. Detect, splice, replace, or delete as a whole. The marker version string (`v=0.2.0`) is how upgrade detection works.
+Commands must **never** edit inside the markers. Detect, splice, replace, or delete as a whole. The marker version string (`v=0.4.0`) is how upgrade detection works.
 
 ## `claude-md status`
 
@@ -220,7 +220,7 @@ The install path is idempotent: running it twice on an already-installed rule pr
 
 ### Steps
 
-1. **Load the bundled rule.** Read `${CLAUDE_PLUGIN_ROOT}/rules/claude-md-retrieval-rule.md` and extract the verbatim block between the code fence labeled `## The block (verbatim — this is what gets injected)` — i.e. everything between `<!-- rag-plugin:retrieval-rule:begin v=0.2.0 -->` and `<!-- rag-plugin:retrieval-rule:end -->` (inclusive).
+1. **Load the bundled rule.** Read `${CLAUDE_PLUGIN_ROOT}/rules/claude-md-retrieval-rule.md` and extract the verbatim block between the code fence labeled `## The block (verbatim — this is what gets injected)` — i.e. everything between `<!-- rag-plugin:retrieval-rule:begin v=0.4.0 -->` and `<!-- rag-plugin:retrieval-rule:end -->` (inclusive).
 
 2. **Resolve the target** per the resolution order above.
 
