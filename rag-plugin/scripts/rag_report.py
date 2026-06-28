@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""rag-plugin diagnostic report generator (v0.8.0).
+"""rag-plugin diagnostic report generator (v0.9.0).
 
 Generates two evidence-based reports for the maintainers of the upstream
 ragtools product (github.com/taqat-techno/rag) and the rag-plugin
@@ -42,6 +42,7 @@ CLI:
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import platform
@@ -180,7 +181,7 @@ def _safe_run(cmd: list[str], timeout: float = 5.0) -> tuple[int, str, str]:
 def _http_get_json(url: str, timeout: float = 2.0) -> tuple[int, Any, str]:
     """Returns (http_code, parsed_json_or_none, error_message)."""
     try:
-        req = urlrequest.Request(url, headers={"User-Agent": "rag-plugin-report/0.8.0"})
+        req = urlrequest.Request(url, headers={"User-Agent": f"rag-plugin-report/{REPORT_VERSION}"})
         with urlrequest.urlopen(req, timeout=timeout) as resp:
             code = resp.getcode()
             raw = resp.read().decode("utf-8", errors="replace")
@@ -1036,14 +1037,24 @@ def synthesize_findings(state: State, plugin: PluginInspection,
         mcp_errors = sk.get("mcp-error", 0)
         connect_ref = sk.get("connect-refused", 0)
         if rag_mentions > 0 and skipped > rag_mentions * 0.4:
+            # D-030 routing fix: don't blame the plugin for skipped retrieval if
+            # the ragtools service was not UP at scan time — the retrieval was
+            # likely impossible because the application was unavailable.
+            svc_down = state.service_mode in ("DOWN", "BROKEN", "STARTING", "N/A")
             plg.append(Finding(
                 id="P-010", title="possible skipped retrieval pattern in recent sessions",
                 severity="medium",
                 evidence=f"{skipped} 'I don't have information'-shaped responses across "
-                         f"{scan.sessions_with_signal} session(s) that also referenced ragtools.",
-                recommendation="Consider escalating Tier 2 → Tier 3 pre-fetch, or verify the CLAUDE.md rule is loaded "
-                               "into project sessions (`/rag:config claude-md status --project`).",
-                target="plugins",
+                         f"{scan.sessions_with_signal} session(s) that also referenced ragtools."
+                         + (f" NOTE: the ragtools service was '{state.service_mode}' at scan time, so "
+                            "retrieval may have failed because the application was unavailable — routing "
+                            "to the application repo rather than the plugin." if svc_down else ""),
+                recommendation=("Bring the ragtools service up (`/rag:setup` / `/rag:doctor`) and re-check; "
+                                "skipped retrieval here most likely reflects application availability, not the plugin."
+                                if svc_down else
+                                "Consider escalating Tier 2 → Tier 3 pre-fetch, or verify the CLAUDE.md rule is loaded "
+                                "into project sessions (`/rag:config claude-md status --project`)."),
+                target="rag" if svc_down else "plugins",
             ))
         if user_corrections > 0:
             plg.append(Finding(
@@ -1054,12 +1065,22 @@ def synthesize_findings(state: State, plugin: PluginInspection,
                 target="plugins",
             ))
         if mcp_errors > 0:
+            # D-030 routing fix: MCP-error phrases while the service is DOWN/BROKEN
+            # are an application fault (the `rag serve` MCP server itself), not
+            # plugin wiring. Route by actual cause when the service state reveals it.
+            svc_app_fault = state.service_mode in ("DOWN", "BROKEN")
             plg.append(Finding(
                 id="P-012", title="MCP error phrases detected in sessions",
                 severity="medium",
-                evidence=f"{mcp_errors} MCP-error phrase(s) seen in recent session JSONL.",
-                recommendation="Cross-check with `/rag:doctor` and the maintainer playbook P-mcp.",
-                target="plugins",
+                evidence=f"{mcp_errors} MCP-error phrase(s) seen in recent session JSONL."
+                         + (f" NOTE: service_mode was '{state.service_mode}', so these are most likely the "
+                            "ragtools application (the `rag serve` MCP server) being down/broken rather than "
+                            "plugin wiring — routing to the application repo." if svc_app_fault else ""),
+                recommendation=("Bring the ragtools MCP server up and re-check (`/rag:doctor`); these MCP errors "
+                                "track application availability, not plugin wiring."
+                                if svc_app_fault else
+                                "Cross-check with `/rag:doctor` and the maintainer playbook P-mcp."),
+                target="rag" if svc_app_fault else "plugins",
             ))
         if connect_ref > 0 and state.service_mode != "UP":
             app.append(Finding(
@@ -1081,6 +1102,231 @@ def synthesize_findings(state: State, plugin: PluginInspection,
                            recommendation="Nothing to do.", target="plugins"))
 
     return app, plg
+
+
+# --------------------------------------------------------------------------- #
+# GitHub issue routing, fingerprinting, and creation (D-030)                  #
+# --------------------------------------------------------------------------- #
+#
+# Design: the Python engine owns the deterministic, unit-testable logic
+# (routing, fingerprint, plan, dedup, create); the /report command owns the one
+# human yes/no confirmation. Default generation NEVER creates issues — creation
+# only happens on an explicit `--create`, which the command issues after the
+# user types "yes". All `gh` calls funnel through `_run_gh` (one mock point).
+
+FINGERPRINT_MARKER_PREFIX = "rag-plugin-report:fingerprint:"
+
+
+def issue_fingerprint(findings: list[Finding]) -> str:
+    """Stable 12-hex fingerprint over the sorted non-info finding IDs, so the
+    same diagnostic state yields the same fingerprint across runs/machines —
+    the basis for duplicate detection. Falls back to all IDs when info-only."""
+    ids = sorted({f.id for f in findings if f.severity != "info"})
+    if not ids:
+        ids = sorted({f.id for f in findings})
+    return hashlib.sha256("|".join(ids).encode("utf-8")).hexdigest()[:12]
+
+
+def build_issue_meta(target: str, findings: list[Finding],
+                     state: State, plugin: PluginInspection) -> dict[str, Any]:
+    """Single source of truth for an issue's repo / title / labels / fingerprint.
+    Used by both render_github_issue (body marker) and build_issue_plan (gh
+    creation) so the marker in the body and the plan never drift."""
+    repo = "taqat-techno/rag" if target == "rag" else "taqat-techno/plugins"
+    title_subject = "ragtools" if target == "rag" else "rag-plugin"
+    non_info = [f for f in findings if f.severity != "info"]
+    if non_info:
+        primary = _sort_findings(non_info)[0]
+        title = f"[{title_subject}] {primary.severity}: {primary.title}"
+    else:
+        title = (f"[{title_subject}] healthy report from rag-plugin "
+                 f"v{plugin.manifest_version} (info-only findings)")
+    sev_counts: dict[str, int] = {}
+    for f in findings:
+        sev_counts[f.severity] = sev_counts.get(f.severity, 0) + 1
+    top_sev = next((k for k in ("critical", "high", "medium", "low")
+                    if sev_counts.get(k)), "info")
+    labels = ["diagnostic", f"severity:{top_sev}", "source:rag-plugin-report"]
+    if target == "rag":
+        labels.append(f"install-mode:{state.install_mode}")
+        if state.service_mode != "N/A":
+            labels.append(f"service:{state.service_mode.lower()}")
+    return {
+        "repo": repo,
+        "target": target,
+        "title": title,
+        "labels": labels,
+        "fingerprint": issue_fingerprint(findings),
+        "actionable": bool(non_info),
+        "finding_count": len(findings),
+    }
+
+
+def route_findings(app_findings: list[Finding],
+                   plugin_findings: list[Finding]) -> tuple[list[Finding], list[Finding], list[str]]:
+    """Route every finding to its issue by `target`, merging both source lists.
+    A finding re-targeted across lists (e.g. a service-down MCP fault moved to
+    'rag') lands in the correct issue instead of being silently dropped. Returns
+    (rag_findings, plugins_findings, dropped_ids) — dropped_ids surfaces the
+    silent-drop invariant rather than hiding it."""
+    everything = list(app_findings) + list(plugin_findings)
+    rag = [f for f in everything if f.target == "rag"]
+    plugins = [f for f in everything if f.target == "plugins"]
+    dropped = [f.id for f in everything if f.target not in ("rag", "plugins")]
+    return rag, plugins, dropped
+
+
+def build_issue_plan(routed: list[tuple[str, list[Finding], str, str]],
+                     state: State, plugin: PluginInspection
+                     ) -> tuple[list[dict[str, Any]], dict[str, str]]:
+    """Build issue-plan.json entries + the clean issue-body files used for
+    creation. The clean body is the portion of the rendered issue AFTER the
+    copy-paste preamble (everything from the first ``\\n---\\n``), so an
+    auto-created issue contains the real content, not the "paste this" header.
+    Returns (plan, bodies) where bodies maps filename -> content."""
+    plan: list[dict[str, Any]] = []
+    bodies: dict[str, str] = {}
+    for target, findings, rendered_md, human_file in routed:
+        meta = build_issue_meta(target, findings, state, plugin)
+        parts = rendered_md.split("\n---\n", 1)
+        clean_body = parts[1] if len(parts) == 2 else rendered_md
+        body_file = f"_issue-body-{target}.md"
+        bodies[body_file] = clean_body
+        plan.append({
+            "repo": meta["repo"],
+            "target": target,
+            "title": meta["title"],
+            "labels": meta["labels"],
+            "fingerprint": meta["fingerprint"],
+            "actionable": meta["actionable"],
+            "finding_count": meta["finding_count"],
+            "body_file": body_file,
+            "human_file": human_file,
+        })
+    return plan, bodies
+
+
+# --- gh CLI layer (single chokepoint `_run_gh` so tests can mock it) -------- #
+
+def _run_gh(args: list[str], timeout: float = 20.0) -> tuple[int, str, str]:
+    """Run a `gh` CLI subcommand. Single mock point for all GitHub access."""
+    return _safe_run(["gh"] + args, timeout=timeout)
+
+
+def gh_available() -> tuple[bool, str]:
+    """True iff the gh CLI is installed AND authenticated. Never raises."""
+    code, out, err = _run_gh(["auth", "status"], timeout=10.0)
+    if code == 127:
+        return False, "gh CLI not installed (not on PATH)"
+    if code != 0:
+        return False, "gh CLI not authenticated (run `gh auth login`)"
+    return True, "gh authenticated"
+
+
+def find_existing_open_issue(repo: str, fingerprint: str) -> Optional[str]:
+    """Return the URL of an OPEN issue in `repo` whose body carries this
+    fingerprint marker, else None. Prevents duplicate filing. Never raises."""
+    code, out, err = _run_gh([
+        "issue", "list", "--repo", repo, "--state", "open",
+        "--search", fingerprint, "--limit", "50", "--json", "url,body",
+    ])
+    if code != 0 or not out:
+        return None
+    try:
+        items = json.loads(out)
+    except Exception:
+        return None
+    marker = f"{FINGERPRINT_MARKER_PREFIX}{fingerprint}"
+    for it in items if isinstance(items, list) else []:
+        if marker in (it.get("body") or ""):
+            return it.get("url")
+    return None
+
+
+def create_issue(repo: str, title: str, body_file: Path) -> tuple[Optional[str], str]:
+    """Create one issue via gh. Returns (url, error). Labels are intentionally
+    NOT passed on create — a label missing in the target repo would fail the
+    whole call; the suggested labels are listed in the body instead."""
+    code, out, err = _run_gh([
+        "issue", "create", "--repo", repo,
+        "--title", title, "--body-file", str(body_file),
+    ], timeout=30.0)
+    if code != 0:
+        return None, (err or out or "gh issue create failed")
+    url = ""
+    for line in (out or "").splitlines():
+        line = line.strip()
+        if line.startswith("http"):
+            url = line
+    return (url or (out or "").strip() or None), ""
+
+
+def do_create(report_dir: Path) -> dict[str, Any]:
+    """File GitHub issues from <report_dir>/issue-plan.json, with duplicate
+    detection and a graceful local-only fallback when gh is unavailable. NEVER
+    scans/generates — operates only on an existing report directory."""
+    plan_path = report_dir / "issue-plan.json"
+    if not plan_path.is_file():
+        return {"ok": False, "reason": "no-plan", "results": []}
+    try:
+        plan = json.loads(plan_path.read_text(encoding="utf-8"))
+    except Exception as e:
+        return {"ok": False, "reason": f"plan-unreadable: {e}", "results": []}
+    avail, why = gh_available()
+    if not avail:
+        return {"ok": False, "fallback": "local-only", "detail": why, "results": []}
+    results: list[dict[str, Any]] = []
+    for entry in plan:
+        if not entry.get("actionable"):
+            continue
+        repo = entry["repo"]
+        fp = entry["fingerprint"]
+        body_file = report_dir / entry["body_file"]
+        existing = find_existing_open_issue(repo, fp)
+        if existing:
+            results.append({"repo": repo, "status": "duplicate", "url": existing,
+                            "title": entry["title"], "fingerprint": fp})
+            continue
+        url, err = create_issue(repo, entry["title"], body_file)
+        if url:
+            results.append({"repo": repo, "status": "created", "url": url,
+                            "title": entry["title"], "fingerprint": fp})
+        else:
+            results.append({"repo": repo, "status": "error", "error": err,
+                            "title": entry["title"], "fingerprint": fp})
+    return {"ok": True, "results": results}
+
+
+def _print_issue_plan(plan: list[dict[str, Any]]) -> None:
+    actionable = [e for e in plan if e.get("actionable")]
+    if not actionable:
+        print("[rag_report] no actionable findings — no GitHub issues to file (healthy report).")
+        return
+    print("[rag_report] GitHub issue plan (nothing filed yet):")
+    for e in actionable:
+        print(f"  • {e['repo']}: {e['title']}")
+        print(f"      fingerprint {e['fingerprint']} | body {e['body_file']}")
+
+
+def _print_create_result(result: dict[str, Any]) -> None:
+    if result.get("reason") == "no-plan":
+        print("[rag_report] no issue-plan.json in that directory — run the report first. No issue created.")
+        return
+    if result.get("fallback") == "local-only":
+        print(f"[rag_report] GitHub CLI unavailable — {result.get('detail', '')}. "
+              "No issue was created; the local report files are complete and unchanged.")
+        return
+    results = result.get("results", [])
+    if not results:
+        print("[rag_report] no actionable issues to file (healthy report). No issue created.")
+        return
+    for r in results:
+        if r["status"] == "created":
+            print(f"[rag_report] CREATED   {r['repo']}: {r['url']}")
+        elif r["status"] == "duplicate":
+            print(f"[rag_report] DUPLICATE {r['repo']}: existing open issue {r['url']} (not re-filed)")
+        else:
+            print(f"[rag_report] ERROR     {r['repo']}: {r.get('error', 'unknown error')}")
 
 
 # --------------------------------------------------------------------------- #
@@ -1436,29 +1682,14 @@ def render_github_issue(target: str, findings: list[Finding], state: State,
     for f in findings:
         sev_counts[f.severity] = sev_counts.get(f.severity, 0) + 1
 
-    def _severity_label() -> str:
-        for k in ("critical", "high", "medium", "low"):
-            if sev_counts.get(k):
-                return k
-        return "info"
-
-    top_sev = _severity_label()
-    title_subject = "ragtools" if target == "rag" else "rag-plugin"
+    # Title, labels, and the duplicate-detection fingerprint all come from the
+    # single source of truth (build_issue_meta) so the body marker and
+    # issue-plan.json can never drift.
+    issue_meta = build_issue_meta(target, findings, state, plugin)
+    suggested_title = issue_meta["title"]
+    labels = issue_meta["labels"]
+    fingerprint = issue_meta["fingerprint"]
     non_info_findings = [f for f in findings if f.severity != "info"]
-
-    # Title is auto-derived from the highest-severity finding so collected
-    # issues (across many users) cluster naturally by symptom.
-    if non_info_findings:
-        primary = _sort_findings(non_info_findings)[0]
-        suggested_title = f"[{title_subject}] {primary.severity}: {primary.title}"
-    else:
-        suggested_title = f"[{title_subject}] healthy report from rag-plugin v{plugin.manifest_version} (info-only findings)"
-
-    labels = ["diagnostic", f"severity:{top_sev}", "source:rag-plugin-report"]
-    if target == "rag":
-        labels.append(f"install-mode:{state.install_mode}")
-        if state.service_mode != "N/A":
-            labels.append(f"service:{state.service_mode.lower()}")
 
     md: list[str] = []
     md.append(f"# Suggested issue for `github.com/{repo}`\n")
@@ -1469,6 +1700,7 @@ def render_github_issue(target: str, findings: list[Finding], state: State,
               "PEM keys, long base64 trailing tokens, home-path normalization, "
               "hostname masking) — verify once more before posting publicly.\n")
     md.append("---\n")
+    md.append(f"<!-- {FINGERPRINT_MARKER_PREFIX}{fingerprint} -->\n")
 
     # ------------------------------------------------------------------ #
     # Section 1 — Summary                                                  #
@@ -1762,10 +1994,28 @@ def main(argv: Optional[list[str]] = None) -> int:
                     help="max session JSONL files to scan (default: 60, newest-first)")
     ap.add_argument("--quiet", action="store_true", help="suppress progress lines")
     ap.add_argument("--self-test", action="store_true", help="run internal sanity tests and exit")
+    ap.add_argument("--create", action="store_true",
+                    help="create GitHub issues from the report's issue-plan.json via `gh` "
+                         "(dedup-checks first; falls back to local-only if gh is unavailable)")
+    ap.add_argument("--from", dest="from_dir", default=None,
+                    help="with --create: file from an existing report directory instead of re-scanning")
+    ap.add_argument("--dry-run", action="store_true",
+                    help="generate local artifacts only; never create issues (legacy local-only mode)")
     args = ap.parse_args(argv)
 
     if args.self_test:
         return _self_test()
+
+    # Safety: --dry-run always wins over --create (legacy local-only mode).
+    if args.dry_run:
+        args.create = False
+
+    # Create-only fast path: file issues from an already-generated report dir
+    # without re-scanning sessions or re-probing the service.
+    if args.create and args.from_dir:
+        result = do_create(Path(args.from_dir).expanduser().resolve())
+        _print_create_result(result)
+        return 0
 
     def log(msg: str) -> None:
         if not args.quiet:
@@ -1834,9 +2084,16 @@ def main(argv: Optional[list[str]] = None) -> int:
     app_md = render_application_report(state, log_hits, app_findings, meta)
     plugin_md = render_plugin_report(state, plugin, cci, hook_stats, scan, plugin_findings, meta)
     summary_md = render_summary(state, app_findings, plugin_findings, plugin, meta, outdir)
-    issue_rag = render_github_issue("rag", [f for f in app_findings if f.target == "rag"],
+    # Route every finding to its issue by target (merging both source lists) so a
+    # service-down MCP/retrieval fault re-targeted to 'rag' lands in the rag issue
+    # instead of being silently dropped. `dropped` surfaces the invariant.
+    rag_findings, plugins_findings, dropped = route_findings(app_findings, plugin_findings)
+    if dropped:
+        print(f"[rag_report] WARNING: {len(dropped)} finding(s) had an unroutable target and were "
+              f"omitted from issues: {dropped}", file=sys.stderr)
+    issue_rag = render_github_issue("rag", rag_findings,
                                     state, plugin, cci, hook_stats, scan, meta)
-    issue_plg = render_github_issue("plugins", [f for f in plugin_findings if f.target == "plugins"],
+    issue_plg = render_github_issue("plugins", plugins_findings,
                                     state, plugin, cci, hook_stats, scan, meta)
 
     # Structured diagnostics (machine-readable, redacted)
@@ -1856,6 +2113,13 @@ def main(argv: Optional[list[str]] = None) -> int:
         "plugin_findings": [f.to_dict() for f in plugin_findings],
     }
 
+    # Issue creation plan + clean (post-preamble, fingerprint-marked) issue bodies.
+    routed = [
+        ("rag", rag_findings, issue_rag, "github-rag-issue.md"),
+        ("plugins", plugins_findings, issue_plg, "github-plugins-issue.md"),
+    ]
+    issue_plan, issue_bodies = build_issue_plan(routed, state, plugin)
+
     files = {
         "rag-application-setup-report.md": app_md,
         "rag-plugin-behavior-report.md": plugin_md,
@@ -1863,7 +2127,9 @@ def main(argv: Optional[list[str]] = None) -> int:
         "github-rag-issue.md": issue_rag,
         "github-plugins-issue.md": issue_plg,
         "redacted-diagnostics.json": json.dumps(diag, indent=2, default=str),
+        "issue-plan.json": json.dumps(issue_plan, indent=2),
     }
+    files.update(issue_bodies)
     for name, content in files.items():
         path = outdir / name
         try:
@@ -1875,6 +2141,14 @@ def main(argv: Optional[list[str]] = None) -> int:
     if not args.quiet:
         print(f"[rag_report] wrote {len(files)} files to {outdir}")
         print(f"[rag_report] open the summary: {outdir / 'summary.md'}")
+        _print_issue_plan(issue_plan)
+
+    # Optional one-shot creation (`--create` without `--from`). The /report
+    # command normally generates first, shows the plan, asks the yes/no, then
+    # calls `--create --from <dir>` on yes — but one-shot --create is supported.
+    if args.create:
+        result = do_create(outdir)
+        _print_create_result(result)
     return 0
 
 

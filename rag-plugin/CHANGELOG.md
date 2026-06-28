@@ -2,6 +2,58 @@
 
 All notable changes to `rag-plugin` are documented here. Format is loosely based on [Keep a Changelog](https://keepachangelog.com/). Versioning follows [SemVer](https://semver.org/).
 
+## [0.15.0] — 2026-06-29 — `/report` files GitHub issues automatically after one yes/no confirmation (D-030)
+
+`/report` no longer stops at copy-paste issue bodies. By default it now generates the local artifacts, shows the routed issue plan (repo + title), asks **one** confirmation — `Create GitHub issue(s) now? [yes/no]` — and on `yes` files the issues via the GitHub CLI. Default behavior with no confirmation is unchanged for `--dry-run`, and creation falls back to local-only when `gh` is unavailable. **No hooks; no changes to `/doctor` or any destructive command; local artifacts preserved; redaction unchanged.**
+
+### Added
+
+- **`scripts/rag_report.py`** — a deterministic, unit-tested GitHub-issue layer (all `gh` calls funnel through one mockable `_run_gh`):
+  - `issue_fingerprint()` — stable SHA-256(sorted non-info finding IDs)[:12]; embedded in each body as `<!-- rag-plugin-report:fingerprint:<hash> -->`.
+  - `build_issue_meta()` — single source of truth for repo/title/labels/fingerprint (used by both the body renderer and the plan, so they can't drift).
+  - `route_findings()` — routes every finding to its issue **by `target`, merging both source lists**, and surfaces any unroutable finding instead of silently dropping it (fixes the old end-of-pipeline silent-drop).
+  - `build_issue_plan()` — writes `issue-plan.json` + clean `_issue-body-<target>.md` bodies (copy-paste preamble stripped, marker retained).
+  - `gh_available()`, `find_existing_open_issue()` (duplicate search), `create_issue()`, `do_create()` — dedup-then-create with a graceful local-only fallback.
+  - New flags: `--create` (file from the plan via `gh`), `--from <dir>` (create from an existing report dir without re-scanning), `--dry-run` (legacy local-only; always wins over `--create`).
+- **Two new local artifacts** per run: `issue-plan.json` and `_issue-body-{rag,plugins}.md` (9 files total, was 6).
+- **`scripts/test_rag_report.py`** — 16 new tests: rag→`taqat-techno/rag` / plugin→`taqat-techno/plugins` routing, cause-based re-route, fingerprint stability/uniqueness, dedup-prevents-duplicate, create-when-`gh`-available (mocked), `gh`-unavailable→local-only fallback, and **dry-run / default generation create no issue**. No test ever touches real GitHub (mocked `_run_gh`).
+- **`docs/decisions.md`** — D-030.
+
+### Changed
+
+- **`commands/report.md`** — documents the confirmation flow, `--dry-run`, the fallback, duplicate prevention, and the `taqat-techno/*` account-switch around creation; `argument-hint` gains `--dry-run`; `allowed-tools` gains `Bash(gh:*)` (the single change that enables creation). Updated the "What it does NOT do" boundaries (no silent/un-confirmed creation; dedup; redaction unchanged).
+- **`README.md`** — brought current to v0.15.0: status block, the CLAUDE.md-rule (v0.4.0 source-of-truth routing) and retrieval-hook (≥0.65 + source-of-truth reminder) descriptions, the command catalog (`/report` auto-filing + the previously-missing `/md-rag-enhance` row), the Quick-start / Troubleshooting command names (the absorbed `/rag-status`, `/rag-repair`, `/rag-upgrade` now map to `/doctor` and `/setup`), and the D-001..D-030 / 3-skills references.
+
+### Fixed (low-risk routing)
+
+- **Cause-based routing for transport faults** (`synthesize_findings`): `P-012` (MCP-error phrases) re-targets to the **rag** app when `service_mode ∈ {DOWN, BROKEN}` (the `rag serve` MCP server is the app, not plugin wiring); `P-010` (skipped retrieval) re-targets to **rag** when the service was not UP at scan time (retrieval was impossible because the app was down) — no longer blamed on the plugin.
+
+### Validation
+
+- `python validate_plugin.py rag-plugin` → 0 errors.
+- `python scripts/rag_report.py --self-test` → pass.
+- `python scripts/test_rag_report.py` → 40 tests OK (24 existing + 16 new).
+- `python -m py_compile scripts/rag_report.py scripts/test_rag_report.py` → OK.
+
+## [0.14.1] — 2026-06-28 — Command-surface clarity & source-of-truth consistency (docs/metadata only)
+
+Documentation and metadata consistency pass from the command-surface review. **No behavioral or control-flow changes** — every command behaves exactly as before; only descriptions, illustrative examples, and version strings were corrected.
+
+### Fixed
+
+- **`commands/report.md`** — the frontmatter `description` was truncated mid-sentence (`"… (target repo..."`), which both misrepresented the command and risked poor auto-invocation matching. Replaced with a complete, accurate description that states it produces local reports + copy-paste issue bodies routed to `taqat-techno/rag` (application) and `taqat-techno/plugins` (plugin), and **never uploads or creates issues**.
+- **`commands/config.md`** — corrected three internal inconsistencies surfaced by the review: (1) the `mcp-dedupe status` example showed the canonical plugin-level entry as `python …/rag_mcp_launcher.py [launcher present]`, contradicting the command's own DIRECT-SPAWN assertion and the real `.mcp.json` — now shows `rag serve [direct-spawn]`; (2) the `status` dashboard mock-up hardcoded `rag-plugin v0.3.0` / `CLAUDE.md rule: INSTALLED v0.2.0` — bumped to `v0.14.1` / `v0.4.0` to match reality; (3) the telemetry-era `## Behavior` and `## Required steps` sections read as if `/config` only had three telemetry subcommands — added a scope note clarifying they detail the `telemetry` group only and that the other three groups dispatch to their own sections (the parse table now lists the dispatch row instead of implying `claude-md`/`mcp-dedupe`/`hook-observability` are rejected).
+- **`scripts/rag_report.py`** — version drift: the module docstring and HTTP `User-Agent` said `0.8.0` while `REPORT_VERSION` was `0.9.0`. Docstring corrected to `0.9.0`; the `User-Agent` now derives from `REPORT_VERSION` (`f"rag-plugin-report/{REPORT_VERSION}"`) so it can never drift again — single source of truth.
+
+### Notes
+
+- Higher-risk items from the command-surface review (e.g. `/report` auto-issue-creation hybrid mode, routing-classification disambiguation for MCP/transport faults, redaction hardening, DRY extraction of the shared state-detection / F-001 version gate) are intentionally **deferred as recommendations**, not implemented here.
+
+### Validation
+
+- `python validate_plugin.py rag-plugin` → 0 errors.
+- `python scripts/rag_report.py --self-test` → pass.
+
 ## [0.14.0] — 2026-06-28 — Retrieval rule routes by source of truth (RAG is reference, not sole truth)
 
 The always-loaded retrieval rule was RAG-first and one-directional: it told Claude to search the knowledge base before saying "I don't have information," but treated a HIGH-confidence (≥0.7) hit as terminal truth, routed implementation questions to indexed code snapshots, and sent current vendor/API/pricing/security questions to "answer directly" from memory with no verification lane. This release reframes the KB as **project memory/reference, not the sole source of truth** and routes each question to the source that actually owns its answer. Internal RAG-first behavior is preserved.
