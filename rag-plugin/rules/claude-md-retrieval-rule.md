@@ -1,9 +1,9 @@
 ---
 title: CLAUDE.md Retrieval Rule
 topic: rules
-version: 0.3.0
+version: 0.4.0
 target: ~/.claude/CLAUDE.md (user-level) or project-level CLAUDE.md
-purpose: Teach Claude to reach for the ragtools MCP before saying "I don't have information" on domain questions.
+purpose: Teach Claude to use the ragtools MCP as project memory/reference and to route each question to the source that owns its truth — RAG for internal history/decisions, code/runtime for implementation behavior, official docs/web for current external facts.
 managed-by: /config claude-md install
 ---
 
@@ -16,7 +16,7 @@ This file is the **single source of truth** for the instruction block that tells
 The block is delimited by two machine-readable markers:
 
 ```
-<!-- rag-plugin:retrieval-rule:begin v=0.3.0 -->
+<!-- rag-plugin:retrieval-rule:begin v=0.4.0 -->
 ... content ...
 <!-- rag-plugin:retrieval-rule:end -->
 ```
@@ -32,31 +32,34 @@ Commands use these markers to:
 ## The block (verbatim — this is what gets injected)
 
 ```
-<!-- rag-plugin:retrieval-rule:begin v=0.3.0 -->
+<!-- rag-plugin:retrieval-rule:begin v=0.4.0 -->
 ### 0. Knowledge Base Retrieval (ragtools MCP)
 
-**If a `ragtools` MCP server is loaded in this session** (check for tools named `mcp__plugin_rag-plugin_ragtools__*` or `mcp__*__ragtools__*`), treat it as a **local knowledge base of my own docs, notes, code, and past decisions**.
+**If a `ragtools` MCP server is loaded in this session** (check for tools named `mcp__plugin_rag_ragtools__*` or `mcp__*__ragtools__*`), treat it as a **local knowledge base of my own docs, notes, decisions, and a snapshot of my code** — authoritative for *internal history and intent*, but a **point-in-time snapshot** that can lag the live code, the current product, and the current web. It is **one source, not the final word.**
 
-**Hard rule: before answering "I don't have information about X" on any domain question, call `search_knowledge_base(query=...)` first.**
+**Hard rule: before answering "I don't have information about X" on any question about my own projects, processes, decisions, requirements, conventions, or prior research, call `search_knowledge_base(query=...)` first.** Claiming ignorance of an *internal* matter without searching is a retrieval failure.
 
 The MCP server is proxy-mode forwarded to a running local service at `127.0.0.1:21420`, so searches are cheap (milliseconds, no encoder cold-start) and never exfiltrate data.
 
-**When to call the MCP:**
+**Route by source of truth — match the question to where the real answer lives, not just "is it in my workspace?":**
 
-| Question shape | Action |
-|---|---|
-| "What is the process for X?" / "How do we handle Y?" | `search_knowledge_base("X process" or "Y handling")` before answering |
-| "Where did we decide Z?" / "What's our convention for W?" | `search_knowledge_base("Z decision" or "W convention")` |
-| "Is there a playbook / runbook / SOP for …?" | `search_knowledge_base("<topic> playbook")` |
-| Any question that sounds like it has an answer in the user's own notes/docs/code and isn't in this turn's context | **Search first, then answer** |
-| Question is clearly about public knowledge, general programming, or a library not in my workspace | Answer directly (no MCP call) |
-| Question is about the **ragtools product itself** (install, diagnose, repair) | Use the `ragtools-ops` skill + `/rag-*` commands, not the MCP |
+| Question is about... | Source of truth | First move |
+|---|---|---|
+| Internal SOP / process / decision / convention / client requirement / project wiki / prior research ("how do we / where did we decide / what's our convention") | the **knowledge base** | `search_knowledge_base` first, then answer |
+| **How the code or app actually behaves** ("what does this do", "is X implemented", "why does it break") | the **live code, runtime, tests** | Read the source / run it / run the test. A KB code hit is a snapshot — confirm against the current repo before relying on it. |
+| **Current vendor / product / API / SDK / CLI / pricing / limits / security** | **official docs / the web** | Verify before stating (context7 for libraries/SDKs, WebFetch / web search otherwise). Training memory AND the KB can both be stale here. |
+| Public knowledge, general programming, math | model knowledge | Answer directly; reach for docs/web if version-sensitive or unsure. |
+| The ragtools product itself (install, diagnose, repair) | the `ragtools-ops` skill + `/rag-*` commands | Use those, not `search_knowledge_base`. |
 
-**Answering discipline:**
-- If MCP returns HIGH-confidence (≥0.7) results → ground the answer in them and cite source files inline.
-- If MCP returns MODERATE (0.5–0.7) results → use as context, label as "from my notes:" and suggest the user verify.
-- If MCP returns LOW (<0.5) or empty results → then (and only then) say "I checked your knowledge base and didn't find information about X."
-- Never say "I don't have information" for a domain question without first running a search — that's a retrieval failure, not an honest answer.
+**Answering discipline — calibrate by SOURCE TYPE, not by score alone:**
+- A KB hit is "what my notes / code-snapshot said," not automatically "what is true now."
+- HIGH (≥0.7) on **internal history / intent / decisions** → ground the answer in it and cite the source file inline.
+- HIGH (≥0.7) on **implementation, or vendor / API / pricing / security** → treat it as a *lead*, then confirm against the live code or official docs before committing.
+- MODERATE (0.5–0.7), any type → use as context, label "from my notes:", and verify against the owning source (code / runtime / official docs).
+- LOW (<0.5) or empty → say "I checked your knowledge base and didn't find information about X," then fall back to code / docs / web as fits the question.
+- **If the KB conflicts with the live code or official docs, the code/docs win — surface the conflict explicitly** ("my notes say X, but the current code/docs show Y"). Don't silently pick one.
+
+**Report your source type.** When it isn't obvious, tag each load-bearing claim **[from KB]**, **[from code]**, **[from official docs]**, or **[assumption]**, so the user can calibrate trust and catch stale internal notes.
 
 **Do NOT call the MCP for:**
 - Questions about current context / recent messages (that's not retrieval).
@@ -93,7 +96,7 @@ Commands that install this block must follow these steps:
 2. **If the file does not exist**, create it with just this block + a trailing newline.
 3. **If the file exists and already contains `<!-- rag-plugin:retrieval-rule:begin`**:
    - Parse the version from the begin marker
-   - If version matches the bundled `0.3.0`, skip (no-op)
+   - If version matches the bundled `0.4.0`, skip (no-op)
    - If version differs, locate the full begin→end range and replace with the new block
 4. **If the file exists and does not contain the marker**:
    - Append a blank line + the block + a trailing newline

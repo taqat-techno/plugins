@@ -960,3 +960,46 @@ Status: deferred / RFC
 D-028 closes the cross-workspace leak by making the plugin's hook cwd-aware, but the actual filtering of `search_knowledge_base` calls remains an honor-system contract: Claude must read the injected reminder and pass `project=<name>`. A future change could move enforcement into the ragtools MCP server itself by having it read the same state file (or a shared lookup) at startup and apply the focus as a default `project=` when the caller does not specify one.
 
 This crosses the D-001 boundary (the plugin currently never wraps `search_knowledge_base`) and likely needs an upstream ragtools change. Out of scope for v0.13.0. Filed here so the option is recorded; revisit if honor-system bypass becomes a real complaint after v0.13 ships.
+
+---
+
+## D-029 — RAG is reference, not sole truth: route by source of truth
+
+Date: 2026-06-28
+Phase: Post-13 amendment
+Status: binding
+Ships in: v0.14.0
+Relates to: D-016 (CLAUDE.md retrieval rule), D-017 / D-027 (retrieval-reminder hook + operational-intent classifier)
+
+### Context
+
+D-016 / D-017 / D-027 all addressed a single failure mode — **under-retrieval** (Claude saying "I don't have information" when the answer was in the knowledge base). The installed rule that fixed that leaned the other way: it treated a HIGH-confidence (≥0.7) KB hit as terminal truth, folded indexed *code* into the retrieval lane, and routed current vendor/API/pricing/security questions to "answer directly" from training memory with no verification path. The knowledge base — explicitly "my own docs, notes, code, and past decisions" — is a point-in-time snapshot that can lag the live code, the current product, and the current web. Presenting a stale snapshot as authoritative is the symmetric failure: **over-trust** of retrieval.
+
+### The decision
+
+1. The ragtools knowledge base is **project memory/reference, not the sole source of truth.** A KB hit is evidence of what was *written*, not proof of what is *true now*. It is authoritative only for **internal history / intent** (decisions, conventions, SOPs, requirements, prior research).
+2. The injected CLAUDE.md block (`rules/claude-md-retrieval-rule.md`, bumped `v=0.3.0` → `v=0.4.0`) **routes by who owns the truth**, not by "is it in my workspace?":
+   - Internal SOPs / decisions / conventions / requirements / project history → **knowledge base** (search first).
+   - How the code or app actually behaves → **live code / runtime / tests** (inspect; don't trust an indexed snapshot).
+   - Current vendor / product / API / SDK / pricing / limits / security → **official docs / web** (context7, WebFetch); training memory AND the KB can both be stale.
+   - Local machine state → **filesystem / processes / `--help`** (the existing Section 0a override, preserved byte-for-byte).
+3. **Answering discipline is source-type-aware.** A ≥0.7 hit is authoritative only for internal history; for implementation or external/vendor facts it is a *lead to verify* against the owning source before committing.
+4. **Conflicts are surfaced, not silently resolved.** When the KB disagrees with the live code or current docs, state both sources explicitly and prefer the owning source (code/runtime for behavior; docs/web for external truth; KB for internal history).
+5. **Answers report their source type** when it isn't obvious: `[from KB]` / `[from code]` / `[from official docs]` / `[assumption]`.
+6. The **internal RAG-first guarantee is preserved**: the hard search-first rule still fires for internal-knowledge questions before any "I don't have information" answer.
+
+### Why the always-loaded block, not a skill (re-affirms D-016)
+
+The policy must govern zero-keyword prompts ("what is the process for X?"), and skills only load on keyword triggers. So the contract stays self-contained in the marker-delimited block injected into `~/.claude/CLAUDE.md` and delivered by `/config claude-md install`. No new hook is added — source routing is a reasoning judgment, and hooks "enforce, they don't reason" (ARCHITECTURE.md); the existing retrieval-reminder hook already "cannot tell knowledge questions from operational ones," so adding hook logic would amplify the over-retrieval pressure this decision corrects.
+
+### Non-violation of prior decisions
+
+- **D-001 / D-022:** the plugin still does not call `search_knowledge_base`; the block is instruction, Claude makes the call.
+- **D-007:** no new blocking; the change is instruction text, not a deny.
+- **D-016:** extends the retrieval rule; does not retract the always-loaded-block delivery mechanism.
+- **D-017 / D-027:** the hook is untouched; its narrowed internal-only nudge stays compatible. Aligning the hook's reminder text + namespace is deferred as a separate hook-scoped change.
+
+### Reverse only if
+
+- A future ragtools release makes the KB authoritative for live code (e.g. a real-time index of HEAD with currency guarantees), which would retire the implementation-verify lane.
+- Per-claim source tagging proves too verbose in practice — narrow it further (it is already scoped to "load-bearing claims, when the source isn't obvious"), do not drop the source-routing matrix.

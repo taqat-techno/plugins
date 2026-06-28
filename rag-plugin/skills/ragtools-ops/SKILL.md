@@ -298,6 +298,10 @@ When you set up or repair autostart for the long-lived ragtools service (Schedul
 
 Before swapping any task XML or config, keep a rollback backup of both (task XML + config) so a bad launcher change is reversible.
 
+## Source discipline (defer to the live product)
+
+The bundled `references/` are a point-in-time snapshot and can drift from the installed build — that is why `/sync-docs` exists. When a reference disagrees with the **live product** — `rag --help`, the running service's `/health` + `/api/*`, `get_config()` / `get_paths()`, or the upstream repo `https://github.com/taqat-techno/rag` — **the live source wins.** Surface the conflict ("the bundled doc says X, but `rag --help` shows Y") rather than silently trusting the doc, and state which source you used. This mirrors the source-routing discipline in `~/.claude/CLAUDE.md` Section 0: bundled notes and KB hits are *leads*; code, runtime, and official docs are *truth*.
+
 ## When the user asks something the references don't cover
 
 If the answer isn't in the references, say so. Check `references/gaps.md` to see if it's a known unverified item. **Never invent product behavior.** Refer the user to the upstream repo `https://github.com/taqat-techno/rag` if they need behavior the doc doesn't describe.

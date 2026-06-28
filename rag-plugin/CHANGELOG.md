@@ -2,6 +2,38 @@
 
 All notable changes to `rag-plugin` are documented here. Format is loosely based on [Keep a Changelog](https://keepachangelog.com/). Versioning follows [SemVer](https://semver.org/).
 
+## [0.14.0] — 2026-06-28 — Retrieval rule routes by source of truth (RAG is reference, not sole truth)
+
+The always-loaded retrieval rule was RAG-first and one-directional: it told Claude to search the knowledge base before saying "I don't have information," but treated a HIGH-confidence (≥0.7) hit as terminal truth, routed implementation questions to indexed code snapshots, and sent current vendor/API/pricing/security questions to "answer directly" from memory with no verification lane. This release reframes the KB as **project memory/reference, not the sole source of truth** and routes each question to the source that actually owns its answer. Internal RAG-first behavior is preserved.
+
+### Changed
+
+- **`rules/claude-md-retrieval-rule.md`** — managed block bumped `v=0.3.0` → `v=0.4.0`. The KB is reframed as a point-in-time internal snapshot ("one source, not the final word"); the hard search-first rule is scoped to **internal** questions (process / decision / convention / requirement / prior research). The "When to call the MCP" table is replaced with a **route-by-source-of-truth** table adding two lanes: code/runtime/tests for implementation behavior, and official docs/web (context7 / WebFetch) for current vendor/API/pricing/security. Answering discipline is now source-type-aware with a HIGH-band freshness gate, an explicit **KB-vs-code/docs conflict-surfacing** rule (code/docs win), and per-claim **source-type tagging** (`[from KB]` / `[from code]` / `[from official docs]` / `[assumption]`). Section 0a (operational/machine-state override) is preserved byte-for-byte. Frontmatter `version` and the injection-logic version reference bumped to `0.4.0`.
+
+### Fixed
+
+- Corrected the MCP tool namespace from the non-existent `mcp__plugin_rag-plugin_ragtools__*` to the actual `mcp__plugin_rag_ragtools__*` (the plugin's `name` in `plugin.json` is `rag`) in **both** the injected block (wildcard fallback `mcp__*__ragtools__*` retained) and the retrieval-reminder hook's injected reminder string (`hooks/prompt_retrieval_reminder.py`), which had no fallback and therefore named a tool that could not resolve.
+- **`hooks/prompt_retrieval_reminder.py`** — reworded the injected reminder (string-only; **no logic, gating, or behavior change**) to match the v0.4.0 source-of-truth routing: the KB is project memory/reference, not sole truth; search first for *internal* questions, but verify current vendor/API/pricing/security facts against official docs/web, inspect live code/runtime for actual behavior, surface KB-vs-code/docs conflicts, and report each claim's source type. Dropped the prior one-sided "search-first / harness-enforced layer" framing.
+- Refreshed stale illustrative `v=0.2.0` marker strings in `commands/config.md` to `v=0.4.0` (illustrative only; install reads the real marker dynamically from the bundled rule).
+
+### Added
+
+- **`skills/ragtools-ops/SKILL.md`** — a "Source discipline (defer to the live product)" section: bundled references are leads; the live product (`rag --help`, running service, upstream repo) is truth; surface doc-vs-product conflicts and state which source was used. Mirrors the rule's Section 0 routing.
+- **`docs/decisions.md`** — D-029 records "RAG is reference, not sole truth," the first decision treating **over-trust** of retrieval as a failure mode (D-016 / D-017 / D-027 only addressed under-retrieval).
+
+### Upgrade note
+
+- Existing installs do **not** auto-upgrade. Run **`/config claude-md install`** once (or `/setup` / `/doctor`) to splice the `v0.4.0` block over the `v0.3.0` one in `~/.claude/CLAUDE.md`. The marker version bumped, so install performs an upgrade splice instead of a version-matched no-op.
+
+### Out of scope (deferred)
+
+- Making the `doctor.md` P-RULE and `report.md` "missed-retrieval" / "skipped-retrieval" heuristics source-aware so a correct code/docs-sourced non-retrieval isn't flagged as a miss.
+- Optional `skills/knowledge-routing/SKILL.md` (a trigger-gated richer-detail router that references this rule); not needed for the always-on guarantee.
+
+### Validation
+
+- `python validate_plugin.py rag-plugin` → 0 errors.
+
 ## [0.13.2] — 2026-05-31 — Defer generic MCP diagnosis to claude-env-doctor
 
 ### Added
