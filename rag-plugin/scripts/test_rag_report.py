@@ -558,5 +558,157 @@ class TestGenerationNeverCreates(unittest.TestCase):
             self.assertTrue((Path(tmp).resolve() / "issue-plan.json").exists())
 
 
+# ============================================================================
+# D-031 / P-013: advisory UserPromptSubmit hook fail-open detection
+# ============================================================================
+
+import shutil
+
+
+class TestHookSafetyAnalyzer(unittest.TestCase):
+    """analyze_advisory_hook_safety must flag raw advisory script invocations and
+    recognize the fail-open shapes (-c bootstrap, || exit guard) as safe."""
+
+    def setUp(self):
+        self.rr = _load_rr()
+
+    def _plugin_with_hooks(self, hooks_obj):
+        tmp = tempfile.mkdtemp(prefix="raghooks_")
+        self.addCleanup(shutil.rmtree, tmp, ignore_errors=True)
+        hd = Path(tmp) / "hooks"
+        hd.mkdir()
+        (hd / "hooks.json").write_text(_json.dumps(hooks_obj), encoding="utf-8")
+        return tmp
+
+    def _ups(self, command):
+        return {"hooks": {"UserPromptSubmit": [
+            {"matcher": "*", "hooks": [{"type": "command", "command": command}]}]}}
+
+    def test_flags_raw_advisory_command(self):
+        tmp = self._plugin_with_hooks(
+            self._ups("python3 ${CLAUDE_PLUGIN_ROOT}/hooks/prompt_retrieval_reminder.py"))
+        unsafe = self.rr.analyze_advisory_hook_safety(tmp)
+        self.assertEqual(len(unsafe), 1, unsafe)
+
+    def test_inline_c_bootstrap_is_safe_even_with_fallback_var(self):
+        # The real fixed shape: has ${CLAUDE_PLUGIN_ROOT}/...py as a FALLBACK arg
+        # but is invoked via -c, so it is fail-open and must NOT be flagged.
+        tmp = self._plugin_with_hooks(self._ups(
+            "python3 -c \"import os\" retrieval-reminder "
+            "${CLAUDE_PLUGIN_ROOT}/hooks/hook_launcher.py"))
+        self.assertEqual(self.rr.analyze_advisory_hook_safety(tmp), [])
+
+    def test_explicit_guard_is_safe(self):
+        tmp = self._plugin_with_hooks(self._ups(
+            "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/x.py || exit 0"))
+        self.assertEqual(self.rr.analyze_advisory_hook_safety(tmp), [])
+
+    def test_pretooluse_raw_is_not_flagged(self):
+        # Only advisory (UserPromptSubmit) hooks are in scope; the intentionally
+        # blocking PreToolUse lock hook must not be flagged.
+        obj = {"hooks": {"PreToolUse": [
+            {"matcher": "Bash", "hooks": [{"type": "command",
+             "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/lock_conflict_check.py"}]}]}}
+        tmp = self._plugin_with_hooks(obj)
+        self.assertEqual(self.rr.analyze_advisory_hook_safety(tmp), [])
+
+    def test_missing_hooks_json_returns_empty(self):
+        tmp = tempfile.mkdtemp(prefix="raghooks_")
+        self.addCleanup(shutil.rmtree, tmp, ignore_errors=True)
+        self.assertEqual(self.rr.analyze_advisory_hook_safety(tmp), [])
+
+    def test_real_plugin_hooks_are_failopen(self):
+        # Regression guard: this plugin's own hooks.json must stay fail-open.
+        plugin_root = str(HERE.parent)
+        self.assertEqual(self.rr.analyze_advisory_hook_safety(plugin_root), [],
+                         "rag-plugin's own advisory hooks must be fail-open")
+
+
+class TestP013Finding(unittest.TestCase):
+    """P-013 must fire on static unsafe-hook evidence, escalate with runtime
+    evidence, and outrank P-012 in the generated plugins issue."""
+
+    def setUp(self):
+        self.rr = _load_rr()
+
+    def _synth(self, unsafe, fatal=0):
+        plugin = self.rr.PluginInspection()
+        plugin.plugin_dir = "/fake/plugin"      # avoid P-001
+        plugin.manifest_version = "0.15.1"
+        plugin.unsafe_advisory_hooks = list(unsafe)
+        cci = self.rr.ClaudeConfigInspection()
+        cci.user_claude_md_exists = True        # avoid P-004
+        cci.retrieval_rule_present = True        # avoid P-005
+        cci.plugin_mcp_present = True            # avoid P-007
+        hook_stats = self.rr.HookLogStats()
+        scan = self.rr.SessionScanResult()
+        if fatal:
+            scan.signal_counts = {"hook-path-fatal": fatal}
+        state = self.rr.State()
+        state.install_mode = "packaged-windows"
+        state.service_mode = "UP"
+        state.api_projects = [{"project_id": "1", "name": "d", "path": "/t",
+                               "files": 1, "chunks": 5, "enabled": True}]
+        return self.rr.synthesize_findings(state, plugin, cci, hook_stats, [], scan)
+
+    def test_p013_high_when_unsafe_present(self):
+        _, plg = self._synth(["python3 ${CLAUDE_PLUGIN_ROOT}/hooks/x.py"])
+        f = _by_id(plg, "P-013")
+        self.assertIsNotNone(f, _ids(plg))
+        self.assertEqual(f.severity, "high")
+        self.assertEqual(f.target, "plugins")
+
+    def test_p013_critical_with_runtime_signature(self):
+        _, plg = self._synth(["python3 ${CLAUDE_PLUGIN_ROOT}/hooks/x.py"], fatal=3)
+        f = _by_id(plg, "P-013")
+        self.assertIsNotNone(f, _ids(plg))
+        self.assertEqual(f.severity, "critical")
+
+    def test_p013_absent_when_failopen(self):
+        _, plg = self._synth([])
+        self.assertIsNone(_by_id(plg, "P-013"), _ids(plg))
+
+    def test_p013_outranks_p012_in_issue_title(self):
+        rr = self.rr
+        findings = [
+            _finding(rr, "P-012", "plugins", severity="medium",
+                     title="MCP error phrases detected in sessions"),
+            _finding(rr, "P-013", "plugins", severity="high",
+                     title="advisory UserPromptSubmit hook can block the prompt"),
+        ]
+        self.assertEqual(rr._sort_findings(findings)[0].id, "P-013")
+        meta = rr.build_issue_meta("plugins", findings, rr.State(), rr.PluginInspection())
+        self.assertIn("advisory UserPromptSubmit hook can block", meta["title"])
+
+
+class TestHookPathFatalSignal(unittest.TestCase):
+    """The hook-path-fatal session signal must match the real stderr signature
+    but not the generic false-positive strings guarded elsewhere."""
+
+    def setUp(self):
+        self.rr = _load_rr()
+
+    def _match(self, text):
+        pat = dict(self.rr._SIGNAL_PATTERNS).get("hook-path-fatal")
+        self.assertIsNotNone(pat)
+        return bool(pat.search(text))
+
+    def test_matches_real_cant_open_stderr(self):
+        s = (r"python3.exe: can't open file "
+             r"'C:\Users\me\rag-plugin\${CLAUDE_PLUGIN_ROOT}\hooks\prompt_retrieval_reminder.py': "
+             r"[Errno 2] No such file or directory")
+        self.assertTrue(self._match(s))
+
+    def test_matches_posix_errno2_hooks(self):
+        s = "python3: can't open file '/hooks/prompt_retrieval_reminder.py': [Errno 2] No such file or directory"
+        self.assertTrue(self._match(s))
+
+    def test_does_not_match_exit_code_2_listing(self):
+        self.assertFalse(self._match(_FP_MCP_EXIT_CODE_2))
+
+    def test_does_not_match_ls_listing(self):
+        self.assertFalse(self._match(_FP_CONNECT_LS))
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
