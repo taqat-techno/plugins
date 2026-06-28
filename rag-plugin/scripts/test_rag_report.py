@@ -343,5 +343,220 @@ class TestSelfTestStillPasses(unittest.TestCase):
                          f"stdout: {proc.stdout}\nstderr: {proc.stderr}")
 
 
+# ============================================================================
+# GitHub issue filing (D-030): routing, cause-based re-route, fingerprint,
+# duplicate prevention, create, and the never-create-during-generation guards.
+# ============================================================================
+
+import json as _json
+import tempfile
+
+
+def _finding(rr, fid, target, severity="high", title="x"):
+    return rr.Finding(id=fid, title=title, severity=severity,
+                      evidence="e", recommendation="r", target=target)
+
+
+class _FakeGh:
+    """Records gh calls and returns canned responses. Drop-in for rr._run_gh
+    so no real GitHub API call is ever made in the test suite."""
+
+    def __init__(self, authed=True, existing_body=None,
+                 create_url="https://github.com/taqat-techno/rag/issues/1"):
+        self.calls: list[list[str]] = []
+        self.authed = authed
+        self.existing_body = existing_body
+        self.create_url = create_url
+
+    def __call__(self, args, timeout=20.0):
+        self.calls.append(list(args))
+        if args[:1] == ["auth"]:
+            return (0, "Logged in", "") if self.authed else (1, "", "not logged in")
+        if args[:2] == ["issue", "list"]:
+            items = []
+            if self.existing_body is not None:
+                items = [{"url": "https://github.com/taqat-techno/rag/issues/9",
+                          "body": self.existing_body}]
+            return 0, _json.dumps(items), ""
+        if args[:2] == ["issue", "create"]:
+            return 0, self.create_url, ""
+        return 0, "", ""
+
+    def created_count(self) -> int:
+        return sum(1 for c in self.calls if c[:2] == ["issue", "create"])
+
+
+def _write_plan_dir(tmp, fingerprint="abc123def456", repo="taqat-techno/rag",
+                    target="rag", actionable=True):
+    d = Path(tmp)
+    body_file = f"_issue-body-{target}.md"
+    (d / body_file).write_text(
+        f"<!-- rag-plugin-report:fingerprint:{fingerprint} -->\nissue body\n",
+        encoding="utf-8")
+    plan = [{
+        "repo": repo, "target": target, "title": f"[{target}] high: x",
+        "labels": ["diagnostic"], "fingerprint": fingerprint,
+        "actionable": actionable, "finding_count": 1,
+        "body_file": body_file, "human_file": f"github-{target}-issue.md",
+    }]
+    (d / "issue-plan.json").write_text(_json.dumps(plan), encoding="utf-8")
+    return d
+
+
+class TestIssueRouting(unittest.TestCase):
+    def setUp(self):
+        self.rr = _load_rr()
+
+    def test_rag_meta_targets_rag_repo(self):
+        m = self.rr.build_issue_meta("rag", [_finding(self.rr, "A-003", "rag")],
+                                     self.rr.State(), self.rr.PluginInspection())
+        self.assertEqual(m["repo"], "taqat-techno/rag")
+
+    def test_plugins_meta_targets_plugins_repo(self):
+        m = self.rr.build_issue_meta("plugins", [_finding(self.rr, "P-005", "plugins")],
+                                     self.rr.State(), self.rr.PluginInspection())
+        self.assertEqual(m["repo"], "taqat-techno/plugins")
+
+    def test_route_findings_merges_by_target(self):
+        app = [_finding(self.rr, "A-003", "rag")]
+        plg = [_finding(self.rr, "P-005", "plugins"),
+               _finding(self.rr, "P-012", "rag")]  # re-targeted to rag
+        rag, plugins, dropped = self.rr.route_findings(app, plg)
+        self.assertEqual(sorted(f.id for f in rag), ["A-003", "P-012"])
+        self.assertEqual([f.id for f in plugins], ["P-005"])
+        self.assertEqual(dropped, [])
+
+    def test_route_findings_surfaces_unroutable(self):
+        rag, plugins, dropped = self.rr.route_findings(
+            [_finding(self.rr, "X-1", "local")], [])
+        self.assertEqual(dropped, ["X-1"])
+
+
+class TestCauseBasedReroute(unittest.TestCase):
+    """P-010 / P-012 must route to the application repo when the service was down."""
+
+    def setUp(self):
+        self.rr = _load_rr()
+
+    def _scan_with(self, **counts):
+        scan = self.rr.SessionScanResult()
+        scan.sessions_scanned = 5
+        scan.sessions_with_signal = 5
+        scan.signal_counts = {"rag-mention": 10, "retrieval-skipped": 0,
+                              "user-correct-search": 0, "mcp-error": 0,
+                              "connect-refused": 0}
+        scan.signal_counts.update(counts)
+        return scan
+
+    def _synth(self, service_mode, scan):
+        state = self.rr.State()
+        state.install_mode = "packaged-windows"
+        state.service_mode = service_mode
+        state.api_projects = [{"project_id": "1", "name": "d", "path": "/t",
+                               "files": 1, "chunks": 5, "enabled": True}]
+        return self.rr.synthesize_findings(
+            state, self.rr.PluginInspection(), self.rr.ClaudeConfigInspection(),
+            self.rr.HookLogStats(), [], scan)
+
+    def test_mcp_error_routes_to_plugins_when_service_up(self):
+        _, plg = self._synth("UP", self._scan_with(**{"mcp-error": 3}))
+        self.assertEqual(_by_id(plg, "P-012").target, "plugins")
+
+    def test_mcp_error_routes_to_rag_when_service_down(self):
+        _, plg = self._synth("DOWN", self._scan_with(**{"mcp-error": 3}))
+        self.assertEqual(_by_id(plg, "P-012").target, "rag")
+
+    def test_skipped_retrieval_routes_to_rag_when_service_down(self):
+        _, plg = self._synth("DOWN", self._scan_with(**{"retrieval-skipped": 9}))
+        self.assertEqual(_by_id(plg, "P-010").target, "rag")
+
+    def test_skipped_retrieval_blames_plugin_when_service_up(self):
+        _, plg = self._synth("UP", self._scan_with(**{"retrieval-skipped": 9}))
+        self.assertEqual(_by_id(plg, "P-010").target, "plugins")
+
+
+class TestFingerprint(unittest.TestCase):
+    def setUp(self):
+        self.rr = _load_rr()
+
+    def test_fingerprint_stable_and_order_independent(self):
+        a = [_finding(self.rr, "A-003", "rag"), _finding(self.rr, "A-014", "rag")]
+        b = [_finding(self.rr, "A-014", "rag"), _finding(self.rr, "A-003", "rag")]
+        self.assertEqual(self.rr.issue_fingerprint(a), self.rr.issue_fingerprint(b))
+
+    def test_fingerprint_differs_for_different_findings(self):
+        self.assertNotEqual(
+            self.rr.issue_fingerprint([_finding(self.rr, "A-003", "rag")]),
+            self.rr.issue_fingerprint([_finding(self.rr, "A-014", "rag")]))
+
+
+class TestDoCreate(unittest.TestCase):
+    def setUp(self):
+        self.rr = _load_rr()
+        self._orig = self.rr._run_gh
+
+    def tearDown(self):
+        self.rr._run_gh = self._orig
+
+    def test_gh_unavailable_falls_back_local_only(self):
+        fake = _FakeGh(authed=False)
+        self.rr._run_gh = fake
+        with tempfile.TemporaryDirectory() as tmp:
+            res = self.rr.do_create(_write_plan_dir(tmp))
+        self.assertEqual(res.get("fallback"), "local-only")
+        self.assertEqual(fake.created_count(), 0)
+
+    def test_yes_creates_issue_when_gh_available(self):
+        fake = _FakeGh(authed=True)
+        self.rr._run_gh = fake
+        with tempfile.TemporaryDirectory() as tmp:
+            res = self.rr.do_create(_write_plan_dir(tmp, fingerprint="deadbeef0001"))
+        self.assertIn("created", [r["status"] for r in res["results"]])
+        self.assertEqual(fake.created_count(), 1)
+
+    def test_duplicate_fingerprint_prevents_creation(self):
+        fp = "cafe12345678"
+        fake = _FakeGh(authed=True,
+                       existing_body=f"x <!-- rag-plugin-report:fingerprint:{fp} --> y")
+        self.rr._run_gh = fake
+        with tempfile.TemporaryDirectory() as tmp:
+            res = self.rr.do_create(_write_plan_dir(tmp, fingerprint=fp))
+        self.assertEqual([r["status"] for r in res["results"]], ["duplicate"])
+        self.assertEqual(fake.created_count(), 0)
+
+    def test_no_plan_file_returns_no_plan(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            res = self.rr.do_create(Path(tmp))
+        self.assertEqual(res.get("reason"), "no-plan")
+
+
+class TestGenerationNeverCreates(unittest.TestCase):
+    """Default generation and --dry-run must NEVER call gh (no silent creation)."""
+
+    def setUp(self):
+        self.rr = _load_rr()
+        self._orig = self.rr._run_gh
+        self.fake = _FakeGh()
+        self.rr._run_gh = self.fake
+
+    def tearDown(self):
+        self.rr._run_gh = self._orig
+
+    def test_dry_run_makes_no_gh_call(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            rc = self.rr.main(["--dry-run", "--no-sessions", "--quiet", "--out", tmp])
+        self.assertEqual(rc, 0)
+        self.assertEqual(len(self.fake.calls), 0)
+
+    def test_default_generation_makes_no_gh_call_and_writes_plan(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            rc = self.rr.main(["--no-sessions", "--quiet", "--out", tmp])
+            self.assertEqual(rc, 0)
+            self.assertEqual(len(self.fake.calls), 0)
+            # main() writes to Path(--out).resolve(); check inside the context
+            # manager so the dir still exists.
+            self.assertTrue((Path(tmp).resolve() / "issue-plan.json").exists())
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

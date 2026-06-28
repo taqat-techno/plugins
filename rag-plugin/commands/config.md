@@ -33,13 +33,15 @@ Manage `rag-plugin` plugin configuration. Four feature groups:
 | `hook-observability analyze` | Run `scripts/analyze_hook_decisions.py` and print aggregate stats from the log | no |
 | `hook-observability clear` | Delete the hook-decisions log file (requires typed `CLEAR` confirmation) | yes (delete log file) |
 
-## Behavior
+## Behavior — `telemetry` subcommand group
 
-Three subcommands:
+> **Scope:** this section and the **Required steps** below detail the **`telemetry`** group only. The `claude-md`, `mcp-dedupe`, and `hook-observability` groups are documented in their own sections further down; the full command surface is the **Subcommand catalog** at the top. Bare `/config` (no args) runs the unified four-group **status** dashboard (see "`status` — unified dashboard"), not telemetry-status.
+
+The `telemetry` group has three subcommands:
 
 | Subcommand | Effect |
 |---|---|
-| `status` | Show current telemetry state and the log file path. Read-only. |
+| `status` | (Bare `/config`) Show the unified four-group dashboard. Read-only. |
 | `telemetry on` | Create/touch `~/.claude/rag-plugin/usage.log` and set the on-marker file alongside it |
 | `telemetry off` | Remove the on-marker file (the existing log is preserved so the user can read it; `cat` it themselves if they want, then `rm` it themselves) |
 
@@ -95,6 +97,7 @@ Whitelist:
 | `status` | Continue to status branch |
 | `telemetry on` | Continue to enable branch |
 | `telemetry off` | Continue to disable branch |
+| `claude-md …` / `mcp-dedupe …` / `hook-observability …` | Dispatch to that feature group's section below |
 | Anything else | Print usage line and stop |
 
 ### Step 2 — Resolve the log directory
@@ -314,7 +317,7 @@ Scans `~/.claude.json` (top-level `mcpServers` and per-project `mcpServers` sub-
 4. **Report** every location where a `ragtools` entry was found, with the plugin-level assertion result on its own line:
    ```
    mcp-dedupe status:
-     plugin-level (canonical): python ${CLAUDE_PLUGIN_ROOT}/scripts/rag_mcp_launcher.py  [schema OK, launcher present, python on PATH]
+     plugin-level (canonical): rag serve                                                  [schema OK, direct-spawn, rag on PATH]
      user top-level:            rag.exe serve                                              [source: ~/.claude.json → mcpServers.ragtools]
      project-level: C:/MY-WorkSpace/rag  → rag-mcp                                         [source: ~/.claude.json → projects.<...>.mcpServers.ragtools]
    
@@ -475,9 +478,9 @@ The top-level `status` subcommand prints a compact summary of all four feature g
 ```
 ragtools detected: <mode banner>
 
-rag-plugin v0.3.0 configuration:
+rag-plugin v0.14.1 configuration:
   telemetry:          OFF                                          (see /config telemetry on)
-  CLAUDE.md rule:     INSTALLED v0.2.0 at ~/.claude/CLAUDE.md
+  CLAUDE.md rule:     INSTALLED v0.4.0 at ~/.claude/CLAUDE.md
   MCP registrations:  1 (plugin-level, canonical)                  [OK]
   hook-observability: ENABLED                                      (247 decisions logged)
 

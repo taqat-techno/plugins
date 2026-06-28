@@ -1003,3 +1003,37 @@ The policy must govern zero-keyword prompts ("what is the process for X?"), and 
 
 - A future ragtools release makes the KB authoritative for live code (e.g. a real-time index of HEAD with currency guarantees), which would retire the implementation-verify lane.
 - Per-claim source tagging proves too verbose in practice — narrow it further (it is already scoped to "load-bearing claims, when the source isn't obvious"), do not drop the source-routing matrix.
+
+---
+
+## D-030 — `/report` files GitHub issues automatically after one confirmation
+
+Date: 2026-06-29
+Phase: Post-14 amendment
+Status: binding
+Ships in: v0.15.0
+Relates to: D-024 (maintainer-feedback reports), D-001/D-022 (plugin never wraps search), D-007 (hooks ask, never deny)
+
+### Context
+
+D-024 deliberately stopped `/report` at local files + copy-paste issue bodies ("never uploads, never creates an issue"). In practice the copy-paste step was friction and produced no de-duplication, and the deterministic A-NNN/P-NNN routing already knew the correct target repo. The product decision is to close the loop: file the issues automatically, but only behind a single explicit confirmation and with safety rails.
+
+### The decision
+
+1. **Default flow:** `/report` generates local artifacts (unchanged), shows the routed plan (repo + title), then asks exactly one question — `Create GitHub issue(s) now? [yes/no]`. On `yes` it files via the GitHub CLI; on `no` it leaves local files only. This **supersedes the D-024 "never creates" clause**; all D-024 redaction/no-raw-logs/local-artifact guarantees remain binding.
+2. **`--dry-run`** preserves the legacy local-only behavior (never asks, never creates) and always wins over `--create`. **Creation is never silent** — no `yes`, no issue.
+3. **Mechanism:** the deterministic, unit-tested logic (routing, fingerprint, plan, dedup, create) lives in `scripts/rag_report.py`; the single human confirmation lives in `commands/report.md`. All GitHub access funnels through one `_run_gh` chokepoint (mockable; tests never touch real GitHub). `gh` is the only transport; if it is missing/unauthenticated the command **falls back to local-only** and says so. `Bash(gh:*)` is added to `report.md` allowed-tools (the single capability that enables creation). `taqat-techno/*` account-switch is performed around the create step.
+4. **Routing:** application/runtime → `taqat-techno/rag`; plugin/Claude/behavior → `taqat-techno/plugins`. Routing now merges both finding lists **by `target`** (so a re-targeted finding is never silently dropped) and the previously-silent drop is surfaced. Transport faults route by **actual cause**: MCP-error and skipped-retrieval signals re-target to the app repo when the service was DOWN/BROKEN/not-UP.
+5. **Duplicate prevention:** each body carries `<!-- rag-plugin-report:fingerprint:<hash> -->` (SHA-256 over sorted non-info finding IDs). Before creating, an open-issue search for the hash prevents re-filing; an existing match's URL is reported instead. Comment/update of an existing issue is intentionally out of scope (skip, don't risk a wrong update).
+6. **Privacy:** redaction is unchanged from D-024; no raw/unrelated session logs are attached; only sanitized findings + clipped, secret-redacted signal snippets.
+
+### Non-violation of prior decisions
+
+- **D-001 / D-022:** generation still never calls `search_knowledge_base`; `/report` touches no knowledge-base data. Issue creation is a `gh` call, not an MCP write.
+- **D-007:** no new hook; nothing blocks/denies. The confirmation is a normal command prompt.
+- **No destructive command changed; `/doctor` does not create issues.**
+
+### Reverse only if
+
+- Auto-creation produces misfiled or noisy issues in practice — tighten the confirmation (e.g. per-repo yes/no) or revert `/report` to D-024 local-only, rather than removing routing.
+- A future change wants comment/update of existing issues — design an explicit, idempotent update path first (the current skip-on-duplicate is the safe default).

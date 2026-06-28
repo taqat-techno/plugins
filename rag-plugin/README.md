@@ -2,7 +2,12 @@
 
 > Operations and support plugin for the **ragtools** local-first RAG product. Install, configure, diagnose, repair, upgrade, and run the local Markdown knowledge base from inside Claude Code.
 
-**Status:** `v0.11.0` — All 10 phases shipped + 14 post-roadmap amendments. New in v0.11.0: retrieval-reminder hook gains an **operational-intent classifier** that silent-passes prompts asking about local machine state (closes the LESSONS.md TODO from 2026-04-28). Default probe threshold raised `0.5 → 0.65`. CLAUDE.md retrieval rule bumped to v0.3.0 with Section 0a (operational/inspection skip) baked into the managed block. Smoke-test harness `scripts/hook_classifier_smoke.py` ships 20 fixtures (12 operational + 8 knowledge), all passing. Per D-027. 9 generic state-aware commands + 9 skill-level MCP workflows + 3 skills + 4 hook files. Production-ready for ragtools 2.5.x including v2.5.1 Linux ARM64. New in v0.9.0: `/project-focus` — scope ragtools retrieval to the current project so Claude does not pull context from unrelated indexed projects. State persists at `~/.claude/rag-plugin/state/project-focus.json`; a UserPromptSubmit hook injects strict-mode reminders on every prompt while focus is active.
+**Status:** `v0.15.0` — All 10 phases shipped + post-roadmap amendments through **D-030**. 9 commands (8 user-facing + 1 maintainer-only) + skill-level MCP workflows + 3 skills + 4 hook files. Production-ready for ragtools 2.5.x including v2.5.1 Linux ARM64.
+
+- **New in v0.15.0 (D-030):** `/report` now **files GitHub issues automatically after one `yes/no` confirmation** — application/runtime findings to [`taqat-techno/rag`](https://github.com/taqat-techno/rag), plugin/Claude/behavior findings to [`taqat-techno/plugins`](https://github.com/taqat-techno/plugins) — with fingerprint-based **duplicate prevention**, a `--dry-run` local-only mode, and a graceful **local-only fallback** when the GitHub CLI is unavailable. Creation is never silent; redaction and local artifacts are unchanged.
+- **v0.14.0 (D-029):** the always-loaded CLAUDE.md retrieval rule was rewritten to **route by source of truth** — the knowledge base is project memory/reference, *not* the sole source of truth. Internal history/decisions → the KB; current vendor/API/pricing/security facts → official docs/web; actual code behavior → the live code/runtime/tests — with explicit conflict-surfacing and per-claim source tagging (`[from KB]` / `[from code]` / `[from official docs]` / `[assumption]`). Section 0a (operational/inspection skip) preserved. Managed block bumped to **v0.4.0**.
+- **v0.11.0 (D-027):** retrieval-reminder hook gained an **operational-intent classifier** that silent-passes prompts about local machine state; default probe threshold `0.5 → 0.65`; smoke harness `scripts/hook_classifier_smoke.py` (20 fixtures, all passing).
+- **v0.9.0 (D-025/D-028):** `/project-focus` — scope ragtools retrieval to the current workspace so Claude does not pull context from unrelated indexed projects. Per-workspace state at `~/.claude/rag-plugin/state/project-focus.json`; a UserPromptSubmit hook injects strict-mode reminders while focus is active.
 
 ---
 
@@ -23,8 +28,8 @@
 `rag-plugin` is the **operations layer** for [ragtools](https://github.com/taqat-techno/rag), a local-first RAG product that indexes Markdown into an embedded Qdrant vector database and exposes it to Claude Code via its own MCP server. The plugin's job is to make the *operator's* life easier:
 
 - **Auto-wire the ragtools MCP server.** The plugin ships its own flat-shape `.mcp.json` at the plugin root that spawns `rag serve` directly — the same pattern every other working MCP plugin uses (`chrome-devtools`, `context7`, `playwright`, `devops-plugin`). Installing the plugin registers `search_knowledge_base`, `list_projects`, and `index_status` automatically, assuming `rag` is on PATH (the RAGTools Windows installer adds it by default; dev `pip install -e .` exposes it as a pyproject console-script). For the edge case where `rag` is not on PATH, `/setup` branch C writes a user-level `~/.claude/.mcp.json` with an absolute binary path from `GET /api/mcp-config`. (D-015 / D-020)
-- **Auto-install the CLAUDE.md retrieval rule.** The plugin ships `rules/claude-md-retrieval-rule.md`, a workflow instruction block that teaches Claude to call `search_knowledge_base` before saying "I don't have information" on any domain question. `/setup` installs it into `~/.claude/CLAUDE.md` automatically during first-time setup. `/doctor` surfaces its presence/version. `/rag-repair` classifies plugin-behavior symptoms as **P-RULE** and routes them here. (D-016)
-- **Tier-2 UserPromptSubmit retrieval-reminder hook (v0.3.0).** A PreToolUse-style `UserPromptSubmit` hook ships inside the plugin. It fires on every user prompt, runs a shape heuristic (question-like, domain-possessive, not referencing current context), and if passed, probes `/api/search?top_k=1` for a likely match. When the top result scores ≥ 0.5 (MODERATE+), it injects a system reminder via `hookSpecificOutput.additionalContext` telling Claude to call `search_knowledge_base` before answering. **The hook is harness-enforced**, so Claude cannot "forget" the rule — the reminder is injected at the moment of answering, not loaded once at session start. Closes the advisory-only gap in the CLAUDE.md rule. (D-017)
+- **Auto-install the CLAUDE.md retrieval rule (v0.4.0, source-of-truth routing).** The plugin ships `rules/claude-md-retrieval-rule.md`, the always-loaded instruction block (`mcp__plugin_rag_ragtools__*`) installed into `~/.claude/CLAUDE.md` by `/config claude-md install` (and offered by `/setup`). It teaches Claude to treat the knowledge base as **project memory/reference, not the sole source of truth**: search the KB first for internal process/decision/convention questions, but verify current vendor/API/pricing/security facts against official docs/web, inspect the live code/runtime for actual behavior, surface KB-vs-code/docs conflicts, and tag each claim's source. `/doctor` surfaces its presence/version and classifies plugin-behavior symptoms as **P-RULE**. (D-016 / D-029)
+- **Tier-2 UserPromptSubmit retrieval-reminder hook (v0.4.0).** A `UserPromptSubmit` hook fires on every user prompt, runs a shape heuristic (question-like, domain-possessive, not referencing current context), suppresses operational/machine-state prompts via the operational-intent classifier (D-027), and if passed probes `/api/search?top_k=1`. When the top result scores ≥ **0.65** (MODERATE+), it injects a system reminder via `hookSpecificOutput.additionalContext` reminding Claude to search the KB first **and** to route by source of truth (verify external facts against docs/web, inspect code for behavior, surface conflicts) — the at-the-moment-of-answering complement to the advisory CLAUDE.md rule. (D-017 / D-027)
 - **Detect and clean up duplicate MCP registrations.** `/config mcp-dedupe` scans `~/.claude.json` and `~/.claude/.mcp.json` for stale ragtools entries that conflict with the plugin-level one and removes them atomically with backups.
 - Detect install state (packaged Windows / packaged macOS / dev-mode / not installed)
 - Resolve config / data / log paths the same way ragtools itself does
@@ -47,7 +52,7 @@ If you want one of these things, you want the upstream ragtools product, not thi
 
 ---
 
-## Command catalog (v0.10.0 — 9 user + 1 maintainer)
+## Command catalog (v0.15.0 — 8 user + 1 maintainer-only)
 
 Every command detects state and branches intelligently. See `rules/state-detection.md` for the shared contract and D-021 for the consolidation rationale.
 
@@ -59,7 +64,8 @@ Every command detects state and branches intelligently. See `rules/state-detecti
 | **`/reset`** | Destructive three-level reset. | State-gate preamble refuses on not-installed / BROKEN. Pre-v2.4.1 block remains. `--soft` (via HTTP API) / `--data` / `--nuclear` with typed-DELETE gates (1×/2×/3×). |
 | **`/config`** | Plugin-layer config. | `telemetry {status\|on\|off}` / `claude-md {status\|install\|remove}` / `mcp-dedupe {status\|clean}` / `hook-observability {status\|on\|off\|analyze\|clear}`. Atomic writes, backup-first discipline. |
 | **`/project-focus`** | Scope retrieval to the current project. | Auto-detects via CWD + git root, matches against `list_projects`, persists state at `~/.claude/rag-plugin/state/project-focus.json`. UserPromptSubmit hook injects scope-this-to-X reminders. Subcommands: `set` (default) / `<name>` (manual) / `status` / `clear`. |
-| **`/report`** | Maintainer-feedback diagnostic report. | Generates two reports (application setup + plugin behavior) plus GitHub-ready issue bodies for `taqat-techno/rag` and `taqat-techno/plugins`. Captures install state, runtime, performance signals, configuration drift, missed retrievals, manual workarounds, improvement opportunities. Privacy-safe redaction, no auto-upload, no config mutation. `--no-sessions` / `--max-sessions N` / `--out <dir>`. |
+| **`/report`** | Diagnostic report **+ automatic GitHub issue filing** (D-030). | Generates the application + plugin reports and redacted issue bodies, routes findings (`A-NNN` → `taqat-techno/rag`, `P-NNN` → `taqat-techno/plugins`), then asks **one** confirmation `Create GitHub issue(s) now? [yes/no]` and, on yes, files via `gh` with fingerprint **duplicate prevention**. `--dry-run` = local-only (no creation); missing/unauthenticated `gh` falls back to local-only. Cause-based routing sends MCP/transport faults to the app repo when the service was down. `--no-sessions` / `--max-sessions N` / `--out <dir>`. |
+| **`/md-rag-enhance`** | Markdown linter for RAG-friendly chunking. | Always-safe: rewrites existing `.md` in place (atomic, `.bak` backups) applying two non-semantic fixes (pseudo-heading→heading, blank-line normalization) so docs chunk/embed well. Touches no RAG data or service. Bare invocation recurses all `.md` under the CWD. |
 | **`/sync-docs`** | Maintainer-only. `disable-model-invocation: true`. | Reports drift between bundled references and upstream `ragtools_doc.md`. Never auto-rewrites. |
 
 Plus:
@@ -78,10 +84,10 @@ Plus:
 Then in Claude Code:
 
 ```
-/rag-status        # what state am I in?
-/setup         # if not installed
-/doctor        # if something is wrong
-/rag-repair "..."  # walk a repair playbook for a specific symptom
+/doctor            # what state am I in? diagnose + repair (absorbs /rag-status, /rag-repair)
+/setup             # install / upgrade / verify (absorbs /rag-upgrade)
+/projects          # manage indexed projects
+/report            # file a diagnostic issue to the maintainers (asks before creating)
 ```
 
 For local development:
@@ -95,15 +101,15 @@ git clone https://github.com/taqat-techno/plugins.git taqat-techno-plugins
 | Problem | Where to look |
 |---|---|
 | "How do I install ragtools?" | `/setup` → `references/install.md` |
-| "Is the service up?" | `/rag-status` |
-| "Something is broken" | `/doctor` first, then `/rag-repair "<symptom>"` |
-| "I see error X in logs" | `/rag-repair --scan-logs` invokes the `rag-log-scanner` agent |
-| "Permission denied: 'ragtools.toml'" | F-001, the v2.4.1 bug. Run `/rag-upgrade` immediately. |
-| "Qdrant already accessed by another instance" | F-003. Run `/rag-repair --symptom F-003`. |
-| "Collection NOT FOUND in `rag doctor` while service is up" | F-010 — **NOT a bug**, expected lock contention. Use `/rag-status` instead. |
-| "Projects disappeared after restart" | F-006. Run `/rag-repair --symptom F-006`. |
+| "Is the service up?" | `/doctor` (fast state probe) |
+| "Something is broken" | `/doctor` first, then `/doctor "<symptom>"` or `/doctor --symptom F-NNN --fix` |
+| "I see error X in logs" | `/doctor --logs` invokes the `rag-log-scanner` agent |
+| "Permission denied: 'ragtools.toml'" | F-001, the v2.4.1 bug. Run `/setup --upgrade` immediately. |
+| "Qdrant already accessed by another instance" | F-003. Run `/doctor --symptom F-003 --fix`. |
+| "Collection NOT FOUND in `rag doctor` while service is up" | F-010 — **NOT a bug**, expected lock contention. Use `/doctor` instead. |
+| "Projects disappeared after restart" | F-006. Run `/doctor --symptom F-006 --fix`. |
 | "Want to nuke and start over" | `/reset` (3 escalation levels with typed-DELETE gating) |
-| "How do I upgrade?" | `/rag-upgrade` |
+| "How do I upgrade?" | `/setup --upgrade` |
 
 Full failure catalog: `references/known-failures.md` (F-001..F-012)
 Full repair playbooks: `references/repair-playbooks.md` (8 playbooks)
@@ -150,21 +156,21 @@ This is binding decision **D-012** in `docs/decisions.md`.
 `rag-plugin` is a **reference-heavy operations plugin** in the style of the official `mcp-server-dev` and `claude-md-management` plugins. It is **not** a workflow-orchestrator plugin like `feature-dev` or `code-review`.
 
 ```
-COMMANDS (9) ──invoke──> SKILL (1) ──load──> REFERENCES (23) ──describe──> PRODUCT SURFACES
+COMMANDS (9) ──invoke──> SKILLS (3) ──load──> REFERENCES ──describe──> PRODUCT SURFACES
                                                                           ├─ HTTP API on 127.0.0.1:21420
                                                                           ├─ rag CLI (rag service / rag doctor / rag version)
                                                                           ├─ MCP server (Claude calls directly, plugin never wraps)
                                                                           └─ files (config.toml, service.log, qdrant/, state DB)
 ```
 
-Full architecture rules and the forbidden list are in `ARCHITECTURE.md`. Binding decisions D-001 through D-013 are in `docs/decisions.md`.
+Full architecture rules and the forbidden list are in `ARCHITECTURE.md`. Binding decisions D-001 through D-030 are in `docs/decisions.md`.
 
 ## Required reading
 
 - `ARCHITECTURE.md` — what this plugin owns, what it never touches, the layer rules, and the 5-question boundary self-test
-- `docs/decisions.md` — D-001..D-013 binding decisions
+- `docs/decisions.md` — D-001..D-030 binding decisions
 - `references/INDEX.md` — routing table from concern → reference file
-- `CHANGELOG.md` — phase-by-phase deliverables (Phases 0–9)
+- `CHANGELOG.md` — release history (phases 0–9 + post-roadmap amendments through v0.15.0)
 - `../../../ragtools_doc.md` (workspace root) — operational source-of-truth for the ragtools product
 
 ## License
