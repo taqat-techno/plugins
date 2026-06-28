@@ -1,0 +1,13 @@
+# CODEOWNERS — ownership rules for taqat-techno/plugins
+#
+# The global rule below makes @a-lakosha the required reviewer (CODEOWNER) for
+# every path in the repository. Combined with branch protection on `main`
+# ("Require review from Code Owners"), any pull request targeting `main` needs
+# @a-lakosha's approval before it can be merged.
+#
+# CODEOWNERS precedence: the LAST matching pattern wins. Keep the global
+# fallback rule at the bottom; add any more-specific path rules BELOW it only if
+# they also assign an owner who must keep merge authority over `main`.
+
+# Global fallback — @a-lakosha owns everything.
+* @a-lakosha
