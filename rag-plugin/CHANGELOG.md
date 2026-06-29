@@ -2,6 +2,27 @@
 
 All notable changes to `rag-plugin` are documented here. Format is loosely based on [Keep a Changelog](https://keepachangelog.com/). Versioning follows [SemVer](https://semver.org/).
 
+## [0.16.0] — 2026-06-29 — Report engine consumes ragtools' structured diagnostics contract; no longer re-raises stale app-side heuristics (PL1)
+
+The behavior/diagnostics report now consumes ragtools' newer structured health contract **when available** and stops re-raising stale app-side heuristics when that contract reports a healthy or intentional state. **Fully backward-compatible:** every new probe no-ops on older ragtools that lacks the endpoint/flag, falling back to the legacy `/health` + `/api/status` + `/api/watcher/status` signals. **No hook changes; no destructive-command changes; redaction unchanged.**
+
+### Added
+
+- **`scripts/rag_report.py` — `probe_system_health()`** — consumes `GET /api/system-health` when the service is UP (structured `checks[]`: watcher `state`, `index_freshness`, collection scale). Capability-gated: 404 / non-200 / missing `checks` (older ragtools) → leaves it empty and falls back.
+- **`probe_doctor_json()`** — capability-detects `rag doctor --json` (used when the service is not UP, so a down-service report still gets a structured signal). Old ragtools with no `--json` flag exits non-zero / prints human text → no-op fallback. Never raises.
+- **`app_health_signals()`** — a pure, layered signal extractor (`/api/system-health` → `rag doctor --json` → legacy bodies) returning normalized watcher `state`/running, `degraded`/`issues`, `freshness_level`, and `log_path`, so finding logic never has to know which contract was present.
+- **`A-015` — "index is stale"** finding, raised only when the structured `index_freshness` level is `stale` (fresh / absent → none). Distinct from `A-008` ("no projects configured").
+- **26 tests** in `scripts/test_rag_report.py` (system-health probe with/without endpoint, doctor-json with/without `--json`, signal resolution order, A-007 across running/stopped/autostart_failed, A-015 stale/fresh, healthy-system-no-noise).
+
+### Changed
+
+- **`A-007` (watcher) refined** to consume the structured watcher `state` instead of blindly flagging any non-running watcher: a *user-stopped* watcher (`state="stopped"`) is now **info / intentional** (no auto-fix nag) rather than a medium fault; `autostart_failed` → **medium** and `crashed` / `gave_up` → **high**, each with the specific `autostart_error` / `last_error` cause; a healthy watcher (`status=ok` / `state=running`) raises **nothing**. When the structured `state` is absent (older ragtools) the original running-bool behavior is preserved.
+
+### Validation
+
+- `python -m pytest hooks/test_hook_launcher.py scripts/test_rag_report.py scripts/test_project_focus.py` → **134 passed**.
+- New structured signals depend on ragtools PR `taqat-techno/rag#3` (`/api/system-health` enrichment + `rag doctor --json`); the plugin change is back-compatible and ships independently.
+
 ## [0.15.1] — 2026-06-29 — Hook invocation hardened: hooks are fail-open on path-resolution; advisory hooks cannot block; portable interpreter (D-031)
 
 Fixes a present, prompt/tool-blocking design vulnerability (unchanged since v0.3.0; see `RAG_PLUGIN_HOOK_INVESTIGATION_REPORT.md`). All hooks ran as the raw `python3 ${CLAUDE_PLUGIN_ROOT}/hooks/<script>.py`. If the host does not expand `${CLAUDE_PLUGIN_ROOT}` (reported on Cowork/headless Windows), the var is unset, or the script is missing, **Python exits 2 — the only *blocking* hook code** — cancelling the prompt (`UserPromptSubmit`) or blocking the tool call (`PreToolUse` Bash). The scripts' own `sys.exit(0)` fail-safe cannot run because the file never loads. **No behavior change when paths resolve; the lock hook's `ask`/exit semantics are preserved (guarded mode); no new hook registrations; no destructive-command changes.**
