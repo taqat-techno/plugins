@@ -157,6 +157,12 @@ class State:
     api_status: dict[str, Any] = field(default_factory=dict)
     api_projects: list[dict[str, Any]] = field(default_factory=list)
     watcher_status: dict[str, Any] = field(default_factory=dict)
+    # Newer structured-diagnostics contract (present only on newer ragtools;
+    # absent on older builds — every consumer must fall back gracefully).
+    system_health: dict[str, Any] = field(default_factory=dict)   # GET /api/system-health
+    doctor_json: dict[str, Any] = field(default_factory=dict)     # `rag doctor --json`
+    has_system_health: bool = False
+    has_doctor_json: bool = False
     port: int = DEFAULT_PORT
     host: str = DEFAULT_HOST
 
@@ -313,10 +319,147 @@ def probe_api(state: State) -> None:
     state.api_projects = hydrated
 
     # /api/watcher/status — modern ragtools also exposes this under /api/status,
-    # but the dedicated endpoint is more reliable on older builds.
+    # but the dedicated endpoint is more reliable on older builds. Newer builds
+    # additionally carry `state`, `desired`, `autostart_error`; older builds lack
+    # them (app_health_signals reads them defensively).
     code, body, _ = _http_get_json(f"{base}/api/watcher/status", timeout=2.0)
     if code == 200 and isinstance(body, dict):
         state.watcher_status = body
+
+
+def probe_system_health(state: State) -> None:
+    """Consume the newer structured GET /api/system-health contract WHEN
+    AVAILABLE. On 200 with a dict body carrying a ``checks`` list, store it and
+    set the capability flag. On 404 / non-200 / absent endpoint (older ragtools)
+    leave ``state.system_health`` empty so callers fall back to legacy signals.
+    No-op unless the service is UP. Never raises."""
+    if state.service_mode != "UP":
+        return
+    code, body, _ = _http_get_json(
+        f"http://{state.host}:{state.port}/api/system-health", timeout=2.0)
+    if code == 200 and isinstance(body, dict) and isinstance(body.get("checks"), list):
+        state.system_health = body
+        state.has_system_health = True
+
+
+def probe_doctor_json(state: State) -> None:
+    """Capability-detect ``rag doctor --json``. Runs the binary (guarded on
+    ``binary_path``); if it exits 0 AND stdout parses as a JSON *object*, store
+    it and set the capability flag. Older ragtools has no ``--json`` flag — it
+    exits non-zero or prints unparseable human text — in which case we leave
+    ``state.doctor_json`` empty and fall back. Never raises.
+
+    Especially useful when the service is NOT UP (DOWN/BROKEN/STARTING) so a
+    down-service report still gets a structured signal; calling it when UP is
+    harmless but optional (the /api/system-health endpoint is preferred then)."""
+    if not state.binary_path:
+        return
+    rc, out, _err = _safe_run([state.binary_path, "doctor", "--json"])
+    if rc != 0 or not out:
+        return
+    try:
+        parsed = json.loads(out)
+    except (json.JSONDecodeError, ValueError):
+        return
+    if isinstance(parsed, dict):
+        state.doctor_json = parsed
+        state.has_doctor_json = True
+
+
+def app_health_signals(state: State) -> dict[str, Any]:
+    """Single normalized health-signal extractor — pure (no I/O), easy to test.
+
+    Resolution order per field (highest priority first):
+        /api/system-health checks → `rag doctor --json` → legacy probe bodies
+        (watcher_status / health_status / api_status).
+
+    Returns a stable dict so callers (the refined A-007 watcher heuristic and
+    the A-015 freshness finding) never have to know which contract was present.
+    Keys always present: watcher_state, watcher_running, watcher_status_label,
+    watcher_last_error, watcher_autostart_error, degraded, issues,
+    freshness_level, freshness_last_indexed, log_path.
+    """
+    sig: dict[str, Any] = {
+        "watcher_state": None,
+        "watcher_running": None,
+        "watcher_status_label": None,   # "ok|warning|error" from system-health
+        "watcher_last_error": None,
+        "watcher_autostart_error": None,
+        "degraded": None,
+        "issues": [],
+        "freshness_level": None,
+        "freshness_last_indexed": None,
+        "log_path": None,
+    }
+
+    def _set(key: str, val: Any) -> None:
+        if val is not None:
+            sig[key] = val
+
+    def _set_list(key: str, val: Any) -> None:
+        if val:
+            sig[key] = list(val)
+
+    # ----- Layer 3 (lowest priority): legacy probe bodies -------------------
+    ws = state.watcher_status if isinstance(state.watcher_status, dict) else {}
+    if isinstance(ws.get("running"), bool):
+        _set("watcher_running", ws.get("running"))
+    _set("watcher_state", ws.get("state"))
+    _set("watcher_autostart_error", ws.get("autostart_error"))
+    _set("watcher_last_error", ws.get("last_error"))
+    hs = state.health_status if isinstance(state.health_status, dict) else {}
+    if "degraded" in hs:
+        _set("degraded", bool(hs.get("degraded")))
+    if isinstance(hs.get("issues"), list):
+        _set_list("issues", hs.get("issues"))
+    _set("log_path", state.log_path or None)
+
+    # ----- Layer 2: rag doctor --json ---------------------------------------
+    dj = state.doctor_json if (state.has_doctor_json and isinstance(state.doctor_json, dict)) else {}
+    if dj:
+        w = dj.get("watcher")
+        if isinstance(w, dict):
+            _set("watcher_state", w.get("state"))
+            if isinstance(w.get("running"), bool):
+                _set("watcher_running", w.get("running"))
+            _set("watcher_last_error", w.get("last_error"))
+            _set("watcher_autostart_error", w.get("autostart_error"))
+        fr = dj.get("freshness")
+        if isinstance(fr, dict):
+            _set("freshness_level", fr.get("level"))
+            _set("freshness_last_indexed", fr.get("last_indexed"))
+        if "ok" in dj:
+            _set("degraded", not bool(dj.get("ok")))
+        _set("log_path", dj.get("log_path"))
+
+    # ----- Layer 1 (highest priority): /api/system-health checks ------------
+    sh = state.system_health if (state.has_system_health and isinstance(state.system_health, dict)) else {}
+    if sh:
+        sh_issues: list[str] = []
+        checks = sh.get("checks")
+        if isinstance(checks, list):
+            for chk in checks:
+                if not isinstance(chk, dict):
+                    continue
+                comp = str(chk.get("component", "")).lower()
+                cstatus = chk.get("status")
+                if comp == "watcher":
+                    _set("watcher_state", chk.get("state"))
+                    if isinstance(chk.get("running"), bool):
+                        _set("watcher_running", chk.get("running"))
+                    _set("watcher_status_label", cstatus)
+                    _set("watcher_last_error", chk.get("last_error"))
+                    _set("watcher_autostart_error", chk.get("autostart_error"))
+                elif comp in ("index_freshness", "freshness"):
+                    _set("freshness_level", chk.get("level"))
+                    _set("freshness_last_indexed", chk.get("last_indexed"))
+                if comp and cstatus in ("warning", "error"):
+                    sh_issues.append(comp)
+        if "ok" in sh:
+            _set("degraded", not bool(sh.get("ok")))
+        _set_list("issues", sh_issues)
+
+    return sig
 
 
 def resolve_default_paths(state: State) -> None:
@@ -865,6 +1008,12 @@ def synthesize_findings(state: State, plugin: PluginInspection,
             target="rag",
         ))
     else:
+        # Normalized health signals from the newest structured contract available
+        # (/api/system-health → `rag doctor --json` → legacy bodies). Consumed by
+        # the refined A-007 watcher heuristic and the A-015 freshness finding so
+        # neither re-raises a stale guess when the contract reports a healthy or
+        # intentional state. Empty/None on older ragtools → back-compat behavior.
+        signals = app_health_signals(state)
         if not state.version:
             app.append(Finding(
                 id="A-002", title="`rag version` did not return a parseable version",
@@ -907,7 +1056,82 @@ def synthesize_findings(state: State, plugin: PluginInspection,
                     recommendation="The HTTP API surface may have regressed in this build; file an issue with the version.",
                     target="rag",
                 ))
-            if state.watcher_status and not state.watcher_status.get("running", True):
+            # A-007 — watcher heuristic, refined to consume the structured
+            # watcher `state` (from /api/system-health or `rag doctor --json`)
+            # instead of blindly flagging any non-running watcher. The structured
+            # contract distinguishes an intentional stop from a failure; we only
+            # re-raise the stale heuristic when no structured state is available.
+            w_state = signals.get("watcher_state")
+            w_label = signals.get("watcher_status_label")
+            w_running = signals.get("watcher_running")
+            w_healthy = (
+                w_label == "ok"
+                or w_state == "running"
+                or (w_state is None and w_label is None and w_running is True)
+            )
+            if w_healthy:
+                pass  # structured/legacy contract says the watcher is fine
+            elif w_state == "stopped":
+                # The user deliberately stopped the watcher — intentional, not a
+                # fault. Info severity, and we do NOT recommend an auto-fix.
+                app.append(Finding(
+                    id="A-007", title="watcher stopped by user (intentional)",
+                    severity="info",
+                    evidence=f"structured watcher state=`stopped` "
+                             f"(running={w_running}). This is the expected state "
+                             f"after a deliberate stop, not a failure.",
+                    recommendation="No action needed. If you want background "
+                                   "auto-indexing again, start the watcher "
+                                   "manually (`rag watch` / `POST /api/watcher/start`).",
+                    target="rag",
+                ))
+            elif w_state in ("autostart_failed", "crashed", "gave_up"):
+                # A real failure — surface the SPECIFIC cause so the maintainer
+                # doesn't have to guess. crashed/gave_up are higher severity than
+                # a single autostart miss.
+                cause = (signals.get("watcher_autostart_error")
+                         or signals.get("watcher_last_error")
+                         or "no specific cause reported by the service")
+                sev = "high" if w_state in ("crashed", "gave_up") else "medium"
+                app.append(Finding(
+                    id="A-007",
+                    title=f"watcher not running (state=`{w_state}`)",
+                    severity=sev,
+                    evidence=f"structured watcher state=`{w_state}`; "
+                             f"cause: {redact(str(cause))[:240]}",
+                    recommendation="Fix the reported cause, then restart the "
+                                   "watcher (`/rag:doctor --symptom F-004 --fix` "
+                                   "or `POST /api/watcher/start`).",
+                    target="rag",
+                ))
+            elif w_state is not None:
+                # A known-but-unhealthy state we don't special-case (e.g.
+                # exited / inactive). Report generically at medium.
+                app.append(Finding(
+                    id="A-007",
+                    title=f"watcher not running (state=`{w_state}`)",
+                    severity="medium",
+                    evidence=f"structured watcher state=`{w_state}` "
+                             f"(running={w_running}).",
+                    recommendation="Restart the watcher (`POST /api/watcher/start`) "
+                                   "or run `/rag:doctor --symptom F-004`.",
+                    target="rag",
+                ))
+            elif w_label in ("warning", "error"):
+                # system-health flagged the watcher but gave no `state` string.
+                app.append(Finding(
+                    id="A-007", title="watcher reported unhealthy by system-health",
+                    severity="medium",
+                    evidence=f"/api/system-health watcher check status=`{w_label}`"
+                             + (f"; {redact(str(signals.get('watcher_last_error')))[:200]}"
+                                if signals.get("watcher_last_error") else ""),
+                    recommendation="Run `/rag:doctor --symptom F-004` for the "
+                                   "specific watcher diagnosis.",
+                    target="rag",
+                ))
+            elif state.watcher_status and not state.watcher_status.get("running", True):
+                # Old ragtools (no structured `state`): keep the original
+                # running-bool behavior for back-compat.
                 app.append(Finding(
                     id="A-007", title="watcher process not running",
                     severity="medium",
@@ -995,6 +1219,24 @@ def synthesize_findings(state: State, plugin: PluginInspection,
                         ),
                         target="rag",
                     ))
+
+        # A-015 — index freshness. A `stale` level means the on-disk embeddings
+        # lag the source files. Emitted regardless of service mode (the signal
+        # can come from `rag doctor --json` even when the service is down).
+        # fresh / absent → no finding, so a healthy structured contract is never
+        # re-flagged. Distinct from A-008 ("no projects configured").
+        if signals.get("freshness_level") == "stale":
+            li = signals.get("freshness_last_indexed")
+            app.append(Finding(
+                id="A-015", title="index is stale",
+                severity="medium",
+                evidence="index_freshness level=`stale`"
+                         + (f" (last_indexed `{redact(str(li))[:80]}`)" if li else "")
+                         + " — on-disk embeddings lag the source files.",
+                recommendation="Re-index with `rag index` (or `/rag:projects "
+                               "reindex <project>`) to refresh embeddings.",
+                target="rag",
+            ))
 
     # Log evidence
     if log_hits:
@@ -2175,8 +2417,16 @@ def main(argv: Optional[list[str]] = None) -> int:
         log(f"service_mode={state.service_mode}")
         if state.service_mode == "UP":
             probe_api(state)
+            # Newer structured contract — preferred source of watcher/freshness
+            # signal while the service is UP. No-ops on older builds (404).
+            probe_system_health(state)
         if state.binary_path:
             detect_version(state)
+        # When the service is NOT UP, fall back to `rag doctor --json` so a
+        # down-service report still gets a structured signal. No-op on older
+        # ragtools that lacks the --json flag.
+        if state.service_mode != "UP":
+            probe_doctor_json(state)
         resolve_default_paths(state)
 
     # Inspect Claude config
