@@ -710,5 +710,373 @@ class TestHookPathFatalSignal(unittest.TestCase):
         self.assertFalse(self._match(_FP_CONNECT_LS))
 
 
+# ============================================================================
+# PL1 — consume the newer structured diagnostics contract when available, with
+# graceful fallback for older ragtools. Covers probe_system_health,
+# probe_doctor_json, app_health_signals (resolution order), the refined A-007
+# watcher heuristic, and the new A-015 freshness finding.
+# ============================================================================
+
+
+def _installed_up_state(rr, **over):
+    """A minimal installed + service-UP State that does not trip A-002/A-006/
+    A-008 (so a single watcher/freshness signal can be asserted in isolation)."""
+    state = rr.State()
+    state.install_mode = "packaged-windows"
+    state.service_mode = "UP"
+    state.version = "2.6.0"
+    state.binary_path = ""
+    state.host = "127.0.0.1"
+    state.port = 21420
+    state.api_status = {"status": "ready", "collection": "markdown_kb",
+                        "points_count": 10}
+    state.api_projects = [{"project_id": "1", "name": "demo", "path": "/tmp/demo",
+                           "files": 1, "chunks": 5, "enabled": True}]
+    state.watcher_status = {"running": True}
+    for k, v in over.items():
+        setattr(state, k, v)
+    return state
+
+
+class TestProbeSystemHealth(unittest.TestCase):
+    """GET /api/system-health capability-detect + graceful absence."""
+
+    def setUp(self):
+        self.rr = _load_rr()
+        self._orig = self.rr._http_get_json
+
+    def tearDown(self):
+        self.rr._http_get_json = self._orig
+
+    def test_present_sets_capability_and_signals(self):
+        body = {"ok": True, "checks": [
+            {"component": "watcher", "status": "ok", "running": True, "state": "running"},
+            {"component": "index_freshness", "status": "ok", "level": "fresh"},
+        ]}
+
+        def fake(url, timeout=2.0):
+            if url.endswith("/api/system-health"):
+                return 200, body, ""
+            return 404, None, "not found"
+        self.rr._http_get_json = fake
+        state = _installed_up_state(self.rr)
+        self.rr.probe_system_health(state)
+        self.assertTrue(state.has_system_health)
+        self.assertEqual(state.system_health, body)
+        sig = self.rr.app_health_signals(state)
+        self.assertEqual(sig["watcher_state"], "running")
+        self.assertEqual(sig["freshness_level"], "fresh")
+
+    def test_absent_404_falls_back_to_legacy_watcher(self):
+        def fake(url, timeout=2.0):
+            return 404, None, "not found"
+        self.rr._http_get_json = fake
+        state = _installed_up_state(
+            self.rr, watcher_status={"running": False, "state": "stopped"})
+        self.rr.probe_system_health(state)
+        self.assertFalse(state.has_system_health)
+        self.assertEqual(state.system_health, {})
+        sig = self.rr.app_health_signals(state)
+        self.assertEqual(sig["watcher_state"], "stopped")
+        self.assertIs(sig["watcher_running"], False)
+
+    def test_noop_when_service_not_up(self):
+        called = {"n": 0}
+
+        def fake(url, timeout=2.0):
+            called["n"] += 1
+            return 200, {"ok": True, "checks": []}, ""
+        self.rr._http_get_json = fake
+        state = _installed_up_state(self.rr)
+        state.service_mode = "DOWN"
+        self.rr.probe_system_health(state)
+        self.assertEqual(called["n"], 0)
+        self.assertFalse(state.has_system_health)
+
+    def test_non_dict_body_ignored(self):
+        def fake(url, timeout=2.0):
+            return 200, "not json", "non-JSON body"
+        self.rr._http_get_json = fake
+        state = _installed_up_state(self.rr)
+        self.rr.probe_system_health(state)
+        self.assertFalse(state.has_system_health)
+
+    def test_missing_checks_list_ignored(self):
+        def fake(url, timeout=2.0):
+            return 200, {"ok": True}, ""
+        self.rr._http_get_json = fake
+        state = _installed_up_state(self.rr)
+        self.rr.probe_system_health(state)
+        self.assertFalse(state.has_system_health)
+
+
+class TestProbeDoctorJson(unittest.TestCase):
+    """`rag doctor --json` capability-detect + graceful absence on old builds."""
+
+    def setUp(self):
+        self.rr = _load_rr()
+        self._orig = self.rr._safe_run
+
+    def tearDown(self):
+        self.rr._safe_run = self._orig
+
+    def test_valid_json_sets_capability_and_signals(self):
+        payload = {"ok": True, "install_mode": "packaged-windows",
+                   "freshness": {"level": "stale",
+                                 "last_indexed": "2026-06-01T00:00:00Z"},
+                   "watcher": {"state": "stopped", "running": False},
+                   "log_path": "/x/y/service.log"}
+
+        def fake(cmd, timeout=5.0):
+            if cmd[1:] == ["doctor", "--json"]:
+                return 0, _json.dumps(payload), ""
+            return 1, "", "err"
+        self.rr._safe_run = fake
+        state = self.rr.State()
+        state.binary_path = "/fake/rag"
+        state.service_mode = "DOWN"
+        self.rr.probe_doctor_json(state)
+        self.assertTrue(state.has_doctor_json)
+        sig = self.rr.app_health_signals(state)
+        self.assertEqual(sig["freshness_level"], "stale")
+        self.assertEqual(sig["watcher_state"], "stopped")
+
+    def test_no_binary_path_noop(self):
+        called = {"n": 0}
+
+        def fake(cmd, timeout=5.0):
+            called["n"] += 1
+            return 0, "{}", ""
+        self.rr._safe_run = fake
+        state = self.rr.State()  # binary_path == ""
+        state.service_mode = "DOWN"
+        self.rr.probe_doctor_json(state)
+        self.assertEqual(called["n"], 0)
+        self.assertFalse(state.has_doctor_json)
+
+    def test_old_ragtools_nonzero_exit_no_crash(self):
+        def fake(cmd, timeout=5.0):
+            return 2, "", "Usage: rag doctor [OPTIONS]\nNo such option: --json"
+        self.rr._safe_run = fake
+        state = self.rr.State()
+        state.binary_path = "/fake/rag"
+        state.service_mode = "DOWN"
+        self.rr.probe_doctor_json(state)  # must not raise
+        self.assertFalse(state.has_doctor_json)
+        self.assertEqual(state.doctor_json, {})
+
+    def test_exit_zero_but_unparseable_no_capability(self):
+        def fake(cmd, timeout=5.0):
+            return 0, "doctor: all good (human text)", ""
+        self.rr._safe_run = fake
+        state = self.rr.State()
+        state.binary_path = "/fake/rag"
+        self.rr.probe_doctor_json(state)
+        self.assertFalse(state.has_doctor_json)
+
+    def test_exit_zero_json_array_not_object(self):
+        def fake(cmd, timeout=5.0):
+            return 0, "[1, 2, 3]", ""
+        self.rr._safe_run = fake
+        state = self.rr.State()
+        state.binary_path = "/fake/rag"
+        self.rr.probe_doctor_json(state)
+        self.assertFalse(state.has_doctor_json)
+
+
+class TestAppHealthSignalsResolution(unittest.TestCase):
+    """app_health_signals is pure and resolves system_health > doctor_json >
+    legacy per field."""
+
+    def setUp(self):
+        self.rr = _load_rr()
+
+    def test_system_health_wins_over_doctor_and_legacy(self):
+        state = self.rr.State()
+        state.watcher_status = {"running": False, "state": "stopped"}
+        state.doctor_json = {"watcher": {"state": "crashed", "running": False},
+                             "freshness": {"level": "stale"}}
+        state.has_doctor_json = True
+        state.system_health = {"ok": True, "checks": [
+            {"component": "watcher", "status": "ok", "running": True,
+             "state": "running"},
+            {"component": "index_freshness", "status": "ok", "level": "fresh"}]}
+        state.has_system_health = True
+        sig = self.rr.app_health_signals(state)
+        self.assertEqual(sig["watcher_state"], "running")
+        self.assertEqual(sig["watcher_status_label"], "ok")
+        self.assertEqual(sig["freshness_level"], "fresh")
+
+    def test_doctor_json_used_when_system_health_absent(self):
+        state = self.rr.State()
+        state.watcher_status = {"running": True}
+        state.doctor_json = {
+            "watcher": {"state": "autostart_failed", "running": False,
+                        "autostart_error": "port 21420 busy"},
+            "freshness": {"level": "stale"},
+            "log_path": "/var/log/rag/service.log"}
+        state.has_doctor_json = True
+        sig = self.rr.app_health_signals(state)
+        self.assertEqual(sig["watcher_state"], "autostart_failed")
+        self.assertEqual(sig["freshness_level"], "stale")
+        self.assertEqual(sig["watcher_autostart_error"], "port 21420 busy")
+        self.assertEqual(sig["log_path"], "/var/log/rag/service.log")
+
+    def test_legacy_only_back_compat(self):
+        state = self.rr.State()
+        state.watcher_status = {"running": False}  # no `state` key (old build)
+        sig = self.rr.app_health_signals(state)
+        self.assertIsNone(sig["watcher_state"])
+        self.assertIs(sig["watcher_running"], False)
+        self.assertIsNone(sig["freshness_level"])
+
+    def test_returns_required_keys(self):
+        sig = self.rr.app_health_signals(self.rr.State())
+        for k in ("watcher_state", "watcher_running", "degraded", "issues",
+                  "freshness_level", "log_path"):
+            self.assertIn(k, sig)
+        self.assertEqual(sig["issues"], [])
+
+
+class TestWatcherFindingA007(unittest.TestCase):
+    """Refined A-007 consumes the watcher `state` via app_health_signals."""
+
+    def setUp(self):
+        self.rr = _load_rr()
+
+    def _synth(self, state):
+        return _synth(self.rr, state)
+
+    def test_watcher_running_no_a007(self):
+        state = _installed_up_state(self.rr)
+        state.system_health = {"ok": True, "checks": [
+            {"component": "watcher", "status": "ok", "running": True,
+             "state": "running"}]}
+        state.has_system_health = True
+        app, _ = self._synth(state)
+        self.assertIsNone(_by_id(app, "A-007"), _ids(app))
+
+    def test_watcher_stopped_is_info_intentional(self):
+        state = _installed_up_state(
+            self.rr, watcher_status={"running": False, "state": "stopped"})
+        app, _ = self._synth(state)
+        f = _by_id(app, "A-007")
+        self.assertIsNotNone(f, _ids(app))
+        self.assertEqual(f.severity, "info")
+        self.assertIn("intentional", (f.title + " " + f.recommendation).lower())
+
+    def test_watcher_autostart_failed_medium_or_high_with_cause(self):
+        state = _installed_up_state(self.rr)
+        state.system_health = {"ok": False, "checks": [
+            {"component": "watcher", "status": "error", "running": False,
+             "state": "autostart_failed",
+             "autostart_error": "Task Scheduler returned 0x1"}]}
+        state.has_system_health = True
+        app, _ = self._synth(state)
+        f = _by_id(app, "A-007")
+        self.assertIsNotNone(f, _ids(app))
+        self.assertIn(f.severity, ("medium", "high"))
+        self.assertIn("Task Scheduler returned 0x1", f.evidence)
+
+    def test_watcher_crashed_is_high_with_cause(self):
+        state = _installed_up_state(self.rr)
+        state.system_health = {"ok": False, "checks": [
+            {"component": "watcher", "status": "error", "running": False,
+             "state": "crashed", "last_error": "segfault in encoder"}]}
+        state.has_system_health = True
+        app, _ = self._synth(state)
+        f = _by_id(app, "A-007")
+        self.assertIsNotNone(f, _ids(app))
+        self.assertEqual(f.severity, "high")
+        self.assertIn("segfault in encoder", f.evidence)
+
+    def test_system_health_ok_never_reraises_a007(self):
+        # status==ok is authoritative healthy even if running/state are absent.
+        state = _installed_up_state(self.rr)
+        state.system_health = {"ok": True, "checks": [
+            {"component": "watcher", "status": "ok"}]}
+        state.has_system_health = True
+        app, _ = self._synth(state)
+        self.assertIsNone(_by_id(app, "A-007"), _ids(app))
+
+    def test_old_ragtools_running_false_keeps_medium(self):
+        # No `state` string anywhere (old build) -> original running-bool medium.
+        state = _installed_up_state(self.rr, watcher_status={"running": False})
+        app, _ = self._synth(state)
+        f = _by_id(app, "A-007")
+        self.assertIsNotNone(f, _ids(app))
+        self.assertEqual(f.severity, "medium")
+
+    def test_old_ragtools_running_true_no_a007(self):
+        state = _installed_up_state(self.rr, watcher_status={"running": True})
+        app, _ = self._synth(state)
+        self.assertIsNone(_by_id(app, "A-007"), _ids(app))
+
+
+class TestFreshnessFindingA015(unittest.TestCase):
+    """A-015 fires only when the index is stale."""
+
+    def setUp(self):
+        self.rr = _load_rr()
+
+    def test_stale_emits_a015_medium_targets_rag(self):
+        state = _installed_up_state(self.rr)
+        state.system_health = {"ok": False, "checks": [
+            {"component": "watcher", "status": "ok", "running": True,
+             "state": "running"},
+            {"component": "index_freshness", "status": "warning", "level": "stale",
+             "last_indexed": "2026-05-01T00:00:00Z"}]}
+        state.has_system_health = True
+        app, _ = _synth(self.rr, state)
+        f = _by_id(app, "A-015")
+        self.assertIsNotNone(f, _ids(app))
+        self.assertEqual(f.severity, "medium")
+        self.assertEqual(f.target, "rag")
+
+    def test_fresh_no_a015(self):
+        state = _installed_up_state(self.rr)
+        state.system_health = {"ok": True, "checks": [
+            {"component": "index_freshness", "status": "ok", "level": "fresh"}]}
+        state.has_system_health = True
+        app, _ = _synth(self.rr, state)
+        self.assertIsNone(_by_id(app, "A-015"), _ids(app))
+
+    def test_absent_freshness_no_a015(self):
+        state = _installed_up_state(self.rr)
+        app, _ = _synth(self.rr, state)
+        self.assertIsNone(_by_id(app, "A-015"), _ids(app))
+
+    def test_stale_from_doctor_json_when_service_down(self):
+        state = self.rr.State()
+        state.install_mode = "packaged-windows"
+        state.service_mode = "DOWN"
+        state.version = "2.6.0"
+        state.doctor_json = {"freshness": {"level": "stale"},
+                             "watcher": {"state": "stopped", "running": False}}
+        state.has_doctor_json = True
+        app, _ = _synth(self.rr, state)
+        self.assertIsNotNone(_by_id(app, "A-015"), _ids(app))
+
+
+class TestHealthySystemNoStaleHeuristics(unittest.TestCase):
+    """When /api/system-health reports everything ok, neither the watcher nor
+    the freshness heuristic may be re-raised."""
+
+    def setUp(self):
+        self.rr = _load_rr()
+
+    def test_all_ok_raises_neither_a007_nor_a015(self):
+        state = _installed_up_state(self.rr)
+        state.system_health = {"ok": True, "checks": [
+            {"component": "watcher", "status": "ok", "running": True,
+             "state": "running"},
+            {"component": "index_freshness", "status": "ok", "level": "fresh"},
+            {"component": "collection", "status": "ok", "points_count": 100}]}
+        state.has_system_health = True
+        app, _ = _synth(self.rr, state)
+        self.assertIsNone(_by_id(app, "A-007"), _ids(app))
+        self.assertIsNone(_by_id(app, "A-015"), _ids(app))
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
