@@ -1138,3 +1138,45 @@ must never be *able* to cancel a prompt.
 - A future advisory hook genuinely needs to block — then it is by definition not
   advisory; document it as intentionally blocking and route it outside the
   launcher.
+
+---
+
+## D-032 — Plugin awareness of the Code Knowledge Index MCP tools; `set_project_mode` stays write-gated until the app-side redaction fix ships
+
+Date: 2026-07-01
+Phase: Post-16 amendment
+Status: binding
+Ships in: v0.17.0
+Relates to: D-001 (plugin never wraps `search_knowledge_base`), D-022 (plugin uses MCP ops tools freely), D-021 (skill workflow over new command), D-029 (RAG is reference, not sole truth)
+
+### Context
+
+ragtools grew a Code Knowledge Index surface beyond the ~22-tool inventory D-022 fixed: `search_project_context` (layered code/docs/config retrieval), `find_definition` (code-graph symbol lookup), `secret_audit` (scans indexed content for embedded secrets), and `set_project_mode` (sets a project's indexing mode: `docs` / `code` / `general`, default `docs`). None of these tools existed when D-022 was written, and the plugin had zero references to any of them anywhere — no hook, rule, skill, or command.
+
+Independent verification against the live ragtools source (not just app-side release notes) found that the production indexing write path does not invoke the app's content-level secret-redaction step. This affects **every** project's routine indexing — the watcher, manual reindex, project-add auto-index — regardless of mode, not only `code`/`general` ones. Until that is fixed and confirmed app-side, the plugin must not give a user any reason to believe enabling a richer indexing mode is risk-free, and should not stay silent about the fact that this also applies to projects already indexed today.
+
+A separate observation, not resolved by this decision: the MCP's live tool registry was also found to include `add_project`, which `rules/mcp-envelope.md` §8 still lists as a deliberately excluded tool (blast-radius reasoning: arbitrary filesystem path from an agent is an injection vector). That contradiction needs its own review and is explicitly out of scope here.
+
+### The decision
+
+1. **`search_project_context` and `find_definition` are content/discovery tools and fall under D-001's existing boundary**, the same as `search_knowledge_base`: Claude calls them directly; the plugin documents *when* to use them (routing guidance in the CLAUDE.md retrieval rule and the skill) but never wraps, mediates, or calls them on Claude's behalf.
+2. **`secret_audit` is an ops/audit tool and falls under D-022's carve-out**: the plugin may build a skill workflow and a thin command subcommand around it, the same as `project_status` or `list_project_files`. It needs no destructive-write gate (§6.3 of `mcp-envelope.md`) because it never mutates anything — but its *output* must always carry the redaction-bypass caveat (point 4 below) until that caveat is retired by a future decision.
+3. **`set_project_mode` is a write tool, held to write-tool discipline (§6 of `mcp-envelope.md`) plus an additional gate this decision adds.** It may be *documented* (so Claude can explain it correctly when asked) but **no plugin command, skill workflow, or hook may call it to actually change a project's mode** until both:
+   a. A plugin maintainer has confirmed, from the live ragtools release notes, that the production indexing write path applies content-level secret redaction; and
+   b. `rules/state-detection.md`'s `KNOWN_SAFE_FLOOR` constant has been updated to reflect that confirmation.
+   Until then, any code path that would reach `set_project_mode` for an actual mode change must refuse with a clear, specific reason — not a generic error.
+4. **The redaction-bypass risk is not scoped to Dev Mode.** Because the affected write path is the *general* indexing pipeline, used by every project regardless of mode, `/doctor --full` recommends running `secret_audit` against existing projects independent of any interest in Dev Mode. This is a one-time, read-only recommendation, not an automatic scan: `/doctor` names the action; the user (or Claude, asked once) runs `/projects audit <id>`.
+5. **`add_project`'s reappearance in the live tool registry is explicitly NOT addressed by this decision.** `rules/mcp-envelope.md` §8's exclusion of it stands until a separate decision revisits it.
+6. **No new hook.** This decision is implemented entirely in rules, skills, and existing-command extensions (`/doctor`, `/projects`). The plugin's hook surface (`lock_conflict_check.py`, `prompt_retrieval_reminder.py`, `project_focus_inject.py`) is unchanged — hooks fire on every matching event and are reserved for the narrow guardrails they already cover. A slow-moving, judgment-dependent safety gate like this one belongs in skill-level reasoning plus an explicit, user-invoked one-time command action, not automatic per-prompt interception.
+
+### Non-violation of prior decisions
+
+- **D-001 / D-022:** the content-vs-ops boundary is extended consistently, not redrawn. `search_knowledge_base` remains the only tool the plugin can never call; `search_project_context` and `find_definition` join it under the same "Claude calls directly" principle by analogy, not by exception.
+- **D-021:** no new top-level command. `secret_audit` and project-mode status land as a subcommand and a field of the existing `/projects` command; the routing/awareness logic lives in the skill, not a new command.
+- **D-007:** nothing here introduces a hook that could block or deny — there is no new hook at all.
+- **D-029:** the "RAG is reference, not sole truth" framing is the model for how the plugin treats the app's own redaction guarantee — it is not assumed safe by default, and the conflict between what the app claims and what the code does is surfaced explicitly rather than picked silently.
+
+### Reverse only if
+
+- The app-side redaction-bypass fix ships and is confirmed — then a follow-up decision raises `KNOWN_SAFE_FLOOR` in `rules/state-detection.md` and `set_project_mode` gets wired into a real, gated `/projects mode <id> <mode>` subcommand. This decision's restriction in point 3 is what gets reversed; points 1, 2, 4, and 6 are not contingent on the app fix and stay as-is.
+- A future ragtools release exposes a clean boolean capability flag (rather than requiring version-string comparison) for the redaction guarantee — adopt it in `rules/state-detection.md` in place of the version-floor comparison.

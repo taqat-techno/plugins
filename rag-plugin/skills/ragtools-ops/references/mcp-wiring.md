@@ -7,15 +7,11 @@ source-sections: [§10]
 
 # MCP Configuration for Claude Code
 
-ragtools exposes **three MCP tools** to Claude Code:
+ragtools' MCP tool count has grown across releases (3 core search tools → ~22 with D-022's ops-tool expansion → more with the Code Knowledge Index tools in D-032). **This file does not duplicate the tool inventory** — a hardcoded list here has gone stale at least once already. For "what tools does ragtools expose and what does the plugin do with each," see `rules/mcp-envelope.md` (the single source of truth, kept current by every D-NNN decision that touches the MCP surface).
 
-| Tool | Purpose |
-|------|---------|
-| `search_knowledge_base(query, project?, top_k?)` | Semantic search with optional project filter |
-| `list_projects()` | Return configured project IDs |
-| `index_status()` | Check if the knowledge base is ready |
+This file covers **transport/registration** — how `.mcp.json` gets the MCP server wired into Claude Code in the first place — which is a separate concern from which tools the server exposes once connected.
 
-**Important boundary rule (from rag-plugin `ARCHITECTURE.md`):** the rag-plugin plugin **never** calls these tools itself. Claude Code calls them directly via the MCP server. The plugin's job is to wire the MCP correctly, not to wrap it.
+**Important boundary rule (from rag-plugin `ARCHITECTURE.md`):** the rag-plugin plugin **never** calls `search_knowledge_base` itself (D-001) — Claude Code calls it directly via the MCP server. Ops/audit/discovery tools (`list_projects`, `index_status`, `secret_audit`, etc.) are fair game per D-022/D-032; see `rules/mcp-envelope.md` for which is which. The plugin's job is to wire the MCP correctly, not to wrap content search.
 
 ## Registration: three options
 

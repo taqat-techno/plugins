@@ -1,8 +1,8 @@
 ---
 name: ragtools-ops
-description: Operational console for the ragtools local RAG product. Activates on ragtools-related keywords ("ragtools", "rag tools", "rag service", "rag doctor", "rag-mcp", "Qdrant lock", "knowledge base setup", "MCP server for rag", "local rag", "markdown_kb", "rag.exe", "RAGTools"). Covers Windows service launcher reliability (autostart, Scheduled Task, native-stderr pitfalls).
-version: 0.6.0
-last_reviewed: 2026-06-22
+description: Operational console for the ragtools local RAG product. Activates on ragtools-related keywords ("ragtools", "rag tools", "rag service", "rag doctor", "rag-mcp", "Qdrant lock", "knowledge base setup", "MCP server for rag", "local rag", "markdown_kb", "rag.exe", "RAGTools", "Code Knowledge Index", "project mode", "search_project_context", "find_definition", "secret_audit"). Covers Windows service launcher reliability (autostart, Scheduled Task, native-stderr pitfalls) and Code Knowledge Index awareness (per-project docs/code/general mode, secret-audit workflow).
+version: 0.8.0
+last_reviewed: 2026-07-01
 ---
 
 # ragtools-ops
@@ -13,13 +13,14 @@ You are operating the **rag-plugin** plugin: an operations and support layer for
 
 These come from `../../ARCHITECTURE.md` and `../../docs/decisions.md`. They are binding:
 
-1. **Never call `search_knowledge_base`, `list_projects`, or `index_status` yourself.** Claude Code already calls these MCP tools directly via the running ragtools MCP server. If the user asks to search, point them at the MCP — do not wrap it. (D-001)
+1. **Never call `search_knowledge_base`, `search_project_context`, or `find_definition` yourself.** Claude Code already calls these content/discovery MCP tools directly via the running ragtools MCP server. If the user asks to search (docs or code), point them at the MCP — do not wrap it. (D-001, D-032 §1a) Ops tools like `list_projects`, `index_status`, `project_status`, `secret_audit`, etc. are different — the skill calls those freely per Phase 2.5/2.6 (D-022, D-032).
 2. **Never write `config.toml` from a CWD-relative path.** This caused the v2.4.1 data-loss bug. Always go through the HTTP API at `127.0.0.1:21420` for project edits. (D-002, F-001)
 3. **Never open Qdrant directly.** The service is the sole owner of the file lock.
 4. **Never recommend MPS or GPU device for the encoder.** The `device="cpu"` pinning is mandatory. (`references/risks-and-constraints.md`)
 5. **Never auto-download installer artifacts.** Produce URLs and instructions; the user clicks. (D-003)
+6. **Never call `set_project_mode`.** It would change a project's indexing mode for real — that capability is intentionally not wired into the plugin yet, pending an app-side fix. Explain what it does if asked; do not invoke it. (D-032 §3)
 
-If you find yourself wanting to do any of these five things, **stop**.
+If you find yourself wanting to do any of these six things, **stop**.
 
 ## Phase 1 — Detect mode
 
@@ -97,6 +98,10 @@ Before calling any MCP tool, follow `rules/mcp-envelope.md` §1–§5: branch on
 | "Show me the admin-panel activity" / "Who/what is calling rag recently?" | `recent_activity(limit=50)` | Print events; note `source: "mcp:<sid>"` for MCP-attributed writes. |
 | "What MCP tools does rag have?" / "Are all the rag tools enabled?" | Infer from available `mcp__plugin_rag_ragtools__*` in session; supplement with `get_config` if granted | 2.5.7 tool-grant audit |
 | "Show me the config" / "Where does rag store data?" | `get_config()` + `get_paths()` (both filesystem fallback) | Summarized — not the whole dump unless --verbose. |
+| "Where is X implemented in project P?" / "how does this module work?" / "show me the code that does Y" | `search_project_context` (Claude-direct, not a plugin call — D-032 §1a) | See CLAUDE.md retrieval rule §0b for the routing condition (project mode must be `code`/`general`). Not a skill workflow. |
+| "Find the definition of X" / "where is class/function Y declared" | `find_definition` (Claude-direct, not a plugin call — D-032 §1a) | See CLAUDE.md retrieval rule §0b — treat as a lead, not authority. Not a skill workflow. |
+| "Check project X for embedded secrets" / "audit X" / "is anything sensitive indexed" | `secret_audit(project=X)` | 2.6.1 secret-audit workflow |
+| "Enable code search / dev mode / code indexing for project X" / "what mode is X in" / "what does code mode index" | `project_status` for the read question; **no tool for the write question — not yet wired** | 2.6.2 project-mode workflow |
 
 ### 2.5.2 Project health workflow
 
@@ -257,6 +262,70 @@ When an optional tool is needed but not registered (disabled in admin UI):
 3. Print one info line about the degraded path — do not pretend the richer data is available.
 ```
 
+## Phase 2.6 — Code Knowledge Index awareness (new in v0.8.0)
+
+ragtools v2.7.0+ adds a Code Knowledge Index: a project's `mode` (`docs` / `code` / `general`, default `docs`) controls whether source code and config files are indexed alongside (or instead of) Markdown. Four MCP tools are involved: `search_project_context`, `find_definition`, `secret_audit`, `set_project_mode`. **`docs/decisions.md` D-032 governs how the plugin treats each one — read it before changing anything in this phase.**
+
+**Routing for the two read/discovery tools lives in the CLAUDE.md retrieval rule §0b, not here** — same "Claude calls directly, plugin never wraps" principle as `search_knowledge_base` (D-001, D-032 §1a). This phase covers only the two workflows that *are* plugin-mediated: auditing for secrets, and explaining — never executing — a mode change.
+
+### 2.6.1 — Secret-audit workflow (new in v0.8.0)
+
+Activates on "check project X for secrets", "audit X", "is anything sensitive indexed", or as a recommendation `/doctor --full` itself surfaces (see `commands/doctor.md`).
+
+```
+1. list_projects() → verify the project exists; if not, offer closest matches.
+2. mcp__plugin_rag_ragtools__secret_audit(project=<id>)
+   → envelope; on success, data is a list of {file, line, rule} hits — never the secret value itself.
+3. Render:
+     Secret audit — project <id>
+       <N> potential hit(s):
+         <file>:<line>  rule=<rule>
+         ...
+   If N == 0: "no secret-pattern hits found in indexed content for <id>."
+4. ALWAYS append this caveat, regardless of the result, until a plugin maintainer confirms
+   (state.redaction_fix_status == fixed, see rules/state-detection.md) that the app-side fix has shipped:
+
+     "Note: ragtools' content-level secret redaction does not run on the routine indexing
+      path as of the version checked. A clean result here does not guarantee no secret
+      VALUES are stored — it means no value currently matches a known secret pattern.
+      If anything above looks like a real credential, rotate it and re-run this audit
+      after the next indexing pass."
+
+   Once state.redaction_fix_status == fixed, drop this caveat — a clean result is then a
+   real guarantee, not a partial one.
+5. This is a read-only call — no confirmation gate (rules/mcp-envelope.md §6.3: reads need no gate).
+6. Envelope handling per rules/mcp-envelope.md: SERVICE_DOWN/DEGRADED_MODE → "secret_audit requires
+   proxy mode. start: rag service start". Tool not granted → name it + admin-UI toggle path (2.5.7
+   pattern), no fallback exists (secret_audit has no HTTP-only or CLI equivalent).
+```
+
+**This workflow is what `/projects audit <id>` calls.** It is intentionally a one-time, explicitly-invoked action (a command surface, per D-021) — not something the skill runs automatically on every project status check, and not a hook. The skill *recommends* it (via `/doctor --full`'s D-032 finding); it does not run it unprompted.
+
+### 2.6.2 — Project mode: explain, do not change (new in v0.8.0)
+
+Activates on "what mode is project X in", "enable code search for X", "turn on dev mode", "what does code mode index".
+
+```
+1. "What mode is X in?" → project_status(X) already returns a `mode` field (docs/code/general) —
+   render it as part of the existing 2.5.2 project-health card. No new tool call needed.
+2. "What does <mode> actually index?" → explain from this static rule, no tool call:
+     docs    → Markdown / text content only (the historical default — nothing changes for these projects)
+     code    → source code + config files, no Markdown
+     general → both
+3. "Enable code search / turn on dev mode for X" →
+   a. Explain what set_project_mode(project=X, mode=<...>) would do.
+   b. State plainly that this plugin does not call it yet (D-032 §3) — the production indexing
+      write path has a known gap where content-level secret redaction does not run, and that
+      isn't scoped to Dev Mode; it's safest to run 2.6.1's secret-audit workflow first
+      regardless of what the user ultimately decides.
+   c. If the user wants to proceed anyway, point them at the ragtools admin panel
+      (http://127.0.0.1:21420/config) where the equivalent setting exists today, outside the
+      plugin's gated path — make clear this is the user's own informed choice, not a
+      plugin-endorsed action.
+4. Never call set_project_mode from this skill. If you find yourself about to, stop — see
+   "Critical boundary rules" at the top of this file.
+```
+
 ## Phase 3 — Answer or hand off to a command
 
 After loading the right reference, decide:
@@ -270,7 +339,7 @@ After loading the right reference, decide:
 - **Destructive reset** → `/reset` with no args enters an interactive picker; `/reset --soft | --data | --nuclear` jumps straight to a level.
 - **Plugin-layer config** → `/config` (telemetry, claude-md rule, mcp-dedupe, hook-observability).
 
-**Command surface (v0.7.0):** 7 user-facing commands + 1 maintainer-only (`/sync-docs`). Every command works standalone (no required args) AND accepts parameters. New capabilities ship as **skill workflows** (Phase 2.5), not new commands — preferred route per D-021 and the v0.5.0 direction.
+**Command surface (v0.7.0, unchanged in v0.8.0):** 7 user-facing commands + 1 maintainer-only (`/sync-docs`). Every command works standalone (no required args) AND accepts parameters. New capabilities ship as **skill workflows** (Phase 2.5/2.6), not new commands — preferred route per D-021 and the v0.5.0 direction. The Code Knowledge Index work (D-032) added one subcommand (`/projects audit`) to an existing command, not a new command — consistent with this rule.
 
 **Sibling skill — `markdown-authoring` (v0.7.0):** when the user asks Claude to **create** any Markdown file (README, runbook, SOP, concept page, architecture doc, design notes), the `markdown-authoring` skill at `${CLAUDE_PLUGIN_ROOT}/skills/markdown-authoring/SKILL.md` is the right entry point — it loads the RAG-optimized authoring standard and the 5 page templates. When the user asks to **improve existing** Markdown, route to `/md-rag-enhance` (the always-safe improver command). The two are complementary: the skill shapes new content, the command enhances old content. Neither overlaps with `ragtools-ops`' operator-of-ragtools scope.
 
@@ -313,5 +382,5 @@ If the answer isn't in the references, say so. Check `references/gaps.md` to see
 - `../../ARCHITECTURE.md` — boundary rules (forbidden list)
 - `../../docs/decisions.md` — D-001..D-022 binding decisions
 - `../../rules/state-detection.md` — canonical state-detection recipe
-- `../../rules/mcp-envelope.md` — MCP envelope / error-code / cooldown / confirm-token discipline (v0.5.0+)
-- `../../../ragtools_mcp_doc.md` — MCP v2.5.0 handoff doc (source-of-truth for the 22-tool surface)
+- `../../rules/mcp-envelope.md` — MCP envelope / error-code / cooldown / confirm-token discipline (v0.5.0+); also the single source of truth for the current tool inventory (no external handoff doc — see that file's own note on why)
+- `../../docs/decisions.md` — D-001..D-032 binding decisions

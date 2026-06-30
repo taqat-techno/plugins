@@ -1,7 +1,7 @@
 ---
-description: Manage ragtools projects. Standalone (no args) defaults to list. Subcommands list / status / summary / files / add / remove / enable /...
-argument-hint: "[list | status <id> | summary <id> [<top_n>] | files <id> [<limit>] | add <path> [<name>] | remove <id> | enable <id> | disable <id> | rebuild [<id>]]"
-allowed-tools: Bash(curl:*), Bash(test:*), Bash(printenv:*), Bash(echo:*), Bash(rag service:*), Bash(rag version:*), Bash(where rag:*), Bash(which rag:*), Read, mcp__plugin_rag_ragtools__list_projects, mcp__plugin_rag_ragtools__project_status, mcp__plugin_rag_ragtools__project_summary, mcp__plugin_rag_ragtools__list_project_files, mcp__plugin_rag_ragtools__run_index, mcp__plugin_rag_ragtools__reindex_project
+description: Manage ragtools projects. Standalone (no args) defaults to list. Subcommands list / status / summary / files / add / remove / enable / audit /...
+argument-hint: "[list | status <id> | summary <id> [<top_n>] | files <id> [<limit>] | audit <id> | add <path> [<name>] | remove <id> | enable <id> | disable <id> | rebuild [<id>]]"
+allowed-tools: Bash(curl:*), Bash(test:*), Bash(printenv:*), Bash(echo:*), Bash(rag service:*), Bash(rag version:*), Bash(where rag:*), Bash(which rag:*), Read, mcp__plugin_rag_ragtools__list_projects, mcp__plugin_rag_ragtools__project_status, mcp__plugin_rag_ragtools__project_summary, mcp__plugin_rag_ragtools__list_project_files, mcp__plugin_rag_ragtools__run_index, mcp__plugin_rag_ragtools__reindex_project, mcp__plugin_rag_ragtools__secret_audit
 disable-model-invocation: false
 ---
 
@@ -46,6 +46,7 @@ Whitelist:
 | `status` | `<id>` | read | `project_status` (project ops, default ON) |
 | `summary` | `<id> [<top_n>]` | read | `project_summary` (project ops, default ON) |
 | `files` | `<id> [<limit>]` | read | `list_project_files` (project ops, default ON) |
+| `audit` | `<id>` | read | `secret_audit` (Code Knowledge Index tool, v2.7.0+, see `rules/mcp-envelope.md` §1 and `docs/decisions.md` D-032) |
 | `add` | `<path> [<name>]` | write | HTTP only — MCP excludes `add_project` by design (see `rules/mcp-envelope.md` §8) |
 | `remove` | `<id>` | write | HTTP only — MCP excludes `remove_project` by design |
 | `enable` | `<id>` | write | HTTP only (no equivalent MCP tool) |
@@ -128,23 +129,38 @@ Rich per-project health card. Requires `project_status` (MCP project-ops tool, d
        "path":       "C:\\...\\alpha",
        "path_exists": true,
        "enabled":     true,
+       "mode":        "docs",
        "files":       12,
        "chunks":      340,
        "last_indexed": "2026-04-18T01:14:43.763145",
        "ignore_patterns_count": 0
      }
+   `mode` (docs/code/general, D-032) is absent on older ragtools (pre-2.7.0) — render gracefully
+   without it rather than erroring; do not assume `docs` if the field is simply missing vs. explicit.
 3. Envelope handling:
    - error_code = SERVICE_DOWN | DEGRADED_MODE → "project_status requires proxy mode. start: rag service start"
    - error_code = STARTUP_FAILED → show verbatim, suggest /doctor --full
 4. Render a compact card:
      Project <id> — ENABLED — healthy
        Path:       <path>  (exists: true)
+       Mode:       <mode, or omit the line entirely if absent>
        Files:      <files>   Chunks: <chunks>
        Last index: <last_indexed>
        Ignore:     <ignore_patterns_count> patterns
      
    Highlight red if path_exists=false or enabled=false.
 ```
+
+#### `audit <id>` (new in v0.17.0 — Code Knowledge Index)
+
+One-time, read-only secret audit of a project's indexed content. Runs `skills/ragtools-ops/SKILL.md`'s 2.6.1 workflow — **this command is a thin trigger; the rendering, envelope handling, and the redaction-bypass caveat text all live in the skill, not duplicated here.**
+
+```
+1. list_projects() → verify <id> exists; if not, offer closest matches.
+2. Run skill workflow 2.6.1 against <id> and print its output verbatim — including the caveat.
+```
+
+See `docs/decisions.md` D-032 for why this caveat exists and when it gets retired.
 
 #### `summary <id> [<top_n>]` (new in v0.5.0)
 
@@ -368,7 +384,8 @@ then re-run: /projects add <path>
 ## Boundary reminders
 
 - **Do NOT edit `config.toml`** under any circumstances. Always go through the HTTP API. The v2.4.1 incident is the reason. (D-002, F-001)
-- **Do NOT call any MCP tool.** Project management is a plugin concern; search lives in the running MCP server. (D-001)
+- **Do NOT call `search_knowledge_base`, `search_project_context`, or `find_definition`.** Those are content/discovery tools — search lives in Claude's own direct MCP calls, never the plugin's. (D-001, D-032 §1a) Ops/audit tools used above (`project_status`, `secret_audit`, `reindex_project`, etc.) are fine — D-022/D-032 cover those.
+- **Do NOT call `set_project_mode`.** It is documented in `rules/mcp-envelope.md` but not wired into any command yet — pending an app-side fix. (D-032 §3)
 - **Do NOT delete files on disk** when a project is removed. Removal is a config-only operation that drops the project from the index. The user's source files are untouched.
 - **Do NOT retry failed writes automatically.** A failed write is information; silent retry hides it.
 - **Do NOT poll for indexing completion** here. That's `/doctor`'s job.
@@ -384,3 +401,5 @@ then re-run: /projects add <path>
 - `references/configuration.md` — `config.toml` schema (read-only — never write directly)
 - `references/risks-and-constraints.md` — Syncthing / cloud-sync risk
 - `references/known-failures.md#f-001` — the v2.4.1 config-write bug that drives D-002 and the HTTP-API-only rule
+- `docs/decisions.md` D-032 — Code Knowledge Index tool classification; why `audit` exists and `mode`-setting doesn't yet
+- `skills/ragtools-ops/SKILL.md` §2.6 — the secret-audit and project-mode-explain workflows this command triggers

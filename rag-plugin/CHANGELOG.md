@@ -2,6 +2,37 @@
 
 All notable changes to `rag-plugin` are documented here. Format is loosely based on [Keep a Changelog](https://keepachangelog.com/). Versioning follows [SemVer](https://semver.org/).
 
+## [0.17.0] — 2026-07-01 — Plugin awareness of ragtools' Code Knowledge Index (Dev Mode); `set_project_mode` stays gated pending an app-side fix (D-032)
+
+ragtools v2.7.0 shipped a per-project indexing mode (`docs`/`code`/`general`) plus `search_project_context`, `find_definition`, and `secret_audit` MCP tools. This release teaches the plugin and the injected CLAUDE.md rule to route to them correctly — but does **not** wire `set_project_mode` into anything that can actually change a project's mode: independent verification found the production indexing write path does not apply content-level secret redaction (this affects every existing project, not just future code-indexed ones), so enabling a richer indexing mode stays a user-driven, admin-panel-only action until that gap is confirmed fixed upstream. **No new hooks. No destructive-command changes. The default docs-only path is unaffected for every project that exists today.**
+
+### Added
+
+- **`docs/decisions.md` — D-032** — classifies the four Code Knowledge Index MCP tools against the D-001/D-022 content-vs-ops boundary; gates `set_project_mode` behind a version/capability floor in `rules/state-detection.md` that no shipped ragtools version currently meets.
+- **`rules/claude-md-retrieval-rule.md` (v0.5.0)** — new §0b routing table: code-question routing to `search_project_context` (only when the target project's mode is `code`/`general`) and `find_definition` (framed as discovery, not authority — pair with a real read or LSP, never trust an empty result as proof), with explicit fallback to `search_knowledge_base` for `docs`-mode projects.
+- **`rules/state-detection.md`** — new derived field `state.redaction_fix_status` (`unknown` / `not-yet-fixed` / `fixed`), computed from the already-resolved `state.version` against a `KNOWN_SAFE_FLOOR` constant a maintainer updates once the app-side fix ships. Requires no new MCP tool grant.
+- **`rules/mcp-envelope.md`** — documents `search_project_context`, `find_definition`, `secret_audit`, `set_project_mode` (mode requirements, the missing app-side cooldown on `set_project_mode`, and its NOT-YET-WIRED status); flags the live reappearance of `add_project` (still excluded per §8) as a separate, unresolved item out of this release's scope.
+- **`skills/ragtools-ops/SKILL.md` (v0.8.0)** — new Phase 2.6 "Code Knowledge Index awareness": a `secret_audit` workflow (2.6.1, always appends the redaction-bypass caveat to its output) and a project-mode explain-don't-execute workflow (2.6.2).
+- **`/projects audit <id>`** — new one-time, read-only subcommand that runs the skill's secret-audit workflow against a single project; `/projects status <id>` also now surfaces the project's `mode` field.
+- **`/doctor --full`** — new `[INFO]` finding (tagged D-032; only in `--full`, not the default fast probe, to avoid turning every quick status check into a nag) when `state.redaction_fix_status != fixed`, pointing at `/projects audit <id>`.
+
+### Changed
+
+- **`skills/ragtools-ops/references/mcp-wiring.md`** — removed the stale "ragtools exposes three MCP tools" table, which duplicated and contradicted `rules/mcp-envelope.md`. That file is now the single cited source of truth for the tool inventory.
+- **`commands/projects.md` / `commands/doctor.md` "Boundary reminders"** — corrected a stale "do NOT call any MCP tool" line that pre-dated D-022 (both commands already call several ops tools throughout) to the actual D-001 scope (never `search_knowledge_base`); added "never call `set_project_mode`" pending D-032.
+- **`ARCHITECTURE.md`** — the Layer Ownership diagram's MCP server line no longer hardcodes a 3-tool list (already stale); it points at `rules/mcp-envelope.md` as the living source of truth instead.
+
+### Not changed
+
+- **No new hook.** Awareness and gating live entirely in skills, rules, and existing-command extensions — the plugin's hook surface (`lock_conflict_check.py`, `prompt_retrieval_reminder.py`, `project_focus_inject.py`) is untouched. A slow-moving, judgment-dependent safety gate belongs in skill-level reasoning and an explicit one-time command, not automatic per-prompt interception.
+- **`set_project_mode` is still not callable from any plugin surface.** Documented only. Wiring it into a real, gated `/projects mode <id> <mode>` subcommand is a future release contingent on the app-side fix (see D-032).
+- **No behavior change for any project that stays in the default `docs` mode** — which is every project that exists before this release.
+
+### Validation
+
+- `python validate_plugin.py rag-plugin` — see session notes; run before relying on this entry.
+- Manual grep: no occurrence of the superseded names `set_project_dev_mode` / `/dev-mode` (these never shipped in ragtools — see D-032 context) anywhere in the new content.
+
 ## [0.16.0] — 2026-06-29 — Report engine consumes ragtools' structured diagnostics contract; no longer re-raises stale app-side heuristics (PL1)
 
 The behavior/diagnostics report now consumes ragtools' newer structured health contract **when available** and stops re-raising stale app-side heuristics when that contract reports a healthy or intentional state. **Fully backward-compatible:** every new probe no-ops on older ragtools that lacks the endpoint/flag, falling back to the legacy `/health` + `/api/status` + `/api/watcher/status` signals. **No hook changes; no destructive-command changes; redaction unchanged.**

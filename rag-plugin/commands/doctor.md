@@ -243,9 +243,13 @@ findings:
   [ERROR] Service status "not running" → /doctor --symptom F-005 --fix
   [WARN]  CLAUDE.md rule missing → /config claude-md install (D-016)
   [WARN]  MCP duplicate at ~/.claude.json → /config mcp-dedupe clean (D-015)
+  [INFO]  Code Knowledge Index: secret redaction not yet confirmed fixed on this ragtools
+          version → audit existing projects: /projects audit <id> (D-032)
 ```
 
 Plugin-behavior findings (CLAUDE.md rule / MCP dedupe) are tagged with the D-NNN decision they trace to, not an F-NNN.
+
+**The `[INFO]` Code Knowledge Index row (`--full` only, new in v0.17.0):** computed from `state.redaction_fix_status` (`rules/state-detection.md`, derived from the already-resolved `state.version` — no extra probe). Emit this row whenever `redaction_fix_status != fixed` (i.e. `not-yet-fixed` or `unknown`), regardless of whether any project on the machine is in `code`/`general` mode — the affected indexing write path is general-purpose (D-032 point 4), so this is relevant to every project, including ones that have always been docs-only. **This row appears only in `--full`, not the default fast probe (Mode E)** — it is a one-time-per-deep-check awareness item, not a per-glance nag; the user runs `/doctor --full` deliberately, which is the right cadence for it. Do not promote it to Mode E.
 
 ### D.5 — Footer
 
@@ -502,7 +506,8 @@ Every destructive step in Mode A / playbook walks must match one of these patter
 
 ## Boundary reminders
 
-- **Do NOT call any MCP tool** (D-001).
+- **Do NOT call `search_knowledge_base`, `search_project_context`, or `find_definition`** — content/discovery tools stay Claude-direct, never plugin-called (D-001, D-032 §1a). The ops/debug tools used throughout this command (`index_status`, `system_health`, `crash_history`, `tail_logs`, etc.) are fine — D-022 covers those.
+- **Do NOT call `set_project_mode`.** Documented, not wired. (D-032 §3)
 - **Do NOT edit `config.toml`** except in the F-001 workaround flow with explicit gate.
 - **Do NOT delete the Qdrant data directory.** Only `.lock`.
 - **Do NOT confuse F-010 with F-003.** Always check service mode.
@@ -516,7 +521,8 @@ Every destructive step in Mode A / playbook walks must match one of these patter
 - `/projects` — project CRUD via HTTP API
 - `/reset` — destructive reset with three escalation levels
 - `/config` — plugin-layer config: telemetry, claude-md rule, mcp-dedupe, hook-observability
-- `rules/state-detection.md` — canonical state-detection recipe
+- `rules/state-detection.md` — canonical state-detection recipe; owns `redaction_fix_status` (D-032)
+- `docs/decisions.md` D-032 — why the Code Knowledge Index `[INFO]` finding exists and how it's retired
 - `references/known-failures.md` — F-001..F-012 catalog
 - `references/repair-playbooks.md` — full playbook source
 - `references/logs-and-diagnostics.md` — log substring catalog
