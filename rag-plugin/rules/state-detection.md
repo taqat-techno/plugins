@@ -17,7 +17,29 @@ state.config_path    : str | None
 state.data_path      : str | None
 state.log_path       : str | None
 state.latest_version : semver | None            # only when a command explicitly fetched it
+state.redaction_fix_status ∈ { unknown, not-yet-fixed, fixed }  # derived, see below — D-032
 ```
+
+## `redaction_fix_status` (derived, no extra probe — D-032)
+
+Gates `set_project_mode` (`rules/mcp-envelope.md` §6.5) and drives the `/doctor --full` advisory finding. **This is a pure comparison against `state.version`, already resolved in Step 4 below — it requires no new MCP call, HTTP call, or tool grant.**
+
+```
+KNOWN_SAFE_FLOOR = None   # set by a plugin maintainer once the app-side fix (D-032) is confirmed shipped.
+                          # Do not guess a value. No ragtools release is known-safe as of this writing —
+                          # every comparison below currently evaluates to not-yet-fixed.
+
+if state.version is None:
+    redaction_fix_status = unknown
+elif KNOWN_SAFE_FLOOR is None:
+    redaction_fix_status = not-yet-fixed
+elif state.version >= KNOWN_SAFE_FLOOR:
+    redaction_fix_status = fixed
+else:
+    redaction_fix_status = not-yet-fixed
+```
+
+Treat `unknown` the same as `not-yet-fixed` for gating purposes (fail closed) — they only differ in the message shown to the user (`unknown` → "could not determine," `not-yet-fixed` → "confirmed not yet fixed on this version").
 
 Cases a command can distinguish from the state object alone:
 
@@ -140,6 +162,7 @@ When `install_mode == not-installed`, all five non-first lines are `N/A` or `not
 ## See also
 
 - `ARCHITECTURE.md` — single-owner layering rule
-- `docs/decisions.md` — D-004 (install discovery order), D-005 (service-down behavior), D-008 (compact output)
+- `docs/decisions.md` — D-004 (install discovery order), D-005 (service-down behavior), D-008 (compact output), D-032 (`redaction_fix_status` / `set_project_mode` gate)
+- `rules/mcp-envelope.md` §6.5 — how `redaction_fix_status` gates `set_project_mode`
 - `references/paths-and-layout.md` — platform default paths when the service is down
 - `references/runtime-flow.md` — HTTP API surface used by the UP-state path resolution

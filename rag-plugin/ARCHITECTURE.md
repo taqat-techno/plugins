@@ -55,7 +55,11 @@
 │  MCP server   search_knowledge_base, list_projects,            │
 │               index_status — auto-wired via plugin-level       │
 │               .mcp.json (D-015), cleaned up by                 │
-│               /config mcp-dedupe (D-015 amendment)         │
+│               /config mcp-dedupe (D-015 amendment).        │
+│               Tool count has grown since D-022 (ops tools)     │
+│               and D-032 (Code Knowledge Index tools) — do      │
+│               not hardcode a count here again; the living      │
+│               inventory is rules/mcp-envelope.md.          │
 │  Files        config.toml, service.log, qdrant/, state DB      │
 └────────────────────────────────────────────────────────────────┘
                        │

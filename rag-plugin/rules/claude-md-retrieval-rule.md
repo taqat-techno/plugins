@@ -1,7 +1,7 @@
 ---
 title: CLAUDE.md Retrieval Rule
 topic: rules
-version: 0.4.0
+version: 0.5.0
 target: ~/.claude/CLAUDE.md (user-level) or project-level CLAUDE.md
 purpose: Teach Claude to use the ragtools MCP as project memory/reference and to route each question to the source that owns its truth — RAG for internal history/decisions, code/runtime for implementation behavior, official docs/web for current external facts.
 managed-by: /config claude-md install
@@ -32,7 +32,7 @@ Commands use these markers to:
 ## The block (verbatim — this is what gets injected)
 
 ```
-<!-- rag-plugin:retrieval-rule:begin v=0.4.0 -->
+<!-- rag-plugin:retrieval-rule:begin v=0.5.0 -->
 ### 0. Knowledge Base Retrieval (ragtools MCP)
 
 **If a `ragtools` MCP server is loaded in this session** (check for tools named `mcp__plugin_rag_ragtools__*` or `mcp__*__ragtools__*`), treat it as a **local knowledge base of my own docs, notes, decisions, and a snapshot of my code** — authoritative for *internal history and intent*, but a **point-in-time snapshot** that can lag the live code, the current product, and the current web. It is **one source, not the final word.**
@@ -84,6 +84,18 @@ For these questions the **filesystem, processes, and tool `--help` output are th
 
 If the retrieval-reminder hook fires on one of these prompts, treat it as a false positive and proceed with inspection. (rag-plugin v0.4.0 hook also classifies operational intent server-side and silent-passes — but the override here is the canonical rule.)
 
+### 0b. Project Context Mode — code questions vs. docs questions
+
+If the ragtools MCP exposes `search_project_context` and `find_definition` in this session (ragtools v2.7.0+, Code Knowledge Index), route accordingly — these are separate tools from `search_knowledge_base`, not a replacement for it:
+
+| Question is about... | First move |
+|---|---|
+| Where something is implemented in a project's code, "how does module X work", "show me the code that does Y" | Check the target project's mode (e.g. via `project_status`). If `code` or `general`, call `search_project_context(query=..., project=...)` directly. If `docs` (the default) or unknown, fall back to `search_knowledge_base` — the project isn't code-indexed. |
+| Finding where a symbol/function/class is declared | Call `find_definition(symbol=..., project=...)` as a first-pass lead. Treat the result as **discovery, not authority** — pair it with reading the actual file, or your editor's LSP, before relying on it for anything safety-critical (renames, refactors, "does this exist anywhere"). An empty result is not proof the symbol doesn't exist. |
+| Internal process/decision/convention questions (§0, unchanged) | `search_knowledge_base` — never routes to the code-search tools regardless of project mode. |
+
+**Do not infer "enable code indexing for this project" from an ambiguous request.** Changing a project's mode is a deliberate, explicit, user-confirmed action — see the `ragtools-ops` skill's Code Knowledge Index workflow for what that does and doesn't currently support.
+
 _Managed by rag-plugin. To update, run `/config claude-md install`. To remove, run `/config claude-md remove`._
 <!-- rag-plugin:retrieval-rule:end -->
 ```
@@ -96,7 +108,7 @@ Commands that install this block must follow these steps:
 2. **If the file does not exist**, create it with just this block + a trailing newline.
 3. **If the file exists and already contains `<!-- rag-plugin:retrieval-rule:begin`**:
    - Parse the version from the begin marker
-   - If version matches the bundled `0.4.0`, skip (no-op)
+   - If version matches the bundled `0.5.0`, skip (no-op)
    - If version differs, locate the full begin→end range and replace with the new block
 4. **If the file exists and does not contain the marker**:
    - Append a blank line + the block + a trailing newline
@@ -114,6 +126,8 @@ The failure wasn't in the MCP. The failure was that **nothing told Claude when t
 
 - `../ARCHITECTURE.md` — layer diagram including the new rules/ directory
 - `../docs/decisions.md#d-016` — the binding decision behind this rule
+- `../docs/decisions.md#d-032` — the binding decision behind §0b (Code Knowledge Index routing)
+- `../rules/mcp-envelope.md` §1a — the plugin-side mirror of §0b's Claude-direct-call boundary
 - `../commands/rag-config.md` — the command that installs / upgrades / removes it
 - `../commands/rag-setup.md` — the command that installs it as part of first-time setup
 - `../commands/rag-doctor.md` — surfaces presence/version in the diagnostic table
