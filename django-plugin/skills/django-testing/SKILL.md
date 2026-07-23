@@ -1,8 +1,8 @@
 ---
 name: django-testing
-description: Django testing strategy — pytest-django vs Django's test runner, the TestCase/TransactionTestCase distinction, fixtures vs factory_boy, the test database lifecycle, mocking external calls and time, assertNumQueries for query regressions, and DRF APIClient endpoint tests. Activates when writing or reviewing Django tests, choosing a test base class or fixture strategy, setting up the test runner/DB, diagnosing flaky/slow/leaky tests, or adding query-count or API-contract coverage. Defers production query design to django-orm-models.
+description: Django testing strategy — pytest-django vs Django's test runner, the TestCase/TransactionTestCase distinction, fixtures vs factory_boy, the test database lifecycle, mocking external calls and time, assertNumQueries for query regressions, and DRF APIClient endpoint tests. Activates when writing or reviewing Django tests, choosing a test base class or fixture strategy, setting up the test runner/DB, deciding to run the constraint-sensitive suite against Postgres instead of SQLite (varchar length, partial/deferrable constraints are Postgres-only and invisible on SQLite), reproducing deployed behavior against a reachable staging DB with a rolled-back force_authenticate + transaction.atomic script, diagnosing flaky/slow/leaky tests, or adding query-count or API-contract coverage. Defers production query design to django-orm-models.
 version: 0.1.0
-last_reviewed: 2026-06-22
+last_reviewed: 2026-07-23
 owns:
   - test-runner choice (pytest-django vs manage.py test) and its config
   - TestCase vs TransactionTestCase vs SimpleTestCase selection rule
@@ -65,6 +65,16 @@ The trap: `TestCase`'s outer transaction means **`on_commit` callbacks never fir
 - **Speed:** `--keepdb` (reuse the test DB across runs), `--parallel` (split across processes), and a fast password hasher in test settings (`MD5PasswordHasher`) — hashing is a top hidden cost in auth-heavy suites.
 - Use `setUpTestData` (classmethod) for read-only data shared across a class's tests — created once per class, not per test.
 
+## Backend parity — test on the engine you deploy
+
+A suite that runs on SQLite for speed while production runs Postgres **cannot** catch a whole class of constraint bugs, because SQLite silently ignores them:
+
+- **`max_length` on a `CharField` is not enforced by SQLite** — an over-length string saves fine under test and is rejected (or truncated) only on Postgres.
+- **Partial/conditional unique indexes** (`UniqueConstraint(condition=…)`), **`DEFERRABLE INITIALLY DEFERRED`** FKs, `ExclusionConstraint`, and other Postgres-only integrity exist only on Postgres — on SQLite the constraint is a no-op, so a test "proving" uniqueness or deferral passes for the wrong reason.
+- Lookup/datatype differences (case-sensitivity, `JSONField`/`ArrayField`, `distinct("field")`) diverge too.
+
+Rule: **run the constraint-sensitive suite against Postgres in CI** — the same engine and, ideally, the same major version as prod. A fast SQLite loop locally is fine, but the authoritative run, and every test that asserts a DB constraint, must be on Postgres. Point the test settings' `DATABASES` at Postgres in CI (→ `django-settings-config`). A green SQLite suite is not evidence that a Postgres-only constraint holds.
+
 ## Mocking discipline
 
 - **No real network in tests.** Mock external HTTP at the boundary (`responses`, `requests-mock`, or patch the client). A test that calls a real API is flaky and slow by definition.
@@ -78,6 +88,17 @@ The trap: `TestCase`'s outer transaction means **`on_commit` callbacks never fir
 - **DRF `APIClient`** for endpoint contracts: status code, response shape, permission enforcement (authenticated vs not, owner vs other user → catches IDOR), pagination, validation errors. `force_authenticate` to set the user.
 - Test the **boundaries**: empty results, permission denied, validation failure, not-found — not just the happy path.
 
+## Reproducing deployed behavior against a live DB (fully rolled back)
+
+When a bug reproduces only against real (staging) data and the frontend is walled (SSO/401) but the **database is reachable**, reproduce it in-process with a script that authenticates as the affected role, exercises the real view, and **always rolls back** so it persists nothing:
+
+- Wrap the whole exercise in `transaction.atomic()` and force a rollback at the end — `transaction.set_rollback(True)`, or raise a sentinel exception you catch outside the block. The script drives write code paths but must be read-only *in effect*.
+- Use DRF's **`force_authenticate(request, user=…)`** (via `APIRequestFactory`/`APIClient`) to become the affected user without real credentials or the SSO wall — this runs the *actual* view, permission, and serializer code, not a reimplementation.
+- **Expand the database URL only inside the subprocess/script, from the environment, at connection time** — never bake a staging DSN into committed code or a fixture. Read it from the same secret source the app uses and scope it to the single run; prefer a read replica when one exists.
+- Confirm autocommit is off and the rollback actually happened (assert the row count is unchanged) so an early exception can't leave a partial write. Log what the view returned, not what you assumed.
+
+This yields a faithful repro of the deployed code path with zero persistent effect. (The "verify in the target environment" framing is `release-safety`'s; this is the Django-side recipe.)
+
 ## Red flags
 
 - DB-touching tests on `SimpleTestCase`, or `TransactionTestCase` used everywhere "to be safe" (slow).
@@ -86,6 +107,7 @@ The trap: `TestCase`'s outer transaction means **`on_commit` callbacks never fir
 - Order-dependent tests or shared mutable fixture state.
 - No `assertNumQueries` anywhere on list endpoints known to join relations.
 - Endpoint tests that check 200 but never check the unauthorized/other-user path.
+- Asserting a Postgres-only constraint (varchar length, partial/deferrable unique) on a SQLite test DB → the constraint is a no-op there; the test passes for the wrong reason.
 - The production password hasher used under test (slow suite).
 
 ## Report format

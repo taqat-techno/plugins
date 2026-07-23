@@ -1,8 +1,8 @@
 ---
 name: django-views-drf
-description: Django view and Django REST Framework API patterns — FBV vs CBV vs generic views, DRF serializers (validation, nested writes, read/write field split), ViewSets & routers, permission/authentication classes, pagination, filtering, throttling, and consistent error/response shaping. Activates when writing or reviewing a Django view, a DRF serializer/viewset/api endpoint, an API permission or pagination choice, or diagnosing why an endpoint over-fetches, leaks fields, or mis-validates. Defers query shaping to django-orm-models and auth hardening to django-security-audit.
+description: Django view and Django REST Framework API patterns — FBV vs CBV vs generic views, DRF serializers (validation, nested writes, read/write field split), ViewSets & routers, permission/authentication classes, pagination, filtering, throttling, and consistent error/response shaping. Activates when writing or reviewing a Django view, a DRF serializer/viewset/api endpoint, an API permission or pagination choice, or diagnosing why an endpoint over-fetches, leaks fields, mis-validates, returns a 200 unfiltered list despite declared filterset_fields/search_fields/ordering_fields (no filter_backends, and DEFAULT_FILTER_BACKENDS defaults to empty), or silently drops an inherited permission when a get_permissions override omits super(). Defers query shaping to django-orm-models and auth hardening to django-security-audit.
 version: 0.1.0
-last_reviewed: 2026-06-22
+last_reviewed: 2026-07-23
 owns:
   - view-style choice (FBV / CBV / DRF generic / ViewSet) and when each fits
   - DRF serializer rules (validation layering, read_only/write_only, nested create/update)
@@ -59,6 +59,7 @@ Don't reach for a `ModelViewSet` when the endpoint isn't CRUD — forcing custom
 - **Nested writes are not free.** Nested serializers are read-only by default; to create/update through them you must override `create()`/`update()` and handle the nested objects + transaction explicitly. Decide whether the nested resource should instead be its own endpoint.
 - **`SerializerMethodField`** for computed read-only output; keep it cheap or it becomes a per-row N+1.
 - **`source=`** to decouple the API field name from the model attribute.
+- **DRF's auto `UniqueTogetherValidator` ignores a partial condition.** When a model's uniqueness is a partial `UniqueConstraint(condition=…)` (e.g. "unique name among *active* rows", "unique slug *per parent*"), `ModelSerializer` does not produce a correct validator for it — it derives `UniqueTogetherValidator` from `unique_together`/full unique constraints and **drops the `condition`**, so the auto-validator either never fires or rejects rows the DB would happily accept. Add a scope-aware `validate()` (or an explicit `UniqueTogetherValidator` whose `queryset` you filter to the same condition) on the serializer. The DB-side "a partial constraint is really a partial *index*" caveat → `django-orm-models`.
 
 ## Queryset shaping (defer the *how* to orm-models)
 
@@ -69,12 +70,14 @@ Don't reach for a `ModelViewSet` when the endpoint isn't CRUD — forcing custom
 
 - **Default deny.** Set a restrictive `DEFAULT_PERMISSION_CLASSES` (e.g. `IsAuthenticated`) globally and loosen per-view — not the reverse. An endpoint with no permission class declared and a permissive default is an accidental public endpoint.
 - **Object-level permissions** (`has_object_permission`) for "can this user touch *this* row" — view-level `has_permission` alone does not protect detail/update/delete of a specific object. Generic views call `check_object_permissions` via `get_object()`; if you fetch the object yourself, call it yourself.
+- **A `get_permissions` override must keep the inherited classes.** Building the list from scratch — `return [IsAuthenticated()]` — silently drops any permission a base class or mixin contributed (an owner check, a tenant scope); the endpoint still answers 200, the guard is just gone. Extend, don't replace — start from `super().get_permissions()` (or `[p() for p in self.permission_classes]`) and append. The same trap hits `get_authenticators`/`get_throttles` overrides.
 - **Don't authorize in the serializer.** Serializers shape data; permissions decide access. Mixing them hides bypasses.
 
 ## Pagination, filtering, throttling
 
 - **Every list endpoint is paginated.** An unpaginated list is an availability risk — one big table dumps the whole table per request. Set `DEFAULT_PAGINATION_CLASS` + `PAGE_SIZE`; cap `max_page_size` on client-controlled page sizes.
 - **Filtering** via `django-filter` (`FilterSet`) or `filterset_fields`; **ordering** via `OrderingFilter` with an explicit `ordering_fields` allowlist (never allow ordering by arbitrary columns); **search** via `SearchFilter`.
+- **Declaring filter fields without a backend is a silent no-op.** `filterset_fields`, `search_fields`, and `ordering_fields` do nothing unless the matching backend is active — `DjangoFilterBackend`, `SearchFilter`, and `OrderingFilter` respectively. If neither the ViewSet's own `filter_backends` nor the global `DEFAULT_FILTER_BACKENDS` includes them, the endpoint returns **200 with the full, unfiltered queryset** and no error — a `?search=`/`?ordering=` that looks wired but isn't, and a potential data-exposure bug. `DEFAULT_FILTER_BACKENDS` defaults to `[]`, so a project that never sets it globally must set `filter_backends` on each ViewSet (or a shared base). Prove it with a test that a filtered request returns *fewer* rows than the unfiltered one — a 200 alone means nothing here.
 - **Throttling** on auth, write, and expensive endpoints (`ScopedRateThrottle`). (Policy/limits → `django-security-audit`.)
 
 ## Response & error shaping
@@ -92,6 +95,9 @@ Don't reach for a `ModelViewSet` when the endpoint isn't CRUD — forcing custom
 - A class-level `queryset` that should be user-scoped via `get_queryset()`.
 - A serializer FK/nested field rendered in a list view with no `select_related`/`prefetch_related` → N+1.
 - `OrderingFilter` / filtering exposed without an allowlist of fields.
+- `filterset_fields`/`search_fields`/`ordering_fields` declared but no `filter_backends` and no `DEFAULT_FILTER_BACKENDS` → filtering silently ignored, the full queryset returned 200.
+- A `get_permissions`/`get_throttles` override returning a hand-built list without `super()` → an inherited permission/throttle mixin silently dropped.
+- A partial `UniqueConstraint(condition=…)` relied on for validation with no serializer-side scoped validator → the auto `UniqueTogetherValidator` drops the condition (→ `django-orm-models`).
 - A writable field that should be `read_only` (mass-assignment of `is_staff`, `owner`, `status`).
 
 ## Report format

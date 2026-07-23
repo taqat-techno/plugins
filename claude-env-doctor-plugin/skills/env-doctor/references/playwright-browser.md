@@ -66,6 +66,12 @@ After the owning process is gone, remove the leftover singleton lock artifacts i
 
 Do nothing else. A persistent-profile browser MCP **relaunches the browser on demand** the next time a browser action is requested. Once the lock is cleared, the next call starts a fresh browser cleanly against the same profile. Do not pre-start a browser manually — that risks re-creating the lock race.
 
+### Sidestep the lock entirely: run the Playwright MCP `--isolated`
+
+The Playwright MCP server takes an **`--isolated`** flag that runs each session in an **ephemeral, in-memory browser context** instead of the shared persistent user-data directory. With no persistent profile on disk there is **no singleton lock to leak**, so the "already in use" failure in Symptom 2 cannot recur. The trade-off: logins and cookies do **not** survive across sessions — the workflow re-authenticates each run.
+
+Decision rule: if the workflow needs saved logins/state, keep the persistent profile and clear the stale lock with Steps 1-4 above. If it does not, launching the MCP with `--isolated` avoids the entire lock class. Propose this; do not flip a running MCP's launch flags mid-diagnosis.
+
 ## When qa-browser-plugin should reference this doc
 
 `qa-browser-plugin` (and any plugin that drives a Playwright/browser MCP for QA) should **link to this diagnosis rather than re-implementing it**. The browser-setup health check is environment-level, not QA-specific — it belongs in env-doctor and should have exactly one owner.

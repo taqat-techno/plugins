@@ -1,7 +1,7 @@
 ---
 name: odoo-security
 description: |
-  Comprehensive Odoo security auditor for model access rules, HTTP route authentication, sudo() usage, SQL injection risks, and record rule completeness across Odoo 14-19.
+  Comprehensive Odoo security auditor for model access rules, HTTP route authentication, sudo() usage, SQL injection risks, and record rule completeness across Odoo 14-19. Activates on access-control facts a static scan misses — /web/image (and Binary routes) returning HTTP 200 + a placeholder on DENIED access instead of 403, data import binding by /id & /.id bypassing ir.rule and active_test, and field-level write security that UI readonly does not provide.
 
   <example>
   Context: User wants a full security audit
@@ -33,6 +33,7 @@ description: |
 version: "2.1.0"
 author: "TaqaTechno"
 license: "MIT"
+last_reviewed: 2026-07-23
 allowed-tools: [Read, Write, Edit, Bash, Glob, Grep]
 metadata:
   mode: "codebase"
@@ -41,7 +42,7 @@ metadata:
   filePatterns: ["**/models/*.py", "**/controllers/*.py", "**/security/*.csv", "**/security/*.xml", "**/__manifest__.py", "**/wizard*/*.py"]
   model: sonnet
 ---
-<!-- Last updated: 2026-03-26 -->
+<!-- Last updated: 2026-07-23 -->
 
 # Odoo Security Skill
 
@@ -132,6 +133,42 @@ account.payment, sale.order, purchase.order, stock.picking,
 ir.config_parameter, ir.attachment, ir.rule, ir.model.access,
 mail.message, res.partner.bank
 ```
+
+## Access-control facts beyond the automated scan
+
+The scanners above catch declaration-level issues. These runtime/design
+facts don't surface in a static scan but decide whether a control actually
+holds — verify them by hand.
+
+### `/web/image` (and Binary routes) answer 200 on DENIED access
+
+`/web/image` returns **HTTP 200 with a placeholder image** when the caller
+is *not* allowed to see the record/field — it does **not** return 403. A
+test or audit that maps `200 → authorized` reads a hard deny as a pass.
+When probing a binary/image route for access control, assert on the
+**body** (placeholder vs real bytes, content-length, or a known-image
+signature), never on the status code alone. The same "200 ≠ allowed"
+soft-deny shape appears on other placeholder-returning routes — inspect the
+payload.
+
+### Data import binds by identity and bypasses record rules
+
+A CSV / `load()` import that resolves a relational column by `field/id`
+(external ID) or `field/.id` (database id) **bypasses `ir.rule` and
+`active_test`**: it can link to archived records and to records outside the
+importing user's record-rule domain. A bare display-name column goes through
+`name_search` (rules apply) but **silently binds the first match** on a
+duplicate name. Treat import as a record-rule bypass surface when reviewing
+who can reference what. (Mechanics in
+`skills/reviewer/references/orm_patterns.md`.)
+
+### UI `readonly` is not a field-level security control
+
+A field marked `readonly` in a view (or via `attrs`) is still writable by
+RPC, by import, and by any `write()` — `readonly` is a UX affordance, not an
+access control. Real field-level write security is an ACL grant plus a
+most-derived `write()` whitelist; see the "Field-level access" synthesis in
+`skills/reviewer/references/security_pitfalls.md`.
 
 ## Configuration
 

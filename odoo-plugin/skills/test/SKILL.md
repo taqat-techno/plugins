@@ -1,7 +1,7 @@
 ---
 name: odoo-test
 description: |
-  Comprehensive Odoo testing toolkit for planning, generating, reviewing, running, and diagnosing unit / integration tests across Odoo 14-19 — test skeletons, mock data, coverage, security & record-rule tests, wizard / controller / report tests, regression tests for bugfixes, and turning issue requirements into test cases. Mirrors how Odoo's own standard addons (base, account, stock, sale, mail, web, portal) test Odoo. Supports TransactionCase, HttpCase, SavepointCase (version-aware), the Form helper, assertRecordValues, the Command API, and integrates with Azure DevOps for CI/CD test result reporting.
+  Comprehensive Odoo testing toolkit for planning, generating, reviewing, running, and diagnosing unit / integration tests across Odoo 14-19 — test skeletons, mock data, coverage, security & record-rule tests, wizard / controller / report tests, regression tests for bugfixes, and turning issue requirements into test cases. Mirrors how Odoo's own standard addons (base, account, stock, sale, mail, web, portal) test Odoo. Supports TransactionCase, HttpCase, SavepointCase (version-aware), the Form helper, assertRecordValues, the Command API, and integrates with Azure DevOps for CI/CD test result reporting. Activates on the HttpCase reliability caveat — HttpCase is a false signal for access control on Binary(attachment=True) / /web/image routes (200 + placeholder on deny, not 403) and host-gated auth; test those at the controller/ACL layer instead.
 
 
   <example>
@@ -83,6 +83,7 @@ description: |
 version: "2.1.0"
 author: "TaqaTechno"
 license: "MIT"
+last_reviewed: 2026-07-23
 allowed-tools:
   - Read
   - Write
@@ -110,7 +111,7 @@ metadata:
     - diagnosis
   model: sonnet
 ---
-<!-- Last updated: 2026-06-23 -->
+<!-- Last updated: 2026-07-23 -->
 
 # Odoo Testing Toolkit Skill (v2.0)
 
@@ -1720,6 +1721,26 @@ def test_requires_admin(self):
     res = self.url_open('/admin-only-route')
     self.assertEqual(res.status_code, 200)
 ```
+
+**Caveat — `HttpCase` is unreliable for `Binary(attachment=True)` routes and
+host-gated auth.** Two failure modes make an `HttpCase` status assertion a
+false signal:
+
+- **Binary / image routes answer 200 on deny.** `/web/image` and
+  `/web/content` return **HTTP 200 + a placeholder** when access is denied,
+  not 403 — so `assertEqual(status_code, 200)` passes for *both* an
+  authorized and a denied caller. Assert on the **body** (placeholder vs
+  real bytes / content-length), or better, don't test binary access over
+  HTTP at all.
+- **Host-gated auth doesn't reproduce.** Routes whose auth depends on the
+  request Host / website / a cookie session may resolve differently under
+  the test HTTP client than in production, giving false passes/failures.
+
+For access-control assertions, **test at the controller / ACL layer**
+instead: call the model with `with_user(some_user)` and assert `AccessError`
+(allowed vs denied) at the record level, or invoke the controller method
+directly. Reserve `HttpCase` for happy-path routing/tours, not for proving a
+binary route's authorization.
 
 #### 10. Field Not Found on Model
 

@@ -1,8 +1,8 @@
 ---
 name: django-orm-models
-description: Django model design and ORM query discipline — field/relation modeling, database constraints and indexes, transaction boundaries, and the N+1 / over-fetch query rules (select_related vs prefetch_related, only/defer, bulk operations, QuerySet laziness). Activates when designing or editing a Django model, writing or reviewing ORM queries, diagnosing slow or duplicated queries, choosing select_related vs prefetch_related, or deciding where a transaction boundary belongs. Defers migration mechanics to django-migrations and caching to django-performance.
+description: Django model design and ORM query discipline — field/relation modeling, database constraints and indexes, transaction boundaries, and the N+1 / over-fetch query rules (select_related vs prefetch_related, only/defer, bulk operations, QuerySet laziness). Activates when designing or editing a Django model, writing or reviewing ORM queries, diagnosing slow or duplicated queries, choosing select_related vs prefetch_related, deciding where a transaction boundary belongs, or chasing silent data-drift — a derived field skipped when a save passes update_fields, a filter on an encrypted field matching ciphertext (zero rows), a reparent that 500s without a DEFERRABLE composite FK, or a partial UniqueConstraint(condition=…) that lives as a partial index (absent from pg_constraint) and is dropped by DRF's UniqueTogetherValidator. Defers migration mechanics to django-migrations and caching to django-performance.
 version: 0.1.0
-last_reviewed: 2026-06-22
+last_reviewed: 2026-07-23
 owns:
   - model field & relation modeling rules (FK/M2M/O2O, on_delete, related_name, null vs blank)
   - database-level integrity rules (CheckConstraint, UniqueConstraint, db_index, Meta.indexes)
@@ -59,6 +59,7 @@ Push invariants down to the DB so concurrent writers can't violate them:
 - **`CheckConstraint`** for value invariants (`amount >= 0`, `end_date >= start_date`).
 - **`db_index=True`** on fields you filter/order by frequently; `Meta.indexes` for composite/conditional indexes. Don't index everything — each index is write cost.
 - Validators (`MinValueValidator`, etc.) are convenience, not a substitute for constraints — they run only when `full_clean()` is called, which `save()` does NOT call automatically.
+- **A partial `UniqueConstraint(condition=…)` compiles to a partial *index*, not a table constraint.** Postgres implements it as a partial unique **index** — it appears in `pg_indexes`, **not** in `pg_constraint` / `information_schema.table_constraints`. A migration check or audit that greps `pg_constraint` will not find it and may wrongly report the uniqueness as missing; it still enforces at write time, it just isn't a `CONSTRAINT` object. It also means DRF can't auto-validate it correctly — `ModelSerializer` won't build a `UniqueTogetherValidator` for a partial constraint, and where one is built it **drops the `condition`**. Enforce the scoped rule in the serializer too (a parent-scoped `validate()`), not only in the DB. (→ `django-views-drf` for the serializer-side validator.)
 
 ## Query discipline — the N+1 rule
 
@@ -102,6 +103,14 @@ for post in Post.objects.select_related("author"):
 - **`transaction.on_commit(callback)`** for side effects that must only fire if the transaction commits (enqueue a Celery task, send an email) — never enqueue inside the transaction, or the worker may run before the row is visible.
 - Beware: signals and `save()` inside `atomic` still run; only the DB write rolls back, not external side effects already performed.
 
+## ORM silent data-drift traps
+
+These return "success" — no exception, a 200, a saved row — while the data is quietly wrong. They surface only when someone later reads the drifted value.
+
+- **Never gate a `save()`-derived field on `update_fields is None`.** A guard like `if update_fields is None: self.total = compute()` recomputes the denormalized field *only* on a full save. Every **partial** save skips it — `obj.save(update_fields=["status"])`, and by construction every `QuerySet.update()` / `bulk_update()` (which never call `save()` at all) — so the derived field silently drifts from its inputs. Recompute it unconditionally (or detect exactly which inputs changed and add the derived field to `update_fields`), or push the invariant into the DB (a generated column / `CheckConstraint`) so no write path can bypass it.
+- **Don't query an encrypted (at-rest) field by its plaintext.** If a field is stored encrypted (application-layer field encryption, a Fernet/KMS wrapper), `Model.objects.filter(ssn=plaintext)` compares the plaintext against the **ciphertext** column and matches **zero rows** — an empty result, not an error. Encrypted columns are decrypt-on-read only; you cannot `filter`, `order_by`, or `UniqueConstraint` on them. To look a value up, keep a separate deterministic **blind index** (a keyed HMAC of the normalized value) and filter on that, or decrypt-and-scan in Python for small sets.
+- **A self-referential / composite FK that rows get re-parented across must be `DEFERRABLE INITIALLY DEFERRED`.** When rows reference each other in one table (a tree) — or a composite FK includes a column you also rewrite — a **reparent** or bulk re-key updates parent and child in one transaction and transiently violates the FK mid-statement. A default **immediate** constraint checks every affected row and the operation 500s with a foreign-key violation; a **deferred** constraint checks only at `COMMIT`, so the intermediate state is allowed. Django doesn't expose FK deferrability as a field kwarg — emit it in a migration with `RunSQL("ALTER TABLE … ALTER CONSTRAINT … DEFERRABLE INITIALLY DEFERRED")` (for a `UniqueConstraint`/`ExclusionConstraint`, pass `deferrable=Deferrable.DEFERRED`). **Postgres-only** — SQLite/MySQL don't enforce deferral, so this bug is invisible on a SQLite dev/test DB (→ `django-testing` on backend parity).
+
 ## Red flags to call out in review
 
 - A `for` loop with `.author` / `.related_set.all()` inside and no `select_related`/`prefetch_related` upstream → N+1.
@@ -111,6 +120,10 @@ for post in Post.objects.select_related("author"):
 - Enqueuing a task or sending mail inside `atomic()` without `on_commit`.
 - `on_delete=CASCADE` on a reference to audit/financial data.
 - A uniqueness/invariant enforced only in Python (or only in a serializer) with no DB constraint.
+- A `save()` that computes a derived/denormalized field only when `update_fields is None` → skipped on every partial save, `update()`, and `bulk_update()`.
+- A `filter()`/`get()`/`order_by()`/`unique` on an at-rest-encrypted field using a plaintext value → compares against ciphertext, silently matches nothing.
+- A self-referential or composite FK that rows are re-parented across, with no deferrable constraint → the reparent 500s mid-transaction on Postgres.
+- A partial `UniqueConstraint(condition=…)` relied on for DRF validation → the auto `UniqueTogetherValidator` drops the condition; add a serializer-side scoped validator.
 
 ## Report format
 

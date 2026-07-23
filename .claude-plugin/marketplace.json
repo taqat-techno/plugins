@@ -171,6 +171,17 @@
       "source": "./fastapi-plugin",
       "category": "development",
       "homepage": "https://github.com/taqat-techno/plugins/tree/main/fastapi-plugin"
+    },
+    {
+      "name": "git-safety",
+      "description": "Generic local git-workflow safety guardrails — the safety layer that git integrations, commit helpers, and PR-review plugins leave out. Stage explicit paths (never git add -A); re-check the working tree before commit/push; never silent-switch or discard with a dirty tree; git rm --cached deletes a shared file team-wide; per-repo author + remote push identity; plus shared-checkout safety for when more than one agent/session/syncer shares ONE working tree (commit immediately; never reset --hard/clean/stash there; stash@{0} shifts when a peer pops; isolate with git worktree). Advisory only — warns, never blocks.",
+      "author": {
+        "name": "TaqaTechno",
+        "email": "info@taqatechno.com"
+      },
+      "source": "./git-safety-plugin",
+      "category": "productivity",
+      "homepage": "https://github.com/taqat-techno/plugins/tree/main/git-safety-plugin"
     }
   ]
 }

@@ -1,8 +1,8 @@
 ---
 name: django-settings-config
-description: Django settings architecture and 12-factor configuration — splitting base/dev/prod settings, driving config from the environment, keeping secrets out of source, and the per-environment correctness of DEBUG, ALLOWED_HOSTS, DATABASES, CACHES, static/media, and logging. Activates when creating or editing a settings module, adding a new configuration value, wiring an environment variable or .env, setting up a new environment, or reviewing settings for environment-correctness. Defers the security verdict on settings to django-security-audit.
+description: Django settings architecture and 12-factor configuration — splitting base/dev/prod settings, driving config from the environment, keeping secrets out of source, and the per-environment correctness of DEBUG, ALLOWED_HOSTS, DATABASES, CACHES, static/media, and logging. Activates when creating or editing a settings module, adding a new configuration value, wiring an environment variable or .env, setting up a new environment, pointing the CI/test DATABASES at the same engine as prod (a SQLite test DB hides Postgres-only constraints), or reviewing settings for environment-correctness. Defers the security verdict on settings to django-security-audit.
 version: 0.1.0
-last_reviewed: 2026-06-22
+last_reviewed: 2026-07-23
 owns:
   - settings layout rule (base + per-env overrides; one settings module per environment)
   - environment-driven config rule (read config from env; typed/validated; sane defaults only for dev)
@@ -82,6 +82,8 @@ project/settings/
 | `STATIC`/`MEDIA` | `runserver` serves them | `collectstatic` + a real server/CDN; never serve media via Django in prod |
 | `LOGGING` | verbose to console | structured, leveled, no secrets in logs, errors to a sink |
 | Security headers | relaxed | `SECURE_SSL_REDIRECT`, HSTS, secure cookies (→ `django-security-audit` owns the checklist) |
+
+**Test/CI database engine.** If prod is Postgres, the CI/test settings' `DATABASES` must be Postgres too — a SQLite test DB silently ignores Postgres-only constraints (varchar `max_length`, partial and `DEFERRABLE` unique) and lets the suite pass for the wrong reason (→ `django-testing` on backend parity).
 
 ## Static / media note
 

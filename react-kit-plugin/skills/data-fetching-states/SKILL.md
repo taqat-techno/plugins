@@ -1,14 +1,14 @@
 ---
 name: data-fetching-states
-description: Data-layer contract that maps a fetch result to exactly one UI state, sitting beneath admin-states which owns display. Owns the rule that a data hook MUST surface the error and never swallow it into a nullish or empty value, the UI state enum (loading, empty, no-results, access-required, error, partial-error), and the HTTP-status-to-state mapping where 401 or 403 means access-required, 404 means not-found, 400 or 409 means business-rule-error, and 5xx or network means retryable error. Activates when writing or reviewing any data-fetching hook, query, or loader, and when debugging a blank screen or empty shell that appears for only some users. Generic and portable — the data-fetching library and the auth status convention are project-supplied adapter inputs.
-version: 0.4.0
-last_reviewed: 2026-05-31
+description: Data-layer contract that maps a fetch result to exactly one UI state, sitting beneath admin-states which owns display. Owns the rule that a data hook MUST surface the error and never swallow it into a nullish or empty value, the UI state enum (loading, empty, no-results, access-required, error, partial-error), and the HTTP-status-to-state mapping where 401 or 403 means access-required, 404 means not-found, 400 or 409 means business-rule-error, and 5xx or network means retryable error. Also owns error-before-empty (a failed request also yields `[]`) and the corollary that a list's paginator / result-count is part of the 0/0 shell — suppress it while the state is error. Activates when writing or reviewing any data-fetching hook, query, or loader, and when debugging a blank screen, an empty shell that appears for only some users, or a "Showing 0–0 of 0 · 1 / 1" paginator under an error. Generic and portable — the data-fetching library and the auth status convention are project-supplied adapter inputs.
+version: 0.4.1
+last_reviewed: 2026-07-23
 owns:
   - surface-the-error rule (a data hook never collapses an error into null/[]/{})
   - the UI state enum — loading | empty | no-results | access-required | error | partial-error
   - HTTP-status-to-state mapping (401/403, 404, 400/409, 5xx/network)
   - the empty-data vs inaccessible-data distinction
-  - the "no 0/0 shell on a 403" rule
+  - the "no 0/0 shell on a 403" rule (extends to the list paginator / count chrome — suppressed on a non-successful resolve; paginator owned by admin-crud)
   - retry / stale policy per outcome class (retry 5xx/network, never retry 4xx)
   - the DATA STATE MAP emitted per resource
 defers_to:
@@ -103,6 +103,8 @@ Every fetch outcome maps to one — and only one — of these. `empty` and `acce
 
 Rule: the consumer reaches the `data.length === 0` branch ONLY after the request resolved successfully. A rejected request must short-circuit to `access-required` / `error` BEFORE any length check. Rendering a `0/0` count shell on a 403 is the canonical bug this skill exists to prevent.
 
+A list's **paginator and result-count are part of that count shell**: a failed request that resolves to `[]` must not render "Showing 0–0 of 0 · Page 1 / 1" beneath the error. Suppress the pagination/count chrome whenever the resolved state is `error` / `access-required` — the error block replaces the table body, nothing sits under it. (The paginator affordance itself is owned by `admin-crud`; this skill only decides that the state is not a successful `empty`.)
+
 ### Retry / stale policy per class
 
 | Outcome class | Retry? | Stale data |
@@ -142,6 +144,7 @@ Concrete admin situations mapped to the one correct state. These reinforce the s
 - **Never** return only `data` and discard the error — the hook's return shape MUST carry status + error alongside data.
 - **Never** collapse an error into a nullish or empty value (`return []`, `return null`, `return {}`) inside a `catch`/`onError`.
 - **Never** render an empty or zero-count shell when the real cause is 401, 403, or 404.
+- **Never** leave a paginator / result-count rendered under an `error` state — a failed request that resolved to `[]` would show "Showing 0–0 of 0 · Page 1 / 1" beneath the error.
 - **Never** treat 401/403 as `empty` or `no-results` — it is `access-required`.
 - **Never** auto-retry a 4xx (401/403/404/400/409).
 - **Never** reach the `data.length === 0` branch before confirming the request resolved successfully.
@@ -157,6 +160,7 @@ Before committing a data-fetching change:
 - [ ] 401/403 resolves to `access-required`, not `empty`.
 - [ ] 404 resolves to not-found; 400/409 to business-rule; 5xx/network to retryable.
 - [ ] The `data.length === 0` branch is reachable only after a successful resolve.
+- [ ] The list paginator / result-count is suppressed while the state is `error` (no "Showing 0–0 of 0 · Page 1 / 1" under an error).
 - [ ] `empty` and `no-results` are distinguished using an active-filter signal.
 - [ ] Retryable classes retry with bounds + backoff; 4xx never auto-retries.
 - [ ] Stale data is cleared on `access-required` (no cross-user leakage).

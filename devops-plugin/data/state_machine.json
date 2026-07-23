@@ -5,7 +5,8 @@
     "processName": "Scrum (default - auto-detected at /init time)",
     "source": "Merged from state_permissions.json + required_fields.json + business_rules.md",
     "version": "6.0.0",
-    "lastUpdated": "2026-03-26"
+    "lastUpdated": "2026-07-23",
+    "processModelNote": "This file encodes a CUSTOMIZED Scrum process. In STOCK Azure DevOps Scrum, scheduling hours (Original/Completed/Remaining Work) and the working 'In Progress' state live on TASKS, while Product Backlog Items carry Effort (points) and flow New -> Approved -> Committed -> Done with NO hours and NO 'In Progress' state. This process intentionally puts 'In Progress' (and 'Ready For QC') on PBIs and Bugs -- that is deliberate, not an error; do NOT 'flip it back' to stock Scrum. Treat the transitions in this file as authoritative for THIS org, and re-detect the process at /init for any org whose customization differs."
   },
 
   "workItemTypes": {
@@ -663,15 +664,17 @@
       },
       "TF401320": {
         "category": "FIELD_ERROR",
-        "pattern": "The field '(.+)' cannot be set",
-        "regex": "TF401320.*field '([^']+)' cannot be set",
-        "userMessage": "Field '{field}' is read-only and cannot be updated",
+        "pattern": "Rule Error for field|The field '(.+)' cannot be set",
+        "regex": "TF401320.*?(?:field '([^']+)'|Rule Error for field ([^.]+))",
+        "userMessage": "A field RULE blocked the update to '{field}' -- most commonly the Original-Estimate-precedence rule: Original Estimate must be filled BEFORE Completed Work / Remaining Work, or before moving to In Progress",
         "recovery": {
-          "type": "remove_field",
+          "type": "set_prerequisite_field",
+          "$comment": "TF401320 is a field-RULE error, NOT a plain read-only error. In this Scrum process its dominant cause is Original-Estimate precedence. Recovery = SET the prerequisite estimate, never silently DROP the field -- dropping Original Estimate to clear the error discards the very value the rule protects. Only drop a field that is genuinely read-only/system-computed.",
           "steps": [
-            "Remove the read-only field from the update payload",
-            "Inform the user which field was skipped and why",
-            "Retry the operation without the field"
+            "Read the blocked field and the target state from the error message and the update payload",
+            "If it is the Original-Estimate-precedence rule (setting Completed/Remaining Work, or moving to In Progress, while Microsoft.VSTS.Scheduling.OriginalEstimate is empty): set OriginalEstimate FIRST -- ask the user for the estimate, or default it to the Completed Work value -- then retry the original update",
+            "Only when the field is genuinely read-only or system-computed (e.g. a rolled-up value) drop it from the payload and tell the user which field was skipped and why",
+            "Never silently drop Original Estimate to clear this error"
           ]
         }
       }

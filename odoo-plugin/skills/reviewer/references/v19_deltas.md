@@ -36,8 +36,10 @@ The corresponding v17 URLs are the ones cited in `SKILL.md`.
 | `Char.trim` | Web client only | Web client + server-side import |
 | Raw SQL helper | `self.env.cr.execute(query, params)` | Same + new `SQL(...)` wrapper and `self.env.execute_query(SQL(...))` |
 | `user_has_groups(...)` | Available | Replaced in docs examples by `env.user.has_group(...)` |
-| `BaseModel` module path | `odoo.models.BaseModel` | `odoo.orm.models.BaseModel` |
-| Class attr order | `_sql_constraints` in "private attrs" bucket | New bucket "SQL constraints and indexes" between fields and computes |
+| ORM module layout | `odoo/fields.py`, `odoo/models.py`, `odoo/api.py`, `odoo/osv/` hold the real code | Real code moved into the **`odoo/orm/`** package; `odoo.fields` / `odoo.models` / `odoo.api` / `odoo.osv` are now thin **shims** that re-export it (`BaseModel` is `odoo.orm.models.BaseModel`) |
+| SQL constraints / unique indexes | `_sql_constraints = [(name, sql, message), …]` (list of tuples) | `models.Constraint(sql, message)` / `models.UniqueIndex(definition[, message])` **objects** declared as class attributes (legacy `_sql_constraints` list still loads) |
+| Class attr order | `_sql_constraints` sits in the "private attrs" bucket | New "SQL constraints and indexes" bucket (holds the `Constraint` / `UniqueIndex` declarations) between field declarations and computes |
+| Import/export test suite | `odoo.addons.test_impex` | Renamed `odoo.addons.test_import_export` |
 | Example `create()` signature | `def create(self, values):` | `@api.model_create_multi` + `def create(self, vals_list):` |
 | New field attrs (Html / Float) | — | `sanitize_conditional_comments`, `sanitize_output_method`, `min_display_digits` |
 | Database population (`_populate*`) | Documented on perf page | Removed from the perf page (likely relocated; verify before relying on it) |
@@ -116,7 +118,8 @@ v19 reshuffles the class attribute order:
    — **without** `_sql_constraints`
 2. Default methods + `default_get`
 3. Field declarations
-4. **SQL constraints and indexes** (new bucket — was in #1)
+4. **SQL constraints and indexes** — the `models.Constraint` / `models.UniqueIndex`
+   declarations (new bucket; the legacy `_sql_constraints` list lived in #1)
 5. Compute / inverse / search methods (in field-declaration order)
 6. Selection methods
 7. `@api.constrains` + `@api.onchange`
@@ -124,10 +127,12 @@ v19 reshuffles the class attribute order:
 9. `action_*` methods
 10. Other business methods
 
-When reviewing a model that targets v19, expect `_sql_constraints` to sit
-*between* fields and computes, not at the top with the other underscores.
-On v17 keep it in the original "private attrs" group. Don't grade either
-choice as a violation against the other version's convention.
+When reviewing a model that targets v19, expect the SQL-constraint
+declarations (the `models.Constraint` / `models.UniqueIndex` class
+attributes — see §6) to sit *between* fields and computes, not at the top
+with the other underscores. On v17, `_sql_constraints` lives in the
+"private attrs" group. Don't grade either choice as a violation against the
+other version's convention.
 
 ### §6 ORM patterns — several renames and one storage change
 
@@ -203,6 +208,60 @@ company id; fallbacks come from `ir.default`.
 fields from v17 → v19 requires a data migration step. Don't assume the
 existing `ir.property` rows survive automatically. Add a verification
 step to any 17→19 upgrade plan.
+
+#### `_sql_constraints` → `models.Constraint` / `models.UniqueIndex`
+
+v17 declares database constraints as a list of tuples:
+
+```python
+# v17
+_sql_constraints = [
+    ('email_uniq', 'unique(email)', 'Email already used!'),
+]
+```
+
+v19 declares each constraint as a **class attribute** holding a
+`models.Constraint` (or `models.UniqueIndex`) object — the same place the
+"SQL constraints and indexes" attribute-order bucket points at:
+
+```python
+# v19
+_email_uniq = models.UniqueIndex('(email)', 'Email already used!')
+_amount_positive = models.Constraint(
+    'CHECK(amount_total >= 0)',
+    'Order total must be positive.',
+)
+```
+
+`models.Constraint(definition, message=None)` wraps any table-level SQL
+constraint (`CHECK(...)`, `EXCLUDE ...`); `models.UniqueIndex(...)` /
+`models.Index(...)` declare indexes. The attribute name (leading `_`) is
+the constraint's stable identifier — analogous to the old tuple's first
+element — so renaming it renames the DB constraint on the next `-u`.
+
+The **legacy `_sql_constraints` list still loads** in v19, so a shared
+v17/v19 module can keep it. But a v19-native module should prefer the
+objects, and mixing both styles for the same model is a review smell.
+Grade a v19-target module still using the tuple form as MINOR drift;
+grade `models.Constraint` used in a v17-target module as a BLOCKER (the
+symbol does not exist there).
+
+#### ORM package restructure (`odoo/orm/`)
+
+v19 moved the ORM implementation into an **`odoo/orm/`** package. The
+historical import surfaces — `odoo.fields`, `odoo.models`, `odoo.api`, and
+`odoo.osv` — are now thin **compatibility shims** that re-export from
+`odoo/orm/*`. Practical review consequences:
+
+- `from odoo import api, fields, models` and `from odoo import _` are
+  unchanged and remain the canonical imports. Don't rewrite them to reach
+  into `odoo.orm.*`.
+- Deep imports that reached into internal module paths (e.g.
+  `odoo.models.BaseModel`) now resolve through the shim; the real class is
+  `odoo.orm.models.BaseModel`. Code that monkey-patches or imports these
+  internals is fragile across the shim boundary — flag it.
+- `models.Constraint` / `models.UniqueIndex` / `models.Index` are exposed
+  from the same `models` surface (they live in the new package).
 
 ### §7 Security — `user_has_groups()` deprecation in examples
 
@@ -286,6 +345,10 @@ v17→v19 migration.
   `HttpCase`) are documented the same way.
 - `ref()` / `browse_ref()` / `assertQueryCount()` / `self.profile()` are
   unchanged.
+- The core import/export test suite `odoo.addons.test_impex` is renamed
+  `odoo.addons.test_import_export` in v19. Any custom test that imported
+  helpers or fixtures from `test_impex` breaks on v19 — grep for the old
+  module name during the 17→19 migration.
 
 ### §12 Translation — primary API change
 
@@ -350,6 +413,9 @@ For a fleet where one cluster may move to v19 while others stay on v17:
 - [ ] No code uses `self.env._` in a v17-target module.
 - [ ] No code uses `from odoo.fields import Domain` in a v17-target
       module (it doesn't exist there).
+- [ ] No model uses `models.Constraint` / `models.UniqueIndex` in a
+      shared v17/v19 module — keep the `_sql_constraints` list there (the
+      constraint objects don't exist on v17).
 - [ ] Tour tests are revalidated against the v19 web framework harness.
 
 ## Source-of-truth fallback

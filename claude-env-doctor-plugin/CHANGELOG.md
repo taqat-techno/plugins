@@ -2,6 +2,29 @@
 
 All notable changes to this plugin are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] — 2026-07-23 — Syncthing, Windows-shell, and rendering branches
+
+Supersedes the unreleased 0.3.0 skill review bump; plugin and skill versions are realigned at 0.4.0.
+
+### Added
+
+- **3 new reference docs**, wired into the env-doctor symptom router:
+  - `syncthing` (EN-1) — Syncthing dev-folder sync operations: resolve conflicts by diff→dated-backup or receive-only+revert (there is no per-conflict "prefer remote" toggle); the venv/`node_modules` directory-delete deadlock is broken with a `(?d)`-prefixed ignore, not a hand-delete; `.stignore` does **not** sync (apply on every peer); a folder's error list is cached until a pull (pause/resume, not a rescan); an encryption-type mismatch on one shared folder drops the whole device link; "95% synced, 0 bytes pending" is a pending deletion, not a stall. Diagnosis is read-only via the REST API (`/rest/db/status`, `/rest/db/file`).
+  - `windows-powershell` (EN-2) — Windows shell & native-exe argument traps: PowerShell 5.1 strips embedded double-quotes to a native exe and stdin-pipes prepend a UTF-8 BOM; `Copy-Item -Recurse -Exclude` does not filter directories; `kubectl exec -- <interp> -c` mangles payloads and `port-forward` races startup (poll TCP-listen, don't fixed-sleep); piping a running server / long test into `head`/`tail` SIGPIPE-kills or buffers it and the pipe's exit 0 masks the real status; `node C:\path` and `git <rev>:<path>` break under Git-Bash path conversion; `manage.py test --parallel` pickles on Windows (run serially).
+  - `ide-mermaid-rendering` (EN-5) — an IDE/editor may simply lack a Mermaid **renderer**: JetBrains renders Mermaid only via a Marketplace plugin (not a Markdown-settings checkbox), VS Code preview needs an extension, GitHub/GitLab render natively; jsdom cannot lay out SVG (`getBBox`) — rasterize with headless Chrome, not jsdom. Cross-references docs-wiki `wiki-mermaid` for authoring.
+
+### Changed
+
+- **`windows-wsl`** — added (EN-3) Windows git "dubious ownership" = the repo dir is owned by `BUILTIN\Administrators`; prefer the scoped, non-mutating `git -c safe.directory=<dir> …` over the global `--add safe.directory` write. Added (EN-4) session-0 (`LocalSystem`) service pitfalls — `\\wsl.localhost` 9P shares appear empty and the WSL2 VM idle-stops ~30s unless pinned; WSL2 sshd socket-activation ignores `Port` and a Windows-side listener blocks the Linux bind (`EADDRINUSE`); the `/mnt/c` root is read-only and the Windows Desktop may be OneDrive-redirected.
+- **`playwright-browser`** — named the Playwright-MCP `--isolated` flag as the way to sidestep the persistent-profile singleton-lock class entirely (EN-6).
+- **env-doctor skill** — router table, gotchas table (added: `.claude/settings.json` is strict JSON not JSONC so a trailing comma breaks it; an auto-invoked capability is a directory `SKILL.md` + hooks, not a slash command — EN-6), when-to-use list, `owns`/`defers_to`, and cross-references extended to the three new branches; `version` bumped to 0.4.0 and `last_reviewed` to 2026-07-23.
+- **README** — reference-doc list updated to the actual eleven filenames.
+
+### Validation
+
+- `python validate_plugin.py claude-env-doctor-plugin` -> 0 errors.
+- Genericness sweep: no company, client, product, repo, host, URL, credential, or machine-specific identifier; all concrete folder IDs, ports, and paths are generic placeholders or clearly labeled illustrative. No secrets, tokens, or environment values printed anywhere; the REST API key is read for the probe but never echoed. The diagnose-don't-mutate discipline is preserved in every new section (mutating steps are gated behind a confirmed diagnosis and left for the user to apply).
+
 ## [0.2.0] — 2026-06-13 — Expanded diagnostic coverage
 
 ### Added

@@ -31,7 +31,7 @@ Example (illustrative — not required): a Customer form with tabs `Profile` (na
 
 ## Field state and modes
 
-- Initialize state from the entity in edit mode, or from defaults in create mode. Sync entity → form state when the loaded entity changes, then leave it under user control.
+- Initialize state from the entity in edit mode, or from defaults in create mode. Sync entity → form state when the loaded entity changes, then leave it under user control. Note that `useState(entity.field)` reads the prop only on first render — when a different entity loads into the same mounted form the state keeps the stale value, so re-sync in an effect keyed on the entity, or force a keyed remount (`key={entity.id}`) to re-initialize every field.
 - Track the initial snapshot so dirty state and reset both have a reference point.
 - Title and primary action label follow the mode: create shows "Create Record" / "Save"; edit shows "Edit Record" / "Save Changes".
 
@@ -57,8 +57,12 @@ Use two complementary layers. Neither replaces the other.
 ## Dirty state and warn-on-leave
 
 - Track `isDirty` by comparing current values to the initial snapshot.
+- Derive `isDirty` from each field's OWN change source — the editor's update callback (Tiptap `onUpdate` / ProseMirror dispatch), the form library's `watch`, a picker's `onValueChange` — not by DOM-sniffing a wrapper's `onInput`/`onChange`. Rich-text toolbar commands, paste/drop/image-insert, and portaled (Radix) picker changes do not bubble to a wrapper and would be lost, so the guard never arms and the edit is gone silently.
+- Do not mark dirty on an on-mount `onValuesChange` / `onChange` emission (some libraries fire one carrying the initial values) — gate on a real diff against the snapshot, or the guard fires on a form the user never touched.
 - Surface dirty state in the UI: enable the primary action only when `isDirty` (and valid); optionally show an unsaved-changes marker.
 - Register a before-unload / navigation guard that warns the user only when `isDirty`. Skip the warning entirely when the form is clean or after a successful save.
+- `beforeunload` does not fire on an in-app client-side Back (SPA history pop). To guard Back too, push a sentinel history entry when the form goes dirty and confirm on `popstate`; re-push the sentinel if the user cancels the leave.
+- Render editor sub-dialogs (link editor, image picker, mention menu) with `createPortal(dialog, document.body)` — a `sticky` (or `transform`/`z-index`) toolbar establishes a stacking context that clips a dialog nested inside it.
 - Do not persist dirty state across navigation; reset it on successful save.
 
 ## Action flow: save, cancel, reset, archive, delete

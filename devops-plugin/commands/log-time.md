@@ -57,3 +57,11 @@ Output:
 Updated #1401: CompletedWork = 8h, RemainingWork = 0h
 Today's total: 6h / 6h target ✓
 ```
+
+## Estimating time from session transcripts
+
+When the user asks to reconstruct hours from Claude session logs (e.g. "how long did I spend today?") instead of giving an explicit `<hours>h`, do **not** estimate by summing only the gaps between consecutive human messages and cutting every idle gap. That naive idle-cut **undercounts**: a long gap is often the agent working, not the user idle.
+
+- **Count agent/workflow runtime.** A background agent, a `/loop`, or a long tool run can occupy a **20–90 minute** gap in which real work happened even though no human message was sent. Treat a gap that brackets active tool/agent activity as worked time, not idle time — only trim gaps with no activity on either side.
+- **De-overlap parallel sessions.** Two concurrent sessions (or an agent running while you work elsewhere) cover the **same wall-clock minutes**. Summing each session's span double-counts. Merge overlapping intervals across sessions and count the union once.
+- **Present the estimate as an estimate.** Show the derived total and the assumption (which gaps were counted as worked) and confirm per `rules/write-gate.md` before writing it to any work item — a reconstructed number is an input to review, not a fact to log silently.

@@ -1,8 +1,8 @@
 ---
 name: wiki-source-of-truth
-description: Owns the source-of-truth doctrine for a project's knowledge — the declared order in which artifacts win, the target-vs-current-state separation (including wiki-ahead-of-code / zero-commit-repo detection), the cross-system planning-vs-code/wiki host split, the single-location rule for config constants, stale-checkbox distrust, the single-source-of-truth-PAGE rule (a rule body lives on exactly one spec page; journey/hub/summary pages only reference it), backlog-as-source-of-truth leakage detection, and the reorganization-preserves-meaning stance. Activates when onboarding a project from its docs and wiki, when auditing whether documentation still matches reality, when two artifacts disagree and someone must decide which one is authoritative, or when a restructure/traceability pass risks duplicating or reinterpreting a rule body. Resolves conflicts with evidence rather than guessing, routes per-claim verification to wiki-code-vs-docs-discrepancy, and defers traceability mechanics to wiki-traceability.
+description: Owns the source-of-truth doctrine for a project's knowledge — the declared order in which artifacts win, the target-vs-current-state separation (including wiki-ahead-of-code / zero-commit-repo detection), the cross-system planning-vs-code/wiki host split, the single-location rule for config constants, stale-checkbox distrust, the dated-changelog-over-a-popular-issue rule for verifying a platform/tool capability (a widely-cited GitHub issue can encode a stale state), the single-source-of-truth-PAGE rule (a rule body lives on exactly one spec page; journey/hub/summary pages only reference it), backlog-as-source-of-truth leakage detection, and the reorganization-preserves-meaning stance. Activates when onboarding a project from its docs and wiki, when auditing whether documentation still matches reality, when two artifacts disagree and someone must decide which one is authoritative, when a capability claim rests on a popular but possibly stale issue rather than the dated changelog, or when a restructure/traceability pass risks duplicating or reinterpreting a rule body. Resolves conflicts with evidence rather than guessing, routes per-claim verification to wiki-code-vs-docs-discrepancy, and defers traceability mechanics to wiki-traceability.
 version: 0.4.0
-last_reviewed: 2026-06-22
+last_reviewed: 2026-07-23
 owns:
   - the declared knowledge-layer ORDER (which artifact wins for "what the system does now")
   - the TARGET/aspirational vs CURRENT-STATE doc separation rule (folder + label)
@@ -15,6 +15,7 @@ owns:
   - the navigation-only-traceability principle (traceability links point at the canonical owner, never restate it)
   - the reorganization-preserves-meaning stance (a restructure is move + relink + additive orientation only; no rule re-derivation, no canonical-owner reassignment)
   - stale-checkbox distrust (doc checkboxes and percent-complete are never ground truth for scope)
+  - the dated-changelog-over-a-popular-issue rule (verify a platform/tool CAPABILITY against the dated changelog / release notes for the version in play — never an issue title, its open/closed state, or how many sources echo it)
   - the conflict-resolution decision (doc-fix vs queued-code-change) framing
   - the SOURCE-OF-TRUTH DECLARATION output block and the discrepancy-line format
   - the provenance-preservation rule (a named decision's anchoring record is preserved, not neutralized) feeding tenant/client neutralization
@@ -188,6 +189,22 @@ When a doc is being generalized or shared and contains a real tenant / client / 
 
 The rule: **a named decision's anchoring record is provenance, not active prose.** Neutralizing it would make the decision unverifiable and could turn a true historical statement into a false generic one. Never run a blind global find/replace across a page that mixes current-state prose with provenance. Hand the per-hit classification to `references/neutralization-discipline.md` (owned alongside `wiki-authoring`); this skill only supplies the current-state-vs-provenance judgement it depends on. If a name hit's neutralization would change a config constant or a named decision's meaning, it is no longer cosmetic — route it through the conflict-resolution path above, not a scrub.
 
+### Platform-capability claims: dated changelog over a popular issue
+
+Onboarding and audits routinely need to know whether a platform, tool, or renderer *can do X now* — does the wiki engine render this diagram syntax, does the CI runner support this key, did the API add this field. The tempting evidence is the top search hit: a heavily-upvoted, widely-linked GitHub **issue**. That is a source-of-truth trap. **A popular issue records the state at the time it was written, not the current one.** The capability it says is missing or broken may have shipped since; the issue stays open (or keeps its title) long after the fact, and its citation count measures *attention*, not *currency*.
+
+The authority for a current capability is the **dated record** — the product's **changelog / release notes / version history** (`reports_source`), read against **the version you are actually on** — not an issue title, an issue's open/closed status, or the number of blogs/answers repeating the claim.
+
+| Evidence you have | Weight for "can it do X NOW" | What to do |
+|---|---|---|
+| A popular / highly-cited issue says X is unsupported | Low — a point-in-time snapshot; may be stale | Find the dated changelog entry; check whether X shipped in a later release |
+| N sources (blogs, answers) all repeat the same limitation | Low — source *count* is not recency; they often cite each other | Trace to the primary dated record; verify against your version |
+| An **open** issue | Not proof X is still missing — issues linger after a fix | Confirm against the changelog and the current version |
+| A **closed** issue | Not proof of *when* / *whether* X shipped, or in which version | Read the release/changelog entry it links to; pin the version |
+| A dated changelog / release-notes entry for your version | High — the authoritative dated record | Trust it; cite the version + date |
+
+The rule: **verify a platform/tool capability against the dated changelog / release notes for the version in play — never from an issue's title, its open/closed state, or how many sources echo it.** This is the same distrust the skill applies to a stale checkbox: a popular issue, like a checked box, is *someone's claim at a moment*, not present ground truth. The rendered-reality cross-check is a sibling instinct — `wiki-mermaid` trusts the *rendered page* over a vendor doc's claim that a fence works; here you trust the *dated changelog* over a stale issue. Feed the confirmed dated fact back into `reports_source` so the next audit does not re-derive it.
+
 ## Safety gates
 
 - **Never** silently pick a side on a conflict — always present the evidence and the recommended fix, and let the owner confirm.
@@ -201,6 +218,7 @@ The rule: **a named decision's anchoring record is provenance, not active prose.
 - **Never** let a traceability / matrix page mirror an externally-owned backlog — it stays navigation-only with the "not a source of truth" banner; halt a restructure that would add backlog content the wiki declares lives outside it.
 - **Never** reword a rule body, reinterpret a rule, or reassign which page is canonical while moving or relinking a page — a restructure is move + relink + additive orientation only.
 - **Never** accept a checkbox or percent-complete as proof that scope is done without cross-checking `history_source` + `reports_source`.
+- **Never** accept a popular / widely-cited GitHub issue (or the number of sources echoing it) as proof of a platform/tool's CURRENT capability — verify against the dated changelog / release notes for the version in play.
 - **Never** invent intent for undocumented behavior — document what the code does, not what it "probably" means.
 - **Never** print secret values, tokens, or env contents while locating a config constant — reference the location, not the secret.
 - **Never** neutralize a tenant/client name inside a decision record / ADR-context / incident log — that record is provenance for a named decision; preserve it byte-identical.
@@ -217,6 +235,7 @@ The rule: **a named decision's anchoring record is provenance, not active prose.
 - [ ] No backlog-linking page mirrors backlog bodies/AC/scope/status; any traceability/matrix page is navigation-only and carries the "not a source of truth" banner.
 - [ ] Any restructure/traceability pass was move + relink + additive orientation only; no rule body was reworded and no page's canonical-owner role was reassigned.
 - [ ] No scope conclusion rests on a checkbox alone; each was cross-checked against `history_source` + `reports_source`.
+- [ ] Any platform/tool capability claim was verified against the dated changelog / release notes for the version in play — not an issue title, its open/closed state, or source count.
 - [ ] Each conflict carries evidence and a recommended fix — none was resolved silently.
 - [ ] No code was edited to match a doc unless the change was explicitly queued.
 - [ ] No secret value was printed during investigation.
@@ -267,6 +286,7 @@ Discrepancy line (single-line form, when a compact list is preferred):
 | A traceability/matrix page restating backlog item bodies / AC / status | Mirrors a backlog the wiki declares lives outside it — a stale second source with no owner | Keep it navigation-only; link out; carry the "not a source of truth" banner |
 | Rewording a rule body while moving or relinking a page | A restructure silently reinterprets meaning or reassigns the canonical owner | Move + relink + additive orientation only; fetch→string-replace→re-fetch; stop-and-report on any meaning change |
 | Reading a checked box as "this is done" | Checkboxes are edited by hand and lie | Cross-check `history_source` + `reports_source` before claiming scope |
+| Trusting a highly-upvoted GitHub issue that says a capability is missing | The issue is a point-in-time snapshot; the feature may have shipped since, and popularity ≠ recency | Verify against the dated changelog / release notes for the version you are on |
 | Editing code so it matches an out-of-date doc | Changes behavior to satisfy stale text; reverses the authority order | Fix the doc; only touch code when that change is explicitly queued |
 | Silently picking code-or-doc and moving on | Owner never sees the conflict or the decision | Present evidence + recommended fix; await confirmation |
 | Treating undocumented behavior as a bug to "fix" toward an imagined spec | Invents intent the project never stated | Document what the code does; flag the gap, don't guess intent |

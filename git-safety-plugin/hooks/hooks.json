@@ -1,0 +1,25 @@
+{
+  "description": "git-safety advisory hooks. ONE non-fatal PreToolUse hook that inspects a shell command (Bash or PowerShell) and, if it contains a risky git operation shape (git add -A/./-u, reset --hard, clean -fd, stash, checkout -- / restore, push --force, rm --cached), prints ONE short reminder pointing at the relevant guardrail skill. It never blocks, never denies, never rewrites the command. Exit 0 always.",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/risky_git_advisory.py"
+          }
+        ]
+      },
+      {
+        "matcher": "PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/risky_git_advisory.py"
+          }
+        ]
+      }
+    ]
+  }
+}

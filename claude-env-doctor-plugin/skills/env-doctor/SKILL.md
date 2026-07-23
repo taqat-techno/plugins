@@ -1,17 +1,17 @@
 ---
 name: env-doctor
 description: Routes a broken-local-environment symptom to the right diagnostic branch, runs read-only probes, classifies the failure, and proposes one safe next action without mutating config. Owns the diagnose-don't-mutate discipline for Claude Code and dev-environment problems. Activates when an MCP server will not load, a tool errors with a spawn / ENOENT / encoding failure, Claude Code login loops on a 401, an LSP or language server is missing, a Playwright or browser tool cannot find a browser, a plugin hook never fires or an agent spawns without its MCP tools, or any "my local environment is broken" symptom surfaces.
-version: 0.3.0
-last_reviewed: 2026-06-22
+version: 0.4.0
+last_reviewed: 2026-07-23
 owns:
   - the diagnose-don't-mutate discipline (probe before recommend, recommend before apply)
   - the symptom -> diagnostic-branch router
   - the seven-class failure taxonomy (spawn / auth / missing-binary / wrong-version / network-DNS / encoding / config-shadowing)
-  - the Claude Code plugin & MCP gotchas (tool-name namespacing, plugin-cache staleness, valid hook events, wiki write-gate false positives)
+  - the Claude Code plugin & MCP gotchas (tool-name namespacing, plugin-cache staleness, valid hook events, settings.json strict-JSON, auto-invoke = SKILL+hooks not a command, wiki write-gate false positives)
   - the ENVIRONMENT REPORT output contract
   - secret redaction by key-name and JWT/opaque shape
 defers_to:
-  - the eight reference files for per-branch platform specifics (references/*.md)
+  - the eleven reference files for per-branch platform specifics (references/*.md)
   - env-probe-reporter agent (runs the probes and drafts the report)
   - env-doctor command (entry point and flag surface)
   - each consuming plugin for its own product internals (rag-plugin, odoo-plugin, qa-browser-plugin, ui-ux-mechanics-plugin)
@@ -36,6 +36,9 @@ Activate when any of these symptoms appear:
 - A Playwright or browser-MCP tool reports it cannot find or launch a browser.
 - An IDE remote-dev session hangs at "Connecting" or drops mid-session even though the network path checks out.
 - `/doctor` runs the wrong skill, an interactive health TUI hangs in a non-interactive shell, or a managed cloud connector will not authorize.
+- A file-sync daemon (Syncthing) shows conflict files, a folder stuck just under 100%, a delete that never completes, or a device that drops after an encryption change.
+- A Windows shell mangles a command that is itself correct — a native exe gets stripped quotes or a BOM-prefixed pipe, an "excluded" directory is copied anyway, or Git-Bash breaks a `node`/`git` path argument.
+- A Mermaid diagram renders as raw text in an IDE/editor, or an SVG-rendering script fails on `getBBox`.
 - Any vague "my local environment is broken" report where the failing branch is not yet known.
 
 Do NOT activate for application logic bugs, test assertions, or product-internal issues — those belong to the owning project, not the environment layer.
@@ -76,6 +79,9 @@ If an adapter value is unknown, the first probe is to discover it read-only (e.g
 | Playwright / browser-MCP | "browser not found", missing browser binary, headless launch fails | `references/playwright-browser.md` |
 | IDE remote-dev backend | remote-dev "Connecting" hang or mid-session "No connection" while the wire probes pass | `references/ide-remote-dev.md` |
 | `/doctor` ambiguity / health TUI hangs | `/doctor` lands on the wrong skill, the interactive doctor TUI hangs non-interactively, managed-connector auth | `references/doctor-command-ambiguity.md` |
+| Syncthing sync operations | `.sync-conflict-*` files, a folder parked <100% with 0 B pending, a delete that never completes, errors that persist after a rescan, a device that drops after an encryption change | `references/syncthing.md` |
+| Windows shell / native-exe arg mangling | a native exe gets stripped quotes or a BOM-prefixed pipe, `Copy-Item -Exclude` copies an excluded dir, Git-Bash breaks a `node`/`git` path arg, `kubectl exec`/`port-forward` flakiness, `--parallel` tests pickle on Windows | `references/windows-powershell.md` |
+| Mermaid / SVG not rendering | a Mermaid block shows as raw text in an IDE/editor preview, or an SVG-rasterizing script fails on `getBBox` | `references/ide-mermaid-rendering.md` |
 
 When two branches seem to match, pick the one matching the *first* failure in the chain (a spawn failure that surfaces as MCP-not-loading is a spawn failure — start at the binary, then revisit MCP wiring). A remote-dev "connection" symptom whose network probes all pass belongs to the IDE-backend branch (a backend heap OOM), not the networking branch.
 
@@ -109,6 +115,8 @@ Diagnostic facts for "MCP not loading / hook never fires / agent missing its too
 | Editing + pushing plugin source changes nothing in the running session; a stale version (e.g. 0.3.0/0.4.0) keeps running | Plugins and their hooks load from the CACHED copy under `~/.claude/plugins/` at SESSION START, not from the dev checkout | Inspect the installed/cached copy the session points at, not the dev tree; check its version | config-shadowing |
 | A hook bound to `PostToolUseFailure` never fires | `PostToolUseFailure` is NOT a valid Claude Code hook event. (`PostToolUse` fires on success, not failures.) Valid events: `PreToolUse`, `PostToolUse`, `SessionStart`, `UserPromptSubmit`, `Stop`, `SubagentStop`, `PreCompact`, `Notification`, `SessionEnd` | Read the hook's event name and compare against the valid-events list | config-shadowing |
 | A git write-gate hard-blocks a legitimate GitHub **wiki** push as "no access" | The gate parses `<owner>/<repo>.wiki.git` → `repo="<repo>.wiki"`, and `gh repo view <owner>/<repo>.wiki` returns 404 (a wiki is not a separate API repo); the naive gate misreads that 404 as "no access" | Strip the trailing `.wiki` and check the BASE repo's permission instead | auth failure (false positive) |
+| A hand-edit to `.claude/settings.json` (a new permission, hook, or env var) is silently ignored and Claude Code falls back to defaults | `.claude/settings.json` is **strict JSON, not JSONC** — a single trailing comma before a `}`/`]` (or a `//` comment) makes the whole file fail to parse, so none of the settings load | Validate as strict JSON (e.g. `python -m json.tool < settings.json`); look for a trailing comma or a comment | config-shadowing |
+| An "auto-run whenever X happens" behavior wired as a slash command never fires on its own | A slash **command** is user-invoked only. An **auto-invoked** capability is a directory `SKILL.md` (model-invoked by description match) **plus hooks** (deterministic, event-driven) — not a command | Check whether the behavior is a command (user-typed) vs a SKILL.md/hook (auto); confirm the hook event is a valid one | config-shadowing |
 
 Fixes (propose, don't apply):
 
@@ -185,6 +193,9 @@ Example (illustrative — not required): on `os_family=windows`, `shell=powershe
 - `references/playwright-browser.md` — browser-binary discovery and headless-launch probes.
 - `references/ide-remote-dev.md` — remote-dev backend heap-OOM diagnosis (the "connection" symptom that is really a JVM OOM).
 - `references/doctor-command-ambiguity.md` — `/doctor` routing ambiguity, non-interactive CLI health checks vs. the hanging TUI, managed-connector auth, and permissions-allowlist hygiene.
+- `references/syncthing.md` — Syncthing dev-folder sync operations: conflict resolution, the venv/`node_modules` delete-deadlock (`(?d)` ignore), `.stignore` locality, cached error lists, the encryption-mismatch device drop, and REST-API (`/rest/db/status`, `/rest/db/file`) diagnosis.
+- `references/windows-powershell.md` — Windows shell & native-exe argument traps: PowerShell 5.1 quote-strip / pipe BOM, `Copy-Item -Exclude`, `kubectl exec`/`port-forward`, `head`/`tail` SIGPIPE + exit-0 mask, Git-Bash path mangling, and `--parallel` test pickling.
+- `references/ide-mermaid-rendering.md` — a missing Mermaid renderer in an IDE/editor (JetBrains Marketplace plugin / VS Code extension / native web rendering) and jsdom's missing SVG layout (`getBBox`) → headless Chrome. Cross-references docs-wiki `wiki-mermaid` for authoring.
 - `env-probe-reporter` (agent) — runs the read-only probes and drafts the ENVIRONMENT REPORT.
 - `env-doctor` (command) — user entry point; surfaces flags and invokes this skill.
 - Consuming plugins (`rag-plugin`, `odoo-plugin`, `qa-browser-plugin`, `ui-ux-mechanics-plugin`) should REFERENCE this skill for generic environment issues instead of duplicating its probes or taxonomy.

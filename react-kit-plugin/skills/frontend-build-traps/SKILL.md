@@ -1,13 +1,14 @@
 ---
 name: frontend-build-traps
-description: A catalog of recurring React / Next.js build-and-tooling traps that cost hours because the symptom points at the wrong layer — Turbopack HMR stale-module 500s, vitest/rolldown-vite jsx-preserve breaking tsx test imports, lockfile package-manager-major mismatches that only fail in CI, TipTap addAttributes casing + renderHTML serialization scope, ORM client-vs-schema drift mistaken for a real type error, the lint-the-new-file-before-push discipline, and a stale prebuilt/no-reload server serving old code (ChunkLoadError under `next start` after rebuilding underneath it; new route 404s while old routes 200) that masquerades as a code bug — restart before QC. Each entry gives the deterministic recovery, not a guess. Activates when an HMR reload throws "module factory is not available", a tsx test fails to import after a vitest/vite upgrade, CI rejects a lockfile or hoists deps differently than local, a TipTap attribute won't persist, an ORM type error appears right after a schema change, whole-repo lint passes but a new file is broken, or a ChunkLoadError / new-route-404 points at a server still serving a stale build.
-version: 0.2.0
-last_reviewed: 2026-06-22
+description: A catalog of recurring React / Next.js build-and-tooling traps that cost hours because the symptom points at the wrong layer — Turbopack HMR stale-module 500s (and, when a clean cache-wipe + single-server restart still serves stale JSX or an `undefined` cross-module export, escalating to a prod-build QC or `next dev --webpack`, plus the different-port defeat for a stuck browser cache across restarts), vitest/rolldown-vite jsx-preserve breaking tsx test imports, lockfile package-manager-major mismatches that only fail in CI, TipTap addAttributes casing + renderHTML serialization scope, ORM client-vs-schema drift mistaken for a real type error, the lint-the-new-file-before-push discipline, and a stale prebuilt/no-reload server serving old code (ChunkLoadError under `next start` after rebuilding underneath it; new route 404s while old routes 200) that masquerades as a code bug — restart before QC. Each entry gives the deterministic recovery, not a guess. Activates when an HMR reload throws "module factory is not available", a clean `.next` wipe + restart still serves stale JSX or an undefined cross-module export, a tsx test fails to import after a vitest/vite upgrade, CI rejects a lockfile or hoists deps differently than local, a TipTap attribute won't persist, an ORM type error appears right after a schema change, whole-repo lint passes but a new file is broken, or a ChunkLoadError / new-route-404 points at a server still serving a stale build.
+version: 0.3.0
+last_reviewed: 2026-07-23
 owns:
   - the build/tooling trap catalog (HMR stale-module, vitest jsx-preserve, lockfile PM-major, TipTap attribute casing, ORM client/schema drift, lint-new-file-before-push, stale prebuilt/no-reload server serving old code)
   - the "symptom layer != cause layer" discipline for build/dev-server/test/CI failures
   - the restart-before-QC rule for a prebuilt/no-reload server (ChunkLoadError under `next start`; new route 404s while old routes 200 == stale server owning the port, not a routing bug)
   - the deterministic full-reset recipe for Turbopack HMR stale-module 500s
+  - the escalation when the reset fails (prod-build QC / `next dev --webpack`) and the different-port browser-cache defeat
   - the drift-vs-real-error decision (compare generated-client mtime against schema before calling it drift)
 defers_to:
   - react-lint-triage (analyzer/linter finding classification and the false-positive catalog)
@@ -30,7 +31,7 @@ It is a sibling to `react-lint-triage` (which judges analyzer findings) — this
 
 Activate when any of these surface:
 
-- A browser reload throws `module factory is not available, deleted in an HMR update` (or a 500 that survives a plain reload) after you removed a previously-imported symbol.
+- A browser reload throws `module factory is not available, deleted in an HMR update` (or a 500 that survives a plain reload) after you removed a previously-imported symbol; or a clean cache-wipe + restart still serves stale JSX, or a cross-module named export resolves to `undefined` at runtime with no 500.
 - A `.tsx` test file fails to import/transform right after a vitest or vite (including rolldown-vite) upgrade.
 - CI rejects a lockfile that installs fine locally, or local and CI resolve different optional/peer deps.
 - A TipTap (ProseMirror) custom attribute won't persist, or serializes but doesn't show while editing.
@@ -68,6 +69,13 @@ If an adapter value is unknown, discover it read-only (read the lockfile, the fr
 4. Clear the browser / automation cache (hard reload, or a fresh automation context) so the stale chunk is re-fetched.
 
 Skipping any one of the four commonly leaves the 500 in place and makes it look like the code change "didn't work."
+
+**Escalation — the four-step reset did NOT fix it.** If a clean cache wipe + single-server restart STILL serves stale JSX, or a cross-module named export resolves to `undefined` at runtime (an import that is definitely exported reads as `undefined`, with no 500), the Turbopack dev bundler's module graph is itself the suspect — take it out of the loop instead of editing more source:
+
+1. **QC against the PROD build.** Run a from-scratch production build and serve it (e.g. `next build` then `next start`). The prod compile does not use the Turbopack dev graph; if the stale JSX / undefined export is GONE there, it was a dev-bundler staleness artifact, not your code — stop chasing the source.
+2. **Or drop Turbopack for the dev run** — start the dev server on the webpack bundler (`next dev --webpack`). If the symptom vanishes on webpack, it is Turbopack-specific dev staleness, confirmed.
+
+**Different-port remedy for a stuck browser cache.** When restarting the dev server does NOT shake a stale chunk out of the browser tab across restarts — the tab keyed its HTTP/module cache (and any service worker) to `localhost:<port>`, so a same-port restart can replay the cached chunks — restart the dev server on a **different port**. A new origin/port forces the browser to fetch fresh chunks instead of the cached ones from the prior run. This is a QC-side browser-cache defeat, distinct from the server-side graph reset above.
 
 ### 2. vitest 4.x (rolldown-vite) honors tsconfig `jsx: preserve` and breaks `.tsx` test imports
 
@@ -137,7 +145,7 @@ Distinct from trap 1 (a dev server's in-memory HMR graph): here a **production-s
 ```
 build/dev/test/CI failure
    │
-   ├─ reload 500 "module factory is not available"? ── full 4-step HMR reset (trap 1)
+   ├─ reload 500 "module factory is not available"? ── full 4-step HMR reset; still stale / export undefined? ── QC the prod build or `next dev --webpack`; different port for a stuck browser cache (trap 1)
    ├─ .tsx test import broke after vitest/vite upgrade? ── oxc jsx-automatic, NOT esbuild (trap 2)
    ├─ CI rejects lockfile / different deps than local? ── regen lockfile with CI_PM_MAJOR (trap 3)
    ├─ TipTap attr won't persist / won't show? ── camelCase key + renderHTML is serialization-only (trap 4)
@@ -151,6 +159,8 @@ The unifying rule: **the layer that shows the error is often not the layer that 
 ## Safety gates
 
 - **Never** treat a Turbopack stale-module 500 as a source bug before doing the full 4-step reset — you will rewrite working code chasing a phantom.
+- **Never** keep editing source when a clean 4-step reset STILL serves stale JSX or an `undefined` cross-module export — escalate to a prod-build QC (`next build`/`next start`) or `next dev --webpack` to prove it is dev-bundler staleness, not your code.
+- **Never** assume a same-port dev-server restart clears a stale chunk from the browser — if it survives restarts, restart on a different port to defeat the tab's cache.
 - **Never** restart more than one dev server during a reset; two on two ports hides whether the fix worked.
 - **Never** fix the vitest jsx-preserve break with the esbuild jsx option — rolldown-vite ignores it; use oxc.
 - **Never** mix test-runner and coverage-package majors.
@@ -164,6 +174,7 @@ The unifying rule: **the layer that shows the error is often not the layer that 
 ## Validation checklist
 
 - [ ] For an HMR 500: all four reset steps done (kill server, clear BUILD_CACHE_DIR, one fresh DEV_SERVER_CMD, clear browser/automation cache).
+- [ ] For an HMR 500 / stale JSX / `undefined` cross-module export that survives the reset: escalated to a prod-build QC (`next build`/`next start`) or `next dev --webpack`, and restarted on a different port if the browser cache stayed stale across restarts.
 - [ ] For a tsx-test break: oxc jsx-automatic set; esbuild jsx NOT used; runner and coverage on the same major.
 - [ ] For a lockfile failure: lockfile regenerated with CI_PM_MAJOR; frozen install reproduces CI's tree.
 - [ ] For a TipTap attribute: key is camelCase; renderHTML used only for serialization, not to fix editor display.
@@ -191,6 +202,8 @@ BUILD TRAP
 |---|---|---|
 | Re-edit source to clear `module factory is not available` | Fault is the stale HMR graph + cached chunk, not the file | Full 4-step reset: kill server, clear cache dir, one fresh server, clear browser cache |
 | Plain browser reload to fix the HMR 500 | The dead factory survives a reload | Kill the dev server and clear the build cache dir |
+| Keep rewriting source when a clean 4-step reset still serves stale JSX / an `undefined` export | The Turbopack dev graph is stale, not the file — you edit working code chasing a phantom | QC the prod build (`next build`/`next start`) or run `next dev --webpack` to prove it is dev-bundler staleness |
+| Restart the dev server on the same port and expect a stale chunk to clear | The browser keyed its cache/service worker to `localhost:<port>`; a same-port restart replays it | Restart on a different port to force fresh chunk fetches |
 | Add the esbuild jsx option to fix tsx tests on rolldown-vite | rolldown-vite uses oxc and ignores esbuild here | Set oxc jsx-automatic |
 | Upgrade only the test runner, leave coverage a major behind | Incompatible internal API; confusing failures | Bump runner and coverage together to the same major |
 | Hand-fix or commit a lockfile from the local PM major | Different majors hoist + format incompatibly; CI rejects it | Regenerate with CI_PM_MAJOR; verify frozen install |
