@@ -1,11 +1,12 @@
 ---
 name: admin-crud
-description: List / table / tree / detail / filter / pagination patterns for admin CRUD pages. Owns the "URL is the source of truth for filters/page/sort" rule, server-side pagination as default, the filter chip pattern, the detail-page tab convention, the loading-skeleton-matches-final-layout rule, and how a parent-child tree behaves (expand/collapse, lazy-load, depth/breadcrumb, nested-route detail, cascade-aware bulk actions). Activates when building any admin list page, table, tree, filter bar, search input, or detail view. Generic and portable — entity names, columns, and APIs are project-supplied.
-version: 0.4.0
-last_reviewed: 2026-05-31
+description: List / table / tree / detail / filter / pagination patterns for admin CRUD pages. Owns the "URL is the source of truth for filters/page/sort" rule, server-side pagination as default (including hiding the paginator / result-count while the list is in an error state, so a failed request that resolves to `[]` never renders "Showing 0–0 of 0 · Page 1 / 1" under the error), the filter chip pattern, the detail-page tab convention, the loading-skeleton-matches-final-layout rule, and how a parent-child tree behaves (expand/collapse, lazy-load, depth/breadcrumb, nested-route detail, cascade-aware bulk actions). Activates when building any admin list page, table, tree, filter bar, search input, paginator, or detail view. Generic and portable — entity names, columns, and APIs are project-supplied.
+version: 0.4.1
+last_reviewed: 2026-07-23
 owns:
   - URL-as-source-of-truth for filters, page, sort
   - server-side pagination contract (default)
+  - paginator / result-count hidden while the list is in an error state
   - filter chip pattern (visible active filters + clear individual / clear all)
   - sortable column convention
   - detail-page tab convention (overview / edit / related / audit)
@@ -115,6 +116,7 @@ Response:
 - `pageSize` is configurable per list. Default 25. Cap 100. Never "show all" on a list that can grow unbounded.
 - `totalCount` enables "Page 2 of 50" and "1,247 results" affordances. If the API cannot return total count cheaply, switch to cursor-based pagination instead of guessing.
 - Cursor-based pagination is correct for: high-cardinality lists, infinite scroll, append-on-scroll. Use `{ data, nextCursor, hasMore }` instead.
+- **Hide the paginator and result-count while the list is in an error state.** A failed request commonly resolves to `[]` (error-before-empty — the state verdict is owned by `data-fetching-states`), and a paginator bound to `totalCount = 0` will then render "Showing 0–0 of 0 · Page 1 / 1" UNDERNEATH the error block — contradictory chrome that reads as a real, successfully-empty page. Gate the whole pagination/count footer on a successful resolve: render it only when the request is not in `error` / `isError`. The error state (rendered by `admin-states`) replaces the table body; the paginator must not sit beneath it.
 
 ### Filter bar shape
 
@@ -277,6 +279,7 @@ Before committing a list/detail change:
 
 - [ ] Filters, page, sort all live in URL params.
 - [ ] Server-side pagination is in use; `totalCount` rendered.
+- [ ] Paginator and result-count are hidden while the list is in an error state (no "Showing 0–0 of 0 · Page 1 / 1" under an error).
 - [ ] Active filters render as chips with individual dismiss + clear-all.
 - [ ] Empty state and no-results state are distinct.
 - [ ] Loading skeleton matches the final table shape.
@@ -324,6 +327,7 @@ DETAIL PAGE
 | Filters in `useState`, not URL | Refresh / share / back-button broken | Read + write URL params |
 | Client-side `.filter()` on the full list | Breaks at scale; ships full dataset to client | Server-side filter |
 | "Showing 1-25" without total count | User cannot estimate scope; cannot jump pages | Show `totalCount` |
+| Paginator/result-count still rendered while the list errored | A failed request resolves to `[]`; the footer shows "Showing 0–0 of 0 · Page 1 / 1" under the error, implying a real empty page | Gate the pagination/count footer on a successful resolve; hide it while `isError` |
 | Loading spinner over a blank table | Layout shifts when data arrives | Skeleton matching final shape |
 | Detail tabs duplicate Overview content | Tab content drifts; user does not know which is "right" | Overview read-only, Edit owns the form |
 | `+ Add` button when filters return zero | Encourages duplicates | "No results match — Clear filters" |
@@ -363,5 +367,6 @@ The skill does not depend on:
 - `admin-forms` — the form on the Edit tab.
 - `admin-dangerous-actions` — destructive row + bulk actions.
 - `admin-states` — loading skeleton, error, empty state catalogue.
+- `data-fetching-states` — resolves a fetch outcome to one state (error before empty; a failed request also yields `[]`); this skill hides the paginator/count chrome while that resolved state is `error`.
 - `admin-rtl-ltr` — column alignment and chevron mirroring in RTL.
 - `admin-route-auditor` (agent) — verifies URL-state-of-truth and server-side pagination.

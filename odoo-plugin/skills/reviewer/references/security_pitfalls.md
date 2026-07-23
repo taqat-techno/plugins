@@ -63,6 +63,40 @@ If the current user isn't in the listed group(s):
 - It disappears from `fields_get()`.
 - Explicit reads / writes raise `AccessError`.
 
+### `groups=` is all-or-nothing — for "read-yes, write-no" use a `write()` whitelist
+
+Field `groups=` is **all-or-nothing**: a non-member loses read *and* write
+*and* visibility. It cannot express "everyone may read this field, only
+group X may change it." There is **no declarative** way to do that — enforce
+it in code:
+
+- Give the editing group a normal model ACL row (e.g. `1,1,0,0` —
+  read+write, no create/unlink) so it can write at all.
+- Override `write()` (and `create()`, if the field is settable at create)
+  on the **most-derived** model and **whitelist** who may set the protected
+  field, raising `AccessError` otherwise:
+
+```python
+PROTECTED_FIELDS = {'credit_limit', 'internal_rating'}
+
+def write(self, vals):
+    if PROTECTED_FIELDS & vals.keys() and not self.env.user.has_group(
+            'my_module.group_risk_manager'):
+        raise AccessError(_("Only Risk Managers may change these fields."))
+    return super().write(vals)
+```
+
+Put the guard on the most-derived class so a later `write()` in the MRO
+can't shadow it; combine with a `create()` whitelist (see the mass-assignment
+pattern in `odoo_vulnerabilities.md`) to cover the insert path.
+
+**UI `readonly` is not a security control.** A field marked `readonly` in a
+view or via `attrs`/`invisible` is still writable by RPC, by data import, and
+by any `write()` — it only affects the web form. Never rely on `readonly` (or
+a hidden widget) to protect a field; the enforcement must be the ACL +
+`write()` whitelist above (or a `groups=` restriction when full hiding is
+acceptable).
+
 ## Security pitfalls
 
 ### Unsafe public methods

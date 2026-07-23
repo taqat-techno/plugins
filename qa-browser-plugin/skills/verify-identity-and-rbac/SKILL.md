@@ -1,11 +1,12 @@
 ---
 name: verify-identity-and-rbac
-description: Live identity and authorization PROOF during browser QA — the part static code review cannot do. Activates when verifying who is actually logged in, whether a permission change took effect at runtime, or whether the UI gate matches the API gate for a given role. Owns trusting the identity endpoint over on-screen role labels, the status-code proof method that turns a pre-fix 403 into a post-fix 400 without crafting a destructive payload, and reporting the two RBAC failure shapes (UI hides but API allows; API denies but UI advertises). Defers per-route enumeration to route-access-matrix and the disposable-data gate to safe-destructive-testing.
-version: 0.1.0
-last_reviewed: 2026-05-31
+description: Live identity and authorization PROOF during browser QA — the part static code review cannot do. Activates when verifying who is actually logged in, whether a permission change took effect at runtime, or whether the UI gate matches the API gate for a given role. Owns trusting the identity endpoint over on-screen role labels, the status-code proof method that turns a pre-fix 403 into a post-fix 400 without crafting a destructive payload, the rule that a 200 is necessary-not-sufficient (a placeholder / empty-scope body is a soft-deny — inspect the body, never read "authorized" from the status alone), and reporting the two RBAC failure shapes (UI hides but API allows; API denies but UI advertises). Defers per-route enumeration to route-access-matrix and the disposable-data gate to safe-destructive-testing.
+version: 0.2.0
+last_reviewed: 2026-07-23
 owns:
   - identity-endpoint-over-label rule (trust auth/me-style call, not decorative shell role text)
   - status-code proof method (401/403 = blocked; 400/409 = authorized, reached business logic)
+  - the 200-is-necessary-not-sufficient rule (a placeholder / empty-scope 200 is a soft-deny — inspect the body)
   - the 403-to-400 transition as proof a gate opened (without a destructive payload)
   - Shape-A reporting — UI hides but API allows (the dangerous one)
   - Shape-B reporting — API denies but UI advertises the action
@@ -69,7 +70,14 @@ The probe never needs to succeed. The status code alone distinguishes "the gate 
 | 403 Forbidden | Authenticated but role not permitted | Still BLOCKED — at the authz layer |
 | 400 / 409 / 422 | Authorized; request reached business logic and was rejected on data (missing field, conflict, validation) | AUTHORIZED — the gate is OPEN |
 | 404 | Ambiguous — route absent, OR resource hidden, OR a deliberate "deny-by-hide" | INCONCLUSIVE — investigate before concluding |
-| 200 / 201 | Authorized AND succeeded | AUTHORIZED — gate open (and, if a mutation, it happened — only acceptable on disposable data) |
+| 200 / 201 | Necessary, **not** sufficient. Usually authorized and reached the resource — but a 200 can be a *soft-deny*: a placeholder or empty-scope body returned in place of a 403. Read the body before concluding. | AUTHORIZED **only if the body carries the real resource** — then, if a mutation, it happened (acceptable only on disposable data). A placeholder / empty-scope 200 on a gated route is a soft-deny → still BLOCKED; a 200 carrying real data on a route the role should be denied = the Shape-A bug. |
+
+**A 200 is the one status you cannot read from the status line alone.** 401 / 403 / 400 / 409 describe themselves; a 200 does not. The same 200 covers "authorized — here is the record," "authorized — here is an empty list because your scope is empty," and "denied — here is a placeholder shell instead of a 403." Only the body separates them, so two opposite failures hide behind a bare 200:
+
+- **Soft-deny (a false AUTHORIZED):** a gated route answers 200 with a placeholder / empty-scope body in place of a 403. Reading "200 → authorized" reports the gate as open when it is effectively closed.
+- **Shape-A leak (the real bug):** a route the role should be denied answers 200 with the *real* resource — a genuine authorization bypass (see Shape A below).
+
+Inspect the body every time: does this 200 carry the real resource for *this* principal, or a placeholder / empty scope? The status is necessary, never sufficient.
 
 The key inference, used to prove an RBAC change without a destructive payload:
 
@@ -114,6 +122,7 @@ For the stricter **three-layer** form — assert denial at the route/API edge AN
 - **Never** run a probe against production or any non-disposable target — defer the environment/target classification to `safe-destructive-testing`.
 - **Never** send a valid destructive payload to prove a gate opened; an empty / minimal body plus the status code is sufficient.
 - **Never** assume a non-200 means "blocked" — a 400 / 409 / 422 means *authorized* and rejected by a business rule, which is the opposite conclusion.
+- **Never** read "authorized" from a bare 200 — a placeholder / empty-scope body is a soft-deny. The status is necessary but not sufficient; inspect the body.
 - **Never** treat 404 as proof of denial; it is ambiguous (absent route vs deny-by-hide) and must be investigated.
 - **Never** report the logged-in role from the on-screen label; report only what the identity endpoint returns.
 - **Never** print tokens, session cookies, auth headers, or other secret values when capturing the probe.
@@ -173,6 +182,7 @@ IDENTITY+RBAC PROOF — POST /api/v1/records (create)
 |---|---|---|
 | Reporting the logged-in role from the on-screen badge | The badge is decorative; it may be cached, stale, or impersonated | Read the adapter's identity endpoint; report that role |
 | Treating a 400 / 409 / 422 as "still blocked" | Those codes mean the request *passed* authorization and hit business logic — the gate is OPEN | Map 400/409/422 to AUTHORIZED; only 401/403 mean blocked |
+| Concluding "authorized" from a 200 status alone | A 200 can be a soft-deny — a placeholder / empty-scope body served in place of a 403 — so the status is necessary but not sufficient | Inspect the body: real resource for this principal = authorized; placeholder / empty scope on a gated route = still denied |
 | Sending a valid destructive payload to prove the gate opened | Risks a real mutation just to read an access result | Send an empty body; the status code proves authorization |
 | Concluding "fixed" from a green UI after a permission change | UI hiding is not enforcement; the API may still allow | Probe the API and read the before→after status transition |
 | Calling 404 a denial | 404 is ambiguous (absent route vs deny-by-hide) | Mark INCONCLUSIVE and investigate the route's existence |

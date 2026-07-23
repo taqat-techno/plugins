@@ -1,8 +1,8 @@
 ---
 name: fastapi-testing
-description: FastAPI testing strategy — TestClient (sync) vs httpx.AsyncClient + ASGITransport (async), dependency_overrides for swapping the DB session and auth, transactional test-DB fixtures with rollback isolation, mocking external calls and time at the boundary, query-count regression coverage, and asserting the endpoint contract (status, body, permissions). Activates when writing or reviewing FastAPI tests, choosing the test client, setting up the test DB/fixtures, overriding a dependency, or diagnosing flaky/slow/leaky tests. Defers production query design to fastapi-database.
+description: FastAPI testing strategy — TestClient (sync) vs httpx.AsyncClient + ASGITransport (async), dependency_overrides for swapping the DB session and auth, transactional test-DB fixtures with rollback isolation, mocking external calls and time at the boundary, query-count regression coverage, and asserting the endpoint contract (status, body, permissions). Activates when writing or reviewing FastAPI tests, choosing the test client, setting up the test DB/fixtures, overriding a dependency, running the constraint-sensitive suite against Postgres instead of SQLite (varchar length, partial/deferrable constraints are Postgres-only and invisible on SQLite), or diagnosing flaky/slow/leaky tests. Defers production query design to fastapi-database.
 version: 0.1.0
-last_reviewed: 2026-06-23
+last_reviewed: 2026-07-23
 owns:
   - test-client choice (TestClient sync vs httpx.AsyncClient+ASGITransport for async apps) and config
   - dependency_overrides strategy (swap get_session / get_current_user / get_settings under test)
@@ -80,6 +80,16 @@ app.dependency_overrides.clear()   # reset between tests, or via a fixture
 - Each test **creates its own data** (factories) and relies on rollback for isolation — never depend on execution order or leftover rows.
 - **Speed:** reuse the schema across the run where possible; a fast password hasher in test config; build the *minimum* data a test needs.
 
+## Backend parity — test on the engine you deploy
+
+A suite that runs on SQLite for speed while production runs Postgres **cannot** catch a whole class of constraint bugs, because SQLite silently ignores them:
+
+- **String length limits are not enforced by SQLite** — a `String(length=n)` / `VARCHAR(n)` over-length value inserts fine under test and is rejected only by Postgres.
+- **Partial/conditional unique indexes**, **`DEFERRABLE INITIALLY DEFERRED`** foreign keys, exclusion constraints, and other Postgres-only integrity exist only on Postgres — on SQLite the constraint is a no-op, so a test "proving" uniqueness or deferral passes for the wrong reason.
+- Datatype/function/lookup differences (case-sensitivity, `JSONB`/array columns, `ON CONFLICT`) diverge too, and Alembic migrations authored for Postgres may not even run on SQLite.
+
+Rule: **run the constraint-sensitive suite against Postgres in CI** — the same engine and, ideally, the same major version as prod. A fast SQLite-in-memory loop locally is fine, but the authoritative run, and every test that asserts a DB constraint, must point the test engine / `get_session` override at Postgres. A green SQLite suite is not evidence that a Postgres-only constraint holds.
+
 ## Mocking discipline
 
 - **No real network in tests.** Mock external HTTP at the boundary (`respx` for httpx, or patch the client). A test that calls a real API is flaky and slow by definition.
@@ -101,6 +111,7 @@ app.dependency_overrides.clear()   # reset between tests, or via a fixture
 - Real network/API/email calls in tests.
 - No query-count assertion anywhere on list endpoints known to load relationships.
 - Endpoint tests that check `200` but never the unauthenticated / other-user path.
+- Asserting a Postgres-only constraint (varchar length, partial/deferrable unique) against a SQLite test DB → the constraint is a no-op there; the test passes for the wrong reason.
 - `async def` tests with no `pytest-asyncio`/`anyio` configured (silently skipped or erroring).
 
 ## Report format

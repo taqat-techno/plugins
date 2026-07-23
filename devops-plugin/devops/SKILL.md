@@ -1,7 +1,7 @@
 ---
 name: devops
 description: |
-  Azure DevOps HYBRID integration skill for your Azure DevOps organization. Combines CLI power with MCP convenience for optimal performance. Uses CLI for automation, batch operations, variables, and extensions. Uses MCP for interactive queries, code reviews, test plans, search, and security alerts. Intelligent routing automatically selects the best tool for each task. Includes operational notes on MCP auth env vars (ADO_MCP_AUTH_TOKEN silent-unauth trap), tool-name drift across MCP versions, and the default-branch-change human handoff.
+  Azure DevOps HYBRID integration skill for your Azure DevOps organization. Combines CLI power with MCP convenience for optimal performance. Uses CLI for automation, batch operations, variables, and extensions. Uses MCP for interactive queries, code reviews, test plans, search, and security alerts. Intelligent routing automatically selects the best tool for each task. Includes operational notes on MCP auth env vars (ADO_MCP_AUTH_TOKEN silent-unauth trap), tool-name drift across MCP versions, the default-branch-change human handoff, the capability boundary that an MCP write tool (repo_create_branch) is NOT a permission bypass for a server-side CreateBranch denial, the process-aware Scrum Task-vs-PBI hours/In-Progress semantics, and the TF401320 field-rule recovery (Original Estimate must precede Completed Work — set the estimate, do not drop the field).
 
   <example>
   Context: User wants to create a work item in Azure DevOps
@@ -40,7 +40,7 @@ description: |
 license: "MIT"
 metadata:
   version: "6.4.0"
-  last_reviewed: "2026-06-22"
+  last_reviewed: "2026-07-23"
   author: "TAQAT Techno"
   allowed-tools: "Read, Write, Bash, WebFetch, Glob, Grep"
   organization: "YOUR-ORG"
@@ -87,6 +87,14 @@ The MCP's tool **names** are renamed between server versions. Verify against the
 
 The REST API / MCP **can** create branches (`repo_create_branch`) and edit wiki pages, but **cannot** change a repository's default branch or delete the old one. That requires the portal (**Project Settings → Repositories**) or `az` CLI — i.e., a human. It is also disruptive: existing clones don't auto-follow, and branch policies/pipelines pinned to the old branch must be re-pointed. Do the API-doable parts (create the new branch, open the PR, update docs), then hand the human the exact portal clicks and remind the team to run `git remote set-head` on their clones.
 
+### An MCP write tool is NOT a permission bypass
+
+`repo_create_branch` (and every other `repo_*`/`wit_*` write tool) executes **server-side** under the **same PAT/identity and the same branch policies** as your `git push`. It is a different transport, not a different authorization path. If the server denies the underlying `CreateBranch` operation — a locked branch, a "Contribute"/"Create branch" permission you lack, a branch policy — the MCP call fails with the **same denial** that blocks `git push`. Do **not** reach for the MCP tool as a way around a push you were refused; both go through the same gate.
+
+- A `git push` rejected for permissions will **not** succeed via `repo_create_branch`, and vice-versa — re-running through the "other" channel is wasted effort and a red flag.
+- When a write is denied, the fix is to obtain the permission (or hand off to someone who has it), not to switch transports. Report the denial; don't route around it.
+- This is the concrete Azure DevOps instance of the general principle owned by `agent-safety-guards` (`agent-safety` skill): *an MCP tool is not a bypass for a denied server-side operation.*
+
 ---
 
 ## STEP 0: LOAD USER PROFILE
@@ -110,6 +118,24 @@ All behavioral enforcement lives in `rules/`. Do NOT re-implement — follow the
 | Business rules (naming, bug authority, sprint) | `data/state_machine.json` `businessRules` | Task prefixes, QA-only bugs, user story format, auto-sprint. |
 | Error recovery patterns | `data/state_machine.json` (`errorPatterns`) | Single source of truth for all error codes → recovery actions. |
 | Profile loading & project context | `rules/profile-loader.md` | Cache-first resolution, context persistence. |
+
+---
+
+## Work-Item Field Semantics (Scrum Process Notes)
+
+### Hours and "In Progress" — Task vs PBI (process-aware)
+
+In **stock** Azure DevOps Scrum, scheduling hours (Original / Completed / Remaining Work) and the working **"In Progress"** state live on **Tasks**. A **Product Backlog Item** carries **Effort (points)** and flows `New → Approved → Committed → Done` — it has no hours fields and no "In Progress" state. So the default place to log time and move through "In Progress" is a Task under the PBI, not the PBI itself.
+
+**But this plugin models a CUSTOMIZED process** (see `data/state_machine.json` `_meta.processModelNote`) in which PBIs and Bugs **do** move through "In Progress" (and "Ready For QC"). That customization is deliberate — `data/state_machine.json` is the source of truth for the actual transitions here; **do not "correct" it back to stock Scrum.** Treat the state machine as authoritative for the current org, and re-detect the process at `/init` for any org whose customization differs. State the stock-Scrum default when a user is surprised that a PBI has hours/In-Progress, but follow the detected process, not a hardcoded assumption.
+
+### `TF401320` is a field-RULE error — SET the estimate, don't DROP the field
+
+`TF401320` is **not** a plain "read-only field" error. Its dominant cause in this process is the **Original-Estimate-precedence rule**: **Original Estimate must carry a value BEFORE Completed Work / Remaining Work is set, or before the item moves to In Progress.** When you set Completed Work (e.g. via `/log-time`) or start an item while Original Estimate is empty, the server rejects it with `TF401320`.
+
+- **Recovery = SET the prerequisite estimate**, then retry — ask the user for the Original Estimate, or default it to the Completed Work value (a task you actually finished was worth at least the hours it took). See `data/state_machine.json` `errorPatterns.TF401320`.
+- **Never silently drop Original Estimate** to clear the error — that discards the very value the rule is protecting and leaves the item with logged work but no estimate.
+- Only when a field is **genuinely** read-only or system-computed (a rolled-up / calculated value) is dropping-it-from-the-payload the right recovery — and then tell the user which field was skipped and why.
 
 ---
 

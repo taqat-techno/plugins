@@ -1,8 +1,8 @@
 ---
 name: admin-forms
-description: Admin form patterns — field components, validation, save / cancel / dirty handling, row actions, bulk actions, optimistic vs pessimistic update. Owns the "client validation mirrors server, server is authoritative" rule, the dirty-state warn-on-leave pattern, and the bulk-action batching contract. Activates when building any admin form, edit page, row action, or bulk action. Generic and portable — form library and field types are project-supplied.
-version: 0.4.0
-last_reviewed: 2026-05-31
+description: Admin form patterns — field components, validation, save / cancel / dirty handling, rich-text (ProseMirror / Tiptap) fields, row actions, bulk actions, optimistic vs pessimistic update, prop-derived-state hardening. Owns the "client validation mirrors server, server is authoritative" rule, the dirty-state warn-on-leave pattern (derive dirty from the form's OWN change handlers — never by DOM-sniffing a wrapper's onInput/onChange, never from an on-mount onValuesChange; guard the browser Back button with a popstate sentinel-history entry; portal editor dialogs out of a sticky/stacking-context toolbar via createPortal(dialog, document.body)), the "state initialized from a prop does not re-init when the prop changes" pitfall (sync via effect or keyed remount), and the bulk-action batching contract. Activates when building or reviewing any admin form, edit page, rich-text / ProseMirror / Tiptap field, unsaved-changes / beforeunload / popstate guard, row action, or bulk action, or when unsaved edits are silently lost. Generic and portable — form library and field types are project-supplied.
+version: 0.5.0
+last_reviewed: 2026-07-23
 owns:
   - field-component-per-type pattern
   - client-side validation mirrors server-side
@@ -15,6 +15,10 @@ owns:
   - file / attachment staging (no auto-commit before save)
   - archive / delete / reset flow distinct from save / cancel
   - audit-metadata read-only display
+  - dirty derived from the form's own change signal (not DOM-sniffing a wrapper, not an on-mount onValuesChange)
+  - unsaved-changes guard across beforeunload AND the browser Back button (popstate sentinel-history entry)
+  - editor dialogs portaled out of a sticky / stacking-context toolbar (createPortal to document.body)
+  - prop-initialized state re-sync (effect sync or keyed remount)
 defers_to:
   - admin-roles-and-permissions (which fields the actor can edit; per-action authorization)
   - admin-dangerous-actions (confirmation flow for destructive submits)
@@ -122,6 +126,34 @@ const userSchema = z.object({
 - **Submit when dirty**: send the full record (or the patch — project choice), show "saving…" affordance, disable submit until response.
 - **On success**: clear dirty state, reset form to the saved values (so further edits know their baseline).
 - **On error**: keep form values, show field-level errors next to fields, show a global error summary at top.
+
+### Dirty state for rich-text and portal fields
+
+The dirty flag is only honest if it observes every edit. Two derivation mistakes silently break it — one loses the actor's work, one nags on a form they never touched.
+
+**Derive dirty from the form's OWN change signal, not from DOM sniffing.** Wrapping the form in a `<div onInput onChange>` and treating any bubbled event as "edited" misses every edit that does not surface as a DOM input/change event on that wrapper:
+
+- **Rich-text toolbar commands.** A ProseMirror / Tiptap command (bold, heading, list, link, **image-insert**) mutates the document through the editor's transaction API — it fires no DOM `input`/`change` on the wrapper. **Paste**, **drop**, and drag-reorder inside the editor are the same.
+- **Portaled picker changes.** A Radix (or any) Select / Combobox / DatePicker renders its listbox in a portal at `document.body`, OUTSIDE the form's DOM subtree — its change never bubbles up to the wrapper, so a field the actor demonstrably changed reads as clean.
+
+The result is the worst failure mode: the guard never arms, the actor navigates away, and the edit is gone with no warning — **silent data loss**. Instead, derive dirty from each field's real change source — the editor's own update callback (Tiptap `onUpdate`, ProseMirror's dispatch), the form library's `watch` / `onChange`, the picker's `onValueChange` — and compare current values against the initial snapshot (the reference's snapshot-compare rule).
+
+**Never fire dirty from an on-mount `onValuesChange` (phantom-dirty).** Several form libraries emit one `onValuesChange` / `onChange` during mount or hydration carrying the INITIAL values. Marking the form dirty on that first emission arms the unsaved-changes guard on a form the actor never touched — every clean edit page then blocks navigation with a false "discard changes?". Gate dirty on an actual diff against the initial snapshot, or ignore the first emission; never treat "a value event fired" as "the actor edited".
+
+**Guard the browser Back button, not just unload.** `beforeunload` fires on tab-close, reload, and hard navigation — it does NOT fire on an in-app client-side Back (SPA router history pop). A dirty form guarded only by `beforeunload` loses data on Back. Push a **sentinel history entry** when the form becomes dirty, listen for `popstate`, and on a pop while dirty run the same confirm; if the actor cancels the leave, **re-push the sentinel** so the next Back is caught too.
+
+**Portal editor dialogs out of a sticky toolbar.** A `position: sticky` toolbar (also any `transform`, `filter`, `opacity < 1`, or `z-index` applied to it) establishes a new stacking context. An editor dialog rendered as a DOM child of that toolbar — link editor, image picker, emoji/mention menu — is trapped inside the context: it clips at the toolbar bounds and paints under adjacent content regardless of its own `z-index`. Render it with `createPortal(dialog, document.body)` so it escapes the toolbar's stacking context and layers above the page.
+
+### State initialized from a prop does not re-init
+
+`useState(props.value)` — or any state seeded from a prop / loaded entity — reads that prop ONLY on the component's first render. When the prop later changes (the parent loads a different record into the same mounted form, a selection swaps the entity), the state keeps the STALE first value and the form shows the old record's data over the new one. This is a genuine bug, distinct from the linter's "don't sync props into state" hint, which is often a false positive for an intentional snapshot — see `react-lint-triage`.
+
+Two correct fixes; pick by how much should reset:
+
+- **Keyed remount** — give the form a `key` that changes with the record's identity (`<RecordForm key={record.id} … />`). React unmounts and remounts on a new key, so ALL state (including the dirty snapshot) re-initializes from the new prop. Prefer this when a new entity should blow away every field.
+- **Effect sync** — when only some fields track the prop, re-seed them in an effect keyed on the prop, then leave them under user control (the reference's "sync entity → form state when the loaded entity changes, then leave it under user control").
+
+Do not "fix" this by making the field fully controlled off the prop — that discards the actor's in-progress edits on every parent render.
 
 ### Optimistic vs pessimistic updates
 
@@ -244,6 +276,11 @@ Most records carry provenance: who created/updated them and when. Display it, re
 - Never auto-save destructive changes (no autosave on "delete reason", no autosave on settings that disable features).
 - Never accept a file upload above the configured cap; reject client-side AND server-side.
 - Never apply a bulk action without an explicit "I am about to affect N records" affordance.
+- Never derive the dirty flag by DOM-sniffing a wrapper's `onInput`/`onChange` — rich-text commands, paste/drop/image-insert, and portaled picker changes do not bubble there and are lost.
+- Never arm the unsaved-changes guard from an on-mount `onValuesChange` emission — diff against the initial snapshot so a pristine form does not block navigation.
+- Never rely on `beforeunload` alone for a dirty form — it does not fire on an in-app Back; add a `popstate` sentinel-history guard.
+- Never render an editor dialog inside a `sticky` / stacking-context toolbar — portal it to `document.body` with `createPortal`.
+- Never seed form state with `useState(prop)` and assume it re-initializes when the prop changes — re-sync via effect or remount with a `key`.
 
 ## Validation checklist
 
@@ -254,6 +291,10 @@ Before committing a form change:
 - [ ] Field-level errors render next to the field.
 - [ ] Global error summary at the top when any error exists.
 - [ ] Dirty state tracked; cancel and beforeunload warn.
+- [ ] Dirty is derived from each field's own change source (editor `onUpdate`, form `watch`, picker `onValueChange`) vs the initial snapshot — not from DOM-sniffing a wrapper, not from an on-mount `onValuesChange`.
+- [ ] The unsaved-changes guard covers the browser Back button (a `popstate` sentinel-history entry re-pushed on cancel), not only `beforeunload`.
+- [ ] Rich-text / editor dialogs render via `createPortal(dialog, document.body)`, not inside a sticky / stacking-context toolbar.
+- [ ] Form state seeded from a prop/entity re-initializes when that prop changes (effect sync or keyed remount).
 - [ ] On success, form resets to saved values; dirty cleared.
 - [ ] Submit button disabled while in flight; double-click cannot double-submit.
 - [ ] Optimistic updates (if any) reconcile with server response.
@@ -317,6 +358,11 @@ BULK ACTION
 | Reset wired to the Cancel/leave action | Actor loses the page when they wanted to revert in place | Reset reverts fields and stays; never calls server |
 | Inline "create related" persists silently on parent save | Orphaned/half-valid related records | Confirm the create; defer or fully validate it |
 | Audit fields shown as editable inputs | Actor can rewrite provenance | Read-only region; never in payload |
+| Dirty flag derived by DOM-sniffing a wrapper `onInput`/`onChange` | Toolbar commands, paste/drop/image-insert, and portaled picker changes don't bubble there — edits lost with no unsaved warning | Derive dirty from each field's own change signal vs the initial snapshot |
+| Firing dirty from an on-mount `onValuesChange` | Marks a pristine form dirty; every clean edit page blocks navigation | Diff against the initial snapshot; ignore the first mount emission |
+| Only a `beforeunload` guard on a dirty form | An in-app Back (SPA history pop) doesn't fire beforeunload; edits lost on Back | Add a `popstate` sentinel-history guard, re-pushed if the leave is cancelled |
+| Editor dialog rendered inside a `sticky` toolbar | The toolbar's stacking context clips/traps the dialog under the page | `createPortal(dialog, document.body)` |
+| `useState(prop)` assumed to re-init when the prop changes | State keeps the stale first value; the form shows the old record | Re-sync via effect, or remount with a `key` |
 
 ## Portability rationale
 
@@ -342,5 +388,6 @@ The skill does not depend on:
 - `admin-dangerous-actions` — confirmation flow for destructive submits.
 - `admin-states` — loading affordances during submit; error display catalogue.
 - `admin-import-export` — bulk create / update via file is a related but distinct flow.
+- `react-lint-triage` — the linter's "don't sync props into state" hint is often a false positive (intentional form-reset / snapshot); this skill owns the inverse genuine bug — prop-seeded state that never re-inits when the prop changes.
 - `admin-route-auditor` (agent) — checks for missing server validation, missing dirty warning, fire-and-forget submits.
 - `references/admin-form-pattern.md` — the worked reference for the form-view pieces above (sections/tabs split, read-only resolution, relation-picker behavior, file staging, archive/delete/reset routing, audit-metadata display). Consult it when implementing a concrete form.

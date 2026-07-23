@@ -255,6 +255,15 @@ time           # Python time module
 </record>
 ```
 
+> **Why this rule is mandatory — an ACL row does not isolate tenants.**
+> Access rights are per *model*, not per *row*. This CSV row alone —
+> `access_my_model_user,my.model user,model_my_model,my_module.group_my_module_user,1,1,1,1`
+> — grants read/write/create/unlink on the model and, with **no `ir.rule`**,
+> every user in the group sees **every company's rows**. Model-level `1,1,1,1`
+> is not multi-tenant isolation; the row-level record rule above is what
+> scopes records to `company_ids`. A model with `company_id` and no such rule
+> is a cross-tenant data leak, however locked-down the ACL flags look.
+
 **User's Own Records**:
 ```xml
 <record id="rule_my_model_user_own" model="ir.rule">

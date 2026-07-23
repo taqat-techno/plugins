@@ -269,6 +269,18 @@ For `Many2one` fields:
 For `One2many` deletes on the comodel via Command tuples, the inverse field's
 `ondelete='cascade'` triggers child removal.
 
+### A stored related `Many2one` carries its own `ondelete`
+
+`store=True` on a `related=` `Many2one` materializes a **real FK column**
+with a real `ondelete`. If that `ondelete` is `'restrict'` (or otherwise
+conflicts with the source relation's intent), the referenced record becomes
+**undeletable** through this mirror column — Postgres blocks the delete on
+the stored FK even though the field is "only a copy." Symptoms: a user
+can't delete an apparently unrelated master record; the error names a table
+that merely mirrors the relation. Set the stored related M2o's `ondelete`
+to match the semantics you actually want (usually `'set null'` or
+`'cascade'`), or don't store it.
+
 ## `_sql_constraints`
 
 ```python
@@ -279,6 +291,96 @@ _sql_constraints = [
 
 DB-level constraints are stricter than Python `@api.constrains` and survive
 RPC bypass. Prefer SQL constraints for uniqueness and simple invariants.
+
+> **Odoo 19**: `_sql_constraints` is replaced by `models.Constraint(...)` /
+> `models.UniqueIndex(...)` objects declared as class attributes (the tuple
+> list still loads). See `references/v19_deltas.md`.
+
+### `@api.constrains` is not concurrency-safe for uniqueness
+
+A Python `@api.constrains` that enforces uniqueness by `search()`-ing for a
+duplicate has a **race window**: two concurrent transactions each run the
+search, each sees no duplicate, and **both commit** — the constraint passes
+in both and you end up with two rows that violate it. `@api.constrains`
+runs inside the transaction *before* commit with no cross-transaction lock,
+so it cannot see an uncommitted peer.
+
+Enforce uniqueness at the **database** level instead — a `unique(...)`
+`_sql_constraints` entry (v17) or a `models.UniqueIndex` (v19). Postgres
+takes the lock and rejects the second committer with an `IntegrityError`,
+which Odoo surfaces as the constraint's message. Keep an `@api.constrains`
+only for the friendly early message or for rules a single `UNIQUE` index
+can't express — never as the sole guarantee.
+
+### Cross-table (cross-model) uniqueness
+
+A `UNIQUE` index only spans **one table**. When a value must be unique
+across several models/tables (e.g. a reference code shared by two unrelated
+models, or a normalized email across partners *and* leads), no single-table
+constraint can express it. Options, in order of robustness:
+
+- A dedicated **registry model** with the normalized key as its own
+  `UNIQUE` column; every writer `create()`s/`unlink()`s its registry row in
+  the same transaction, so the DB enforces global uniqueness.
+- A Postgres **trigger** / `EXCLUDE` constraint on a shared table.
+
+A Python-only cross-model `@api.constrains` has the same race as above and
+additionally can't see rows it doesn't `search()` — it is not a guarantee.
+
+## Integrity semantics the ORM does not enforce
+
+### A relational field's `domain=` is not a write constraint
+
+The `domain=` on a `Many2one` / `Many2many` is a **UI / search descriptor**:
+it filters what the dropdown offers and what the search widget proposes. It
+is **not** validated on write. A value set by RPC, by data import, by a
+compute, or by any `write()`/`create()` that supplies an id outside the
+domain is stored **without error**. If the domain expresses a real
+invariant (e.g. "the partner must be a company"), you must **also** enforce
+it in `@api.constrains` (or a DB constraint) — the `domain=` alone protects
+nothing at the data layer.
+
+### Import binds relationals by identity, and bypasses rules
+
+When importing (CSV / `load()`), a relational column can be given three ways,
+and the identity semantics differ:
+
+- `field/id` — match by **external ID** (`ir.model.data` xmlid).
+- `field/.id` — match by **database id**.
+- bare `field` — match by **display name** via `name_search`.
+
+`field/id` and `field/.id` resolve the record **directly by identity**,
+which **bypasses `ir.rule` and `active_test`** — the import can link to
+archived (`active=False`) records and to records outside the importing
+user's record-rule domain. A bare display-name column instead goes through
+`name_search` (which *does* apply rules + `active_test`), but on a
+**duplicate name it logs a warning and silently binds the first match** —
+a quiet data-corruption path. Prefer `/id` for deterministic imports, and
+never rely on display-name matching where names aren't unique.
+
+## Modeling traps
+
+### Fixed shallow taxonomy ≠ a `_parent_store` tree
+
+For a **fixed, shallow** classification (a known 2–3 level scheme like
+Category → Subcategory), do **not** model it as one self-referential
+`_parent_store` tree "capped" at N levels. `_parent_store` is for
+arbitrary-depth hierarchies: it carries `parent_path` maintenance cost and
+nothing stops data (or a future writer) from nesting deeper or creating a
+cycle. Model each level as its **own model** with a `Many2one` to the level
+above, and enforce **parent-scoped uniqueness** (`unique(name, parent_id)`).
+When callers just want a flat "parent" label, expose it as a **computed
+non-stored** field rather than a stored tree. This gives real per-level
+constraints and makes an illegal depth unrepresentable.
+
+### A stored computed `Selection` must declare every value it writes
+
+A `fields.Selection` with a static `selection=[...]` list that is also
+`compute=`d (`store=True`): if the compute assigns a key **not present** in
+`selection`, Odoo raises `ValueError` at **runtime** (on write) — it is not
+a silent no-op. Every value the compute can produce must appear in the
+`selection` list. If the valid set is dynamic, use a `selection='_method'`
+callable instead of a static list.
 
 ## Common ORM anti-patterns (flag during review)
 
@@ -303,3 +405,11 @@ RPC bypass. Prefer SQL constraints for uniqueness and simple invariants.
     silently lost.
 12. **`@api.depends` listing fields the method doesn't read** → wasted
     recomputation.
+13. **`@api.constrains` as the only uniqueness guard** → racy; two txns
+    both pass and commit. Use a DB `UNIQUE` (see `_sql_constraints`).
+14. **Relying on a relational `domain=` to enforce a value** → not checked
+    on write; mirror it in `@api.constrains`.
+15. **A stored computed `Selection` writing an undeclared key** → runtime
+    `ValueError`, not a no-op.
+16. **A "capped" `_parent_store` tree for a fixed shallow taxonomy** →
+    model separate levels + parent-scoped uniqueness instead.

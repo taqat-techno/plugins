@@ -33,14 +33,14 @@ Pass an optional argument (a commit SHA, branch, environment, or a short descrip
 
 ### `release-verification`
 
-Owns the "FIXED means proven in the target environment, not merged" discipline. It reconciles the deployed SHA (containment AND branch->environment mapping), diffs env secrets by name, forces the resolved connection target to be printed first, and checks lockfile / package-manager parity. Detailed procedures live in:
+Owns the "FIXED means proven in the target environment, not merged" discipline. It reconciles the deployed SHA (containment AND branch->environment mapping), diffs env secrets by name, forces the resolved connection target to be printed first, and checks lockfile / package-manager parity. It also names the specific deploy-liveness failure modes — a `/health` 200 served by the OLD build during a cold rebuild (gate on a code marker, not a ping), a multi-service deploy that skips/stalls one service (verify EACH service's SHA), a "deploy from source" CLI that ships the working tree not the commit, and an SSO/401-walled frontend (verify via the platform API) — plus a CI env-var false-FAILURE that masks a real test failure, and report-time-vs-deploy-time triage. Detailed procedures live in:
 
-- `references/deployed-sha-reconciliation.md` — read the running SHA, prove containment, confirm branch->environment mapping (provider-neutral query variants).
+- `references/deployed-sha-reconciliation.md` — read the running SHA, prove containment, confirm branch->environment mapping, and the deploy-liveness failure modes (code-marker probe, per-service SHA, deploy-from-source working tree, walled-frontend platform API).
 - `references/env-secret-diff.md` — diff env keys by name/presence, resolve the connection target without printing it, and the local-fallback guard.
 
 ### `migration-safety`
 
-Owns the risky-migration / cutover skeleton, drift detection, and destructive/CASCADE review. Detailed procedures live in:
+Owns the risky-migration / cutover skeleton, drift detection (including environment-vs-environment schema drift), and destructive/CASCADE review. For a cross-system data migration it builds the extractor from the live `information_schema` (not committed schema/migration files, which drift) and flags that a DB dump is not a full migration when binaries live on app-server local disk (check the Dockerfile `VOLUME` / bind-mount / backup scope). Detailed procedures live in:
 
 - `references/cutover-skeleton.md` — the expand/contract runbook (discover -> backup -> stage -> additive -> cutover-last -> archive-by-rename).
 - `references/destructive-checks.md` — the soft-delete-layer audit, the bulk-delete bypass paths, and the cascade-FK inventory.

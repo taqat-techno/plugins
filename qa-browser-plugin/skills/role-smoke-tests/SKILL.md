@@ -1,8 +1,8 @@
 ---
 name: role-smoke-tests
-description: Per-role smoke-test pattern. For each configured role, log in, visit every visible menu item, capture screenshot + console + network, and produce one PASS row per (role × route). Owns the per-role login flow, the menu-walk pattern, the per-step evidence capture, and the cross-role consistency check. Generic and framework-agnostic.
-version: 0.2.0
-last_reviewed: 2026-05-28
+description: Per-role smoke-test pattern. For each configured role, log in, visit every visible menu item, capture screenshot + console + network, and produce one PASS row per (role × route). Owns the per-role login flow, the menu-walk pattern, the per-step evidence capture, the post-navigate wait strategy (with the caveat that Playwright networkidle never settles on a Turbopack dev server with React-Query refetching — prefer an explicit element wait or a prod build), and the cross-role consistency check. Generic and framework-agnostic.
+version: 0.3.0
+last_reviewed: 2026-07-23
 owns:
   - per-role login flow pattern
   - menu-walk pattern (visit every item the role can see)
@@ -125,7 +125,7 @@ If the MCP server does not support context isolation cleanly, an alternative: fu
 - Default: wait 5 seconds after the navigate completes, then capture.
 - For SPAs with heavy client-side hydration, raise to 8–10 seconds.
 - For first-paint-only smoke, drop to 2 seconds — but be honest in the report about what the wait captures.
-- Adaptive wait (wait until network idle, then +2s) is preferred when the MCP server supports it.
+- Adaptive wait (wait until network idle, then +2s) is preferred **only when the network actually goes idle** — a production build or a stable backend. **Do not** use `networkidle` against a recompile-per-request dev server (e.g. Turbopack) or a client that refetches on an interval (e.g. React-Query): the network never settles, so the wait times out (~30s) on a page that has, in fact, already rendered. There, wait on `domcontentloaded` or an **explicit element** (`wait_for` the exact selector / text you are asserting), or QC a production build. See `runtime-reality-check` → "Wait-strategy and client-cache traps (browser-side)" for the full trap set.
 
 ## Performance signal as a side benefit
 
@@ -195,6 +195,7 @@ SUMMARY
 | Reuse browser context across roles | Session leakage; admin's data visible as viewer; false PASS | Fresh context per role |
 | Skip the reality check | Whole smoke could be against the wrong env | Reality check first |
 | Wait 0ms after navigate | SPA hydration not complete; missing console errors | Configurable wait (default 5s) |
+| Wait on `networkidle` against a dev server that recompiles per request / refetches on an interval | It never goes idle → the wait times out (~30s) on a page that already rendered | Wait on `domcontentloaded` or an explicit element; or QC a prod build |
 | Mark login PASS because the page navigated to `/login?error=...` | Login actually failed; URL navigated to error page | Verify post-login URL is the expected landing |
 | Take a screenshot of the login form (with password visible) | Credential leak in evidence | Dismiss password field before screenshot OR redact post-capture |
 | Smoke clicks "Delete" buttons | Destroys test data; not a smoke | Smoke is navigation-only; actions are a different skill |

@@ -4,7 +4,7 @@
 
 ui-ux-mechanics transforms Claude into a **professional UI/UX designer** capable of designing screens, wireframes, and full design systems for any platform — web, mobile (iOS/Android), or desktop applications.
 
-> **Migration Note (v3.0):** In v3.0, the monolithic skill was split into 2 focused skills (`design` + `figma-workflow`), all project-specific content was removed, hooks now filter by file type, and the command was slimmed to a pure dispatcher. Reference docs are now explicitly connected to skills and agents.
+> **Migration Note (v3.0):** In v3.0, the monolithic skill was split into 2 focused skills (`design` + `figma-workflow`), all project-specific content was removed, and the command was slimmed to a pure dispatcher. Reference docs are now explicitly connected to skills and agents. (The file-type-scoped hooks were subsequently emptied — the plugin now ships none; see [Hooks](#hooks).)
 
 ---
 
@@ -134,12 +134,9 @@ Creates ASCII wireframes, component inventories, responsive behavior specs, and 
 
 ## Hooks
 
-| Hook | Fires On | What It Checks |
-|------|----------|----------------|
-| Markup Design Check | Write/Edit of `.html`, `.xml`, `.jsx`, `.tsx`, `.vue`, `.svelte` | Semantic tags, alt text, form labels |
-| Style Design Check | Write/Edit of `.css`, `.scss`, `.sass`, `.less` | Contrast ratios, relative units, focus styles |
+**This plugin ships no active hooks.** `hooks/hooks.json` is intentionally empty (`{"hooks":{}}`), so editing a UI file triggers **no** automatic design reminder. Design guidance is delivered through the skills and agents above — invoke the `design` skill or the `design-reviewer` agent when you want a review.
 
-Hooks only fire on relevant file types — editing Python, JavaScript, or other non-UI files will not trigger design reminders.
+The empty `hooks/hooks.json` is a placeholder you can populate yourself (see [Customization](#add-a-design-check-hook) below); nothing is wired by default.
 
 ---
 
@@ -159,9 +156,9 @@ Reference docs are used by skills and agents when detailed guidance is needed.
 
 ## Customization
 
-### Disable hooks
+### Add a design-check hook
 
-Edit `hooks/hooks.json` and remove the hooks you don't want, or delete the file entirely.
+`hooks/hooks.json` ships empty (`{"hooks":{}}`) — no hooks run by default. To add a file-type-scoped design check, define your own `PostToolUse` entry in `hooks/hooks.json` matching the file types you care about. Nothing fires unless you add it.
 
 ### Add framework-specific knowledge
 
@@ -194,7 +191,7 @@ ui-ux-mechanics-plugin/
 ├── commands/
 │   └── ui-ux-mechanics.md             # /ui-ux-mechanics — unified command
 ├── hooks/
-│   └── hooks.json                     # PostToolUse design checks
+│   └── hooks.json                     # empty placeholder — no active hooks
 ├── reference/
 │   ├── color-theory.md                # Color palettes, contrast, dark mode
 │   ├── typography-scale.md            # Type scales, font pairing, vertical rhythm

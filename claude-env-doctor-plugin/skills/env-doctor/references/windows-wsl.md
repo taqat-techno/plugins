@@ -366,6 +366,126 @@ reachability across idle periods is required, switching to mirrored mode is an o
 (it changes networking semantics) — never flip `.wslconfig` automatically; surface the trade-off
 and let the user decide.
 
+## Windows git "dubious ownership" = the repo dir is owned by `BUILTIN\Administrators`
+
+`fatal: detected dubious ownership in repository at '<dir>'` on Windows means git's safe-directory
+guard (a CVE-2022-24765 mitigation) sees the repository directory owned by an identity **other than
+the current user** — on Windows that owner is almost always `BUILTIN\Administrators`. It happens
+when the folder was created/cloned by an elevated process, lives at a drive root, or was laid down
+by an installer or a service, so its owner is the Administrators group rather than you.
+
+Observe → localize (read-only — just inspect the owner):
+
+```powershell
+# The owner is the whole story. If it reads BUILTIN\Administrators, that's the cause.
+(Get-Acl "<dir>").Owner
+```
+
+- Owner is `BUILTIN\Administrators` (or any SID that is not the current user) → confirmed dubious
+  ownership. Not a git-config or credential problem.
+
+Safe action — prefer the **scoped, non-mutating** override:
+
+```bash
+# Applies the exception for THIS one invocation only; writes nothing to global config
+git -c safe.directory="<dir>" status
+```
+
+The commonly-pasted fix `git config --global --add safe.directory <dir>` **mutates global config**
+(`~/.gitconfig`) permanently and accumulates an entry per repo — and `safe.directory '*'` disables
+the guard everywhere. Per the diagnose-don't-mutate discipline, propose the per-command
+`git -c safe.directory=<dir> …` form first; it needs no global write. If the user wants a durable
+fix, taking real ownership of the directory (`takeown` / `icacls`, an FS-ACL change they confirm)
+addresses the root cause, whereas the global `--add` only suppresses the symptom. Never silently
+edit global git config as part of the diagnosis.
+
+## Running WSL under a session-0 Windows service (LocalSystem) — empty 9P shares, ~30s VM death
+
+Two failures appear only when WSL is invoked from a **Windows service / scheduled task running in
+session 0 as `LocalSystem`**, not from the user's interactive shell:
+
+- **`\\wsl.localhost\<distro>` (and `\\wsl$\<distro>`) appear EMPTY / inaccessible.** The 9P file
+  shares that back those UNC paths are published by the **per-user** WSL session. A session-0
+  `LocalSystem` context has no such mount, so a script reading `\\wsl.localhost\...` under the
+  service sees nothing — even though the identical path lists fine in the user's terminal.
+- **The WSL2 VM idle-stops ~30 seconds after the launching process exits.** When a service shells
+  into WSL and returns, nothing keeps a handle on the lightweight utility VM, so it (and the
+  distro) shut down about 30s later. The next call pays a cold start, or a distro the service
+  "left running" is gone when it looks again.
+
+Observe → localize:
+
+```powershell
+whoami                                            # NT AUTHORITY\SYSTEM => session-0 LocalSystem
+Test-Path "\\wsl.localhost\<distro>\home"         # False/empty under the service, True as the user
+wsl --list --verbose                              # distro flips to Stopped shortly after each call
+```
+
+Safe action: run WSL-touching work **in the user's own session** (a scheduled task set to the
+user account with "run only when the user is logged on"), not as `LocalSystem`. If a service truly
+must keep a distro alive, **pin the VM** by holding a long-lived process open (e.g. a background
+`wsl -d <distro> -- sleep infinity` handle) so it does not idle-stop — do not rely on the distro
+persisting on its own after a one-shot call. Surface the session-0 constraint to the user; do not
+reconfigure services automatically.
+
+## WSL2 sshd: socket-activation ignores `Port`, and a Windows listener blocks the bind
+
+Two independent reasons an in-WSL `sshd` does not listen where you expect:
+
+- **systemd socket-activation ignores `Port` in `sshd_config`.** When sshd is started via
+  `ssh.socket` (socket activation), the listening port is dictated by the **socket unit's**
+  `ListenStream`, and the `Port` directive in `sshd_config` is **ignored**. Editing `Port 2222`
+  changes nothing; sshd keeps listening on the socket unit's port (typically 22).
+- **A Windows-side listener blocks the Linux bind (`EADDRINUSE`).** Under mirrored networking WSL
+  shares the Windows network namespace, so if a Windows process already listens on the port (the
+  built-in Windows OpenSSH sshd on 22, for instance), the in-WSL sshd cannot bind and dies with
+  "address already in use".
+
+Observe → localize:
+
+```bash
+# Is sshd socket-activated? Then sshd_config's Port is not in charge.
+systemctl is-active ssh.socket
+systemctl cat ssh.socket | grep -i ListenStream     # the ACTUAL port
+ss -ltnp | grep -E ':(22|<PORT>)\b'
+```
+
+```powershell
+# Is the Windows side already squatting the port? (mirrored-mode collision)
+Get-NetTCPConnection -State Listen -LocalPort <PORT> | Select LocalAddress, OwningProcess
+```
+
+Safe action: for the socket-activation case, change the **socket unit's** `ListenStream` (or
+disable `ssh.socket` and enable `ssh.service`) rather than only editing `sshd_config`. For
+`EADDRINUSE`, identify which side legitimately owns the port first (see the localhost-masquerade
+section), then relocate or stop the correct one — do not blanket-kill listeners.
+
+## `/mnt/c` root is read-only; the Windows Desktop may be OneDrive-redirected
+
+Two path traps when a WSL script writes to the Windows filesystem:
+
+- **The root of `/mnt/c` (i.e. `C:\`) is effectively read-only from WSL.** Creating a new top-level
+  entry (`mkdir /mnt/c/<x>`, a file at `/mnt/c/<x>`) fails with permission denied, because writing
+  to the drive root needs Windows admin. Work under a user-writable subtree
+  (`/mnt/c/Users/<you>/...`), not the drive root.
+- **The Desktop (and Documents/Pictures) may be OneDrive-redirected.** Known folders are often
+  redirected to `%USERPROFILE%\OneDrive\Desktop`, so writing to `/mnt/c/Users/<you>/Desktop` lands
+  in a stale, non-synced location while the *real* Desktop lives under `.../OneDrive/Desktop` — the
+  file "vanishes" from the user's view. Do not assume `~/Desktop` / `Users\<you>\Desktop`.
+
+Observe → localize:
+
+```powershell
+# Resolve the REAL Desktop known-folder rather than guessing the path
+[Environment]::GetFolderPath('Desktop')
+(Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders').Desktop
+```
+
+Safe action: write under a confirmed user-writable subtree, and resolve the Desktop/Documents path
+from the Windows known-folder API (above) instead of hard-coding `Users\<you>\Desktop`. This is a
+path-resolution fix, not a permissions change to apply — never `chmod`/`icacls` the drive root to
+force a write through.
+
 ## Summary
 
 | Symptom | Section | First safe move |
@@ -381,3 +501,8 @@ and let the user decide.
 | Port behaves erratically under mirrored mode | mirrored + stale forward | clear the redundant IDE port-forward |
 | In-WSL name lookups hang with a VPN mesh | mirrored-mode DNS overlap | compare resolver latency; report the overlap |
 | Intermittent drop, IP churn (nat mode) | nat-mode idle-stop | address by name; expect cold-start delay |
+| `fatal: dubious ownership` in a repo | Windows git ownership | scoped `git -c safe.directory=<dir>`; avoid the global `--add` |
+| `\\wsl.localhost` empty from a service | Session-0 WSL service | run WSL in the user session, not LocalSystem |
+| Distro dies ~30s after a service call | Session-0 WSL service | pin the VM with a held-open process |
+| sshd ignores `Port`, or bind `EADDRINUSE` | WSL2 sshd | edit the socket unit; free the Windows-side port |
+| `mkdir /mnt/c/<x>` denied; Desktop file missing | `/mnt/c` root + OneDrive | write under a user subtree; resolve the real Desktop path |

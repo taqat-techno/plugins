@@ -1,6 +1,7 @@
 ---
 name: odoo-reviewer
-description: Authoritative Odoo 17 and Odoo 19 code-review and technical-debt knowledge base, including the cross-version deltas needed for mixed-version environments. ALWAYS USE this skill when reviewing, auditing, refactoring, or estimating technical debt for any Odoo 17 or Odoo 19 module — including OCA modules, custom addons, third-party addons, manifests (__manifest__.py), models, views, security (ir.model.access.csv / ir.rule), QWeb, Owl components, performance, ORM patterns, or migration work. Trigger on phrases like "review this Odoo module", "Odoo code review", "audit the addon", "Odoo technical debt", "is this Odoo best practice", "refactor Odoo", "manifest review", "mixed-version cluster", "multi-cluster review", "Odoo 17 vs Odoo 19", "migrate to Odoo 19", or whenever a .py / .xml / __manifest__.py from an Odoo addon is in scope. Use this skill BEFORE making any judgment about Odoo code quality or before producing a tech-debt estimate.
+description: Authoritative Odoo 17 and Odoo 19 code-review and technical-debt knowledge base, including the cross-version deltas needed for mixed-version environments. ALWAYS USE this skill when reviewing, auditing, refactoring, or estimating technical debt for any Odoo 17 or Odoo 19 module — including OCA modules, custom addons, third-party addons, manifests (__manifest__.py), models, views, security (ir.model.access.csv / ir.rule), QWeb, Owl components, performance, ORM patterns, or migration work. Trigger on phrases like "review this Odoo module", "Odoo code review", "audit the addon", "Odoo technical debt", "is this Odoo best practice", "refactor Odoo", "manifest review", "mixed-version cluster", "multi-cluster review", "Odoo 17 vs Odoo 19", "migrate to Odoo 19", or whenever a .py / .xml / __manifest__.py from an Odoo addon is in scope. Activates on Odoo 19 ORM constructs — models.Constraint / models.UniqueIndex (the v19 replacement for the _sql_constraints tuple list), Domain objects, aggregator=, and the odoo/orm package shims (odoo.fields / odoo.models / odoo.api / odoo.osv), and on the test_import_export test-suite rename. Use this skill BEFORE making any judgment about Odoo code quality or before producing a tech-debt estimate.
+last_reviewed: 2026-07-23
 ---
 
 # Odoo 17 / 19 Reviewer
@@ -220,10 +221,12 @@ Required class attribute order:
 Out-of-order attributes = STYLE; misnamed compute/onchange = MAJOR (Odoo's
 binding magic relies on the convention).
 
-**Odoo 19 note**: v19 moves `_sql_constraints` out of the private-attribute
-bucket and into a new "SQL constraints and indexes" bucket between
-*field declarations* and *compute methods*. Apply the v17 order on v17
-code and the v19 order on v19 code; don't flag either as a violation
+**Odoo 19 note**: v19 replaces the `_sql_constraints` tuple list with
+`models.Constraint(...)` / `models.UniqueIndex(...)` objects declared as
+class attributes, and places them in a new "SQL constraints and indexes"
+bucket between *field declarations* and *compute methods* (the legacy
+`_sql_constraints` list still loads). Apply the v17 order on v17 code and
+the v19 order/construct on v19 code; don't flag either as a violation
 against the other version's rule. See `references/v19_deltas.md`.
 
 ### 6. ORM patterns & inheritance
@@ -278,8 +281,14 @@ Common ORM anti-patterns to flag:
   v19 MAJOR (domain-injection risk).
 - `company_dependent` fields are stored as jsonb on the model table in
   v19 (was `ir.property` in v17) — adds a v17→v19 data migration step.
-- `BaseModel` lives at `odoo.orm.models.BaseModel` in v19 (was
-  `odoo.models.BaseModel`).
+- DB constraints move from the `_sql_constraints` tuple list to
+  `models.Constraint(...)` / `models.UniqueIndex(...)` objects declared as
+  class attributes; the legacy list still loads. Using the objects in a
+  v17-target module is a BLOCKER (the symbols don't exist there).
+- The ORM implementation moved into the `odoo/orm/` package; `odoo.fields`
+  / `odoo.models` / `odoo.api` / `odoo.osv` are now compatibility shims
+  (so `BaseModel` is `odoo.orm.models.BaseModel`). The top-level
+  `from odoo import api, fields, models, _` imports are unchanged.
 
 → Details in `references/orm_patterns.md` (v17 baseline) and
 `references/v19_deltas.md` (v19 deltas).
@@ -440,8 +449,10 @@ wins for any module that must install on both:
 - `_(...)` via `from odoo import _` → works on both; `self.env._` is v19
   only.
 - List-domain composition with user input → unsafe; v19 wants `Domain(...)`.
-- `_sql_constraints` belongs in the private-attr group on v17, in its own
-  bucket below fields on v19.
+- DB constraints: v17 uses the `_sql_constraints` tuple list (private-attr
+  group); v19 uses `models.Constraint` / `models.UniqueIndex` objects in
+  their own bucket below fields. Keep the tuple list in any module shared
+  across both versions.
 - `company_dependent` storage differs — every v17→v19 cluster migration
   needs a data migration step.
 

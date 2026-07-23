@@ -1,7 +1,7 @@
 ---
 name: odoo-upgrade
 description: |
-  Comprehensive Odoo ERP upgrade assistant for migrating modules between Odoo versions (14-19). Handles XML views, Python API changes, JavaScript/OWL components, theme SCSS variables, manifest updates, security implementations, and database migrations. Use when user asks to upgrade Odoo modules, fix version compatibility issues, migrate themes between versions, or resolve Odoo 17/18/19 migration errors. Specializes in frontend RPC service migrations, view XML transformations, theme variable restructuring, and portal template XPath fixes.
+  Comprehensive Odoo ERP upgrade assistant for migrating modules between Odoo versions (14-19). Handles XML views, Python API changes, JavaScript/OWL components, theme SCSS variables, manifest updates, security implementations, and database migrations. Use when user asks to upgrade Odoo modules, fix version compatibility issues, migrate themes between versions, or resolve Odoo 17/18/19 migration errors. Specializes in frontend RPC service migrations, view XML transformations, theme variable restructuring, and portal template XPath fixes. Activates on migration internals that silently lose data — a model/table rename that must also rename its constraints (ir_model_constraint vs pg_constraint mismatch), noupdate="0" config/cron seeds wiped on every -u, and moving a model to a new module (skipped migrations/ and orphan column drops).
 
   <example>
   Context: User wants to upgrade an Odoo module to a newer version
@@ -24,12 +24,13 @@ description: |
   <commentary>Data migration trigger - generates migration script templates.</commentary>
   </example>
 license: "MIT"
+last_reviewed: 2026-07-23
 metadata:
   filePattern: "**/__manifest__.py,**/views/*.xml,**/static/src/js/*.js,**/static/src/scss/*.scss"
   bashPattern: "odoo.*upgrade|odoo.*precheck|odoo.*migrate"
   model: sonnet
 ---
-<!-- Last updated: 2026-03-26 -->
+<!-- Last updated: 2026-07-23 -->
 
 # Odoo Upgrade Assistant v5.0
 
@@ -187,6 +188,58 @@ Common patterns:
 | Model rename | Rename table + ir_model_data | Update foreign keys |
 
 With `openupgradelib`: `rename_fields()`, `rename_models()`, `rename_xmlids()`, `rename_columns()`, `logged_query()`.
+
+## Migration Internals — Silent Data-Loss Traps
+
+These three cases pass a normal `-u` "successfully" and lose data or leave a
+corrupt schema with no error. Check for them on any rename/move.
+
+### A model/table rename must ALSO rename its constraints
+
+Odoo tracks module-owned constraints in **`ir_model_constraint`** (keyed by
+name), while Postgres holds the real constraint in **`pg_constraint`** on the
+table. If you `ALTER TABLE ... RENAME` (or rename the model) but leave the
+constraint names untouched, the two registries **drift**:
+
+- Odoo re-creates the constraints under the new expected name on the next
+  `-u`, leaving the old ones behind → **duplicate indexes / constraints**.
+- FKs that referenced the old constraint name become **orphaned**.
+
+Rename the constraints together with the table: `ALTER TABLE ...
+RENAME CONSTRAINT ...`, and update the matching `ir_model_constraint` (and
+`ir_model_data`) rows. Prefer `openupgradelib.rename_models()` /
+`rename_tables()` — they reconcile `ir_model_constraint`, `ir_model_data`,
+`ir_model_fields`, FKs, and the underlying `pg_constraint` names in one call.
+
+### `noupdate="0"` config/cron seeds are wiped on every `-u`
+
+Data loaded with `noupdate="0"` (the **default**) is re-imported on every
+module update, overwriting whatever the user changed at runtime. For seeds a
+user is expected to tune — a cron interval, an `ir.config_parameter`, a
+default record — shipping them `noupdate="0"` means every `-u <module>`
+**silently resets them** to the XML values.
+
+Ship such seeds with **`noupdate="1"`** (load once, never overwrite on
+update). To fix a seed already shipped as `noupdate="0"`: flip the XML to
+`noupdate="1"` **and** set `ir_model_data.noupdate = TRUE` for that xmlid in
+a `pre-migrate.py` (the flag change alone doesn't restore a value that was
+already clobbered — re-enter the intended value once).
+
+### Moving a model to a NEW module skips its `migrations/` and can drop columns
+
+`migrations/` scripts are **per-module** and keyed to the module whose
+version bumps. If you move a model from module **A** to a new module **B**:
+
+- B starts with no history, so **A's `migrations/` never run for B** — any
+  transform you assumed would carry over is skipped.
+- If A is then uninstalled, Odoo's **orphan cleanup drops A's tables /
+  columns** it still considers owned by A — the data goes with it.
+
+Moving a model across modules needs an explicit migration that **transfers
+ownership first**: reassign the `ir_model_data` / `ir_model` /
+`ir_model_fields` rows (and the table) to B *before* A is removed, so the
+column is never orphaned. `openupgradelib.update_module_moved_models()` /
+`update_module_names()` handle the reassignment.
 
 ## Common Errors Quick Reference
 

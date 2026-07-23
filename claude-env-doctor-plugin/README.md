@@ -29,7 +29,7 @@ Optional flags narrow the scope to one area (for example, focus only on MCP wiri
 
 ### `env-doctor`
 
-The routing skill that owns the diagnostic workflow. It decides which probes to run, interprets their output, and assembles the report. It pulls detailed, OS-specific guidance from eight bundled reference documents:
+The routing skill that owns the diagnostic workflow. It decides which probes to run, interprets their output, and assembles the report. It pulls detailed, OS-specific guidance from eleven bundled reference documents:
 
 1. **`references/mcp-not-loading.md`** — MCP server start-up, wiring, config-shadowing, concurrent-clobber, and `-32000` spawn diagnosis.
 2. **`references/windows-wsl.md`** — distro discovery, DNS-vs-TCP isolation, VPN/DNS conflicts, mirrored/nat networking quirks, `/tmp` path mapping, and content-search confirmation across the Windows/WSL boundary.
@@ -39,6 +39,9 @@ The routing skill that owns the diagnostic workflow. It decides which probes to 
 6. **`references/playwright-browser.md`** — browser-binary, headless-launch, and persistent-profile-lock diagnosis.
 7. **`references/ide-remote-dev.md`** — IDE remote-dev backend heap-OOM diagnosis (the "connection" symptom that is really a JVM OOM).
 8. **`references/doctor-command-ambiguity.md`** — `/doctor` routing ambiguity, non-interactive CLI health checks vs. the hanging TUI, managed-connector auth, and permissions-allowlist hygiene.
+9. **`references/syncthing.md`** — Syncthing dev-folder sync operations: conflict resolution, the venv/`node_modules` delete-deadlock, `.stignore` locality, cached error lists, the encryption-mismatch device drop, and REST-API diagnosis.
+10. **`references/windows-powershell.md`** — Windows shell and native-exe argument traps: PowerShell 5.1 quote-strip / pipe BOM, `Copy-Item -Exclude`, `kubectl exec`/`port-forward`, `head`/`tail` SIGPIPE, Git-Bash path mangling, and `--parallel` test pickling.
+11. **`references/ide-mermaid-rendering.md`** — a missing Mermaid renderer in an IDE/editor (JetBrains plugin / VS Code extension / native web) and jsdom's missing SVG layout (`getBBox`) → headless Chrome.
 
 Reference docs hold the heavy, platform-specific detail so the skill body stays a thin router. Add new failure modes by extending a reference doc first, then wiring it into the skill.
 

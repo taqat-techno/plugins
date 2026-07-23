@@ -89,6 +89,13 @@ dist/, build/, *.egg-info/
 node_modules/
 ```
 
+### Corollary: keep KB-searchable docs OUTSIDE `.claude/`
+
+Because `.claude/` and `CLAUDE.md` are **always-active** built-in ignores (above), any doc **moved under** `.claude/` silently **drops out of the knowledge base** — the indexer skips the path, so `search_knowledge_base` can no longer surface its content.
+
+- Keep docs you want retrievable (runbooks, SOPs, architecture notes, decision records) in an **indexed** location; reserve `.claude/` for agent/session config, not knowledge.
+- If an indexed page only *points* into `.claude/` (e.g. "see `.claude/notes/...`"), the KB then **serves only the pointer**, not the doc it references — the real content is unindexed. Keep the retrievable copy in an indexed path and let `.claude/` reference *it*, not the reverse.
+
 ## Configuration write rules
 
 - **Never write `ragtools.toml` from a CWD-relative path** in packaged mode. Always go through `get_config_write_path()` semantics: resolve to `%LOCALAPPDATA%\RAGTools\config.toml` (Windows) or `~/Library/Application Support/RAGTools/config.toml` (macOS).

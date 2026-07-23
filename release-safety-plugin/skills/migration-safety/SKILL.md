@@ -1,14 +1,17 @@
 ---
 name: migration-safety
-description: Runs risky migrations and cutovers through a fixed safe skeleton — read-only discovery of both sides, then timestamped backups, then build+validate in a staging copy, then additive-then-cutover-last, then archive old artifacts by rename (never delete). Owns destructive/CASCADE review (a soft-delete instance override does NOT protect bulk / admin / QuerySet deletes; audit cascade FKs that point at financial / audit / historical tables and prefer restrict / set-null) and migration DRIFT detection before deploy (un-applied, out-of-order, or model-vs-schema changes with no migration). Provider-neutral across any database, ORM, and migration tool. Activates when someone asks to run a migration safely, cut over a table / database / queue / index, or check whether a migration is destructive before deploy.
-version: 0.1.0
-last_reviewed: 2026-06-13
+description: Runs risky migrations and cutovers through a fixed safe skeleton — read-only discovery of both sides, then timestamped backups, then build+validate in a staging copy, then additive-then-cutover-last, then archive old artifacts by rename (never delete). Owns destructive/CASCADE review (a soft-delete instance override does NOT protect bulk / admin / QuerySet deletes; audit cascade FKs that point at financial / audit / historical tables and prefer restrict / set-null) and migration DRIFT detection before deploy (un-applied, out-of-order, or model-vs-schema changes with no migration). For a cross-system data migration, builds the extractor from the LIVE information_schema (the running database's real columns, types, and constraints), never from committed schema or migration files (e.g. schema.prisma or an ORM model folder) that drift from the database; and warns that a DB dump is NOT a full migration when binary assets live on app-server local disk -- check the Dockerfile VOLUME, container bind-mounts, and the backup job's scope before calling a dump complete. Also detects environment-vs-environment SCHEMA DRIFT -- a constraint, index, or column present in one environment's live schema and missing in another. Provider-neutral across any database, ORM, and migration tool. Activates when someone asks to run a migration safely, cut over a table / database / queue / index, check whether a migration is destructive before deploy, move data between two systems or databases, or reconcile a schema difference between environments.
+version: 0.2.0
+last_reviewed: 2026-07-23
 owns:
   - the risky-migration / cutover skeleton (discover -> backup -> stage -> additive-then-cutover -> archive)
   - the additive-then-cutover-last ordering rule (expand / contract)
   - destructive & CASCADE review (bulk-delete bypass of soft-delete, cascade-FK audit)
   - archive-by-rename-never-delete discipline
   - migration DRIFT detection before deploy
+  - cross-system extraction from the live information_schema (not committed schema or migration files, which drift from the real database)
+  - the completeness check that a DB dump is not a full migration when binary assets live on app-server local disk (Dockerfile VOLUME / bind-mount / backup scope)
+  - environment-vs-environment schema-drift detection (a constraint / index / column present in one environment, absent in another)
   - the MIGRATION SAFETY REPORT output contract
 defers_to:
   - release-verification skill for proving the post-migration deploy reached the target environment
@@ -32,6 +35,8 @@ Activate when any of these appear:
 - "Is this migration destructive?", "will this drop data?", "what does this CASCADE touch?"
 - Renaming / merging / splitting a table or column, backfilling, or swapping a live resource.
 - Before a deploy, to confirm there is no migration **drift** (un-applied or out-of-order migrations, or model/schema changes with no migration).
+- Moving data between two systems, databases, or ORMs (a cross-system migration), or building the extractor / ETL for one.
+- Reconciling a schema difference between two environments (a constraint, index, or column present in one and missing in another).
 - Any change where rolling back after the fact would be hard or impossible.
 
 Do NOT activate to prove the post-migration code reached the target environment — that is the **release-verification** skill.
@@ -46,6 +51,8 @@ Every project-specific value is a named adapter input. Nothing below is hardcode
 4. **`staging_copy_location`** — where a throwaway copy can be built and validated without touching the live side.
 5. **`soft_delete_convention`** — whether the model layer has a soft-delete override, and at which layer (instance vs. manager/QuerySet) — because the override's *layer* decides what it protects.
 6. **`cascade_fk_inventory`** — the foreign keys with `ON DELETE` behaviour, especially any pointing at financial / audit / historical tables.
+7. **`schema_source_of_truth`** — where the REAL current schema lives: the live database's `information_schema` / system catalog. Distinct from committed schema definitions or migration files (an ORM schema file such as `schema.prisma`, a model module, a `migrations/` folder), which describe the *intended* schema and drift from the database after hotfixes or partial migrations.
+8. **`binary_asset_locations`** — where non-row binary data lives (uploaded files, generated documents, media, thumbnails): in the database, in an external object store, or on the app server's local disk. Decides whether a database dump is a complete migration or only half of one.
 
 If an adapter value is unknown, the first step is to discover it read-only, never to assume it.
 
@@ -91,8 +98,32 @@ Before promoting, confirm there is no drift:
 - **Un-applied migrations** — migration files exist that the target has not applied.
 - **Out-of-order / divergent history** — migrations applied in a different order than recorded, or branched migration history.
 - **Model-vs-schema gap** — model/entity changes exist with no corresponding migration generated (the tell-tale "you have un-migrated changes" signal from the migration tool).
+- **Environment-vs-environment schema drift** — a constraint, index, column, or default present in one environment's live schema and **missing in another** (e.g. a UNIQUE or CHECK constraint that exists in production but not in staging, or the reverse). This is invisible to the migration tool's own status check, which compares the code's migrations to a **single** database — you see it only by introspecting **both** environments' live schemas (`information_schema` / system catalog) and diffing them. A constraint present in one env and absent in another means a row that inserts cleanly in one environment fails in the other, and a migration validated against the drifted copy proves nothing about the target.
 
-Drift is a deploy-blocking finding: resolve it (generate the missing migration, reconcile history) before promotion, not after. Use the migration tool's own status/check command for the engine in use.
+Drift is a deploy-blocking finding: resolve it (generate the missing migration, reconcile history, align the environments) before promotion, not after. Use the migration tool's own status/check command for the engine in use, and introspect both environments' live schemas for the env-vs-env case.
+
+## Cross-system data migration (extract from the live schema, not the committed one)
+
+A migration that moves data between two systems, databases, or ORMs has two completeness traps the in-place skeleton does not cover.
+
+### Trap 1 — the committed schema drifts from the live database
+
+Build the extractor from the **live database's `information_schema`** (or the engine's system catalog) — the columns, types, defaults, and constraints that actually exist in the running database — **not** from a committed schema definition or migration files (an ORM schema file such as `schema.prisma`, a model module, a `migrations/` folder). Those describe what the schema was *supposed* to become; manual hotfixes, failed or partial migrations, and out-of-band DDL make the real schema diverge. An extractor built from the committed schema silently **omits columns that exist** or **references columns that do not**, and the gap surfaces only mid-migration.
+
+- Introspect the live catalog first; produce the real column / constraint inventory from it.
+- Diff the live schema against the committed schema; treat every difference as a finding to resolve **before** extracting, not a surprise during.
+
+### Trap 2 — a DB dump is not a full migration when binaries live on local disk
+
+A `dump` / snapshot captures **rows, not files**. If the system stores binary assets — uploaded files, generated documents, media, thumbnails — on the **app server's local disk** rather than in the database or an external object store, a database dump migrates the metadata and leaves the actual bytes behind. The migrated system then references files that were never moved.
+
+Before calling a dump a complete migration, determine where binaries **physically** live:
+
+- **Dockerfile `VOLUME`** declarations and container **bind-mounts** / mount points — a `VOLUME` is a strong signal that state lives on a path, not in the DB.
+- The app's **file-storage configuration** (a local-disk backend vs. an object-store backend).
+- **What the existing backup job actually copies** — its scope. A backup that only dumps the database is itself evidence that on-disk binaries are unprotected and un-migrated.
+
+If binaries are on local disk, the plan must copy them **separately** (and reconcile paths on the target); a dump-only plan is incomplete. Record the binary-asset location as an explicit discovery output.
 
 ## Safety gates
 
@@ -103,6 +134,9 @@ Drift is a deploy-blocking finding: resolve it (generate the missing migration, 
 - **Never** ship a `CASCADE` that reaches a financial / audit / historical table without explicit review; prefer `RESTRICT` / `SET NULL`.
 - **Never** promote with migration drift unresolved.
 - **Never** take the migration as "done" until restore from the backup has been at least dry-checked.
+- **Never** build a cross-system extractor from a committed schema or migration file (an ORM schema file, model modules, `migrations/`) — introspect the LIVE `information_schema` / system catalog; the committed schema drifts.
+- **Never** treat a database dump as a complete migration until you have confirmed where binary assets live (Dockerfile `VOLUME` / bind-mount / storage config / backup scope); binaries on app-server local disk are not in the dump.
+- **Never** trust a migration validated against one environment when another environment's live schema may have drifted (a constraint present in one, absent in the other) — introspect and diff both.
 - **Never** assume the engine / ORM / backup mechanism — discover each read-only.
 
 ## Validation checklist
@@ -115,6 +149,9 @@ Drift is a deploy-blocking finding: resolve it (generate the missing migration, 
 - [ ] Destructive step is the LAST step; old artifacts archived by rename, not deleted.
 - [ ] Soft-delete layer confirmed; bulk/admin/QuerySet/cascade delete paths reviewed.
 - [ ] Cascade FKs audited; none CASCADE into financial/audit/historical tables unreviewed.
+- [ ] For a cross-system move, the extractor built from the live `information_schema` / system catalog, not committed schema/migration files; a live-vs-committed diff was produced.
+- [ ] Binary-asset location determined (in-DB / object store / local disk via `VOLUME` / bind-mount / backup scope); if on local disk, a separate copy step is planned — a DB dump alone is not complete.
+- [ ] Environment-vs-environment schema drift checked by introspecting BOTH environments' live schemas and diffing (constraints / indexes / columns / defaults), not just the tool's single-DB status check.
 - [ ] "Not done or blocked" lists anything skipped and why.
 
 ## Output format
@@ -125,7 +162,10 @@ The skill emits exactly one block:
 MIGRATION SAFETY REPORT
   Change:             <what is migrating / cutting over>
   Engine / tool:      <db_engine> / <orm-or-migration-tool>   (discovered)
+  Schema source:      <n/a | live information_schema | committed-schema (DRIFT RISK)>   live-vs-committed=<clean|DIFFERS|n/a>
+  Binary assets:      <n/a | in-DB | object-store | LOCAL DISK -> separate copy required>   (VOLUME/bind-mount/backup-scope checked)
   Drift check:        <clean | DRIFT: un-applied=<n>, out-of-order=<y/n>, model-vs-schema=<y/n>>
+  Env drift:          <n/a | clean | DRIFT: <constraint/index/column> present in <env> missing in <env>>
   Backup:             <mechanism> @ <timestamp>   restore-dry-check=<ok|not-done>
   Staging validation: <passed | failed | not-done>
   Plan ordering:      additive=[...]  cutover(destructive)=[...]  archive(rename)=[...]
@@ -149,6 +189,9 @@ MIGRATION SAFETY REPORT
 | Apply straight to the live side | No proof the migration even succeeds | Validate in a staging copy first |
 | Promote with un-migrated model changes | CI/runtime drift; schema diverges from code | Run the drift check; generate the missing migration first |
 | Skip the backup because "it's a small change" | Small destructive changes still destroy | Always take a timestamped, restorable backup |
+| Build the extractor from `schema.prisma` / migration files | The committed schema drifts from the live DB (hotfixes, partial migrations) | Introspect the live `information_schema`; diff it against the committed schema first |
+| Call a DB dump a complete cross-system migration | Binaries on app-server local disk are not in the dump | Check `VOLUME` / bind-mount / storage config / backup scope; copy binaries separately |
+| Validate against staging, promote to prod, assume parity | A constraint present in prod but absent in staging (env drift) makes the staging proof meaningless | Introspect BOTH environments' live schemas and diff before promoting |
 
 ## Portability rationale
 
@@ -158,5 +201,5 @@ The skeleton, the expand/contract ordering, the destructive/CASCADE review, and 
 
 - `references/cutover-skeleton.md` — the step-by-step expand/contract runbook with provider-neutral command slots.
 - `references/destructive-checks.md` — the soft-delete-layer audit, the bulk-delete bypass paths, and the cascade-FK inventory procedure.
-- `release-verification` (skill) — after the migration, prove the deploy actually reached the target environment.
+- `release-verification` (skill) — after the migration, prove the deploy actually reached the target environment; also owns the CI env-var false-FAILURE case (the other half of the env-drift / masking concern this skill's env-vs-env drift detection covers).
 - `release-verify` (command) — user entry point; routes the migration/cutover and drift items to this skill.
