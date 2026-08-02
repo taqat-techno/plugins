@@ -3,7 +3,8 @@
 rag-plugin hook-decisions analyzer (v0.3.0).
 
 Reads ~/.claude/rag-plugin/hook-decisions.log (JSONL, written by
-hooks/prompt_retrieval_reminder.py) and prints aggregate statistics for the
+hooks/context_inject.py, formerly prompt_retrieval_reminder.py) and prints
+aggregate statistics for the
 Tier 2 retrieval-reminder hook. Read-only. Python 3 stdlib only.
 
 Purpose: after the hook has been running for a while, this tool lets you

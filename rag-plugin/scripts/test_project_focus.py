@@ -30,7 +30,10 @@ from typing import Any, Optional
 HERE = Path(__file__).resolve().parent
 PLUGIN_ROOT = HERE.parent
 SCRIPT = HERE / "project_focus.py"
-HOOK = PLUGIN_ROOT / "hooks" / "project_focus_inject.py"
+# WP-7 merged project_focus_inject.py and prompt_retrieval_reminder.py into one
+# UserPromptSubmit hook. The focus behaviour these tests pin did not change —
+# only where it lives.
+HOOK = PLUGIN_ROOT / "hooks" / "context_inject.py"
 
 
 def _load_pf():
@@ -411,15 +414,28 @@ class TestResolveEffectiveFocus(unittest.TestCase):
 # ============================================================================
 
 
+#: A prompt that clears the merged hook's Phase-A shape gate. The retired
+#: focus injector fired on any payload; the merged hook screens first, so an
+#: empty payload now (correctly) silent-passes and would make every assertion
+#: below vacuous.
+_FOCUS_TEST_PROMPT = "What is our documented process for handling this?"
+
+
 def _run_hook(state_file: Path, cwd: Path) -> dict[str, Any]:
     """Run the hook script as a subprocess. Return parsed JSON output (or {})."""
     env = os.environ.copy()
     env["RAG_PLUGIN_FOCUS_STATE_FILE"] = str(state_file)
+    # No service probe during unit tests: point the hook at a port nothing
+    # listens on so scope resolution cannot reach the network, leaving the
+    # focus override as the only source of scope — which is what is under test.
+    env["RAG_PLUGIN_SERVICE_PORT"] = "21499"
     proc = subprocess.run(
         [sys.executable, str(HOOK)],
-        input="{}",
+        input=json.dumps({"hook_event_name": "UserPromptSubmit",
+                          "user_prompt": _FOCUS_TEST_PROMPT,
+                          "cwd": str(cwd)}),
         capture_output=True, text=True,
-        timeout=10, cwd=str(cwd),
+        timeout=30, cwd=str(cwd),
         env=env,
     )
     out = proc.stdout.strip()

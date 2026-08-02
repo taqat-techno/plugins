@@ -83,7 +83,7 @@ The script reads the state file and re-probes `list_projects` to flag staleness 
 
 ### clear
 
-The script removes the state file. After this, the `project_focus_inject.py` UserPromptSubmit hook silent-passes — no more reminders. Cross-project retrieval is back to default.
+The script removes the state file. After this, the `context_inject.py` UserPromptSubmit hook falls back to AUTOMATIC scope resolution for the current directory (D-037) — focus is an explicit override, not the only source of scope. Note that retrieval is never "unscoped": ragtools refuses a search with no project (HTTP 422).
 
 ## Step 3 — Confirm to the user (compact, per D-008)
 
@@ -106,7 +106,7 @@ For `clear`: one line — `project-focus: cleared. cross-project retrieval resto
 
 ## Behavior contract while focus is active
 
-The bundled UserPromptSubmit hook (`hooks/project_focus_inject.py`) injects this reminder on every prompt:
+The bundled UserPromptSubmit hook (`hooks/context_inject.py`) injects this reminder on qualifying prompts:
 
 > /project-focus is ACTIVE — strict mode. Focused project: `<name>` at `<path>`.
 >
@@ -203,6 +203,6 @@ Tell the user what to run (do not run it):
 
 - `/projects` — list / add / remove / rebuild ragtools projects
 - `/doctor` — service + index status before activating focus
-- `hooks/project_focus_inject.py` — the UserPromptSubmit hook that injects focus context
+- `hooks/context_inject.py` — the UserPromptSubmit hook that injects focus/scope context (D-037)
 - `scripts/project_focus.py` — the matcher + state engine
 - `docs/decisions.md` — D-025 (focus contract + filter fallback policy)

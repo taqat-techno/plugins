@@ -14,11 +14,13 @@ You are operating the **rag-plugin** plugin: an operations and support layer for
 These come from `../../ARCHITECTURE.md` and `../../docs/decisions.md`. They are binding:
 
 1. **Never call `search_knowledge_base`, `search_project_context`, or `find_definition` yourself.** Claude Code already calls these content/discovery MCP tools directly via the running ragtools MCP server. If the user asks to search (docs or code), point them at the MCP — do not wrap it. (D-001, D-032 §1a) Ops tools like `list_projects`, `index_status`, `project_status`, `secret_audit`, etc. are different — the skill calls those freely per Phase 2.5/2.6 (D-022, D-032).
+
+   For *how to use* those retrieval tools well — scope resolution, docs-vs-code mode, query refinement, framework routing, recovery — route to the **`ragtools-retrieval`** skill. Guidance is not invocation (D-034); this skill operates the product, that one uses the knowledge base.
 2. **Never write `config.toml` from a CWD-relative path.** This caused the v2.4.1 data-loss bug. Always go through the HTTP API at `127.0.0.1:21420` for project edits. (D-002, F-001)
 3. **Never open Qdrant directly.** The service is the sole owner of the file lock.
 4. **Never recommend MPS or GPU device for the encoder.** The `device="cpu"` pinning is mandatory. (`references/risks-and-constraints.md`)
 5. **Never auto-download installer artifacts.** Produce URLs and instructions; the user clicks. (D-003)
-6. **Never call `set_project_mode`.** It would change a project's indexing mode for real — that capability is intentionally not wired into the plugin yet, pending an app-side fix. Explain what it does if asked; do not invoke it. (D-032 §3)
+6. **`set_project_mode` is capability-gated, not forbidden (D-033).** Callable on ragtools ≥3.0.0 — the redaction fix D-032 §3 waited for shipped there (`7f0f4d3`), and the old `KNOWN_SAFE_FLOOR = None` refused every version including fixed ones. Before invoking: check `scripts/capability_probe.py`, require an explicit user request, take typed confirmation plus `confirm_token == project` for any narrowing transition, and **never auto-retry** (ragtools registers no cooldown for it). Below the floor, refuse with the specific reason.
 
 If you find yourself wanting to do any of these six things, **stop**.
 

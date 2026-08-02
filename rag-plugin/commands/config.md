@@ -184,7 +184,7 @@ This is documented here for transparency. The user does not need to do anything 
 
 # `claude-md` subcommand group
 
-Installs, upgrades, removes, or reports on the **retrieval rule** in `~/.claude/CLAUDE.md`. The rule is the one-page instruction block that tells Claude to call `search_knowledge_base(query=...)` before answering "I don't have information" on any domain question. Source of truth: `${CLAUDE_PLUGIN_ROOT}/rules/claude-md-retrieval-rule.md`.
+Installs, upgrades, removes, or reports on the **retrieval rule** in `~/.claude/CLAUDE.md`. The rule is the one-page instruction block that tells Claude to call `search_knowledge_base(query=..., project=<id>)` — scope is mandatory; ragtools ≥3.0.0 refuses an unscoped call with HTTP 422 — before answering "I don't have information" on any domain question. Source of truth: `${CLAUDE_PLUGIN_ROOT}/rules/claude-md-retrieval-rule.md`.
 
 **Why this exists (D-016):** installing the plugin wires the MCP, but wiring the MCP is not enough — Claude needs a workflow instruction telling it when to use the MCP. Without the rule, Claude scans in-context CLAUDE.md, sees no mention of the user's topic, and says "I don't have information" — even though the answer is in the indexed knowledge base. This subcommand group installs the instruction that closes that loop.
 
@@ -204,7 +204,9 @@ The rule is delimited by exactly two lines:
 <!-- rag-plugin:retrieval-rule:end -->
 ```
 
-Commands must **never** edit inside the markers. Detect, splice, replace, or delete as a whole. The marker version string (`v=0.4.0`) is how upgrade detection works.
+Commands must **never** edit inside the markers. Detect, splice, replace, or delete as a whole. The marker version string (`v=X.Y.Z`) is how upgrade detection works.
+
+**Never hardcode the version here.** Read it from the begin-marker line of `${CLAUDE_PLUGIN_ROOT}/rules/claude-md-retrieval-rule.md` — that file is the source of truth (D-016), and a literal copied into this command is a literal that goes stale. It already did: this document named `v=0.4.0` while the plugin shipped `v=0.5.0`, and every measured install was still on `v=0.4.0` because nothing made the drift visible.
 
 ## `claude-md status`
 
@@ -223,7 +225,7 @@ The install path is idempotent: running it twice on an already-installed rule pr
 
 ### Steps
 
-1. **Load the bundled rule.** Read `${CLAUDE_PLUGIN_ROOT}/rules/claude-md-retrieval-rule.md` and extract the verbatim block between the code fence labeled `## The block (verbatim — this is what gets injected)` — i.e. everything between `<!-- rag-plugin:retrieval-rule:begin v=0.4.0 -->` and `<!-- rag-plugin:retrieval-rule:end -->` (inclusive).
+1. **Load the bundled rule.** Read `${CLAUDE_PLUGIN_ROOT}/rules/claude-md-retrieval-rule.md` and extract the verbatim block between the code fence labeled `## The block (verbatim — this is what gets injected)` — i.e. everything between the `<!-- rag-plugin:retrieval-rule:begin v=... -->` line and `<!-- rag-plugin:retrieval-rule:end -->` (inclusive). Parse the bundled version **from that marker line**; do not assume it.
 
 2. **Resolve the target** per the resolution order above.
 
@@ -367,7 +369,7 @@ Removes all duplicate `ragtools` entries, leaving only the plugin-level one.
 
 # `hook-observability` subcommand group
 
-Controls the `~/.claude/rag-plugin/hook-decisions.log` file written by the `UserPromptSubmit` retrieval-reminder hook (`hooks/prompt_retrieval_reminder.py`). See **D-017** in `docs/decisions.md` and the README section "What we record".
+Controls the `~/.claude/rag-plugin/hook-decisions.log` file written by the `UserPromptSubmit` context injector (`hooks/context_inject.py`, which merged the retrieval-reminder and project-focus hooks in D-037). See **D-017** and **D-037** in `docs/decisions.md` and the README section "What we record".
 
 **Default state:** **enabled.** Rationale: the log contains zero user content (decision metadata only — timestamp, shape_match, probe_match, probe_top_score, action tag, prompt_length, hook version). The user asked for observability to drive the Tier-2-vs-Tier-3 escalation decision, so the default must actually accumulate data.
 
@@ -509,7 +511,7 @@ If any of the four is in a non-default state (telemetry on, rule outdated/missin
 ## See also
 
 - `rules/claude-md-retrieval-rule.md` — source of truth for the retrieval rule block
-- `hooks/prompt_retrieval_reminder.py` — the UserPromptSubmit hook whose decisions `hook-observability` surfaces
+- `hooks/context_inject.py` — the UserPromptSubmit hook whose decisions `hook-observability` surfaces (D-037; supersedes `prompt_retrieval_reminder.py` and `project_focus_inject.py`)
 - `scripts/analyze_hook_decisions.py` — aggregate analyzer invoked by `hook-observability analyze`
 - `/setup` — calls `claude-md install` and `mcp-dedupe clean` as part of Step C.2b / C.5
 - `/doctor` — surfaces retrieval-rule, MCP-dedupe, and hook-observability state in the diagnostic table

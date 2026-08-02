@@ -2,6 +2,77 @@
 
 All notable changes to `rag-plugin` are documented here. Format is loosely based on [Keep a Changelog](https://keepachangelog.com/). Versioning follows [SemVer](https://semver.org/).
 
+## [0.18.0] — 2026-08-02 — Retrieval actually works again
+
+**The retrieval-reminder hook had been completely non-functional since 2026-07-29, and nothing said so.**
+
+`prompt_retrieval_reminder.domain_probe()` issued `GET /api/search` with no `project`. ragtools made retrieval fail-closed in **v3.0.0** (`retrieval/scope.py` → `resolve_scope(allow_unscoped=False)`), so that call returns **HTTP 422 `SCOPE_UNRESOLVED`** and zero results — always. The probe therefore errored on every prompt, `main()` took the `if err: silent_pass(err)` branch, and `inject_reminder()` became unreachable code.
+
+The hook's own observability log recorded it precisely:
+
+```
+reminder-injected                  380   last  2026-07-28T08:23:16Z
+silent-pass:probe-error:http-422   105   first 2026-07-29T07:55:59Z
+```
+
+Zero injections across 105 consecutive probes. Invisible, because an advisory hook fails open (D-031) and "the probe errored" is indistinguishable from "nothing matched".
+
+The same defect ran through the two other layers that reach Claude: the injected `CLAUDE.md` block told Claude to call `search_knowledge_base(query=...)`, and the neutral project-focus notice told it to treat retrieval as *unfocused*. Three layers taught a call that cannot succeed.
+
+### Added
+
+- **`skills/ragtools-retrieval/`** — the plugin's first retrieval-guidance skill (D-034). Decision tree, query patterns, anti-patterns, framework routing, and recovery workflows, in five reference files loaded on demand. It never calls a retrieval tool; guidance is not invocation, and `tests/test_wp06_d001_boundary.py` enforces that mechanically by asserting no command's `allowed-tools` grants one.
+- **`hooks/context_inject.py`** — one `UserPromptSubmit` injector replacing both previous ones (D-037). Phases: shape gate → operational-intent classifier (D-027, unchanged) → **repo-context gate (new)** → scope resolution → **scoped** relevance probe → one compact block. A 422 *after* scoping is now logged distinctly rather than swallowed.
+- **`scripts/scope_resolve.py`** — the shared scope resolver, extracted from `project_focus.py` so there is one owner of "which project covers this directory".
+- **`scripts/service_discover.py`** + **`rules/service-discovery.md`** — evidence-based instance selection (D-036).
+- **`scripts/capability_probe.py`** — probe-first capability detection with a per-capability floor table (D-033).
+- **`scripts/citation_path.py`** — citation repair and verification for the doubled-path defect.
+- **`scripts/verify_tool_inventory.py`** — the drift gate for the MCP inventory (D-035).
+- **`rules/trust-model.md`** — what each `/health` issue means for trusting a result.
+- **`tests/`** — 127 tests plus `tests/baseline_v0.17.0/`, a byte snapshot of the pre-fix files so every structural gate can be run against the version it is meant to catch. It is a fixture, not a backup.
+
+### Fixed
+
+- **Scope is now mandatory everywhere the plugin teaches a search.** The `CLAUDE.md` block (bumped to `v=0.6.0`), the injected hook reminder, and `mcp-envelope.md` all show `project=`. A structural test fails the build if any artefact emits an unscoped call.
+- **Rule-version drift is now an ERROR, not a table row.** Every measured install sat at block `v=0.4.0` while the plugin shipped `v=0.5.0` — a whole routing section existed only in the repository. `/doctor` reports drift as a prominent finding; `commands/config.md` no longer hardcodes a version literal.
+- **The scope resolver no longer picks the wrong project.** Descendant matches were ranked `200 + len(path)`, so from `C:/MY-WorkSpace/claude_plugins` it selected `taqat-plugins` (`…/TR_plugins`, 241) over `claude-plugins` (`…/plugins`, 238) — decided by three characters of path string, with an ambiguity guard that needed a difference of *less than* 3. Relations are now separated: exact and ancestor matches rank by specificity; multiple descendants are **ambiguous** and surfaced, with a union search offered.
+- **Project enumeration costs one HTTP call, not 1+N.** `/api/projects/configured` returns `path`, `mode`, `state`, `enabled`, `files` and `chunks` for every project at once — 25 requests became 1 on a 24-project install, and it carries the two fields the old path never fetched.
+- **`mode` and `state` now reach Claude before the first search.** On a measured install **22 of 24 projects were `docs` mode** and 8 were `indexed_stale`; an empty code result there means nothing, and saying "that does not exist" is the most damaging error this tool allows.
+- **Citation paths are repaired and verified.** ragtools stores `file_path` as `{project_id}/{rel}` and its text formatter prefixes `project_id/` again, so `rag/docs/x.md` is cited as `rag/rag/docs/x.md`. One conditional strip, keyed on the scoped project id, then an existence check — and an unresolvable citation is reported as unverified rather than repaired by guesswork.
+- **`lock_conflict_check.py` honours the port overrides** its sibling hook already had, and probes both likely ports.
+- **The compatibility band is one number again.** `_meta.md` said `2.4.x`, `README.md` said `2.5.x`, the application was `3.5.1`.
+
+### Changed
+
+- **`set_project_mode` is capability-gated, not permanently blocked (D-033).** `KNOWN_SAFE_FLOOR = None` meant every comparison evaluated to *not-yet-fixed*, so the gate refused 2.7.0 and 3.5.1 identically — for five releases after the redaction fix it was waiting for shipped in ragtools v3.0.0 (`7f0f4d3`; all three index paths call `apply_source_class_and_redaction`). Now: probe where a probe exists, version floor only where none does, and `index_redaction` keeps a 3.0.0 floor because observing it from outside would mean indexing a real secret. The `secret_audit` **precision** caveat (~9 %, anchor line ≠ match line) is retained — it is a different limitation.
+- **The MCP inventory documents all 30 tools** in five tiers matching the implementation, verified against ragtools source by `verify_tool_inventory.py`. The previous table listed 21, filed three unconditional core tools under "optional", omitted the four shared-dependency tools, and stated the diagnostics tier was "default OFF" when registration is `access.get(name, True)`.
+- **`add_project` is documented as a normal guarded write.** Calling its presence in the registry a "known, unresolved contradiction" compared it against the v2.5.0 changelog line that v2.5.1 superseded.
+- **The error contract is complete** — all 14 MCP codes plus the seven HTTP domain codes, with the note that five of the six core tools have no structured error channel at all, so "always branch on `error_code`" is unachievable for them.
+- **No behavioural port literal remains.** An installed service defaults to 21420 and a source install to **21421**, both can run at once, and both report the same version.
+- **The always-loaded `CLAUDE.md` block shrank** from 66 shipped lines to 49, with §0a preserved and depth moved into the retrieval skill.
+
+### Removed
+
+- **`hooks/prompt_retrieval_reminder.py`** and **`hooks/project_focus_inject.py`** — merged into `context_inject.py`. The first still contained the unscoped probe, which made it a re-wiring hazard. Both target names stay mapped in `hook_launcher.py` for one release so a stale `hooks.json` cannot break a session; both files are preserved byte-for-byte in `tests/baseline_v0.17.0/` as negative-control fixtures.
+
+### Decisions
+
+- **D-033** — capability floors replace `KNOWN_SAFE_FLOOR`; reverses D-032 §3 only.
+- **D-034** — guidance is not invocation; a retrieval skill does not violate D-001.
+- **D-035** — hybrid capability discovery with a drift gate.
+- **D-036** — service selection by evidence; version and port score zero. Amends D-004 with a Linux branch.
+- **D-037** — one `UserPromptSubmit` context injector. **Closes RFC-001**, whose premise was overtaken: enforcement did move into the application, but arrived as a refusal rather than a default.
+
+### Application dependencies filed
+
+`docs/issues/` records A-01 … A-09 against `taqat-techno/rag`, each with its retirement condition. The two that let the plugin delete a workaround rather than carry it: **A-01** (`search_knowledge_base`'s docstring promises the unscoped search its own guard refuses — and that docstring *is* the tool description Claude reads) and **A-02** (`formatter._loc` re-prefixes an already-prefixed path). **A-04** cannot be mitigated plugin-side at all: proxy-mode retrieval enforces neither capability nor scope, so the plugin must never claim client profiles isolate retrieval.
+
+### Tests
+
+127 new tests in `tests/`, plus the existing 134 (`test_hook_launcher` 24, `test_project_focus` 30, `test_rag_report` 80) all still passing. Every structural gate was demonstrated to **fail** against `tests/baseline_v0.17.0/` before being accepted — the repo's standing rule that a source-scanning test is worthless until it has been shown to fail against the version it is meant to catch. Two controls are kept permanently rather than run once: `TestGuardsRejectNaiveImplementations` runs the naive citation-repair algorithms and asserts the real one disagrees, and `TestTheOldEngineActuallyGetsThisWrong` loads the shipped v0.17.0 matcher and asserts it still selects the wrong project.
+
+---
+
 ## [0.17.0] — 2026-07-01 — Plugin awareness of ragtools' Code Knowledge Index (Dev Mode); `set_project_mode` stays gated pending an app-side fix (D-032)
 
 ragtools v2.7.0 shipped a per-project indexing mode (`docs`/`code`/`general`) plus `search_project_context`, `find_definition`, and `secret_audit` MCP tools. This release teaches the plugin and the injected CLAUDE.md rule to route to them correctly — but does **not** wire `set_project_mode` into anything that can actually change a project's mode: independent verification found the production indexing write path does not apply content-level secret redaction (this affects every existing project, not just future code-indexed ones), so enabling a richer indexing mode stays a user-driven, admin-panel-only action until that gap is confirmed fixed upstream. **No new hooks. No destructive-command changes. The default docs-only path is unaffected for every project that exists today.**
