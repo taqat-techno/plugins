@@ -62,8 +62,14 @@ import sys
 #               decision survives), but fail open on path-resolution failure and
 #               on unexpected exceptions.
 _TARGETS = {
-    "retrieval-reminder": ("prompt_retrieval_reminder.py", "advisory"),
-    "project-focus": ("project_focus_inject.py", "advisory"),
+    # v1.0.0 (WP-7): the two UserPromptSubmit injectors merged into one.
+    "context-inject": ("context_inject.py", "advisory"),
+    # Retained for one release so a stale hooks.json cannot break a session:
+    # a user who upgrades the plugin but whose Claude Code still holds the old
+    # hooks.json would otherwise hit "unknown target" on every prompt. Both map
+    # to the merged hook, which supersedes them.
+    "retrieval-reminder": ("context_inject.py", "advisory"),
+    "project-focus": ("context_inject.py", "advisory"),
     "lock-conflict": ("lock_conflict_check.py", "guarded"),
 }
 

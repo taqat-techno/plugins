@@ -71,31 +71,13 @@ try:
 except Exception:
     pass
 
-# Path comparison and project matching live in scope_resolve (WP-2). This
-# module keeps the FOCUS feature — explicit user override, state file, CLI —
-# and delegates the algorithm, so there is exactly one owner of "which project
-# covers this directory". The v0.17.0 copy of that algorithm ranked descendant
-# matches by path-string length and silently selected the wrong project; see
-# scope_resolve's module docstring.
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-from scope_resolve import (  # noqa: E402
-    detect_git_root,
-    fetch_projects as _fetch_projects_scoped,
-    norm as _norm,
-    resolve as _resolve_scope,
-    resolve_workspace_key,
-)
-
 STATE_DIR = Path.home() / ".claude" / "rag-plugin" / "state"
 STATE_FILE = STATE_DIR / "project-focus.json"
 V1_BACKUP_NAME = "project-focus.v1.bak.json"
 
 DEFAULT_HOST = "127.0.0.1"
-#: Fallback only. The resolved endpoint comes from rules/service-discovery.md;
-#: an installed service defaults to 21420 and a SOURCE install to 21421, and
-#: both can be running at once reporting the same version.
-DEFAULT_PORT = int(os.environ.get("RAG_PLUGIN_SERVICE_PORT", "21420"))
-SCRIPT_VERSION = "0.11.0"
+DEFAULT_PORT = 21420
+SCRIPT_VERSION = "0.10.0"
 SCHEMA_VERSION = 2
 
 
@@ -149,9 +131,46 @@ def fetch_configured_projects(host: str = DEFAULT_HOST,
 # --------------------------------------------------------------------------- #
 
 
-# detect_git_root / _norm / resolve_workspace_key are imported from
-# scope_resolve above. They are re-exported here because this module's own test
-# suite and the project-focus hook both reference them by these names.
+def detect_git_root(start: Path) -> Optional[Path]:
+    p = start.resolve()
+    for ancestor in [p] + list(p.parents):
+        if (ancestor / ".git").exists():
+            return ancestor
+    try:
+        r = subprocess.run(
+            ["git", "rev-parse", "--show-toplevel"],
+            capture_output=True, text=True, timeout=2,
+            cwd=str(p),
+        )
+        if r.returncode == 0:
+            top = r.stdout.strip()
+            if top:
+                return Path(top)
+    except Exception:
+        return None
+    return None
+
+
+def _norm(p: str) -> str:
+    """Normalize a path for comparison (resolve, posix slashes, lowercase on Windows)."""
+    if not p:
+        return ""
+    try:
+        out = str(Path(p).expanduser().resolve())
+    except Exception:
+        out = str(p)
+    out = out.replace("\\", "/")
+    while out.endswith("/") and len(out) > 1:
+        out = out[:-1]
+    if os.name == "nt":
+        out = out.lower()
+    return out
+
+
+def resolve_workspace_key(cwd: Path) -> str:
+    """Compute the workspace key for the given cwd: normalized git root or cwd."""
+    root = detect_git_root(cwd) or cwd
+    return _norm(str(root))
 
 
 def _now_iso() -> str:
@@ -392,31 +411,66 @@ def _project_name(project: dict[str, Any]) -> str:
 
 def match_project(cwd: Path, projects: list[dict[str, Any]],
                   manual_name: Optional[str] = None) -> tuple[Optional[MatchResult], list[MatchResult]]:
-    """Which project covers ``cwd`` — delegated to :mod:`scope_resolve`.
+    candidates: list[MatchResult] = []
+    if manual_name:
+        wanted = manual_name.strip().lower()
+        for proj in projects:
+            n = _project_name(proj).lower()
+            pid = str(proj.get("id", "")).lower()
+            if n == wanted or pid == wanted:
+                candidates.append(MatchResult(proj, "name", 100))
+        if candidates:
+            return candidates[0], candidates
+        for proj in projects:
+            n = _project_name(proj).lower()
+            if wanted and wanted in n:
+                candidates.append(MatchResult(proj, "name-partial", 50))
+        return (candidates[0] if candidates else None), candidates
 
-    Returns the shape this module has always returned, ``(best_or_None,
-    candidates)``, where ``None`` means "ambiguous, ask the user" (exit code 3).
+    cwd_n = _norm(str(cwd))
+    git_root = detect_git_root(cwd)
+    git_n = _norm(str(git_root)) if git_root else ""
 
-    The algorithm moved out in WP-2. What used to live here scored every
-    descendant match ``200 + len(path)``, so when the cwd was a parent of
-    several project roots the winner was decided by path-string length — which
-    means nothing. Measured from ``C:/MY-WorkSpace/claude_plugins`` it selected
-    ``taqat-plugins`` over ``claude-plugins`` by three characters, and its
-    tie-break needed a difference of *less than* 3 to call that ambiguous.
-    ``tests/test_wp02_scope_resolution.py`` runs the old engine against the same
-    fixture and pins that it still gets it wrong.
-    """
-    decision = _resolve_scope(cwd, projects, manual_name)
-    results = [MatchResult(m.raw or {"id": m.project_id, "path": m.path},
-                           m.method, m.score)
-               for m in decision.candidates]
-    if decision.ambiguous or decision.project is None:
-        return None, results
-    best = next(
-        (r for r in results if _project_name(r.project) == decision.project.project_id),
-        results[0] if results else None,
-    )
-    return best, results
+    for proj in projects:
+        for raw_path in _candidate_paths(proj):
+            pn = _norm(raw_path)
+            if not pn:
+                continue
+            if pn == cwd_n or (git_n and pn == git_n):
+                candidates.append(MatchResult(proj, "exact-path", 1000 + len(pn)))
+                continue
+            if cwd_n.startswith(pn + "/") or cwd_n == pn:
+                candidates.append(MatchResult(proj, "ancestor-path", 500 + len(pn)))
+                continue
+            if git_n and (git_n.startswith(pn + "/") or git_n == pn):
+                candidates.append(MatchResult(proj, "ancestor-path", 500 + len(pn)))
+                continue
+            if pn.startswith(cwd_n + "/") or (git_n and pn.startswith(git_n + "/")):
+                candidates.append(MatchResult(proj, "descendant-path", 200 + len(pn)))
+                continue
+
+    if not candidates:
+        return None, []
+
+    candidates.sort(key=lambda r: -r.score)
+    seen: set[str] = set()
+    unique: list[MatchResult] = []
+    for c in candidates:
+        n = _project_name(c.project)
+        if n in seen:
+            continue
+        seen.add(n)
+        unique.append(c)
+
+    best = unique[0]
+    if len(unique) >= 2 and unique[0].score - unique[1].score < 10 and unique[0].method == unique[1].method:
+        unique.sort(key=lambda r: -max((len(p) for p in _candidate_paths(r.project)), default=0))
+        if abs(len(_candidate_paths(unique[0].project)[0] if _candidate_paths(unique[0].project) else "")
+               - len(_candidate_paths(unique[1].project)[0] if _candidate_paths(unique[1].project) else "")) < 3:
+            return None, unique
+        best = unique[0]
+
+    return best, unique
 
 
 # --------------------------------------------------------------------------- #

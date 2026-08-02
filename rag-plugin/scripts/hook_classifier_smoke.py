@@ -2,7 +2,7 @@
 """rag-plugin retrieval-reminder hook classifier smoke test (v0.4.0).
 
 Asserts the operational-intent classifier in
-hooks/prompt_retrieval_reminder.py correctly silent-passes operational
+hooks/context_inject.py correctly silent-passes operational
 prompts and lets knowledge-shape prompts through.
 
 Source of the classifier expectations:
@@ -36,7 +36,10 @@ try:
 except Exception:
     pass
 
-import prompt_retrieval_reminder as hook  # type: ignore  # noqa: E402
+# D-037 merged the retrieval-reminder and project-focus hooks into
+# context_inject.py. The D-027 operational-intent classifier moved with it,
+# unchanged; these 20 fixtures pin it in its new home.
+import context_inject as hook  # type: ignore  # noqa: E402
 
 # 12 operational fixtures — must classify as operational-intent
 OPERATIONAL_FIXTURES: list[str] = [

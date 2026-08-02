@@ -120,8 +120,43 @@ If multiple projects, add a second small table capped at 5 rows with `+N more �
 
 Run the **plugin-level assertions** — these are not from `rag doctor`, they are probed by this command directly (introduced in v0.2.0, v0.3.1, v0.3.3):
 
-- `/config claude-md status` → maps to `OK — INSTALLED v<N>` / `WARN — NOT INSTALLED` / `WARN — OUTDATED v<OLD>→v<NEW>` / `WARN — TARGET MISSING`
+- `/config claude-md status` → maps to `OK — INSTALLED v<N>` / `WARN — NOT INSTALLED` / **`ERROR — OUTDATED v<OLD>→v<NEW>`** / `WARN — TARGET MISSING`
+
+  **An outdated rule block is an ERROR, not a WARN.** The block is the always-loaded instruction set; a stale one means Claude is running guidance this plugin has already corrected, and the user cannot tell from the outside. This was not hypothetical: every measured install sat at `v=0.4.0` while the plugin shipped `v=0.5.0`, so a whole routing section existed only in the repository. Drift is reported in the findings block (§D.4), not only as a table row.
 - `/config mcp-dedupe status` → maps to `OK — 1 (plugin-level, canonical, schema OK)` / `WARN — <N+1> (plugin-level + <N> duplicates)` / `ERROR — plugin .mcp.json missing top-level 'ragtools' key` / `ERROR — plugin .mcp.json command '<cmd>' not on PATH` / `ERROR — plugin .mcp.json uses the legacy Python launcher`
+
+### Three checks added in v0.18.0
+
+**1. Service inventory** — run `scripts/service_discover.py` and report **every** ragtools-shaped responder, not just the one selected:
+
+```
+services: 2 found, using :21420
+  -> :21420  packaged  28 collections (per_project)  24 projects  data_dir=…\RAGTools\data
+             selected: registered project 'rag' matches the workspace (+15); healthy (+5)
+     :21455  source    2 collections (per_project)    2 projects  data_dir=…\rag\data
+```
+
+Both may report the **same version** — measured on 2026-08-01, `:21420` and `:21455` both said `3.5.1` while serving completely different knowledge bases. Print `data_dir` and `collection`; those differ. Never present the version as the reason one was chosen (D-036).
+
+If `/identity.install_mode` disagrees with the inferred `install_kind`, add one line naming the self-report as unreliable (A-09) — a packaged PyInstaller install reports `source`.
+
+**2. Scope-contract probe** — one unscoped `GET ${state.base_url}/api/search?query=probe&top_k=1`:
+
+| Result | Meaning |
+|---|---|
+| `422 SCOPE_UNRESOLVED` | `OK — scope is mandatory (ragtools ≥3.0.0)`. Expected. |
+| `200` | `INFO — legacy unscoped search allowed (ragtools <3.0.0)` |
+| anything else | `WARN — could not determine the scope contract` |
+
+The single most informative probe on the surface, and it costs one request. It is also what tells the user whether the plugin's scoped-search guidance applies to their install.
+
+**3. Instruction-drift check** — three comparisons, each an `ERROR` when it fails:
+
+- installed `CLAUDE.md` block version vs the shipped `rules/claude-md-retrieval-rule.md` marker;
+- documented MCP inventory vs the live registry — `scripts/verify_tool_inventory.py` (exit 1 = drift);
+- the compatibility band in `references/_meta.md` vs the running `state.version`.
+
+All three have already drifted silently at least once. The band alone carried three different values across `_meta.md`, `README.md`, and reality.
 
 An `ERROR` on the MCP registrations row is **always** more urgent than any WARN — it means ragtools MCP will not load at all.
 
@@ -241,6 +276,9 @@ One line per non-OK finding:
 ```
 findings:
   [ERROR] Service status "not running" → /doctor --symptom F-005 --fix
+  [ERROR] CLAUDE.md rule OUTDATED v0.4.0 → v0.6.0. Claude is running superseded
+          retrieval guidance; the installed block predates the mandatory-scope
+          fix. → /config claude-md install (D-016)
   [WARN]  CLAUDE.md rule missing → /config claude-md install (D-016)
   [WARN]  MCP duplicate at ~/.claude.json → /config mcp-dedupe clean (D-015)
   [INFO]  Code Knowledge Index: secret redaction not yet confirmed fixed on this ragtools

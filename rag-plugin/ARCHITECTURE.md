@@ -81,7 +81,8 @@
 
 1. **Detect** install mode (packaged Windows / packaged macOS / dev-mode / not installed) and service mode (proxy-up / direct / down).
 2. **Resolve** config, data, log, and binary paths using the same precedence order as `src/ragtools/config.py`: env vars → platform defaults → dev fallback.
-3. **Probe** `http://127.0.0.1:21420/health` at the top of every command and print a one-line mode banner so the user always knows which mode they're in.
+3. **Resolve** the service (never assume a port — installed defaults to 21420, source to **21421**, and both can run at once reporting the same version; `rules/service-discovery.md`, D-036), probe its `/health`, **read the body** rather than just the status code, and print a one-line mode banner so the user always knows which mode they're in.
+3a. **Resolve the retrieval scope** for the working directory (`scripts/scope_resolve.py`). ragtools refuses an unscoped search, so scope is a precondition rather than a filter.
 4. **Wrap** existing CLI and HTTP surfaces with compact-by-default outputs. Tables, not log dumps. `--verbose` for full output.
 5. **Codify** the §15 repair playbooks as walkable interactive flows with explicit confirmation gates on destructive steps.
 6. **Guard** against the Qdrant single-process lock by warning before any Bash command would fight a running service. PreToolUse hook in the `security-guidance` style.
@@ -91,7 +92,7 @@
 
 | Forbidden | Why |
 |-----------|-----|
-| Re-implement `search_knowledge_base` or any retrieval logic | The MCP server already does this and applies the project's own token-efficient compact format. Duplicating it splits the token-efficiency story. |
+| **Call, wrap, mediate, proxy, or reformat** `search_knowledge_base`, `search_project_context`, or `find_definition` | The MCP server already does this and applies the product's own token-efficient compact format. Duplicating it splits the token-efficiency story. **Guidance is not invocation** (D-034): the plugin may document *when* and *how* to use these tools — that is what `rules/claude-md-retrieval-rule.md` and `skills/ragtools-retrieval/` do — but it never performs a search on the user's behalf. `allowed-tools` is the mechanical grant, and `tests/test_wp06_d001_boundary.py` asserts no command carries one. |
 | Open Qdrant directly | Qdrant local mode takes an exclusive file lock. Two openers = data loss. The service is the sole owner. |
 | Load `SentenceTransformer` or any embedder | 5–10 second cost, no value the product doesn't already deliver. CPU pinning lives in the product for a reason — see `references/risks-and-constraints.md` once Phase 1 lands. |
 | Build a parallel admin panel | `service/templates/*.html` already ships one. Re-doing it means maintaining two UIs forever. |
@@ -141,7 +142,24 @@ When adding a new feature, ask:
 
 If all five answers are "no", the feature is in scope.
 
-## Phase 9 closure — final inventory and state
+## v0.18.0 — current inventory (supersedes the Phase 9 snapshot below)
+
+The Phase 9 section that follows is a historical record of the 10-phase roadmap's close. Current surface:
+
+- **Manifest:** `.claude-plugin/plugin.json` (`v0.18.0`)
+- **9 slash commands** — 8 user-facing + `/sync-docs` (maintainer-only)
+- **4 skills:** `ragtools-ops` (operate the product) · **`ragtools-retrieval` (use the knowledge base — new, D-034)** · `markdown-authoring` · `ragtools-release`
+- **2 hooks:** `lock_conflict_check.py` (PreToolUse Bash, **guarded**) and **`context_inject.py`** (UserPromptSubmit, **advisory**) — the latter merged the two previous injectors (D-037). `prompt_retrieval_reminder.py` and `project_focus_inject.py` are retired; their target names stay mapped in `hook_launcher.py` for one release.
+- **6 rules:** `claude-md-retrieval-rule` (v0.6.0) · `mcp-envelope` · `state-detection` · `hook-failopen` · **`service-discovery`** · **`trust-model`**
+- **Deterministic helpers:** `scope_resolve.py` · `service_discover.py` · `capability_probe.py` · `citation_path.py` · `verify_tool_inventory.py` — behaviour that must be *decided the same way every time* lives in Python, not prose.
+- **Tests:** `tests/` (127) + `tests/baseline_v0.17.0/` (pre-fix fixture for negative controls), plus `test_hook_launcher` (24), `test_project_focus` (30), `test_rag_report` (80).
+- **Decisions:** D-001 … **D-037**; RFC-001 **closed**.
+
+**The layering rule is unchanged, and one distinction was made explicit:** deterministic decisions (service discovery, scope resolution, version/capability parsing, path validation, permission classification) belong in scripts; judgment (is RAG appropriate, how to phrase a query, whether to verify) belongs in instructions. Solving a determinism problem by adding prose to an always-loaded block is how the block reached 66 lines while still teaching a call that could not succeed.
+
+---
+
+## Phase 9 closure — final inventory and state (historical)
 
 All 10 phases (0–9) of the rag-plugin roadmap are shipped, plus three post-roadmap amendments (D-015, D-016, D-017). The plugin's surface as of **v0.3.0**:
 

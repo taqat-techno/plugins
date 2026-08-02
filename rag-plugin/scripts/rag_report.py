@@ -67,7 +67,14 @@ except Exception:
     pass
 
 REPORT_VERSION = "0.9.0"
-DEFAULT_PORT = 21420
+#: Fallback only — see rules/service-discovery.md. An installed service defaults
+#: to 21420 and a SOURCE install to 21421, and both can be running at once
+#: reporting the same version, so a literal here would report on the wrong
+#: instance. Overridable for the same reason.
+DEFAULT_PORT = int(
+    next((os.environ[v] for v in ("RAG_PLUGIN_SERVICE_PORT", "RAG_SERVICE_PORT")
+          if os.environ.get(v, "").strip().isdigit()), "21420")
+)
 DEFAULT_HOST = "127.0.0.1"
 
 # --------------------------------------------------------------------------- #
@@ -1919,7 +1926,8 @@ def render_plugin_report(state: State, plugin: PluginInspection,
 
     md.append("## 4. Hook behavior state\n")
     expected_hooks = {"hooks.json", "lock_conflict_check.py",
-                      "prompt_retrieval_reminder.py", "hook_launcher.py"}
+                      "prompt_retrieval_reminder.py", "project_focus_inject.py",
+                      "context_inject.py", "hook_launcher.py"}
     present_hooks = set(plugin.hooks)
     missing = sorted(expected_hooks - present_hooks)
     md.append(f"- Bundled hooks: {', '.join(sorted(present_hooks)) or '_none_'}")

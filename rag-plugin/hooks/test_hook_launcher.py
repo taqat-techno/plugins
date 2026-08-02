@@ -89,7 +89,7 @@ def _split_bootstrap(command: str) -> tuple[str, list[str]]:
     return payload, [name, fallback]
 
 
-def _run_bootstrap(target_name="retrieval-reminder", *, env_root=None,
+def _run_bootstrap(target_name="context-inject", *, env_root=None,
                    fallback=None, stdin="", timeout=30):
     """Run the real bootstrap argv under a controlled environment."""
     payload, args = _split_bootstrap(_bootstrap_command(target_name))
@@ -106,7 +106,7 @@ def _run_bootstrap(target_name="retrieval-reminder", *, env_root=None,
 
 
 def _temp_plugin(target_body=None, include_target=True,
-                 target_filename="prompt_retrieval_reminder.py"):
+                 target_filename="context_inject.py"):
     """Build a throwaway <tmp>/hooks/ with the real launcher and a controllable
     target. Returns (tmp_root, launcher_path)."""
     tmp = tempfile.mkdtemp(prefix="raghook_")
@@ -194,10 +194,26 @@ class TestNeverBlocks(unittest.TestCase):
         proc = _run_bootstrap(env_root=str(PLUGIN_ROOT), stdin=_GOOD_PAYLOAD)
         self._assert_failopen(proc, "windows-style root")
 
-    def test_project_focus_target(self):
-        proc = _run_bootstrap(target_name="project-focus",
-                              env_root=str(PLUGIN_ROOT), stdin=_GOOD_PAYLOAD)
-        self._assert_failopen(proc, "project-focus target")
+    def test_retired_target_names_still_resolve(self):
+        """Back-compat for the WP-7 merge.
+
+        ``retrieval-reminder`` and ``project-focus`` were merged into
+        ``context-inject`` and are no longer registered in hooks.json, but they
+        remain mapped in the launcher for one release: a user who upgrades the
+        plugin while Claude Code still holds the old hooks.json must not hit
+        "unknown target" on every prompt. Invoked directly, because they are
+        deliberately absent from hooks.json now.
+        """
+        for legacy in ("retrieval-reminder", "project-focus"):
+            proc = subprocess.run(
+                [sys.executable, str(LAUNCHER), legacy],
+                input=_GOOD_PAYLOAD, capture_output=True, text=True, timeout=30,
+                env={**os.environ, "CLAUDE_PLUGIN_ROOT": str(PLUGIN_ROOT)},
+            )
+            self.assertNotEqual(
+                proc.returncode, BLOCKING_EXIT,
+                f"retired target {legacy!r} produced the blocking exit code",
+            )
 
     def test_fallback_arg_recovers_when_env_missing(self):
         # env var missing, but the host-expanded fallback path is valid -> still
@@ -346,7 +362,7 @@ class TestWiringStaysFailOpen(unittest.TestCase):
         # surface of D-031). The command is sourced from our own in-repo
         # hooks.json plus sys.executable; there is no untrusted/user input, so
         # there is no command-injection exposure.
-        cmd = _bootstrap_command("retrieval-reminder")
+        cmd = _bootstrap_command("context-inject")
         assert cmd.startswith("python3 ")
         shell_cmd = '"%s" %s' % (sys.executable, cmd[len("python3 "):])
         env = dict(os.environ)

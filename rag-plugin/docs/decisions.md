@@ -955,7 +955,7 @@ then downgrade to v0.12.x. The `.bak` is never overwritten on subsequent migrati
 ## RFC-001 — MCP-level enforcement of project focus (deferred from Phase 1)
 
 Date: 2026-05-08
-Status: deferred / RFC
+Status: **CLOSED 2026-08-02 by D-037.** Enforcement arrived from the application side in ragtools v3.0.0 — but as a **refusal** (HTTP 422 `SCOPE_UNRESOLVED`) rather than as a default `project=`. The honour-system contract described below therefore became a hard requirement, and the plugin's own default instruction became an error. See D-037.
 
 D-028 closes the cross-workspace leak by making the plugin's hook cwd-aware, but the actual filtering of `search_knowledge_base` calls remains an honor-system contract: Claude must read the injected reminder and pass `project=<name>`. A future change could move enforcement into the ragtools MCP server itself by having it read the same state file (or a shared lookup) at startup and apply the focus as a default `project=` when the caller does not specify one.
 
@@ -1180,3 +1180,200 @@ A separate observation, not resolved by this decision: the MCP's live tool regis
 
 - The app-side redaction-bypass fix ships and is confirmed — then a follow-up decision raises `KNOWN_SAFE_FLOOR` in `rules/state-detection.md` and `set_project_mode` gets wired into a real, gated `/projects mode <id> <mode>` subcommand. This decision's restriction in point 3 is what gets reversed; points 1, 2, 4, and 6 are not contingent on the app fix and stay as-is.
 - A future ragtools release exposes a clean boolean capability flag (rather than requiring version-string comparison) for the redaction guarantee — adopt it in `rules/state-detection.md` in place of the version-floor comparison.
+
+---
+
+## D-033 — Capability floors replace `KNOWN_SAFE_FLOOR`; `set_project_mode` is ungated at ragtools ≥3.0.0
+
+Date: 2026-08-02
+Phase: Post-17 (WP-10)
+Status: binding
+Ships in: v0.18.0
+Reverses: D-032 §3 only. D-032 points 1, 2, 4, 5 and 6 stand unchanged.
+
+### Context
+
+D-032 §3 blocked `set_project_mode` until two conditions were met: a maintainer confirms from the live ragtools source that the production indexing write path applies content-level secret redaction, **and** `rules/state-detection.md`'s `KNOWN_SAFE_FLOOR` is updated to reflect it.
+
+Neither happened, and the constant shipped as `KNOWN_SAFE_FLOOR = None` with the note *"no ragtools release is known-safe as of this writing"*. Every comparison against `None` evaluates to `not-yet-fixed`, so the gate was **unconditional**: it refused 2.7.0 and it refused 3.5.1 identically. A gate with no expiry is a gate nobody can pass, and its warnings stop being read.
+
+### The evidence that satisfies D-032 §3(a)
+
+`indexing/indexer.py:298` defines `apply_source_class_and_redaction`, whose own docstring calls it *"the ONE authoritative indexing hygiene step"*. All three index paths call it:
+
+| Path | Call site | Covers |
+|---|---|---|
+| `index_file` | `indexing/indexer.py:355` | CLI, **watcher** (`watcher/observer.py:223`), rebuild |
+| `QdrantOwner._flush_window` | `service/owner.py:504` | service project indexing (incl. `watcher_thread.py:318`) |
+| framework `_flush` | `service/owner.py:789` | framework corpus import |
+
+`git describe --contains 7f0f4d3` → `v3.0.0-rc.1~8`. The fix shipped in **ragtools v3.0.0 (2026-07-26)** — five releases before this was noticed.
+
+### The decision
+
+1. **`KNOWN_SAFE_FLOOR` is replaced by a per-capability table** in `rules/state-detection.md`, implemented by `scripts/capability_probe.py`.
+2. **Probe where a probe exists; use a version floor only where none does.** This is what D-032's own second reverse-if clause asked for. A probe measures the running service; a floor infers from a number.
+3. `index_redaction` keeps a floor of **3.0.0**, because observing index-time redaction from outside would mean indexing a real secret and searching for it — not an acceptable diagnostic. It is the only capability that stays version-gated.
+4. **`set_project_mode` becomes callable** on ragtools ≥3.0.0, behind the write discipline it always should have had: explicit user request, typed confirmation, `confirm_token == project` for any narrowing transition, and **no auto-retry** — ragtools has no cooldown registered for it (A-07), so the typed gate is its only rate limit.
+5. **Unknown fails closed but stays distinguishable.** "Could not determine" and "confirmed not present" both refuse, and say which. They lead a user to different actions.
+6. **The `secret_audit` precision caveat is retained**, and is not the redaction caveat. ~9 % precision and the reported line being the chunk anchor rather than the match are separate, still-true limitations.
+
+### Non-violation of prior decisions
+
+- **D-032:** points 1, 2, 4, 5, 6 are untouched. Only §3's restriction is reversed, which is exactly what its "Reverse only if" clause provided for.
+- **D-005 / D-007:** unchanged; nothing new blocks, and writes still refuse cleanly when the service is down.
+- **D-022:** `set_project_mode` was always classified a guarded write; this makes the guard real instead of absolute.
+
+### Reverse only if
+
+- A ragtools release regresses index-time redaction — then raise the floor, do not restore an unconditional block.
+- A probe for redaction becomes possible without indexing a secret; then retire the last floor too.
+
+---
+
+## D-034 — Guidance is not invocation: a retrieval skill does not violate D-001
+
+Date: 2026-08-02
+Phase: Post-17 (WP-6/8/9)
+Status: binding
+Ships in: v0.18.0
+Relates to: D-001, D-016, D-022, D-032 §1
+
+### Context
+
+D-001 forbids the plugin from wrapping `search_knowledge_base`; D-032 §1 extends that to `search_project_context` and `find_definition`. The plugin therefore had **no owner** for retrieval guidance, and the guidance that existed was crammed into the always-loaded CLAUDE.md block — where it cost tokens on every prompt and still had no room for a decision tree, query patterns, or recovery workflows.
+
+That gap is how the P0 survived: because the plugin never *called* the retrieval tools, nothing in it ever exercised their contract, and an unscoped call that had returned HTTP 422 since ragtools v3.0.0 went unnoticed in three separate artefacts.
+
+### The decision
+
+1. **The plugin may own retrieval *guidance*.** `skills/ragtools-retrieval/` documents when to use each tool, how to construct and refine a query, how to read confidence and provenance, and what to do when retrieval fails.
+2. **The boundary is invocation, not subject matter.** The plugin still never calls, wraps, mediates, proxies, or reformats a retrieval tool or its results. Telling Claude how to choose a tool is what `rules/claude-md-retrieval-rule.md` has done since D-016.
+3. **The line, stated concretely:** if a skill workflow or command would *perform* a search on the user's behalf, it is over the line. If it tells Claude how to perform one, it is not.
+4. **Mechanically enforced.** `tests/test_wp06_d001_boundary.py` asserts no command's `allowed-tools` grants a Claude-only retrieval tool. `allowed-tools` is the grant; prose cannot widen it.
+5. **`secret_audit` remains the carve-out** (D-032 §2) — an ops/audit tool the plugin may call. The guard must not be widened to every tool with "search" in its name.
+6. **The always-loaded block shrinks.** Depth moves to the skill, which loads on retrieval intent. The block keeps only what must be known before the first tool call.
+
+### Non-violation of prior decisions
+
+- **D-001:** preserved verbatim. The plugin calls nothing new.
+- **D-006 (one skill, fat references):** this is the second *user-facing* skill, justified because its trigger conditions are disjoint from `ragtools-ops` — operating the product versus using the knowledge base. Merging them would load install/repair references on a search question.
+- **D-008:** the skill is compact-by-default and routes to one reference at a time.
+- **D-021:** no new command.
+
+### Reverse only if
+
+- The guidance proves unreachable in practice (the skill never triggers) — then move the load-bearing parts back into the always-loaded block and accept the token cost.
+- ragtools grows a retrieval surface the plugin genuinely must mediate. Even then, fix it upstream first (D-001's original clause).
+
+---
+
+## D-035 — Hybrid capability discovery with a drift gate
+
+Date: 2026-08-02
+Phase: Post-17 (WP-5)
+Status: binding
+Ships in: v0.18.0
+Relates to: D-011 (compatibility band), D-022 (tool inventory)
+
+### Context
+
+Every consumer of the ragtools MCP surface re-derived the tool list by hand, and each drifted differently. At the 2026-08-01 audit `rules/mcp-envelope.md` documented **21** of **30** live tools, filed three unconditional core tools under an "optional" tier, omitted the four shared-dependency tools entirely, and described `add_project` as an "unresolved contradiction" two releases after it shipped deliberately. ragtools' own `mcp_server.py` module docstring said "3 core" when six carry the decorator.
+
+### The decision
+
+A **hybrid**, because the alternatives are unavailable rather than unattractive:
+
+- **Runtime MCP discovery by the plugin is impossible.** A Claude Code plugin is markdown, JSON and scripts — not an MCP client. It cannot call `tools/list` without spawning a second MCP server that would contend with the running one. Only *Claude* sees the tool registry.
+- **Generation from the application is blocked today.** `GET /api/mcp-config` returns launch configuration only (`{command, args}`) — no tool metadata. Filed upstream as A-06.
+
+So:
+
+1. **Tier 1 — the stable core contract is written down.** The six `@mcp_app.tool()`-decorated tools are unconditional; no configuration can disable them. That is a real contract and is safe to record.
+2. **Tier 2 — optional tools are observed by Claude**, not by the plugin. Registration is `access.get(name, True)`, so **absence means the user opted out** — never that the capability does not exist.
+3. **Tier 3 — behavioural probes** answer what a version number cannot (`scripts/capability_probe.py`, D-033).
+4. **Drift is a build failure, not a discovery.** `scripts/verify_tool_inventory.py` diffs the documented inventory against ragtools source or a session registry and exits non-zero. An envelope that has lost its tier structure is reported as **drift (exit 1)**, not as a usage error (exit 2) — exiting 2 reads as "the tool is broken" and gets ignored, which is how the 21-tool inventory survived three releases.
+5. **Migration to generation is the end state.** When A-06 ships, Tiers 1–2 are generated and the static tables are deleted. The hybrid is shaped so that becomes a deletion, not a rewrite.
+
+### Reverse only if
+
+- A-06 ships — then adopt generation and retire the static tiers.
+- The MCP contract stops being stable enough for a written core tier; then fall back to Claude-observed discovery for everything and accept the loss of offline documentation.
+
+---
+
+## D-036 — Service selection is by evidence; version and port are worth zero (amends D-004)
+
+Date: 2026-08-02
+Phase: Post-17 (WP-4)
+Status: binding
+Ships in: v0.18.0
+Amends: D-004 (install discovery order)
+
+### Context
+
+The plugin hardcoded `127.0.0.1:21420` in four behavioural sites and ~18 instructional ones. ragtools' `config._default_service_port()` returns `21420` when packaged and **`21421`** from source — so a developer working on ragtools itself was pointed at the wrong service by every probe.
+
+Measured 2026-08-01, two services were live on one machine and **both reported version 3.5.1**: `:21420` (installed, managed engine, 24 projects) and `:21455` (source, embedded, two projects named `alpha` and `beta` — this repository's own test fixtures). A probe accepting the first responder had an even chance of presenting a four-chunk fixture as the user's knowledge base.
+
+### The decision
+
+1. **`rules/service-discovery.md` owns endpoint resolution.** No plugin artefact contains a literal service port in a code path.
+2. **Selection is scored on evidence tying a service to the working directory** — `data_dir` (50), inferred install kind (20), a registered project path matching the cwd (15), the `collection` label (10). **`version` and the port number score zero.** ragtools learned this at the engine layer in v3.2.0, where two installations both shipped Qdrant 1.15.5 and one adopted the other's store; `service/identity.py` already states it — *"a port number alone is never trusted."*
+3. **Ambiguity is surfaced, never guessed.** Below the score/margin thresholds the user is asked, with `data_dir`, install kind, collection and project count shown for each candidate.
+4. **A responder is not scored until it proves it is ragtools** — a `/health` body carrying `collection` and `status`.
+5. **Self-reported install mode is not trusted.** `routes._install_mode()` returns `packaged` only when `"site-packages"` appears in `ragtools.__file__`; a PyInstaller bundle has no such path, so a genuinely packaged install reports `source` — measured on the live `:21420`. `profile` is unreliable in the opposite direction, defaulting to `"installed"` when `RAG_PROFILE` is unset. Install kind is **inferred from `data_dir`**. Filed upstream as A-09.
+6. **D-004 gains a Linux branch.** It listed Windows and macOS install paths only, so a Linux packaged install — shipped in ragtools v2.5.1 — fell through to `dev-mode` or `not-installed`. `install_mode` gains `packaged-linux`.
+7. **Selection is platform-neutral.** `socket.connect_ex` plus HTTP behave identically on all three platforms. OS-specific process lookup exists for `/doctor` output only and never gates selection.
+
+### Reverse only if
+
+- ragtools exposes a discovery endpoint that enumerates instances authoritatively; adopt it and delete the scan.
+- The scoring proves to mis-select in practice — then adjust the weights, do not return to a fixed port.
+
+---
+
+## D-037 — One UserPromptSubmit context injector (supersedes the two separate hooks)
+
+Date: 2026-08-02
+Phase: Post-17 (WP-7)
+Status: binding
+Ships in: v0.18.0
+Supersedes: the hook implementations of D-017/D-027 (`prompt_retrieval_reminder.py`) and D-025/D-028 (`project_focus_inject.py`). The *decisions* stand; only their delivery merges.
+Closes: RFC-001.
+
+### Context
+
+Two `UserPromptSubmit` hooks ran independently. One knew the workspace's project from a cheap state-file read; the other needed it and never asked.
+
+`prompt_retrieval_reminder.domain_probe()` issued `GET /api/search` with **no project**. From ragtools v3.0.0 that is a hard `HTTP 422 SCOPE_UNRESOLVED`, so the probe always errored, `main()` took the `if err: silent_pass(err)` branch, and `inject_reminder()` was unreachable. The hook's own observability log recorded it exactly:
+
+```
+reminder-injected                  380   last  2026-07-28T08:23:16Z
+silent-pass:probe-error:http-422   105   first 2026-07-29T07:55:59Z
+```
+
+**Zero injections across 105 consecutive probes** — and invisible, because an advisory hook fails open and "the probe errored" is indistinguishable from "nothing matched".
+
+### The decision
+
+1. **One hook: `hooks/context_inject.py`**, registered `advisory`. Phases: A shape gate → A.5 operational-intent classifier (D-027, unchanged) → **A.6 repo-context gate (new)** → B scope resolution → C **scoped** relevance probe → D one compact block.
+2. **A.6 is the noise fix.** A prompt with no resolvable repository context exits before any network call. "Rewrite this email" costs zero HTTP.
+3. **The probe is scoped**, so it measures the index Claude will actually search. A 422 *after* scoping is a real defect and is logged distinctly (`probe-error:http-422-after-scope`) rather than swallowed.
+4. **Warm path is zero HTTP calls** — scope comes from the focus override or the resolver cache.
+5. **D-031 is preserved without exception.** The inline `-c` bootstrap, the `python3 → python → py -3` chain, and the advisory/guarded split are untouched; `hooks/test_hook_launcher.py` passes unchanged.
+6. **D-028 §5 and §6 are preserved.** A foreign workspace's project name is never injected, and a global override is still labelled `EXPLICIT GLOBAL FOCUS` because it fires by user choice rather than by matching the directory.
+7. **The retired target names stay mapped in `hook_launcher.py` for one release**, so a user who upgrades the plugin while Claude Code still holds the old `hooks.json` does not hit "unknown target" on every prompt.
+8. **RFC-001 is closed.** It anticipated moving focus enforcement into the MCP server. Enforcement did arrive from the application — in v3.0.0, as a **refusal** rather than a default. The honour-system contract RFC-001 described became a hard requirement, and the plugin's own default instruction became an error.
+
+### Non-violation of prior decisions
+
+- **D-001 / D-022:** the hook still calls no MCP tool. Its probe is the `/api/search` HTTP call D-022 explicitly permits **only** in the UserPromptSubmit hook.
+- **D-007 / D-031:** advisory; cannot block, cannot deny.
+- **D-012:** the observability log gains scope fields; still metadata only, still no user content.
+- **D-017 / D-027 / D-025 / D-028:** their policies are carried forward intact; only the file layout changed.
+
+### Reverse only if
+
+- Per-prompt scope resolution proves too expensive even cached — then split the probe back out and accept that it cannot know the project.
+- Claude Code stops supporting a single hook doing both jobs.

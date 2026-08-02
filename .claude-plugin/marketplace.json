@@ -75,7 +75,7 @@
     },
     {
       "name": "rag",
-      "description": "Operational console for the ragtools local RAG product — install, configure, diagnose, repair, upgrade, and run the local Markdown knowledge base. Knows the Qdrant lock, dual-mode MCP, and known failure modes. Does NOT re-implement search.",
+      "description": "Operational console AND retrieval guide for the ragtools local RAG product. Install, configure, diagnose, repair, upgrade, and run the local knowledge base - and teach Claude to use it correctly: scope every search (ragtools refuses unscoped calls), check a project's indexing mode before code questions, resolve the right service among several, and validate citation paths. Does NOT re-implement search.",
       "author": {
         "name": "TaqaTechno",
         "email": "info@taqatechno.com"
