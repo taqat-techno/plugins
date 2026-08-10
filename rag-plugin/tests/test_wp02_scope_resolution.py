@@ -3,9 +3,9 @@
 The regression this module exists for
 -------------------------------------
 The v0.17.0 engine scored every descendant match ``200 + len(path)``. Measured
-live from ``C:/MY-WorkSpace/claude_plugins``, that ranked:
+live from a ``claude_plugins`` workspace root, that ranked:
 
-    taqat-plugins   …/claude_plugins/TR_plugins   score 241   <- selected
+    my-plugins      …/claude_plugins/my_plugins   score 241   <- selected
     claude-plugins  …/claude_plugins/plugins      score 238
 
 so the plugin's own repository resolved to the wrong project, decided by three
@@ -65,10 +65,10 @@ class TestRV4Regression(unittest.TestCase):
         self.root = Path(self._tmp.name).resolve()
         self.workspace = self.root / "claude_plugins"
         (self.workspace / "plugins").mkdir(parents=True)
-        (self.workspace / "TR_plugins").mkdir(parents=True)
+        (self.workspace / "my_plugins").mkdir(parents=True)
         self.projects = [
             proj("claude-plugins", str(self.workspace / "plugins")),
-            proj("taqat-plugins", str(self.workspace / "TR_plugins")),
+            proj("my-plugins", str(self.workspace / "my_plugins")),
         ]
 
     def tearDown(self):
@@ -82,12 +82,12 @@ class TestRV4Regression(unittest.TestCase):
             "the longer path name and was wrong",
         )
         self.assertIsNone(d.project)
-        self.assertEqual(sorted(d.union_ids), ["claude-plugins", "taqat-plugins"])
+        self.assertEqual(sorted(d.union_ids), ["claude-plugins", "my-plugins"])
 
     def test_the_three_character_path_difference_is_not_a_tie_break(self):
-        """`TR_plugins` is exactly 3 characters longer than `plugins`; the old
+        """`my_plugins` is exactly 3 characters longer than `plugins`; the old
         guard required a difference of *less than* 3 to call it ambiguous."""
-        a = len(str(self.workspace / "TR_plugins"))
+        a = len(str(self.workspace / "my_plugins"))
         b = len(str(self.workspace / "plugins"))
         self.assertEqual(a - b, 3, "fixture drifted; re-derive before trusting")
         self.assertTrue(resolve(self.workspace, self.projects).ambiguous)
@@ -120,10 +120,10 @@ class TestTheOldEngineActuallyGetsThisWrong(unittest.TestCase):
         root = Path(self._tmp.name).resolve()
         self.workspace = root / "claude_plugins"
         (self.workspace / "plugins").mkdir(parents=True)
-        (self.workspace / "TR_plugins").mkdir(parents=True)
+        (self.workspace / "my_plugins").mkdir(parents=True)
         self.projects = [
             proj("claude-plugins", str(self.workspace / "plugins")),
-            proj("taqat-plugins", str(self.workspace / "TR_plugins")),
+            proj("my-plugins", str(self.workspace / "my_plugins")),
         ]
 
     def tearDown(self):
@@ -154,9 +154,9 @@ class TestTheOldEngineActuallyGetsThisWrong(unittest.TestCase):
         )
         picked = old._project_name(best.project)
         self.assertEqual(
-            picked, "taqat-plugins",
+            picked, "my-plugins",
             f"old engine picked {picked!r}; the recorded defect selected "
-            "'taqat-plugins' purely because its path string is longer",
+            "'my-plugins' purely because its path string is longer",
         )
         self.assertEqual(len(ranked), 2, "both projects should have been candidates")
 

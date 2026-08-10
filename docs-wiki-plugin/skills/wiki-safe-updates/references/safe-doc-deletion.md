@@ -6,6 +6,8 @@ Deleting documentation is special because the loss is asymmetric. The author see
 
 There are two mandatory checks. Both must pass. Neither is optional, and "the user told me to delete it" does not waive them — the user is trusting the plugin to catch the migration gap they did not see.
 
+Descoping arrives here too: collapsing an out-of-scope feature to a single Scope-page line and deleting its detailed design page is the descope-by-deletion rule owned by `wiki-authoring` — that one-line Scope entry is what satisfies the capture-check below, and the sweep is what stops the deleted page from staying linked.
+
 ---
 
 ## Check 1 — Capture-check (is every named decision genuinely captured?)

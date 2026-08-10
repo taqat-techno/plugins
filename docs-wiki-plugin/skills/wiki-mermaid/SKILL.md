@@ -1,6 +1,6 @@
 ---
 name: wiki-mermaid
-description: Mermaid diagram authoring rules for wiki pages — top-down direction by default, a small shape vocabulary, a four-class colour palette (ok / block / external / audit), the single-master-swimlane rule (one end-to-end swimlane, on the workflow hub, exactly once), the diagram-altitude rule (match diagram size to page role), reuse-the-project-palette, strict label hygiene (no inline code, no secrets, no file paths in business diagrams), the code-path scrub for business-process diagrams, the must-not-alter-business-meaning gate (diagrams transcribe, never author rules), and per-platform rendering compatibility (Azure DevOps Wiki needs a colon-container Mermaid fence, graph not flowchart, and no subgraph links). Activates when adding or editing any Mermaid block inside a wiki page.
+description: Mermaid diagram authoring rules for wiki pages — top-down direction by default, a small shape vocabulary, a four-class colour palette (ok / block / external / audit), the single-master-swimlane rule (one end-to-end swimlane, on the workflow hub, exactly once), the diagram-altitude rule (match diagram size to page role), reuse-the-project-palette, strict label hygiene (no inline code, no secrets, no file paths in business diagrams), the code-path scrub for business-process diagrams, the must-not-alter-business-meaning gate (diagrams transcribe, never author rules), per-platform rendering compatibility (Azure DevOps Wiki needs a colon-container Mermaid fence, graph not flowchart, and no subgraph links), and the diagram-vs-renderer triage order for a block that will not render. Activates when adding or editing any Mermaid block inside a wiki page, or when a Mermaid block renders as a plain code block in some viewer.
 version: 0.4.0
 last_reviewed: 2026-06-22
 owns:
@@ -16,6 +16,7 @@ owns:
   - sequence-diagram and ER-diagram exception scope
   - diagram-as-source rule (the .md is the source; do NOT paste rendered PNG)
   - platform compatibility (Azure DevOps Wiki colon-container fence, graph not flowchart, no subgraph links)
+  - render-failure triage order (parse the source with a real Mermaid engine before reformatting; then check whether the viewer renders Mermaid at all; rasterize with a headless browser, never jsdom)
 defers_to:
   - wiki-authoring (placement within a page; when a diagram is appropriate vs prose)
   - wiki-safe-updates (the workflow for applying the diagram change)
@@ -257,6 +258,7 @@ Before committing a diagram change:
 - [ ] The diagram introduces no business rule/branch/outcome/actor/state absent from the owning source page (transcribes, does not author).
 - [ ] If the target is Azure DevOps Wiki: `::: mermaid` colon-container (not ` ```mermaid `), `graph` (not `flowchart`), and no subgraph links.
 - [ ] Mermaid block renders cleanly (paste-test on the target wiki platform — view the rendered page, do not trust the markdown or the docs).
+- [ ] If a block "did not render", the source was parsed with a real Mermaid engine and the viewer's Mermaid support was confirmed BEFORE any reformat (see the triage order).
 
 ## Output format
 
@@ -288,6 +290,8 @@ DIAGRAM AUDIT — <wiki-page>
 | Sequence diagram on the business overview page | Engineering detail in a business doc | Engineering-reference subsection |
 | Circles + cubes + custom shapes | Auto-layout breaks; readers wonder what each means | Fixed vocabulary |
 | Untagged colour with stylesheet override | Style intent unclear; renders differently elsewhere | classDef + class |
+| Rewriting a diagram's syntax/palette because it "does not render" in the local editor preview | The viewer may have no Mermaid renderer at all — the edit chases the wrong symptom and the block still renders as plain text | Parse the source with a real Mermaid engine first, then check that viewer's Mermaid support |
+| Rasterizing a diagram with jsdom | jsdom cannot lay out SVG (no `getBBox`) — text measurement collapses and the image is unusable | Render in a headless browser |
 
 ## Platform compatibility — Azure DevOps Wiki
 
@@ -314,8 +318,29 @@ Mermaid renders on:
 - Azure DevOps Wiki (native, but ONLY via the `::: mermaid` colon-container + restricted syntax — see Platform compatibility above)
 - MkDocs (with mermaid plugin)
 - Most modern Markdown renderers (with mermaid plugin)
+- JetBrains IDE previews (ONLY with the Marketplace **Mermaid** plugin, id `20146` — there is no Markdown "extension" checkbox for it)
+- VS Code preview (with an extension; the built-in Markdown preview does not render Mermaid)
 
 The palette hex values and the shape vocabulary (the Mermaid-standard subset) are portable across all of these. What is NOT portable is the **wrapper**: GitHub uses a ` ```mermaid ` code fence and accepts `flowchart`; Azure DevOps Wiki requires the `::: mermaid` colon-container and rejects `flowchart` + subgraph links. Diagram CONTENT is portable; the fence + keyword are platform-specific.
+
+## Diagram vs renderer — triage order when a block will not render
+
+A Mermaid block that shows up as a plain code block is a **renderer** problem far more often than a **diagram** problem. Reformatting the diagram — house style, palette, re-quoting labels — fixes nothing when the viewer has no Mermaid renderer at all, and the whole edit is spent on the wrong symptom. Triage in this order; do not touch the diagram until step 1 fails.
+
+1. **Prove the source parses** — with a real Mermaid engine, not by eye. Parse the block against the current engine (11.x) **and** the legacy 9.x line; a block that parses on both is valid and the failure is downstream. Only a genuine parse error justifies editing the diagram.
+2. **Check whether that specific viewer renders Mermaid at all.** Support is a property of the viewer, not of the file:
+
+   | Viewer | Mermaid support |
+   |---|---|
+   | GitHub Wiki / GitLab Wiki | Native — nothing to install |
+   | Azure DevOps Wiki | Native, but ONLY via the colon container (see Platform compatibility above) |
+   | JetBrains IDEs | Marketplace **plugin** (id `20146`) — NOT a Markdown "extension" checkbox. PlantUML is the extension-checkbox one, which is why authors hunt for a Mermaid checkbox, fail to find it, and conclude the diagram is broken. Without the plugin every ` ```mermaid ` fence renders as a plain code block regardless of content |
+   | VS Code | Built-in Markdown preview needs an extension |
+   | MkDocs / other renderers | Need a mermaid plugin |
+
+3. **Only then edit the diagram** — and if the target wiki is Azure DevOps, apply the fence/keyword conversions above before concluding the source is at fault.
+
+**Rasterizing.** When a diagram must be turned into a PNG/SVG image, render it in a **headless browser**. `jsdom` cannot lay out SVG — it has no `getBBox`, so text measurement collapses and the output is unusable no matter how valid the source is. (Pre-rendered swimlane images are owned by `wiki-plantuml`.)
 
 ## Cross-references
 

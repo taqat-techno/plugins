@@ -105,6 +105,10 @@ being asked to run:
 > does not, so `which`/`where` finds the tool interactively while the host's
 > spawn reports `ENOENT`.
 
+If the *wrong* binary resolves rather than none, that is a shadowing problem, not a missing-`PATH`
+one — see `references/windows-powershell.md` for Machine-before-User precedence and why a lookup
+run in the current shell cannot verify a `PATH` change.
+
 ## Reload discipline
 
 Many hosts read server and tool configuration once, at load time, and cache it
@@ -156,6 +160,31 @@ hardcoding a per-machine path. Apply this in a durable user-scope config, then r
 Do not "fix" it by re-enabling a shell spawn globally — that re-introduces the security exposure
 Node closed; correct the command target instead.
 
+### Sub-case: the host hardcodes the binary name and offers no command override
+
+The fix above assumes the host lets you *choose* what it spawns. Some LSP hosts do not: they spawn
+a **hardcoded bare binary name** with no configurable `command`/`args` anywhere, so there is
+nothing to repoint at the runtime — and on Windows the package manager never installs a real
+executable under that name, so the spawn cannot succeed as shipped. Establish this before spending
+time hunting for a setting: if the plugin/extension ships only metadata (a README and a licence, no
+server configuration) and the binary name appears in no file you can edit, the command is owned by
+the host and no durable user-scope override exists.
+
+When there is no override, **satisfy the spawn instead of redirecting it**: put a real compiled
+executable carrying that exact name on the `PATH` the host inherits — the package manager's global
+shim directory is already on that `PATH`, which makes it the natural home. The launcher does one
+thing: re-exec the runtime with the package's JS entrypoint and forward its own arguments, with
+**stdio inherited**. Inheriting matters — a launcher that buffers, re-encodes, or line-wraps the
+streams corrupts the language server's JSON-RPC framing, which fails later and much more
+confusingly than a spawn error. On Windows this resolves because the executable extension precedes
+the batch-shim extension in the `PATHEXT` search order, so the bare-name spawn finds the launcher
+rather than the shim it could not run.
+
+Verify before calling it fixed: reproduce the host's spawn exactly — bare name, no shell — and
+drive one real `initialize` request against it. A returned capabilities payload proves the spawn
+*and* the stdio path in a single check; a successful spawn alone does not. Keep the launcher source
+alongside the binary so it can be rebuilt after a runtime or package upgrade moves the entrypoint.
+
 ## Quick checklist
 
 - Identify whether the host spawns with no shell (the usual default).
@@ -165,5 +194,8 @@ Node closed; correct the command target instead.
   interactive shell.
 - Confirm the JS entrypoint resolves to the package's declared `bin` file.
 - Put the fix in a durable user-scope config, never in a tool-managed manifest.
+- If the host hardcodes the binary name and exposes no override, put a real executable of that
+  name on the `PATH` it inherits (re-exec the runtime, inherit stdio) instead of hunting for a
+  setting that does not exist.
 - Reload or restart the host, then re-run the failing action to verify.
 - Never print or log secrets, tokens, or environment values during diagnosis.

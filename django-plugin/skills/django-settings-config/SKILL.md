@@ -9,6 +9,7 @@ owns:
   - secret-handling rule (secrets never in source/VCS; SECRET_KEY/DB creds/API keys from env or a secret store)
   - per-environment setting correctness (DEBUG, ALLOWED_HOSTS, DATABASES, CACHES, EMAIL, LOGGING, static/media)
   - DJANGO_SETTINGS_MODULE selection rule across manage.py / wsgi / asgi / tests
+  - settings-override semantics (`import *` shares mutable objects; whole-key assignment replaces rather than merges)
 defers_to:
   - django-security-audit (the pass/fail security verdict on a settings file)
   - django-performance (cache backend tuning, connection pooling/CONN_MAX_AGE values)
@@ -56,6 +57,9 @@ project/settings/
 - `base.py` holds shared structure and reads required config from the environment. It should not contain real secrets or `DEBUG=True`.
 - Per-env modules import base and override. Avoid sprinkling `if DEBUG:` across one giant file — the environment, not a runtime branch, should determine behavior.
 - Select the module via `DJANGO_SETTINGS_MODULE` consistently across **`manage.py`, `wsgi.py`, `asgi.py`, and the test runner** — a mismatch (e.g. tests on dev settings, wsgi on prod) is a classic "works locally, breaks in prod" source.
+- **`from .base import *` binds the *same* mutable objects — assigning a whole key replaces it, it does not merge.** An override module that writes `REST_FRAMEWORK = {...}` (or `LOGGING = {...}`, `CACHES = {...}`) discards every key the base defined and the override omits. Nothing complains: the app still boots, and a value the base set deliberately — a throttle rate, a default permission class, a log handler — is simply absent wherever that module is loaded. Assign the single nested key (`REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"]["user"] = …`) or drive the value from the environment in one place, so base and override cannot diverge.
+- **Verify a config change against the settings module the deployment actually loads, not the one you edited.** A fix applied to `settings.py` is inert if the container image pins `DJANGO_SETTINGS_MODULE` to an override module that re-declares the same key — the change is in the repo, in the review, and in no running environment, so the same bug gets re-reported after it was called fixed. Probe each module in a clean subprocess before reporting a config fix done: `DJANGO_SETTINGS_MODULE=<module> python -c "import django; django.setup(); from django.conf import settings; print(settings.X)"`.
+- **Deleting a per-environment override can be a security regression, not a cleanup.** The override that is wrong for one key may be the only thing tightening another — dropping a whole `REST_FRAMEWORK` block to "fall back to the base" can quietly double the anonymous rate limit guarding login, registration, OTP, and password reset. Before removing an override, diff **every** key it resolved, not the one that brought you there.
 
 ## Environment-driven config rule
 
@@ -98,6 +102,8 @@ project/settings/
 - `.env` not in `.gitignore`, or no `.env.example` to document required vars.
 - `DJANGO_SETTINGS_MODULE` differing between `wsgi`/`asgi`, `manage.py`, and tests.
 - `locmem` cache in prod, or a cache assumed shared that is per-process.
+- An override module assigning a whole settings dict (`REST_FRAMEWORK = {...}`, `LOGGING = {...}`) instead of a single key → base keys silently dropped.
+- A config fix verified only against the module you edited, with no probe of the module the deployment pins.
 
 ## Report format
 

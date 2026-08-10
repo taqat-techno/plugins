@@ -19,6 +19,7 @@ This plugin makes both failures hard to commit by accident.
 - **Catches lockfile / package-manager mismatches.** A lockfile drift or a package-manager MAJOR-version mismatch breaks CI installs on the runner.
 - **Detects migration drift before deploy.** Un-applied migrations, out-of-order history, and model-vs-schema gaps are deploy-blocking findings.
 - **Runs risky migrations/cutovers through a safe skeleton.** discover (read-only, both sides) -> timestamped backups -> build+validate in a staging copy -> additive-then-cutover-last -> archive old artifacts by rename (never delete).
+- **Keeps a green check and a published tag honest.** A gate that swallows its exit code renders identically to one that passed, and a branch pushed together with its tag starts the release before the tests that would have stopped it. The plugin sweeps for swallowed exit codes, makes you prove a gate can fail, and enforces push -> wait for green -> tag.
 - **Reviews destructive / CASCADE risk.** A soft-delete override at the instance level does **not** protect bulk / admin / QuerySet / cascade deletes; cascade FKs pointing at financial / audit / historical tables are flagged, with `RESTRICT` / `SET NULL` preferred over `CASCADE`.
 
 ## Command
@@ -44,6 +45,14 @@ Owns the risky-migration / cutover skeleton, drift detection (including environm
 
 - `references/cutover-skeleton.md` — the expand/contract runbook (discover -> backup -> stage -> additive -> cutover-last -> archive-by-rename).
 - `references/destructive-checks.md` — the soft-delete-layer audit, the bulk-delete bypass paths, and the cascade-FK inventory.
+
+### `github-actions-release-safety`
+
+Owns the **authoring** side of the two signals a team actually trusts — a green check and a published tag. It sweeps workflow files for gates that swallow their exit code (`|| true`, `continue-on-error`, a tool's own soft-fail flag, or a multi-line `run:` without `set -e`) and makes you prove a gate blocks instead of assuming it. It also covers the `workflow_dispatch` default-branch rule (a dispatchable workflow added on a feature branch has no Run button), the `timeout-minutes` scope trap (it bounds execution, not queue time, so a retired runner label queues silently and withholds the run's logs), the push -> wait for green -> tag ordering and the fan-out **partial release**, the tag-withdrawal order, and the secret-presence guard that self-matches when a CI system expands its own macro inside a script body (assert on decoded shape, never the literal, never printed). Detailed procedures live in:
+
+- `references/gate-audit.md` — the soft-fail token catalog and sweep command, the prove-it-blocks recipe, the shape-assertion patterns, the tag-withdrawal sequence, and the queue-vs-execution triage.
+
+`release-verification` owns the report-only-gate rule's statement and its deploy-time application; this skill applies it while the workflow is being written. Neither restates the other.
 
 ## Hook
 

@@ -2,6 +2,13 @@
 
 All notable changes to this plugin are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- **`windows-wsl`** — the WSL2 sshd section now covers all three reasons sshd does not listen where expected: socket activation makes **both** `Port` and `ListenAddress` in `sshd_config` inert (and recent distributions ship openssh-server socket-activated by default, so it is the expected starting state), the fix is to disable **and stop** `ssh.socket` before enabling `ssh.service` and to verify with `ss -tlnp` rather than with the config file, and a fresh install fails `sshd -t` with "Missing privilege separation directory: /run/sshd" because systemd's `RuntimeDirectory=sshd` only creates it at first service start — a valid config that only appears to be rejected. Added a new section on background/pin processes that "won't die": `pkill` silently skips processes owned by another user (root-owned pins survive a user-run kill and the exit code says nothing), and `pgrep -f <pattern>` self-matches the measuring shell — enumerate with `ps -eo pid,user,args`, count with `pgrep -xa`, and never widen or escalate a pattern-based kill. Summary table extended with the four new rows.
+- **env-doctor skill** — gotchas table gained the two capability-registration mechanics: only a directory `.claude/skills/<name>/SKILL.md` registers (a loose `.md` in the skills directory never does, so nothing can invoke it), and a `description` is advisory — deterministic firing comes from a hook (`SessionStart` / `Stop`), so validate that a capability actually registered before diagnosing its behavior. Router trigger signs, when-to-use list, anti-patterns table (kill-reported-success, config-vs-live-listener, assumed registration), and the `windows-wsl` cross-reference extended to match. No version bump — content additions only.
+
 ## [0.4.0] — 2026-07-23 — Syncthing, Windows-shell, and rendering branches
 
 Supersedes the unreleased 0.3.0 skill review bump; plugin and skill versions are realigned at 0.4.0.

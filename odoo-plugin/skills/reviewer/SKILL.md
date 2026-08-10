@@ -1,6 +1,6 @@
 ---
 name: odoo-reviewer
-description: Authoritative Odoo 17 and Odoo 19 code-review and technical-debt knowledge base, including the cross-version deltas needed for mixed-version environments. ALWAYS USE this skill when reviewing, auditing, refactoring, or estimating technical debt for any Odoo 17 or Odoo 19 module — including OCA modules, custom addons, third-party addons, manifests (__manifest__.py), models, views, security (ir.model.access.csv / ir.rule), QWeb, Owl components, performance, ORM patterns, or migration work. Trigger on phrases like "review this Odoo module", "Odoo code review", "audit the addon", "Odoo technical debt", "is this Odoo best practice", "refactor Odoo", "manifest review", "mixed-version cluster", "multi-cluster review", "Odoo 17 vs Odoo 19", "migrate to Odoo 19", or whenever a .py / .xml / __manifest__.py from an Odoo addon is in scope. Activates on Odoo 19 ORM constructs — models.Constraint / models.UniqueIndex (the v19 replacement for the _sql_constraints tuple list), Domain objects, aggregator=, and the odoo/orm package shims (odoo.fields / odoo.models / odoo.api / odoo.osv), and on the test_import_export test-suite rename. Use this skill BEFORE making any judgment about Odoo code quality or before producing a tech-debt estimate.
+description: Authoritative Odoo 17 and Odoo 19 code-review and technical-debt knowledge base, including the cross-version deltas needed for mixed-version environments. ALWAYS USE this skill when reviewing, auditing, refactoring, or estimating technical debt for any Odoo 17 or Odoo 19 module — including OCA modules, custom addons, third-party addons, manifests (__manifest__.py), models, views, security (ir.model.access.csv / ir.rule), QWeb, Owl components, performance, ORM patterns, or migration work. Trigger on phrases like "review this Odoo module", "Odoo code review", "audit the addon", "Odoo technical debt", "is this Odoo best practice", "refactor Odoo", "manifest review", "mixed-version cluster", "multi-cluster review", "Odoo 17 vs Odoo 19", "migrate to Odoo 19", or whenever a .py / .xml / __manifest__.py from an Odoo addon is in scope. Activates on Odoo 19 ORM constructs — models.Constraint / models.UniqueIndex (the v19 replacement for the _sql_constraints tuple list), Domain objects, aggregator=, and the odoo/orm package shims (odoo.fields / odoo.models / odoo.api / odoo.osv), and on the test_import_export test-suite rename. Also covers concurrent-write races — SerializationFailure, InFailedSqlTransaction, SELECT ... FOR UPDATE, and why retrying() does not retry inside an already-aborted transaction. Use this skill BEFORE making any judgment about Odoo code quality or before producing a tech-debt estimate.
 last_reviewed: 2026-07-23
 ---
 
@@ -137,6 +137,37 @@ with model files = STYLE/MINOR but compounds into review fatigue.
 Violating ID conventions = MAJOR (breaks community tooling, migration
 scripts, and grep-ability).
 
+**Never type `--` inside an XML comment.** XML forbids a double hyphen anywhere
+between `<!--` and `-->`, so an em-dash typed as `--` in prose, or an ASCII
+divider (`<!-- HOME ------- -->`), makes the file unparseable. Use `—` for a
+dash and `====` for a divider. This is a recurring, self-inflicted BLOCKER: the
+file loads at install time, so one comment can take down the module.
+
+Two things make it expensive out of proportion to the typo:
+
+- **The failure can be invisible from HTTP.** If the broken file only holds
+  client-side (Owl/QWeb) templates, the server-rendered shell still answers
+  **200** while nothing mounts. A page that returns 200 and renders nothing is
+  indistinguishable from a working page if you only check the status code —
+  assert on something the client template produces, or load it in a browser.
+- **`xml.etree.ElementTree` does not catch it.** ElementTree accepts `--`
+  inside a comment; **lxml**, which Odoo itself uses, rejects it. A validator
+  built on ElementTree reports "N files, 0 broken" on a tree that Odoo cannot
+  load — and a checker more permissive than the runtime is **worse than no
+  checker**, because it converts a loud failure into a silent pass. Parse the
+  whole addon tree with lxml after editing any `.xml`:
+
+```python
+import glob
+from lxml import etree
+bad = []
+for f in glob.glob('<addons-root>/**/*.xml', recursive=True):
+    try:
+        etree.parse(f)
+    except etree.XMLSyntaxError as e:
+        bad.append((f, e))
+```
+
 **Odoo 19 note**: the `<tree>` tag is renamed to `<list>` in v19, and the
 view-type enum changes from `tree` to `list` (so XML ids become
 `<model>_view_list`). See `references/v19_deltas.md` for the mixed-cluster
@@ -221,13 +252,11 @@ Required class attribute order:
 Out-of-order attributes = STYLE; misnamed compute/onchange = MAJOR (Odoo's
 binding magic relies on the convention).
 
-**Odoo 19 note**: v19 replaces the `_sql_constraints` tuple list with
-`models.Constraint(...)` / `models.UniqueIndex(...)` objects declared as
-class attributes, and places them in a new "SQL constraints and indexes"
-bucket between *field declarations* and *compute methods* (the legacy
-`_sql_constraints` list still loads). Apply the v17 order on v17 code and
-the v19 order/construct on v19 code; don't flag either as a violation
-against the other version's rule. See `references/v19_deltas.md`.
+**Odoo 19 note**: v19 adds a "SQL constraints and indexes" bucket between
+*field declarations* and *compute methods*, holding the `models.Constraint`
+/ `models.UniqueIndex` class attributes described in §6. Apply the v17 order
+on v17 code and the v19 order on v19 code; don't flag either as a violation
+against the other version's rule.
 
 ### 6. ORM patterns & inheritance
 
@@ -268,6 +297,11 @@ Common ORM anti-patterns to flag:
   rights and the access is unrelated to the calling user's identity.
 - `with_context(...)` mutating a dict — context is a frozendict. Use
   `with_context(**extra)` or `with_context(new_dict)`.
+- A contended record decided without a `SELECT … FOR UPDATE` taken *before*
+  the first write = BLOCKER. The loser's `SerializationFailure` fires
+  mid-`write()`, degrades into an `InFailedSqlTransaction` that `retrying()`
+  does not catch, and ships as a 500. See `references/orm_patterns.md` →
+  Concurrency.
 
 **Odoo 19 ORM deltas** (apply only on v19 code; details in
 `references/v19_deltas.md`):

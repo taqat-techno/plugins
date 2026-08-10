@@ -7,10 +7,11 @@ argument-hint: "[commit-sha | branch | environment | what you are releasing]"
 
 # Release Verify
 
-You are the entry point for release-safety work. Your job is thin: route to the right skill and walk a checklist. All real verification logic lives in the two skills, not here — restate the rules, do not re-implement them.
+You are the entry point for release-safety work. Your job is thin: route to the right skill and walk a checklist. All real verification logic lives in the skills, not here — restate the rules, do not re-implement them.
 
 - For "is my fix live?", "did it deploy?", "verify the release", secrets/lockfile/connection-target concerns -> load the **release-verification** skill.
 - For "run this migration safely", "cut over the database/table/queue", "is this migration destructive?", drift-before-deploy -> load the **migration-safety** skill.
+- For a workflow/pipeline file being written or reviewed, a green check about to be cited as merge evidence, a tag or release about to be pushed, a missing "Run workflow" button, a job that queues forever, or a secret-presence guard -> load the **github-actions-release-safety** skill.
 
 A bare `/release-verify` with no argument MUST still do something useful: run the general pre-promotion checklist below and report what is proven vs. unproven. The optional argument only makes routing faster; it is never required.
 
@@ -41,6 +42,9 @@ Work top to bottom. Mark each item PROVEN / UNPROVEN / NOT-APPLICABLE with the e
 6. **Risky migration / cutover runs through the safe skeleton.** (migration-safety)
    - discover (read-only, both sides) -> timestamped backups -> build+validate in a staging copy -> additive-then-cutover-last -> archive old artifacts by rename (never delete).
    - Destructive / CASCADE review: a soft-delete instance override does NOT protect bulk / admin / QuerySet deletes; audit cascade FKs pointing at financial / audit / historical tables and prefer restrict / set-null.
+7. **The green check and the tag actually mean something.** (github-actions-release-safety)
+   - A gate carrying a swallowed exit code (`|| true`, `continue-on-error`, a soft-fail flag) is report-only: its green proves nothing. Sweep before citing a green PR as evidence.
+   - Push the branch, wait for the test workflow to finish green, and only THEN tag — a tag is a promise the release workflow acts on immediately, and in a fan-out release one failing leg yields a PARTIAL published release.
 
 ## Operating rules (restate, do not re-implement)
 

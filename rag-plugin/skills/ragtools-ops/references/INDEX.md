@@ -50,6 +50,9 @@ When `known-failures.md` classifies a symptom into a failure ID, jump to the nam
 | `F-008` Admin panel won't load / port in use | `repair-playbooks.md#admin-panel-port-collision` |
 | `F-009` MCP server not connecting from Claude Code | `repair-playbooks.md#mcp-not-connecting` |
 | `F-010` `Collection NOT FOUND` from `rag doctor` while service is up | `known-failures.md#collection-not-found-while-service-up` (not a bug) |
+| `F-013` Frozen-app dependency-version error from stale `.dist-info` | `known-failures.md` (steps inline) → `recovery-and-reset.md` for the reinstall |
+| `F-014` `project add` exits 1 but the config write already landed | `known-failures.md` (steps inline — verify state, do not retry) |
+| `F-015` `index_busy` latched by a deadlocked startup scan | `known-failures.md` (steps inline — restart window, not a wait-it-out 409) |
 
 ## Routing rules
 

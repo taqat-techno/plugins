@@ -1,7 +1,7 @@
 {
   "name": "release-safety",
-  "version": "0.2.0",
-  "description": "Provider-neutral release-safety toolkit. Proves a fix is actually deployed to the target environment (not just merged) by reconciling the deployed commit SHA to the environment -- and names the specific liveness failure modes (a /health 200 served by the OLD build during a cold rebuild, a multi-service deploy that skips/stalls one service, a deploy-from-source CLI that ships the working tree not the commit, an SSO/401-walled frontend verified via the platform API). Diffs env-driven secrets between source and target before promotion; detects migration drift including environment-vs-environment schema drift; builds a cross-system extractor from the live information_schema (not committed schema/migration files); flags that a DB dump is not a full migration when binaries live on local disk; and runs risky cutovers and migrations through a discover -> backup -> stage -> additive-then-cutover -> archive skeleton with destructive/CASCADE safeguards. Works across any Git host, CI system, and hosting provider.",
+  "version": "0.3.0",
+  "description": "Provider-neutral release-safety toolkit. Proves a fix is actually deployed to the target environment (not just merged) by reconciling the deployed commit SHA to the environment -- and names the specific liveness failure modes (a /health 200 served by the OLD build during a cold rebuild, a multi-service deploy that skips/stalls one service, a deploy-from-source CLI that ships the working tree not the commit, an SSO/401-walled frontend verified via the platform API). Diffs env-driven secrets between source and target before promotion; detects migration drift including environment-vs-environment schema drift; builds a cross-system extractor from the live information_schema (not committed schema/migration files); flags that a DB dump is not a full migration when binaries live on local disk; and runs risky cutovers and migrations through a discover -> backup -> stage -> additive-then-cutover -> archive skeleton with destructive/CASCADE safeguards. Also owns the authoring side of the two signals a team trusts: sweeping CI workflows for gates that swallow their exit code (report-only greens), proving a gate can actually fail, the workflow_dispatch default-branch rule, the timeout-minutes queue-vs-execution trap, push -> wait for green -> tag ordering with its partial-release risk, and secret-presence guards that assert on decoded shape rather than a literal macro. Works across any Git host, CI system, and hosting provider.",
   "author": {
     "name": "TaqaTechno",
     "email": "info@taqatechno.com",
@@ -22,6 +22,9 @@
     "schema-drift",
     "provider-neutral",
     "ci-cd",
+    "github-actions",
+    "workflow-safety",
+    "release-tagging",
     "safety"
   ]
 }

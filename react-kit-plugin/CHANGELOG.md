@@ -43,7 +43,7 @@ Adds an Odoo-inspired (not Odoo-rebuilding) flexible admin-view methodology. Pat
 ### Validation
 
 - `python validate_plugin.py react-kit-plugin` → 0 errors.
-- Genericness sweep: 0 project-specific tokens (no royal/preps/sales/contact/material/etc.) outside labeled illustrative examples.
+- Genericness sweep: 0 project-specific tokens (no client, product, or domain-entity names) outside labeled illustrative examples.
 
 ## [0.3.0] — 2026-05-31 — Generalized to react-kit + React quality skills
 

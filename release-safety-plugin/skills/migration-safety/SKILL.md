@@ -8,6 +8,8 @@ owns:
   - the additive-then-cutover-last ordering rule (expand / contract)
   - destructive & CASCADE review (bulk-delete bypass of soft-delete, cascade-FK audit)
   - archive-by-rename-never-delete discipline
+  - the one-gate-two-questions split (an availability decision and a destructive decision must not share a predicate; bias any unavoidable overlap to the recoverable error)
+  - the both-directions post-apply check (new artifact present AND old artifact absent) and the structure-vs-data limit of that evidence
   - migration DRIFT detection before deploy
   - cross-system extraction from the live information_schema (not committed schema or migration files, which drift from the real database)
   - the completeness check that a DB dump is not a full migration when binary assets live on app-server local disk (Dockerfile VOLUME / bind-mount / backup scope)
@@ -74,6 +76,12 @@ Each step gates the next. Never run the destructive cutover before the additive 
 
 Additive changes are reversible and let old and new code coexist; destructive changes are not. By doing all additive work first, validating, and only then cutting over — with the drop/rename of the old shape as the very last step — you keep a working rollback target at every intermediate point. This is the expand/contract pattern; see `references/cutover-skeleton.md`.
 
+### Verifying the change landed (both directions, and the limit of the evidence)
+
+When you introspect an environment after applying, assert **both** directions: the new artifact is **present** *and* the old one is **absent**. A one-sided check cannot tell a rename-in-place from a new column added *beside* the old one — the new column exists in both stories, but in the second the values still sit in the orphaned original while the application reads an empty field. Only the old artifact's absence separates them.
+
+Then state what the check actually proved. Structure and data are separate claims: introspecting an environment whose table holds **zero rows** proves the shape changed and says nothing whatsoever about whether values survived the move. Data preservation is proven by the staging rehearsal on a **populated** copy (step 3), so the report must say which of the two the evidence covers rather than letting a structural pass read as both.
+
 ## Destructive & CASCADE review (mandatory before any delete/drop)
 
 ### The soft-delete bypass trap
@@ -130,6 +138,7 @@ If binaries are on local disk, the plan must copy them **separately** (and recon
 - **Never** reorder the skeleton: discover -> backup -> stage -> additive -> cutover -> archive.
 - **Never** run a destructive step (drop/delete/truncate/overwrite) before the additive phase is verified in a staging copy.
 - **Never** delete an old artifact when a rename preserves a rollback path — archive by rename with a timestamp.
+- **Never** let one predicate gate both an availability decision ("may the new artifact serve?") and a destructive one ("may the old artifact be deleted?") — a wrong availability answer costs the service, a wrong destructive answer costs the data, and the two want opposite biases; split the check (see `references/destructive-checks.md`).
 - **Never** trust an instance-level soft-delete to protect bulk / admin / QuerySet / cascade deletes.
 - **Never** ship a `CASCADE` that reaches a financial / audit / historical table without explicit review; prefer `RESTRICT` / `SET NULL`.
 - **Never** promote with migration drift unresolved.
@@ -149,6 +158,8 @@ If binaries are on local disk, the plan must copy them **separately** (and recon
 - [ ] Destructive step is the LAST step; old artifacts archived by rename, not deleted.
 - [ ] Soft-delete layer confirmed; bulk/admin/QuerySet/cascade delete paths reviewed.
 - [ ] Cascade FKs audited; none CASCADE into financial/audit/historical tables unreviewed.
+- [ ] No single predicate gates both an availability decision and a destructive one; each computed from its own evidence, any unavoidable overlap biased to the recoverable error.
+- [ ] Post-apply check asserted BOTH directions (new artifact present AND old artifact absent), and the report says whether the evidence covers data preservation or structure only (an empty table proves structure only).
 - [ ] For a cross-system move, the extractor built from the live `information_schema` / system catalog, not committed schema/migration files; a live-vs-committed diff was produced.
 - [ ] Binary-asset location determined (in-DB / object store / local disk via `VOLUME` / bind-mount / backup scope); if on local disk, a separate copy step is planned — a DB dump alone is not complete.
 - [ ] Environment-vs-environment schema drift checked by introspecting BOTH environments' live schemas and diffing (constraints / indexes / columns / defaults), not just the tool's single-DB status check.
@@ -186,6 +197,9 @@ MIGRATION SAFETY REPORT
 | `DELETE FROM ...` / bulk QuerySet delete, trusting soft-delete | Instance-level soft-delete is bypassed by bulk/admin/cascade | Confirm the soft-delete layer; treat bulk paths as hard deletes |
 | `ON DELETE CASCADE` toward an audit/financial table | A routine parent delete silently erases retained records | Use RESTRICT / SET NULL; review every cascade into retain tables |
 | Delete the old table after cutover | Throws away the rollback path | Rename to `*_archived_<timestamp>`; keep it |
+| One `validate()` decides both "may it serve?" and "may the old one be deleted?" | The two want opposite biases — a diagnostic mismatch then takes the service down, or authorises the delete | Split the predicate; let "serving on the new, old one retained" be a legitimate state |
+| Confirm a rename by checking the new column exists | A new column added *beside* the old one looks identical; the data stays in the orphaned original | Assert both directions — new present AND old absent |
+| Call a rename verified from an empty environment | Zero rows prove the shape changed, never that values survived | Prove preservation on a populated staging copy; label the structural check as structure-only |
 | Apply straight to the live side | No proof the migration even succeeds | Validate in a staging copy first |
 | Promote with un-migrated model changes | CI/runtime drift; schema diverges from code | Run the drift check; generate the missing migration first |
 | Skip the backup because "it's a small change" | Small destructive changes still destroy | Always take a timestamped, restorable backup |

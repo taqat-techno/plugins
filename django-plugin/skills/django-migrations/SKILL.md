@@ -6,6 +6,7 @@ last_reviewed: 2026-06-22
 owns:
   - the makemigrations -> review -> migrate gate (never auto-trust a generated migration)
   - reversibility rule (every migration must be reversible; RunPython needs a reverse_code)
+  - idempotency rule for migrations that restore schema objects some environments already have
   - schema-vs-data split rule (one concern per migration; data migrations are separate)
   - zero-downtime / expand-contract sequencing for add / rename / drop / type-change
   - migration-conflict & drift resolution (--merge, squashmigrations, --fake hazards)
@@ -50,6 +51,8 @@ Do NOT use to decide the field/constraint itself (→ `django-orm-models`) or ho
 4. **`sqlmigrate <app> <number>`** to see the exact SQL before running it against anything that matters.
 5. **`migrate`** — apply. Then verify reversibility: `migrate <app> <previous>` on a scratch DB should cleanly roll back.
 
+After any *bulk* regeneration (a squash, a re-generate across the whole project), diff the **per-app file counts** against `INSTALLED_APPS` before trusting it. `makemigrations` can produce nothing at all for one app — managed models, in `INSTALLED_APPS`, no exclusions — and a second run still reports **"No changes detected"**; only an explicit `makemigrations <app>` surfaces it. Believing the summary line ships a schema that, for that app, does not exist.
+
 ## Reversibility rule
 
 Every migration must be reversible.
@@ -70,6 +73,14 @@ class Migration(migrations.Migration):
     dependencies = [("shop", "0012_order_status")]
     operations = [migrations.RunPython(forwards, backwards)]
 ```
+
+## Idempotency rule (when environments have diverged)
+
+Long-lived databases drift from freshly-built ones: a constraint, index, or trigger can exist on staging and be absent everywhere else — a reconciled migration history, a hand-applied hotfix, a squash that dropped raw SQL. A migration that *restores* such an object must be **idempotent**, or it fails on boot in precisely the environment that already has it.
+
+- **Guard the DDL instead of asserting the state.** Emit `RunSQL` with a `DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = '…') THEN ALTER TABLE … ADD CONSTRAINT …; END IF; END $$;` block, so the already-present environment is a no-op and a fresh deploy gains the object.
+- **Validate both paths against the real engine**, in rolled-back transactions: present → no-op (1 → 1), absent → created (0 → 1), and a re-run after creation. The suite cannot do this for you — on SQLite the object being restored never existed, so a green run is silent about both paths.
+- **Pre-apply it to the diverged environment and record the migration**, rather than trusting the deploy's boot-`migrate` to be a harmless no-op. A migration on the critical path should never depend on "it will probably do nothing".
 
 ## Schema-vs-data split rule
 
@@ -111,7 +122,12 @@ Treat as add-new-column + backfill + swap + drop-old, same as a rename. In-place
 ## Conflict & drift resolution
 
 - **Conflicting leaf migrations** (two branches both numbered 00xx): `makemigrations --merge` creates a merge migration. Read it; merges can mask logical conflicts even when they apply cleanly.
-- **`squashmigrations`** to collapse a long history — but keep the old migrations until every environment has applied the squashed one; squashing then deleting too early breaks environments mid-history.
+- **`squashmigrations`** to collapse a long history — but keep the old migrations until every environment has applied the squashed one; squashing then deleting too early breaks environments mid-history. **A squash regenerated from model state silently drops everything that is not model state**: `RunSQL` constraints, triggers, and grants and `RunPython` backfills simply vanish, while the model docstring and `Meta.constraints` still read as though the guarantee exists. The divergence is undetectable by the usual checks *by construction* — the test DB is built from the same squashed migrations, so it loses the object symmetrically and the whole suite stays green, and `makemigrations --check` only ever compares model state. Before regenerating, **grep the pre-squash history for `RunSQL`/`RunPython`** and re-add each one explicitly; afterwards **diff the live schema against a freshly-migrated database** (`pg_constraint`, `pg_indexes`, triggers), because an environment whose bookkeeping you reconciled rather than rebuilt still carries the object and now has a different schema from a fresh deploy.
+- **Detect schema drift up front, once, for the whole plan — never by try/except.** Before running anything that touches many models against a database you did not build (a wipe, a reconciliation, a broad backfill), enumerate the real schema with `connection.introspection.table_names()` / `get_table_description()` and pick one strategy for the entire run. Probing with `try: … except: …` is worse than useless on Postgres: a failed statement **aborts the surrounding `atomic()`**, so one missing column becomes a total rollback. Two further traps: with `post_delete` receivers connected Django cannot fast-delete, so `.delete()` SELECTs full rows first and names a column the old schema lacks; and drift on one model poisons every *parent* that cascades to it, so per-model handling isn't enough.
+- **Running local code against a remote database is what turns drift into cascading failures.** A CLI that injects the remote `DATABASE_URL` into a local process runs your **new** models against the **old** schema, and the failures arrive in order: missing tables first (a `COUNT(*)` blows up), then missing columns. It is the right tool for landing a bookkeeping reconciliation *ahead* of the code push — just know that is what it's doing before you use it.
+- **A migration with a data-precondition guard dictates deploy ORDER.** A destructive migration that refuses to run while the old table is non-empty is behaving correctly — that guard is what stops it destroying real data. But it also means the cleanup *cannot* follow the deploy; it must precede it. Work the ordering out before scheduling anything, because the obvious order (deploy, then clean up) is the impossible one.
+- **Tolerance in a destructive tool must be asymmetric.** "Survive a missing table" is right for **delete targets** (absent = nothing to delete) and dangerous for **preserved** tables — a missing users/accounts table means you are pointed at the wrong database entirely. Same mechanism, opposite verdict: split the set first, then skip one and abort on the other.
+- **Run reconciliation scripts with `runpy`, not `manage.py shell < script.py`.** Piping into `shell` runs the REPL, where a **blank line inside an indented block ends the block** — a `with transaction.atomic():` DELETE commits and everything after the blank line is parsed as fresh top-level input and silently skipped, giving you the exact half-state the transaction existed to prevent, with exit code 0 and no traceback. Use `manage.py shell -c "import runpy; runpy.run_path('script.py')"` for anything with control flow, and re-query the end state instead of trusting the exit code.
 - **`--fake` / `--fake-initial`** mark migrations as applied without running them. This is a foot-gun: it desynchronizes the DB from migration state. Use only when you have *proven* the schema already matches, and say so explicitly.
 
 ## Red flags
@@ -122,6 +138,11 @@ Treat as add-new-column + backfill + swap + drop-old, same as a rename. In-place
 - `RenameField` / column drop / `NOT NULL` add proposed against a live large table with a rolling deploy, with no expand-contract plan.
 - `migrate --fake` suggested to "fix" a drift without proving the schema matches.
 - An index add on a big table without `concurrently` / `atomic = False`.
+- A squash regenerated from model state with `RunSQL`/`RunPython` in the pre-squash history and no explicit re-add → raw constraints gone, suite still green.
+- A migration that restores a constraint/index without an `IF NOT EXISTS` guard, shipped to environments that don't all share the same schema.
+- Schema drift probed by try/except against Postgres → the failed statement aborts the transaction and one missing column rolls back everything.
+- A destructive or reconciliation script run as `manage.py shell < script.py` → a blank line silently truncates the block.
+- A bulk `makemigrations` accepted on its "No changes detected" summary without a per-app file-count diff.
 
 ## Report format
 

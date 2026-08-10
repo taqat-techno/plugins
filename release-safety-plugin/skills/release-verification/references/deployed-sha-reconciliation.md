@@ -75,6 +75,10 @@ Instead, probe a **code marker** that flips only when the new code serves:
 
 Record the marker result as the liveness signal and reconcile it with `deployed_sha` from Step 1. If they disagree (SHA says new, marker says old), trust the **marker** — the SHA source may be reporting the *intended* release, not the *serving* one.
 
+**When the platform reports nothing to the Git host at all.** Some hosting platforms publish **no commit status and no check-runs** — the branch shows a bare pushed commit and there is no external deploy signal to read, green or red. There is then nothing to reconcile *against*, and the application's own account of itself is not merely the best source, it is the only one. Ask it for its **installed-component registry** — the module/plugin/version table an application framework exposes, a build-info record, an admin/metadata API — and read, per changed component, **the version AND the installed/updated timestamp**. A version string alone is stale evidence: a component whose declared version did not change between the two builds looks identical in both. The timestamp is what moves. Cross-check against a component the change did **not** touch, as a control: every touched component stamped shortly after the push while the untouched one still carries its old timestamp is a conclusive reading; all components sharing one fresh timestamp usually means the platform rebuilt everything and the reading proves nothing about *your* change.
+
+**Elapsed time is not evidence in either direction.** A `503 -> 200` flip that seems "far too fast to be a rebuild" does not show the old build is still serving, exactly as a slow one does not show the new build is. Cold-start behaviour, layer caching, and rollout strategy vary too widely for duration to discriminate between builds. A timing-based reading is a guess dressed as a finding — state the marker or the component registry, or state that liveness is UNPROVEN.
+
 ### B. Per-service reconciliation — verify EACH service, not one
 
 A release that spans multiple services (API, worker, scheduler, frontend, a monorepo's sub-apps) can leave one **SKIPPED**, **WAITING**, or stopped mid-rollout while the rest go green. One green service is not the deploy.
@@ -97,6 +101,17 @@ A frontend behind a deployment-protection or SSO wall answers **401 to every una
 
 - Read the **platform's deployment API/metadata** for that environment: confirm the deployment is `state:READY` (or the provider's terminal-success equivalent) AND that its recorded commit SHA contains `fix_commit` (Steps 2-3 against that SHA).
 - The platform API is the source of truth when the app is unreachable by request. If neither the app nor an authenticated API path is reachable, the verdict is **NOT PROVEN — walled, no API confirmation**; do not infer liveness from the wall's 401.
+
+## When the target's database is unreachable — log evidence and existence probes
+
+Some environments expose **no public database proxy**: nothing can connect from a workstation to run a migration-status command, mint a token, or open an application shell against the target. The trap is that a local status command still *runs* — against whichever database the local environment resolved to (a dev copy, a different environment's proxy, an on-disk file) — and prints that database's migration state in the same format, so it reads as an answer about the target. It is the silent-local-fallback trap wearing a migration hat.
+
+Two substitutes, both read-only and both genuinely about the target:
+
+- **Read the applied-migration line in the target's deploy / pre-deploy log.** A release that migrates as a pre-deploy step logs each migration it applied (an `Applying <migration> ... OK`-style line). That line is first-hand evidence the migration ran **on the target**, which no local status output can be. The step's failure semantics carry the rest of the meaning: where the pre-deploy migrate is fail-safe — a failure aborts the release and the previous version keeps serving — the *absence* of the line means the migration did not run at all, not that it half-ran and left a partial schema. Confirm that ordering for the platform in use before leaning on it.
+- **Probe route existence unauthenticated.** With no token available, an unauthenticated request still separates **401/403 (the route exists and is auth-gated)** from **404 (the route is not there)**. That proves the new code's URL surface shipped, without any credential. It proves nothing about the behaviour behind the gate, the response shape, or role permissions — for those, rely on the *same commit* verified in an environment you can authenticate against, and name the gap explicitly in the report's "Not tested or blocked" line.
+
+Neither replaces `deployed_sha` (Step 1) where a SHA source exists; they are what remains when the target admits no connection.
 
 ## Platform note (labeled examples only)
 

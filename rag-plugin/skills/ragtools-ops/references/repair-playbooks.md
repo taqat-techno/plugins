@@ -76,8 +76,10 @@ If the config is in a Syncthing / iCloud / OneDrive folder, see `risks-and-const
 2. **Check CPU usage.** The encoder is CPU-bound by design — see `risks-and-constraints.md#macos-mps-must-stay-disabled`. Sustained high CPU on `rag.exe` usually means it's working, not stuck.
 3. **For very large projects:** incremental index is fast (SHA256 hash check skips unchanged files). Full index is proportional to total chunks — be patient.
 4. **If the watcher is firing too often during edits**, increase debounce: `rag watch . --debounce 5000`.
+5. **Before launching an index by hand, check whether the service is already doing it.** A service that auto-syncs on startup turns a manual `rag index` into a lock-contention generator. If the CLI exits 1 with `index job for all projects never acquired the index lock; another indexing run is stuck. Nothing was indexed.`, read the two clauses separately — "nothing was indexed" is true only of *your* invocation. The service's own startup sync can hold the lock and be indexing normally the whole time, in which case the "stuck" run is the healthy one and the CLI call was the redundant duplicate. The message asserts a broken system; it is not evidence of one.
+6. **Decide hung-vs-working from a CPU *delta over an interval* plus fresh timestamped log writes** — never from a snapshot counter and never from a lock-timeout message. Sample the service process twice a fixed interval apart (roughly 150 s of CPU consumed per 20 s of wall clock is unambiguous work) and look for live encoder batch progress in the log. `points_count` / `total_files` sit **completely flat for tens of minutes** between project commits, so two identical status samples are not evidence of a hang either.
 
-If the indexer truly hangs (no CPU activity, no log progress for several minutes), use `recovery-and-reset.md#soft-reset-rag-rebuild` to start over.
+If the indexer truly hangs (no CPU delta across an interval, no fresh log lines for several minutes), use `recovery-and-reset.md#soft-reset-rag-rebuild` to start over. If instead the guard reports busy while the progress tick is frozen at its start value and the age climbs, that is a deadlocked job rather than a slow one — see `known-failures.md` F-015.
 
 ---
 

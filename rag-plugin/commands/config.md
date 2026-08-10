@@ -321,7 +321,7 @@ Scans `~/.claude.json` (top-level `mcpServers` and per-project `mcpServers` sub-
    mcp-dedupe status:
      plugin-level (canonical): rag serve                                                  [schema OK, direct-spawn, rag on PATH]
      user top-level:            rag.exe serve                                              [source: ~/.claude.json → mcpServers.ragtools]
-     project-level: C:/MY-WorkSpace/rag  → rag-mcp                                         [source: ~/.claude.json → projects.<...>.mcpServers.ragtools]
+     project-level: /path/to/my_project  → rag-mcp                                         [source: ~/.claude.json → projects.<...>.mcpServers.ragtools]
    
    duplicates found: 2
    recommendation: /config mcp-dedupe clean
@@ -341,7 +341,7 @@ Removes all duplicate `ragtools` entries, leaving only the plugin-level one.
    ```
    about to remove ragtools MCP registrations from:
      • ~/.claude.json → mcpServers.ragtools
-     • ~/.claude.json → projects.C:/MY-WorkSpace/rag.mcpServers.ragtools
+     • ~/.claude.json → projects./path/to/my_project.mcpServers.ragtools
      • ~/.claude/.mcp.json → mcpServers.ragtools
    
    the plugin-level .mcp.json (plugin/rag-plugin/.mcp.json) will remain as the sole registration.

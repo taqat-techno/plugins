@@ -16,9 +16,9 @@ from here so there is exactly one owner (ARCHITECTURE.md single-owner layering).
 The three fixes
 ---------------
 **R1 — descendant matches are no longer ranked by path length.**
-The old scorer gave every descendant ``200 + len(path)``. Measured from
-``C:/MY-WorkSpace/claude_plugins``, that selected ``taqat-plugins``
-(``…/TR_plugins``, 241) over ``claude-plugins`` (``…/plugins``, 238) — the wrong
+The old scorer gave every descendant ``200 + len(path)``. Measured from a
+``claude_plugins`` workspace root, that selected ``my-plugins``
+(``…/my_plugins``, 241) over ``claude-plugins`` (``…/plugins``, 238) — the wrong
 project for that repository, decided by three characters of path string. Its
 ambiguity guard required ``abs(len0-len1) < 3`` and the difference was exactly
 3, so nothing fired.

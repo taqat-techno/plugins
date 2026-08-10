@@ -5,7 +5,7 @@
 # Placeholders:
 #   {postgres_image}  - e.g., postgres:16
 #   {version}         - e.g., 19
-#   {project_name}    - e.g., relief_center
+#   {project_name}    - e.g., acme
 #   {odoo_image}      - e.g., myorg/odoo:19.0-enterprise
 
 services:

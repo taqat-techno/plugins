@@ -26,6 +26,7 @@ This plugin drives the [`chrome-devtools-mcp`](https://github.com/anthropics/chr
 | `host-scoped-auth-headers` | Host-scope preview-bypass/auth headers so cross-origin data calls survive CORS preflight |
 | `anti-fraud-and-guard-hygiene` | A client-rendered barcode/QR/SVG/badge is NOT authentication (no signature/binding/expiry); host canonicalization + no-Origin-and-no-Referer CSRF reject |
 | `uat-readiness-report` | Composing the final PASS / BLOCKED report; includes a copy-paste role × route smoke-report template |
+| `defect-triage-and-closure` | The gate before "working as designed" / "cannot reproduce" / "external blocker" / "won't do" is written; spec granularity, exact-gesture repro, the reporter's workaround as diagnostic, file-before-fix ordering, re-probing a stale blocker |
 
 ### Commands
 

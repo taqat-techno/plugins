@@ -13,7 +13,7 @@ disable-model-invocation: true
 
 ## Purpose
 
-The references library at `skills/ragtools-ops/references/` was originally derived from `ragtools_doc.md` (workspace root) in Phase 1. As ragtools evolves, the upstream doc will change: new failure IDs, new gaps, new platform support, new HTTP API endpoints, new versions. This command surfaces that drift so a human maintainer can decide which reference files need a sync.
+The references library at `skills/ragtools-ops/references/` was originally derived from `ragtools_doc.md` (marketplace repo root) in Phase 1. As ragtools evolves, the upstream doc will change: new failure IDs, new gaps, new platform support, new HTTP API endpoints, new versions. This command surfaces that drift so a human maintainer can decide which reference files need a sync.
 
 This command **never auto-rewrites** the references. It only:
 1. Reads the upstream `ragtools_doc.md`
@@ -25,7 +25,7 @@ The maintainer then opens the affected files and updates them by hand. This is i
 
 ## Behavior
 
-1. **Resolve the upstream doc path.** Default: `C:/MY-WorkSpace/claude_plugins/ragtools_doc.md` (workspace root). Override with `--source <path>`.
+1. **Resolve the upstream doc path.** Default: `${CLAUDE_PLUGIN_ROOT}/../../ragtools_doc.md` — i.e. `ragtools_doc.md` at the marketplace repo root, the directory that contains `plugins/`, resolved relative to this plugin's own directory rather than to any one machine's workspace. Override with `--source <path>`.
 2. **Read** the upstream doc.
 3. **Compute a SHA-256 hash** of the upstream doc and compare against the hash recorded in `references/_meta.md` (if present).
 4. **Section-by-section drift check:**
@@ -44,7 +44,7 @@ The maintainer then opens the affected files and updates them by hand. This is i
 ### Step 1 — Resolve the upstream doc
 
 ```bash
-test -f "${SOURCE:-C:/MY-WorkSpace/claude_plugins/ragtools_doc.md}" || echo MISSING
+test -f "${SOURCE:-${CLAUDE_PLUGIN_ROOT}/../../ragtools_doc.md}" || echo MISSING
 ```
 
 If missing, print: `cannot find ragtools_doc.md. specify --source <path>` and stop.
@@ -116,7 +116,7 @@ Compact maintainer-facing output:
 ```
 === rag-plugin doc sync report ===
 
-upstream: C:/MY-WorkSpace/claude_plugins/ragtools_doc.md
+upstream: <resolved path to ragtools_doc.md>   (default: ${CLAUDE_PLUGIN_ROOT}/../../ragtools_doc.md)
 upstream sha256: <new-hash>
 recorded sha256: <recorded-hash or "none">
 status: <DRIFT DETECTED | UP TO DATE>
@@ -158,7 +158,7 @@ If no drift, the report is much shorter:
 ```
 === rag-plugin doc sync report ===
 
-upstream: C:/MY-WorkSpace/claude_plugins/ragtools_doc.md
+upstream: <resolved path to ragtools_doc.md>
 status: UP TO DATE
 
 no edits needed.

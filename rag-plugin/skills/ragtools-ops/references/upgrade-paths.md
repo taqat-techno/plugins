@@ -29,6 +29,12 @@ This is the **recommended path** for end users. The installer is designed for in
 4. **Reinstalls** the Startup folder task
 5. **Starts** the service
 
+**Before re-running the installer, reap orphaned children — not just the named service.** `rag service stop` force-kills the service but does **not** reap the managed `qdrant.exe` it spawned. That orphan keeps running from the install directory holding `bin\qdrant.exe` open, Inno Setup cannot replace a locked file, and the run reports *"some files were skipped — restart Windows and re-run"*. A follow-up run can then abort with `_internal` half-deleted, leaving `python312.dll` missing and the product unable to start at all.
+
+- **Enumerate every process whose image path is inside `%LOCALAPPDATA%\Programs\RAGTools\`** and stop it — the app's named service is only one of them. A supervisor that force-kills its parent while leaving grandchildren alive turns a clean reinstall into a corrupted one.
+- **A reboot does not fix this.** Rebooting only helps if the holder is restarted at logon; an orphan spawned *after* logon survives every reboot cycle identically. When the installer blames "a process from the previous version", believe the mechanism, not the suggested remedy.
+- **If files were already skipped**, re-run the installer with `/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /CLOSEAPPLICATIONS` — `/CLOSEAPPLICATIONS` closes the locking process and the install completes.
+
 **What's preserved automatically:**
 - `%LOCALAPPDATA%\RAGTools\config.toml` (project list and settings)
 - `%LOCALAPPDATA%\RAGTools\data\` (Qdrant index, state DB)
@@ -150,8 +156,11 @@ For users who installed via `pip install -e ".[dev]"`:
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
+| Installer reports "some files were skipped — restart Windows and re-run" | An orphaned managed `qdrant.exe` is still running from the install dir and holding a file open; a reboot cannot clear an orphan spawned after logon | Kill every process whose image path is inside the install dir, then re-run with `/CLOSEAPPLICATIONS` — see the pre-upgrade note under "In-place upgrade" |
+| Service won't start after upgrade, `python312.dll` missing | A skipped-files install was re-run and aborted with `_internal` half-deleted | Re-run the installer with `/CLOSEAPPLICATIONS` after clearing the locking process; if `_internal` is still incomplete, uninstall + reinstall via `recovery-and-reset.md#reinstall-from-scratch` (back the data root up first) |
 | Service won't start after upgrade | Bundle corruption from incomplete download | Re-download installer; verify SHA if available |
 | `rag version` shows old version | Old binary still on PATH | Restart shell or check PATH order |
+| Crash-loop after upgrade with `ImportError: <pkg>>=X is required ... but found <pkg>==<older>` | Install-over-install left a stale `<pkg>-<old>.dist-info` beside the new one; `importlib.metadata` reads the first name match (F-013) | `known-failures.md` F-013 — compare `.dist-info` against the module on disk, count duplicate dist-info siblings, clean reinstall if several packages are layered |
 | Projects empty after upgrade | Config landed in wrong place (pre-v2.4.1 bug, F-001) | This should not happen post-upgrade. If it does, route to `/doctor` and `repair-playbooks.md#projects-empty-after-restart` |
 | `rag doctor` reports `Collection NOT FOUND` | Expected if service is up (F-010) — not a bug | Ignore |
 | Watcher not running after upgrade | Auto-restart budget exhausted from the upgrade interruption | `curl -X POST http://127.0.0.1:21420/api/watcher/start` |

@@ -9,6 +9,7 @@ owns:
   - typed per-row error report (row index, field, code, message)
   - idempotency via external_id column
   - no-auto-create-related-entities rule
+  - ambiguous-match resolution (derive the ambiguity precondition from the uniqueness constraint before shipping a candidate chooser)
   - dry-run vs commit phases
   - export filename convention (entity + filter context + timestamp)
 defers_to:
@@ -97,7 +98,7 @@ Before adding an import:
 Preview — first 20 of 1,247 rows
 
   Row | username    | email                | role     | team_id   | Status
-   1  | ahmed.s     | ahmed@example.com    | manager  | engineering | NEW — will be created
+   1  | jane.s      | jane@example.com     | manager  | engineering | NEW — will be created
    2  | sara.k      | sara@example.com     | viewer   | (missing)   | ERROR — team_id required
    3  | omar.l      | omar@example.com     | admin    | sales       | UPDATE — will overwrite role: viewer → admin
    ...
@@ -131,7 +132,7 @@ Server returns per-row errors with stable codes:
   "field": "email",
   "code": "email_format_invalid",
   "message": "Email is not a valid address",
-  "raw": "ahmed@@example.com"
+  "raw": "jane@@example.com"
 }
 ```
 
@@ -147,7 +148,7 @@ Errors aggregate in the preview (group by code, show counts). The per-row report
 
 ```
 external_id, name, role
-"sso:ahmed.s",   "Ahmed S",   "manager"
+"sso:jane.s",    "Jane S",    "manager"
 "sso:sara.k",    "Sara K",    "viewer"
 ```
 
@@ -162,20 +163,31 @@ If the source data has no natural external_id, the importer can derive one (e.g.
 ### No auto-create related entities (default)
 
 ```
-Row 5: username=ahmad, team_id="engineering"
+Row 5: username=jane.s, team_id="engineering"
 Status: ERROR — team "engineering" not found
 ```
 
 NOT:
 
 ```
-Row 5: username=ahmad, team_id="engineering"
-Status: NEW — created team "engineering" and user "ahmad"
+Row 5: username=jane.s, team_id="engineering"
+Status: NEW — created team "engineering" and user "jane.s"
 ```
 
 The second silently creates entities the user did not intend. The first surfaces and refuses.
 
 When auto-create is intentional: the preview phase shows a separate "These records will also be created" section with explicit user confirmation per related entity.
+
+### Ambiguous match — check the constraint before shipping a candidate chooser
+
+The missing-reference policy above covers a reference that resolves to ZERO records. A reference that resolves to MORE THAN ONE needs its own resolution, and the obvious UI — list the N matches and let the user pick one — is frequently a dead end. Work out what state the data must be in for the resolver to even reach "ambiguous" before designing the chooser.
+
+The common trap: the entity carries a **partial unique index on the active (non-archived) name**. Two LIVE namesakes then cannot coexist by construction, so the lookup can only return several matches when at least two of them are ARCHIVED — and an archived record is not a legal remap target. A remap-only chooser therefore renders every candidate disabled and leaves Apply permanently greyed out, for exactly the entities it was built to serve.
+
+- Derive the ambiguity precondition from the constraint (unique index, partial index, scoped uniqueness, soft-delete flag), not from the happy-path mental model.
+- If every candidate is un-pickable in the common case, the escape hatch IS the resolution: create-new (per the confirmation rules above) or restore-then-bind — not the candidate list.
+- Ship the candidate list only where the constraint genuinely permits multiple live matches (uniqueness scoped to a parent, or no uniqueness at all).
+- Whichever resolution is offered, it stays inside the preview/confirm phase — an ambiguity resolution never auto-commits.
 
 ### Commit transaction strategy
 
@@ -217,6 +229,7 @@ audit-log__2026-05-01_to_2026-05-28__2026-05-28-1432__u-7421.csv
 
 - **Never** commit on upload. Preview is mandatory.
 - **Never** silently auto-create related entities.
+- **Never** ship an ambiguous-match chooser without checking the entity's uniqueness constraint first — if the constraint means every candidate is un-pickable in the common case, the chooser is a dead end with Apply permanently disabled.
 - **Never** accept files above the row cap or size cap; reject on both client and server.
 - **Never** ship an importer without a per-row error report.
 - **Never** write the actor's audit log only on success — write on commit attempt with `outcome: success|partial|failed`.
@@ -235,6 +248,7 @@ Before committing an import or export change:
 - [ ] Errors grouped by code with counts; per-row report downloadable.
 - [ ] External-id strategy documented; re-import is idempotent.
 - [ ] Related-entity policy is explicit (`error` / `skip` / `create-after-confirm`); `auto-create` requires sign-off.
+- [ ] If a reference can resolve to more than one record: the ambiguity precondition was derived from the uniqueness constraint, and the offered resolution is reachable (not a chooser whose candidates are all un-pickable).
 - [ ] Commit phase writes audit-log entry with actor / file hash / counts / outcome.
 - [ ] Export filename includes entity + filter summary + timestamp.
 - [ ] PII opt-in for export is explicit and audited.
@@ -277,6 +291,7 @@ ADMIN EXPORT
 |---|---|---|
 | Commit-on-upload | One bad file silently corrupts production | Preview phase mandatory |
 | Auto-create related entities | Hidden inserts; user does not see what was created | Refuse; surface; require explicit confirmation |
+| Ambiguous-reference chooser that only offers "pick one of the matches" | With a partial unique index on the active name, two live namesakes cannot coexist, so ambiguity implies the extra matches are archived and un-pickable — every option is disabled and Apply never enables | Derive the ambiguity precondition from the constraint; offer create-new (or restore-then-bind) as the real resolution |
 | Single string error: "import failed" | User cannot find which row | Per-row typed error with code |
 | No row cap | Multi-million-row CSV brings down the API | Hard cap enforced both sides |
 | Filename `export.csv` for every download | Files clobber in Downloads folder; user loses context | Entity + filter + timestamp |

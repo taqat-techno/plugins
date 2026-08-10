@@ -4,7 +4,7 @@
 # Placeholders:
 #   {postgres_image}  - e.g., postgres:15
 #   {version}         - e.g., 19
-#   {project_name}    - e.g., relief_center
+#   {project_name}    - e.g., acme
 
 services:
   db:

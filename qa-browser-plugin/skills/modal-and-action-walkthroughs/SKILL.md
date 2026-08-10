@@ -43,6 +43,7 @@ Activate when:
   - Bulk actions (Archive selected, Export selected, Custom).
   - Modal flows (a modal that opens from a button, has internal state, submit/cancel).
   - Form flows (create / edit / submit / cancel / dirty-leave).
+- **Fixture state that ENABLES each action** — a record in the state the action requires (stock allocated, a prerequisite step done, a non-empty child collection, a row selected). Without it the trigger renders disabled and the walkthrough silently covers nothing; a greyed-out control is evidence of neither a working action nor a permission deny (`browser-qa-discipline`).
 - **Disposable data signal** — for destructive actions, the rule from `safe-destructive-testing` applies.
 
 ## The two walkthrough patterns

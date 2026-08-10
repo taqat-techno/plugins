@@ -1,7 +1,7 @@
 ---
 name: frontend-js
 description: |
-  Odoo frontend JavaScript patterns for website themes. Covers publicWidget framework (complete pattern with editableMode handling), Owl v1/v2 component patterns, _t() translation best practices, Bootstrap 4-to-5 migration, version detection, and critical development rules. Supports Odoo 14-19.
+  Odoo frontend JavaScript patterns for website themes. Covers publicWidget framework (complete pattern with editableMode handling), Owl v1/v2 component patterns, standalone Owl app boot paths (mountComponent / startWebClient with MinimalWebClient), _t() translation best practices, Bootstrap 4-to-5 migration, version detection, and critical development rules. Supports Odoo 14-19.
 
   <example>
   Context: User wants to create a publicWidget
@@ -192,6 +192,31 @@ class MyComponent extends Component {
     </div>
 </template>
 ```
+
+### Standalone Owl Apps (Not the WebClient)
+
+Critical Rule 1 is about **website themes** — those stay on `publicWidget`. A
+custom backend or portal *application* is a different case: Odoo ships three
+proven ways to boot your own Owl app outside the WebClient, and all three
+reduce to `mountComponent` from `web/static/src/env.js`. Pick by auth model,
+not by taste.
+
+| Variant | Boot call | Auth + bundle | Core precedent |
+|---------|-----------|---------------|----------------|
+| Backend-bundle standalone | `mountComponent(Root, document.body)` | `auth='user'`, backend assets bundle | POS UI route |
+| Public own-bundle SPA | `mountComponent` in its own bundle | `auth='public'` + capability URL whose `access_token` is checked with `consteq` | self-order, customer display, frontdesk |
+| Portal webclient | `startWebClient(MinimalWebClient)` | `auth='user'`, renders `ActionContainer` + `MainComponentsContainer`, no `NavBar` | project sharing, documents |
+
+The variants differ in **four** things at once — auth model, asset bundle,
+boot call, and data scoping — so half-mixing them (a public bundle booted the
+backend way) produces an app that loads assets it has no right to serve.
+
+1. **Never hand-roll a boot path.** `mountComponent` builds the env — services,
+   ORM, translations. A bespoke bootstrap silently ships a component with no
+   env and fails at the first service lookup.
+2. **Compare the public variant's `access_token` with `consteq`, never `==`.**
+   A plain comparison short-circuits at the first differing byte, which leaks
+   the token one character at a time under timing analysis.
 
 ---
 

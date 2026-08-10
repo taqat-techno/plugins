@@ -1,6 +1,6 @@
 {
   "server": "https://ntfy.sh",
-  "topic": "claude-alerts-nwo7r24v",
+  "topic": "",
   "default_priority": "default",
   "platform": "ios",
   "auto_notify": {

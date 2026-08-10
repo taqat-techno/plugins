@@ -261,11 +261,11 @@ class TestSetGetClear(unittest.TestCase):
                                             "project_name": "alpha"}
             bundle["global"] = {"enabled": True, "scope": "global",
                                 "workspace_key": "",
-                                "project_name": "royal-preps"}
+                                "project_name": "my_project"}
             pf.write_state(bundle)
             re_read = pf.read_state()
             self.assertEqual(re_read["workspaces"][ws_key]["project_name"], "alpha")
-            self.assertEqual(re_read["global"]["project_name"], "royal-preps")
+            self.assertEqual(re_read["global"]["project_name"], "my_project")
             self.assertEqual(re_read["global"]["scope"], "global")
 
     def test_set_in_workspace_a_does_not_affect_workspace_b(self):
@@ -501,13 +501,13 @@ class TestHook(unittest.TestCase):
                 "workspaces": {},
                 "global": {"enabled": True, "scope": "global",
                            "workspace_key": "",
-                           "project_name": "royal-preps",
+                           "project_name": "my_project",
                            "project_path": "",
                            "match_method": "manual"},
             }), encoding="utf-8")
             out = _run_hook(state, ws)
             ctx = out.get("hookSpecificOutput", {}).get("additionalContext", "")
-            self.assertIn("royal-preps", ctx)
+            self.assertIn("my_project", ctx)
             # The injected text must clearly tell Claude this is global because
             # the user explicitly used --global, NOT because it matches cwd.
             self.assertIn("EXPLICIT GLOBAL FOCUS", ctx)

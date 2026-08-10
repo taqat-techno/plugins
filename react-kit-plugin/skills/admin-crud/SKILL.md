@@ -1,17 +1,18 @@
 ---
 name: admin-crud
-description: List / table / tree / detail / filter / pagination patterns for admin CRUD pages. Owns the "URL is the source of truth for filters/page/sort" rule, server-side pagination as default (including hiding the paginator / result-count while the list is in an error state, so a failed request that resolves to `[]` never renders "Showing 0–0 of 0 · Page 1 / 1" under the error), the filter chip pattern, the detail-page tab convention, the loading-skeleton-matches-final-layout rule, and how a parent-child tree behaves (expand/collapse, lazy-load, depth/breadcrumb, nested-route detail, cascade-aware bulk actions). Activates when building any admin list page, table, tree, filter bar, search input, paginator, or detail view. Generic and portable — entity names, columns, and APIs are project-supplied.
+description: List / table / tree / detail / filter / pagination patterns for admin CRUD pages. Owns the "URL is the source of truth for filters/page/sort" rule, server-side pagination as default (including hiding the paginator / result-count while the list is in an error state, so a failed request that resolves to `[]` never renders "Showing 0–0 of 0 · Page 1 / 1" under the error), the filter chip pattern, the detail-page tab convention, and how a parent-child tree behaves (expand/collapse, lazy-load, depth/breadcrumb, nested-route detail, cascade-aware bulk actions). Activates when building any admin list page, table, tree, filter bar, search input, paginator, or detail view. Generic and portable — entity names, columns, and APIs are project-supplied.
 version: 0.4.1
 last_reviewed: 2026-07-23
 owns:
   - URL-as-source-of-truth for filters, page, sort
+  - query-string construction via URLSearchParams (never a hand-built `?k=${v}`, which double-decodes on a literal `%`)
+  - filter options derived from the API's canonical catalog when they mirror a backend registry
   - server-side pagination contract (default)
   - paginator / result-count hidden while the list is in an error state
   - filter chip pattern (visible active filters + clear individual / clear all)
   - sortable column convention
   - detail-page tab convention (overview / edit / related / audit)
   - row-action affordance (where actions live in the row)
-  - empty-state and "no results match filters" distinction
   - tree / grouped-row behavior (expand/collapse, lazy-load children, depth + breadcrumb, nested-route detail)
   - tree bulk-action cascade semantics (selected nodes vs nodes + descendants)
   - server-side virtualization note for very large lists
@@ -92,6 +93,7 @@ How:
 - Use the framework's URL hook (`useSearchParams`, `useRouter.query`, equivalent).
 - Update URL on filter change; do not also set local state (one-way).
 - Defaults are NOT written to URL until the user diverges (a clean URL is shareable).
+- **Build the query string with `URLSearchParams`, never by concatenating `?key=${value}`.** This matters most for a value that is ALREADY encoded — a serialized filter/view state written as `encodeURIComponent(JSON.stringify(state))`, for example. A hand-built string passes casual testing and then breaks on any value containing a literal `%` (a search for `"50%"`): the URL hook's `get()` decodes once, the reader's own `decodeURIComponent` hits the leftover `%` and throws, and the filter is silently dropped. `sp.set(key, encoded)` followed by `sp.toString()` re-percent-encodes the `%`, so `get()` on read returns EXACTLY the string that was written — two encodes, two decodes, symmetric. Cover the round-trip with a test whose value contains a literal `%`.
 
 ### Server-side pagination (default)
 
@@ -132,6 +134,7 @@ Response:
 - **Add filter** button reveals available filter fields the user is not already using.
 - **Result count** is always visible. "1,247 results" not "Showing 1-25 of many".
 - **Clear all** button when at least one filter is active.
+- **Filter options that mirror a backend registry are rendered from the API's catalog, never hardcoded.** When the set of choices (record types, categories, statuses, exportable models) is owned by a server-side registry, a client-side copy WILL drift — it keeps offering an option whose backing type was deleted and misses every option added since. The list endpoint usually already returns the canonical catalog alongside the rows; the common bug is a response unwrap that drops it. A comment saying "keep this in sync with X" is a defect marker, not a mitigation — it names the drift instead of preventing it. After fixing one such unwrap, grep for a SECOND copy of the same call (an unused or legacy fetch helper dropping the same field), because reusing it silently reintroduces the bug.
 
 ### Sortable columns
 
@@ -240,12 +243,9 @@ Not every entity needs all four tabs. Drop unused tabs; do not show empty tabs.
 
 ### Empty state vs no-results state
 
-These are different:
+A list must distinguish "zero records ever" from "filters match nothing." `admin-states` owns that distinction and the affordance for each — see it for the contract.
 
-- **Empty state**: the underlying list has zero records ever. Show the illustration + 1-line explanation + primary CTA (`+ Add user`).
-- **No-results state**: the list has records, but the current filters return zero. Show "No results match your filters" + `Clear all` button.
-
-Confusing the two leads to a "+ Add" button on a filtered no-results state, which causes the user to add a duplicate.
+List-specific consequence: because this skill puts the filters in the URL, the list always knows whether filters are active, so it can pick the correct state without a second request.
 
 ### Loading skeleton matches the final layout
 
@@ -269,6 +269,8 @@ Confusing the two leads to a "+ Add" button on a filtered no-results state, whic
 - Never display PII unmasked in a list (per `admin-roles-and-permissions`).
 - Never expose row-level permissions client-only — every action enforces server-side too.
 - Never write filter / search inputs to a query string in a way that includes secrets (filter values that contain tokens go in POST body, not URL).
+- Never string-concatenate a value into a query string — especially an already-encoded one. Use `URLSearchParams.set()` + `toString()` so read and write round-trip symmetrically.
+- Never hardcode a client-side option list that mirrors a server-owned registry; render the catalog the API returns. A "keep this in sync" comment is the bug, not the guard.
 - Never auto-select destructive bulk actions on the action dropdown (the first option should be safe).
 - Never lose the user's filter state on detail-page back navigation (the URL preserves it).
 - Never refetch on every keystroke without debounce.
@@ -280,6 +282,8 @@ Before committing a list/detail change:
 - [ ] Filters, page, sort all live in URL params.
 - [ ] Server-side pagination is in use; `totalCount` rendered.
 - [ ] Paginator and result-count are hidden while the list is in an error state (no "Showing 0–0 of 0 · Page 1 / 1" under an error).
+- [ ] The query string is built with `URLSearchParams` (no `?k=${v}` concatenation), with a literal-`%` round-trip test on any pre-encoded value.
+- [ ] Filter options that mirror a server registry are read from the API's catalog; no "keep in sync" copy, and no second unwrap dropping the same field.
 - [ ] Active filters render as chips with individual dismiss + clear-all.
 - [ ] Empty state and no-results state are distinct.
 - [ ] Loading skeleton matches the final table shape.
@@ -325,6 +329,8 @@ DETAIL PAGE
 | Anti-pattern | Why it's wrong | Correct |
 |---|---|---|
 | Filters in `useState`, not URL | Refresh / share / back-button broken | Read + write URL params |
+| `url = \`?view=${encodeURIComponent(json)}\`` | The reader decodes twice; a literal `%` in the value (searching `"50%"`) throws in `decodeURIComponent` and the filter is silently dropped | `sp.set('view', encoded); sp.toString()` — URLSearchParams re-encodes the `%` so read/write are symmetric |
+| Hardcoded option array with a "keep this in sync with the backend registry" comment | It will drift — dead options survive deletions, new ones never appear; the comment documents the bug instead of preventing it | Render the catalog the list endpoint already returns; grep for a second unwrap dropping the same field |
 | Client-side `.filter()` on the full list | Breaks at scale; ships full dataset to client | Server-side filter |
 | "Showing 1-25" without total count | User cannot estimate scope; cannot jump pages | Show `totalCount` |
 | Paginator/result-count still rendered while the list errored | A failed request resolves to `[]`; the footer shows "Showing 0–0 of 0 · Page 1 / 1" under the error, implying a real empty page | Gate the pagination/count footer on a successful resolve; hide it while `isError` |

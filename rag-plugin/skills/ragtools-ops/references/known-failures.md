@@ -177,6 +177,65 @@ Each failure has a stable ID for use by the symptom classifier. Format: `F-NNN`.
 
 **Status:** Fixed in v2.4. If a user sees this, they are on a broken dev branch.
 
+---
+
+### F-013 — Frozen-app dependency-version error caused by stale `.dist-info`
+
+**Symptoms:**
+- Service crash-loops on startup and the supervisor gives up after its failure budget (e.g. 5 failures in 300 s)
+- `ImportError: <pkg>>=X is required ... but found <pkg>==<older>` raised from a dependency guard at import time
+- The named package's compiled module in the bundle is clearly the **newer** build
+
+**Root cause:** the Windows installer extracts the new `_internal` bundle **over** the existing one without cleaning it, so `<pkg>-<old>.dist-info` survives beside `<pkg>-<new>.dist-info`. `importlib.metadata` scans the directory and takes the **first** normalized name match — an older version sorts first — so the guard reads a version that no file on disk corresponds to and aborts at import. It is normally systemic rather than one package: one observed bundle carried 86 `.dist-info` dirs with 27 packages holding multiple versions.
+
+**Why it misleads:** the error names a package and a version and reads exactly like a missing or rolled-back dependency, which sends you to `pip install -U` — that cannot touch a frozen app's bundled libs at all. The fault is in the installer, one layer above anything the traceback mentions.
+
+**Fix:**
+1. Compare the `.dist-info` version against the actual module file on disk (mtime / contents) before believing either.
+2. List the bundle dir for duplicate `<pkg>-<ver>.dist-info` siblings — that is the fingerprint of install-over-install. Count across the whole bundle: group by name-minus-version, keep where count > 1.
+3. If more than one package is affected, patching the single guilty `.dist-info` just moves the failure to the next import guard — do a clean uninstall + reinstall instead. **Read `recovery-and-reset.md#reinstall-from-scratch` first**: the uninstaller can take the data root with it.
+
+**Status:** installer defect. An installer that writes into an existing app dir without wiping it is the thing worth fixing upstream.
+
+---
+
+### F-014 — `project add` exits 1 on Windows but the config write already succeeded
+
+**Symptoms:**
+- `rag.exe project add ...` exits 1 with `UnicodeEncodeError` followed by `Failed to execute script 'cli'`
+- The traceback points at a `print` of a non-cp1252 character (a Unicode arrow `→`), not at any config code
+
+**Root cause:** the command writes the TOML config **first**, then prints a confirmation containing that character. On a Windows console using cp1252 the print raises and the process dies non-zero. **The project was still added.**
+
+**Fix:**
+- **Do not retry the add.** A retry hits "duplicate project_id" or creates a second entry. Verify state first — re-read `config.toml` under the data root, or call `service_status` / `list_projects`.
+- Prefix the invocation with `PYTHONIOENCODING=utf-8` to avoid it entirely, or prefer the MCP `add_project` tool, which returns structured JSON and never crosses the console encoding.
+
+**Two related traps on the same command surface:**
+- `rag project remove <id>` prompts `[y/N]`, and feeding it from PowerShell (`'y' | rag ...`) fails with `Error: invalid input` — PowerShell pipes *objects*, not a raw byte stream. Use the Bash tool: `echo "y" | rag.exe project remove <id>`.
+- `rag index --project X` blocks synchronously and can far exceed a 10-minute tool timeout. Use the MCP `run_index` tool, which queues a job and returns a `job_id` immediately.
+
+**Generalisation:** when a CLI fails on its own *output* encoding, the side effect has usually already happened. Check state before assuming the operation rolled back.
+
+---
+
+### F-015 — `index_busy` latched permanently by a deadlocked startup scan
+
+**Symptoms:**
+- Every project delete (`project_delete`, `DELETE /api/projects/{id}`, or the admin panel) returns `HTTP 409 {"error":"index_busy","message":"an indexing run is in progress..."}`
+- No indexing is actually happening
+- `/api/status.index_activity` reads `phase=scan done=0 total=0` with `last_tick` **frozen at the value of `started_at`** while `age` keeps climbing
+
+**Root cause:** the startup "Incremental index" deadlocks in its scan phase and never clears, so the `index_busy` guard latches on forever. Observed on v3.5.1. `DELETE /api/projects/{id}` carries only a `confirm` query param — there is **no force override**. This is *not* the wait-it-out `OPERATION_CONFLICT` 409 of `rules/mcp-envelope.md` §3.2: waiting never clears it, and a restart reproduces it identically, which is what proves it a bug rather than a transient.
+
+**How to tell it apart:** sample `last_tick` / `done` twice a few seconds apart. A frozen tick with a rising age is a deadlocked job holding a lock, not work in progress — clear the job, do not wait it out. The inverse check is F-007: flat counters with a real CPU delta mean it genuinely is working.
+
+**Two things that look like the cause and are not:** a stale crash banner and a stale project count in the UI (28 shown vs 25 real), and a UNC project path first in `config.toml` — confirm the path resolves in milliseconds before blaming it.
+
+**Workaround — a timing window:** after `rag service start --wait` returns, `index_activity` is `none` for roughly **8 seconds** before the scan arms, and deletes succeed inside that window. The window is wall-clock, not per-item, so several deletes fit into one restart cycle; draining a long project list takes a few cycles.
+
+**Also: delete empties collections but does not drop them.** After removing every project, `/api/status` correctly reads `points_count=0` and each `proj_<uuid>` Qdrant collection verifies at 0 points — yet all the collection **directories survive**, holding gigabytes under the engine's `qdrant-server/collections`. Qdrant's `.deleted` staging dir being empty means this is not deferred cleanup that will reclaim itself. App-level "removed" does not imply storage reclaimed — check the engine's storage dir separately (`recovery-and-reset.md`). `/health.collection` also keeps reporting the pre-deletion label ("25 collections (per_project)") after the count hits zero; trust `/api/status`, not that label.
+
 ## UI-visible errors
 
 - **"Failed to add project: [Errno 13] Permission denied: 'ragtools.toml'"** → F-001. Upgrade.

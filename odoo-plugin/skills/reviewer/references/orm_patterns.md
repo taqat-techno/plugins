@@ -49,6 +49,25 @@ Composition: the new model exposes all fields of the parent but stores none of
 them. The parent record is reached via the declared Many2one. If multiple
 `_inherits` entries declare the same field name, the last one in the dict wins.
 
+### Order inside an `_inherit` list is C3 linearization
+
+When `_inherit` is a **list**, the entries are bases in MRO order, so a wrong
+order is a `TypeError: Cannot create a consistent method resolution order`
+(or a mixin whose methods silently never run), not a style issue.
+
+- **A mixin that itself subclasses something the base model already carries
+  must come FIRST.** `rating.mixin` subclasses `mail.thread`; a model that
+  already carries `mail.thread` early in its own bases can only linearize if
+  `rating.mixin` precedes it. Same shape for any mixin layered on a mixin.
+- **Website mixins go `seo` → `published` → `searchable`**, matching the order
+  they build on each other.
+- **Standalone mixins with no shared ancestry go last** — `image.mixin` is the
+  usual one.
+
+Review note: a change that only **reorders** an `_inherit` list is a pure
+linearization fix. It adds no sink, no validator, no permission and no data
+flow, so it does not need a security review — reorder it and move on.
+
 ## Key `_` class attributes
 
 | Attr | Default | Purpose |
@@ -281,6 +300,33 @@ that merely mirrors the relation. Set the stored related M2o's `ondelete`
 to match the semantics you actually want (usually `'set null'` or
 `'cascade'`), or don't store it.
 
+**The default `'set null'` is the trap when the mirror points *up the same
+ownership chain* as a cascading FK.** Take a child row carrying both
+`version_id` → parent-history with `ondelete='cascade'` and a stored
+`related='version_id.owner_id'` M2o with no explicit `ondelete` (so: SET
+NULL). Deleting the owner fires **both rules in one statement**: the SET NULL
+issues `UPDATE … SET owner_id = NULL`, and that update re-validates **every**
+FK on the row — including `version_id`, whose target is being cascade-deleted
+in the same statement. Postgres reports
+`insert or update on … violates foreign key constraint …_version_id_fkey`,
+i.e. an INSERT/UPDATE error *during a DELETE*, which is baffling until you see
+the two conflicting delete rules. Any owner with history becomes undeletable.
+
+Rule: a stored related M2o that points "up" the same ownership chain as a
+cascading FK must **also** be `ondelete='cascade'`.
+
+Diagnose from the **database**, not from Python — the field definition tells
+you what was intended, `pg_constraint` tells you what exists:
+
+```sql
+SELECT conname, confdeltype       -- 'a' no action, 'r' restrict, 'c' cascade, 'n' set null
+FROM pg_constraint
+WHERE conrelid = '<child_table>'::regclass AND contype = 'f';
+```
+
+Odoo recreates the FK with the new delete rule on `-u` (`confdeltype` flips to
+`c`), so the fix is a declaration change plus an upgrade, not a manual DDL.
+
 ## `_sql_constraints`
 
 ```python
@@ -295,6 +341,13 @@ RPC bypass. Prefer SQL constraints for uniqueness and simple invariants.
 > **Odoo 19**: `_sql_constraints` is replaced by `models.Constraint(...)` /
 > `models.UniqueIndex(...)` objects declared as class attributes (the tuple
 > list still loads). See `references/v19_deltas.md`.
+
+A `UNIQUE` whose column list includes a **nullable** column stops
+deduplicating for exactly the rows where that column is NULL (Postgres treats
+NULLs as distinct) — the constraint does not error, it just stops being a
+constraint. The decision to replace it with a partial unique index belongs to
+the **multi-tenancy-isolation** skill; the declaration syntax is here and in
+`references/v19_deltas.md`.
 
 ### `@api.constrains` is not concurrency-safe for uniqueness
 
@@ -340,6 +393,19 @@ invariant (e.g. "the partner must be a company"), you must **also** enforce
 it in `@api.constrains` (or a DB constraint) — the `domain=` alone protects
 nothing at the data layer.
 
+The mechanism is that nothing ever reads it on the write path: `create()`,
+`write()` and `_validate_fields()` never consult a field's `domain=`, so
+there is no check to bypass and no flag that turns one on. A `domain=`
+supplied as a **string** is weaker still — the server discards it, so it
+does not even filter for a caller that isn't a UI widget.
+
+Integrity that actually holds is DDL: `models.Constraint` /
+`models.UniqueIndex` (v19) or a `_sql_constraints` entry (v17) for
+invariants and uniqueness, `required=True` for the NOT NULL, and the
+`Many2one`'s `ondelete` for referential behaviour. Everything above that
+layer — `domain=`, `@api.onchange`, `@api.constrains` — is a message, not a
+guarantee.
+
 ### Import binds relationals by identity, and bypasses rules
 
 When importing (CSV / `load()`), a relational column can be given three ways,
@@ -357,6 +423,154 @@ user's record-rule domain. A bare display-name column instead goes through
 **duplicate name it logs a warning and silently binds the first match** —
 a quiet data-corruption path. Prefer `/id` for deterministic imports, and
 never rely on display-name matching where names aren't unique.
+
+## Concurrency — a lost write race the framework's retry does not catch
+
+Odoo runs each request transaction at **REPEATABLE READ** (`odoo/sql_db.py`).
+When two requests write the same row, the loser's `UPDATE` raises a Postgres
+`SerializationFailure`. On its own that is harmless: `service/model.py` wraps
+the request in `retrying()`, whose
+`except (IntegrityError, OperationalError, ConcurrencyError)` clause replays
+the whole request.
+
+What breaks is *where* the exception fires. Raised **deep inside a `write()`
+override that has already flushed other statements**, it aborts the
+transaction while further statements are still queued behind it. Those
+statements do not raise `SerializationFailure` — they raise
+`InFailedSqlTransaction`, which is a **`psycopg2.InternalError`, not an
+`OperationalError`**. It therefore matches nothing in the retry clause, is
+never retried, and arrives in the browser as a raw Odoo traceback. Two users
+approving the same record at the same moment get a 500, not "someone else
+decided first".
+
+The fix is to move the collision **ahead of every write**:
+
+1. Take a `SELECT … FOR UPDATE` on the contended rows as the **first**
+   statement of the operation. Nothing has flushed yet, so the loser fails
+   cleanly as a `SerializationFailure` that `retrying()` already handles.
+2. **Re-check decidability after acquiring the lock**, not before. The
+   replayed request must observe the winner's outcome and refuse — otherwise
+   the retry cheerfully produces a second decision on an already-decided
+   record.
+3. Return a **business error** from that refusal path: a stable error code
+   and an HTTP 409, not an exception.
+
+**Do not catch DB exceptions in the controller.** By the time one reaches
+that layer the transaction is already aborted, so building and returning a
+payload fails again at the dispatcher's own flush — recreating the very 500
+the handler was added to prevent. The race belongs to the model layer,
+before the first write.
+
+### A second cursor that commits mid-request collides with the request itself
+
+The same REPEATABLE READ semantics turn a *single* request into a concurrency
+bug the moment it opens its own cursor. Writing a diagnostic / audit row on
+`self.env.registry.cursor()` and committing it inline, while the request
+transaction is still open, makes the request's **next flush to that row** fail
+with
+`psycopg2.errors.SerializationFailure: could not serialize access due to
+concurrent update`. Nothing in the code looks concurrent — both writers are
+the same request.
+
+The retry loop then converts a transient into a permanent failure.
+`service/model.py` retries `SerializationFailure` up to five times, but each
+retry re-runs the handler, which re-opens the separate cursor, re-commits, and
+re-collides. All five attempts burn and the operator gets a raw psycopg2
+traceback. A "self-healing" retry can be the thing that guarantees the failure.
+
+`cr.postrollback` is the right hook but is **not sufficient on its own**:
+
+- `commit()` **clears** the postrollback queue; `rollback()` runs it *after*
+  `_cnx.rollback()`.
+- So any caller that **swallows** the exception (`except: return notification`
+  — a connection-test button is the classic one) commits, and the queued
+  callback is silently discarded.
+- Durability across both exits therefore needs an ordinary **in-transaction
+  write** *plus* a postrollback callback. The two paths are mutually exclusive
+  by construction, so the row is never written twice.
+
+Two follow-on rules:
+
+- **Bind nothing from `self` into a postrollback closure.** Its cursor is dead
+  by the time the callback runs. Capture `registry`, `_name` and `id` as plain
+  values and rebuild the Environment inside the callback.
+- **Drain the queue in test teardown.** `TestCursor.rollback()` also runs
+  postrollback, and `TransactionCase` tears down by rolling back — so a test
+  that leaves a callback queued fires it at teardown, opens a real cursor and
+  **commits residue into the test database**. Clear it explicitly:
+
+```python
+def tearDown(self):
+    self.env.cr.postrollback.clear()
+    super().tearDown()
+```
+
+One testing trap sits on top of this: `assertRaises` **discards writes made
+before the raise**. `BaseCase._assertRaises` opens `self.env.cr.savepoint()`
+and rolls it back when the expected exception fires, so a test asserting "the
+failure state was staged in the caller's transaction, then it raised" reads
+back the pre-write value and fails in a way that looks exactly like a broken
+fix. Whenever the assertion is about state written *before* the raise, use a
+bare `try` / `except` / `else: self.fail(...)` instead.
+
+Pin such a fix by asserting the checkable property directly — *no independent
+cursor is opened while the caller is live* (spy on `Registry.cursor`) — rather
+than the symptom, which only appears under a race.
+
+## Framework defaults that look like bugs
+
+Each of these produces a symptom indistinguishable from a defect, and each is
+the framework behaving as documented. Recognise them before opening an
+investigation.
+
+### A stored compute does not go through `write()`
+
+Recomputation writes through the ORM's internal `_write()`, so a hook layered
+on `write()` **never fires** for it. A derivation keyed on `SomeModel.write()`
+therefore stays stale forever while the stored compute it depends on updates
+correctly on every change — the counters are right, the thing derived from
+them is frozen. A write hook cannot observe a stored compute; hook the compute
+(or add the derived value to its `@api.depends` chain) instead.
+
+The same asymmetry cuts the other way for security: because recompute goes
+through `_write()`, dropping a key in `create()`/`write()` overrides blocks
+direct writes without blocking legitimate recomputation.
+
+### Work enqueued to a queue nothing drains looks like success
+
+A button that enqueues a job returns cleanly and the UI reports success even
+when the job's only executor is a cron shipping `active=False`. Jobs sit
+`queued` for days with no error anywhere. Prefer synchronous recomputation in
+the same transaction unless there is a proven reason not to — and if a queue
+stays, prove something drains it **in that environment**, not in principle.
+
+### `search()` hides inactive records, so an empty result IS the answer
+
+`active_test` is on by default. Searching for a cron, a rule, or a record that
+returns nothing is frequently the **confirmation that it is archived**, not
+evidence that it is missing — and "missing" leads to recreating something that
+already exists. Read with `.with_context(active_test=False)` before reporting
+anything absent.
+
+### `noupdate="1"` freezes shipped data across a rename
+
+A record loaded from a `noupdate="1"` block is never re-imported on upgrade.
+Rename the model behind an `ir.sequence` and the shipped sequence row keeps its
+**pre-rename `code`**, so every reference rendering through it comes out as the
+fallback (`/`) on any database created before the rename — while a fresh
+database is fine, which makes it look environment-specific. Renaming a model
+means fixing the sequence row and backfilling existing references in a
+migration. The same flag that protects your data from being overwritten is what
+strands it here; `noupdate="0"` has the opposite failure (seeds re-imported and
+user edits wiped on every upgrade).
+
+### Under `env.su`, mixin stamping neither happens nor is refused
+
+A tenancy/ownership mixin that stamps its anchor from the acting user's
+membership in `create()` has nothing to read in superuser mode. Seeding through
+`odoo-bin shell` therefore **stamps nothing and refuses nothing** — the records
+are created successfully and silently orphaned. Pass the anchor explicitly on
+every owned model when seeding as superuser.
 
 ## Modeling traps
 
@@ -413,3 +627,18 @@ callable instead of a static list.
     `ValueError`, not a no-op.
 16. **A "capped" `_parent_store` tree for a fixed shallow taxonomy** →
     model separate levels + parent-scoped uniqueness instead.
+17. **Deciding a contended record without a `SELECT … FOR UPDATE` taken
+    before the first write** → the loser's `SerializationFailure` fires
+    mid-`write()` and degrades into an unretried `InFailedSqlTransaction`,
+    i.e. a 500 instead of a retry.
+18. **Catching DB exceptions in a controller** → the transaction is already
+    aborted there, so returning a payload fails again at the dispatcher's
+    flush and reproduces the 500.
+19. **Opening `registry.cursor()` and committing it while the request
+    transaction is still live** → under REPEATABLE READ the request's own next
+    flush to that row raises `SerializationFailure`, and every retry re-commits
+    and re-collides. Write in-transaction **plus** a `postrollback` callback.
+20. **A `postrollback` closure capturing `self` (or any recordset/env)** → its
+    cursor is dead when the callback runs; capture `registry`, `_name`, `id`
+    and rebuild the Environment. Clear the queue in `tearDown`, or the
+    callback commits residue into the test database.

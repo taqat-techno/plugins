@@ -297,6 +297,16 @@ Observe → localize → safe action:
   genuinely absent or exposes why the search missed it (wrong root, excluded glob, encoding).
 - Only after the direct Read agrees should you treat the symptom as "string truly absent." This
   is read-only confirmation; never edit or regenerate a file to "make the search work."
+- The mirror-image trap: a **positive** hit can be corrupted too. In an interactive terminal a
+  content search highlights matches by wrapping them in terminal escape sequences; captured back
+  through a tty, the highlighted substring can come through mangled — a multi-term or alternation
+  pattern can render `ready/occupied/vacant` as a two-character fragment. The match itself is real,
+  but the text displayed *for* it is not the text in the file. So never quote interactive search
+  output verbatim for a **load-bearing identifier** — a field name, an enum value, a path, a config
+  key — that will go into a report, a patch, or a command. Re-run with color disabled
+  (`rg --color=never`) or Read the file at the matched line before using the string. Non-interactive
+  callers (subagents, scripts with no tty) get uncolored output and are unaffected, which is why
+  this only bites in the hands-on shell.
 
 ## WSL mirrored networking + persisted IDE port-forward = squat / feedback loop
 
@@ -326,6 +336,50 @@ Safe action: **clear the stale IDE port-forward** (remove that one forwarding ru
 config) so the mirrored-mode pass-through reaches the live in-WSL server directly. Identify the
 owning PID first; do not blanket-kill listeners or flip the networking mode mid-diagnosis — both
 are more disruptive than removing the one redundant forward.
+
+## `EADDRINUSE` inside the distro while `ss` / `fuser` show the port free
+
+The mirrored-mode port collision has a general form worth recognizing on its own, because all the
+evidence for it sits on the **other** side of the boundary. A process inside WSL2 fails to bind with
+`bind: Address already in use`, yet `ss -ltnp` and `fuser` in that same distro report nothing on the
+port. The Linux side really is clean: a **Windows** process is already listening on
+`127.0.0.1:<PORT>`, and because WSL2 shares/forwards the loopback, that listener consumes the port
+for the Linux bind too. The usual squatter is a desktop application's helper process — an IDE's
+client or backend, a language-server host, a dev server from a session the user believes is closed —
+which is why nobody suspects it: the app that owns the port is not the thing being started.
+
+The trap is that every instinct points inward — a leftover Linux process, a duplicated systemd unit,
+a config that declares the port twice. All three of those probes come back clean and the diagnosis
+stalls, because the conflict is **invisible from inside the distro**.
+
+Observe → localize:
+
+```bash
+# 1. Is the Linux side genuinely clean? (expect: no rows)
+ss -ltnp | grep ":<PORT>"
+
+# 2. Bare-socket control — does the bind fail even with no application involved?
+python3 -c "import socket;s=socket.socket();s.bind(('127.0.0.1',<PORT>));print('bound')"
+
+# 3. Port control — run the identical bind against a neighbouring free port.
+#    If <PORT>+1 binds fine, the port is the variable, not the code or the config.
+```
+
+```powershell
+# 4. Who owns it on the WINDOWS side? This is where the answer is.
+Get-NetTCPConnection -State Listen -LocalPort <PORT> |
+  Select-Object LocalAddress, LocalPort, OwningProcess
+Get-Process -Id <PID-from-above> | Select-Object Id, ProcessName, Path
+```
+
+Clean Linux probes **plus** a failing bare-socket bind **plus** a neighbouring port that binds
+**plus** a Windows PID holding the port is what confirms it; no single one of those does.
+
+Safe action: name the owning Windows process and its PID, and let the user choose between closing it
+and moving the in-WSL service to a free port. Do not kill a desktop application's process to free a
+dev port, and do not rebind blindly. If the squatter turns out to be an IDE's persisted forward
+rather than a real server, the mirrored-forward section above is the more precise fix; the in-WSL
+`sshd` section below is another instance of this same collision.
 
 ## Mirrored-mode DNS can hang when a VPN mesh + its DNS overlap
 
@@ -365,6 +419,25 @@ pinning a captured VM IP, and expect a cold-start delay after idle. If stable in
 reachability across idle periods is required, switching to mirrored mode is an option to *propose*
 (it changes networking semantics) — never flip `.wslconfig` automatically; surface the trade-off
 and let the user decide.
+
+## A WSL VM restart silently expires an earlier reachability verdict
+
+Mirrored-mode pass-through and the Hyper-V firewall rules that govern it are re-established when
+the WSL utility VM boots. So a "Windows cannot reach the in-WSL listener" finding is only true of
+**the VM generation you tested**: an idle-stop, a `wsl --shutdown`, a distro restart, or a Windows
+resume between turns can rebuild that path and make the port reachable with no action from anyone.
+Nothing announces the change — the earlier failure just quietly stops being true.
+
+Consequences for how the finding is reported:
+
+- Treat a reachability result as a timestamped observation. Before **repeating** "Windows can't
+  reach `<PORT>`" in a later turn, re-run the one-line probe (`Test-NetConnection 127.0.0.1 -Port
+  <PORT> -InformationLevel Quiet`, or a plain HTTP fetch of the service's health path).
+- This matters most before recommending an **elevated** remedy — an admin-only firewall rule, a
+  `.wslconfig` change. Sending the user after admin rights for a wall that is no longer there costs
+  them more than the two seconds the re-probe would have cost.
+- Conversely, a success is just as perishable: if the VM idle-stops after your probe, the next call
+  pays a cold start. Re-probe rather than reasoning from the earlier result in either direction.
 
 ## Windows git "dubious ownership" = the repo dir is owned by `BUILTIN\Administrators`
 
@@ -428,14 +501,65 @@ must keep a distro alive, **pin the VM** by holding a long-lived process open (e
 persisting on its own after a one-shot call. Surface the session-0 constraint to the user; do not
 reconfigure services automatically.
 
+## A pin/background process that "won't die": owner matters, and `pgrep -f` self-matches
+
+Two independent measurement errors make an in-WSL background process (a VM pin, a keepalive, any
+`sleep`-style holder) look like it survived a kill — or like it exists when it does not. Both are
+counting mistakes, not stubborn processes.
+
+- **`pkill` cannot signal a process owned by another user, and says nothing about it.** A pin
+  started by a scheduled task with `wsl -d <distro> -u root --exec …` is **root-owned**; a pin the
+  user started interactively runs as the default account. `pkill -f "<pattern>"` run as the normal
+  user kills only that user's matches, silently leaves the root-owned one running, and still exits
+  as if it had done its job. The tell is that a follow-up `pgrep` still lists the process. This is
+  the ordinary Unix signal-permission rule, not a WSL quirk — but WSL is where it bites, because
+  the two pins are spawned by different launchers and look identical on the command line.
+- **`pgrep -f <pattern>` matches the measuring shell itself.** The pattern appears verbatim in the
+  command line of the very process doing the search, so `pgrep -f 'sleep infinity' | wc -l`
+  over-counts by one and a "how many pins are left" check never reaches zero. Use an exact
+  process-name match (`pgrep -xa sleep`), or exclude the current pid, so the count is real.
+
+Observe → localize (read-only — identify the owner before signalling anything):
+
+```bash
+# Who owns each candidate? The user column is the whole story.
+ps -eo pid,user,args | grep -E "<pattern>" | grep -v grep
+
+# Exact process-name match — no self-match artifact from the pattern.
+pgrep -xa <process-name>
+```
+
+Safe action: report the surviving process **with its owner and pid**, and propose the matching
+remedy — a root-owned pin needs `sudo`/a root shell (`wsl -d <distro> -u root`) or its owning
+scheduled task disabled, not a louder `pkill`. Never widen a kill pattern, and never escalate a
+pattern-based kill to root, to make a stubborn match disappear; a broad pattern run as root is
+exactly how unrelated processes get killed. Re-check with `ps -eo pid,user,args` after any kill the user applies — an
+exit code from `pkill` is not evidence the target is gone.
+
+Related side effect worth anticipating: re-running the **installer** for a scheduled task that
+ends by starting the task will *fire* the task as it installs, re-spawning the very pin you were
+trying to remove. Read an installer to its last line before running it as part of a diagnosis.
+
 ## WSL2 sshd: socket-activation ignores `Port`, and a Windows listener blocks the bind
 
-Two independent reasons an in-WSL `sshd` does not listen where you expect:
+Three independent reasons an in-WSL `sshd` does not listen where you expect — or refuses to
+validate at all:
 
 - **systemd socket-activation ignores `Port` in `sshd_config`.** When sshd is started via
   `ssh.socket` (socket activation), the listening port is dictated by the **socket unit's**
   `ListenStream`, and the `Port` directive in `sshd_config` is **ignored**. Editing `Port 2222`
-  changes nothing; sshd keeps listening on the socket unit's port (typically 22).
+  changes nothing; sshd keeps listening on the socket unit's port (typically 22). Recent
+  distributions (Ubuntu 24.04 and later) ship openssh-server socket-activated **by default**, so
+  this is the expected starting state, not a mis-configuration someone introduced. `ListenAddress`
+  is ignored for the same reason — the socket unit owns the listener, so neither the port nor the
+  bind address in `sshd_config` (or a drop-in) is in charge. A drop-in that looks perfectly correct
+  therefore has no observable effect, and a smoke test against the intended port fails.
+- **A fresh openssh-server install fails `sshd -t` on a missing `/run/sshd`.** Immediately after
+  installing the package, `sudo sshd -t` errors with
+  `Missing privilege separation directory: /run/sshd` — because that directory is created by
+  systemd's `RuntimeDirectory=sshd`, which only runs on the **first service start**. The config
+  under test may be entirely valid; the failure is about the runtime directory, not the file. Do
+  not "fix" a config that the test only appears to reject.
 - **A Windows-side listener blocks the Linux bind (`EADDRINUSE`).** Under mirrored networking WSL
   shares the Windows network namespace, so if a Windows process already listens on the port (the
   built-in Windows OpenSSH sshd on 22, for instance), the in-WSL sshd cannot bind and dies with
@@ -444,10 +568,13 @@ Two independent reasons an in-WSL `sshd` does not listen where you expect:
 Observe → localize:
 
 ```bash
-# Is sshd socket-activated? Then sshd_config's Port is not in charge.
+# Is sshd socket-activated? Then sshd_config's Port / ListenAddress are not in charge.
 systemctl is-active ssh.socket
 systemctl cat ssh.socket | grep -i ListenStream     # the ACTUAL port
 ss -ltnp | grep -E ':(22|<PORT>)\b'
+
+# Does /run/sshd exist yet? Its absence — not the config — is what `sshd -t` is complaining about.
+test -d /run/sshd && echo "present" || echo "absent (service has never started)"
 ```
 
 ```powershell
@@ -456,9 +583,16 @@ Get-NetTCPConnection -State Listen -LocalPort <PORT> | Select LocalAddress, Owni
 ```
 
 Safe action: for the socket-activation case, change the **socket unit's** `ListenStream` (or
-disable `ssh.socket` and enable `ssh.service`) rather than only editing `sshd_config`. For
-`EADDRINUSE`, identify which side legitimately owns the port first (see the localhost-masquerade
-section), then relocate or stop the correct one — do not blanket-kill listeners.
+disable **and stop** `ssh.socket`, then enable and start `ssh.service`) rather than only editing
+`sshd_config` — the socket must be stopped, not merely disabled, or it keeps the inherited listener
+alive for the current boot. Verify the outcome with `ss -tlnp`: exactly the intended port should be
+listening and the old one gone. Do not accept "the config says 2222" as evidence; only the listener
+listing is. For the `/run/sshd` case, either start the service once and let its `ExecStartPre`
+validate the config, or create the directory before validating manually
+(`install -d -o root -g root -m 0755 /run/sshd`) — both are mutations, so propose them rather than
+running them during diagnosis. For `EADDRINUSE`, identify which side legitimately owns the port
+first (see the localhost-masquerade section), then relocate or stop the correct one — do not
+blanket-kill listeners.
 
 ## `/mnt/c` root is read-only; the Windows Desktop may be OneDrive-redirected
 
@@ -498,11 +632,17 @@ force a write through.
 | Slow/failed bulk file copy | File-transfer caveats | copy from inside WSL to mounted drive |
 | Wrote `/tmp/...`, Read can't find it | `/tmp` maps to Windows temp | write to an explicit absolute path |
 | Empty content-search "proves" absence | Confirm with direct Read | Read the absolute path before believing the negative |
+| Quoted identifier from a search looks corrupted | Interactive search highlighting | re-run `--color=never`, or Read the matched line |
 | Port behaves erratically under mirrored mode | mirrored + stale forward | clear the redundant IDE port-forward |
+| In-WSL bind `EADDRINUSE` but `ss`/`fuser` show the port free | `EADDRINUSE` invisible from inside | check the Windows side for the listener and its PID |
 | In-WSL name lookups hang with a VPN mesh | mirrored-mode DNS overlap | compare resolver latency; report the overlap |
 | Intermittent drop, IP churn (nat mode) | nat-mode idle-stop | address by name; expect cold-start delay |
+| Restating "Windows can't reach `<PORT>`" | VM restart expires the verdict | re-probe before repeating it or asking for elevation |
 | `fatal: dubious ownership` in a repo | Windows git ownership | scoped `git -c safe.directory=<dir>`; avoid the global `--add` |
 | `\\wsl.localhost` empty from a service | Session-0 WSL service | run WSL in the user session, not LocalSystem |
 | Distro dies ~30s after a service call | Session-0 WSL service | pin the VM with a held-open process |
-| sshd ignores `Port`, or bind `EADDRINUSE` | WSL2 sshd | edit the socket unit; free the Windows-side port |
+| `pkill` "worked" but the pin still runs | Pin owner / `pgrep` self-match | `ps -eo pid,user,args` — a root-owned pin ignores a user `pkill` |
+| A `pgrep -f` count never reaches zero | Pin owner / `pgrep` self-match | re-count with `pgrep -xa <name>`; the pattern matched your own shell |
+| sshd ignores `Port`/`ListenAddress`, or bind `EADDRINUSE` | WSL2 sshd | edit the socket unit (disable **and stop** `ssh.socket`); free the Windows-side port |
+| `sshd -t`: "Missing privilege separation directory: /run/sshd" | WSL2 sshd | the config may be fine — `/run/sshd` appears on first service start |
 | `mkdir /mnt/c/<x>` denied; Desktop file missing | `/mnt/c` root + OneDrive | write under a user subtree; resolve the real Desktop path |

@@ -106,6 +106,52 @@ Keep **the same XML id** as the source record. Suffix the `name` with
 A new *primary* view (a parallel layout) drops the `.inherit` and adds
 `<field name="mode">primary</field>`.
 
+### A view must self-contain every field its modifiers reference
+
+From Odoo 17 on, view validation checks that **every field named in a modifier
+expression exists in the combined arch**. `invisible="type == 'water_cooler'"`
+in a view that never places `<field name="type"/>` is a ParseError at install,
+not a runtime no-op. The fix is to put the field in the **same view**, hidden:
+
+```xml
+<field name="type" invisible="1"/>
+```
+
+Do **not** add a dependency on whichever module happens to supply the field.
+
+The reason this bug hides: the arch is *combined*, so any other installed
+module that injects the missing field into the same view satisfies the
+validator. A module that is not in your `depends` can therefore mask the defect
+on a full install and it appears only where that module is absent — a
+theme/dependency cone, a customer install, a trimmed environment. **Test the
+standalone install through the real dependency cone**, not only against a
+full-estate database where everything is present.
+
+### The same combined arch makes "duplicate" fields unsafe to delete
+
+The mirror image of the rule above. A field that appears in an extra tab
+*looks* like a second render of a field the main form already shows, and
+deleting the tab copy looks like pure UI tidy-up. But the arch you are reading
+is one XML file, while the arch the user gets is **combined across every
+inheriting view**. Whether a field is genuinely duplicated is a property of
+the combined arch, not of the file in front of you.
+
+So, before removing any apparently redundant field from a view:
+
+1. Resolve the combined arch (`get_view()` on the model, or the form as the
+   target group actually sees it) and confirm the field still has **another
+   render** there.
+2. Do that per field, not per tab. A tab is routinely a mix — several true
+   duplicates alongside one or two fields whose only backend edit surface is
+   that tab.
+3. Treat a field that is written by a website/portal flow but rendered only in
+   the tab as load-bearing. Deleting it does not remove a duplicate, it removes
+   the last place an internal user can edit the value — a silent loss of
+   editability with no error at install and no error at runtime.
+
+Removing a field from a view is not covered by view validation, so nothing
+fails. The regression surfaces only when someone needs to change the value.
+
 ## Python
 
 PEP8 with three relaxed rules: E501 (line too long), E301, E302.

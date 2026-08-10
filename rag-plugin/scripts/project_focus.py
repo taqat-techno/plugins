@@ -400,8 +400,8 @@ def match_project(cwd: Path, projects: list[dict[str, Any]],
     The algorithm moved out in WP-2. What used to live here scored every
     descendant match ``200 + len(path)``, so when the cwd was a parent of
     several project roots the winner was decided by path-string length — which
-    means nothing. Measured from ``C:/MY-WorkSpace/claude_plugins`` it selected
-    ``taqat-plugins`` over ``claude-plugins`` by three characters, and its
+    means nothing. Measured from a ``claude_plugins`` workspace root it selected
+    ``my-plugins`` over ``claude-plugins`` by three characters, and its
     tie-break needed a difference of *less than* 3 to call that ambiguous.
     ``tests/test_wp02_scope_resolution.py`` runs the old engine against the same
     fixture and pins that it still gets it wrong.

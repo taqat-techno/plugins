@@ -95,6 +95,30 @@ Two independent `kubectl` traps on Windows shells:
   kubectl cp script.py <pod>:/tmp/script.py && kubectl exec <pod> -- python /tmp/script.py
   ```
 
+  **The two failure signatures name which layer ate the payload**, and they are easy to misread as
+  application faults inside a perfectly healthy pod:
+
+  - `NameError: name '<word>' is not defined`, where `<word>` was a **string literal** you wrote —
+    the quote-strip above (`print("ready", …)` arrived as `print(ready, …)`), so the literal became
+    a bare identifier. The interpreter is reporting your own text back at you without its quotes.
+  - `SyntaxError: invalid non-printable character U+FEFF` on **line 1** — the BOM-on-pipe above. The
+    payload is intact; only its first three bytes are not.
+
+  **On 5.1 the two standard workarounds cancel each other:** feeding over stdin is the documented fix
+  for quote-stripping, and stdin is exactly what prepends the BOM. So on 5.1 either fix the
+  `$OutputEncoding` first (see the BOM section), or take one of the two routes that avoid both layers:
+
+  - **Make the inline payload quote-free** — no string literals at all, e.g.
+    `import sys, <mod>; print(<mod>.get_version()); print(sys.version.split()[0])`, using `.split()`
+    rather than `.split(" ")`. Nothing is left for the shell to strip.
+  - **Put the script in a file** and `kubectl cp` + exec it, which is the only form that survives every
+    layer unchanged.
+
+  When handing a command to a **human**, give the **interactive** form (`kubectl exec -it <pod> -- python
+  manage.py shell`, no `-c`) — a terminal-attached session has no argument-marshalling layer to corrupt,
+  so it is unaffected by both traps. The `-c` form is for automation, and only in one of the two shapes
+  above.
+
 - **`kubectl port-forward` returns before the local listener is accepting.** A fixed
   `Start-Sleep 2` (or `sleep 2`) then-connect races the forward's readiness and fails
   intermittently. **Poll for the TCP listener** instead of sleeping a fixed interval:
@@ -103,6 +127,24 @@ Two independent `kubectl` traps on Windows shells:
   do { Start-Sleep -Milliseconds 200 }
   until (Test-NetConnection 127.0.0.1 -Port <PORT> -InformationLevel Quiet)
   ```
+
+  The delay is not noise to be waited out with a bigger number: a kubeconfig **`exec` credential
+  plugin** (a cloud CLI fetching a token) runs before the tunnel binds, so the first seconds have no
+  listener by design. **Poll the real TCP listen state** rather than probing the app —
+  `Get-NetTCPConnection -LocalPort <PORT> -State Listen` in a loop up to ~25 s is decisive and
+  typically satisfied in ~2 s once it is polled instead of slept through.
+
+  Three more things this validation gets wrong:
+
+  - **Capture the forwarder's stderr, not just stdout.** The credential-plugin and bind errors are on
+    stderr; a validation reading only stdout reports "no output, must be fine" for a forward that
+    never came up.
+  - **Do not require a 200.** Use `Invoke-WebRequest -MaximumRedirection 0` so a **307/302 counts as
+    tunnel-proven** — an app that redirects on `/` is answering, which is the only thing the probe is
+    testing. Following the redirect turns a working tunnel into a confusing failure at some other URL.
+  - **Tear down deterministically.** `Stop-Process` the `-PassThru` pid **and** kill any stray
+    forwarder whose `CommandLine -like '*port-forward*'`, then re-assert nothing is still listening on
+    the port. A survivor holds the port and makes the *next* run's probe pass against the old tunnel.
 
 ## Piping a running server / long test into `head` or `tail` kills or masks it
 
@@ -171,6 +213,55 @@ py manage.py test --parallel 1     # or simply omit --parallel
 Keep `--parallel` for the Linux/WSL/CI path where fork is available; this is a platform limit, not
 a test defect. (If parallelism on Windows is truly needed, run the suite **inside WSL** instead.)
 
+## Machine `PATH` always beats User `PATH`, and `where` cannot verify a PATH change
+
+Windows composes a new process's `PATH` as the **Machine** entries first, then the **User**
+entries. So when the wrong binary wins a bare-name lookup, the deciding question is which half the
+shadowing directory sits in: if it is on the *Machine* PATH, **no edit to the User PATH can ever
+un-shadow it** — reordering the User half, removing its duplicates, or prepending the correct
+directory all leave the Machine hit earlier in the search. The edit looks completely correct and
+changes nothing.
+
+The verification trap is worse than the bug. A running shell holds the `PATH` **copied into it at
+launch**, so `where <tool>` / `Get-Command <tool>` in the session where you made the edit reports
+the pre-edit resolution — before a correct fix and after one alike. Both readings agree and both
+are meaningless.
+
+Observe → localize: reconstruct the search order as a *new* process will see it, and walk it —
+
+```powershell
+# Machine half first, then User half — the order a freshly launched process gets
+$machine = (Get-Item 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Environment').GetValue('Path',$null,'DoNotExpandEnvironmentNames')
+$user    = (Get-Item 'HKCU:\Environment').GetValue('Path',$null,'DoNotExpandEnvironmentNames')
+($machine + ';' + $user) -split ';' | Where-Object { $_ } |
+  ForEach-Object { Join-Path ([Environment]::ExpandEnvironmentVariables($_)) '<tool>.exe' } |
+  Where-Object { Test-Path $_ } | Select-Object -First 1
+```
+
+Read the **unexpanded** value (`DoNotExpandEnvironmentNames`) so an already-expanded copy is never
+round-tripped back into the registry.
+
+Safe action:
+
+- If the shadowing entry is on the Machine PATH and elevation is not available, **rename the
+  shadowing binary** (`<tool>.exe` → `<tool>-dev.exe`) rather than fighting the search order. Both
+  binaries stay reachable under distinct names and no PATH is touched.
+- If a User-PATH write is genuinely required (user-confirmed), preserve its registry **type**.
+  `HKCU:\Environment\PATH` is `REG_EXPAND_SZ`; `[Environment]::SetEnvironmentVariable(…,'User')`
+  writes it back as **`REG_SZ`**, which permanently breaks every `%VAR%` reference inside it — the
+  entries survive as literal text and silently resolve to nothing. Write the type explicitly and
+  assert it afterwards:
+
+  ```powershell
+  Set-ItemProperty 'HKCU:\Environment' -Name Path -Value $new -Type ExpandString
+  (Get-Item 'HKCU:\Environment').GetValueKind('Path')   # must be ExpandString
+  ```
+
+- Broadcast `WM_SETTINGCHANGE` afterwards so newly launched apps pick the change up without a
+  logoff — and remember **already-running processes keep the old PATH until they restart**,
+  including a live MCP server, IDE, or shell. A tool still resolving the old way inside an existing
+  process is not evidence the fix failed.
+
 ## Summary
 
 | Symptom | Section | First safe move |
@@ -179,8 +270,13 @@ a test defect. (If parallelism on Windows is truly needed, run the suite **insid
 | Piped payload rejected at char 0 | UTF-8 BOM on the pipe | BOM-less `$OutputEncoding`; `WriteAllText` no-BOM |
 | Excluded dir copied anyway | `Copy-Item -Exclude` | `robocopy /XD` (or filter then copy) |
 | `kubectl exec -c` code garbled | exec payload mangling | feed via stdin / `kubectl cp` |
+| `NameError: name '<word>' is not defined` for a word you wrote as a string literal | PS 5.1 quote-strip inside an inline `-c` payload | make the payload quote-free, or pass a file |
+| Stdin fixes the quotes and then the payload fails at line 1 | the two workarounds cancel on 5.1 (stdin adds the BOM) | quote-free payload or a file; or BOM-less `$OutputEncoding` first |
 | `port-forward` connects flakily | port-forward startup race | poll TCP-listen, don't fixed-sleep |
+| Forward "fails" though the tunnel is up, or the next run passes against a dead one | probe follows a redirect / no deterministic teardown | `-MaximumRedirection 0`, read stderr, kill the pid **and** strays, re-assert not listening |
 | Server dies / test "passes" under `\| head` | SIGPIPE + exit-0 mask | capture to a file; `pipefail` + `PIPESTATUS` |
 | `node C:\…` MODULE_NOT_FOUND | Git-Bash path conversion | forward-slash path or `MSYS_NO_PATHCONV=1` |
 | `git HEAD:path` rejected in Git-Bash | Git-Bash path conversion | `MSYS_NO_PATHCONV=1` + quote |
 | `cannot pickle` only on Windows tests | `--parallel` spawn/pickle | run serially (or inside WSL) |
+| Wrong binary still wins after a User-PATH fix | Machine-before-User PATH | rename the shadowing binary; walk Machine+User from the registry |
+| `%VAR%` entries in PATH stop resolving after an edit | `REG_EXPAND_SZ` → `REG_SZ` downgrade | write with `-Type ExpandString`; assert `GetValueKind` |

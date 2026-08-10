@@ -473,7 +473,7 @@ const key = 'Save';
 const translated = _t(key);  // Extractor cannot find 'Save' here
 
 // WRONG: Template literal — f-string equivalent, not extractable
-const name = 'Ahmed';
+const name = 'Sam';
 const msg = _t(`Hello ${name}!`);  // NEVER use template literals in _t()
 
 // WRONG: Concatenation inside _t()
@@ -492,16 +492,16 @@ const msg2 = _t("Hello %s!").replace('%s', name);  // Substitution outside
 
 ```po
 # Arabic translation of my_module
-# Copyright (C) 2024 TaqaTechno
-# Translator: Ahmed Al-Rashidi <ahmed@taqatechno.com>, 2024
+# Copyright (C) 2024 <Your Company>
+# Translator: <Translator Name> <translator@example.com>, 2024
 #
 msgid ""
 msgstr ""
 "Project-Id-Version: Odoo Server 17.0\n"
-"Report-Msgid-Bugs-To: contact@taqatechno.com\n"
+"Report-Msgid-Bugs-To: support@example.com\n"
 "POT-Creation-Date: 2024-01-15 10:00+0300\n"
 "PO-Revision-Date: 2024-02-01 14:30+0300\n"
-"Last-Translator: Ahmed Al-Rashidi <ahmed@taqatechno.com>\n"
+"Last-Translator: <Translator Name> <translator@example.com>\n"
 "Language-Team: Arabic <ar@li.org>\n"
 "Language: ar\n"
 "MIME-Version: 1.0\n"

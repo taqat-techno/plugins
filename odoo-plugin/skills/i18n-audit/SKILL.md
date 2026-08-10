@@ -1,7 +1,7 @@
 ---
 name: odoo-i18n-audit
 description: |
-  Audit checklist for Odoo translations that look complete in the .po file but silently fall back to the source language at runtime. Covers the four gettext-discipline failures: PO entries for field/view labels need TYPED model references (not source-file paths); editing a translatable English source string invalidates the matching msgid (orphans the translation — re-export and re-merge after); .po/.pot bytes must be decoded as explicit UTF-8 (never routed through latin-1 or a unicode_escape-style codec); and bilingual content must flow through the standard per-language PO merge pipeline (never a forked duplicate per-language view tree). Odoo-version-aware (14-19). Activates when a translation "doesn't apply" despite a filled msgstr, when reviewing a .po diff, after editing a translatable label/selection/help/view term, or before shipping a second language.
+  Audit checklist for Odoo translations that look complete in the .po file but silently fall back to the source language at runtime — or take the language down entirely. Covers the gettext-discipline failures: PO entries for field/view labels need TYPED model references (not source-file paths); editing a translatable English source string invalidates the matching msgid (orphans the translation — re-export and re-merge after); .po/.pot bytes must be decoded as explicit UTF-8 (never routed through latin-1 or a unicode_escape-style codec); bilingual content must flow through the standard per-language PO merge pipeline (never a forked duplicate per-language view tree); and every entry must carry a "#. module:" occurrence comment, because Odoo's PO reader regex-matches it on every entry and an appended entry without one raises AttributeError and 500s every page in that language while msgfmt and PO libraries accept the file. Odoo-version-aware (14-19). Activates when a translation "doesn't apply" despite a filled msgstr, when reviewing a .po diff, after editing a translatable label/selection/help/view term, after any scripted/programmatic .po edit, or before shipping a second language.
 version: 0.1.0
 last_reviewed: 2026-06-13
 license: "MIT"
@@ -17,6 +17,7 @@ owns:
   - the source-string-edit -> msgid-invalidation -> re-export/re-merge discipline
   - the explicit-UTF-8 decode rule for PO bytes (no latin-1 / unicode_escape)
   - the one-arch / one-.pot / one-.po-per-language bilingual pipeline (no forked _<lang> views)
+  - the "#. module:" occurrence-comment requirement (a programmatically appended entry without one 500s every page in that language; msgfmt and PO libraries both pass it)
 defers_to:
   - skills/i18n/references/po-gettext-discipline.md (full per-rule detail and commands)
   - skills/i18n/SKILL.md (extract / validate / report / import-export workflows)
@@ -27,8 +28,9 @@ defers_to:
 # Odoo i18n Audit Skill
 
 A translation that is fully filled in the `.po` can still render in the source
-language at runtime. This skill is the **audit pass** for the four ways that
-happens in Odoo. It is generic and version-aware (Odoo 14-19); the deep
+language at runtime — or take every page in that language down with it. This
+skill is the **audit pass** for the ways that happens in Odoo. It is generic and
+version-aware (Odoo 14-19); the deep
 per-rule detail and exact commands live in
 `skills/i18n/references/po-gettext-discipline.md` — read that file when applying
 a fix. Use this SKILL.md as the checklist that decides *which* rule is in play.
@@ -50,7 +52,7 @@ Do NOT use this skill to *write* the translations — that is `skills/i18n`
 (extract / validate / report / import-export). This skill decides whether the
 translation will actually bind.
 
-## The four audit rules
+## The audit rules
 
 ### 1. Typed references, not source-file paths
 
@@ -140,6 +142,38 @@ variants of a view come from the **same** `arch`, translated through
 Hard rule: **never fork duplicate `_<lang>` view trees** (or shadow models) to
 carry translations. See reference §3.
 
+### 5. Every entry needs a `#. module:` comment, or the whole language 500s
+
+Odoo's PO reader does not merely tolerate the occurrence comment — it
+**requires** it. For *every* entry it runs a `re.match(...)` against the
+`#. module: <name>` line and immediately takes `.groups()` off the result, so an
+entry without that comment yields `None` and raises `AttributeError` inside the
+loader. The failure is not scoped to the entry or the term: loading the
+catalogue aborts, and **every page in that language returns 500**.
+
+An entry appended **programmatically** is the way this happens. A PO library
+writes a valid entry without an occurrence comment because gettext does not
+require one; the file is syntactically perfect. `msgfmt` compiles it. A PO
+library re-parses it. Both are more permissive than the runtime, so a static
+check passes and a checker more permissive than the runtime is worse than none.
+
+**Audit action:**
+
+- After **any** programmatic `.po` edit, re-parse the catalogue with **Odoo's
+  own reader**, or assert directly that every entry carries a
+  `#. module: <name>` line:
+
+```python
+import polib
+bad = [e for e in polib.pofile(path)
+       if not any(c.startswith('module:') for c in e.comment.splitlines())]
+```
+
+- Sweep **all** catalogues in the estate afterwards, not just the file you
+  edited — the same script usually touched several.
+- Run the full suite on the exact tree even when the change "is only
+  translations": the last green run predates these files.
+
 ## Version-aware notes (Odoo 14-19)
 
 | Concern | 14-15 | 16-17 | 18-19 |
@@ -164,6 +198,9 @@ export emits) differ.
       / `unicode_escape` pass; PO-quote escapes handled separately.
 - [ ] Second language flows through one `.pot` + `msgmerge` + one `.po` per
       language — **no** forked `_<lang>` view/model trees.
+- [ ] After any programmatic `.po` edit, every entry was verified to carry a
+      `#. module: <name>` comment (Odoo's reader requires it; `msgfmt` does not),
+      and every catalogue in the estate was swept — not only the file edited.
 - [ ] For theme-backed models, every translatable field is in the
       theme-translated-fields mapping (see upgrade reference) before reload.
 - [ ] Reload was done so the refreshed `.po` actually applied (module upgrade /
@@ -178,6 +215,7 @@ export emits) differ.
 | `raw.decode("unicode_escape")` / `latin-1` on PO bytes | Silently corrupts every non-ASCII char | `open(..., encoding="utf-8")`; PO-aware unescape separately |
 | Forking `view_form_ar.xml` for the Arabic copy | Trees drift; loader never sees it; IDs collide | One arch, translate via `arch_db` terms in `ar.po` |
 | Treating a `fuzzy` entry as done | Fuzzy is not applied at load — counts as untranslated | Confirm and drop the `fuzzy` flag |
+| Appending entries with a PO library and shipping after `msgfmt` passes | Odoo's reader requires a `#. module:` comment per entry and raises `AttributeError` without it — every page in that language 500s, while `msgfmt`/polib accept the file | Assert every entry has `#. module: <name>` (or re-parse with Odoo's own reader) and sweep every catalogue after a scripted edit |
 
 ## Cross-references
 

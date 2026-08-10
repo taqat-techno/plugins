@@ -1,7 +1,7 @@
 ---
 name: odoo-security
 description: |
-  Comprehensive Odoo security auditor for model access rules, HTTP route authentication, sudo() usage, SQL injection risks, and record rule completeness across Odoo 14-19. Activates on access-control facts a static scan misses — /web/image (and Binary routes) returning HTTP 200 + a placeholder on DENIED access instead of 403, data import binding by /id & /.id bypassing ir.rule and active_test, and field-level write security that UI readonly does not provide.
+  Comprehensive Odoo security auditor for model access rules, HTTP route authentication, sudo() usage, SQL injection risks, and record rule completeness across Odoo 14-19. Activates on access-control facts a static scan misses — /web/image (and Binary routes) returning HTTP 200 + a placeholder on DENIED access instead of 403, data import binding by /id & /.id bypassing ir.rule and active_test, field-level write security that UI readonly does not provide, a relation traversed inside a public QWeb template never being re-filtered by the controller's domain, a Many2one/Many2many making the comodel's read ACL a prerequisite for opening the form, ir.model.access memoising on uid so a group granted in odoo shell has no effect on the running server, and field-level groups= being unassertable from SQL because ir_model_fields_group_rel covers manual fields only. Also covers create()/write() overrides whose privilege-implying context flag (is_owner, is_agent, is_member) traverses an admin-lookup + portal-user-creation + invitation branch, turning an ordinary record creation into an account provisioning and access grant.
 
   <example>
   Context: User wants a full security audit
@@ -34,6 +34,8 @@ version: "2.1.0"
 author: "TaqaTechno"
 license: "MIT"
 last_reviewed: 2026-07-23
+defers_to:
+  - the multi-tenancy-isolation skill for the design-time tenant-isolation rules (required tenant anchor, ir.rule NULL escapes, host-gate reserved hosts, partial indexes); this skill owns the audit-time scan of an existing module
 allowed-tools: [Read, Write, Edit, Bash, Glob, Grep]
 metadata:
   mode: "codebase"
@@ -170,6 +172,144 @@ access control. Real field-level write security is an ACL grant plus a
 most-derived `write()` whitelist; see the "Field-level access" synthesis in
 `skills/reviewer/references/security_pitfalls.md`.
 
+### A relation rendered in a public template is not re-filtered by the controller
+
+A route's own domain scopes the records **that route** reads. A `One2many` /
+`Many2many` traversed **inside** an `auth='public'` QWeb template is a fresh
+read through the relation, so it returns *every* child — draft, internal,
+unpublished — regardless of what the controller filtered. The scanner sees a
+correctly-domained `sudo()` in the controller and a template, and has no way to
+connect them.
+
+Three consequences to check by hand on any public page:
+
+- Every relation feeding a public template carries its own
+  `domain=[('website_published','=',True)]` on the field, or the `t-foreach`
+  body guards each record. A CSS "Unpublished" badge is **presentation, not a
+  filter** — the record was already read and rendered.
+- Widening a relation's comodel widens the public set. Repointing a relation at
+  a broader model (one that also holds internal/draft rows) silently exposes
+  rows the old comodel never contained, with no code change on the template.
+- A public route's **converters must constrain their own flags**. A route
+  segment resolving a partner as a "broker"/"agent" must require the flag
+  (`is_broker=True`) in the converter domain; without it any record id in that
+  position resolves and renders.
+
+### A relational field drags in another model's ACL
+
+A `Many2one` / `Many2many` makes the **comodel's read ACL a prerequisite for
+opening the form**. Every model-level test can pass — CRUD, record rules, RPC
+create/write — while the intended audience gets
+`You are not allowed to access '<Comodel>'` the moment they open the screen,
+because opening a form reads the whole field set as that user. Model-level
+tests never read the form's field set as a restricted user, so nothing catches
+it.
+
+Fix: grant read on the comodel to the group the menu is shown to, and pin it
+with a test that walks the arch rather than a hand-written field list, so
+fields added later are covered without anyone remembering:
+
+```python
+arch = etree.fromstring(
+    self.env['my.model'].with_user(limited).get_view(view_type='form')['arch']
+)
+names = [f.get('name') for f in arch.iter('field') if f.get('name')]
+self.env['my.model'].with_user(limited).browse(rec.id).read(names)
+```
+
+The user must hold **exactly** the group the menu targets — no extras — or the
+test proves nothing. "The model tests pass" says nothing about whether the
+audience can open the screen.
+
+### Field-level `groups=` cannot be asserted from SQL
+
+`ir_model_fields_group_rel` is populated for **manual / UI-defined** fields
+only. For a field declared in Python with `groups='module.group_x'` the
+relation stays empty — frequently `SELECT count(*)` on the whole table is 0
+database-wide even where field gating demonstrably works. A readiness-gate
+invariant written as a join against it returns 0 rows and reads as "the gate is
+missing" when the gate is fine. (`ir_model_fields.compute` has the same trap:
+NULL for Python computes.)
+
+Split the assertion by what each layer can answer:
+
+- **The registry knows `groups=`** — assert `self.env['my.model']._fields['x'].groups`
+  in a test.
+- **SQL knows group reachability** — assert against `res_groups_implied_rel`
+  (columns `gid` / `hid`) that no role implies the gating group and that the
+  gating group implies nothing. That reachability property is what actually
+  decides whether a field gate holds, and it is the half SQL can prove.
+
+### `ir.model.access` caches on **uid**, so a shell-made grant does not take effect
+
+`ir.model.access` memoises its answer on `self.env.uid`, and cross-process cache
+invalidation rides on `signal_changes()` — which `odoo shell` never calls,
+because there is no request cycle to end. A group or ACL granted in a shell,
+committed, and confirmed visible over RPC therefore keeps being denied by the
+running HTTP worker, indefinitely.
+
+Diagnostic signature: **the database says the grant exists, the running server
+disagrees, and re-logging-in does not help** (the cache is keyed on uid, not on
+session). Do not "fix" the ACL that is already correct.
+
+- Restart the server after any group / ACL change made in `odoo shell`, or make
+  the change **over RPC** so it happens in the serving process.
+- Creating a **brand-new user** sidesteps it entirely — a fresh uid is a
+  guaranteed cache miss, which is why "it works for the new test user" is not
+  evidence the old user's grant failed.
+
+### A themed page that 500s only for logged-in internal users
+
+Anonymous and portal visitors work, the internal user gets a 500: that
+asymmetry points at a **missing `base.group_user` row in
+`ir.model.access.csv`** for a model the page reads. Public and portal groups
+have their own rows, so the only audience without one is the internal user —
+the reverse of the usual "public breaks first" intuition.
+
+And the load rule that hides the fix: **security CSV / ACL edits load on `-u`,
+never on a restart.** A corrected `ir.model.access.csv` that was only followed
+by a server restart is still the old grant in the database, which makes a
+correct fix look like it did not work.
+
+### A `create()` under a privilege-implying context flag is a privilege grant
+
+A `create()` override can branch on a context flag whose name reads like a
+classification (`is_owner`, `is_agent`, `is_member`) and, on that branch, look
+up an administrator, **create a portal `res.users`** and send an invitation.
+The call site still reads as one ordinary record creation; what it actually
+does is provision an account and grant access. Nothing in the scanners sees
+this — there is no `sudo()` on a sensitive model in a public route, just a
+`create()` with a context.
+
+Audit rule, in both directions:
+
+- **Read every `create()` / `write()` override for provisioning branches.**
+  Any path that reaches `res.users.create()`, a signup / invitation helper, a
+  group write, or a partner-to-user bridge is an access-granting path, and its
+  trigger condition is part of the module's security surface. Note the trigger
+  explicitly in the audit even when the branch itself is correct.
+- **Never let portal-initiated or otherwise untrusted input decide that
+  flag.** A bridge invoked from a public/portal flow must create the record
+  with the minimum field set and **omit** the flag entirely, so it cannot
+  traverse the user-creation branch:
+
+```python
+# portal-initiated bridge — no privilege-implying context, no invite branch
+self.env['my.bridge.model'].sudo().create({
+    'parent_id': partner.id,
+    'name': partner.name,
+})
+```
+
+The `sudo()` here is scoped to a two-field create and is the safe part; the
+danger is the flag, not the elevation. Passing the flag "because the record is
+that kind of record" is how a data-entry path silently becomes an account
+factory.
+
+Related: `skills/reviewer/references/security_pitfalls.md` covers the converse
+— never trusting a caller-supplied context key as the *authority* for a
+security decision.
+
 ## Configuration
 
 Users can create `.odoo-security.json` in the module root to customize:
@@ -191,7 +331,7 @@ For detailed remediation patterns and code examples, read these files:
 
 - **memories/access_rules.md** — Complete ir.model.access.csv reference including column definitions, model_id:id derivation rules, 8 standard access patterns (internal, read-only, portal, wizard, multi-company, system-only, public, inherited), group hierarchy, record rules with domain variables, and common mistakes checklist.
 
-- **memories/odoo_vulnerabilities.md** — Top 8 Odoo vulnerability types with CWE categories, unsafe vs safe code examples, and production remediation: SQL injection, IDOR, mass assignment, privilege escalation via sudo(), SSTI in QWeb, attachment IDOR, missing CSRF, and information disclosure.
+- **memories/odoo_vulnerabilities.md** — Top 9 Odoo vulnerability types with CWE categories, unsafe vs safe code examples, and production remediation: SQL injection, IDOR, mass assignment, privilege escalation via sudo(), SSTI in QWeb, attachment IDOR, missing CSRF, information disclosure, and editable fields as public-page injection sinks (raw iframe `src`, `sanitize_attributes=False` / `sanitize_form=False`).
 
 Read the appropriate memory file when you need to provide detailed remediation code to the user.
 

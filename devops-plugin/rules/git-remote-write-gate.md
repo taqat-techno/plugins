@@ -76,6 +76,16 @@ Run top to bottom before any remote write. Any failed gate halts the operation.
 - [ ] **No secrets emitted** — never printed tokens, credentials, env values, or file contents.
 - [ ] **Restore** — if an identity was switched via mapping, restored `default_identity` after the write.
 
+## When a remote write is denied
+
+A permission denial ends the operation; it does not start a search for another route. The host evaluates the same server-side ACL no matter which client asked, so a provider API/MCP write tool (create-branch, open-PR, wiki-write) and the equivalent `git push` resolve to the **same** permission for the **same** identity and come back with the **same** refusal. Retrying through the other transport is wasted effort, not an escalation path.
+
+- **Local work is not gated.** Creating the branch, committing, diffing — every permission-independent step still succeeds; only the remote half is refused. Finish all of it, then report the remote step as one clean, named blocker rather than failing the whole task.
+- **Name the exact surface and permission.** State which repository/wiki/board and which permission the identity lacks, so whoever grants it can act in a single pass.
+- **Grants are per-surface.** Hosts grant code, wiki, and work-item write independently to the same identity, so one refusal does not prove that identity is read-only across the whole project. Do not generalize a single denial — and once the user says a permission was granted, **re-try that specific write**; it may now succeed while a different surface stays blocked.
+
+Gate 2's auto-switch does not apply here: a mapping resolves an *account* mismatch, not an ACL that denies the account you are already correctly using. Never invent an alternate identity to get past a denial, and never assume a host's account-switch convention transfers to a different host family.
+
 ## Non-goals
 
 - This rule does not format commit messages, build PR/MR descriptions, or run reviews — defer to the owning command/skill/plugin for those.

@@ -116,6 +116,45 @@ Source-built Python deps (psycopg2, python-ldap, etc.) compile only with the C t
 + dev headers present — verify the toolchain **before** `pip install` so the build does
 not fail partway.
 
+## 7. De-Dockerising to a native runtime
+
+Converting a Docker-template project to a native run is mostly the §6 config split, plus
+four things that decide whether it can work at all.
+
+**Check the `_pre_init` hooks of transitive dependencies BEFORE choosing where the database
+lives.** A module's `_pre_init` hook runs DDL against the target database and raises if it
+fails, so a dependency several levels down can dictate the database host. The Odoo 19 `ai`
+module is the live example: its `_pre_init` executes
+`CREATE EXTENSION IF NOT EXISTS vector` (pgvector) and an ordinary business app can pull it
+in transitively. pgvector ships as a single distribution package on Linux and has no
+prebuilt Windows binary (it needs a compiler), so on Windows the practical answer is native
+Odoo against a Linux-side Postgres rather than a local Windows cluster. Enumerate the
+closure and grep it first:
+
+```bash
+grep -rl "_pre_init\|pre_init_hook" --include="*.py" --include="__manifest__.py" <addons-path>
+```
+
+**On Windows, `workers` MUST be 0.** Odoo's own `requirements.txt` proves the platform
+support by exclusion: `gevent` / `greenlet` / `python-ldap` / `python-magic` are pinned
+`sys_platform != 'win32'`, and the win32-only entries are separate. Consequences: there is
+no prefork/gevent server, `gevent_port` is inert, and websockets are served on the HTTP
+port. Do not try to "fix" a slow Windows instance by raising `workers` — it is not a tuning
+knob there. (`workers = 0` is a debug choice everywhere else; on Windows it is the only
+option.)
+
+**Archive the compose files before deleting them.** A compose file is the **only on-disk
+record of its named volumes**. Deleting compose files never deletes volumes, so removing
+them without a copy orphans the data with no way left to name it. Back up every infra file
+byte-for-byte outside the repo first — deployment roots are frequently *not* git repos
+(only the nested addon repo is), which makes the deletion irreversible.
+
+**Delete the compose generator too.** These templates ship a generate/init command that
+**recreates** the compose files on demand. Leave it in place and the next person (or the
+next agent) regenerates the whole Docker layer over the native runtime you just built.
+While you are there, check the project's own docs for a leaked admin password in a
+ports/credentials table.
+
 ---
 
 ### See also

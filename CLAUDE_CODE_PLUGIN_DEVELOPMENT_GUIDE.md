@@ -742,7 +742,7 @@ Initial v1.0.0 of the plugin had comprehensive email/QWeb patterns but users enc
 
 v2.0.0 was developed by:
 
-1. **Analyzing real failures** from sadad_invoice_report development
+1. **Analyzing real failures** from a production invoice-report module's development
 2. **Documenting the working solution** (not just theory)
 3. **Adding validation checklists** to prevent issues
 4. **Including complete working examples** based on proven code
@@ -823,7 +823,7 @@ Don't just show snippets - include full, tested templates:
 ```markdown
 ## Bilingual Invoice Template (Complete Example)
 
-Based on proven sadad_invoice implementation:
+Based on a proven production invoice implementation:
 
 \`\`\`xml
 <?xml version="1.0" encoding="utf-8"?>

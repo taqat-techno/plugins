@@ -2,8 +2,8 @@
 # Replace all {placeholders} before use
 #
 # Placeholders:
-#   {project_name}              - e.g., relief_center
-#   {addons_paths}              - e.g., /opt/odoo/custom-addons/relief_center
+#   {project_name}              - e.g., acme
+#   {addons_paths}              - e.g., /opt/odoo/custom-addons/acme
 #   {gevent_or_longpolling_key} - gevent_port (v17+) or longpolling_port (v14-16)
 #   {admin_password}            - Master password (use strong password for production)
 

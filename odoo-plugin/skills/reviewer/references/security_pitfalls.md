@@ -90,12 +90,48 @@ Put the guard on the most-derived class so a later `write()` in the MRO
 can't shadow it; combine with a `create()` whitelist (see the mass-assignment
 pattern in `odoo_vulnerabilities.md`) to cover the insert path.
 
+#### Two escapes that survive the whitelist
+
+A guard written as above inspects `vals.keys()` on the model being written.
+Two paths never appear there:
+
+- **x2many nested commands.** `(0, 0, {...})` / `(1, id, {...})` / `(2, id)`
+  in a *whitelisted* x2many field carry writes to the **comodel**, which the
+  top-level key check never sees. If the whitelisted relation reaches a shared
+  catalogue, a "may only edit these fields" group can create, mutate, and
+  delete records in it. For every whitelisted x2many, either validate the
+  nested command payload explicitly or accept only `(4, id)` / `(6, 0, ids)`
+  link forms, which cannot mutate the comodel.
+- **A `sudo()`'d recompute or maintenance method.** Any public method that
+  internally `sudo()`s is **RPC-callable in its own right** — the write guard
+  is not on its path at all. A vendor's "recompute the schedule/board" action
+  can therefore be invoked directly and wipe records the guarded group was
+  never allowed to touch. Gate such methods with a one-shot context flag set
+  only by the internal write path (and prefix-rename them to `_`-private if
+  they are yours).
+
 **UI `readonly` is not a security control.** A field marked `readonly` in a
 view or via `attrs`/`invisible` is still writable by RPC, by data import, and
 by any `write()` — it only affects the web form. Never rely on `readonly` (or
 a hidden widget) to protect a field; the enforcement must be the ACL +
 `write()` whitelist above (or a `groups=` restriction when full hiding is
 acceptable).
+
+**A stored compute with no inverse is not a security control either.** The
+absence of an inverse method is necessary but not sufficient: a direct
+`write({'my_computed_field': True})` is **accepted** and the value persists
+until something retriggers the compute. So "the framework makes this
+impossible" is not a guarantee for a field whose whole point is that an import
+or an integration must not be able to assert it.
+
+Enforce it the same way as any other protected field — **drop the key** in the
+`create()` / `write()` overrides. That costs nothing legitimate, because the
+ORM's own recomputation writes through `_write()` and never passes through
+your override. Then test **both** halves: that the direct write is rejected,
+and that the genuine computed value still persists *and remains searchable* —
+a guard written slightly too wide silently breaks the field it was protecting.
+General rule: when a security property is stated as "the framework makes this
+impossible", write the test that tries it before believing it.
 
 ## Security pitfalls
 

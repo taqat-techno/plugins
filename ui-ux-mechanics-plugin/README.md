@@ -93,9 +93,9 @@ Covers: Figma MCP tools reference, design-to-code workflow, code-to-design workf
 
 ### `figma-mcp-mechanics`
 
-**Activates when:** You are about to *write* to a Figma file via MCP — creating, editing, repositioning, or variant-swapping nodes — or when `get_metadata` reports a file looks empty, an auto-layout collapses after a resize, prototype links may be at risk, or you need the Figma REST API.
+**Activates when:** You are about to *write* to a Figma file via MCP — creating, editing, repositioning, relabeling, or variant-swapping nodes — or when `get_metadata` reports a file looks empty, an auto-layout collapses after a resize, a font-not-loaded error rolls back a write, a cloned RTL frame renders tofu, `setReactionsAsync` rejects an action, a design "keeps looking corrupted", prototype links may be at risk, or you need the Figma REST API.
 
-Covers: the net-zero write-access probe, `get_metadata` lossiness handling, component/instance discovery, geometry-and-locale QA, auto-layout child-order/resize/variant-swap mechanics, atomic-write rollback, prototype-link-safe repositioning, and the X-Figma-Token REST path. Tool-mechanics companion to `figma-workflow`. Requires the Figma MCP plugin.
+Covers the fifteen mechanics: the net-zero write-access probe, `get_metadata` lossiness handling, component/instance discovery plus "systemic"-finding triage, geometry-and-locale QA, exhaustive enumeration, auto-layout child-order/resize/variant-swap mechanics, atomic-write rollback, prototype-link-safe repositioning, the X-Figma-Token REST path, loading every font before a text write, explicit target fonts on blank/cloned RTL nodes, cloning (never hand-building) reactions for `setReactionsAsync` plus BFS reachability as the wiring proof, page-load timing before trusting `page.children.length`, relabeling by node-id / full title phrase with an old→new echo, and per-finding before/after capture that distinguishes a broken export from a corrupt source. Tool-mechanics companion to `figma-workflow`. Requires the Figma MCP plugin.
 
 ---
 

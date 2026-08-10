@@ -62,15 +62,11 @@ Use `references/INDEX.md` to pick the smallest set of reference files for the us
 | "is X supported / does X work / unimplemented" | `references/gaps.md` first |
 | triage / "where do I start" | `references/quick-checklist.md` |
 
-For failure IDs (`F-001`..`F-012`), use the failure-ID → playbook table in `references/INDEX.md`.
+For failure IDs (`F-001`..`F-015`), use the failure-ID → playbook table in `references/INDEX.md`.
 
-### Routing rules (from INDEX.md)
+### Routing rules
 
-1. **Default to the smallest viable load.** Most user questions need exactly one reference file.
-2. **Never load `INDEX.md` itself for content** — routing only.
-3. **For unknown symptoms**, load `known-failures.md` first to attempt classification before walking any playbook.
-4. **For destructive operations**, always load `recovery-and-reset.md` (it has the gating language) before walking the user through a delete.
-5. **For "is X supported" questions**, load `gaps.md` first — the answer may be "no, this is unimplemented".
+`references/INDEX.md` § "Routing rules" is the single owner of these — do not restate them here. It covers: smallest viable load, `known-failures.md` first for unknown symptoms, `recovery-and-reset.md` before any destructive walk-through, and `gaps.md` first for "is X supported". `INDEX.md` is for routing only — never load it for content.
 
 ## Phase 2.5 — MCP tool dispatch (v0.5.0+)
 
@@ -91,7 +87,7 @@ Before calling any MCP tool, follow `rules/mcp-envelope.md` §1–§5: branch on
 | "Add an ignore rule" / "Exclude `tmp/` from project X" / "How do I ignore node_modules?" | 2.5.4 ignore-rule workflow | Preview → confirm → add → reindex. |
 | "Remove an ignore rule" / "Stop excluding X" | 2.5.5 remove-ignore-rule workflow | Preview impact → confirm → remove → reindex. |
 | "Reindex project X" / "Re-run indexing" / "Project X is stale" | 2.5.6 reindex decision tree | Incremental first; destructive only on drift. |
-| "Reindex everything" | List projects → offer incremental `run_index` per project; route to `/reset --soft` for single-project destructive rebuild |
+| "Reindex everything" | `list_projects` → `run_index` per project | Offer incremental per project; route to `/reset --soft` for single-project destructive rebuild. |
 | "Is X in the ignore list?" / "What rules apply to X?" | `get_project_ignore_rules(project=X)` | Print built_in + config_global + config_project. |
 | "What would happen if I ignored `*.tmp`?" | `preview_ignore_effect(project=X, pattern="*.tmp")` | Print would_exclude count and list; do not commit. |
 | "Show recent errors in the log" / "Tail the service log" | `tail_logs(source="service", limit=50)` (filesystem fallback — works even in degraded mode) | Print filtered output. |
@@ -141,7 +137,7 @@ Replaces the need for a separate `/rag-why-not-indexed` command. Activates autom
    a. project.path doesn't contain F (wrong project) → suggest list_projects and correct project
    b. project_status shows path_exists=false → route to /doctor
    c. File was added after last index → offer run_index(P) (gated)
-6. Every destructive step (remove rule, reindex) goes through rules/mcp-envelope.md §6.3 gates.
+6. Every destructive step (remove rule, reindex) goes through rules/mcp-envelope.md §7.3 gates.
 ```
 
 ### 2.5.4 Add-ignore-rule workflow (new in v0.5.0)
@@ -295,7 +291,7 @@ Activates on "check project X for secrets", "audit X", "is anything sensitive in
 
    Once state.redaction_fix_status == fixed, drop this caveat — a clean result is then a
    real guarantee, not a partial one.
-5. This is a read-only call — no confirmation gate (rules/mcp-envelope.md §6.3: reads need no gate).
+5. This is a read-only call — no confirmation gate (rules/mcp-envelope.md §7.3: reads need no gate).
 6. Envelope handling per rules/mcp-envelope.md: SERVICE_DOWN/DEGRADED_MODE → "secret_audit requires
    proxy mode. start: rag service start". Tool not granted → name it + admin-UI toggle path (2.5.7
    pattern), no fallback exists (secret_audit has no HTTP-only or CLI equivalent).
@@ -366,6 +362,8 @@ When you set up or repair autostart for the long-lived ragtools service (Schedul
 | In PowerShell 5.1, redirecting a **native exe's** stderr (`rag.exe ... 2>$log`) while `$ErrorActionPreference='Stop'`. PS 5.1 wraps every native stderr line in a `NativeCommandError` record and **throws on the first write**, terminating PowerShell and its child. One harmless stderr warning kills the service ~1 min in. | Capture native stderr with `Start-Process -RedirectStandardError <file>` (does not wrap) plus `WaitForExit()`. |
 | A **Scheduled Task action pointing at a `.cmd` wrapper** that runs the service. The spawned `cmd.exe` shares console handles and receives `CTRL_BREAK_EVENT` when the launch context tears down — propagating to the child as `0xC000013A` (STATUS_CONTROL_C_EXIT) ~1 min in. | Action = `powershell.exe -File launcher.ps1` directly (no cmd wrapper); spawn the service via `Start-Process -WindowStyle Hidden` so it **detaches**. If the Ctrl+C exit persists, wrap the launcher in a `wscript` VBS shim so PowerShell runs fully orphaned and exits 0. |
 | A non-idempotent launcher that **spawns a duplicate** every time autostart re-fires — duplicates then fight for the Qdrant lock (F-003). | Probe the target port first and `exit 0` if the service is already listening, so re-running never spawns a duplicate. |
+| Carrying launcher configuration in an **`environment` map** on a cross-platform autostart spec (e.g. `environment={"RAG_PROFILE": "installed"}`). A systemd unit and a launchd plist both carry it; a Windows scheduled task has **nowhere to put it** — the task XML `<Exec>` element has no environment child — so the Windows adapter discards it without a word. Profile resolution then falls back to its own default, and the service autostarted at login comes up on a **different data root and a different index** than the one that registered it. One registration, two answers, decided by the OS. | Encode launcher config in **argv** (`rag service run --profile installed`) — an argument is the one channel every scheduler and launcher carries. Treat any cross-platform spec field that only *some* backends implement as a silent-divergence generator: either every adapter honours it or the field must not exist. When you add such a field, grep its consumers across all adapters — a test asserting `Environment=` on Linux with no Windows counterpart is exactly the shape of the hole. |
+| Spawning the service (or its managed engine) with `subprocess.Popen(cmd)` and **no `stdout=`/`stderr=`**, so the child inherits the parent's handles. When the parent is a GUI-subsystem build with no console it *has* no standard handles: CPython's `subprocess._get_handles` gets `None` from `GetStdHandle`, calls `CreatePipe`, and closes the read end at once — the child inherits a write handle to a pipe with **no reader**. Every write then fails immediately with `ERROR_BROKEN_PIPE` ("The process tried to write to a nonexistent pipe") for the life of the process. Not buffered, not discarded — failed. A child that tolerates write errors survives silently; one that panics on them dies silently, and either way there is no post-mortem. | Always pass explicit `stdout=`/`stderr=` when spawning a long-lived child. If there is nowhere to log, pass `DEVNULL` **deliberately** — it is a real handle and writes succeed. Inheritance is never the safe default. Also keep `DETACHED_PROCESS` and supervision apart: detaching a child you intend to `wait()` on destroys the ability to ever learn its exit code. |
 
 Before swapping any task XML or config, keep a rollback backup of both (task XML + config) so a bad launcher change is reversible.
 

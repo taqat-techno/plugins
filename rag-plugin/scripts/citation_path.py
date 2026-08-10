@@ -37,9 +37,9 @@ Usage
     from citation_path import normalize
 
     c = normalize("rag/rag/docs/decisions.md", project_id="rag",
-                  project_root=r"C:\\MY-WorkSpace\\rag")
+                  project_root=r"/path/to/rag")
     c.stored     -> "rag/docs/decisions.md"
-    c.absolute   -> "C:/MY-WorkSpace/rag/docs/decisions.md"
+    c.absolute   -> "/path/to/rag/docs/decisions.md"
     c.exists     -> True
     c.trusted    -> True     # safe to cite
 """

@@ -46,6 +46,34 @@ Use browser DevTools:
 Or online: webaim.org/resources/contrastchecker/
 ```
 
+**Automated Contrast Audit (scripted `getComputedStyle` sweep):**
+
+A script that walks the page and parses computed colors will manufacture false failures unless it handles two
+things. Verify one suspicious hit by hand before reporting any of them.
+
+- [ ] **Parser branches on the `color(` prefix.** `getComputedStyle().backgroundColor` returns `rgb()` / `rgba()`
+  with **0–255** channels for ordinary colors, but returns `color(srgb 0.968627 0.964706 0.984314 / 0.88)` with
+  **0–1 floats** for anything computed through `color-mix()` or another CSS Color 4 function. A naive
+  `c.match(/[\d.]+/g)` then reads `0.97` as an 8-bit channel, luminance collapses to ~0, and the text looks like it
+  sits on black — a translucent sticky header styled with `color-mix()` reports **1.07:1** while rendering fine.
+- [ ] **The whole ancestor alpha stack is composited.** Stopping at the first ancestor whose background is not
+  fully transparent attributes a translucent overlay's *own* color to the text: an `rgba(255,255,255,0.11)` link
+  surface measures 1:1 when the effective ratio against the real backdrop is ~12:1. Walk up until the accumulated
+  alpha reaches 1 and blend each layer in turn.
+- [ ] **Any ratio ≈ 1.0 is treated as a measurement bug, not a finding.** Real UI is essentially never that bad;
+  a 1.0x result means the parser lost the channel scale or the backdrop, so fix the instrument before filing.
+
+```js
+// contrast-audit.js — channel normalization, the part that gets it wrong
+function channels(cssColor) {
+  const n = (cssColor.match(/[\d.]+/g) || []).map(Number);
+  // color(srgb r g b / a) → 0-1 floats; rgb()/rgba() → 0-255
+  return cssColor.startsWith('color(')
+    ? { r: n[0] * 255, g: n[1] * 255, b: n[2] * 255, a: n.length > 3 ? n[3] : 1 }
+    : { r: n[0],       g: n[1],       b: n[2],       a: n.length > 3 ? n[3] : 1 };
+}
+```
+
 ---
 
 ## 2. Operable

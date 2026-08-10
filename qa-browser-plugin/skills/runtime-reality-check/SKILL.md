@@ -1,6 +1,6 @@
 ---
 name: runtime-reality-check
-description: Verify the QA target is actually reachable, healthy, and on the expected build BEFORE running any checks. Owns the "is it actually running" gate, the build-identity check (commit / version / deploy timestamp), the env-claim-vs-actual check, the restart-stale-dev-server-before-QC step, the "dead infrastructure" labels, and the browser-side wait-strategy / client-cache traps — Playwright networkidle never settling on a Turbopack dev server with React-Query refetching, a forced-error / 500 state that needs a fresh context because a client query cache serves stale rows, a dirty beforeunload guard silently blocking browser_navigate, and a stale CSS/JS chunk surviving a dev-server restart in the tab. Activates at the start of any QA pass, before re-running a failed check, and whenever a run's evidence smells stale.
+description: Verify the QA target is actually reachable, healthy, and on the expected build BEFORE running any checks. Owns the "is it actually running" gate, the build-identity check (commit / version / deploy timestamp), the env-claim-vs-actual check, the restart-stale-dev-server-before-QC step, the "dead infrastructure" labels, and the browser-side wait-strategy / client-cache traps — Playwright networkidle never settling on a recompile-per-request dev server or on any page holding an SSE / WebSocket stream open, a forced-error / 500 state that needs a fresh context because a client query cache serves stale rows, a dirty beforeunload guard silently blocking browser_navigate, and a stale CSS/JS chunk surviving a dev-server restart in the tab. Activates at the start of any QA pass, before re-running a failed check, and whenever a run's evidence smells stale.
 version: 0.4.0
 last_reviewed: 2026-07-23
 owns:
@@ -8,7 +8,9 @@ owns:
   - build identity check (commit / version / deploy timestamp)
   - dead-infrastructure / deferred-path / wrong-environment labels
   - env-claim-vs-actual comparison
-  - restart-stale-dev-server-before-QC (next start chunk pin; runserver --noreload)
+  - QA-host renderer capability (headless font coverage for non-Latin / RTL screenshots)
+  - local-schema-drift gate (unapplied migrations 500 a page nobody touched)
+  - restart-stale-dev-server-before-QC (next start chunk pin; runserver --noreload; read the process's real start args)
   - browser-side wait-strategy / client-cache traps (networkidle never settles; fresh context for forced-error states; beforeunload blocks navigate; stale chunk survives restart)
 defers_to:
   - browser-qa-discipline (evidence vocabulary for the reality-check outputs)
@@ -60,6 +62,7 @@ Before any other QA activity:
    - Mismatch → STOP; surface the discrepancy.
 4. **Console + network on landing** — a clean landing should produce no 5xx network responses and no console errors. Capture a snapshot.
 5. **Time skew** — confirm your wall-clock and the server's are close enough (within ~5 minutes). Some auth flows fail on clock skew.
+6. **Renderer capability** — only when the run will judge *rendering*. The screenshot is produced by the browser host, not by the target: a headless browser can only draw glyphs from the fonts installed on the machine it runs on, and a minimal Linux image or a stock WSL distro usually ships Latin coverage only. Arabic, Hebrew, CJK and every other non-Latin script then render as tofu (missing-glyph boxes) no matter how correct the page is, and the RTL layout underneath them is unreadable. Before calling a non-Latin or RTL rendering defect from such a screenshot, confirm the script's font families are present in the directory the *browser* scans — a remote-dev IDE or a launcher wrapper can point `FONTCONFIG_PATH` somewhere other than your shell's, so `fc-list` in the terminal is not proof of what the browser sees. Installing the missing families into the per-user font directory needs no root. A missing font is an environment fix, not a code defect, and must never be filed as one.
 
 ## Decision framework
 
@@ -76,6 +79,9 @@ The target is reachable, the build identity matches the canonical narrative, the
 | Build identity differs from canonical narrative | Stale deploy / hotfix / out-of-band push / wrong branch | STOP; surface; do not test "production" against an old build silently |
 | Landing has console errors that look like missing assets | CDN drift; build asset mismatch | STOP; surface — this often masks the rest of the run |
 | Auth landing redirects to a different domain than expected | OAuth misconfig / wrong env | STOP; surface |
+| A page you did not touch 500s with a missing-column / undefined-table error | Local DB schema lags the code — a migration already applied on the env you are emulating was never applied here | Apply the project's migrations against the local DB, then re-probe; do not triage the 500 as the defect under investigation |
+
+Schema drift deserves its own line because the build-identity probe cannot see it: the code is current, only the database is behind. It also disguises itself, because any endpoint that touches many models at once — an archive or admin index, a search-across-everything, a health page that counts every table — fails *entirely* on one missing column. So the symptom surfaces on a page unrelated to your change and reads as the bug you came to investigate. When the target is a local server, migrate before the first check.
 
 ### Reality is unclear → probe more
 
@@ -96,6 +102,20 @@ When the target is a dev server you started yourself and you just changed the co
 
 The tell is the split: old paths work, new paths don't (Django), or *everything* breaks with a chunk/asset error after a rebuild (Next). Restart first, then decide whether it's a real bug.
 
+### Read the start args off the process — do not trust your memory of them
+
+"I started it with X" is an assumption, not an observation. A long-running server may predate the change under test, may have been launched by an earlier session, and may carry flags nobody would choose today — `--noreload` added weeks ago to work around something else, or a production server where you assume a dev one. None of that is visible from the outside: the port answers, the pages render, and the process quietly serves code it imported before your edit existed.
+
+Identify the port owner, then dump its actual command line — `Get-CimInstance Win32_Process -Filter "ProcessId=<pid>"` on Windows, `ps -o args= -p <pid>` elsewhere — and read the flags before believing anything about the build it holds.
+
+When the browser says a backend feature is broken while its unit tests pass, one probe separates "code bug" from "stale process" before any debugging. From the page's own authenticated session, hit the endpoint three ways and compare the result counts:
+
+1. with no filter at all (the baseline set),
+2. with a filter parameter that is known to work already,
+3. with the new parameter under test.
+
+If the known-good filter narrows the set and the new one returns the full baseline, the running process does not have the new code — restart and re-run. If the known-good filter does not narrow it either, the request is not reaching the code you think it is (wrong host, wrong route, proxy). If both narrow correctly, the defect is genuinely in the feature and debugging can start.
+
 ### The restart is only half the fix — the browser tab caches too
 
 Restarting the dev server clears the *server's* stale build; it does not clear the *tab's*. A CSS or JS chunk the browser already fetched can survive the restart in memory / disk cache, so the tab keeps rendering the old asset while the server serves the new one — a QC-side false "still broken." When a fix is confirmed on the server (new build identity, correct file on disk) but the tab still shows the old behavior, escalate the reload:
@@ -112,13 +132,13 @@ A page can be fully rendered and correct while the QC tooling reports failure �
 
 | Trap | What you see | Why | Fix |
 |---|---|---|---|
-| `networkidle` never settles | `browser_navigate` / wait-for-load times out (~30s) even though the content is present on screen | A dev server that recompiles per request (e.g. Turbopack) plus a client that refetches on an interval (e.g. React-Query) means the network is *never* idle — there is always an in-flight request, so `networkidle` can never fire | Wait on `domcontentloaded` or an **explicit element** (`wait_for` the exact selector / text you are asserting), not on network-idle; or QC a **production build**, where the recompile / refetch churn is gone |
+| `networkidle` never settles | The goto times out (~30s) but the page clearly rendered — the content is on screen while `browser_navigate` / wait-for-load reports failure | `networkidle` waits for "no in-flight requests for ~500ms", and two independent things make that condition unreachable. (a) A dev server that recompiles per request (e.g. Turbopack) plus a client that refetches on an interval (e.g. React-Query) — there is always something in flight. (b) A page holding a **persistent connection** open by design — SSE / `EventSource`, a WebSocket, long-polling, or an analytics beacon — which never closes, so the count never reaches zero, in a production build exactly as much as in dev | Wait on `domcontentloaded` or an **explicit element** (`wait_for` the exact selector / text you are asserting), never on network-idle. A production build removes cause (a) only; nothing removes (b) — if the page streams, `networkidle` is simply unusable |
 | Forced-error / 500 state shows stale rows | You force a backend error (stop the API, inject a 500) but the UI keeps showing the previous good data, so the error state "won't reproduce" | A client query cache (e.g. React-Query, SWR — often a ~30s stale window) serves the last successful response from memory; the current tab never refetches inside the window | Assert the error state from a **fresh browser context** (cold cache), or hard-invalidate the cache — do not trust the warm tab |
 | Dirty `beforeunload` blocks navigation | `browser_navigate` hangs and the goto times out with no new page | The current page has a dirty-state `beforeunload` guard (unsaved-changes prompt); the browser raises a native confirm dialog that silently blocks the programmatic navigation | Clear the dirty state (or pre-register a dialog handler / accept-the-dialog step) **before** navigating away; `browser_navigate` alone will not leave a dirty page |
 
-The through-line: on a dev server the "quiet network / warm cache / clean navigation" assumptions the tooling defaults to are all violable. When a wait times out, an error state won't reproduce, or a navigate hangs, suspect the wait strategy / cache / unload guard *before* concluding "bug."
+The through-line: on a dev server the "quiet network / warm cache / clean navigation" assumptions the tooling defaults to are all violable — and the quiet-network one is violable on *any* build, dev or production, whenever the page holds a stream open. When a wait times out, an error state won't reproduce, or a navigate hangs, suspect the wait strategy / cache / unload guard *before* concluding "bug."
 
-The `networkidle` caveat also qualifies the wait strategy in `role-smoke-tests` — prefer an explicit element wait over network-idle on a recompile-per-request dev server.
+The `networkidle` caveat also qualifies the wait strategy in `role-smoke-tests` — prefer an explicit element wait over network-idle on a recompile-per-request dev server, and on any page carrying an SSE / WebSocket / long-poll connection regardless of environment.
 
 ## Labels for the report
 
@@ -151,6 +171,9 @@ Before the first real check:
 - [ ] Build identity probed and recorded (commit / version / deploy timestamp).
 - [ ] Env label on the page matches the URL.
 - [ ] Landing page has no 5xx network responses; console clean.
+- [ ] Local target: migrations applied against the local DB, so the schema matches the code under test.
+- [ ] Rendering-sensitive run: the browser host has the font families for every script the run will judge.
+- [ ] Self-started server: its real start args read off the process, not recalled.
 - [ ] Reality-check row written to the report as the first entry with status PASS or BLOCKED.
 
 ## Output format
@@ -181,7 +204,11 @@ If status is BLOCKED, the rest of the QA pass writes itself as NOT-TESTABLE pend
 | Treat 200 OK as healthy — the page may be a maintenance / "service unavailable" 200 | False positive | Render the page; check content |
 | Test "production" by typing `staging.example.com` because "they share a build" | They do not always; one fix lands in staging only | Test the actual URL of the env claimed |
 | QC code you just changed against the dev server that was already running | The process holds the old build (`next start` pins chunks; `runserver --noreload` skips re-import) — you debug a phantom bug | Restart the server first, then re-probe build identity |
-| Wait on `networkidle` against a recompile-per-request dev server | It never goes idle (per-request compile + interval refetch) → a ~30s timeout on a page that actually rendered | Wait on `domcontentloaded` or an explicit element; or QC a prod build |
+| Reason about a running server from how you remember starting it | The process may predate the change, or belong to another session; `next start` vs `next dev` and `--noreload` are invisible from outside | Dump the port owner's real command line and read the flags |
+| Debug a "broken" backend feature whose unit tests pass, without probing the endpoint | Cannot tell a code bug from a process serving pre-edit code | Probe three ways (no filter / known-good param / new param) and compare counts first |
+| QC a local target without applying migrations | A schema behind the code 500s any endpoint that touches the missing column — usually a page you never changed | Migrate the local DB before the first check |
+| File an RTL / non-Latin rendering defect from a headless screenshot without checking the host's fonts | The browser can only draw glyphs the host has; a Latin-only image renders every other script as tofu whatever the page does | Confirm the families exist in the dir the browser scans (`FONTCONFIG_PATH` may differ from your shell's), then re-shoot |
+| Wait on `networkidle` at all on a live app | It never goes idle when the server recompiles per request, and never when the page holds an SSE / WebSocket / long-poll / beacon open → a ~30s timeout on a page that actually rendered | Wait on `domcontentloaded` or an explicit element; a prod build fixes only the recompile half |
 | Assert a forced-error / 500 state in the same warm tab | A client query cache serves stale good rows; the error "won't reproduce" | Assert from a fresh browser context (cold cache) |
 | `browser_navigate` away from a page with unsaved changes and assume it left | A dirty `beforeunload` guard fires a native dialog that silently blocks the goto (timeout) | Clear dirty / pre-handle the dialog before navigating |
 | Assume a dev-server restart cleared the browser too | A stale CSS / JS chunk can survive in the tab cache → a QC-side false "still broken" | Hard-reload / fresh context / different port; confirm the chunk hash changed |

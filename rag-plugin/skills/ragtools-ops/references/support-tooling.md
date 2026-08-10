@@ -7,7 +7,7 @@ source-sections: [§12]
 
 # Supporting Scripts, Skills, and Helpers
 
-These are **upstream-repo** tooling for the ragtools product itself (under `C:/MY-WorkSpace/rag/`). The rag-plugin plugin does not own them; they are documented here so the support skill can answer "what does `build.py` do" without re-reading source.
+These are **upstream-repo** tooling for the ragtools product itself (under your local ragtools checkout). The rag-plugin plugin does not own them; they are documented here so the support skill can answer "what does `build.py` do" without re-reading source.
 
 ## Scripts (`scripts/`)
 

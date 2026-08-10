@@ -468,6 +468,83 @@ test_enable = False
 
 ---
 
+## 9. Editable Fields as Public-Page Injection Sinks (iframe src / unsanitized Html)
+
+**CVE Category**: CWE-79 (XSS) / CWE-1021 (UI Redress)
+**Odoo Severity**: High
+
+### Description
+
+A field that a back-office user can edit becomes an **injection sink** the moment it is
+rendered on an `auth='public'` page. Two shapes recur, and neither is caught by the `t-raw`
+rule because neither uses `t-raw`:
+
+1. A plain `fields.Text` / `fields.Char` holding a URL, dropped straight into
+   `<iframe t-att-src="...">`. QWeb escapes the *attribute value*, which stops quote-breaking
+   but does nothing about **where the iframe points** — the whole point of the attribute is
+   to load a third-party document into your origin's page.
+2. `fields.Html(sanitize_attributes=False, sanitize_form=False)`. Those flags disable exactly
+   the protections that make `Html` safe: attributes survive (so `on*` handlers and
+   `javascript:` URLs survive) and `<form>` survives (so a credential-harvesting form can be
+   posted onto a trusted page).
+
+The severity multiplier is **who can edit them**. A content-editor group granted write on
+these fields is, in effect, granted script and phishing-form injection on every public page
+that renders them.
+
+### Unsafe Example
+
+```python
+# UNSAFE: sanitization deliberately turned off on a publicly rendered field
+content = fields.Html(sanitize_attributes=False, sanitize_form=False)
+view_iframe_src = fields.Text()   # rendered into an iframe on a public route
+```
+
+```xml
+<!-- UNSAFE: unvalidated URL becomes the iframe's document -->
+<iframe t-att-src="record.view_iframe_src"/>
+```
+
+### Safe Example
+
+```python
+from urllib.parse import urlparse
+from odoo.exceptions import ValidationError
+
+ALLOWED_EMBED_HOSTS = {'www.example-maps.test', 'player.example-video.test'}
+
+content = fields.Html()   # sanitization ON (the default)
+
+@api.constrains('view_iframe_src')
+def _check_embed_url(self):
+    for rec in self:
+        if not rec.view_iframe_src:
+            continue
+        parsed = urlparse(rec.view_iframe_src)
+        if parsed.scheme != 'https' or parsed.hostname not in ALLOWED_EMBED_HOSTS:
+            raise ValidationError("Embed URL must be https and on the allowed host list.")
+```
+
+```xml
+<!-- SAFE: sandboxed, and the value was allowlisted at write time -->
+<iframe t-att-src="record.view_iframe_src" sandbox="allow-scripts allow-same-origin"
+        referrerpolicy="no-referrer"/>
+```
+
+### Review Rules
+
+- Validate any URL that reaches an `src`/`href` attribute on a public page against an
+  **https + known-host allowlist**, enforced at write time (`@api.constrains`), not in the
+  template.
+- Never ship `sanitize_attributes=False` or `sanitize_form=False` on a field rendered to
+  anonymous visitors. If rich markup is genuinely needed, keep sanitization on and extend the
+  allowed tag set instead.
+- Before granting a lower-trust group write access to content fields, enumerate which of
+  those fields land on public pages and what their sanitization flags are — the grant is the
+  exploit path, and it is usually added long after the fields were written.
+
+---
+
 ## Quick Reference: Vulnerability Checklist
 
 Before deploying any Odoo module, verify:
@@ -498,6 +575,8 @@ Before deploying any Odoo module, verify:
 - [ ] `t-raw` never used with user-controlled data (use `t-esc` instead)
 - [ ] Template names never user-controlled (use allowlist)
 - [ ] User data appears as values, never as template expressions
+- [ ] No `fields.Html(sanitize_attributes=False)` / `sanitize_form=False` on a field rendered publicly
+- [ ] Every URL reaching an `src`/`href` on a public page is allowlisted (https + known host) at write time
 
 ### Model Access
 - [ ] Every `_name` model has `ir.model.access.csv` entries

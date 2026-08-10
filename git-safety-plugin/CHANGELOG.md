@@ -4,6 +4,24 @@ All notable changes to the `git-safety` plugin are documented here. The format i
 based on [Keep a Changelog](https://keepachangelog.com/), and the project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+- **`git-safety`** — the remote-mutation preview gate: before any issue/PR/board write
+  (above all an automated batch), emit a no-mutation preview of exactly what changes per
+  target and wait for an explicit go-ahead; write only the minimal verified set
+  (`[ ] → [x]` on verified items only — never reverse an existing `[x]`, close an issue,
+  or touch a board field as a side effect). Defers to `qa-browser`
+  (`runtime-reality-check`) for whether the claim being written was earned.
+- **`shared-checkout-safety`** — the separability proof before staging beside a peer's
+  edits (mtime bands + per-file diff + no shared file); HEAD is not stable either
+  (a background sync hook can fast-forward the branch between turns, so a finding verified
+  last turn may already be fixed, and a manual pull launched alongside one in flight
+  collides on `.git/index.lock`); re-read a peer-owned file immediately before editing it;
+  per-session database name *and* port, not just an isolated build dir; and the
+  coordination file (scope, owned files, the contract the sibling must consume) when two
+  agents share a tree by design.
+
 ## [0.1.0] — 2026-07-23
 
 Initial release. The generic **local git-workflow safety** layer that git-integration,

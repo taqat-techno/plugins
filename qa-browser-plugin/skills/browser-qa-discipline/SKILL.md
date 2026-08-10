@@ -7,8 +7,11 @@ owns:
   - PASS / BLOCKED / NOT-TESTABLE three-status vocabulary
   - per-check evidence requirement
   - code-read-is-not-evidence rule
+  - the mirror rule — a defect inferred from static reading is latent until runtime-confirmed
   - silent-pass-is-not-pass rule
   - no-exception-as-valid-evidence rule (with named-run convention)
+  - absence-of-signal evidence must rule out client-side collapse of that signal
+  - disabled-control-is-not-evidence rule (fixture state must enable the action before a flow counts as exercised)
 defers_to:
   - safe-destructive-testing (safety constraints on what evidence-gathering may do)
   - runtime-reality-check (verify target is actually running before claiming PASS)
@@ -75,6 +78,19 @@ Every check is one row in the report. Every row has at least:
 
 If the evidence column is empty, the row is unfinished — not a pass.
 
+### A disabled control is evidence of nothing
+
+A greyed-out button is not a result. It is a **non-observation**: the flow behind it never ran, so nothing about it was tested. Recorded as a row either way it is wrong — as a PASS it claims a verification that did not happen, and as a permission FAIL it claims a deny that may never have been evaluated.
+
+The reason it is inadmissible is that a disabled state is ambiguous between at least two causes that look identical on screen:
+
+- **A permission deny** — the role genuinely lacks the right, and the UI is correctly hiding it.
+- **A fixture-state gap** — the role is permitted, but the record is not in the state that enables the action (no stock to hand on, nothing selected, a prerequisite step not completed, an empty child collection). The control would enable the moment the data was right.
+
+Disambiguate before scoring: put the record into the enabling state with a fixture or a setup step, then click. If the control enables and the action runs, the earlier grey was a data gap and the flow was never covered. If it stays disabled for a role that should have it, *now* you have a permission finding — and the API-side half of it still belongs to `route-access-matrix`, because a UI that hides a control proves nothing about the endpoint behind it.
+
+The failure this hides is the expensive kind: a whole set of flows is declared browser-verified while every one of their buttons was grey, and the first real click — once the fixture carries real data — raises an error on every environment at once. Before claiming a flow is browser-verified, confirm the fixture put the record in the state where the action is *enabled*, and say so in the evidence.
+
 ## "No exception" as valid evidence
 
 For checks like "the page loads without errors":
@@ -99,6 +115,18 @@ PASS ✓
 
 These do not name what was observed, the window, or the output.
 
+### An absence must also rule out client-side collapse of the signal
+
+Naming the window is necessary but not sufficient when the check is "did the app tell the user". Notification layers routinely **dedupe**: a global toast / snackbar / alert store keyed on the message text will collapse an identical message rather than stack it, so the second and third trigger of the same failure add no new node to the DOM. Repeat a refusal three times to be thorough, check the DOM immediately after, find nothing, and the honest-looking conclusion — "the failure is silent, the user is never told" — is a false finding about a feature that works. The first trigger *did* surface it; the store simply refused to say it twice.
+
+So an absence-of-signal observation is only evidence if the signal had a clear channel:
+
+- Trigger it **once from a reset store** — a reload or a fresh context clears the collapsed set — rather than as the nth repeat of the same attempt.
+- Or assert the underlying event instead of the rendered one: the network response, the console entry, the audit row. A deduped view cannot suppress those.
+- Record which of the two you did. "No toast after the 3rd attempt" and "no toast on the first attempt after reload" are different claims, and only the second supports a silent-failure finding.
+
+The same shape applies to any deduped or throttled surface — a banner shown once per session, a rate-limited email, an error boundary that renders once. Absence of a repeat is not absence of the signal.
+
 ## Code-read is not runtime evidence
 
 Reading the source and concluding "the code handles X" is NOT evidence that X works in the running app:
@@ -109,6 +137,18 @@ Reading the source and concluding "the code handles X" is NOT evidence that X wo
 - The build may have failed silently and shipped a stale bundle.
 
 Code-read informs hypothesis. Runtime evidence confirms.
+
+### The rule runs in both directions — a defect read from the source is also unconfirmed
+
+The rule is usually applied to passes, but it holds identically for failures: "the code is wrong, therefore the app is broken" is the same unverified inference with the sign flipped. Reporting it as a live bug costs the report's credibility the first time the browser disagrees.
+
+The mechanism that makes this common is that a **specification violation and a runtime failure are decided by different machinery**. A worked example: a `<form>` nested inside another `<form>` is invalid HTML — the HTML *parser* holds a form-element pointer from the context element and simply ignores the nested start tag, so the inner form is never created and its buttons submit the outer one. A live bug, on the reading. The browser said otherwise: the fragment was injected by a client library that parses the response into a **detached** container with no form ancestor and then moves the nodes in, and the DOM API permits a nesting the parser forbids. The inner form existed and its buttons pointed at their own endpoint. Ten seconds of runtime observation settled what the reading could not.
+
+Handle it as follows:
+
+- **Verify the failure in the browser before reporting a parser-level or spec-level defect.** Design a cheap direct observation — count the elements that should not exist, read the property that should be wrong — rather than arguing from the specification.
+- If runtime says it works, the finding is **latent, not active**: still real, still worth fixing, but filed with the trigger condition named — in the example, "activates the moment this fragment is server-rendered inline, SSR'd, or pasted into the template", because those paths go through the parser the injection route bypassed.
+- Latent findings do not belong in the FAIL column of a QA run. They are a separate line item, so that a reader can tell what is failing now from what will fail on a foreseeable change.
 
 ## Decision framework
 
@@ -137,7 +177,9 @@ Before sending a QA report:
 - [ ] Every FAIL links to a filed bug.
 - [ ] Run identifier present (when / where / who / build).
 - [ ] No status downgraded to PASS to clear the report.
-- [ ] No code-read used as runtime evidence.
+- [ ] No code-read used as runtime evidence — in either direction; every reported defect was observed at runtime, and anything that was not is filed as latent with its trigger condition.
+- [ ] Every "nothing appeared" claim was observed with the notification store reset, or against the underlying network / console / audit signal.
+- [ ] No row rests on a disabled control; every action-level check names the fixture state that enabled it.
 
 ## Output format
 
@@ -166,6 +208,10 @@ RUN — <env-name> — <date>
 | "All tests pass ✓" (no per-check status) | Cannot audit; cannot replay; trust collapses on the first regression | Per-check status with evidence |
 | "Code looks right" claimed as PASS | The running build may differ from the source | Runtime evidence required |
 | "Should work" claimed as PASS | Speculative; unverifiable | Run it; capture; status |
+| A static-analysis finding reported as a live bug | A spec violation and a runtime failure are decided by different machinery; the invalid construct may never reach the code path that breaks on it | Observe the failure in the browser first; if it does not occur, file it as latent with the trigger condition named |
+| "No notification appeared" after repeating the same trigger | A deduped toast / banner store collapses the identical message, so the repeat produces no node even though the first one did | Trigger once from a reset store (reload / fresh context), or assert the network / console / audit signal |
+| Scoring a greyed-out control as a PASS or as a permission FAIL | Disabled is a non-observation, ambiguous between a real deny and a fixture that never enabled the action | Put the record in the enabling state, then click; score what the click did |
+| "Flow verified" when every button in it was disabled | Nothing in the flow was exercised; the first real click surfaces errors the whole pass claimed to cover | Confirm the fixture enables the action before claiming a flow is browser-verified |
 | Marking PASS to clear a long checklist before deadline | The deadline does not move; the bug just hits later | Mark honestly; surface what cannot be done |
 | BLOCKED with no named precondition | Operator cannot help unblock | Name the precondition |
 | NOT-TESTABLE with no named access need | Cannot be handed off | Name the access / command needed |
@@ -199,4 +245,5 @@ The skill does not assume:
 - `route-access-matrix` — produces evidence rows that land here.
 - `modal-and-action-walkthroughs` — produces evidence rows that land here.
 - `import-export-ui-checks` — produces evidence rows that land here.
+- `defect-triage-and-closure` — owns what happens after a FAIL becomes a defect report: the closure gates behind "cannot reproduce" (the reporter's exact gesture, not an adjacent one), "works as designed", and "blocked — external". This skill owns the status word; that skill owns whether the verdict is admissible.
 - `uat-readiness-report` — composes the final report from these statuses.
