@@ -104,6 +104,28 @@ automatically — no user action needed.
 Installs as soon as `sale` is installed, and pulls in `crm` and `helpdesk`
 as well. Use sparingly — surprise installs are user-hostile.
 
+### The consumer side: a manifest dependency closure is not the install set
+
+Reading `depends` forward from the `-i` list gives an **incomplete** answer. An
+`auto_install` module is pulled in by *its own* deps being satisfied, not by
+anything in your list, so it joins the closure uninvited — and it can drag its
+whole `depends` list in with it. This is what makes "just trim the module list
+to dodge the broken module" fail: a trimmed install reproduces the identical
+error because the offending module was never in the list to begin with.
+
+When planning a minimal install set (or trimming one to avoid a failing
+module), scan `auto_install` across the **whole addons path**, not just the
+modules you named:
+
+```bash
+grep -rl "auto_install" --include=__manifest__.py <addons-path> \
+  | xargs grep -l "'depends'"
+```
+
+For each hit, ask whether your set satisfies its `depends`. If it does, that
+module is in your install whether you listed it or not. The only real escape is
+a set (or a base DB) that leaves at least one of its deps unsatisfied.
+
 ## `external_dependencies`
 
 ```python

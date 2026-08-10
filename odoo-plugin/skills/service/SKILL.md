@@ -102,7 +102,7 @@ Override with `--env venv`, `--env docker`, or `--docker`.
 |------|---------|
 | Start (dev) | `python -m odoo -c conf/PROJECT.conf --dev=all` |
 | Start (prod) | `python -m odoo -c conf/PROJECT.conf --workers=4` |
-| Stop (Windows) | `FOR /F "tokens=5" %P IN ('netstat -ano ^| findstr :8069') DO taskkill /PID %P /F` |
+| Stop (Windows) | `FOR /F "tokens=5" %P IN ('netstat -ano ^\| findstr :8069') DO taskkill /PID %P /F` |
 | Stop (Linux) | `lsof -ti:8069 \| xargs kill -9` |
 | Install module | `python -m odoo -c conf/PROJECT.conf -d DB -i MODULE --stop-after-init` |
 | Update module | `python -m odoo -c conf/PROJECT.conf -d DB -u MODULE --stop-after-init` |
@@ -111,6 +111,34 @@ Override with `--env venv`, `--env docker`, or `--docker`.
 | Scaffold | `python odoo-bin scaffold MODULE projects/PROJECT/` |
 
 Always use `--stop-after-init` with `-u` or `-i` operations.
+
+Before promising a trimmed install set, check `auto_install` across the whole addons path: a
+module with `auto_install` joins the install as soon as **its own** dependencies are
+satisfied, regardless of the `-i` list, so a dependency closure computed from `-i` alone is
+incomplete (mechanism in `skills/reviewer/references/module_manifest.md`).
+
+### Launching through `odoo-bin`: activate the venv, don't name the interpreter
+
+When the launcher is the `odoo-bin` script, run it as `./odoo-bin` **after** activating the
+virtual environment — never as `<venv>/bin/python odoo-bin`.
+
+The naming form survives startup and dies later: Odoo's own reload (`--dev=reload`, or any
+code-change restart) **re-execs the script**, and that re-exec goes through `odoo-bin`'s
+`#!/usr/bin/env python3` shebang. The shebang resolves against `PATH`, so it lands on the
+**system** interpreter instead of the venv's and the new process dies immediately with
+`ModuleNotFoundError: No module named 'psycopg2'`. The venv is healthy; nothing is
+misinstalled. Activating first puts the venv on `PATH`, so the shebang resolves inside it and
+the reload survives.
+
+```bash
+source <venv>/bin/activate     # NOT: <venv>/bin/python odoo-bin -c ...
+./odoo-bin -c conf/PROJECT.conf
+```
+
+**Diagnostic tell:** the traceback goes to the **launching shell**, not to the configured
+logfile — so the log shows a clean run right up to the moment the server disappeared.
+"The server is gone but the log has no ERROR" is a shebang/re-exec suspect; check that the
+interpreter that would be re-exec'd reports the packages before rebuilding anything.
 
 ## Scripts Reference
 
@@ -125,6 +153,52 @@ Located in `scripts/` within the plugin directory. All are standalone CLI tools:
 | `ide_configurator.py` | PyCharm and VSCode config generation |
 
 Usage: `python scripts/server_manager.py start --config conf/myproject.conf --dev`
+
+## Type checking a multi-repo Odoo workspace (`pyrightconfig.json`)
+
+Pyright (and Pylance in VSCode) cannot resolve `from odoo import ...` in a workspace where
+the Odoo source and the addons repos are siblings, because nothing in the project is an
+installed package. Without help it reports `Import "odoo" could not be resolved` on every
+file. A root `pyrightconfig.json` fixes it:
+
+```json
+{
+  "venvPath": ".",
+  "venv": ".venv",
+  "extraPaths": [
+    "odoo",
+    "odoo/addons",
+    "enterprise",
+    "addons-repo-a",
+    "addons-repo-b"
+  ],
+  "include": ["addons-repo-a", "addons-repo-b"],
+  "exclude": ["odoo", "enterprise", ".venv"],
+  "typeCheckingMode": "basic",
+  "reportAttributeAccessIssue": "none",
+  "reportOptionalMemberAccess": "none"
+}
+```
+
+Why each part:
+
+- **`extraPaths` must list the Odoo core tree *and* every addons repo** — it is the
+  resolution path, so a repo missing from it produces import errors in files that are
+  perfectly valid at runtime.
+- **`include` vs `exclude`**: the vendored Odoo source is resolution-only. Linting it
+  produces thousands of findings you will never act on, so keep it on `extraPaths` and out of
+  `include`.
+- **`typeCheckingMode: "basic"`**, with `reportAttributeAccessIssue` and
+  `reportOptionalMemberAccess` silenced: the ORM builds fields and recordset attributes at
+  runtime, so strict mode flags correct Odoo code as errors and trains people to ignore the
+  linter.
+- **Cross-addon `from odoo.addons.<module> import ...` stays a warning, and that is
+  correct.** Odoo merges every `addons_path` entry into the `odoo.addons` namespace at
+  runtime via `extend_path`; a static analyser cannot replay that, so the warning is a true
+  statement about static resolvability, not a defect to suppress.
+
+Two configs whose `addons_path` differ only in the last repo can share one
+`pyrightconfig.json` — list the union in `extraPaths`.
 
 ## User Configuration
 

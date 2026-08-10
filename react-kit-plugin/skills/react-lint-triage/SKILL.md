@@ -1,12 +1,13 @@
 ---
 name: react-lint-triage
-description: Treats analyzer and linter findings (react-doctor, eslint, deslop, knip, and similar) as hypotheses to verify, not commands to obey. Owns the four-bucket classification (safe-mechanical, needs-judgment, false-positive, forbidden-zone), the false-positive catalog, and the rules against score-chasing and ruleset drift. Activates when triaging lint, static-analysis, or quality-tool output, before applying any auto-fix, before deleting a file a dead-code tool flagged, or when a tool reports a quality score to improve.
+description: Treats analyzer, linter, and editor/LSP findings (react-doctor, eslint, deslop, knip, IDE or language-server diagnostics, and similar) as hypotheses to verify, not commands to obey. Owns the four-bucket classification (safe-mechanical, needs-judgment, false-positive, forbidden-zone), the false-positive catalog, and the rules against score-chasing and ruleset drift. Activates when triaging lint, static-analysis, editor-diagnostic, or quality-tool output, before applying any auto-fix, before deleting a file a dead-code tool flagged, when IDE diagnostics claim symbols are undefined or newly added code is unused, or when a tool reports a quality score to improve.
 version: 0.5.0
 last_reviewed: 2026-06-13
 owns:
   - four-bucket finding classification (safe-mechanical / needs-judgment / false-positive / forbidden-zone)
   - the false-positive catalog (runtime-throwing destructure, intentional derived state, array-index keys, trusted dangerouslySetInnerHTML, label over-fire, alias-blind dead-file detectors)
   - the "findings are hypotheses, not commands" discipline
+  - the editor/LSP-diagnostic rule (a live snapshot is a hint about where to look, never the state of the tree — confirm with the real compiler/test command, and do not dismiss the batch wholesale either)
   - the no-score-chasing rule (eliminate one rule fully before shaving counts)
   - the tool-version pinning rule (rulesets drift across runs)
   - the changed-file-set impact measurement rule
@@ -30,6 +31,7 @@ A linter or analyzer says "fix this." It is wrong often enough that obeying ever
 Activate when:
 
 - Triaging the output of any analyzer or linter (react-doctor, eslint, deslop, knip, ts-prune, or similar).
+- Editor / language-server diagnostics surface in the IDE or the harness — especially claiming that symbols are undefined or that newly added code is unused.
 - About to run an auto-fix (`eslint --fix`, a codemod, a "quick fix all").
 - About to delete a file because a dead-code / unused-export tool flagged it.
 - A tool reports an aggregate quality score and the goal is "raise the score."
@@ -39,7 +41,7 @@ Activate when:
 
 Every project-specific value is a named adapter input. Nothing below is hardcoded into the skill's behavior.
 
-1. **ANALYZERS** — which tool(s) produced the findings (e.g. eslint, react-doctor, knip, deslop). Determines how findings are parsed and grouped.
+1. **ANALYZERS** — which tool(s) produced the findings (e.g. eslint, react-doctor, knip, deslop). Determines how findings are parsed and grouped. An editor / language-server diagnostic stream counts as an analyzer here, with one extra property that changes its handling — it is a *live snapshot* rather than a batch run, so it also needs a capture time (see the catalog entry below).
 2. **TOOL_VERSIONS** — the exact version + ruleset hash of each analyzer for this triage run. Recorded so a later run is comparable.
 3. **FORBIDDEN_ZONES** — the list of paths/domains where a cosmetic finding must never trigger an edit. The project defines these. Common shapes: authentication, payments/billing, exam/assessment logic, wallet/ledger, database migrations, CI/deploy config. The skill ships the *category*; the project supplies the *paths*.
 4. **ALIAS_ROUTE_MAP** — how the project resolves path aliases (tsconfig `paths`, bundler aliases) and how its framework builds the route graph. Required before trusting any dead-file signal.
@@ -55,6 +57,7 @@ No edits in this phase. Build the picture first.
 4. **Check the location against FORBIDDEN_ZONES** before reading anything else — if it lands there and the finding is cosmetic, the verdict is decided regardless of the rule.
 5. **For dead-file/unused signals, resolve through ALIAS_ROUTE_MAP** — confirm the file is not reached via an alias import or a framework route before believing it is dead.
 6. **Note runtime semantics** the linter cannot see: bound `this`, intentional derived state, index-based list mutation, trusted content sources.
+7. **If the findings came from an editor / language-server stream, re-derive them from the real compiler.** Run the project's own typecheck and test commands and compare. Diagnostics that the compiler does not reproduce are stale, not findings.
 
 ## Decision framework
 
@@ -101,6 +104,7 @@ These are recurring cases where the tool is usually wrong. Examples are illustra
 | `dangerouslySetInnerHTML` flagged as XSS | When the HTML is trusted server-rendered or staff-authored content, this is AUDIT-ONLY. | false-positive for the cosmetic auto-fix — do NOT add a sanitizer dependency mid-cleanup; record an audit note instead |
 | `control-has-associated-label` / `jsx-a11y` label rule | Over-fires when a visible `<label for>` already associates the control (adding `aria-label` clobbers the visible label) and on empty table header cells used for spacing. | false-positive — verify a visible label is absent before adding one; do not double-label |
 | Dead-file / unused-export (knip, ts-prune) flags a file for deletion | Detectors that ignore path aliases and the framework route graph are ~95% false positive — alias imports and route-graph entrypoints look "unreferenced." | false-positive until proven — verify with an alias+route-aware tool (ALIAS_ROUTE_MAP) before deleting anything |
+| Editor / LSP diagnostics report undefined symbols and unused newly-added code — the tree looks half-reverted or the build broken | A language server indexes files continuously, so a snapshot taken while a long or multi-agent edit run is still writing shows a genuinely inconsistent intermediate tree. A real `tsc --noEmit` (or equivalent) and the test suite pass on the same files. This is a stale-snapshot artifact, not a finding. | false-positive **for the mid-write claims only** — confirm against the compiler/test command before "fixing" code that is already correct; the ones the compiler DOES reproduce (a genuinely unused binding, for instance) are real and worth chasing. Never dismiss the whole batch. |
 
 ### Admin-panel triage
 
@@ -128,6 +132,8 @@ Never restructure an admin component, merge/split its files, or add a client-sid
 - **Never** refactor purely to lower a score.
 - **Never** add a new dependency (e.g. a sanitizer) to satisfy a lint finding mid-cleanup — that is a design decision, not a triage fix.
 - **Never** destructure a `this`-bound native method off a hook/object return to satisfy a finding.
+- **Never** treat an editor / language-server diagnostic as the state of the tree — it is a live snapshot that can be captured mid-write. Reproduce it with the project's compiler/test command before editing anything it names.
+- **Never** dismiss an editor-diagnostic batch wholesale either — verify each claim against the compiler; the surviving ones are real findings.
 - **Never** treat counts from two runs with different TOOL_VERSIONS as comparable.
 - **Never** mass-apply `--fix` across the repo; scope to CHANGED_FILE_SET and review the diff.
 - **Never** re-litigate a recorded false-positive on the next run — the record exists so it stays skipped.
@@ -143,6 +149,7 @@ Before committing a triage's edits:
 - [ ] No edit touches a FORBIDDEN_ZONES path for a cosmetic finding.
 - [ ] No file was deleted without alias + route-graph confirmation.
 - [ ] No new dependency was added to satisfy a finding.
+- [ ] Any editor / language-server diagnostic acted on was reproduced by the project's compiler/test command first; the ones it did not reproduce are recorded as stale snapshots.
 - [ ] TOOL_VERSIONS recorded; counts compared only against a same-version run.
 - [ ] Impact measured on CHANGED_FILE_SET only.
 - [ ] If a rule was fully eliminated, it is (or can be) promoted to error to stay at zero.
@@ -179,6 +186,8 @@ SUMMARY: <n applied> / <n deferred> / <n skipped> / <n forbidden>
 | Add a sanitizer dep to clear a `dangerouslySetInnerHTML` warning | Introduces a dependency + design change inside a cleanup pass | Audit-only for trusted content; record a note, do not add deps |
 | Add `aria-label` wherever the a11y rule fires | Clobbers an existing visible `<label for>`; over-fires on empty header cells | Verify no visible label first; skip empty-cell false positives |
 | "Fix" no-derived-state everywhere it fires | Breaks intentional form-reset / debounce-mirror / snapshot patterns | Inspect intent; defer as needs-judgment |
+| "Fix" undefined symbols an IDE reports right after a long or multi-agent edit run | The language server indexed a mid-write intermediate tree; the compiler and the suite are green on the same files, so the edit rewrites correct code | Reproduce with `tsc --noEmit` / the test command first; act only on what the compiler confirms |
+| Discard the whole editor-diagnostic batch once one entry proves stale | The same run's genuinely useful signals (an unused binding, a real type error) go with it | Verify entry by entry against the compiler; keep what it reproduces |
 | Compare finding counts across runs with different tool versions | Ruleset drift moves counts independently of the code | Pin TOOL_VERSIONS; compare same-version runs only |
 | Trust whole-repo lint exit 0 that a new file is clean | Ignore globs / cache / changed-scope can skip an untracked path | Lint the new file by its path before push |
 

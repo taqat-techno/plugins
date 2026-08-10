@@ -158,6 +158,19 @@ When a new permanent invariant is needed (not a one-off — truly permanent), ad
 
 One-off release-specific checks are **not** added to the checklist — they're discussed in the release notes, not promoted to permanent invariants.
 
+### Constraints on an automated row
+
+When a new invariant's pre-check reads evidence out of a shared context object instead of asking the maintainer directly, these three are binding:
+
+- **Namespace each row's evidence key to the probe that produces it, never to the subsystem it is about.** Subsystem names collide. A row that read `ctx["autostart"]` picked up a dict written by a *different* probe (an `/api/diagnostics` autostart component), found no `failed` key, and reported PASS on an entirely unrun check. Key it after the probe (`autostart_lifecycle`), not after the topic.
+- **Never write `dict.get(key, falsy_default)` inside a gate.** `.get("failed", 0) == 0` converts *missing evidence* into *passing evidence* — the single most dangerous idiom in a validation harness. Missing evidence must resolve to MANUAL or BLOCK, which is the "no fallback to auto-pass" rule from Interaction discipline applied to code rather than to conversation.
+- **Pair every new automated row with a test asserting it reports MANUAL when its probe has not run.** That test is what catches a key collision; the happy path never will — in the case above it was the only thing that did.
+
+Two more for any row that audits an *isolation* property:
+
+- **Define the leak against the design's declared sharing channels, not against naive non-equality.** A cross-project leakage gate that counted every search hit whose `project_id` differed from the queried project reported 29 foreign documents and failed two projects. Every one was a shared dependency corpus — `scope: "framework"`, returned by design and labelled as such — so the gate would have failed the product for doing exactly what it documents. Enumerate the legitimate sharing channels first (see `../ragtools-retrieval/references/frameworks.md` for the framework / shared-dependency scope contract), then define the leak as everything outside them.
+- **A brand-new check that fails on its first run is far more likely to be wrong than the system it audits.** Before believing it, dump one raw result and read *every* field — `scope` / `scope_source` were present and settled the question in ten seconds. The prior is "probe bug" until the raw evidence says otherwise.
+
 ## Does NOT do
 
 - Does not tag, push, or promote a release.

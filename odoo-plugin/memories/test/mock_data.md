@@ -10,13 +10,13 @@ Realistic test fixture values organized by field type and common model.
 
 ```python
 # Name fields
-'name': 'Ahmed Al-Rashidi'          # Person name
+'name': 'Salma Al-Noor'              # Person name (non-Latin-script origin, RTL locale test)
 'name': 'Acme Corporation'           # Company name
 'name': 'Office Chair Pro'           # Product name
 'name': 'Test Record 001'            # Generic test name
 
 # Email
-'email': 'ahmed.alrashidi@company.com'
+'email': 'salma.alnoor@company.com'
 'email_from': 'support@example.com'
 'work_email': 'emp001@company.com'
 
@@ -228,9 +228,9 @@ def setUpClass(cls):
     super().setUpClass()
     # Individual contact
     cls.contact = cls.env['res.partner'].create({
-        'name': 'Ahmed Al-Rashidi',
+        'name': 'Salma Al-Noor',
         'is_company': False,
-        'email': 'ahmed@example.com',
+        'email': 'salma@example.com',
         'phone': '+966-11-234-5678',
         'mobile': '+966-50-987-6543',
         'street': '1234 Olaya Street',

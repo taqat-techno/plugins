@@ -191,8 +191,8 @@ With `openupgradelib`: `rename_fields()`, `rename_models()`, `rename_xmlids()`, 
 
 ## Migration Internals — Silent Data-Loss Traps
 
-These three cases pass a normal `-u` "successfully" and lose data or leave a
-corrupt schema with no error. Check for them on any rename/move.
+These four cases pass a normal `-u` "successfully" and lose data or leave a
+corrupt schema with no error. Check for them on any rename/move/removal.
 
 ### A model/table rename must ALSO rename its constraints
 
@@ -240,6 +240,45 @@ ownership first**: reassign the `ir_model_data` / `ir_model` /
 `ir_model_fields` rows (and the table) to B *before* A is removed, so the
 column is never orphaned. `openupgradelib.update_module_moved_models()` /
 `update_module_names()` handle the reassignment.
+
+**Where that transfer can run: not in B's `migrations/`.** Module loading gates
+the pre-migrate call on the operation being an **upgrade**; a fresh module's
+operation is `install`, so `migrate_module(package, 'pre')` is never called for
+it and B's `migrations/` folder is dead code. A plan that puts "repoint
+ownership before cleanup" in B's `pre-migrate.py` silently no-ops. The correct
+hook is **`pre_init_hook`** in B's manifest — it fires on install, before the
+registry loads and before the module's data. (A's own `pre-migrate.py` also
+runs, because A *is* being upgraded, but it is fragile: if B's install fails
+after A committed its version bump, the guard is burned permanently and the
+retry does nothing. `pre_init_hook` is re-runnable.)
+
+**And the repoint is specifically `ir_model_data.module`.** `ir.model.data`'s
+end-of-load pass selects every row whose `module` is in the updated set and
+whose xmlid is **absent from the loaded xmlids**, then `unlink()`s the target —
+for an `ir.model.fields` row that is `ALTER TABLE … DROP COLUMN`. So running
+`-u A` after moving code out of A destroys the moved fields' data.
+
+The repointed xmlids must match B's declarations **byte-for-byte**: repoint to
+a name B does not declare and you have merely renamed the thing that gets
+deleted. Enumerate the adoption set by `(model, res_id)`, never by hand-typed
+`LIKE` patterns — field xmlids are `module.field_<model>__<field>` and
+selection xmlids have a different shape again, so patterns miss rows.
+
+### Removing a field without a cleanup migration wedges the next upgrade
+
+Bumping a module's version after **removing** a field, with no migration that
+drops what the field left behind, leaves the database holding an
+`ir_model_fields` row plus everything that references it — views that name the
+field, `res_groups` rows, ACL rows. Re-validating the affected settings/views
+then fails, and Odoo's own auto-cleanup aborts with a
+**`ForeignKeyViolation` on `ir_model_access`** while trying to remove the
+orphan.
+
+Deactivating the offending view is a **throwaway unblock**, not the fix — it
+gets the upgrade moving and leaves the stale rows in place for the next one.
+The fix is the missing cleanup migration for that version: drop the field row
+and its dependants explicitly (`openupgradelib.delete_records_safely_by_xml_id`
+or a targeted `unlink()` in the right order) in the version's `pre-migrate.py`.
 
 ## Common Errors Quick Reference
 

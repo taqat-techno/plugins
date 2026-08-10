@@ -1,6 +1,6 @@
 ---
 name: wiki-safe-updates
-description: add the plan-first/dry-run preview, deterministic content-preserving edits, governed safe move/rename/delete + link repointing, pre-write dataset validation, and live-wiki/work-item-as-approval-needing-publish — while KEEPING the "still advisory and non-blocking for plain GitHub-wiki pushes / Help, not gates" framing.
+description: Safety tips and write governance for wiki edits — optional diff preview, revert-based rollback, one-purpose-per-commit, retired-folder awareness, plan-first/dry-run preview for multi-step restructures, deterministic content-preserving edits, safe move/rename/delete with link repointing, and pre-write validation of generated datasets. Activates before any wiki page write, push, restructure, or delete. Stays advisory and non-blocking for plain GitHub-wiki pushes (help, not gates); live-wiki REST/MCP writes and Azure DevOps work-item writes are treated as approval-gated publishes, and deletes need an explicit per-target instruction.
 version: 1.1.0
 last_reviewed: 2026-06-22
 owns:

@@ -18,10 +18,20 @@ Configure the website context first, then trigger the load:
 
 ### Triggering or re-triggering the load
 
-If theme pages are missing after the field was set, force the materialization rather than re-setting the field:
+If theme pages are missing after the field was set, force the materialization rather than re-setting the field. The two halves of "loading a theme" are **not** triggered by the same thing, and this is where most of the confusion lives:
 
-- Re-run the theme module's upgrade (`-u <theme_module>`), which re-invokes the post-copy/load path.
-- Or call the theme-load action exposed by the website/theme layer for that website, which performs the copy explicitly.
+| Action | Re-copies `theme.*` records | Runs `theme.utils._post_copy` |
+|---|---|---|
+| `-u <theme_module>` | yes (via the theme-load path) | **no** |
+| `-i <theme_module>` from the CLI | installs the module | **no** — and it does not attach the theme to any website |
+| Picking the theme in website Settings (`button_choose_theme`) | yes | **yes** |
+
+`_post_copy` is the module-authored hook that does the per-website finishing work (logo, menu cleanup, enabling/disabling header and footer option views). In Odoo 17 it is gated on an `apply_new_theme` context flag that **only `button_choose_theme` sets** — deliberately, so a routine upgrade cannot erase a website owner's later edits. So:
+
+- To re-copy theme **records**, `-u <theme_module>` is enough.
+- To re-run **post-copy logic** you changed, re-apply the theme: website Settings → pick the theme, on a fresh database; or call it directly from a shell —
+  `env['theme.utils'].with_context(website_id=N)._post_copy(module)`, or `button_choose_theme()`.
+- A plain CLI `-i theme_xxx --stop-after-init` installs the module but attaches nothing, so a post-install query for theme views legitimately returns **0**. That is not a broken theme.
 
 After the load, verify that concrete website pages/views exist for the theme, not just that the `theme_id` field is populated.
 
@@ -57,7 +67,8 @@ The CLI `--stop-after-init` form is not subject to that redirect: there is no in
 # Upgrade two modules and reload their translations, then exit
 odoo -u sale,account -d mydb --stop-after-init
 
-# Re-run a theme module's upgrade to re-trigger its post-copy hook
+# Re-run a theme module's upgrade to re-copy its theme records
+# (this does NOT re-run _post_copy — re-apply the theme for that)
 odoo -u theme_default -d mydb --stop-after-init
 ```
 
@@ -86,5 +97,6 @@ If a model gains a translatable `subtitle` field and only the existing `name` fi
 ## Quick checklist
 
 - Fresh website blank despite theme selected → website + languages configured first, then theme load triggered (not just `theme_id` set).
+- Changed the theme's post-copy hook and `-u` "did nothing" → correct: `-u` re-copies records but never re-runs `_post_copy`. Re-apply the theme (or call `_post_copy` / `button_choose_theme` from a shell); a CLI `-i` alone attaches no theme, so 0 theme views is expected there.
 - Upgrade ran but translations stale on a website instance → re-run via `odoo -u <modules> -d <db> --stop-after-init`; suspect RPC path diverted to a configurator action.
 - New translatable field on a theme model → add it to the theme-translated-fields mapping, re-audit, reload, verify a non-default language.

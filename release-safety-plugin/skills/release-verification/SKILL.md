@@ -12,10 +12,12 @@ owns:
   - the report-only-gate detection (a gate with `|| true` / `continue-on-error` surfaces findings but does not block)
   - the deploy-liveness probe (gate on a code marker over a /health ping; verify each service's SHA; diff the working tree vs the commit for deploy-from-source; read the platform API for an SSO/401-walled frontend)
   - the CI env-var false-FAILURE detection (a red env/setup error that masks a real test failure underneath -- the complement of the report-only false-PASS)
+  - the unreachable-target evidence path (migration state read from the target's deploy log rather than a local status command; unauthenticated 401-vs-404 route-existence probing) for a target whose database admits no connection
   - the report-time-vs-deploy-time triage that separates already-fixed client reports from genuinely new bugs
   - the RELEASE VERIFICATION REPORT output contract
 defers_to:
   - migration-safety skill for the risky-migration / cutover skeleton and destructive/CASCADE review
+  - github-actions-release-safety skill for the AUTHORING-time application of the report-only-gate rule (the soft-fail sweep across workflow files and the prove-it-blocks procedure), and for workflow/tag authoring safety generally -- this skill states the rule and applies it at deploy time
   - references/deployed-sha-reconciliation.md for the SHA-to-environment procedure and the deploy-liveness failure modes
   - references/env-secret-diff.md for the by-name secret-diff procedure
   - the django-testing skill (django plugin) for the rolled-back deployed-behaviour reproduction recipe (in-process auth + an always-rollback transaction) used when a walled frontend blocks HTTP verification
@@ -122,6 +124,8 @@ A build that reports "success" is not proof the new code is answering requests. 
 
 When the frontend is walled (mode 4 above) you cannot drive the app over HTTP — but if the target environment's **database is reachable**, you can reproduce the deployed behaviour directly against it, without a browser and without mutating anything. Run a script that authenticates **in-process** (as the affected role) inside a **transaction that always rolls back**, so the verification reads real target data yet writes nothing. This reproduces what the deployed code does against the deployed data, which HTTP cannot reach. Print the resolved connection target FIRST (Safety gates) so the script cannot silently hit a local fallback. The concrete framework recipe — in-process auth plus an always-rollback transaction — lives in the **django-testing** skill (django plugin); this skill owns only the "verify in the target env, read-only, roll back" framing and stays engine-neutral about it.
 
+The wall still blocks the *browser* evidence, so pair the rolled-back target-DB run with a run of the **byte-identical commit** on localhost: the target run proves the behaviour against real deployed data, the local run shows it happening in a UI. The pairing is only admissible while both sides are the same commit — check out the deployed SHA locally rather than driving your working tree, or the screenshots document code the target is not running.
+
 ### Report-time vs deploy-time triage (is this bug already fixed?)
 
 Before investigating a client-reported bug as new, compare its **report timestamp** to the last **deploy timestamp** for the target environment. A report filed *before* the fix deployed may already be resolved — a bug whose report time predates the deploy that fixed it is not a new bug. Reproduce against the **current** deployed SHA before spending effort; only a reproduction on the current build makes a report "genuinely still open."
@@ -131,11 +135,13 @@ Before investigating a client-reported bug as new, compare its **report timestam
 A green pipeline is not proof the code is safe even when the gate ran: a CI step is only **enforcing** if its exit code can fail the run. Append `|| true`, or set `continue-on-error: true` (or a custom `fail_action`/soft-fail flag) on the step, and the non-zero exit is swallowed — the gate becomes **report-only**: it still surfaces findings, but it will NOT block a PR or merge. So "the security/lint/test job is green" can mean either "passed" or "found problems and was told to pass anyway."
 
 - **Map which checks actually block:** grep the workflow files for `\|\| true`, `continue-on-error`, and `fail_action` (or the CI's soft-fail equivalent). Every gate carrying one of these is report-only; treat its green as informational, not as a barrier.
-- **Prove a gate blocks** (don't assume): feed the enforcing check input that must make it exit non-zero — e.g. a deliberate syntax error for a linter/compiler — and confirm the run fails. A gate you have never seen fail is an unproven gate.
+- **Prove a gate blocks** (don't assume) — a gate you have never seen fail is an unproven gate. The prove-it-blocks procedure (feeding the gate must-fail input, and confirming its selector collected files and the check is in the required list) is owned by the **github-actions-release-safety** skill; use it there rather than re-deriving it here.
 
 ### False-FAILURE masking (a red gate can hide a worse red)
 
 The report-only gate above is one failure direction — a real problem swallowed into green. The **mirror** is a red gate that hides a real failure: a CI job forced red by an **environment problem** (a missing or renamed env var, a broken/absent service container, a runner misconfiguration) fails during **setup, before the real tests run** — so a genuine test failure underneath is never reached and never surfaces. The visible red is the env error; the real red is masked behind it. Do not conclude "it was just the missing env var" and merge: **fix the env cause, RE-RUN, and read the underlying result.** The tests may still be red once they finally execute. (This complements the report-only false-PASS: there a real failure is reported-but-not-blocked; here a real failure is not even reached.)
+
+Classifying a red gate as benign is *sometimes* correct, but it has to be earned from the failed run's log, never from the job name or a hunch: read `--log-failed` (or the CI's equivalent) and require a mechanism that **structurally cannot occur in the target**. The clean example is a one-time data migration that CI re-runs because CI builds a **fresh database from zero**, and that migration then fails for want of a key the CI environment does not carry — while the target applied that migration long ago (so it will not re-run) and does carry the key. Note the shape: that is a claim about the *target's* state, so confirm the target's state (the migration is already applied there, the key is present) instead of inferring it from the error text — and record the durable fix (give CI the placeholder key) rather than re-classifying the same red every release. Without that proof the red stands.
 
 ### The silent-local-fallback trap (print connection target FIRST)
 
@@ -154,6 +160,7 @@ A command meant to run against a remote database can **silently fall back to a l
 - **Never** treat a **deploy-from-source** CLI upload as shipping the committed SHA — it uploads the local working tree; diff the tree against the intended commit first, and do not "fix" a stuck deploy with a fresh source upload from a dirty tree.
 - **Never** call an **SSO / 401-walled** frontend "deployed" from an HTTP probe — read the platform API (`state:READY` + commit SHA); the wall answers 401 to every request.
 - **Never** conclude a red CI job was "just the env var" and merge — an env-driven false-FAILURE can mask a real test failure; fix the env, re-run, and read the underlying result.
+- **Never** take a target's migration state from a **local** migration-status command when the target's database has no public proxy — the local command reports whichever database the local environment resolved to; read the applied-migration line in the target's deploy / pre-deploy log instead.
 
 ## Validation checklist
 
@@ -166,7 +173,8 @@ A command meant to run against a remote database can **silently fall back to a l
 - [ ] Every service of a multi-service deploy verified to run a SHA containing the fix (no SKIPPED / WAITING / stalled service).
 - [ ] For a deploy-from-source CLI, the working tree diffed against the intended commit before deploying (clean tree, right HEAD).
 - [ ] A walled (401 / SSO) frontend verified via the platform API (`state:READY` + SHA), not an HTTP probe.
-- [ ] Any red CI job that failed on an env / setup error re-run after the fix, and its underlying test result read (false-FAILURE not assumed benign).
+- [ ] Any red CI job that failed on an env / setup error re-run after the fix, and its underlying test result read (false-FAILURE not assumed benign); any red classified as benign backed by the failed-run log plus a mechanism that cannot occur in the target.
+- [ ] Where the target's database is unreachable, migration state read from the target's deploy / pre-deploy log (not a local status command), and route existence probed unauthenticated (401/403 = exists and gated, 404 = missing) with the untested behaviour named.
 - [ ] Every reported PROVEN item has concrete evidence attached.
 - [ ] "Not tested or blocked" lists anything that could not be verified read-only, and why.
 - [ ] No promotion or mutation performed.
@@ -213,6 +221,8 @@ RELEASE VERIFICATION REPORT
 | `up` / deploy-from-source, assume it shipped the commit | The CLI uploads the local working tree, not the git commit — dirty / parallel changes ship | Diff the working tree against the intended commit before deploying |
 | HTTP-probe an SSO / 401-walled frontend | The wall returns 401 to every unauthenticated request — HTTP cannot see the app | Read the platform API (`state:READY` + commit SHA) |
 | "CI was just the missing env var" -> merge | A red env/setup error can mask a real test failure that never ran | Fix the env, re-run, read the underlying result before merging |
+| Confirm the target applied a migration with a local status command | It reports whichever DB the local env resolved to — never a target with no public proxy | Read the applied-migration line in the target's deploy / pre-deploy log |
+| Read the elapsed time of a 503 -> 200 flip as "too fast to be a rebuild" | Timing discriminates nothing — cold start, cache and rollout strategy vary; it is no more evidence of the old build than of the new | Ask the application what it is running (code marker / component registry with timestamps) |
 | Investigate every client report as new | A report filed before the fix deployed may already be resolved | Compare report time to deploy time; reproduce on the current SHA first |
 
 ## Portability rationale
@@ -221,8 +231,9 @@ The reconciliation logic, the verification matrix, the print-target-first rule, 
 
 ## Cross-references
 
-- `references/deployed-sha-reconciliation.md` — read the running SHA, prove containment, confirm branch->environment mapping, and the deploy-liveness failure modes (code-marker probe, per-service SHA, deploy-from-source working tree, walled-frontend platform API).
+- `references/deployed-sha-reconciliation.md` — read the running SHA, prove containment, confirm branch->environment mapping, the deploy-liveness failure modes (code-marker probe, per-service SHA, deploy-from-source working tree, walled-frontend platform API), and the unreachable-target evidence sources (deploy-log migration line, unauthenticated 401-vs-404 existence probe).
 - `references/env-secret-diff.md` — diff env keys by name/presence, resolve the connection target without printing it, the local-fallback guard.
 - `migration-safety` (skill) — the risky-migration / cutover skeleton, drift detection, destructive/CASCADE review, and environment-vs-environment schema-drift detection (the other half of RS-3).
+- `github-actions-release-safety` (skill, this plugin) — the authoring side of the same two signals: the soft-fail sweep and the prove-it-blocks procedure applied while a workflow is written or reviewed, plus the `workflow_dispatch` default-branch rule, the `timeout-minutes` queue-vs-execution trap, the push -> wait for green -> tag ordering, and the secret-presence guard contract. This skill owns the report-only-gate rule's statement and its deploy-time application; do not restate either side in the other.
 - `django-testing` (skill, django plugin) — the rolled-back deployed-behaviour reproduction recipe (in-process auth + always-rollback transaction) for when a walled frontend blocks HTTP verification.
 - `release-verify` (command) — user entry point; routes the pre-promotion checklist to this skill and migration-safety.

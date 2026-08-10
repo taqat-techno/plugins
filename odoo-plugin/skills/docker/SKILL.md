@@ -128,9 +128,9 @@ Docker Hub:  {image_prefix}:19.0-enterprise   (pre-built base image)
 
 Workspace:
   sources/odoo-19/          <-- Odoo Enterprise source (git clone, mounted read-only)
-  projects/relief_center/   <-- Custom modules (git clone, mounted)
-  compose/relief_center.yml <-- Per-project Docker Compose
-  conf/relief_center.conf   <-- Per-project Odoo config
+  projects/acme/            <-- Custom modules (git clone, mounted)
+  compose/acme.yml          <-- Per-project Docker Compose
+  conf/acme.conf            <-- Per-project Odoo config
 
 One image --> Many containers. No rebuilding per project.
 ```

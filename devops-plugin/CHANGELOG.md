@@ -324,7 +324,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Required Field Validation**: Validates required fields before work item updates
 - **State Transition Rules**: Enforces Task→Done requires hours (OriginalEstimate, CompletedWork)
 - **User Story QC Checkpoint**: Stories must pass through "Ready for QC" before Done
-- **15 Team Members Cached**: Eslam, Ahmed, Mahmoud, Mohamed, and 11 more for @mention lookup
+- **15 Team Members Cached**: Team member identities cached locally for @mention lookup
 
 ### Enhanced
 - Work item update validation with clear error messages

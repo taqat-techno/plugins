@@ -149,6 +149,14 @@ Is navigation hidden? → YES → template_header_hamburger
 | `website.template_footer_headline` | Headline | Brand statements |
 | `website.template_footer_slideout` | Slideout | Modern/trendy |
 
+**A custom footer that never appears post-install ships `active="False"`.** Footer
+variants follow an option-view pattern where only the chosen variant is active, so a
+custom footer view left with `active="False"` (the half-finished state of that pattern)
+loads without error and simply never renders — no log line, no missing-template error.
+Check the `active` attribute of your own footer view first; the same applies to a database
+restored from an environment where a different variant was selected. Ship the intended
+variant with `active="True"`.
+
 ### Footer Decision Flowchart
 
 ```

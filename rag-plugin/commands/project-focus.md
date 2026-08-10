@@ -164,7 +164,7 @@ In v0.9.x, focus was a single global record. Setting focus in workspace A meant 
 
 ## Machine-local state (do not Syncthing this directory)
 
-The state file lives at `~/.claude/rag-plugin/state/project-focus.json`. It encodes per-machine workspace paths (e.g. `c:/my-workspace/...` on Windows, `/home/.../workspace/...` on WSL) which **do not normalize to the same key across machines**. Add the directory to Syncthing's `.stignore` (or your sync tool's equivalent) so machine-A's workspace keys do not appear on machine-B as ghost entries that the hook silent-passes on.
+The state file lives at `~/.claude/rag-plugin/state/project-focus.json`. It encodes per-machine workspace paths (e.g. `c:/users/<you>/workspace/...` on Windows, `/home/<you>/workspace/...` on WSL) which **do not normalize to the same key across machines**. Add the directory to Syncthing's `.stignore` (or your sync tool's equivalent) so machine-A's workspace keys do not appear on machine-B as ghost entries that the hook silent-passes on.
 
 If you do hit ghost entries from another machine after a sync, list them with `/rag:project-focus status` (the `all_workspaces` field) and remove specific stale keys with `/rag:project-focus clear --all` — there is no `clear --workspace <key>` in v0.13.0; that is potential Phase 2 work.
 
@@ -192,7 +192,7 @@ Tell the user what to run (do not run it):
 2. `python scripts/test_project_focus.py` → all 30 tests green (covers v1→v2 migration, workspace-keyed CRUD, hook injection paths).
 3. From inside a known-indexed project: `/project-focus` → status shows `effective_source: workspace`.
 4. **Leak regression:** open a Claude Code session in a different workspace. Status should show `effective_source: none` or `other-workspace-only` (NOT a workspace value carried over from the previous session). The hook either silent-passes or injects only the neutral notice — no project name leaks.
-5. **Explicit global:** `/project-focus --global royal-preps`. From any workspace without its own focus, status shows `effective_source: global`, and the injected reminder contains the literal phrase `EXPLICIT GLOBAL FOCUS`.
+5. **Explicit global:** `/project-focus --global my_project`. From any workspace without its own focus, status shows `effective_source: global`, and the injected reminder contains the literal phrase `EXPLICIT GLOBAL FOCUS`.
 6. `/project-focus clear` → only the current workspace's record is removed; global, if set, remains.
 7. `/project-focus clear --global` → global removed; workspaces map remains.
 8. `/project-focus clear --all` → both removed.

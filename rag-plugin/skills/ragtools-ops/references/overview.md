@@ -26,7 +26,7 @@ From `docs/decisions.md` in the upstream repo:
 - **Single collection** called `markdown_kb` with per-project payload filtering (project isolation via `project_id` field).
 - **Embedding model** `all-MiniLM-L6-v2` (384 dimensions, SentenceTransformers), forced to CPU device for cross-platform consistency.
 
-## Repository components (upstream `C:/MY-WorkSpace/rag`)
+## Repository components (upstream ragtools repo)
 
 | Area | Location | Purpose |
 |------|----------|---------|

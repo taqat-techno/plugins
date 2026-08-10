@@ -21,7 +21,8 @@ owns:
   - the shared-instance safety rule (re-inventory + pg_stat_activity before destructive DB action)
   - the restart-hygiene rule (kill by PID; never `pkill && odoo-bin`; split stop/start; tail the right log)
   - the bounded-readiness-poll rule (never an unbounded `curl --retry-connrefused`)
-  - the verify-install-from-log rule (not the wrapper/background exit code)
+  - the verify-install-from-log rule (not the wrapper/background exit code; assert the log-LEVEL field, not a Traceback substring)
+  - the addons_path-vs-DB rule (Enterprise first / Community last; a DB-installed module absent from addons_path is only logged as "not installable, skipped" while its stored views still apply)
   - the filestore-aware clone rule (`odoo-bin db duplicate`, never `psql TEMPLATE`)
   - the separate-local-config rule (never mutate the Docker conf for local debugging)
 defers_to:
@@ -161,9 +162,14 @@ blank/generic pages.
    before** the theme load — the post-copy step mirrors translatable content per
    active language; languages added afterward do not retroactively receive theme
    translations.
-3. Trigger the theme load so the post-copy hook runs (re-run the theme module's
-   upgrade `-u <theme_module>`, or call the theme-load action for that website).
-   Verify concrete pages/views exist afterward — not just that `theme_id` is set.
+3. Trigger the theme load, then verify concrete pages/views exist afterward — not just
+   that `theme_id` is set. Note **which trigger does what**: `-u <theme_module>` re-copies
+   the theme's records but does **not** re-run the module's `theme.utils._post_copy` hook
+   (that is gated on an `apply_new_theme` context flag which only the "choose theme" action
+   sets, so an upgrade cannot erase a site owner's edits), and a CLI `-i <theme_module>`
+   installs the module without attaching it to any website — a post-install query for theme
+   views legitimately returns 0. To re-run post-copy logic you changed, re-apply the theme
+   for that website (or call `_post_copy` / the choose-theme action from a shell).
 
 **And the silent-drop trap (theme-translated-fields mapping):** theme content
 lives on `theme.*` mirror models copied into concrete models on load. The
@@ -251,6 +257,61 @@ grep -E "ERROR|CRITICAL|Traceback" <logfile>        # must be empty
 grep -E "Modules loaded|Registry loaded" <logfile>  # positive signal
 ```
 
+**Assert on the log-LEVEL field, not on the words.** A bare `Traceback|Error` substring
+grep only works on a codebase whose logs are otherwise clean. Many estates log a benign
+recurring traceback on **every** run (a filestore attachment whose row survived its file is
+the classic one), so the substring form reports a successful upgrade as a failure — twice in
+a row is enough to make someone re-run a job that already worked. Anchor on the level field
+that the log line format guarantees:
+
+```bash
+grep -cE '^[0-9-]{10} [0-9:,]+ [0-9]+ (ERROR|CRITICAL) ' <logfile>   # expect 0
+grep -c 'Modules loaded' <logfile>                                   # expect 1
+```
+
+Substring greps stay useful for *reading* a failure; they are not a verdict. And a check
+that can only ever say "broken" is the same defect as one that can only say "fine" — both
+come from a signal that does not distinguish the two states.
+
+**With `--stop-after-init` the process legitimately disappears**, so "no process" is not a
+failure either. A poll loop must check the **success marker first**, before any
+process-death or error branch: the marker can be written between two polls, and even then it
+races the log flush, so a loop that tests liveness first will call a completed run dead.
+
+### A DB-installed module missing from `addons_path` breaks views silently
+
+Odoo resolves each module from the **first** `addons_path` entry that contains it, so the
+order is a real decision, not cosmetic. When a Community and an Enterprise checkout are both
+on the path, list the **Enterprise tree first** and append the Community `addons` **last**:
+the modules that exist in both then resolve from Enterprise (matching the Enterprise
+overlays that expect them) and the Community entry only supplies the modules Enterprise does
+not ship. Putting Community first re-introduces core version skew between a base module and
+its Enterprise overlay — the shape that ParseErrors on a field an overlay renamed.
+
+The silent half: if a module is **installed in the database** but its code is no longer on
+`addons_path`, Odoo does not fail. It logs one dismissible line —
+
+```
+module <name>: not installable, skipped
+```
+
+— and carries on, while the module's **stored view records still apply**. The web client
+then gets a form view referencing a field that no longer exists in the registry and throws
+an Owl error such as `"res.partner"."<field>" field is undefined`, which reads like a
+frontend/asset bug and is really a config bug.
+
+**Diagnosis:** on any Owl "field is undefined" crash, grep the startup log for `not
+installable, skipped` **before** touching the frontend, then compare `addons_path` against
+the DB's installed modules:
+
+```bash
+grep "not installable, skipped" <logfile>
+psql -d <db> -c "SELECT name FROM ir_module_module WHERE state='installed' ORDER BY name;"
+```
+
+Fix by putting the missing tree back on `addons_path` (in the correct order), or by cleanly
+**uninstalling** the orphan from the DB — never by editing the stored view.
+
 ### Clone with the filestore; keep configs separate
 
 Clone an Odoo DB with `odoo-bin db duplicate` (or a full dump/load) — **never**
@@ -286,6 +347,8 @@ from the live volume rather than trusting the template default.
       immediate-upgrade button (especially on website-enabled instances).
 - [ ] Fresh-DB theme: website + languages configured and active first, THEN
       theme load triggered; concrete pages/views verified (not just `theme_id`).
+- [ ] Changed post-copy logic re-applied via the choose-theme path, not via `-u`
+      (which re-copies records but never re-runs `_post_copy`).
 - [ ] Every translatable field on a theme-backed model is in the
       theme-translated-fields mapping; reloaded and a non-default language
       verified.
@@ -299,6 +362,12 @@ from the live volume rather than trusting the template default.
       a log grep — never an unbounded `curl --retry-connrefused`.
 - [ ] Install/upgrade result verified from the LOG (no ERROR/CRITICAL/Traceback),
       not from the wrapper/background exit code.
+- [ ] The log verdict is anchored on the LEVEL field (`^date time pid (ERROR|CRITICAL) `
+      expect 0, `Modules loaded` expect 1), not on a bare `Traceback` substring, and a
+      `--stop-after-init` poll checks the success marker BEFORE the process-gone branch.
+- [ ] Owl "field is undefined" crash → startup log grepped for "not installable, skipped"
+      and `addons_path` compared against the DB's installed modules before blaming the
+      frontend.
 - [ ] DB cloned with `odoo-bin db duplicate` (filestore copied), never
       `psql … TEMPLATE`; baseline snapshot backed up + sha256'd before regenerating.
 
@@ -311,12 +380,16 @@ from the live volume rather than trusting the template default.
 | Regenerating compose with the template's default `postgres:` tag | Silently changes the major; data dir is forward-incompatible | Read `PG_VERSION`, pin the same major |
 | Clicking the Apps "Upgrade" (RPC immediate-upgrade) on a website instance | Can divert to a configurator action; translation reload silently skipped | `odoo -u <modules> -d <db> --stop-after-init` |
 | Setting `theme_id` and expecting pages to appear | Assignment is intent; the post-copy load step never ran | Configure website + languages, then trigger the theme load |
+| `-u <theme_module>` to re-run a changed post-copy hook | `-u` re-copies theme records only; `_post_copy` is gated on the choose-theme context | Re-apply the theme for that website, or call `_post_copy` / the choose-theme action from a shell |
 | Adding a translatable field without updating the mapping | Non-default-language translations silently dropped on load | Add the field to the theme-translated-fields mapping in the same change |
 | Repointing Odoo at a different Postgres cluster/port to "make it connect" | Different instance = different auth/data; masks the real (down) instance | Start the intended instance via its own `pg_ctl`; verify with `pg_isready` |
 | Treating a `pg_ctl` timeout / exit 1 as a failed start | The server may be mid WAL crash-recovery and come up fine | Check `pg_isready` / the server log before rolling back |
 | `pkill -f "<config>" && odoo-bin -c <config>` in one chain | The pkill self-matches the chain and exits 144 before the start | Stop and start in separate calls; kill by PID |
 | `curl --retry-connrefused …:<port>/web` with no `--max-time` | Unbounded retry storm can take the backend down | Bounded loop (`--max-time` + fixed count/delay) or a log grep |
 | Concluding install success from a background/notification exit code | The wrapper exit (e.g. a trailing `echo`) hides a CRITICAL | Grep the real log for ERROR/CRITICAL/Traceback |
+| Gating a run on `grep -E "Traceback\|Error"` alone | A benign recurring traceback makes every successful run read as a failure | Assert the log-LEVEL field (`(ERROR\|CRITICAL) ` count 0) plus `Modules loaded` count 1 |
+| Treating "the process is gone" as a failed `--stop-after-init` run | The process exiting is the expected end state; the marker may land between polls | Check the success marker in the log first, then the death/error branches |
+| Chasing an Owl "field is undefined" into the frontend | A module installed in the DB but off `addons_path` is only "skipped" in the log while its stored views still render | Grep for "not installable, skipped"; restore the path entry or uninstall the orphan cleanly |
 | `psql … TEMPLATE` / `createdb -T` to clone an Odoo DB | Copies SQL only; the filestore/attachments break | `odoo-bin db duplicate` (or full dump/load) |
 | Editing the Docker/container conf to run locally | Breaks the container setup and the local run (wrong host/paths) | A separate local config; leave the Docker conf untouched |
 
@@ -335,5 +408,9 @@ from the live volume rather than trusting the template default.
 - `hooks/pre_odoo_restart_guard.py` — Bash-layer ADVISORY (never blocks): nudges on
   an unbounded readiness poll, a `pkill … && … odoo-bin` chain, and a `psql TEMPLATE`
   clone.
+- `skills/security/SKILL.md` — the other "clean but wrong" shape: a group/ACL granted in
+  `odoo shell` that the running server keeps denying, because `ir.model.access` memoises on
+  uid and the shell never calls `signal_changes()`. Restart (or grant over RPC) rather than
+  re-editing a correct ACL.
 - `claude-env-doctor-plugin` — generic Windows/WSL/Git-Bash environment issues
   (e.g. a Windows-side listener holding a WSL port).

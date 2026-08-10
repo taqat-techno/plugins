@@ -17,6 +17,16 @@ Qdrant local mode takes an **exclusive file lock**. Running two processes agains
 
 This is the rule the Phase 6 PreToolUse hook exists to enforce. Any CLI command that would open Qdrant in direct mode while the service is up is wrong.
 
+### A separate data directory is not isolation (HARD)
+
+Because the lock above is scoped to a data directory, it is tempting to run two services side by side by giving each its own `RAG_DATA_DIR` and its own service port. Under the embedded (v2) backend that held — each instance kept its Qdrant inside its own data dir. It does **not** hold for the `managed` backend: the managed Qdrant engine binds a **hardcoded `127.0.0.1:21500/21501`**, derived from neither the service port nor the data dir. Both instances write a `qdrant-config.yaml` naming the same port with different storage paths. The loser dies with `os error 10048` (EADDRINUSE), and its cleanup then takes the incumbent down too — leaving zero engine processes and both stores unreachable.
+
+Worse, the health probe `GET /collections` returns 200 from *either* store, so each service believes it is healthy while reading a store that does not contain its collections — producing "collection does not exist" 404s in one direction and a foreign collection created inside the canonical store in the other. This is why `rules/service-discovery.md` excludes 21500/21501 from service discovery: those ports are the engine's, and they are singletons.
+
+**Implication:** one ragtools service per machine. Never propose a second instance "scoped" by data directory.
+
+**Generalisable rule:** an isolation boundary is only as strong as its **most global** shared resource. When reviewing any "these are isolated because they use separate directories" claim, enumerate every port, lock file, named pipe, and registry key the component also claims — one hardcoded singleton invalidates the whole guarantee. And any client that connects to a shared endpoint must verify **identity**, not just liveness: a 200 is not proof you reached *your* server.
+
 ## Qdrant local-mode chunk-count limits (HARD)
 
 Qdrant local mode has scaling limits that the plugin must respect when bulk-adding projects:

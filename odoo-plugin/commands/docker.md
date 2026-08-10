@@ -14,7 +14,7 @@ Parse `$ARGUMENTS` and route to the appropriate operation:
 
 | Sub-command | Description | Example |
 |-------------|-------------|---------|
-| `init --project NAME [--version N]` | Initialize Docker project (Dockerfile, compose, .env, nginx) | `/docker init --project relief_center` |
+| `init --project NAME [--version N]` | Initialize Docker project (Dockerfile, compose, .env, nginx) | `/docker init --project acme` |
 | `compose <dev\|staging\|prod> [--version N]` | Generate docker-compose for environment | `/docker compose dev --version 19` |
 | `deploy --domain DOMAIN` | Full production deployment with nginx + SSL | `/docker deploy --domain example.com` |
 | `build [--all] [--no-cache]` | Build, tag, and push Docker images | `/docker build 19` |

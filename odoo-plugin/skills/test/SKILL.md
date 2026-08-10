@@ -26,31 +26,10 @@ description: |
   </example>
 
   <example>
-  Context: User wants test skeletons for a model
-  user: "Generate test cases for my sale.order extension"
-  assistant: "I will analyze the model definition and generate TransactionCase test skeletons covering CRUD, computed fields, and business logic."
-  <commentary>Test generation trigger.</commentary>
-  </example>
-
-  <example>
-  Context: User wants mock data
-  user: "Create realistic mock data for testing my inventory module"
-  assistant: "I will generate a mock data factory with realistic product, partner, and stock.move records using Odoo demo data patterns."
-  <commentary>Mock data trigger.</commentary>
-  </example>
-
-  <example>
   Context: User wants to run tests
   user: "Run tests for my custom module with post_install tag"
   assistant: "I will execute the test suite with --test-enable and --test-tags=post_install, showing colored output."
   <commentary>Test run trigger.</commentary>
-  </example>
-
-  <example>
-  Context: User wants coverage analysis
-  user: "Show me which parts of my module have no test coverage"
-  assistant: "I will scan for untested models, methods, and views, then generate a coverage report with priority recommendations."
-  <commentary>Coverage analysis trigger.</commentary>
   </example>
 
   <example>
@@ -172,6 +151,8 @@ Base-class detail + version deltas (`SavepointCase` vs `TransactionCase`, `Comma
 - For record rules, assert the scoped user sees the allowed records and **not** the forbidden ones.
 - **Invalidate cache between privilege levels** (`record.invalidate_recordset()` / `self.env.invalidate_all()`) — a value cached as admin hides an `AccessError` and yields a false pass.
 - `sudo()` is only for *deliberate* bypass (e.g. reading tracking values), never a crutch to make a failing test pass. (The setup-time `sudo()` shown in the Mock-Data / Troubleshooting sections is for *fixture creation*, not for testing the permission itself.) Tag security tests `@tagged('post_install', '-at_install')`.
+- **`TransactionCase` structurally cannot see request-context bugs.** Failures that live in code which only runs inside a real request — a framework model read unelevated on the render path, a host/auth gate, session-dependent behaviour — are unreachable from a transaction test no matter how many you write. Any portal or frontend whose users hold an **unusual group set** (a custom group implying none of `base.group_public` / `group_portal` / `group_user`) needs at least one `HttpCase` that **logs in and fetches the app page**. Testing the login page alone is worthless there: it renders as the public user, so it passes against a build that 403s every logged-in request. The design-time rule behind this belongs to the **multi-tenancy-isolation** skill; this skill owns proving it.
+- **A relational field drags in another model's ACL**, and no model-level test exercises that — opening a form reads the whole field set as the restricted user. The fact and the arch-walking `get_view` recipe live in the odoo-security skill ("Access-control facts beyond the automated scan"); write that test whenever a menu is exposed to a narrow group.
 
 ### Workflows
 
@@ -184,9 +165,62 @@ Base-class detail + version deltas (`SavepointCase` vs `TransactionCase`, `Comma
 
 Every `test_*.py` imported once in `tests/__init__.py`; each class exactly one of `at_install`/`post_install`; fixtures in `setUpClass` (no dirty-DB / unguarded demo reliance); security-sensitive modules have non-admin `AccessError` + record-rule tests; business logic covers constraints / computed / state / negative cases; wizards launched via context or `Form`; controllers use `HttpCase` and are `post_install`; no real network/email (mock it), no `cr.commit()`, no sleeps, no install-order dependence; a bugfix ships a regression test that fails on the old code; runtime status reported honestly (verified-runtime vs static-only); no client/project data hardcoded.
 
+### When the DB is down: static gates; when it is up: three layers
+
+Runtime status is reported honestly (above), but "no DB, so nothing was verified" is not the
+only option — substitute gates that need no database, and say which ones you ran:
+
+- **AST-parse every touched `.py`** (`python -m ast` / `ast.parse`) — catches the syntax and
+  indentation breakage that a `-u` would have caught first.
+- **`ast.literal_eval` the `__manifest__.py`** — proves the dict still parses and lets you
+  assert the declared `data` files exist on disk.
+- **Residual-reference greps** for every symbol, model name, or XML ID the change renamed or
+  removed — a rename is only complete when the old name has zero hits outside the migration.
+- **Field / inherit-order assertions** read straight from the source.
+- **Independent adversarial review lenses** over the diff (read-only), then ground-truth the
+  single highest-risk claim yourself rather than trusting the fan-out.
+
+When a DB **is** available, a security or refactor fix is verified at **three** layers, and a
+gap in any one of them is invisible from the other two:
+
+1. **Working tree** — files changed, `__manifest__` version bumped, new data files registered,
+   tests present, change_log/release-notes entry added.
+2. **DB state via SQL** — the `ir.rule` rows, `ir.model.access` permissions, and group
+   `implied_ids` that the change was supposed to produce actually exist in the loaded DB.
+3. **UI smoke + log grep** — the screen renders for the intended role, and the run's log has
+   no new ERROR/CRITICAL.
+
+The layer that gets skipped is almost always (1): code and DB can both be correct while the
+manifest version is unchanged and the change log has no entry, so the fix never ships to any
+environment that upgrades by version.
+
+### Fixtures on an inherited database
+
+A dev/QC database restored from somewhere else carries **that** environment's integration
+configuration. `ir_config_parameter` can hold live production credentials, and the code that
+consumes them fires on ordinary record creation — writing an image field on a partner can
+perform a real upload to a production bucket from a box whose entire safety posture (cron
+threads disabled, no outbound mail) exists to prevent exactly that. Nothing warns you; the
+call succeeds.
+
+Before creating fixtures on any database you did not build yourself:
+
+```sql
+SELECT key FROM ir_config_parameter
+WHERE key ILIKE '%s3%' OR key ILIKE '%aws%' OR key ILIKE '%api%key%'
+   OR key ILIKE '%smtp%' OR key ILIKE '%webhook%';
+```
+
+Then grep the addons for the **code that reads those keys** — the parameter alone is not the
+answer in either direction. A key with no consumer left in the tree is inert; a key with a
+consumer fires on the next `create()`. Leave `image_1920` and other upload-triggering fields
+unset in fixtures, and **never silently flip a shared `ir.config_parameter`** to make a test
+behave: a `set_param` in `setUp` mutates state the whole instance shares. Flag it and let the
+owner decide, or patch the consuming method instead.
+
 ### Anti-patterns (never)
 
-Dirty-DB reliance · `sudo()` everywhere · happy-path only · broad / fragile tests · sleeps / time assumptions · accidental install-order dependence · direct SQL where the ORM is under test · testing local migration scripts as product behavior · machine-specific passes · hardcoded client/project data · skipping security tests on permission-sensitive modules · treating "module installs / imports" as coverage · empty test files for show · claiming runtime / browser / upgrade validation that was not actually run. Full catalogue with fixes: **`references/review-checklist.md`**.
+Dirty-DB reliance · `sudo()` everywhere · happy-path only · broad / fragile tests · sleeps / time assumptions · accidental install-order dependence · direct SQL where the ORM is under test · testing local migration scripts as product behavior · machine-specific passes · hardcoded client/project data · skipping security tests on permission-sensitive modules · treating "module installs / imports" as coverage · empty test files for show · claiming runtime / browser / upgrade validation that was not actually run · reading a run that matched no tests ("of 0 tests") as a pass · gating a test run's verdict on an ERROR-line log scan · creating fixtures on an inherited DB without auditing its integration config. Full catalogue with fixes: **`references/review-checklist.md`**.
 
 ### Output templates
 
@@ -990,6 +1024,10 @@ def setUp(self):
     self.patch(type(self.env['mail.mail']), '_send', _mock_send)
 
 # Prevent scheduled actions
+# NOTE: set_param mutates state the whole instance shares. It is acceptable inside a
+# TransactionCase (rolled back) for a test-only key like this one; never do it for a key
+# that drives an integration — patch the consuming method instead. See "Fixtures on an
+# inherited database".
 def setUp(self):
     super().setUp()
     self.env['ir.config_parameter'].sudo().set_param(
@@ -1054,6 +1092,51 @@ python -m odoo -c conf/project17.conf -d project17 \
     --test-enable --test-tags=standard,-slow --stop-after-init
 ```
 
+### Test-invocation traps
+
+Four ways a run reports success without running your tests. All four are environment, none
+of them are code.
+
+**1. Pin `--db-filter` to the exact test database.** With `--db-filter='.*'` (or none) and a
+second database visible, every `HttpCase` request 303s to `/web/database/selector` and the
+whole HTTP half of the suite "fails" with `303 != 200`. Always pass
+`--db-filter='^<exact_test_db>$'` on a test run — the database-selector trap applies to test
+invocations exactly as it does to a browser.
+
+**2. `--test-tags /module` intersects with the modules being updated — but only when
+`-i`/`-u` is present.** With `-i`/`-u`, tag selection is restricted to the modules updated in
+*that* run, so `-i other_module --test-tags /my_module` runs **zero** tests and prints
+`0 failed, 0 error(s) of 0 tests`. Install prerequisites in one run, then test in a second.
+Without `-i`/`-u`/`--reinit`, `post_install` tests run for **all installed modules** and are
+filtered by `--test-tags` down to `/module:Class.method` — so on a warm database (Odoo 19)
+targeted tests need **no `-u` at all**, which is the fast local loop. The cost of dropping
+`-u` is that `at_install`-tagged (and untagged-class) tests become unselectable.
+
+**3. A leading `/` in a selector is mangled by MSYS shells on Windows.**
+`--test-tags=/my_module` run through Git Bash has its leading slash path-converted into a
+Windows path, so the selector matches nothing and the run reports
+`0 failed, 0 error(s) of 0 tests` **with exit 0** — a vacuous pass that looks green. Run
+selectors from PowerShell, or prefix with `MSYS_NO_PATHCONV=1`. **Any Odoo test run reporting
+"of 0 tests" is a failed invocation, never a pass.**
+
+**4. The first frontend HTTP request of a session builds the routing map under
+`_registry_test_lock`.** On a slow filesystem (a Windows mount seen from WSL) that takes
+minutes inside a server thread holding the lock; the 60 s re-acquire in `release_test_lock`
+raises `SystemExit` into the test, and *subsequent* tests then fail with
+`RuntimeError: cannot release un-acquired lock` until the server thread finishes. The
+signature is a run of consecutive errors that "heals" on its own. Warm it up once in the
+first `HttpCase` that touches frontend routes:
+
+```python
+def setUp(self):
+    super().setUp()
+    self.url_open('/web/login', timeout=600)   # throwaway: builds the routing map
+```
+
+Related: with `website` installed, `/web/login` becomes a **frontend** route
+(`is_frontend=True`), so any is_frontend-based deny logic must carve out `/web` and `/odoo`
+by path or it 404s the recovery login.
+
 ### Test Output Interpretation
 
 ```
@@ -1069,6 +1152,21 @@ python -m odoo -c conf/project17.conf -d project17 \
 [INFO] Ran 3 tests in 4.231s
 [ERROR] 1 error, 1 failure
 ```
+
+**The verdict is the summary line plus the process exit code — never an ERROR-line scan.**
+Expected-exception tests legitimately log at ERROR: an `assertRaises` around a NOT NULL probe
+emits `odoo.sql_db: bad query` unless it is wrapped in `mute_logger`, so a strict ERROR grep
+fails a perfectly green suite. Read `N failed, N error(s) of N tests` (it always prints —
+including `of 0 tests`, at WARNING, when the selector matched nothing) together with the exit
+code. Strict ERROR/CRITICAL log scans belong to **boot and load gates**, where no tests run;
+see the odoo-stack-doctor skill for that side.
+
+**A schema-removal refactor strands NOT NULL columns until `-u` runs.** Deleting a required
+field from a model leaves the column *and its constraint* in every database created while the
+field existed, so every ORM `create()` in that database raises `NotNullViolation` — including
+in tests that have nothing to do with the removed field. The tree is correct and the database
+is stale. Run `-u <module>` on the dev DB, every reused clone, and any template DB after such
+a refactor, or recreate them from the post-refactor tree.
 
 ### Log Level for Test Debugging
 

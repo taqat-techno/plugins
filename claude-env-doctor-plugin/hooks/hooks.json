@@ -6,7 +6,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/session_start_env_advisory.py"
+            "command": "python \"${CLAUDE_PLUGIN_ROOT}/hooks/session_start_env_advisory.py\"",
+            "timeout": 8
           }
         ]
       }

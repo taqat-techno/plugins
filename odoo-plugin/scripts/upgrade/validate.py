@@ -41,7 +41,17 @@ class SyntaxValidator:
         content = read_file_safe(file_path)
         if content is None:
             return False, ["Failed to read file"]
-        # Clean for parsing
+        # Odoo parses XML with lxml, which REJECTS '--' inside a comment. Report it as a
+        # real error before any normalisation: a checker more permissive than the runtime
+        # turns a loud install failure into a silent pass.
+        for m in re.finditer(r'<!--.*?-->', content, flags=re.DOTALL):
+            if '--' in m.group(0)[4:-3]:
+                line = content.count('\n', 0, m.start()) + 1
+                errors.append(
+                    f"Line {line}: double hyphen '--' inside an XML comment "
+                    f"(illegal XML; use an em-dash or '====' for dividers)"
+                )
+        # Clean for parsing, so the rest of the file is still checked for other errors
         clean = content
         def fix_hyphens(m):
             inner = m.group(0)[4:-3]

@@ -69,6 +69,14 @@ Restart: `rag service start`. Fresh empty state.
 
 ## Reinstall from scratch
 
+**Before you run the uninstaller, back up.** The "keep user data" prompt is not a guarantee: an uninstall has been observed removing not just `%LOCALAPPDATA%\Programs\RAGTools` (the program) but also `%LOCALAPPDATA%\RAGTools` (the **data root**) — `config.toml` with every project definition, the Qdrant collection, and the model cache. Nothing was moved to a backup dir and nothing was in the Recycle Bin. The two directories are **siblings with confusingly similar paths**, which makes "the uninstaller only touches the program dir" a very easy and very wrong assumption. The trap is that a clean reinstall gets chosen *because* it looks safer — it is safer for the program and destructive for the data, and that asymmetry is invisible until afterwards.
+
+So, before step 1 below:
+
+- **Copy `config.toml` out of the data root** to a scratch directory. Re-derivable data (vectors) costs hours to rebuild; hand-maintained config (project paths) is unrecoverable. Back up the irreplaceable thing even when you are confident it is out of scope.
+- **Enumerate the data root** (`%LOCALAPPDATA%\RAGTools\data\` on Windows, `~/Library/Application Support/RAGTools/data/` on macOS) and note what is in it.
+- **State out loud which directory you expect to survive** before running the uninstaller, so a wrong expectation gets challenged before it costs an index.
+
 1. **Uninstall** via Windows "Add or Remove Programs" (the installer has an uninstaller). During uninstall, it prompts whether to keep user data — say **YES** to keep, **NO** for a fresh start.
 2. **Download** the latest `RAGTools-Setup-{version}.exe` from GitHub releases.
 3. **Run the installer.** User data is preserved if you said "Yes".

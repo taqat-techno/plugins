@@ -27,7 +27,7 @@ from textwrap import dedent, indent
 
 # First names and last names for realistic partner names
 FIRST_NAMES = [
-    'Ahmed', 'Mohammed', 'Sarah', 'Emma', 'Liam', 'Olivia', 'Noah', 'Ava',
+    'Yusuf', 'Mohammed', 'Sarah', 'Emma', 'Liam', 'Olivia', 'Noah', 'Ava',
     'Oliver', 'Isabella', 'William', 'Sophia', 'James', 'Charlotte', 'Benjamin',
     'Mia', 'Lucas', 'Amelia', 'Mason', 'Harper', 'Ethan', 'Evelyn', 'Alexander',
     'Abigail', 'Henry', 'Emily', 'Sebastian', 'Elizabeth', 'Jack', 'Layla',

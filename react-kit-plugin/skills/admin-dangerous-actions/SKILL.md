@@ -5,6 +5,7 @@ version: 0.2.0
 last_reviewed: 2026-05-28
 owns:
   - friction-proportional-to-blast-radius rule
+  - the "it should ask me first" triage rule (a missing-confirmation request also demands checking what the action does when it succeeds, plus the lying-form check)
   - confirmation modal contract (consequence summary, type-to-confirm, audit-on-action)
   - two-step button pattern
   - destructive-action affordance (color, position, label, never the default focus)
@@ -53,8 +54,21 @@ Before adding a destructive action:
 3. **What is the blast radius?** Single record? Many records? Other users' data? Money? Account access?
 4. **Does an audit-log entry already exist for this action class?** If not, add audit before adding the UI.
 5. **Is the API endpoint idempotent?** Repeated clicks must not produce extra effects (avoids confirmation-bypass via network retry).
+6. **What happens when the action SUCCEEDS without asking?** Run the path that currently works and inspect the resulting records, not just the response. This is the step that gets skipped when the request arrives as "it should ask me first."
+7. **Does the form actually persist what it claims to change?** A control bound to a value that is only a filter / a derived display field — not a stored column — saves nothing while reporting success. A form that lies about a change is a data bug wearing a UX complaint.
 
 ## Decision framework
+
+### "It should ask me first" is a two-part finding
+
+When a user reports that a destructive or structural action "just does it — it should ask me", the literal request is a missing confirmation. Treat that as the visible half only. The invariant the confirmation was protecting is usually the expensive half, and it is already broken today on the path that works — nobody notices, because the dialog is what they were looking at.
+
+Two defects hide behind this request often enough to check for both by default:
+
+- **The lying form.** The changed control maps to something that is not a stored field (a filter, a computed label, a scoping selector), so the save persists nothing and still reports success. No confirmation would have helped; the change never happened.
+- **The unmaintained invariant behind the path that DOES work.** Re-parenting or re-classifying a record leaves descendants carrying the old parent's derived foreign keys / denormalized columns, which then drive selection, reporting, and analytics wrongly long after the visible field looks right.
+
+So: ship the confirmation friction the blast-radius table demands, AND report what the action does when it succeeds. If only the dialog is added, the user stops complaining and the data stays wrong.
 
 ### Friction-proportional-to-blast-radius
 
@@ -71,7 +85,7 @@ The friction is non-negotiable per row of this table. "Just this once, it's fast
 
 A confirmation modal for any high-blast action must include:
 
-1. **Title** that names the action and target. "Delete user `ahmed`" — not "Are you sure?".
+1. **Title** that names the action and target. "Delete user `sam.rivera`" — not "Are you sure?".
 2. **Consequence summary** — 1–3 sentences describing what happens.
    - "All open sessions will be terminated."
    - "Their 412 attached records will be archived."
@@ -101,14 +115,14 @@ A confirmation modal for any high-blast action must include:
 
 ```
 +----------------------------------------------+
-| Delete user "ahmed.shafiq"?                  |
+| Delete user "sam.rivera"?                    |
 |                                              |
 | This will permanently:                       |
 |  - Remove the user                           |
 |  - Terminate 3 open sessions                 |
 |  - Archive 412 records                       |
 |                                              |
-| Type "ahmed.shafiq" to confirm:              |
+| Type "sam.rivera" to confirm:                |
 | [____________________________]               |
 |                                              |
 |                  [Cancel]  [Delete (disabled)]
@@ -135,7 +149,7 @@ Bulk delete of N records is its own category:
 
 If the backend supports restore-within-window (soft delete):
 
-- After the action, show a non-modal toast: "User `ahmed` deleted — Undo (29s)".
+- After the action, show a non-modal toast: "User `sam.rivera` deleted — Undo (29s)".
 - Clicking Undo within the window restores.
 - The toast does not block; the user can move on.
 - After the window expires, the data is hard-deleted by a backend job.
@@ -176,6 +190,7 @@ await auditLog.write({
 
 - **Never** ship a destructive action without confirmation friction proportional to blast radius (see table).
 - **Never** ship a destructive action without an audit-log entry.
+- **Never** close out a "it should ask me first" request by adding only the dialog — verify what the action does when it succeeds, and that the form persists what it claims to change.
 - **Never** make the destructive button the modal's default focus.
 - **Never** use the brand's primary color for destructive buttons.
 - **Never** place "Delete" and "Save" adjacent without a separator.
@@ -189,6 +204,7 @@ await auditLog.write({
 Before committing a destructive action:
 
 - [ ] Blast radius classified (low / medium / high / extreme).
+- [ ] If this started as a "should ask me first" report: the success path was inspected at the record level, and the form was confirmed to persist the field it claims to change.
 - [ ] Friction matches blast radius per the table.
 - [ ] Modal title names the action AND the target.
 - [ ] Consequence summary lists 1–3 concrete effects.
@@ -228,6 +244,8 @@ DESTRUCTIVE ACTION
 | Soft-delete + no undo affordance | User knows they can restore but cannot find how | Toast with Undo for the duration |
 | Type-to-confirm using the record's UUID | Users do not type UUIDs; they paste — bypasses the safeguard | Use the natural identifier (name / username / slug) |
 | Same modal style for "archive draft" and "delete account" | Drains attention; users dismiss the dangerous one as routine | Friction matches blast radius |
+| Answering "it should ask me first" with only a confirmation dialog | The complaint is about the dialog; the invariant it was protecting is usually already broken on the path that works, and the fix hides it | Add the friction AND inspect what the action does on success (descendant/derived fields, denormalized columns) |
+| A form control bound to a filter or derived value, reported as saved | The save persists nothing while claiming a change — a data bug arriving as a UX complaint | Confirm every editable control maps to a stored field before adding friction around it |
 | Audit log not written on cancellation | Fine | (cancellation is not an action) |
 | Audit log written only on success | Lost forensic trail when the action failed mid-flight | Write at attempt with outcome field |
 

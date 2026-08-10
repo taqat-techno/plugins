@@ -49,6 +49,19 @@ cascade FK review:
      recommendation: <RESTRICT | SET NULL | ok-as-cascade>  [BLOCKING if reaches retain]
 ```
 
+## One gate must not answer two questions with opposite costs
+
+A cutover that rebuilds a new artifact, verifies it, then removes the old one tends to grow a **single** predicate — a `validate()` / `is_ready()` / verification helper — that ends up answering two different questions:
+
+- *"Is the new artifact complete enough to serve?"* — being wrong costs the **service**. This wants to **fail open**.
+- *"Is it verified well enough that the old one may be deleted?"* — being wrong costs the **data**. This wants to **fail closed**.
+
+Those biases are opposite and one predicate can only carry one of them. Sharing it forces the conservative bias onto both, so a purely **diagnostic** mismatch — a row/document count that does not line up, a sampler that cannot read one shard — disables the working product indefinitely without bringing the delete decision any closer. Wiring it the other way is worse: the permissive bias then authorises the destructive step.
+
+**Rule:** split the predicate. Compute the availability decision and the destructive decision separately, each from the evidence it actually needs, and allow them to disagree — *"serving from the new artifact, old artifact retained"* is a legitimate state to sit in indefinitely, and it is the state a half-verified cutover should land in.
+
+**The question to ask of every check in a cutover:** *if this check is wrong, do I lose data or do I lose the service?* If both answers show up under one condition, that is the bug. Where a single check genuinely cannot be split, bias it toward the **recoverable** error: a wrong "not ready yet" is retried and self-corrects, a wrong "verified — delete it" has no recovery.
+
 ## Pre-destructive gate (checklist)
 
 - [ ] Every `DROP` / `DELETE` / `TRUNCATE` in this change enumerated.
@@ -56,6 +69,7 @@ cascade FK review:
 - [ ] All `ON DELETE CASCADE` FKs inventoried, including cascade chains.
 - [ ] No cascade reaches a financial/audit/historical table unreviewed (else BLOCKING).
 - [ ] A timestamped, restorable backup exists (see `cutover-skeleton.md`) before any destructive step.
+- [ ] The predicate authorising the destructive step is separate from any predicate deciding availability; each was asked "if this is wrong, do I lose data or the service?"
 - [ ] Old artifacts will be archived by rename, not dropped, in this change.
 
 ## Platform note (labeled examples only)

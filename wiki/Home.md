@@ -17,7 +17,7 @@ A curated Claude Code plugin catalog published at **[github.com/taqat-techno/plu
 > | [[Remotion Plugin\|Remotion-Plugin]] | [Remotion](https://remotion.dev) — installed by `/remotion <name>` |
 > | [[Ntfy Plugin\|Ntfy-Plugin]] | [ntfy.sh](https://ntfy.sh) |
 
-The marketplace targets a single power-user workflow: real client projects at TAQAT Techno, not templates or demos. Every plugin is evidence-grounded in real operational incidents — Project Alpha migration, the Aqraboon emergency-assistance runbook retrieval incident, ragtools' v2.4.1 data-loss bug, etc.
+The marketplace targets a single power-user workflow: real client projects at TAQAT Techno, not templates or demos. Every plugin is evidence-grounded in real operational incidents — the Project Alpha migration, a client runbook-retrieval failure, ragtools' v2.4.1 data-loss bug, etc.
 
 ## Quick navigation
 

@@ -45,8 +45,12 @@ EXPECTED_TIERS = {
 #: Where a ragtools checkout might be. First hit wins; absent -> visible skip.
 _SOURCE_CANDIDATES = [
     Path(os.environ.get("RAGTOOLS_SOURCE", "")) if os.environ.get("RAGTOOLS_SOURCE") else None,
-    Path(r"C:/MY-WorkSpace/rag/.claude/worktrees/v3.5.0"),
-    Path(r"C:/MY-WorkSpace/rag"),
+    # A ragtools checkout sitting beside the marketplace checkout, resolved from
+    # this plugin's own location rather than any one machine's workspace path:
+    # <marketplace-parent>/rag, newest worktree first.
+    *sorted((PLUGIN_ROOT.parents[2] / "rag" / ".claude" / "worktrees").glob("*"),
+            reverse=True),
+    PLUGIN_ROOT.parents[2] / "rag",
     Path.home() / "rag",
 ]
 

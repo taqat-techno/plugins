@@ -46,7 +46,7 @@ OPERATIONAL_FIXTURES: list[str] = [
     "how do I start the bot in WSL?",
     "start the ragtools service",
     "stop my langgraph worker",
-    "where is openclaw installed on my machine?",
+    "where is ripgrep installed on my machine?",
     "is rag on PATH?",
     "what's running on port 21420?",
     "fix the broken qdrant lock",

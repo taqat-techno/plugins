@@ -45,6 +45,17 @@ The routing skill that owns the diagnostic workflow. It decides which probes to 
 
 Reference docs hold the heavy, platform-specific detail so the skill body stays a thin router. Add new failure modes by extending a reference doc first, then wiring it into the skill.
 
+### `windows-script-and-task-authoring`
+
+The upstream half of the same boundary. Where `env-doctor` fires on a **symptom** that already happened, this skill fires **before the artifact exists** — before a `.ps1`/`.cmd`/`.vbs` is written, before a Scheduled Task is registered, before a process-inventory sweep, and before a Windows-native tool is invoked from Git Bash. It owns the authoring reflexes that stop the symptom being created: the ASCII-or-BOM rule for Windows PowerShell 5.1, encoding on both sides of a read-modify-write, case-insensitive variable collisions, the Scheduled Task `Execute`-is-the-whole-path rule and UTF-16 task XML, the deliberate registration choices (RunLevel, hidden-window wrapper, `ExecutionTimeLimit`, argv-over-environment), the 32-bit-host blind spot in a process audit, the MSYS path-translation hazards, and the vary-one-dimension-at-a-time discipline on a refusal.
+
+It ships two reference documents:
+
+1. **`references/scheduled-task-authoring.md`** — registration recipes, the hidden-window VBS wrapper, the elevation escape hatch, and the export/rollback contract.
+2. **`references/shell-boundary-hazards.md`** — command-level MSYS/WSL translation workarounds and the bitness-safe process query.
+
+The two skills do not overlap: recovery for a command that has **already** misbehaved stays in `env-doctor`'s `references/windows-powershell.md`; this skill owns only the choice made before the command is written.
+
 ## Agent
 
 ### `env-probe-reporter` (read-only)

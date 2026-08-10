@@ -78,7 +78,7 @@ cd $HOME
 git clone https://github.com/taqat-techno/plugins.wiki.git wiki-taqat-techno
 
 # Copy source files (exclude this README)
-Copy-Item -Path "C:\MY-WorkSpace\claude_plugins\plugins\wiki\*.md" -Destination "$HOME\wiki-taqat-techno\" -Exclude "README.md"
+Copy-Item -Path "<workspace>\claude_plugins\plugins\wiki\*.md" -Destination "$HOME\wiki-taqat-techno\" -Exclude "README.md"
 
 # Commit and push
 cd $HOME\wiki-taqat-techno

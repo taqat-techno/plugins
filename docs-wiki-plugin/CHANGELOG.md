@@ -5,7 +5,7 @@ All notable changes to `docs-wiki-plugin` are documented here. Format follows [K
 ## [0.7.0] — 2026-06-22 — Build-any-wiki enhancement: hub-first IA, resolution-based links, single-master-swimlane, traceability
 
 A single-owner enhancement across the wiki skills, distilled by a multi-agent analysis of a
-real Azure DevOps wiki session report (Smart Archive). The goal: build any wiki with the best
+real production Azure DevOps wiki session report. The goal: build any wiki with the best
 structure and avoid the mistakes that session hit — above all the Azure link-resolution bug
 where a path-existence audit false-passes while links are actually broken.
 

@@ -9,7 +9,7 @@ owns:
   - Tailwind logical-utility convention (`ms-`/`me-`/`ps-`/`pe-`/`start-`/`end-`)
   - icon-mirroring catalogue (which icons flip, which stay)
   - LTR-locked content (code, charts, numeric tables, dates in technical contexts)
-  - text-align: start/end vs left/right
+  - "text-align: start/end vs left/right"
   - keyboard focus order in RTL
 defers_to:
   - admin-shell (where the direction wrapper is mounted)

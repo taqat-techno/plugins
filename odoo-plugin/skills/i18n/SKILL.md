@@ -84,6 +84,8 @@ Provides deep expertise in Odoo internationalization (i18n) and localization (l1
 5. **Save `.po` files as UTF-8** without BOM
 6. **Arabic** `.po` files must have `nplurals=6` in Plural-Forms header
 7. **Always update the module** after editing `.po` files: `-u module --stop-after-init`
+8. **NEVER export a language onto the module's own `i18n/<lang>.po`** -- the exporter truncates its output file before it lazily reads code translations from that same file, so they export empty. Export to a fresh `--output` path, then merge back by `msgid`
+9. **Restart the server after editing a `.po`** -- code translations are cached per process, keyed `(module, lang)`, and a registry reload does not drop that cache
 
 ---
 
@@ -146,12 +148,35 @@ msgstr ""
 ### Alternative: Odoo's Built-in Extractor
 
 ```bash
+# Export to a FRESH file — never onto the module's own i18n/<lang>.po
 python odoo-bin -c conf/myproject.conf -d mydb \
     --i18n-export --modules=my_module --language=ar \
-    --output=my_module/i18n/ar.po --stop-after-init
+    --output=/tmp/my_module_ar_fresh.po --stop-after-init
 ```
 
 The Odoo CLI extractor includes database strings (model names, action names) that the plugin extractor does not. For production, the built-in extractor is more complete.
+
+**Never point the export output at the file it is about to read.** The exporter opens the
+output path with mode `'wb'` **before** the export runs, i.e. it truncates it first. Code
+translations (`odoo-python` / `odoo-javascript` terms) are read **lazily from that same
+`i18n/<lang>.po`** during the export, so if the output path *is* that file they are read from
+a zero-byte file and every code term exports with an empty `msgstr`. Model terms come from
+the database's JSONB columns and survive, which is what makes the damage look partial and
+plausible — a large share of a catalogue can disappear in one command that reports success.
+
+The safe loop:
+
+1. Export to a **fresh** `-o` / `--output` path outside the module.
+2. Merge translations from the old file into the fresh one — match by `msgid`, fill only
+   empty `msgstr` — then replace the module's file with the merged result.
+3. That merge is also the correct way to refresh a **stale** catalogue: the fresh export
+   carries the current occurrence references (`#: model:...`), and the **importer needs those
+   references to map model terms**. A `.po` whose references point at other models/records
+   imports as a silent no-op for the fields you care about.
+4. **Restart the server after editing a `.po`.** Code translations are served at runtime from
+   the po file through a per-process cache keyed `(module, lang)`; a registry-signal reload
+   does not drop that cache. Model terms live in the database and need an `i18n` import (or a
+   module update) instead.
 
 ### After Extraction
 
@@ -284,10 +309,11 @@ Requires PostgreSQL and a valid database.
 ### Exporting Translations
 
 ```bash
-# Single module
+# Single module — output to a fresh path, then merge back (see Workflow 1:
+# the exporter truncates its output file before reading code translations from it)
 python odoo-bin -c conf/myproject.conf -d mydb \
     --i18n-export --modules=my_module --language=ar \
-    --output=my_module/i18n/ar.po --stop-after-init
+    --output=/tmp/my_module_ar_fresh.po --stop-after-init
 
 # Export .pot template (no --language = empty msgstr)
 python odoo-bin -c conf/myproject.conf -d mydb \

@@ -8,8 +8,10 @@ owns:
   - database-level integrity rules (CheckConstraint, UniqueConstraint, db_index, Meta.indexes)
   - the N+1 detection + fix decision (select_related for FK/O2O, prefetch_related for M2M/reverse FK)
   - over-fetch rules (only/defer, values/values_list, exists/count vs len/bool)
+  - aggregation/group-by correctness (bare `.order_by()` before values/annotate; counts from the same filtered queryset)
   - bulk-operation rules (bulk_create/bulk_update/in_bulk, update() vs save() loops)
   - transaction-boundary rules (atomic scope, select_for_update, on_commit)
+  - silent data-drift traps (update_fields-gated derived fields, filtering an encrypted field by plaintext, deferrable FKs for re-parenting)
 defers_to:
   - django-migrations (how a model change becomes a safe migration)
   - django-performance (caching, denormalization, async, pagination at scale)
@@ -47,6 +49,7 @@ Do NOT use for: writing the migration file itself (→ `django-migrations`), cac
 ### Relations
 
 - **`on_delete` is mandatory and meaningful.** Choose deliberately: `CASCADE` (child owned by parent), `PROTECT` (block deletion — referential safety), `SET_NULL` (requires `null=True`), `RESTRICT`. Never default to `CASCADE` for financial/audit rows.
+- **A row can be destroyed by several independent mechanisms — enumerate them before believing you stopped a cascade.** `on_delete` is only one of them. An application-level soft-delete cascade list, a collector/`post_delete` hook, and a raw `ON DELETE CASCADE` carried by a constraint emitted in a `RunSQL` migration each delete the child on their own. Changing `on_delete` or emptying the cascade list neutralizes only the Python half — the DB constraint still fires on any hard delete regardless of what Python believes. Worse, a constraint added inside a backend-guarded migration **does not exist in a SQLite test DB**, so a green suite proves the Python cascade was fixed and says nothing about the dangerous half. List every mechanism that can delete the row and check which of them your test database even has. The cheapest fix is often ordering rather than schema: **detach the children first**, so by the time the `DELETE` runs there are zero referencing rows and the DB cascade matches nothing — bypassed by having no work to do, which is why it can ship with no migration at all.
 - **Always set `related_name`** (or `related_name="+"` to disable the reverse accessor). Unnamed reverse accessors (`foo_set`) are ambiguous when a model has two FKs to the same target.
 - **`null` vs `blank`**: `null` is database-level (column nullable), `blank` is validation-level (form/serializer allows empty). For string fields prefer `blank=True` without `null=True` — Django convention is empty string, not NULL, to avoid two "empty" states.
 - **M2M with extra data → explicit `through` model.** The moment a relationship needs its own attributes (role, quantity, joined-at), model the join table, don't bolt fields elsewhere.
@@ -90,6 +93,24 @@ for post in Post.objects.select_related("author"):
 - **`exists()`** instead of `if queryset:` (which evaluates the whole set). **`count()`** instead of `len(queryset)` when you don't need the rows.
 - **`iterator()`** for large reads you process once, to avoid caching the whole result set in memory.
 
+## Aggregation & grouping
+
+- **Insert a bare `.order_by()` before `.values(...).annotate(...)`.** Django adds every ORDER BY column to the GROUP BY, so an inherited `Meta.ordering` — or any earlier `order_by()` on the queryset — silently widens the grouping key and **inflates the counts**: one bucket per (group value, ordering value) pair instead of one per group. An empty `.order_by()` clears the inherited ordering; apply the ordering you actually want *after* the `annotate()`.
+- **Group counts must come from the same filtered queryset the list uses.** A grouping/aggregation endpoint that starts from `Model.objects.all()` while the list endpoint runs through the view's scoping and filter layer reports buckets — and totals — the caller is not allowed to see. Build it from the same source (`self.filter_queryset(self.get_queryset()).order_by()`), so record-level scoping, search, and every declared filter still apply to the counts.
+- **Prove group scoping with a non-privileged user.** A grouping test written as an admin passes even when scoping is broken, because the admin bypasses record-level rules; assert as an ordinary user that another user's rows appear in no bucket.
+
+```python
+# Inflated: Meta.ordering = ["created_at"] joins the GROUP BY
+qs.values("status").annotate(n=Count("id"))
+
+# Correct: clear the inherited ordering first, order the result after
+(self.filter_queryset(self.get_queryset())
+     .order_by()
+     .values("status")
+     .annotate(n=Count("id"))
+     .order_by("status"))
+```
+
 ## Bulk operations
 
 - **`bulk_create(objs)`** / **`bulk_update(objs, fields)`** instead of a `save()` loop. Note: `bulk_create` does NOT call `save()`, send `pre_save`/`post_save` signals, or (on most backends) populate PKs unless supported.
@@ -102,6 +123,8 @@ for post in Post.objects.select_related("author"):
 - **`select_for_update()`** (inside `atomic`) to lock rows you read-then-modify, preventing lost updates under concurrency (e.g. decrementing stock).
 - **`transaction.on_commit(callback)`** for side effects that must only fire if the transaction commits (enqueue a Celery task, send an email) — never enqueue inside the transaction, or the worker may run before the row is visible.
 - Beware: signals and `save()` inside `atomic` still run; only the DB write rolls back, not external side effects already performed.
+- **Concurrency does not create write contention, it makes latent contention reachable.** A serial loop can never have two writes outstanding, so it can never lose one; replacing it with a worker pool surfaces contention that was always there. **SQLite takes one global write lock regardless of which rows are touched** — the second concurrent writer gets `sqlite3.OperationalError: database is locked` even on unrelated tables — while Postgres locks per row, so the same change can fail locally and pass in production. (Postgres is not immune: two *cascading* deletes meeting in one subtree can still deadlock.) Before widening anything to run concurrently, check what the write path actually locks on the engine each environment uses.
+- **Gate a contention retry on the HTTP status, never on the database's error text.** With `DEBUG=False` the server returns a generic error envelope, so the words "database is locked" / "deadlock detected" never reach the client — a string match on the message passes locally and is silently inert in every deployed environment. And retry only **idempotent** operations: never retry a considered refusal (409/403) or a throttle (429), which will just repeat the same answer.
 
 ## ORM silent data-drift traps
 
@@ -124,6 +147,10 @@ These return "success" — no exception, a 200, a saved row — while the data i
 - A `filter()`/`get()`/`order_by()`/`unique` on an at-rest-encrypted field using a plaintext value → compares against ciphertext, silently matches nothing.
 - A self-referential or composite FK that rows are re-parented across, with no deferrable constraint → the reparent 500s mid-transaction on Postgres.
 - A partial `UniqueConstraint(condition=…)` relied on for DRF validation → the auto `UniqueTogetherValidator` drops the condition; add a serializer-side scoped validator.
+- `.values(...).annotate(Count(...))` on a model with `Meta.ordering` and no bare `.order_by()` → the ordering columns join the GROUP BY and inflate every count.
+- A group-count/aggregation endpoint built from `objects.all()` while the matching list endpoint is scoped and filtered → counts disclose rows the list never shows.
+- "We stopped the cascade" backed only by a green SQLite suite → a raw `ON DELETE CASCADE` added in a backend-guarded migration doesn't exist there and was never exercised.
+- A retry loop that matches on a database error string, or that retries a 409/403/429.
 
 ## Report format
 

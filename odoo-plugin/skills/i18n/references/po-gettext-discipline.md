@@ -108,6 +108,14 @@ odoo-bin -d <db> --i18n-import=<module>/i18n/<lang>.po --language=<lang> --stop-
 
 Hard rule: **never fork duplicate `_<lang>` view trees** (or shadow models) to carry translations. All language variants of a view come from the same `arch` translated through `model_terms:ir.ui.view,arch_db:...` entries in the `.po`. One arch, one set of typed term references, many languages.
 
+### Theme modules: the `.po` must exist before the theme is copied
+
+The same rule holds for a `theme_*` module, with one extra ordering constraint. Keep the **source language in the arch** and ship the translation as `i18n/<lang>.po` — do not bake the target language into the QWeb, even when the site only ever serves that language. (A hard-coded target language also breaks the *other* language's site, which is how this is usually discovered.)
+
+Theme content lives on mirror models: `theme.ir.ui.view` archs and `theme.website.menu` names. Their **translations propagate into the per-website concrete copies during the theme's post-copy step**, so the `.po` alone is sufficient — no per-website translation work is needed — *provided the catalogue is present in the module before the copy runs*. A theme copied first and translated afterwards leaves the concrete records untranslated, because the copy took what existed at the time.
+
+Order of operations: activate the languages → make sure `i18n/<lang>.po` is in the theme module → apply the theme. See `skills/upgrade/references/theme-load-and-cli-upgrade.md` for what re-triggers the copy (an `-u` does not re-run post-copy) and for the translated-fields mapping that decides which fields carry translations at all.
+
 ## 4. Encoding: PO files are UTF-8, decode them as UTF-8
 
 `.po` and `.pot` files are UTF-8 (the header declares `Content-Type: text/plain; charset=UTF-8`). Any tooling you write to read, rewrite, or diff these files must decode the bytes **explicitly as UTF-8**.
@@ -138,4 +146,5 @@ If you only need to read or count entries, prefer a real PO library (it gets bot
 - Typed references (`field_description`, `help`, selection `name`, view `arch_db`) come from the Odoo i18n export, never hand-written paths.
 - After any user-facing source-string edit, re-export the `.pot` and re-merge -- treat orphaned/fuzzy `msgid`s as untranslated.
 - One source tree per module: export `.pot`, `msgmerge --previous`, fill new/fuzzy, reload. No duplicate `_<lang>` view trees.
+- Theme modules keep source-language archs and ship `i18n/<lang>.po`; the catalogue must be in the module **before** the theme is applied, since post-copy carries translations into the per-website copies.
 - Read/write `.po`/`.pot` as explicit UTF-8; handle gettext quote escapes separately; never use a `unicode_escape`-style codec on PO bytes.

@@ -12,9 +12,9 @@ This directory is the bundled references library for the `ragtools-ops` skill. F
 
 | Field | Value |
 |---|---|
-| Source document | `ragtools_doc.md` (workspace root: `C:/MY-WorkSpace/claude_plugins/ragtools_doc.md`) |
+| Source document | `ragtools_doc.md` (at the marketplace workspace root) |
 | Source repo | `https://github.com/taqat-techno/rag` |
-| Source repo path | `C:/MY-WorkSpace/rag` (workspace checkout) |
+| Source repo path | local ragtools checkout (path varies by machine) |
 | ragtools version at split time | 2.4.2 |
 | **ragtools version last verified against** | **3.5.1** (2026-08-02) |
 | **Plugin compatibility band** | **supported 2.5.0 – 3.5.x · target 3.5.1 · degraded 2.5.0–2.6.x · unsupported < 2.5.0** (D-011) |
@@ -47,7 +47,7 @@ These files are an **operational reference**, not a tutorial and not aspirationa
 
 When ragtools releases a new version:
 
-1. Re-read upstream `ragtools_doc.md` and `C:/MY-WorkSpace/rag/CHANGELOG.md`.
+1. Re-read upstream `ragtools_doc.md` and the ragtools checkout's `CHANGELOG.md`.
 2. Update only the files affected by the diff.
 3. Bump the version row in this file (and the compatibility band in `plugin.json` if needed).
 4. Add an entry to `../../../docs/decisions.md` if a behavioral assumption changes.

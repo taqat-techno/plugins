@@ -5,6 +5,7 @@ version: 0.2.0
 last_reviewed: 2026-05-28
 owns:
   - the paired-gate rule (every UI gate has a matching API gate)
+  - the inverse direction — a visible affordance whose endpoint denies it is a false affordance; mirror the endpoint's permission on the button and park the RBAC policy question instead of widening the gate
   - role-aware menu pattern
   - PII masking pattern in admin views (mask by default, reveal on explicit user action + audit)
   - audit-log visibility scoping
@@ -78,6 +79,16 @@ Every visible-or-not UI decision MUST have a matching server-side gate:
 
 The UI gate is for ergonomics (cleaner screens, less confusion). The server gate is for security. **Removing the UI gate must NEVER expose data or actions** — if it does, the server gate is missing.
 
+### The inverse — a visible affordance the endpoint denies
+
+The paired-gate table above runs in one direction (hidden in the UI must also be denied by the API). The other direction is a defect too, and it is the one that arrives disguised as a bug report: **an action the user can see and click, whose endpoint refuses their role.** The UI gate and the endpoint's gate were written against different predicates, so the button is advertised to a role that cannot use it.
+
+This surfaces most often while "fixing" a broken action. A malformed request produces some 400-class failure, the malformed payload gets corrected, and the click now reaches an endpoint gated to a stricter role than the button — a 400 has simply been traded for a 403. Both are broken; only the error code changed.
+
+- When fixing a failing action, read the ENDPOINT's permission requirement and mirror it on the affordance, in the same change. Otherwise you ship a false affordance.
+- **Do not widen the endpoint's gate to make the button work.** "Should this role be allowed to do this?" is an RBAC policy decision. Align the UI down to the backend, then PARK the policy question for a human with the two options stated (grant the role, or keep the action admin-only). Quietly loosening a gate to clear a bug report is how a permission model erodes — and it is the same act the "never weaken an existing role check" gate below forbids, just arriving through a UI bug instead of a request.
+- If the affordance must stay visible for discoverability, it is disabled with the reason shown ("Requires admin"), never enabled into a 403.
+
 ### Role-aware menu pattern
 
 ```tsx
@@ -140,12 +151,16 @@ The pattern: scope the audit query by `actor_visible_to(reader_role)` — never 
 - **Never** write a role-conditional render without verifying the server gate exists. The plugin's `/admin-audit` command catches this; the agent `admin-route-auditor` catches it.
 - **Never** make audit-log writes optional or fire-and-forget. If audit write fails, the action fails.
 - **Never** weaken an existing role check ("temporarily allow X to do Y") without an audit-log entry on the change itself AND an expiry date.
+- **Never** widen an endpoint's permission to make a broken button work — mirror the endpoint's requirement on the affordance and park the "should this role be allowed?" decision for a human.
+- **Never** call an action fixed while its affordance is gated by a different predicate than its endpoint — that trades one failure code for a 403 false affordance.
 
 ## Validation checklist
 
 Before committing an admin change involving roles, permissions, or PII:
 
 - [ ] Every new conditional render has a documented server gate (file path + function name).
+- [ ] Every visible action's UI gate uses the SAME predicate as its endpoint (no enabled control that resolves to 403).
+- [ ] Any "should this role be allowed?" question raised while fixing an action is parked for a human, not resolved by widening the gate.
 - [ ] Every new menu item has its role list in the matrix.
 - [ ] Every new PII field renders masked by default.
 - [ ] Every reveal action writes an audit-log row before exposing the value.
@@ -181,6 +196,8 @@ When auditing an existing route, output the Markdown table defined by `admin-rou
 | Hiding sensitive fields with `display: none` | The field is still in the DOM / Redux store / React tree / network response. | Omit on the server. |
 | `try { await audit(...) } catch {}` | Audit silently fails; you lose the forensic trail. | Let audit failure fail the action. |
 | Role list duplicated in 12 components | One forgotten place becomes a bypass. | Single matrix, single derivation. |
+| Button gated by one permission, its endpoint by a stricter one | The action is advertised to roles that will get a 403 on click; "fixing" the request payload only trades a 400 for a 403. | Mirror the endpoint's requirement on the affordance in the same change; disable with a reason if it must stay visible. |
+| Relaxing the endpoint's role check so the visible button stops failing | Silently makes an RBAC policy decision through a bug fix; the permission model erodes one button at a time. | Align the UI down to the backend; park "should this role be allowed?" for a human with both options stated. |
 
 ## Portability rationale
 

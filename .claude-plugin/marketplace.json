@@ -141,7 +141,7 @@
     },
     {
       "name": "release-safety",
-      "description": "Provider-neutral release, deployment, and migration safety — verify a fix is actually deployed to the target environment (not just merged), diff environment secrets before promotion, detect migration drift, and run risky cutovers/migrations safely (discover, backup, stage+validate, additive cutover, archive-by-rename).",
+      "description": "Provider-neutral release, deployment, and migration safety — verify a fix is actually deployed to the target environment (not just merged), diff environment secrets before promotion, detect migration drift, run risky cutovers/migrations safely (discover, backup, stage+validate, additive cutover, archive-by-rename), and keep CI signals honest (sweep for gates that swallow their exit code, prove a gate can fail, push → wait for green → tag).",
       "author": {
         "name": "TaqaTechno",
         "email": "info@taqatechno.com"

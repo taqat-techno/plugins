@@ -72,6 +72,14 @@ The Playwright MCP server takes an **`--isolated`** flag that runs each session 
 
 Decision rule: if the workflow needs saved logins/state, keep the persistent profile and clear the stale lock with Steps 1-4 above. If it does not, launching the MCP with `--isolated` avoids the entire lock class. Propose this; do not flip a running MCP's launch flags mid-diagnosis.
 
+## Not a failure: a headless browser shows no window
+
+Before diagnosing either symptom above, rule out the non-fault. A browser MCP normally launches with `--headless`, and when the server itself runs inside a Linux VM (a WSL distro, a container) it launches the **bundled Linux Chromium** from Playwright's own cache — not the host's Windows/macOS browser. No GUI window ever appears, on purpose. "I can't see a browser" is therefore not a symptom: navigation, screenshots, DOM/accessibility snapshots and network capture all work exactly as normal.
+
+Prove health before touching anything: drive **one read-only action** — a screenshot or an accessibility snapshot — and confirm it returns content. A successful capture ends the diagnosis; only a genuine launch error routes to Symptom 1 or Symptom 2. Reinstalling a browser because no window appeared is a destructive answer to a healthy system.
+
+If a *visible* window is genuinely wanted, first confirm the VM actually has a GUI compositor available to render into (a display/Wayland socket present in the environment) — without one, removing `--headless` only converts a working headless launch into a failing one. When it is available, the flag lives in **two** places and both must change: the **active cached copy** of the config that the session actually spawns from, and the **marketplace/source copy**. Editing only the source changes nothing in the running session; editing only the cache is silently overwritten by the next plugin update. Propose both edits; do not flip a running MCP's launch flags mid-diagnosis, and note that a reconnect alone will not pick them up (see `references/mcp-not-loading.md` on stale server processes holding their spawn-time arguments).
+
 ## When qa-browser-plugin should reference this doc
 
 `qa-browser-plugin` (and any plugin that drives a Playwright/browser MCP for QA) should **link to this diagnosis rather than re-implementing it**. The browser-setup health check is environment-level, not QA-specific — it belongs in env-doctor and should have exactly one owner.

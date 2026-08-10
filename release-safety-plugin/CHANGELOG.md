@@ -2,6 +2,21 @@
 
 All notable changes to this plugin are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased] — CI-workflow and tag authoring safety
+
+### Added
+
+- **github-actions-release-safety skill (0.1.0)** — the authoring side of the two signals a team trusts (a green check, a published tag): the report-only-gate sweep and prove-it-blocks procedure at authoring/review time; the `workflow_dispatch` default-branch rule (a dispatchable workflow added on a feature branch has no Run button); the `timeout-minutes` scope trap (bounds execution, not queue time — a retired runner label queues silently to the 24-hour ceiling and withholds the run's downloadable logs); the push -> wait for green -> tag ordering and the fan-out PARTIAL-release mechanism; the tag-withdrawal order (cancel, confirm, delete, re-tag); the secret-presence guard that self-matches when a CI system expands its own macro inside script bodies (assert on decoded SHAPE, never the literal, never printed); and running a load-bearing gate's tool from a pinned standalone binary so a flaky daemon cannot create pressure to soften the gate.
+  - `references/gate-audit.md` — soft-fail token catalog + sweep command, prove-it-blocks recipe, shape-assertion patterns, tag-withdrawal sequence, queue-vs-execution triage.
+  - Boundaries: defers the report-only-gate rule statement and its deploy-time application to `release-verification`; the credential-compromise response to `agent-safety`; and SHA-pinning / approval-block / renamed-required-check rules to the devops plugin's `CI_HARDENING.md`.
+
+### Changed
+
+- `plugin.json` bumped to 0.3.0; description extended to cover the workflow/tag authoring side and keywords `github-actions`, `workflow-safety`, `release-tagging` added. Marketplace entry description updated to match.
+- `README.md` — added the `github-actions-release-safety` skill section and a "What it does" bullet for the green-check / tag signals.
+- `/release-verify` command — routes to the new skill and gained checklist item 7 (report-only gates, push → wait for green → tag). The "two skills" wording is now skill-count-neutral.
+- `release-verification` skill — the prove-it-blocks procedure is now a cross-reference to `github-actions-release-safety` rather than a restatement, and the sibling skill was added to its `defers_to` and Cross-references.
+
 ## [0.2.0] — 2026-07-23 — Deploy-liveness failure modes, cross-system migration, env drift
 
 ### Added

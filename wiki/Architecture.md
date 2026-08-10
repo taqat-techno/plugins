@@ -5,7 +5,7 @@ Shared architectural patterns across the 7 plugins in this marketplace. Individu
 ## Two-marketplace design
 
 ```
-C:\MY-WorkSpace\claude_plugins\
+<workspace>\claude_plugins\
 ├── plugins/                              ← THE WORKING MARKETPLACE (edit here)
 │   ├── .claude-plugin/marketplace.json   ← single source of truth
 │   ├── <7 plugin dirs>/

@@ -111,13 +111,13 @@ Create GitHub issue(s) now? [yes/no]
 
 - **If the user answers no** (or anything not affirmative): print `No issue created. Local report + issue bodies are at <dir>.` and stop. Nothing is filed.
 - **If the user answers yes:**
-  1. **Ensure GitHub auth + account.** These are `taqat-techno/*` repos, so per the workspace rule switch first (only if not already active): `gh auth switch --user a-lakosha`. If `gh` is missing or unauthenticated, do **not** fail — the script detects this and falls back to local-only.
+  1. **Ensure GitHub auth + account.** The routing repositories and the account to file as are **configuration, never hardcoded** — read them from the report routing config at `~/.claude/rag-plugin/config.json`, keys `report.repos.application`, `report.repos.plugin`, and `report.github_account`. The repo keys default to the upstream repositories declared in the plugin manifest; `report.github_account` has **no default** — when it is unset, file with whatever account `gh auth status` reports as active and do **not** switch. Only when `report.github_account` is set, and only if that account is not already the active one, switch to it first: `gh auth switch --user "$REPORT_GITHUB_ACCOUNT"` — and record the previously active account so Step 3.4 can restore it. If `gh` is missing or unauthenticated, do **not** fail — the script detects this and falls back to local-only.
   2. **File the issues** against the directory just generated — **no re-scan, no re-redaction**:
      ```bash
      python "${CLAUDE_PLUGIN_ROOT}/scripts/rag_report.py" --create --from "<dir>"
      ```
   3. **Relay the script's result verbatim:** `CREATED <repo>: <url>` per issue; `DUPLICATE <repo>: <existing url>` when an open issue with the same fingerprint already exists (nothing re-filed); or the local-only fallback line if `gh` was unavailable.
-  4. **Switch the account back:** `gh auth switch --user ahmed-lakosha`.
+  4. **Restore the previous account:** if — and only if — Step 3.1 switched accounts, switch back to the account that was active before: `gh auth switch --user "$PREVIOUS_GITHUB_ACCOUNT"`. If no switch happened, do nothing here; never leave the user on an account they did not start on.
 
 **Never** create issues without the explicit `yes`. **Never** hand-build the issue body — the script posts the clean, redacted, fingerprint-marked `_issue-body-*.md` automatically via `gh issue create --body-file`.
 

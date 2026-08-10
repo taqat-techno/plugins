@@ -34,8 +34,12 @@ grep -r "</tree>" --include="*.xml"
 **Error**: `Invalid view definition`
 
 #### Issue
-- `<group>` tags are NO LONGER ALLOWED inside `<search>` views
-- All filters must be at root level
+- The `expand` attribute is NO LONGER ALLOWED on `<group>` inside `<search>` views —
+  RelaxNG rejects it (`RELAXNG_ERR_INVALIDATTR: Invalid attribute expand for element
+  group`) and the registry fails to load
+- A **bare** `<group>` holding `group_by` filters is still valid (see §6); flattening the
+  filters to root level is the other valid form. Check `odoo/addons/base/rng/*.rng` rather
+  than guessing which elements survived
 
 #### Detection
 ```bash
@@ -742,7 +746,7 @@ grep -rn "attrs=" --include="*.xml" -r .
 | `[('field', 'not in', [...])]` | `field not in (...)` |
 | `[('field', '=', False)]` | `not field` |
 | `[('field', '=', True)]` | `field` |
-| `['|', cond1, cond2]` | `cond1 or cond2` |
+| `['\|', cond1, cond2]` | `cond1 or cond2` |
 | `['&', cond1, cond2]` | `cond1 and cond2` |
 
 ### Auto-Fix (simple cases)

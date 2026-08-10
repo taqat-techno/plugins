@@ -1,6 +1,6 @@
 ---
 name: wiki-authoring
-description: Content templates and authoring conventions for wiki pages — SOP, runbook, role guide, onboarding, release-and-handover, user manual, hub page, workflow doc, workflow-journey page, architecture overview, decision record, plus a recommended page set for a business/product wiki. Each template names its required sections, its audience, its last-reviewed convention, and the anti-patterns the template prevents. Activates when creating a new wiki page (via /wiki-new) or significantly restructuring an existing page.
+description: Content templates and authoring conventions for wiki pages — SOP, runbook, role guide, onboarding, release-and-handover, user manual, hub page, workflow doc, workflow-journey page, architecture overview, decision record, plus a recommended page set for a business/product wiki. Each template names its required sections, its audience, its last-reviewed convention, and the anti-patterns the template prevents. Also owns the descope-by-deletion rule (an out-of-scope feature becomes one Scope-page line, not a detailed future-phase page), the Needs-verification convention for genuinely undecided values, and the business-facing convention for backlog user stories derived from specification pages (no technical nouns in the story body, technical detail fenced under an explicit Out-of-Scope or Notes heading, and a story-count cap per feature). Activates when creating a new wiki page (via /wiki-new), significantly restructuring an existing page, descoping a documented feature, documenting a value nobody has decided yet, or drafting business backlog user stories from a specification page.
 version: 0.4.0
 last_reviewed: 2026-06-22
 owns:
@@ -14,6 +14,9 @@ owns:
   - canonical-section ordering per template
   - linkable subsection convention (anchor-friendly headings)
   - tenant/client neutralization discipline (per-hit classify-then-act; never a blind global find/replace)
+  - descope-by-deletion rule (an out-of-scope feature collapses to one Scope-page line; the detailed page is deleted and de-linked)
+  - undecided-value convention (tag it `Needs verification`; reconcile over author; never invent a threshold or policy)
+  - business-facing backlog-story convention (story body carries no technical nouns; technical detail is fenced under an explicit Out-of-Scope / Notes heading; 5-7 stories per feature, 8 max)
 defers_to:
   - wiki-structure (filename + URL slug rules; sidebar placement; IA hierarchy/tree-depth/sidebar order; Azure real-page mechanic; internal-link form)
   - wiki-mermaid (diagrams inside any page; orientation maps + focused diagrams; the master swimlane placement rule)
@@ -40,6 +43,7 @@ Activate when:
 - Creating a new wiki page (via `/wiki-new <Page-Name> --template <type>`).
 - Migrating an existing wiki page into a template (e.g., the page started ad-hoc and has grown into "the SOP").
 - Reviewing an inconsistent page against its template.
+- Drafting or reviewing business backlog user stories derived from a specification page (the story body is authored content and follows the same audience rule).
 
 Skip when:
 
@@ -84,6 +88,35 @@ Before a page is published or shared beyond the team that owns a name, every rea
 - **Operator / platform context** (the operating company, a vendor, a tool, the owning team) → **preserve**; neutralizing it would make the doc wrong.
 
 The full classification, the determinism rules, the decision flow, and the output plan live in `references/neutralization-discipline.md`. Apply the plan through `wiki-safe-updates` diff-preview so the owner sees which lines changed and which were deliberately left intact.
+
+## Descoped work, and values nobody has decided
+
+Two conventions govern what a page may say about work that is NOT happening, and about facts nobody has settled.
+
+**Descope by deleting the page — not by keeping a detailed "future phase" spec.** When a feature is ruled out of scope, reduce it to a **single out-of-scope line on the Scope page** (the decision, named, one line) and delete the detailed design page that described it. Detailed descoped content is *buildable*: a reader — or an agent that picks the wiki up as context — cannot tell "someone once designed this" from "this is the plan", and the leftover detail contradicts the pages that describe the real scope. What follows is cancelled work getting implemented, or decisions reasoned from two conflicting specs. A one-line entry preserves the decision without preserving anything anyone can implement. Run the deletion through `wiki-safe-updates` (`references/safe-doc-deletion.md`) so inbound references are swept and de-linked in the same change set — a deleted page that is still linked from a hub or sidebar leaves the same dangling invitation.
+
+This does **not** override the TARGET/aspirational labelling rule in `wiki-source-of-truth`. Both apply, to different pages:
+
+| The page describes | Action |
+|---|---|
+| Intended future work that is still in scope | Keep it; add the target label / move it to the target location (`wiki-source-of-truth`) — never delete |
+| A feature explicitly ruled OUT of scope | Collapse to one line on the Scope page; delete the detailed page and de-link its references |
+
+**Tag an undecided value `Needs verification` — never invent one.** When closing a documentation gap, prefer **reconciliation** (making inconsistent existing text agree) over **authoring** new claims. For a point that is genuinely undecided — a threshold, an SLA, a retention period, an approval policy — write what IS known and mark the missing piece `Needs verification`. Do not fill the blank with a plausible number: a wiki page reads as a commitment, so an invented value becomes a false product commitment that someone later implements, quotes to a customer, or audits against. The marker is a fixed string so the open questions stay greppable and can be closed by whoever actually owns the decision.
+
+## Backlog stories derived from a specification page
+
+A wiki that owns the specification is usually also the source a business backlog is written from — Epic → Feature → User Story. The story is a **business artifact** and inherits the audience rule the pages follow.
+
+**The story body stays business-facing.** It says what a person can do and why, in the vocabulary of the business. No endpoint or API names, no table / column names, no framework, component, module, service, queue, or job names, no file paths. This is not style policing: the body is what stakeholders read during refinement and quote back during acceptance, so a technical noun in it silently fixes an implementation nobody agreed to — and it goes wrong the moment that implementation changes, while the business need it was standing in for is still true. Then the story reads as false and the real requirement is lost inside a stale mechanism.
+
+**Fence the technical detail; do not delete it.** Where implementation context genuinely matters, put it under an explicit `Out-of-Scope` / `Excluded` / `Notes` heading in the same item, so a reader can see at a glance that it is context rather than the requirement. Sweep each finished story for technical-term leaks before it ships and accept a hit **only** inside that fenced section. A per-project forbidden-term list makes the sweep mechanical rather than a judgement call each time.
+
+**Keep the product's own vocabulary.** Never borrow a term from another product, another client's system, or the implementation stack — a borrowed word makes readers reason about the wrong system.
+
+**Cap the story set at 5-7 per Feature (8 hard maximum).** Past that the "feature" is really two features: the slices stop being independently reviewable and the set starts describing implementation steps instead of user outcomes. When a feature seems to need more than eight, split the **feature**, not the stories.
+
+Grounding each story in a real requirement id, and the readiness classes a story may carry, are owned by `wiki-traceability` — cite them, do not re-derive them here.
 
 ## Template catalogue
 
@@ -660,6 +693,10 @@ Default to "freeform" only when the page genuinely does not fit a template (Home
 - **Never** assume "Last reviewed" is today's date. Either ask the user or leave a placeholder.
 - **Never** include real PII / customer identifiers / secrets in template examples (the templates above use placeholders intentionally).
 - **Never** neutralize tenant/client names with a blind global find/replace — classify each hit first (active prose → neutralize; provenance → preserve byte-identical; operator/platform → preserve). See `references/neutralization-discipline.md`.
+- **Never** keep a detailed design page for a feature that was ruled out of scope — collapse it to one out-of-scope line on the Scope page and delete the page, de-linking its references in the same change set.
+- **Never** invent a threshold / SLA / policy value to finish a page — state what is known and tag the gap `Needs verification`.
+- **Never** put an API / table / component / queue / file-path name in a backlog story body — fence it under an explicit `Out-of-Scope` or `Notes` heading in the same item.
+- **Never** grow one Feature past 8 user stories — split the Feature instead.
 - **Never** prescribe a wiki page when a code-side comment / commit message / PR description is the right place.
 - **Never** lock a page into one template after creation — pages evolve; allow the maintainer to restructure.
 - **Never** emit a blank or link-only hub — a hub carries purpose + responsibilities table + curated links + the "summary, not source" note.
@@ -679,6 +716,10 @@ Before saving a new page:
 - [ ] Internal links follow `wiki-structure` convention.
 - [ ] Filename matches the page title per `wiki-structure`.
 - [ ] Any real tenant/client name was classified per `references/neutralization-discipline.md` (no blind global replace); provenance lines preserved byte-identical.
+- [ ] Any out-of-scope feature appears as a single Scope-page line, not as a detailed future-phase page.
+- [ ] Every genuinely undecided value is tagged `Needs verification`, not filled with a plausible one.
+- [ ] (Backlog story) the body is technical-term-free after a leak sweep; any technical detail sits under an explicit `Out-of-Scope` / `Notes` heading.
+- [ ] (Backlog story) the Feature carries 5-7 stories (8 max), each grounded and classified per `wiki-traceability`.
 - [ ] (Hub) non-empty — purpose + responsibilities table + curated links + "summary, not source" note.
 - [ ] (Hub) every child is reachable from the hub and backlinks to it.
 - [ ] (Journey) linked from the master workflow hub index and carries the "Authoritative detail: <spec page>" pointer.
@@ -717,6 +758,11 @@ PROPOSED NEW PAGE — <path>
 | Hub that copies a child's rule body so readers "don't have to click" | Creates a competing second source; drifts from the child | Summarise and link; the child owns the rule |
 | Journey page that restates the spec's contract / state machine | Duplicates the authoritative rules; goes stale silently | Defer via the "Authoritative detail: <spec page>" pointer |
 | Master swimlane duplicated onto each journey page | Multiple copies drift; the hub stops being the single map | Master swimlane on the hub only; focused diagrams on journeys |
+| Keeping a full "Phase 2" design page for a descoped feature | Buildable detail reads as the plan; devs and agents implement cancelled work or reason from two conflicting specs | One out-of-scope line on the Scope page; delete the detailed page and de-link its references |
+| Filling an undecided threshold with a plausible number so the page looks finished | The wiki reads as a commitment; the invented value gets implemented, quoted, and audited against | State what is known; tag the gap `Needs verification` |
+| Story body that names the endpoint, table, or component it will use | Fixes an implementation the business never agreed to, and reads as false once that implementation changes while the need stays true | Business outcome in the body; the technical note fenced under `Out-of-Scope` / `Notes` |
+| Splitting one Feature into 15 "stories" that are really build steps | Slices stop being independently reviewable; the set describes how, not what the user gets | 5-7 stories (8 max) per Feature; split the Feature itself when more are needed |
+| Borrowing a term from another product or from the stack to name a business concept | Readers reason about the wrong system and the story is accepted against the wrong behaviour | Use the product's own domain vocabulary only |
 
 ## Portability rationale
 
@@ -734,9 +780,10 @@ The skill does not depend on:
 - `wiki-source-of-truth` — owns the "summary, not source" doctrine that hubs and journey pages cite; which page is authoritative.
 - `wiki-mermaid` — diagrams inside any template (flowchart/sequence/state, rendered inline); orientation maps and focused diagrams; the master-swimlane placement rule. Already cross-referenced.
 - `wiki-plantuml` — BPMN-style swimlanes for multi-actor workflow pages (pre-rendered image); owns the master swimlane artifact and its render/embed pipeline. Already cross-referenced.
-- `wiki-safe-updates` — workflow for the actual write.
+- `wiki-safe-updates` — workflow for the actual write; `references/safe-doc-deletion.md` runs the capture-check and cross-reference sweep when a descoped page is deleted.
 - `wiki-link-validation` — verifies cross-references in templates.
 - `wiki-code-vs-docs-discrepancy` — applied if the page makes a claim contradicted by code.
 - `references/neutralization-discipline.md` — per-hit classification for tenant/client names (neutralize / preserve-provenance / preserve-platform).
 - `wiki-source-of-truth` — pairs with neutralization: current-state pages neutralize active prose; provenance / decision records preserve the named event.
+- `wiki-traceability` — owns the requirement-id grounding and the readiness classes a derived backlog story carries; this skill owns only the story's business-facing shape.
 - `/wiki-new` (command) — invokes this skill.

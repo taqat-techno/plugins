@@ -112,7 +112,7 @@ ragtools maps domain conditions to actionable HTTP rather than 500s. None of the
 | `UNKNOWN_PROJECT` | **404** | No such project; the router refuses to fall back to a shared collection | `list_projects()`; never guess twice |
 | `MIGRATION_IN_PROGRESS` | **409** | Index is being rebuilt; carries plan/done/total | Report progress. **Empty ≠ absent.** Filesystem meanwhile |
 | `MIGRATION_BLOCKED` | 409 | A migration unit is parked | Report `blocked_reason_recorded` as *history*, not current state |
-| `OPERATION_CONFLICT` | 409 | Another operation holds the mutex | Wait; do not force |
+| `OPERATION_CONFLICT` | 409 | Another operation holds the mutex | Wait; do not force. **`index_busy` is not one of these** — a startup scan can deadlock and latch the guard forever, so waiting never clears it: see `skills/ragtools-ops/references/known-failures.md` F-015 |
 | `STORAGE_UNAVAILABLE` | **503** + `Retry-After` | Store unreachable | Honour the header; filesystem meanwhile |
 | `MODEL_UNAVAILABLE` | 503 | Encoder cannot load | Filesystem only; a rebuild is CLI-only |
 | refusals | **403** / **428** | 403 = "you may not" (permanent for this caller); 428 = "you did not confirm" (send the token); 409 = "not right now" | Do not collapse these — only 409 is worth waiting on |

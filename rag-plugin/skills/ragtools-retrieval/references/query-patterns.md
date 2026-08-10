@@ -43,7 +43,7 @@ Task: *"How does ragtools decide which Qdrant collection to query?"* — run aga
 3. search_knowledge_base(
        query="collection router per-project layout decision",
        project="rag", structured=True)   → docs/decisions.md, MODERATE (0.53)
-4. Read C:\MY-WorkSpace\rag\docs\decisions.md
+4. Read <project_root>\docs\decisions.md
         (NOT rag/rag/docs/decisions.md — strip the duplicated segment)
 5. Grep "class CollectionRouter" src/    → because mode=docs, the code is not indexed
 6. Answer: [from KB] the decision record + [from code] collection_router.py

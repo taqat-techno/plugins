@@ -677,6 +677,22 @@
             "Never silently drop Original Estimate to clear this error"
           ]
         }
+      },
+      "TF401027": {
+        "category": "PERMISSION",
+        "pattern": "You need the Git '(.+)' permission",
+        "regex": "TF401027.*Git '([^']+)' permission",
+        "userMessage": "The repository denies the Git '{permission}' permission for the current identity -- this is a repo-level Security ACL, not a credential or transport problem",
+        "recovery": {
+          "type": "request_repo_permission",
+          "$comment": "TF401027 is evaluated server-side, so an MCP write tool (repo_create_branch) and the equivalent git push resolve to the SAME permission for the SAME identity and return the IDENTICAL denial -- the MCP is not a bypass. Write ACLs are also granted per surface (Code / Wiki / Work Items) independently, so one denial does not prove the identity is read-only across the project. See rules/git-remote-write-gate.md 'When a remote write is denied'.",
+          "steps": [
+            "Do not retry through a different transport (git push <-> repo_create_branch) or a different credential -- both hit the same ACL, and a host account switch belonging to another provider is irrelevant here",
+            "Name the exact surface and permission needed: Project Settings > Repos > <repo> > Security, grant '{permission}' to the identity -- or have an authorized user perform the remote step",
+            "Complete every permission-independent part locally (creating the local branch always succeeds) and report the remote step as a single named blocker instead of failing the whole task",
+            "After the user confirms the grant, RE-TRY that specific write -- a different surface may already work, or may still be denied, independently of this one"
+          ]
+        }
       }
     }
   }

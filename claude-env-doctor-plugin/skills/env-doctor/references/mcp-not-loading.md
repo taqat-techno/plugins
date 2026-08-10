@@ -54,6 +54,10 @@ Before editing MCP configuration or registering a server, **close other client i
 
 After changing MCP configuration, **fully restart the client** rather than relying on an in-place reload or reconnect. MCP servers are spawned at startup; a partial reload may keep stale state or skip re-reading the dotfile/`.mcp.json`. A clean restart guarantees the new configuration is read and the server is spawned fresh. Verify with `claude mcp list` and by confirming the server's tools appear.
 
+Restart discipline has a process-level half that is easy to miss. Plugin-reload cycles can leave **several stale server processes alive at once**, and a process's argument vector is fixed at spawn time — each survivor is frozen with the flags, paths, and environment it was launched with, no matter what the config file says now. A reconnect can bind to one of those survivors, so an edit to the launch flags looks like it had no effect however many times you reconnect.
+
+Localize by listing the running server processes and reading their **command lines**: more than one instance of the same server, or an argv that does not match the current config, is the tell. Safe action: report the stale PIDs and their argv and propose stopping them so the next connect spawns a clean process — plus clearing any persistent-profile lock artifacts a killed browser server left behind (see `references/playwright-browser.md`). Note the MCP *connection* is owned by the client and cannot be restarted from a shell; killing the process only guarantees that whatever spawns next reads the current config.
+
 ## Platform note (labeled examples only)
 
 The ladder is platform-neutral. Concrete launcher and path forms differ per OS; treat the following as illustrative only.
@@ -119,6 +123,63 @@ This is exactly Rungs 2–4 above, applied to a `-32000`:
 Safe action: report the manual-spawn output and the classification; propose the single matching
 fix (correct the command path, install the binary, point at the real runtime + JS entrypoint).
 Never echo any environment value the `.mcp.json` injects — report only its key names.
+
+## "The app is running" is no evidence its MCP bridge is registered
+
+When the MCP server is hosted by a desktop application (an IDE plugin, a local daemon with a UI), a specific trap sits in front of Rung 1: the app can be **installed, open, and listening on its port** while the client has no bridge to it at all. A port check proves only the *app* side. Registration is a separate, client-side fact, and nothing surfaces the gap — the tools are simply absent. A *different* integration from the same vendor makes it worse: an editor companion that supplies only diagnostics can be present and connected, which makes "the IDE is wired up" feel true while none of the app's real tools exist.
+
+Verify from the tool list, not from the process list:
+
+- Confirm the expected `mcp__…` tools are actually **callable in this session**. If the name is absent, the bridge was never registered — restarting the app adds nothing. (Any instruction that says to prefer a named tool is only satisfiable if that tool is in the list; check before assuming it is. Saying so up front rather than silently substituting a shell command is an agent-conduct rule — see `agent-safety-guards-plugin`'s `agent-safety` skill — not a diagnostic step.)
+- Match the **transport** to what the endpoint actually speaks. An app-hosted endpoint commonly serves **SSE** on an `/sse` path; a `POST` to a streamable-HTTP path returning 404 is a transport mismatch, not a dead server. Registering with the wrong transport produces a server that lists but never connects.
+- Register at **user scope** when the bridge should be available in every project. A project-scoped registration silently does not exist anywhere else, so the tools appear and disappear as the working directory changes.
+- Remember an app-hosted server **only answers while the app is open**. Headless, cron, and CI sessions will never have those tools, so any rule depending on them needs a stated fallback.
+- Registration takes effect only after a full client restart (see "Restart discipline" above) — registering mid-session and then concluding it did not work is a common false negative.
+
+## A file reorganization can kill a whole server — the missing artifact is usually an empty directory
+
+When **every** tool of one server disappears at once, immediately after a file move or migration,
+the server is not misconfigured — it is dying during module load. The specific cause worth checking
+first: a library that resolves a working directory **at import time** (`realpathSync` /
+`resolve()` / an `os.path.realpath` on a mailbox, inbox, cache, or state directory) **throws if that
+directory does not exist**, and the throw happens before any tool is registered, so the process
+exits with every tool gone rather than one tool broken.
+
+The directory goes missing because **a move driven by a file manifest silently drops empty
+directories**. A manifest enumerates files; a directory holding no files is in no manifest entry, so
+it is never recreated at the destination and never reported as skipped. The migration reports 100%
+success.
+
+Localize (read-only):
+
+- Run the server's spawn command by hand (Rung 3) — an import-time resolve failure prints the exact
+  path it could not resolve, which the client swallows entirely.
+- Compare the directory *tree* before and after the move, not the file list. An empty directory is
+  the only thing a file-count reconciliation cannot see.
+
+Safe action: propose recreating the missing directories explicitly (keep a `.gitkeep`-style marker
+so the next move carries them), then re-run the manual spawn before returning to the client.
+
+### Three companions of the same migration
+
+The same operation hides three more silent failures, and none of them raises:
+
+- **Files moved under a dot-directory drop out of an index.** Indexers, search tools, and
+  knowledge-base ingesters commonly ship a **built-in ignore set that excludes dot-directories**,
+  and that set is applied before any project-level configuration is consulted. Documentation moved
+  into one is still on disk and still openable, but is no longer retrievable — searches return
+  nothing with no error. Keep indexed content outside built-in-ignored paths, or verify after the
+  move that the content is still returned by a query, not merely present on disk.
+- **Rewrite references from the manifest's old→new map, never by a blind prefix substitution.** A
+  prefix `sed` flattens `<old-root>/<bucket>/x.md` to `<new-root>/x.md`, so the rewritten reference
+  points at a path that exists nowhere while the file itself landed correctly in its real bucket. The
+  manifest already holds the exact old→new pairing — use it.
+- **A JavaScript `RegExp` carrying the `g` flag is STATEFUL across `.test()` calls.** `.test()`
+  advances `lastIndex` on a match and resets it only on a miss, so reusing one `/…/g` regex for
+  boolean checks returns **alternating** results — roughly half the real hits are reported as
+  clean. A "0 stale references" verification built on one is not evidence of anything. Use a
+  non-global regex (or reset `lastIndex` before each call) for boolean checks, and confirm a zero
+  with a differently shaped command before believing it.
 
 ## For domain plugins: reference this ladder, do not copy it
 

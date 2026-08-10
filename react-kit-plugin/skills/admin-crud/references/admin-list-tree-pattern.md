@@ -70,7 +70,7 @@ The toolbar is the single horizontal control strip above the table. It reads lis
 - Search input updates `search` (debounced), which resets `page`.
 - Active filters render as removable tags; provide a "Clear all" that resets `search` and every filter at once.
 - Render the toolbar **once**. Do not stack a default toolbar and a custom toolbar — choose one composition path.
-- Filter options are passed in as a config array prop, not hardcoded inside the toolbar.
+- Filter options are passed in as a config array prop, not hardcoded inside the toolbar. When those options mirror a server-owned registry, that array is derived from the API's catalog rather than written by hand (see the filter-bar rules in `SKILL.md`).
 
 ## Row actions and bulk actions
 
