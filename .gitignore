@@ -21,7 +21,10 @@ Thumbs.db
 *.bak
 *~
 
-# ntfy-plugin user-specific files
+# ntfy-plugin user-specific files (config.json carries the private ntfy topic,
+# which is the ONLY access control on ntfy.sh — never commit a real value)
+ntfy-plugin/ntfy/config.json
+ntfy-plugin/ntfy/scripts/session_state.json
 ntfy-plugin/ntfy/scripts/config.json
 ntfy-plugin/ntfy/scripts/notification_history.json
 ntfy-plugin/ntfy/scripts/failed_notifications.log
@@ -31,3 +34,49 @@ ntfy-plugin/ntfy/scripts/failed_notifications.log
 *.local.json
 .claude/*.local.md
 .claude/*.local.json
+
+# ---------------------------------------------------------------------------
+# Local config & credentials — NEVER commit. Real values live only on disk.
+# The negations at the bottom keep the committed *.template / *.example /
+# *.sample files shipping normally.
+# ---------------------------------------------------------------------------
+.env
+.env.*
+*.env
+.secrets/
+secrets/
+.credentials
+*.credentials.json
+credentials.json
+*.secret.json
+*.secrets.json
+.netrc
+.npmrc
+*.pem
+*.p12
+*.pfx
+id_rsa
+id_ed25519
+*.keytar
+.azure/
+.aws/
+*.token
+.mcp.local.json
+devops.local.md
+
+# Local editor/agent scratch that can capture real session data
+.claude/settings.local.json
+.claude/history.jsonl
+
+# ---------------------------------------------------------------------------
+# Exemptions — these are committed on purpose and must keep shipping.
+# ---------------------------------------------------------------------------
+!*.template
+!*.example
+!*.sample
+!.env.template
+!.env.example
+!.env.sample
+!*.env.template
+!*.env.example
+!*.env.sample
