@@ -23,6 +23,7 @@ Unified Odoo development toolkit for Claude Code — covering upgrade, frontend 
 | `/security <module>` | security | Security audit |
 | `/i18n [sub]` | i18n | Translation management |
 | `/report [sub]` | report | Email templates and QWeb reports |
+| `/mcp-setup [sub]` | mcp | Configure, test, and troubleshoot the live Odoo connection |
 
 ## Safety Hooks
 
@@ -50,6 +51,7 @@ gettext-discipline and stack-safety rules:
 - **docker** — Production deployment, nginx, CI/CD, performance tuning
 - **frontend** — Theme creation, SCSS variables, snippets, Figma integration
 - **i18n** — String extraction, translation validation, Arabic/RTL
+- **mcp** — Live-instance connection: query real records, field metadata and effective access rights on a running Odoo 14-19 (bundled MCP server, stdlib-only, read-only by default)
 - **report** — Email templates, QWeb PDF reports
 - **reviewer** — Code review & technical-debt knowledge base (12-section checklist, severity rubric, v17→v19 deltas) for Odoo 17/19
 - **security** — Access rules, route auth, sudo() audit, SQL injection scan

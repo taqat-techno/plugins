@@ -2,6 +2,95 @@
 
 All notable changes to `odoo-plugin` are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/). Versioning follows [SemVer](https://semver.org/).
 
+## [2.6.0] — 2026-08-11 — Bundle a live-instance MCP server (`odoo`) for Odoo 14-19
+
+Adds a live connection to a **running** Odoo instance. Until now every skill in this plugin
+reasoned about source code; this lets Claude read real records, real field metadata and the
+caller's real access rights. Ships with **no credentials and no default instance** — each
+developer points it at their own Odoo.
+
+### Added
+
+- `mcp/` — an MCP server over the stdio transport, **standard library only** (`json`, `os`,
+  `re`, `socket`, `ssl`, `urllib`, `xmlrpc`, `configparser`, `pathlib`). No `pip`, `npm` or
+  `uv` step: a plugin distributed to a team cannot assume a package manager is present, and
+  a server that fails to start is worse than no server. Single-owner layering —
+  `server.py` (protocol) → `tools.py` (surface) → `odoo_client.py` (transport) →
+  `profiles.py` (configuration) → `guards.py` (every access decision).
+- **Version-adaptive transport**, chosen from `server_version_info`: Odoo 19+ uses the
+  JSON-2 API (`POST /json/2/<model>/<method>`, `Authorization: Bearer <api_key>`); Odoo 18
+  and older use XML-RPC (`/xmlrpc/2/common` → `/xmlrpc/2/object` `execute_kw`, API key sent
+  as the password). JSON-2 does not exist before 19.0.
+- **Ten tools, capped by a test**: `odoo_status`, `odoo_list_models`, `odoo_inspect_model`,
+  `odoo_search`, `odoo_count`, `odoo_read_group`, `odoo_call`, `odoo_create`, `odoo_write`,
+  `odoo_unlink`. Every MCP schema is injected into the context window of every session where
+  the server is enabled, including sessions doing pure source work — so breadth lives in
+  parameters, not in tool names.
+- **Connection profiles**, resolved first-match-wins: `ODOO_MCP_PROFILE` →
+  `<project>/.odoo-mcp.json` → `~/.odoo-mcp/profiles.json` (with a `project_map` so one file
+  serves many checkouts) → `ODOO_URL`/`ODOO_DB`/`ODOO_USERNAME`/`ODOO_API_KEY`. Any string
+  value may reference `${ENV_VAR}`, so a profile file can be kept free of secrets.
+- `.mcp.json` — plugin MCP registration. Forwards `${CLAUDE_PROJECT_DIR}` (substituted
+  directly for plugin-provided configs) so the server resolves the profile for the project
+  in use. Interpreter overridable via `${ODOO_MCP_PYTHON:-python}`.
+- `commands/mcp-setup.md` (`/mcp-setup`) — `status` / `setup` / `test` / `doctor`. Refuses to
+  write a key into a file that is not git-ignored, never accepts a password, and steers away
+  from administrator accounts.
+- `skills/mcp/SKILL.md` (`odoo-live-instance`) — when to query the instance versus the source
+  tree, token-efficient querying, multi-company/`active_test`/`lang` context traps, the
+  safety model, and treating record content as untrusted data rather than instructions.
+- `config/odoo-mcp.profiles.json.example` — full option reference.
+- `tests/mcp/test_mcp_server.py` — 20 tests driving the real process over stdio. No Odoo
+  instance and no network required: protocol behaviour, profile resolution and every guard
+  resolve before a socket opens.
+- `.gitignore` — blocks `.odoo-mcp.json` (may contain an API key) and Python caches.
+
+### Security
+
+- The server acts **as the authenticated Odoo user**. No `sudo`, no superuser, no SQL, no
+  shell, no filesystem, no module install/upgrade — a structural test asserts those patterns
+  are absent from `mcp/*.py`. Odoo's `ir.model.access`, `ir.rule` and field groups apply to
+  every call; the guards are a second layer, not a replacement.
+- **Read-only by default.** `create`/`write`/`unlink`, and any method not on the read-only
+  list, require `"mode": "write"`.
+- **Production marker** — a profile marked `"production": true` refuses writes unless
+  `allow_production_writes` is set deliberately. Combining `production` with
+  `verify_ssl: false` is refused outright; disabling TLS verification elsewhere warns.
+- **Delete is separately gated** behind `allow_unlink`.
+- **Privilege-escalation models blocked for writes** even in write mode: `res.users`,
+  `res.groups`, `ir.actions.server`, `ir.cron`, `base.automation`, `ir.module.module`,
+  `ir.config_parameter`, `ir.model*`, `ir.rule`, `ir.ui.view`, `ir.mail_server`.
+- Private methods, code-execution and module-install methods, string domains (an injection
+  vector) and audit-suppressing context keys (`tracking_disable`, `mail_notrack`, …) are all
+  refused.
+- Credentials are redacted from every tool result and error by exact value and by key name.
+
+### Portability
+
+- Odoo API drift already handled: `name_get` was removed in **18.0** (not 17.0, as widely
+  claimed) so `display_name` is read instead; `fields_view_get` was removed in 17.0 so
+  `get_views` is used; `read_group` is deprecated in 19.0 but still callable, which keeps it
+  the portable choice across 14-19.
+- MCP protocol: the `initialize` handshake is implemented, and `server/discover` answers
+  *method not found* — which the specification's own backward-compatibility rule tells a
+  newer client to read as a legacy server and fall back to `initialize`. Both client
+  generations work.
+- On Windows the stdio streams are reconfigured so `\n` is not translated to `\r\n`, which
+  would corrupt the newline framing.
+
+### Changed
+
+- `.claude-plugin/plugin.json` — version 2.5.0 → 2.6.0; description mentions the live-instance
+  MCP connection.
+- `README.md` — `/mcp-setup` added to the command table; new **mcp** domain.
+
+### Validation
+
+- `python tests/mcp/test_mcp_server.py` → 20 passed, 0 failed.
+- `python validate_plugin.py odoo-plugin` → 0 errors (exit 0).
+- Genericness sweep over every added file → 0 workspace, project, host, path or credential
+  tokens; placeholders only.
+
 ## [2.5.0] — 2026-06-23 — Enhance the testing skill (`odoo-test`) with a classification-first test-units workflow
 
 ### Added

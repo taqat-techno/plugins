@@ -1,0 +1,9 @@
+# Local Odoo MCP connection profiles — may contain an API key. Never commit.
+.odoo-mcp.json
+odoo-mcp.json
+*.odoo-mcp.json
+
+# Python bytecode / test caches
+__pycache__/
+*.py[cod]
+.pytest_cache/
