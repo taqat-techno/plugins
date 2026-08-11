@@ -1,0 +1,74 @@
+{
+  "//": [
+    "Example connection profiles for the bundled Odoo MCP server.",
+    "",
+    "Copy to ONE of these locations (the first match wins):",
+    "  <your project>/.odoo-mcp.json   - per project. ADD IT TO .gitignore.",
+    "  ~/.odoo-mcp/profiles.json       - one file covering all your projects.",
+    "",
+    "Never commit a real API key. Either keep the file git-ignored, or write",
+    "\"${SOME_ENV_VAR}\" and export that variable - the server expands it at runtime.",
+    "",
+    "Create the key in Odoo: user menu > Preferences > Account Security >",
+    "Developer API Keys > New API Key. Use a DEDICATED, least-privilege Odoo user:",
+    "the MCP server acts as that user and inherits exactly its access rights and",
+    "record rules. Never use an administrator account."
+  ],
+
+  "default": "local",
+
+  "project_map": {
+    "//": "Optional. Maps a checkout path to a profile so one user-level file serves many projects. Longest matching path wins.",
+    "~/work/some-project": "local",
+    "~/work/another-project": "staging"
+  },
+
+  "profiles": {
+    "local": {
+      "url": "http://localhost:8069",
+      "db": "my_database",
+      "username": "mcp_agent",
+      "api_key": "${ODOO_MCP_API_KEY}",
+      "mode": "write",
+      "allow_unlink": false
+    },
+
+    "staging": {
+      "url": "https://staging.example.com",
+      "db": "staging_db",
+      "username": "mcp_agent",
+      "api_key": "${ODOO_STAGING_API_KEY}",
+      "mode": "write",
+      "allow_unlink": false,
+      "allowed_company_ids": [1],
+      "timeout": 60
+    },
+
+    "production": {
+      "url": "https://erp.example.com",
+      "db": "production_db",
+      "username": "mcp_readonly",
+      "api_key": "${ODOO_PROD_API_KEY}",
+      "mode": "read",
+      "production": true,
+      "timeout": 60
+    }
+  },
+
+  "//options": {
+    "url": "Base URL of the Odoo instance. Required.",
+    "db": "Database name. Required.",
+    "username": "Odoo login. Required for Odoo <=18 (XML-RPC authentication).",
+    "api_key": "API key. Required. Supports ${ENV_VAR} expansion.",
+    "mode": "'read' (default) or 'write'. Read mode refuses create/write/unlink and any method not known to be read-only.",
+    "production": "Marks the instance as production. Writes are refused unless allow_production_writes is also true.",
+    "allow_production_writes": "Deliberate opt-in to write against a production-marked instance. Default false.",
+    "allow_unlink": "Permit odoo_unlink. Default false. Archiving (active=false) is reversible and usually better.",
+    "allow_write_models": "Escape hatch: model names to exempt from the privilege-escalation write blocklist (res.users, ir.actions.server, ir.cron, ir.config_parameter, ...). Leave empty unless you are certain.",
+    "allowed_company_ids": "Sets allowed_company_ids in the Odoo context for every call. Important on multi-company databases.",
+    "lang": "Context language, e.g. 'fr_FR'.",
+    "tz": "Context timezone, e.g. 'Europe/Paris'.",
+    "timeout": "Per-request timeout in seconds. Default 30, max 600.",
+    "verify_ssl": "Default true. Setting false disables TLS certificate verification and is refused on production profiles - prefer trusting your dev CA."
+  }
+}

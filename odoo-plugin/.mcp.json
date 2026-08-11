@@ -1,0 +1,10 @@
+{
+  "odoo": {
+    "type": "stdio",
+    "command": "${ODOO_MCP_PYTHON:-python}",
+    "args": ["${CLAUDE_PLUGIN_ROOT}/mcp/server.py"],
+    "env": {
+      "ODOO_MCP_PROJECT_DIR": "${CLAUDE_PROJECT_DIR}"
+    }
+  }
+}
