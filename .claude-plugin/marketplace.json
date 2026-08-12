@@ -9,7 +9,7 @@
   "plugins": [
     {
       "name": "odoo",
-      "description": "Unified Odoo development toolkit — upgrade, frontend themes, testing, security auditing, i18n, reports, Docker infrastructure, server lifecycle, and a live-instance MCP connection across Odoo 14-19",
+      "description": "Unified Odoo development toolkit — upgrade, frontend themes, testing, security auditing, i18n, reports, Docker infrastructure, server lifecycle, OWL front-end architecture & linting, and a live-instance MCP connection across Odoo 14-19",
       "author": {
         "name": "TaqaTechno",
         "email": "info@taqatechno.com"

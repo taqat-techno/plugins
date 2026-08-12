@@ -1,7 +1,7 @@
 {
   "name": "odoo-plugin",
-  "version": "2.6.0",
-  "description": "Unified Odoo development toolkit — code review & technical-debt, upgrade, frontend themes, testing, security auditing, i18n, reports, Docker infrastructure, server lifecycle, and a live-instance MCP connection across Odoo 14-19",
+  "version": "2.7.0",
+  "description": "Unified Odoo development toolkit — code review & technical-debt, upgrade, frontend themes, testing, security auditing, i18n, reports, Docker infrastructure, server lifecycle, OWL front-end architecture & linting, and a live-instance MCP connection across Odoo 14-19",
   "author": {
     "name": "TaqaTechno",
     "email": "info@taqatechno.com"
