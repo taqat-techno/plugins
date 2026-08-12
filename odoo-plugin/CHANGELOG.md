@@ -2,6 +2,86 @@
 
 All notable changes to `odoo-plugin` are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/). Versioning follows [SemVer](https://semver.org/).
 
+## [2.7.0] — 2026-08-12 — OWL front-end domain: 4 skills, an anti-pattern catalogue, and a static linter
+
+The plugin had no coverage of OWL application development — the layer where Odoo front-end work
+actually fails. Its distinguishing property is that **almost every mistake is silent**: a file
+outside every asset glob produces no console error, a mistyped registry category returns a fresh
+empty registry, a patch on a renamed method installs as a brand-new property, and registry
+schema validation returns immediately when `!odoo.debug`. There is no compiler, so review is the
+only gate. This release makes the mechanical half of that review automatic.
+
+### Added
+
+- `scripts/owl/owl_lint.py` — static scanner for OWL anti-patterns, **standard library only**,
+  matching the plugin's existing `python "${CLAUDE_PLUGIN_ROOT}/scripts/..."` convention.
+  Detects, with rule ids that match the catalogue:
+  - **Assets** — `A1` a file matched by no manifest glob (parses `__manifest__.py` with `ast`,
+    expands Odoo asset globs where `**` crosses separators and `*` does not, and diffs against
+    the files actually on disk); `A2` an ordering directive placed after a glob that already
+    matched, which is a no-op; `A3` `('remove', …)` of a path owned by another module, which is
+    global for that bundle.
+  - **Registry** — `R2` a *one-shot* category registered below module top level. Live categories
+    (`services`, `main_components`, `systray`, `error_handlers`, `web_tour.tours`) are
+    deliberately exempt, because they re-read after boot.
+  - **Services** — `S1` force-replaced service; `S3` `env.services.x` captured inside a
+    component, which silently stops the component re-rendering.
+  - **patch()** — `P1` a patched method with no `super`; `P2` class/prototype confusion;
+    `P5` raw prototype assignment, a shared (mutated) extension literal, and bare `patch()` in a
+    HOOT test body.
+  - **Templates** — `X2` positional or text-anchored xpath (resolved client-side at first render,
+    so it ships green); `X3` `t-inherit` without an explicit `t-inherit-mode`.
+  - **Data / security** — `D2` awaited RPC inside a loop; `SEC2` payload-widening methods;
+    `SEC3` `sudo()` on the data-loading path.
+  - **Stale patterns** — 15 idioms that are widely documented online and provably absent from
+    Odoo 19, including the three-argument `patch(obj, "name", ext)` form that throws on sight,
+    `PosGlobalState`, `pos_screens`, `addControlButton`, `_loader_params_*`, `--dev=assets`,
+    `orm.nameGet`/`nameSearch`/`readGroup`, `type='json'` routes,
+    `check_access_rights`/`check_access_rule`, `QUnit`, `name_get` (removed in **18.0**, not
+    17.0 as widely believed) and `fields_view_get` (removed in 17.0).
+- `reference/owl/anti-pattern-catalogue.md` — the full catalogue behind the linter, including the
+  `[review]`-only entries a static scanner cannot decide (registry category correctness, xpath
+  matching, payload exposure, patch-order coupling) and the stale-pattern index.
+- `skills/owl/owl-architecture/SKILL.md` (`odoo-owl-architecture`) — choosing the front-end
+  *shape* before writing code: backend view vs `ir.actions.client` client action vs self-rooted
+  application, with the decision table and an explicit accounting of what a self-rooted app gives
+  up (router, error handling, core service semantics, breadcrumbs/navbar/systray, and
+  upgrade-following). Only four requirements force it.
+- `skills/owl/owl-extending/SKILL.md` (`odoo-owl-extending`) — the fixed extension menu, the six
+  `patch()` rules, template inheritance (`extension` vs `primary`), registry placement and
+  one-shot categories, and service/store extension.
+- `skills/owl/owl-state-data/SKILL.md` (`odoo-owl-state-data`) — the four state-ownership
+  questions, why copying store data into `useState` silently loses user edits, the four ways a
+  value escapes reactivity, relation mutation by command, the data-loading contract, and the six
+  payload-exposure questions.
+- `skills/owl/owl-diagnostics/SKILL.md` (`odoo-owl-diagnostics`) — the ordered triage checklist
+  for code that produces no error, browser-console introspection of the module loader and
+  registries, the two-cache trap that makes a *new* file invisible even under `?debug=assets`,
+  matching the rebuild to the edit, and why "the server started" is not evidence.
+- `commands/owl.md` (`/owl`) — `lint` / `decide` / `doctor` / `rules`. Bare `/owl` auto-detects
+  the module from the working directory and lints it.
+- `tests/owl/test_owl_lint.py` — 23 tests covering both directions: each anti-pattern is
+  detected, and correct code written the way Odoo core writes it produces nothing.
+
+### Validation
+
+- `python tests/owl/test_owl_lint.py` → 23 passed, 0 failed.
+- `python tests/mcp/test_mcp_server.py` → 20 passed, 0 failed (unchanged).
+- `python validate_plugin.py odoo-plugin` → 0 errors (exit 0).
+- **False-positive baseline measured against real Odoo 19 core addons.** An early build reported
+  128 errors on `web` alone; three genuine rule bugs were found and fixed (`\s` matching newlines
+  so column-0 code was reported as indented and one line off; `static/lib/` vendored assets
+  scanned; HOOT `*.data.js` mock fixtures treated as test bodies). Final baseline —
+  `pos_sale`, `pos_loyalty`, `account`, `stock`, `sale`, `purchase`, `mrp_mps`: **0 errors**;
+  `point_of_sale` 4, `pos_restaurant` 4, `hr` 1, all spot-checked and confirmed genuine
+  (`env.services` captured in a component; raw prototype assignment inside a test).
+- Genericness sweep over every added file → 0 project, workspace, host, path or client tokens.
+
+### Changed
+
+- `.claude-plugin/plugin.json` — version 2.6.0 → 2.7.0; description mentions the OWL domain.
+- `README.md` — `/owl` added to the command table; new **owl** domain.
+
 ## [2.6.0] — 2026-08-11 — Bundle a live-instance MCP server (`odoo`) for Odoo 14-19
 
 Adds a live connection to a **running** Odoo instance. Until now every skill in this plugin
