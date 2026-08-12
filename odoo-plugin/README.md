@@ -24,7 +24,7 @@ Unified Odoo development toolkit for Claude Code — covering upgrade, frontend 
 | `/i18n [sub]` | i18n | Translation management |
 | `/report [sub]` | report | Email templates and QWeb reports |
 | `/mcp-setup [sub]` | mcp | Configure, test, and troubleshoot the live Odoo connection |
-| `/owl [sub] [path]` | owl | Lint OWL anti-patterns, choose a UI shape, diagnose silent failures |
+| `/owl [sub] [path]` | owl | Scaffold a standalone OWL app, lint anti-patterns, choose a UI shape, diagnose silent failures |
 
 ## Safety Hooks
 
@@ -55,7 +55,7 @@ gettext-discipline and stack-safety rules:
 - **mcp** — Live-instance connection: query real records, field metadata and effective access rights on a running Odoo 14-19 (bundled MCP server, stdlib-only, read-only by default)
 - **report** — Email templates, QWeb PDF reports
 - **reviewer** — Code review & technical-debt knowledge base (12-section checklist, severity rubric, v17→v19 deltas) for Odoo 17/19
-- **owl** — OWL front-end for Odoo 17-19: shape decision (backend view / client action / self-rooted app), safe extension via patch + t-inherit + registries, state ownership and the data-loading contract, and a static linter for the anti-patterns that fail silently
+- **owl** — OWL front-end for Odoo 17-19: building a full standalone app (module layout, three-bundle split, bootstrap chain, store/data services, layer rules, scaling checkpoints) with a 28-file scaffold generator; shape decision (backend view / client action / self-rooted app); safe extension via patch + t-inherit + registries; state ownership and the data-loading contract; and a static linter for the anti-patterns that fail silently
 - **security** — Access rules, route auth, sudo() audit, SQL injection scan
 - **service** — Server lifecycle, database ops, IDE config, module scaffold
 - **test** — Test planning & classification, generation, security/record-rule & wizard/controller/report tests, regression tests, review, failure diagnosis, mock data, coverage, E2E

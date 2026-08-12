@@ -2,6 +2,77 @@
 
 All notable changes to `odoo-plugin` are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/). Versioning follows [SemVer](https://semver.org/).
 
+## [2.8.0] — 2026-08-12 — OWL: the constructive half — reference architecture + a 28-file app scaffold
+
+2.7.0 covered what NOT to do. This adds what a healthy OWL application actually looks like, so
+the domain now answers "how do I build one", not only "why did mine break".
+
+### Added
+
+- `skills/owl/owl-app-structure/SKILL.md` (`odoo-owl-app-structure`) — the reference
+  architecture for a full standalone OWL application inside Odoo, generalised from how Odoo's
+  own large SPA is organised:
+  - **Module layout** and the four rules it enforces mechanically — `static/src/app/` *is* the
+    app so directory placement (not manifest editing) routes a file to a bundle; co-locate
+    `.js`/`.xml`/`.scss` per component with `static/src/scss/` global-only; `screens/` is
+    routable and `components/` is not; `overrides/` is for changing *webclient* behaviour, never
+    your own.
+  - **The three-bundle split and why the boot file is separated** — a framework floor a second
+    smaller app can reuse alone, a private app bundle that is the published extension point, and
+    a prod entry bundle that re-appends `main.js` last. `main.js` mounts as an import side
+    effect, so a broad glob sweeping it into the middle of the bundle is the bug the split fixes;
+    it is also what lets the unit-test bundle take prod, remove `main.js` again, and load every
+    module *without* mounting, so tests mount the app themselves.
+  - **Minimum viable bootstrap** — controller with the auth gate before rendering and
+    `Cache-Control: no-store`; a standalone HTML document (not a backend-layout inherit) whose
+    `<body>` is empty because the root owns the DOM, carrying the global `odoo` object and the
+    menu-service short-circuit; `mountComponent` from `@web/env`; a root that renders
+    `MainComponentsContainer`, without which every dialog and notification silently renders
+    nothing. Includes the two-app loader pattern that covers the multi-second service start.
+  - **Six-layer dependency rules** — components obtain the store from a hook and never import it;
+    screens never call `orm`/`rpc`; exactly one service owns the server; services never import
+    the store; models never know about components; mirror the path you patch.
+  - **The server-side load contract**, its four design points (`load=False`, the ordered-pipeline
+    `data` argument, per-model `AccessError` tolerance, the incremental hook built up front) and
+    an explicit "when not to build this".
+  - **Scaling checkpoints** — the observable signal for each subsystem, and **"start smaller"**:
+    four subsystems to leave out of a v1 (records layer, IndexedDB, service worker, URL router)
+    each with a stand-in and a migration path.
+  - **Build order from zero**, 13 steps.
+- `scripts/owl/owl_scaffold.py` — generates a complete, correctly-structured OWL application:
+  28 files covering the bundle triple, controller, index document, `main.js`, root component,
+  a reactive store service, a data service that is the only holder of `orm`, the `useStore()`
+  hook, a loader, a self-registering first screen, a navbar, security groups + ACLs + a company
+  record rule, a config model with a backend `act_url` entry point, a load mixin, a test
+  bootstrap and a first HOOT test. Standard library only. Supports `--dry-run`, `--force`,
+  `--route`, `--title`. The generated module carries its own `README.md` stating the layer rules
+  and the deliberately-omitted subsystems.
+- `tests/owl/test_owl_scaffold.py` — 16 tests. The load-bearing one is
+  `test_generated_module_lints_clean`: the scaffold and the linter are two halves of the same
+  opinion, so the generator's output must satisfy the checker at every severity. The rest assert
+  structural invariants directly — `main.js` is the last entry of the prod bundle and removed
+  from both the private and unit-test bundles, the index document is standalone with an empty
+  body, `mountComponent` comes from `@web/env`, the root renders `MainComponentsContainer`, only
+  the data service touches `orm`, no component captures `env.services`, the screen registers at
+  column 0, and the store extends `Reactive`.
+
+### Changed
+
+- `commands/owl.md` — new `scaffold` subcommand, including the gate that a self-rooted app needs
+  one of four forcing requirements and should otherwise be a client action, and the instruction
+  to state the deliberate omissions out loud.
+- `.claude-plugin/plugin.json` — version 2.7.0 → 2.8.0.
+- `README.md` — `/owl` description and the **owl** domain updated.
+
+### Validation
+
+- `python tests/owl/test_owl_scaffold.py` → 16 passed, 0 failed.
+- `python tests/owl/test_owl_lint.py` → 23 passed, 0 failed.
+- `python tests/mcp/test_mcp_server.py` → 20 passed, 0 failed.
+- `python validate_plugin.py odoo-plugin` → 0 errors (exit 0).
+- Scaffold output linted end to end: `owl_lint` reports **no findings** on the generated module.
+- Genericness sweep over every added file → 0 project, workspace, host, path or client tokens.
+
 ## [2.7.0] — 2026-08-12 — OWL front-end domain: 4 skills, an anti-pattern catalogue, and a static linter
 
 The plugin had no coverage of OWL application development — the layer where Odoo front-end work
