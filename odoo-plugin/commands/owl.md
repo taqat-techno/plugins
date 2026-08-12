@@ -20,6 +20,7 @@ Bare `/owl` auto-detects the module from the current directory and runs `lint`.
 | Command | What it does |
 |---|---|
 | `/owl` or `/owl lint [path]` | Scan a module for OWL anti-patterns |
+| `/owl scaffold <name>` | Generate a correctly-structured standalone OWL application |
 | `/owl decide` | Walk the shape decision — backend view vs client action vs self-rooted app |
 | `/owl doctor` | Diagnose OWL code that produces no error |
 | `/owl rules` | The pre-flight checklist to answer before calling an OWL task done |
@@ -68,6 +69,54 @@ Exit codes: `0` clean or warnings only, `1` at least one error, `2` bad invocati
 cannot prove a registry category name is right, that an xpath matches, that a patched method
 still exists upstream, or that a payload field is safe to expose. Those stay human review; see
 `reference/owl/anti-pattern-catalogue.md` for the `[review]`-only entries.
+
+---
+
+## scaffold
+
+Generate a full standalone OWL application with the reference structure.
+
+```bash
+python "${CLAUDE_PLUGIN_ROOT}/scripts/owl/owl_scaffold.py" \
+    --name <snake_case_name> --title "<Human Title>" --dest <addons-dir>
+python "${CLAUDE_PLUGIN_ROOT}/scripts/owl/owl_scaffold.py" --name x --dest . --dry-run
+```
+
+**Before generating, confirm the shape is right.** A self-rooted app is a large, permanent
+cost. Only four requirements force it — a URL outside the backend path, unauthenticated users,
+offline operation, or a distinct security surface. If none applies, run `decide` first and
+steer to a client action instead. Do not scaffold on a vague "it should feel like an app".
+
+Ask for: the technical module name (snake_case), a human title, the URL route, and the addons
+directory. Default the route to `/<name>/ui`.
+
+**What it produces** — 28 files:
+
+| Layer | Files |
+|---|---|
+| Bundles | `__manifest__.py` with the three-bundle split (floor / private app / prod entry) plus test bundles |
+| Bootstrap | `controllers/main.py`, the standalone index document, `main.js`, root component |
+| Services | store (reactive, registered as a service), data service (the only holder of `orm`) |
+| Access | `useStore()` hook, self-registering first screen, navbar, loader |
+| Server | config model with a backend `act_url` entry point, a load mixin, groups + ACLs + a company record rule |
+| Tests | a `setup<App>Env()` bootstrap and a first HOOT test |
+
+**After generating**, tell the user to:
+
+1. Install the module and open the config record's *Open …* button, or hit the route directly.
+2. Verify the bundle split in a shell — `_get_asset_links('<app>.assets_prod')` must contain
+   `main.js`, and `_get_asset_links('<app>._assets_app')` must not.
+3. Run `/owl lint` on it. The scaffold is expected to come back with **no findings**; anything
+   else means a local edit broke a layer rule.
+
+**What it deliberately leaves out** — say this out loud, because the omissions are the point:
+no records layer, no IndexedDB persistence, no service worker, no URL router. Each is a
+substantial subsystem that is harmful in a v1, and each has a documented signal for when to add
+it and a migration path that the generated structure keeps open. The generated `README.md`
+carries that table for the specific app.
+
+Load the `odoo-owl-app-structure` skill for the layer rules, scaling checkpoints and the build
+order from zero.
 
 ---
 
