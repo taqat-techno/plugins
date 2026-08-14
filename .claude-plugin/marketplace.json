@@ -182,6 +182,17 @@
       "source": "./git-safety-plugin",
       "category": "productivity",
       "homepage": "https://github.com/taqat-techno/plugins/tree/main/git-safety-plugin"
+    },
+    {
+      "name": "worktree",
+      "description": "Make git worktrees a first-class workspace — list, create, switch, and safely clean parallel worktrees, with the active worktree always visible in the status line. A worktree is a place, not a session: it survives session exit (via a git lock Claude Code's cleanup cannot override) and any number of sessions may share it. Git stays the source of truth — no registry, no cache, no plugin state — and it registers ZERO hooks, so installing it cannot disturb a session. Windows/macOS/Linux, no WSL required.",
+      "author": {
+        "name": "TaqaTechno",
+        "email": "info@taqatechno.com"
+      },
+      "source": "./worktree-plugin",
+      "category": "development",
+      "homepage": "https://github.com/taqat-techno/plugins/tree/main/worktree-plugin"
     }
   ]
 }
