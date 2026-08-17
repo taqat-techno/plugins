@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.2.0] - 2026-08-18
+
+Marketplace-wide architecture upgrade. Skill discovery, invocation-mode metadata, and identity consistency were corrected across the marketplace; no skill, command, agent, hook, or MCP behaviour was removed.
+
+**Restored an undiscovered skill.** `remotion/SKILL.md` sat outside `skills/` and was never loaded. Moved to `skills/remotion/` (git mv) and renamed to `remotion-video` to clear a collision with `commands/remotion.md`; `/remotion` remains the user entry point (`user-invocable: false`).
+
 ## v2.1.0 (2026-03-23)
 
 ### Architecture Revision

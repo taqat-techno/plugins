@@ -26,7 +26,7 @@ defers_to:
   - wiki-safe-updates (the safe move/relink/approval EXECUTION; this skill owns only the preserve-meaning / preserve-canonical-owner invariant)
   - wiki-vs-stray-docs (deciding whether a loose doc belongs in the wiki at all)
   - the project's version-control history and dated reports (the evidence this skill cross-checks against)
-user_invocable: false
+user-invocable: false
 ---
 
 # wiki-source-of-truth

@@ -31,7 +31,7 @@ defers_to:
   - windows-script-and-task-authoring (claude-env-doctor) for the vary-one-dimension-at-a-time decomposition method and the privileged-environment blind spot; this skill only requires that the decomposition happened before BLOCKED is written
   - the host's write-approval gate (devops-plugin rules/write-gate.md, agent-safety) for how approval to create a tracked issue is obtained; this skill only fixes the ordering relative to the fix
   - systematic-debugging (superpowers) for root-cause method once a reproduction from real failure output exists
-user_invocable: false
+user-invocable: false
 ---
 
 # defect-triage-and-closure

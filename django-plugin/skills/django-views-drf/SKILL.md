@@ -15,7 +15,7 @@ defers_to:
   - django-security-audit (auth model hardening, permission-bypass review, rate-limit policy)
   - django-performance (caching of responses, pagination at very large scale)
   - project API conventions (base serializer, error envelope, auth scheme — adapter input)
-user_invocable: false
+user-invocable: false
 ---
 
 # django-views-drf

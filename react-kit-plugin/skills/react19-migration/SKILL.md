@@ -14,7 +14,7 @@ defers_to:
   - admin-shell (layout / shell structure where the metadata split lands)
   - admin-forms (form components where forwardRef and ref-as-prop commonly appear)
   - project type-check + build tooling (the exact commands are adapter inputs)
-user_invocable: false
+user-invocable: false
 ---
 
 # react19-migration

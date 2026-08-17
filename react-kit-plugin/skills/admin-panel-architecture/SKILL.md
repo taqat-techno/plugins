@@ -17,7 +17,7 @@ defers_to:
   - admin-roles-and-permissions (route/component/API gating mechanics, access matrix)
   - data-fetching-states (query keys, mutation invalidation, loading/error/empty)
   - admin-kanban-workflow (status-gated actions, transitions, confirmation flows)
-user_invocable: false
+user-invocable: false
 ---
 
 # admin-panel-architecture

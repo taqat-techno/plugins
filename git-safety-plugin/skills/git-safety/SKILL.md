@@ -18,7 +18,7 @@ defers_to:
   - agent-safety skill for the general "don't route around a permission denial / MCP is not a bypass" principle
   - claude-env-doctor for a Windows git "dubious ownership" (BUILTIN\\Administrators) block on running git at all
   - the user for every commit, push, branch, and destructive-op decision
-user_invocable: false
+user-invocable: false
 ---
 
 # git-safety

@@ -13,7 +13,7 @@ defers_to:
   - wiki-safe-updates (any chosen-direction wiki edit goes through that skill)
   - wiki-link-validation (when the discrepancy is about a missing wiki cross-reference)
   - project owner / engineering lead (the user makes the directional call; this skill does not)
-user_invocable: false
+user-invocable: false
 ---
 
 # wiki-code-vs-docs-discrepancy

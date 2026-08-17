@@ -97,8 +97,50 @@ def _profile_days_old(profile: str) -> "int | None":
         return None
 
 
+def _mcp_env_messages() -> list:
+    """Check the environment the azure-devops MCP server requires.
+
+    .mcp.json passes ADO_ORGANIZATION as a positional arg and ADO_MCP_AUTH_TOKEN
+    as an env var, both as bare ${VAR}. Claude Code does NOT substitute an unset,
+    defaultless ${VAR} with empty -- it forwards the literal text "${ADO_ORGANIZATION}",
+    which the server then uses as an organization name. The user sees an obscure
+    auth/404 failure instead of "you haven't configured this yet".
+
+    Deliberately NOT solved by rewriting those to ${VAR:-}: an empty organization
+    or empty token reaching the server is just as opaque, and it discards the
+    missing-variable warning `claude mcp list` would otherwise show. Instead the
+    variables stay strictly required and this preflight explains the fix, routing
+    to the plugin's existing /init setup flow rather than duplicating its logic.
+    """
+    out = []
+    missing = [v for v in ("ADO_ORGANIZATION", "ADO_MCP_AUTH_TOKEN") if not os.environ.get(v)]
+    if missing:
+        out.append(
+            "[DevOps] Azure DevOps MCP is not configured: "
+            + ", ".join(missing)
+            + " not set. Every azure-devops tool call will fail with an opaque auth/404 "
+            "error until this is fixed (Claude Code forwards an unset ${VAR} to the server "
+            "literally). Run /init to configure, or set the variable(s) in your environment "
+            "or in .claude/settings.json under \"env\"."
+        )
+    # A literal, unexpanded token means the variable was referenced but never defined.
+    for var in ("ADO_ORGANIZATION", "ADO_MCP_AUTH_TOKEN", "ADO_MCP_PROJECT"):
+        val = os.environ.get(var, "")
+        if val.startswith("${") and val.endswith("}"):
+            out.append(
+                f"[DevOps] {var} contains the unexpanded literal '{val}'. "
+                "The referenced variable is not defined -- set it, or give it a "
+                "${VAR:-} default if it is optional."
+            )
+    return out
+
+
 def main() -> int:
     msgs = []
+
+    # 0. MCP required-environment preflight (before profile checks -- without these
+    #    every tool call fails, so it outranks profile staleness).
+    msgs.extend(_mcp_env_messages())
 
     # 1. Profile existence
     if not os.path.isfile(PROFILE_PATH):

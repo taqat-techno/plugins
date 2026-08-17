@@ -16,7 +16,7 @@ defers_to:
   - admin-crud (table column alignment per content type)
   - admin-states (toast position in RTL)
   - project locale config (which locales are RTL)
-user_invocable: false
+user-invocable: false
 ---
 
 # admin-rtl-ltr

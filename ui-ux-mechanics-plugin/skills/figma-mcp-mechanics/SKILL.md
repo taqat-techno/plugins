@@ -65,7 +65,7 @@ defers_to:
   - design skill — visual design theory, layout, accessibility
   - the /figma-use skill (Figma MCP) — the canonical Plugin API contract for use_figma
   - the Figma MCP server — actual tool execution
-user_invocable: false
+user-invocable: false
 ---
 <!-- Last updated: 2026-07-23 -->
 

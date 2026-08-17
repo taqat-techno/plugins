@@ -14,7 +14,7 @@ defers_to:
   - runtime-reality-check (env identity confirms which env you're actually on)
   - modal-and-action-walkthroughs (Pattern 2 commit gated by this skill)
   - import-export-ui-checks (Pattern 2 commit gated by this skill)
-user_invocable: false
+user-invocable: false
 ---
 
 # safe-destructive-testing

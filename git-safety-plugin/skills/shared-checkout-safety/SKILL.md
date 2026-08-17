@@ -18,7 +18,7 @@ defers_to:
   - git-safety skill for single-writer local hygiene (add -A, dirty-tree switch, rm --cached, author/push identity)
   - claude-env-doctor for the file-syncer itself (Syncthing conflict/deadlock/ignore mechanics)
   - the user for every commit, discard, and recovery decision on a shared tree
-user_invocable: false
+user-invocable: false
 ---
 
 # shared-checkout-safety

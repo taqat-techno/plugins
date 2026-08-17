@@ -17,7 +17,7 @@ defers_to:
   - react19-migration (deprecated/removed-API migration verdicts)
   - "env-doctor (generic broken-local-environment diagnosis: spawn / auth / missing-binary / version / DNS / encoding / config-shadowing)"
   - the project's own package-manager, bundler, and ORM configuration (the source of truth for versions and paths)
-user_invocable: false
+user-invocable: false
 ---
 
 # frontend-build-traps

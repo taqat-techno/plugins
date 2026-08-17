@@ -14,7 +14,7 @@ defers_to:
   - fastapi-async-performance (connection-pool sizing, cache-backend tuning values)
   - fastapi-database (the DATABASE_URL consumer / engine construction)
   - project secret-store choice (Vault / SSM / Doppler / .env — adapter input)
-user_invocable: false
+user-invocable: false
 ---
 
 # fastapi-config

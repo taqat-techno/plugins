@@ -13,7 +13,7 @@ defers_to:
   - wiki-code-vs-docs-discrepancy (when a stray-docs page makes a claim the wiki contradicts)
   - wiki-safe-updates (the workflow if the user decides to move content into the wiki)
   - project owner (the user decides whether to migrate, archive, or genuinely keep separate)
-user_invocable: false
+user-invocable: false
 ---
 
 # wiki-vs-stray-docs

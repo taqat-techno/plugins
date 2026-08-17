@@ -1,5 +1,5 @@
 ---
-name: remotion
+name: remotion-video
 description: |
   Create professional videos with smooth voice narration using Remotion and Claude Code. Complete video creation pipeline: describe scenes in natural language, generate free edge-tts narration (300+ voices), build React compositions with continuous audio that never cuts between slides, and render production-quality MP4/WebM/GIF output.
 
@@ -31,6 +31,7 @@ metadata:
   voice-engines: ["edge-tts", "elevenlabs"]
   output-formats: ["mp4", "webm", "gif", "png-sequence"]
   model: sonnet
+user-invocable: false
 ---
 <!-- Last updated: 2026-03-26 -->
 

@@ -15,7 +15,7 @@ defers_to:
   - admin-crud (loading state inside a list)
   - admin-forms (in-flight feedback during submit)
   - project observability layer (where unexpected errors should be reported, with what fields)
-user_invocable: false
+user-invocable: false
 ---
 
 # admin-states

@@ -22,7 +22,7 @@ defers_to:
   - references/env-secret-diff.md for the by-name secret-diff procedure
   - the django-testing skill (django plugin) for the rolled-back deployed-behaviour reproduction recipe (in-process auth + an always-rollback transaction) used when a walled frontend blocks HTTP verification
   - the deploy config of each project for branch-to-environment mapping and env-var source
-user_invocable: false
+user-invocable: false
 ---
 
 # release-verification

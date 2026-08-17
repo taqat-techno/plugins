@@ -15,7 +15,7 @@ defers_to:
   - admin-roles-and-permissions (which menu items each role sees)
   - admin-rtl-ltr (direction-aware utilities applied at shell level)
   - admin-states (loading / error states the shell itself shows during auth bootstrap)
-user_invocable: false
+user-invocable: false
 ---
 
 # admin-shell

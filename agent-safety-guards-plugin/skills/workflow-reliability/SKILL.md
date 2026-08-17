@@ -22,7 +22,7 @@ owns:
 defers_to:
   - agent-safety skill for per-session safety primitives (secrets, read-only immutability, authorization, no-fabrication)
   - the orchestrator / user for wave size, retry budget, and final apply decisions
-user_invocable: false
+user-invocable: false
 ---
 
 # workflow-reliability

@@ -15,7 +15,7 @@ defers_to:
   - fastapi-database (the SQLAlchemy/SQLModel ORM model the schema maps to)
   - fastapi-security-audit (the security verdict on a field leak / mass-assignment)
   - project schema conventions (base schema, naming, error envelope — adapter input)
-user_invocable: false
+user-invocable: false
 ---
 
 # fastapi-pydantic

@@ -18,7 +18,7 @@ defers_to:
   - django-views-drf (the endpoint contract being asserted)
   - django-settings-config (the test settings module itself)
   - project test conventions & coverage targets (adapter input)
-user_invocable: false
+user-invocable: false
 ---
 
 # django-testing

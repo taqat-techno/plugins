@@ -48,6 +48,7 @@ metadata:
   mcp-server: "@azure-devops/mcp"
   cli-extension: "azure-devops"
   tools-count: "100+ MCP tools + full CLI"
+user-invocable: false
 ---
 
 # Azure DevOps Integration Skill (v6.0 - Hybrid Mode)

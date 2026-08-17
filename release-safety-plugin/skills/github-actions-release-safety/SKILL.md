@@ -43,7 +43,7 @@ defers_to:
   - the devops plugin's CI_HARDENING checklist for SHA-pinning third-party actions, for "an approval-looking YAML block is not the gate" (enforcement lives in branch/environment protection settings, not in the file), and for the renamed-required-check trap
   - references/gate-audit.md for the per-CI soft-fail token catalog and sweep command, the prove-it-blocks recipe, the shape-assertion patterns, the tag-withdrawal command sequence, and the queue-vs-execution triage table
   - the user for every tag push, release publish, and default-branch change
-user_invocable: false
+user-invocable: false
 ---
 
 # github-actions-release-safety

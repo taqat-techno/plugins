@@ -1,5 +1,5 @@
 ---
-name: env-doctor
+name: env-doctor-router
 description: Routes a broken-local-environment symptom to the right diagnostic branch, runs read-only probes, classifies the failure, and proposes one safe next action without mutating config. Owns the diagnose-don't-mutate discipline for Claude Code and dev-environment problems. Activates when an MCP server will not load, a tool errors with a spawn / ENOENT / encoding failure, Claude Code login loops on a 401, an LSP or language server is missing, a Playwright or browser tool cannot find a browser, a plugin hook never fires or force-ends the turn, an agent spawns without its MCP tools, a long-running process vanishes with no crash artifact, a hand-edit to a running application's own config file is rejected as modified-since-read or is silently reverted, every tool from one server disappears at once after a file reorganization, or any "my local environment is broken" symptom surfaces.
 version: 0.4.0
 last_reviewed: 2026-07-23
@@ -17,7 +17,7 @@ defers_to:
   - env-probe-reporter agent (runs the probes and drafts the report)
   - env-doctor command (entry point and flag surface)
   - each consuming plugin for its own product internals (rag-plugin, odoo-plugin, qa-browser-plugin, ui-ux-mechanics-plugin)
-user_invocable: false
+user-invocable: false
 ---
 
 # env-doctor

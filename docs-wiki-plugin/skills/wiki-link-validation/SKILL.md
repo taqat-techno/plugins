@@ -21,7 +21,7 @@ defers_to:
   - wiki-structure (the rules being validated come from there; owns the page-ID URL form plus hub/child/sidebar conventions — this skill validates, structure defines)
   - wiki-safe-updates (any fix goes through that workflow)
   - wiki-link-auditor (agent) (this skill describes the workflow; the agent runs it)
-user_invocable: false
+user-invocable: false
 ---
 
 # wiki-link-validation

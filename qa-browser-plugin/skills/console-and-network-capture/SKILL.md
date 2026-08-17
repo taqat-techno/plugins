@@ -13,7 +13,7 @@ defers_to:
   - browser-qa-discipline (status vocabulary)
   - safe-destructive-testing (do not capture more than needed; never persist raw secrets)
   - project secret / PII catalogue (which fields are sensitive)
-user_invocable: false
+user-invocable: false
 ---
 
 # console-and-network-capture

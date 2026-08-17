@@ -25,7 +25,7 @@ defers_to:
   - wiki-link-validation (cross-page links inside templates)
   - wiki-source-of-truth (the summary-not-source doctrine; which page is authoritative)
   - project domain expertise (the content; the skill provides shape, not substance)
-user_invocable: false
+user-invocable: false
 ---
 
 # wiki-authoring

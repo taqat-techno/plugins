@@ -16,7 +16,7 @@ defers_to:
   - safe-destructive-testing (only confirm destructive actions on disposable data)
   - console-and-network-capture (capture surrounding the action)
   - project user-flow definitions (which actions exist per surface)
-user_invocable: false
+user-invocable: false
 ---
 
 # modal-and-action-walkthroughs

@@ -18,7 +18,7 @@ defers_to:
   - admin-dangerous-actions (destructive-confirm flows triggered from any view)
   - admin-import-export (bulk data in/out)
   - admin-roles-and-permissions (permission checks every view defers to)
-user_invocable: false
+user-invocable: false
 ---
 
 # admin-view-patterns

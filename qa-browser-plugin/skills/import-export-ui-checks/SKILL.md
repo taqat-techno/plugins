@@ -17,7 +17,7 @@ defers_to:
   - safe-destructive-testing (commit only on disposable target)
   - modal-and-action-walkthroughs (the upload + commit IS a confirm-pattern flow)
   - console-and-network-capture (capture upload progress + response)
-user_invocable: false
+user-invocable: false
 ---
 
 # import-export-ui-checks

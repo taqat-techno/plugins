@@ -20,7 +20,7 @@ defers_to:
   - wiki-authoring (placement within a page, when a swimlane is appropriate vs prose or a Mermaid flow)
   - wiki-link-validation (the embedded image link plus the link to the .puml source must follow the platform link convention)
   - project owner (picks renderMode local vs kroki, picks SVG-vs-PNG when both viable, approves the self-hosted Kroki endpoint, escalates to bpmn.io for true BPMN 2.0)
-user_invocable: false
+user-invocable: false
 ---
 
 # wiki-plantuml

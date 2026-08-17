@@ -16,7 +16,7 @@ defers_to:
   - admin-dangerous-actions (confirmation for destructive / irreversible moves)
   - data-fetching-states (loading / error / empty / refetch affordances on the board)
   - admin-view-patterns (the detail drawer surface itself)
-user_invocable: false
+user-invocable: false
 ---
 
 # admin-kanban-workflow

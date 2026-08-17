@@ -24,7 +24,7 @@ defers_to:
   - admin-dangerous-actions (confirmation flow for destructive submits)
   - admin-states (loading / error / success affordances during submit)
   - project validation library (zod, yup, joi, valibot, hand-rolled — all work)
-user_invocable: false
+user-invocable: false
 ---
 
 # admin-forms

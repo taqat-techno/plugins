@@ -16,7 +16,7 @@ defers_to:
   - fastapi-pydantic (correct schema construction; this skill audits for field leaks/over-accept)
   - fastapi-database (correct ORM use; this skill audits for raw-SQL injection)
   - project threat model & compliance scope (what's in scope — adapter input)
-user_invocable: false
+user-invocable: false
 ---
 
 # fastapi-security-audit

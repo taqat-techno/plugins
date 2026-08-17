@@ -18,7 +18,7 @@ defers_to:
   - admin-forms (the upload form itself)
   - admin-states (per-phase progress affordances)
   - project file-upload safety (magic-byte validation, virus scan, storage path)
-user_invocable: false
+user-invocable: false
 ---
 
 # admin-import-export

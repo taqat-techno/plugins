@@ -1,6 +1,6 @@
 {
   "name": "git-safety",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Generic local git-workflow safety guardrails for Claude Code — the safety layer that git integrations, commit helpers, and PR-review plugins leave out. Encodes local-operation hygiene (stage explicit paths, never `git add -A`/`.`; re-check the full working tree immediately before commit/push because an external process may have changed it; never silent-switch or discard with a dirty tree; `git rm --cached` on a shared tracked file deletes it for the whole team on merge; set per-repo author identity before the first commit) and shared-checkout safety for when more than one agent/session/syncer shares ONE working tree (commit immediately — uncommitted work isn't safe; NEVER `reset --hard`/`git clean`/`git stash`/`checkout -- .` there; `stash@{0}` shifts the instant a peer pops; extract wiped work to a scratchpad OUTSIDE the repo before restoring; separate your files from a peer's by mtime + diff and stage only yours). Advisory only — it reasons and warns, never auto-mutates git or blocks a command.",
   "author": {
     "name": "TaqaTechno",

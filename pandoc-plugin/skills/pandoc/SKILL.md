@@ -1,5 +1,5 @@
 ---
-name: pandoc
+name: pandoc-conversion
 description: |
   Universal document conversion skill powered by Pandoc - Convert between 50+ input formats and 60+ output formats. Professional document transformation with templates, citations, math rendering, and batch processing for PDF, Word, HTML, EPUB, LaTeX, and presentations.
 
@@ -43,6 +43,7 @@ metadata:
   mode: "cli-tool"
   pandoc-min-version: "3.0.0"
   model: sonnet
+user-invocable: false
 ---
 <!-- Last updated: 2026-03-26 -->
 

@@ -16,7 +16,7 @@ defers_to:
   - admin-forms (the form a destructive submit lives in)
   - admin-crud (where the action appears in a row / bulk bar)
   - project audit-log helper
-user_invocable: false
+user-invocable: false
 ---
 
 # admin-dangerous-actions

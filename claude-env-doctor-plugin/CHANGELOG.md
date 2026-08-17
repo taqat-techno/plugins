@@ -2,6 +2,12 @@
 
 All notable changes to this plugin are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2026-08-18
+
+Marketplace-wide architecture upgrade. Skill discovery, invocation-mode metadata, and identity consistency were corrected across the marketplace; no skill, command, agent, hook, or MCP behaviour was removed.
+
+Resolved a name collision: `commands/env-doctor.md` and `skills/env-doctor/SKILL.md` both resolved to `claude-env-doctor:env-doctor`, so one shadowed the other even though the command explicitly delegates to the skill. The skill is now `env-doctor-router` and the command's delegation target was updated; the `/env-doctor` entry point is unchanged. Also fixed `user_invocable` -> `user-invocable` on 2 skills.
+
 ## [Unreleased]
 
 ### Changed

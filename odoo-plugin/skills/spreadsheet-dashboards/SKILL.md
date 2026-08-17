@@ -19,7 +19,7 @@ defers_to:
   - stack-doctor for module-update and DB-lifecycle verification (reading the server log rather than the exit code, cloning a DB with its filestore) — this skill only says which checks a dashboard change needs
   - a general data-visualisation skill, where one is available, for chart-type choice and palette accessibility; this skill owns only the subset o-spreadsheet can actually express
   - the issue/decision owner for any defect that source control shows was a deliberate, documented choice
-user_invocable: false
+user-invocable: false
 ---
 
 # spreadsheet-dashboards
@@ -186,10 +186,10 @@ Run this against any dashboard before calling it designed. Each line has caught 
 
 Reference material owned by this skill:
 
-- `skills/frontend/spreadsheet-dashboards/references/rendering-architecture.md` — the two systems in
+- `skills/spreadsheet-dashboards/references/rendering-architecture.md` — the two systems in
   detail: what produces each visible pixel, the stable DOM tree and selector tiers, mobile and print
   DOM, the chart-styling hardcoded list, and the A-E extension ladder.
-- `skills/frontend/spreadsheet-dashboards/references/authoring-recipes.md` — the workbook JSON
+- `skills/spreadsheet-dashboards/references/authoring-recipes.md` — the workbook JSON
   skeleton, the observed design grid, the delta recipe, the section-header/drill-down idiom, the
   scoped SCSS card, and the chart-theme wrapper.
 

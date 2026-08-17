@@ -15,7 +15,7 @@ defers_to:
   - django-orm-models (what the field/constraint/index should be)
   - django-performance (whether a backfill needs batching/throttling)
   - project deploy pipeline (how/when migrate runs relative to code rollout — adapter input)
-user_invocable: false
+user-invocable: false
 ---
 
 # django-migrations
