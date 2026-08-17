@@ -7,6 +7,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [6.8.0] — 2026-08-17 — Kill the mid-session "Select the Azure DevOps project" picker
+
+### Fixed
+
+- **The blocking project-picker elicitation.** `@azure-devops/mcp` marks `project` as an
+  *optional* parameter on ~30 tools (`wit_get_work_item`, `wit_my_work_items`,
+  `wit_list_backlogs`, `work_list_iterations`, …). Whenever a call omitted it, the server
+  fired an MCP `elicitInput` form and **stalled the session waiting for a human click** —
+  repeatedly, even within a single session, because it is per-tool-call and stores nothing.
+  Source: `dist/shared/elicitations.js` → `elicitProject()` / `elicitTeam()`.
+
+### Changed
+
+- **Pinned `@azure-devops/mcp` 2.7.0 → 2.8.0.** 2.8.0 is the first release whose
+  `elicitProject()` / `elicitTeam()` short-circuit on the `ado_mcp_project` /
+  `ado_mcp_team` environment variables instead of prompting. There is no CLI flag for
+  this — the server only accepts `organization`, `--domains`, `--authentication`,
+  `--tenant` — so the env vars are the only supported suppression mechanism.
+- **`.mcp.json` now forwards `ado_mcp_project` and `ado_mcp_team`** from the
+  `ADO_MCP_PROJECT` / `ADO_MCP_TEAM` variables, which a workspace sets once in its
+  `.claude/settings.json` `env` block.
+
+### Compatibility
+
+- **2.8.0 is deliberately not 2.9.0.** Verified by diffing the tool surface: 2.8.0 exposes
+  the **same 90 tools** as 2.7.0 (zero added, zero removed), while **2.9.0 collapses them
+  into 37 renamed tools** (`wit_get_work_item` → `wit_work_item`,
+  `repo_create_pull_request` → `repo_pull_request_write`, …). 2.9.0 would break every
+  agent `tools:` list, every `hooks.json` matcher, and every rule in this plugin.
+  Do not bump past 2.8.0 without renaming those references first.
+- The env defaults use `${VAR:-}` (empty fallback), **not** `${VAR}`. Claude Code passes an
+  unset-and-defaultless `${VAR}` through **literally**, which would hand the server the
+  string `"${ADO_MCP_PROJECT}"` as a project name and fail every call. With the empty
+  fallback, an unconfigured workspace degrades to exactly today's behavior.
+
+### Validation
+
+- Empirically confirmed against Claude Code 2.1.233 with an isolated probe MCP server:
+  a workspace `.claude/settings.json` `env` value reaches the server process through
+  `.mcp.json` expansion; `${VAR}` unset leaks the literal token; `${VAR:-}` yields `""`.
+- Confirmed an explicit `project` argument still wins — the env var is consulted only on
+  the `if (!resolvedProject)` path, so cross-project queries are unaffected.
+
+---
+
 ## [6.7.0] — 2026-06-20 — Remove the git-push gate (frictionless git pushes)
 
 ### Removed
