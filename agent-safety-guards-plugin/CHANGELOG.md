@@ -3,6 +3,12 @@
 All notable changes to the `agent-safety-guards` plugin are documented here.
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2026-08-18
+
+Marketplace-wide architecture upgrade. Skill discovery, invocation-mode metadata, and identity consistency were corrected across the marketplace; no skill, command, agent, hook, or MCP behaviour was removed.
+
+Fixed `user_invocable` -> `user-invocable` on 6 skills. The underscore form is not in Claude Code's skill frontmatter allowlist, so every one of those declarations was silently inert and the skills stayed user-invocable against their authored intent. Values preserved exactly.
+
 ## [Unreleased]
 
 ### Added

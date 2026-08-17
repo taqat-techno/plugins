@@ -15,7 +15,7 @@ defers_to:
   - django-migrations (how an index/backfill becomes a safe migration)
   - django-settings-config (cache backend wiring & CONN_MAX_AGE values)
   - project infra (cache server, broker, worker topology — adapter input)
-user_invocable: false
+user-invocable: false
 ---
 
 # django-performance

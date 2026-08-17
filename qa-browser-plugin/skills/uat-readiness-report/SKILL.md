@@ -13,7 +13,7 @@ defers_to:
   - browser-qa-discipline (every status traces back to the vocabulary)
   - all other qa-browser skills (each contributes evidence rows)
   - project release SOP (any project-specific sign-off conventions)
-user_invocable: false
+user-invocable: false
 ---
 
 # uat-readiness-report

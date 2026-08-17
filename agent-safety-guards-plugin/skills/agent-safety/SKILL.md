@@ -20,7 +20,7 @@ owns:
 defers_to:
   - workflow-reliability skill for multi-agent fan-out and idempotency concerns
   - the user for every grant, override, revocation, and apply decision
-user_invocable: false
+user-invocable: false
 ---
 
 # agent-safety

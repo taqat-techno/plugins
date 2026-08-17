@@ -24,7 +24,7 @@ defers_to:
   - wiki-safe-updates (the workflow that applies any structural change; owns the approval/diff gate plus the repoint ordering for move/rename/delete)
   - wiki-code-vs-docs-discrepancy (when structural changes contradict code-side documentation)
   - project owner (the user picks the wiki flavour and resolves naming collisions)
-user_invocable: false
+user-invocable: false
 ---
 
 # wiki-structure

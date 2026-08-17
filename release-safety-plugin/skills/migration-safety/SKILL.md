@@ -20,7 +20,7 @@ defers_to:
   - references/cutover-skeleton.md for the step-by-step expand/contract runbook
   - references/destructive-checks.md for the cascade-FK and bulk-delete audit procedure
   - the project's ORM / migration tool for the concrete generate / apply / status commands
-user_invocable: false
+user-invocable: false
 ---
 
 # migration-safety

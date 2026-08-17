@@ -24,7 +24,7 @@ defers_to:
   - wiki-code-vs-docs-discrepancy (optional code-vs-wiki drift report)
   - references/safe-doc-deletion.md (capture-check + cross-ref sweep — the childless rule layers on top)
   - project release SOP (any project-specific wiki-publishing convention)
-user_invocable: false
+user-invocable: false
 ---
 
 # wiki-safe-updates

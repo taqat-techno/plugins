@@ -17,7 +17,7 @@ defers_to:
   - runtime-reality-check (env + build identity must be confirmed first)
   - console-and-network-capture (capturing the actual response status)
   - react-kit data-fetching-states (the UI states these statuses should produce)
-user_invocable: false
+user-invocable: false
 ---
 
 # verify-identity-and-rbac

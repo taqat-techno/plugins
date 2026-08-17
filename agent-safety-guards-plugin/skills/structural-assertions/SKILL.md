@@ -16,7 +16,7 @@ defers_to:
   - agent-safety skill for the structured-output contract and for refuting a green verdict before it mutates state
   - workflow-reliability skill for fan-out sweeps across many files and for treating a subagent's "clean" as a claim
   - runtime/behavioural tests for anything about what the code DOES; this skill only governs claims about its SHAPE
-user_invocable: false
+user-invocable: false
 ---
 
 # structural-assertions

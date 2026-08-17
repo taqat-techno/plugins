@@ -18,7 +18,7 @@ defers_to:
   - release-verification skill (release-safety plugin) for the DEPLOY-altitude twin of this failure — a /health 200 served by the OLD build, per-service SHA, code-marker probes
   - agent-safety skill for what to do with a green verdict that is about to authorize an irreversible action
   - workflow-reliability skill for whether the producer of a result completed at all (a zero from a crashed producer reads identical to a clean zero)
-user_invocable: false
+user-invocable: false
 ---
 
 # test-result-evidence

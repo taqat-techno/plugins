@@ -14,7 +14,7 @@ defers_to:
   - fastapi-database (what the column/constraint/index/relationship should be)
   - fastapi-async-performance (whether a backfill needs batching/throttling)
   - project deploy pipeline (how/when `alembic upgrade` runs relative to code rollout — adapter input)
-user_invocable: false
+user-invocable: false
 ---
 
 # fastapi-migrations

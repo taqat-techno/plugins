@@ -2,6 +2,12 @@
 
 All notable changes to `react-kit-plugin` are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/). Versioning follows [SemVer](https://semver.org/).
 
+## [0.6.0] - 2026-08-18
+
+Marketplace-wide architecture upgrade. Skill discovery, invocation-mode metadata, and identity consistency were corrected across the marketplace; no skill, command, agent, hook, or MCP behaviour was removed.
+
+Fixed `user_invocable` -> `user-invocable` on 16 skills (previously inert).
+
 ## [0.5.0] — 2026-06-13 — Frontend build-and-tooling trap catalog
 
 Adds a sibling to `react-lint-triage` for the build/dev-server/test-runner/package-manager/ORM-codegen failures whose symptom surfaces in a different layer than the cause. Patterns were generalized from real debugging sessions; all project-specific names, versions, and paths were stripped — the skill is domain-agnostic and adapter-driven.

@@ -17,7 +17,7 @@ defers_to:
   - agent-safety skill for the "a green verdict is a claim to refute" reflex that a passing seam test invites
   - workflow-reliability skill for treating a producer's self-reported completion as an unverified claim
   - the project's own tolerance pattern (an existing broad-except / narrower-signature shim) when one already exists — apply it rather than inventing a second one
-user_invocable: false
+user-invocable: false
 ---
 
 # test-double-seams

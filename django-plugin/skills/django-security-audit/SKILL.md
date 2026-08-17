@@ -15,7 +15,7 @@ defers_to:
   - django-views-drf (correct permission/serializer construction; this skill audits for bypass)
   - django-orm-models (correct ORM use; this skill audits for raw-SQL injection)
   - project threat model & compliance scope (what's in scope — adapter input)
-user_invocable: false
+user-invocable: false
 ---
 
 # django-security-audit

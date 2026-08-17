@@ -16,7 +16,7 @@ defers_to:
   - data-fetching-states (maps each fetch outcome to one state; owns the no-0-on-failure data contract)
   - admin-roles-and-permissions (authorization; UI hide is not a security boundary)
   - admin-states (the visual rendering of loading / error / empty affordances)
-user_invocable: false
+user-invocable: false
 ---
 
 # admin-dashboard-overview

@@ -15,7 +15,7 @@ defers_to:
   - fastapi-async-performance (caching, connection-pool sizing, async-driver choice, pagination at scale)
   - fastapi-pydantic (the request/response schema the ORM object maps to)
   - project base-model & session-factory conventions (adapter input)
-user_invocable: false
+user-invocable: false
 ---
 
 # fastapi-database

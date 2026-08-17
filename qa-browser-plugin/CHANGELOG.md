@@ -2,6 +2,12 @@
 
 All notable changes to `qa-browser-plugin` are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/). Versioning follows [SemVer](https://semver.org/).
 
+## [0.5.0] - 2026-08-18
+
+Marketplace-wide architecture upgrade. Skill discovery, invocation-mode metadata, and identity consistency were corrected across the marketplace; no skill, command, agent, hook, or MCP behaviour was removed.
+
+Fixed `user_invocable` -> `user-invocable` on 12 skills (previously inert).
+
 ## [0.4.0] — 2026-06-13 — Anti-fraud + guard hygiene, RBAC three-layer, UAT template
 
 ### Added

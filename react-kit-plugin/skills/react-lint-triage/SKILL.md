@@ -17,7 +17,7 @@ defers_to:
   - react19-migration (verdicts about deprecated-API findings)
   - admin-* skills (verdicts about admin-UI-specific findings)
   - the project's own observability/CI configuration (the source of truth for which zones are forbidden)
-user_invocable: false
+user-invocable: false
 ---
 
 # react-lint-triage

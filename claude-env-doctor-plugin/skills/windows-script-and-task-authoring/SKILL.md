@@ -40,7 +40,7 @@ defers_to:
   - references/scheduled-task-authoring.md for the registration recipe, hidden-window wrapper, and backup/rollback contract
   - references/shell-boundary-hazards.md for command-level MSYS/WSL workarounds and the bitness-safe process query
   - the user for every elevation prompt, task deletion, and any change to a task they did not create
-user_invocable: false
+user-invocable: false
 ---
 
 # windows-script-and-task-authoring

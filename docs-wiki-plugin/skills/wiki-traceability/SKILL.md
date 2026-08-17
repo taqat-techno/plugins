@@ -22,7 +22,7 @@ defers_to:
   - wiki-structure (owns the page-ID URL link form and the Azure adapter the matrix/reverse links consume)
   - wiki-link-validation (owns the resolution-based validation of the emitted links)
   - wiki-mermaid (owns the Azure-safe fence rules any matrix orientation map follows)
-user_invocable: false
+user-invocable: false
 ---
 
 # wiki-traceability

@@ -23,7 +23,7 @@ defers_to:
   - wiki-link-validation (diagram node text that doubles as wiki link targets must follow link convention)
   - wiki-plantuml (how a true BPMN swimlane renders; this skill owns only its exactly-once placement on the hub)
   - wiki-source-of-truth (the owning spec page's authoritative rules and full state machine that a diagram must not restate)
-user_invocable: false
+user-invocable: false
 ---
 
 # wiki-mermaid

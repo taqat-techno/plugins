@@ -15,7 +15,7 @@ defers_to:
   - fastapi-routing (the endpoint contract being asserted)
   - fastapi-config (the test settings/overrides)
   - project test conventions & coverage targets (adapter input)
-user_invocable: false
+user-invocable: false
 ---
 
 # fastapi-testing

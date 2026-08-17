@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [6.9.0] - 2026-08-18
+
+Marketplace-wide architecture upgrade. Skill discovery, invocation-mode metadata, and identity consistency were corrected across the marketplace; no skill, command, agent, hook, or MCP behaviour was removed.
+
+**Restored an undiscovered skill.** `devops/SKILL.md` sat outside `skills/`, so Claude Code never loaded it -- the CLI-vs-MCP routing policy, the ADO_MCP_AUTH_TOKEN silent-unauth trap, MCP tool-name drift, the default-branch handoff, the Scrum Task-vs-PBI hours semantics and the TF401320 recovery were all unreachable. Moved to `skills/devops/` (git mv, history preserved) and marked `user-invocable: false` -- it is the routing layer behind the 9 `/devops:*` commands, not a manual action. Added MCP required-environment preflight to the SessionStart hook: missing ADO_ORGANIZATION / ADO_MCP_AUTH_TOKEN, and unexpanded `${VAR}` literals, now produce an actionable message pointing at /init instead of an opaque auth/404 failure. The `${VAR}` contract in .mcp.json is deliberately unchanged -- weakening it to `${VAR:-}` would send an empty value to the server and discard the missing-variable warning.
+
 ## [6.8.0] — 2026-08-17 — Kill the mid-session "Select the Azure DevOps project" picker
 
 ### Fixed

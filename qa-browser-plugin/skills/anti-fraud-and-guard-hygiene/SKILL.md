@@ -15,7 +15,7 @@ defers_to:
   - safe-destructive-testing (any probe runs on a disposable target only)
   - console-and-network-capture (capturing request/response headers without leaking secrets)
   - runtime-reality-check (confirm env + build before trusting any probe)
-user_invocable: false
+user-invocable: false
 ---
 
 # anti-fraud-and-guard-hygiene

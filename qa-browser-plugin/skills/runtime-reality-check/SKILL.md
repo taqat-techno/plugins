@@ -16,7 +16,7 @@ defers_to:
   - browser-qa-discipline (evidence vocabulary for the reality-check outputs)
   - safe-destructive-testing (any probe must not mutate data)
   - project SOPs / wiki (the canonical narrative about what runs where)
-user_invocable: false
+user-invocable: false
 ---
 
 # runtime-reality-check

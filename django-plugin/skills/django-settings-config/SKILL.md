@@ -15,7 +15,7 @@ defers_to:
   - django-performance (cache backend tuning, connection pooling/CONN_MAX_AGE values)
   - django-migrations (nothing settings-side, but DB routing config interacts)
   - project secret-store choice (Vault / SSM / Doppler / .env — adapter input)
-user_invocable: false
+user-invocable: false
 ---
 
 # django-settings-config

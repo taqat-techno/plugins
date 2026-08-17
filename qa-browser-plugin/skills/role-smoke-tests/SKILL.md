@@ -16,7 +16,7 @@ defers_to:
   - safe-destructive-testing (smoke must not mutate data)
   - console-and-network-capture (what to capture and how)
   - project credentials cache (`.qa-browser.local.json`)
-user_invocable: false
+user-invocable: false
 ---
 
 # role-smoke-tests

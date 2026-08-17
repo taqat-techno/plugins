@@ -15,7 +15,7 @@ defers_to:
   - fastapi-migrations (how an index/backfill becomes a safe revision)
   - fastapi-config (where pool sizes / cache backend URLs are configured)
   - project infra (cache server, broker, worker topology — adapter input)
-user_invocable: false
+user-invocable: false
 ---
 
 # fastapi-async-performance

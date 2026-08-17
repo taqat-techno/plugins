@@ -19,7 +19,7 @@ defers_to:
   - admin-crud (list-level wiring of the resolved state)
   - project data-fetching layer (which library; how a response/error is shaped)
   - project auth layer (how 401 vs 403 is signalled)
-user_invocable: false
+user-invocable: false
 ---
 
 # data-fetching-states

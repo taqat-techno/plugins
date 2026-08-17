@@ -1,5 +1,5 @@
 ---
-name: ntfy
+name: ntfy-messaging
 description: |
   Push notifications to your phone via ntfy.sh when Claude completes tasks, needs input, or encounters errors. Supports two-way phone Q&A — send interactive questions and wait for user responses. Sends real-time alerts for task completion, action required, blocking issues, and long-running tasks. Supports automatic retry, deduplication, rate limiting, and notification history. 100% FREE - No account required!
 
@@ -47,6 +47,7 @@ metadata:
   priority-levels: 5
   features: "retry, deduplication, rate-limiting, history, decorators"
   model: sonnet
+user-invocable: false
 ---
 <!-- Last updated: 2026-03-26 -->
 

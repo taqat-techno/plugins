@@ -16,7 +16,7 @@ defers_to:
   - admin-shell (where the role-aware menu is rendered)
   - admin-dangerous-actions (confirmation flow for destructive actions)
   - admin-import-export (import is itself a high-privilege admin action)
-user_invocable: false
+user-invocable: false
 ---
 
 # admin-roles-and-permissions

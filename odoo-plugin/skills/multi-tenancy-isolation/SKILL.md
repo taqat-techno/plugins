@@ -36,7 +36,7 @@ defers_to:
   - odoo-upgrade for cross-version migration mechanics when a pre-19 module has to gain a partial index through a migration script
   - theme-create for the exact per-website hook naming and available helpers (_theme_<module>_post_copy on theme.utils)
   - odoo-stack-doctor (references/db-safety.md) for per-instance separation at the deployment layer (own hostname / port pair / db_filter / filestore), which is a different boundary from tenant isolation inside one database
-user_invocable: false
+user-invocable: false
 ---
 
 # multi-tenancy-isolation
@@ -313,7 +313,7 @@ uniqueness/indexes don't depend on it being nullable --no--> duplicates accumula
   class attributes, and their position in class-attribute order).
 - **odoo-upgrade** (`skills/upgrade/`) — migration mechanics when a pre-19 module has to acquire a
   partial index through a migration script rather than a declaration.
-- **theme-create** / **theme-design** (`skills/frontend/`) — the pure presentation layer rule 6
+- **theme-create** / **theme-design** (`skills/theme-create/`, `skills/theme-design/`) — the pure presentation layer rule 6
   requires, and the exact per-website post-copy hook name and helper set.
 - **odoo-stack-doctor** (`skills/stack-doctor/references/db-safety.md`) — separation at the
   *deployment* layer (one hostname / port pair / `db_filter` / filestore per instance). That is a

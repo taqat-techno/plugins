@@ -2,6 +2,12 @@
 
 All notable changes to `odoo-plugin` are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/). Versioning follows [SemVer](https://semver.org/).
 
+## [2.9.0] - 2026-08-18
+
+Marketplace-wide architecture upgrade. Skill discovery, invocation-mode metadata, and identity consistency were corrected across the marketplace; no skill, command, agent, hook, or MCP behaviour was removed.
+
+**Restored 11 undiscovered skills.** `skills/frontend/<sub>/SKILL.md` and `skills/owl/<sub>/SKILL.md` were nested one level too deep; Claude Code only discovers `skills/<name>/SKILL.md` and never descends, so frontend-js, spreadsheet-dashboards, theme-create, theme-design, theme-scss, theme-snippets and the five odoo-owl-* skills were all invisible at runtime. Flattened to `skills/<name>/` (git mv, history preserved) with internal references updated. **Plugin identity is now `odoo`** (was `odoo-plugin`), matching the marketplace entry; the `odoo-plugin/` folder name is unchanged and intentionally differs. Normalized 5 CRLF files to LF. Fixed `user_invocable` -> `user-invocable` on 2 skills.
+
 ## [2.8.0] — 2026-08-12 — OWL: the constructive half — reference architecture + a 28-file app scaffold
 
 2.7.0 covered what NOT to do. This adds what a healthy OWL application actually looks like, so

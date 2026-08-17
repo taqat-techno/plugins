@@ -23,7 +23,7 @@ defers_to:
   - admin-states (loading skeleton, error, empty patterns)
   - admin-dangerous-actions (destructive row actions)
   - project data layer (how list/detail APIs are structured)
-user_invocable: false
+user-invocable: false
 ---
 
 # admin-crud

@@ -15,7 +15,7 @@ defers_to:
   - fastapi-security-audit (auth model hardening, permission-bypass review, rate-limit policy)
   - fastapi-async-performance (sync-vs-async def choice, response caching, scale)
   - project API conventions (base router, error envelope, auth scheme — adapter input)
-user_invocable: false
+user-invocable: false
 ---
 
 # fastapi-routing

@@ -17,7 +17,7 @@ defers_to:
   - django-performance (caching, denormalization, async, pagination at scale)
   - django-views-drf (serializer-side query shaping for API responses)
   - project model layout & base-model conventions (adapter input)
-user_invocable: false
+user-invocable: false
 ---
 
 # django-orm-models

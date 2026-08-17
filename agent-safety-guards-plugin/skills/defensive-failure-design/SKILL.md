@@ -16,7 +16,7 @@ defers_to:
   - structural-assertions skill (this plugin) for proving by parser that no path reaches an unsafe primitive
   - agent-safety skill (this plugin) for what a green verdict is allowed to authorize
   - the user for every policy call about what an ambiguous match should do
-user_invocable: false
+user-invocable: false
 ---
 
 # defensive-failure-design

@@ -16,7 +16,7 @@ defers_to:
   - safe-destructive-testing (safety constraints on what evidence-gathering may do)
   - runtime-reality-check (verify target is actually running before claiming PASS)
   - uat-readiness-report (how to compose the final report from these statuses)
-user_invocable: false
+user-invocable: false
 ---
 
 # browser-qa-discipline

@@ -13,7 +13,7 @@ defers_to:
   - console-and-network-capture (the CORS preflight signal in the network panel)
   - safe-destructive-testing (credentials-must-be-gitignored, production-URL refusal)
   - runtime-reality-check (env identity confirms which host you are actually on)
-user_invocable: false
+user-invocable: false
 ---
 
 # host-scoped-auth-headers

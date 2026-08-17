@@ -2,6 +2,12 @@
 
 All notable changes to `docs-wiki-plugin` are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/). Versioning follows [SemVer](https://semver.org/).
 
+## [0.8.0] - 2026-08-18
+
+Marketplace-wide architecture upgrade. Skill discovery, invocation-mode metadata, and identity consistency were corrected across the marketplace; no skill, command, agent, hook, or MCP behaviour was removed.
+
+Fixed `user_invocable` -> `user-invocable` on 10 skills (previously inert).
+
 ## [0.7.0] — 2026-06-22 — Build-any-wiki enhancement: hub-first IA, resolution-based links, single-master-swimlane, traceability
 
 A single-owner enhancement across the wiki skills, distilled by a multi-agent analysis of a

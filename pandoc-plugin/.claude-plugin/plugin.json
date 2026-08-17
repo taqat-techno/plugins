@@ -1,6 +1,6 @@
 {
   "name": "pandoc",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "description": "Universal document conversion powered by Pandoc — convert between 50+ input and 60+ output formats. PDF, Word, HTML, EPUB, presentations, citations, and Arabic/RTL support.",
   "author": {
     "name": "TaqaTechno",

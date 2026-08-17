@@ -15,7 +15,7 @@ defers_to:
   - role-smoke-tests (positive path — what the role CAN reach)
   - safe-destructive-testing (probes must not mutate)
   - console-and-network-capture (capture the API response code)
-user_invocable: false
+user-invocable: false
 ---
 
 # route-access-matrix
