@@ -58,6 +58,7 @@ Activate when any of these is about to happen:
 - Run `git status --porcelain` **immediately before** `git add`/commit/push — not a status from earlier in the turn. An earlier "clean" does not license a later push.
 - When an unexpected path appears, **investigate before acting**: `git show HEAD:<path>` to see what it was; restore with `git checkout HEAD -- <path>` if a sync/backup churn deleted it. A stray deletion (e.g. a `.gitignore` an external process removed) is a scope leak, not a no-op.
 - This is exactly the class of drift a dedicated scope check catches: assert "EXACTLY these N files changed; anything else is a blocker" right before the write.
+- **The scope check runs in both directions.** Guarding only against *extra* files misses the opposite failure: a deliverable the work existed to produce is **missing** from the commit, and the commit still succeeds and reports success. An ignore rule is the usual cause — often written by an IDE rather than a person, and easy to miss because the same path can be ignored twice in two spellings (`/docs` and `docs/`). So before committing, enumerate the outputs this task was supposed to produce and confirm each one appears in `git status --porcelain` as staged. Writing a file is not evidence it will be committed. Corollary worth knowing: an ignore rule never untracks an already-committed file, so committing the deliverable promptly ends the recurrence — that is cheaper than hunting whatever wrote the rule.
 
 ### 3. Never silent-switch branches or discard with a dirty tree
 
@@ -84,6 +85,7 @@ Activate when any of these is about to happen:
 - The active CLI identity (`gh`, cloud CLIs) **can silently revert between shell calls** — each tool invocation is a **fresh shell**, and the default account reasserts itself there regardless of a switch you confirmed a call earlier. Switch and push in the **same shell/command** as the write, and re-assert the identity immediately before the push rather than trusting a switch from an earlier call.
 - **Verify the identity, in the same invocation as the write.** Make the identity call part of the command that pushes (e.g. `gh api user --jq .login` immediately before the push, one invocation) — a switch confirmed in a previous call proves nothing about the shell that will actually authenticate. Set `GIT_TERMINAL_PROMPT=0` (and the equivalent for your credential manager) so a credential miss **fails fast**: otherwise git falls through to an interactive prompt that is invisible to a non-interactive shell, and the push hangs for minutes looking like a network problem. Never embed a token or a username in the remote URL to force an account — the helper can still return a different one.
 - An **MCP repository-write tool is not a permission bypass.** If a server-side operation (create branch, push, merge) is denied for your identity, the MCP equivalent is denied too. Do not route around a denial by switching tools — surface it and ask the user.
+- **A push's own output is not the verdict — the remote is.** A protected branch can print a policy line such as `Changes must be made through a pull request` as an **advisory** while still accepting the push and moving the ref. Read literally, that output reports failure for a push that succeeded; the mirror case (a rejection buried above a wall of output) reports success for one that did not. Confirm against the server before reporting either way: `git ls-remote origin refs/heads/<branch>` must equal local `HEAD`, and for a change that added or deleted paths, spot-check that the added ones exist on the remote and the deleted ones are gone.
 - For provider-specific remote gates (Azure DevOps push identity, account auto-switch policy), defer to `devops` (git-remote-write-gate).
 
 ### 7. Preview every remote mutation, then write only the minimal verified set
@@ -123,11 +125,13 @@ shared working tree?         --> STOP: use shared-checkout-safety (discarding-op
 
 - [ ] Nothing was staged with `git add -A` / `git add .` / `git add -u`; the commit's paths were explicit and diff-verified.
 - [ ] `git status --porcelain` was re-checked immediately before the commit/push, not trusted from earlier.
+- [ ] Every deliverable this task was supposed to produce was confirmed present in the staged set — not just confirmed written to disk.
 - [ ] No branch switch or `checkout -- ` / `restore` discarded a dirty tree without preserving it first.
 - [ ] Any `git rm --cached` of a shared tracked file was flagged as team-wide and confirmed.
 - [ ] Local `user.email` was verified/set before the first commit in the repo.
 - [ ] The push used an identity with access, re-asserted and verified (`gh api user --jq .login`) in the same invocation as the write, with `GIT_TERMINAL_PROMPT=0` set; no MCP tool was used to route around a denied write.
 - [ ] A `Repository not found` on push was diagnosed as an identity question before the URL was doubted.
+- [ ] A push that printed branch-protection or policy output was confirmed against `git ls-remote` before being reported as landed or failed.
 - [ ] Before merging long-lived branches, both lineages were checked for a revert of shared history (version/manifest numbers moving backwards).
 - [ ] The merge ran in the direction that can be tested, and the *auto*-merged files were audited by per-file blob comparison — not by filename lists or a diffstat.
 - [ ] `git rev-parse HEAD^{tree}` was compared against the known-good branch's tree before the result was accepted as certified by the prior green run.

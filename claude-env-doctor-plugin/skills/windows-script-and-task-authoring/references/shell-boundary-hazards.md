@@ -31,7 +31,13 @@ env-doctor's `references/windows-powershell.md`; this list is not a second copy 
 1. **Pipe through stdin** — sidesteps translation entirely:
    `cat "$f" | python -c 'import sys; ...sys.stdin...'`
 2. **Drive-letter paths** for anything a native tool will open: `C:/Users/...`, not `/c/Users/...`.
-3. **Relative paths after `cd`** — nothing to translate.
+3. **Relative paths after `cd`, within a single invocation** — nothing to translate. This holds only
+   *inside one command*: do not carry the assumption across calls. Each tool invocation may start in a
+   directory a previous call left behind, and a relative path then resolves somewhere you did not intend —
+   creating a stray file at the drifted location instead of editing the one you meant, with a success
+   status either way. Across calls, pass **absolute paths to every file operation**, regardless of where
+   the previous command ended up. If an edit reports success but the target looks unchanged, look for a
+   stray file at the drifted directory before re-running.
 4. **`MSYS_NO_PATHCONV=1`** as a prefix on the single offending command. Use it surgically; disabling
    translation for a whole script breaks the MSYS tools that depend on it.
 5. **Move the redirect inside the target shell**: `wsl -- bash -lc "curl ... -o /dev/null"` — the POSIX path
@@ -49,6 +55,16 @@ env-doctor's `references/windows-powershell.md`; this list is not a second copy 
   agent-safety-guards plugin owns that rule; what this file adds is that a mangled selector is one of its
   causes, and that the runner's own output cannot show it.)
 - `ls` succeeding in the same shell where `open()` fails is the signature of case 1, not of a race.
+- **Do not test for CRLF with `grep` on an escape sequence.** `grep -c $'\r'` collapses to an *empty*
+  pattern in Git Bash, which matches every line — so it reports "249 of 249 lines are CRLF" against a file
+  that is pure LF, and the resulting line-ending "defect" is an artifact of the test. Count raw bytes
+  instead: `tr -dc '\r' < "$f" | wc -c`. Then be explicit about **which object** you measured: under
+  `core.autocrlf=true` the working tree legitimately holds CRLF while the committed blob holds LF, so when
+  the question is "what will be committed", measure the staged blob — `git show :<path> | tr -dc '\r' | wc -c`.
+- **Never deliver multi-line content through a heredoc.** Quoting misbehaves at the boundary for large
+  markdown or code blocks, and long content additionally runs into the command-length limit; both fail by
+  writing something subtly different from what you wrote, not by erroring. Write the file with a dedicated
+  file-writing tool, or stage the content to a scratch file and have the shell consume it.
 - **A pipeline's exit status is the LAST stage's**, so an upstream failure is reported as success. Every
   hazard in the table above already fails silently; wrapping the command in `| tail`, `| head`, or
   `| grep` hides even the ones that would have raised — a mangled `node` path exits non-zero with

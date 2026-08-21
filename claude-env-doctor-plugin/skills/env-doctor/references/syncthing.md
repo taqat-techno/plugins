@@ -255,6 +255,25 @@ Safe action: replicate the same patterns in each device's `.stignore` (or factor
 an `#include`-d file that *is* synced, keeping only the `#include` line in each local `.stignore`).
 Treat "did I set this on every peer?" as the first question, not the last.
 
+### Comments are `//` — a bare `#` line is a PATTERN
+
+Syncthing's ignore syntax comments with `//`. `#` is **not** a comment character: `#include` is a real
+directive (above), and any other `#`-prefixed line is parsed as an ordinary **pattern**. A line like
+`# vendored deps` therefore silently becomes a rule matching a path starting `# vendored deps` — inert
+only for as long as nothing happens to match it, and actively misleading to anyone reading the file.
+Mixed `#`/`//` styles inside one `.stignore` are common and worth normalising to `//` on sight.
+
+Two more properties that change how you edit the file:
+
+- Prefix an entry with `(?d)` for a tree Syncthing is allowed to **delete** — the right marker for a
+  vendored or generated directory that is fully reproducible from a lock file, e.g.
+  `(?d)**/<vendored-dir>`. Without it, the delete-deadlock in the section above is what you get.
+- A `.stignore` at a **workspace root governs every project beneath it**. Editing it is a cross-project
+  change, not a local tweak: back the file up first and get explicit approval before changing it.
+
+Replicating live `.git` directories is worth avoiding on its own — replication mid-operation can corrupt
+git objects, and a reproducible checkout should be re-fetched on the second machine rather than synced.
+
 ## A folder's error list is CACHED until a pull — pause/resume, not rescan
 
 The error list on a folder (`/rest/folder/errors`, and the UI's "Failed Items") is a **snapshot

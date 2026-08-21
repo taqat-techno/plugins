@@ -4,6 +4,28 @@ All notable changes to the `git-safety` plugin are documented here. The format i
 based on [Keep a Changelog](https://keepachangelog.com/), and the project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [0.3.0] - 2026-08-22
+
+Two rules promoted from recorded session lessons via `/lessons-to-plugins`. Both extend
+`skills/git-safety`; no behaviour was removed and the skill `description` is unchanged.
+
+### Added
+
+- **The pre-commit scope check now runs in both directions.** The existing rule guards against
+  *extra* files entering a commit. The inverse failure is that a deliverable the work existed to
+  produce is **missing** and the commit still succeeds - usually because of an ignore rule, often
+  written by an IDE rather than a person, and easy to miss because one path can be ignored twice in
+  two spellings (`/docs` and `docs/`). Enumerate the intended outputs and confirm each is staged in
+  `git status --porcelain`; writing a file is not evidence it will be committed. Includes the
+  corollary that an ignore rule never untracks an already-committed file, so committing the
+  deliverable promptly ends the recurrence.
+- **A push's own output is not the verdict - the remote is.** A protected branch can print a policy
+  line such as `Changes must be made through a pull request` as an *advisory* while still accepting
+  the push and moving the ref, so reading the push output alone gives the wrong answer in both
+  directions. Confirm with `git ls-remote origin refs/heads/<branch>` against local `HEAD`, plus a
+  remote path spot-check when paths were added or deleted.
+- Two matching rows in the validation checklist.
+
 ## [0.2.0] - 2026-08-18
 
 Marketplace-wide architecture upgrade. Skill discovery, invocation-mode metadata, and identity consistency were corrected across the marketplace; no skill, command, agent, hook, or MCP behaviour was removed.
