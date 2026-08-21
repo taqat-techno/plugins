@@ -1,10 +1,10 @@
 # TAQAT Techno Plugins — Marketplace Wiki
 
-Welcome to the **taqat-techno-plugins** marketplace for Claude Code. This wiki is the operator and contributor guide for the 7 production plugins shipped from this repository.
+Welcome to the **taqat-techno-plugins** marketplace for Claude Code. This wiki is the operator and contributor guide for the 17 production plugins shipped from this repository.
 
 ## What this marketplace is
 
-A curated Claude Code plugin catalog published at **[github.com/taqat-techno/plugins](https://github.com/taqat-techno/plugins)**. Each plugin delivers domain-specific capabilities: Odoo ERP development, Azure DevOps integration, local RAG knowledge bases, UI/UX design, universal document conversion, video creation with narration, and mobile push notifications.
+A curated Claude Code plugin catalog published at **[github.com/taqat-techno/plugins](https://github.com/taqat-techno/plugins)**. Each plugin delivers domain-specific capabilities: Odoo ERP development, Azure DevOps integration, desktop notifications, local RAG knowledge bases, UI/UX design, document conversion, video creation, React / Django / FastAPI engineering patterns, browser QA, project wikis, and git, release, and environment safety.
 
 > **Upstream products powering these plugins.** Some plugins in this marketplace are operator consoles for external products that live in their own repositories:
 >
@@ -15,7 +15,6 @@ A curated Claude Code plugin catalog published at **[github.com/taqat-techno/plu
 > | [[Ui Ux Mechanics Plugin\|Ui-Ux-Mechanics-Plugin]] | [Figma](https://www.figma.com/) via the user-installed Figma MCP (separate install) |
 > | [[Pandoc Plugin\|Pandoc-Plugin]] | [Pandoc](https://pandoc.org/) — auto-installed by `/pandoc setup` |
 > | [[Remotion Plugin\|Remotion-Plugin]] | [Remotion](https://remotion.dev) — installed by `/remotion <name>` |
-> | [[Ntfy Plugin\|Ntfy-Plugin]] | [ntfy.sh](https://ntfy.sh) |
 
 The marketplace targets a single power-user workflow: real client projects at TAQAT Techno, not templates or demos. Every plugin is evidence-grounded in real operational incidents — the Project Alpha migration, a client runbook-retrieval failure, ragtools' v2.4.1 data-loss bug, etc.
 
@@ -34,15 +33,27 @@ The marketplace targets a single power-user workflow: real client projects at TA
 
 ## Plugins (quick links)
 
-| Plugin | Role | Wiki page |
+| Plugin | Role | More |
 |---|---|---|
-| **odoo** | Unified Odoo 14–19 toolkit — upgrade, frontend, testing, security, i18n, reports, Docker, service lifecycle | [[Odoo Plugin\|Odoo-Plugin]] |
-| **devops** | Azure DevOps HYBRID (CLI + MCP) — work items, PRs, pipelines, wiki, role-based state machine | [[DevOps Plugin\|DevOps-Plugin]] |
-| **rag** | Ragtools local RAG operations console — install, diagnose, repair, ignore rules, project ops via MCP | [[Rag Plugin\|Rag-Plugin]] |
-| **ui-ux-mechanics** | UI/UX design specialist — screens, wireframes, safe Figma MCP write mechanics, WCAG 2.1 AA, design systems | [[Ui Ux Mechanics Plugin\|Ui-Ux-Mechanics-Plugin]] |
-| **pandoc** | Universal document conversion — 50+ input × 60+ output formats, RTL support, Pandoc-powered | [[Pandoc Plugin\|Pandoc-Plugin]] |
-| **remotion** | Video creation with smooth voice narration — continuous audio pipeline, edge-tts | [[Remotion Plugin\|Remotion-Plugin]] |
-| **ntfy-notifications** | Mobile push notifications via ntfy.sh — free, no account, two-way Q&A | [[Ntfy Plugin\|Ntfy-Plugin]] |
+| **odoo** | Unified Odoo 14-19 toolkit - upgrade, frontend, OWL, testing, security, i18n, reports, Docker, service lifecycle | [[Odoo Plugin\|Odoo-Plugin]] |
+| **devops** | Azure DevOps HYBRID (CLI + MCP) - work items, PRs, pipelines, wiki, role-based state machine | [[DevOps Plugin\|DevOps-Plugin]] |
+| **notification** | Native desktop notifications when a session needs you - hooks only, no AI, no service | [[Notification Plugin\|Notification-Plugin]] |
+| **pandoc** | Universal document conversion - 50+ input x 60+ output formats, RTL support | [[Pandoc Plugin\|Pandoc-Plugin]] |
+| **remotion** | Video creation with smooth voice narration - continuous audio pipeline, edge-tts | [[Remotion Plugin\|Remotion-Plugin]] |
+| **ui-ux-mechanics** | UI/UX design - screens, wireframes, safe Figma MCP write mechanics, WCAG 2.1 AA | [[Ui Ux Mechanics Plugin\|Ui-Ux-Mechanics-Plugin]] |
+| **rag** | Ragtools local RAG operations console and retrieval guide | [[Rag Plugin\|Rag-Plugin]] |
+| **react-kit** | Reusable React / Next.js patterns - architecture, admin panels, states, React-19 migration | [README](../../react-kit-plugin/README.md) |
+| **qa-browser** | Role-based browser QA with evidence - UI-vs-API permission proof, UAT signoff | [README](../../qa-browser-plugin/README.md) |
+| **docs-wiki** | Project wiki toolkit - authoring, link validation, code-vs-wiki drift | [README](../../docs-wiki-plugin/README.md) |
+| **claude-env-doctor** | Local Claude Code / dev environment diagnosis - MCP, WSL, login, LSP, encoding | [README](../../claude-env-doctor-plugin/README.md) |
+| **agent-safety-guards** | Agent-session safety and multi-agent workflow reliability | [README](../../agent-safety-guards-plugin/README.md) |
+| **release-safety** | Prove a fix is deployed, not just merged; migration and CI-signal safety | [README](../../release-safety-plugin/README.md) |
+| **django** | Django / DRF toolkit - ORM, migrations, DRF, config, security, tests, performance | [README](../../django-plugin/README.md) |
+| **fastapi** | FastAPI toolkit - Pydantic v2, async routing, SQLAlchemy, Alembic, security, tests | [README](../../fastapi-plugin/README.md) |
+| **git-safety** | Local git-workflow guardrails, including shared-checkout safety. Advisory only | [README](../../git-safety-plugin/README.md) |
+| **worktree** | Git worktrees as first-class workspaces, with status-line integration. Zero hooks | [README](../../worktree-plugin/README.md) |
+
+Full inventory with versions and component counts: [[Plugin Catalog\|Plugin-Catalog]].
 
 ## Repo essentials
 

@@ -209,11 +209,12 @@ class PluginValidator:
                     key, value = line.split(':', 1)
                     frontmatter[key.strip()] = value.strip().strip('"').strip("'")
 
-        # Check required frontmatter fields
-        required_fields = ["description", "author", "version"]
-        for field in required_fields:
-            if field not in frontmatter:
-                self.warnings.append(f"Command {file_path.name} missing '{field}' in frontmatter")
+        # Only `description` is required. `author` and `version` are NOT canonical
+        # command frontmatter: marketplace_preflight.py MP-7 flags them as
+        # non-canonical keys that raise upload-rejection risk, so demanding them
+        # here would push authors into a rule that hurts them.
+        if "description" not in frontmatter:
+            self.warnings.append(f"Command {file_path.name} missing 'description' in frontmatter")
 
         print(f"   ✓ Command {file_path.name} is valid")
 
@@ -358,13 +359,26 @@ class PluginValidator:
             self.errors.append(f"Invalid JSON in {file_path}: {e}")
             return
 
-        # Check hook structure
+        # The event names live under the top-level "hooks" key; the file itself
+        # may also carry a "description". Iterating the file's top-level keys
+        # reported "description" and "hooks" as unknown events on every plugin.
+        events = hooks.get("hooks")
+        if not isinstance(events, dict):
+            self.errors.append(f"{file_path.name} has no top-level 'hooks' object")
+            return
+
+        # Full event surface as of Claude Code v2.1.238.
         valid_events = [
-            "PreToolUse", "PostToolUse", "Stop", "SubagentStop",
-            "SessionStart", "SessionEnd", "UserPromptSubmit",
-            "PreCompact", "Notification"
+            "SessionStart", "Setup", "UserPromptSubmit", "UserPromptExpansion",
+            "PreToolUse", "PermissionRequest", "PermissionDenied", "PostToolUse",
+            "PostToolUseFailure", "PostToolBatch", "Notification", "MessageDisplay",
+            "SubagentStart", "SubagentStop", "TaskCreated", "TaskCompleted",
+            "Stop", "StopFailure", "TeammateIdle", "InstructionsLoaded",
+            "ConfigChange", "CwdChanged", "DirectoryAdded", "FileChanged",
+            "WorktreeCreate", "WorktreeRemove", "PreCompact", "PostCompact",
+            "Elicitation", "ElicitationResult", "SessionEnd",
         ]
-        for event in hooks.keys():
+        for event in events.keys():
             if event not in valid_events:
                 self.warnings.append(f"Unknown hook event '{event}' in {file_path.name}")
 

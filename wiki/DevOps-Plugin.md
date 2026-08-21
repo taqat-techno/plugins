@@ -136,7 +136,7 @@ Configuration flows through `/init` and `/init profile`:
 
 - **odoo** — link Odoo development sprints to DevOps work items via `/create --link <odoo-ref>`.
 - **rag** — search internal runbooks/SOPs while triaging PRs (via ragtools MCP — separate plugin).
-- **ntfy** — push `/task-monitor` alerts to phone.
+- **notification** — surface `/task-monitor` alerts as desktop notifications.
 
 ## See also
 

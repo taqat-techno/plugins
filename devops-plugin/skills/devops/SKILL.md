@@ -217,7 +217,7 @@ These workflows trigger via natural language. They replace former standalone com
 **Steps**: Determine target (Odoo.sh vs self-hosted) -> gather info -> generate workflow files -> confirm -> save
   - Odoo.sh: 2 files (quality-gate.yml, odoo_tests.cfg)
   - Self-hosted: 4 files (lint, test, deploy-staging, deploy-production)
-  - Optional ntfy.sh notification step
+  - Optional desktop-notification step (see the `notification` plugin)
   - Confirm per `rules/write-gate.md` before saving
 
 ### Workflow 7: Log Time

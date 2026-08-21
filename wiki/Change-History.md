@@ -4,7 +4,8 @@ Chronological milestones in the `taqat-techno-plugins` marketplace. Distilled fr
 
 For plugin-specific changelogs, see each plugin's `CHANGELOG.md`:
 
-- [`odoo-plugin/`](../../odoo-plugin/) — no CHANGELOG (consolidated plugin, current version 1.0.0)
+- [`odoo-plugin/CHANGELOG.md`](../../odoo-plugin/CHANGELOG.md)
+- [`notification-plugin/CHANGELOG.md`](../../notification-plugin/CHANGELOG.md) — v1.0.0
 - [`devops-plugin/CHANGELOG.md`](../../devops-plugin/CHANGELOG.md) — v2.0 → v6.3 evolution
 - [`rag-plugin/CHANGELOG.md`](../../rag-plugin/CHANGELOG.md) — v0.1.0 → v0.5.0 evolution
 - [`remotion-plugin/CHANGELOG.md`](../../remotion-plugin/CHANGELOG.md) — v1.0 → v2.1
@@ -92,16 +93,31 @@ Major audit reports produced in this era:
 - **2026-06-13 — `paper` renamed to `ui-ux-mechanics`.** The design plugin was renamed: directory `paper-plugin/` → `ui-ux-mechanics-plugin/`, command `/paper` → `/ui-ux-mechanics`, package `paper` → `ui-ux-mechanics` (v3.0.0 → v3.1.0). The rename reflects the expanded scope: a new `figma-mcp-mechanics` skill adds safe Figma MCP write workflows (write-access probing, metadata-lossiness handling, auto-layout/variant mechanics, prototype-link-safe edits) alongside the existing `design` and `figma-workflow` skills. Wiki page renamed `Paper-Plugin` → `Ui-Ux-Mechanics-Plugin` with all inbound links updated.
 - **2026-06-13 — two new safety plugins added this cycle:** `agent-safety-guards` and `release-safety`. Both focus on guardrails around agent actions and release operations.
 
-## Current state (Apr 2026)
+### Era 5 — Framework toolkits, worktrees, and native notifications (Jul-Aug 2026)
+
+- **2026-08 — framework toolkits landed:** `django` and `fastapi`, each shipping auto-activating skills, commands, analyzer agents, and advisory hooks. Both are adapter-driven: no project entities, roles, or URLs baked in.
+- **2026-08 — `git-safety`** added the local git-workflow guardrails that commit helpers and PR plugins leave out, including shared-checkout safety for trees shared by more than one session or syncer. Advisory only; it never blocks.
+- **2026-08-14 — `worktree`** made git worktrees a first-class workspace, with status-line integration and a deliberate **zero hooks** posture so installing it cannot disturb a session.
+- **2026-08-18 — marketplace architecture audit.** `validate_marketplace.py` was added after an audit found **15 skills that had never loaded once** while every per-plugin validator reported green. A per-plugin structural check cannot see a runtime-discovery failure; both validators are now required.
+- **2026-08-21 — `ntfy-notifications` retired, `notification` shipped (v1.0.0).** The old plugin pushed to the external [ntfy.sh](https://ntfy.sh) service, needed a topic and a phone app, and registered no hooks at all - it could never fire automatically. Its replacement uses each operating system's own notifier and requires no account, no network, and no third party.
+
+  The rewrite is hooks-only and deliberately AI-free: five `async: true` command hooks (`PreToolUse`/`AskUserQuestion`, `Notification`/`permission_prompt`, `TaskCompleted`, `Stop`, `StopFailure`) route to one stdlib-only Python entry point. `async` is load-bearing rather than a performance tweak - three of those five are blocking events where exit code 2 would suppress a question, trap Claude in a non-terminating turn, or refuse a task completion, and an async hook cannot block Claude at all. Zero `SessionStart` hooks, nothing written to stdout, no shell anywhere.
+
+  Two findings from the investigation are worth carrying forward. First, `TaskCompleted` cannot fire on Opus 4.8 / Sonnet 5 / Fable 5 / Mythos 5 unless Claude Code is started with `CLAUDE_CODE_ENABLE_TODO_TOOLS=1`, because v2.1.233+ does not give those models the Task tools and the task list is therefore never populated - and `TodoWrite` is behind the same gate, so it is not an escape hatch. Second, `validate_plugin.py` was iterating a hooks file's top-level keys instead of its `hooks` object, reporting `description` and `hooks` as unknown events on every plugin, and its event list knew 9 of the 31 events Claude Code now exposes. Both were fixed.
+
+  Full investigation: `.claude/docs/2026-08-21_notification-plugin-investigation.md` in the workspace root.
+
+## Current state (Aug 2026)
 
 | Metric | Value |
 |---|---|
-| **Plugins in marketplace** | 7 |
-| **Total commands** | 36 across all plugins |
-| **Total agents** | 14 across all plugins |
-| **Total skills** | 13 including sub-skills |
-| **Plugins with MCP servers** | 2 (`devops`, `rag`) |
-| **Plugins with hooks** | All 7 |
+| **Plugins in marketplace** | 17 |
+| **Total commands** | 66 across all plugins |
+| **Total agents** | 23 across all plugins |
+| **Total skills** | 105 across all plugins |
+| **Total hook handlers** | 27 across 11 plugins |
+| **Plugins with MCP servers** | 3 (`odoo`, `devops`, `rag`) |
+| **Plugins with no hooks at all** | 6 (`pandoc`, `remotion`, `ui-ux-mechanics`, `react-kit`, `docs-wiki`, `worktree`) |
 | **Marketplace maintainer** | Single (Ahmed Lakosha, 4 git identity variants, 132+ commits) |
 | **Vendored references** | `claude-plugins-official/` (read-only) |
 

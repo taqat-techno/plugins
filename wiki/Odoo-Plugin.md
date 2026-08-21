@@ -127,7 +127,7 @@ Write operations go through confirmation gates per the house convention. Upgrade
 ## Related plugins and integrations
 
 - **devops** — track Odoo work items and sprints in Azure DevOps.
-- **ntfy** — notify when long-running `/upgrade` completes.
+- **notification** — desktop notification when a long-running `/upgrade` completes.
 - **pandoc** — export QWeb reports to PDF/Word from the same workflow.
 
 ## See also

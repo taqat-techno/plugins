@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [6.9.1] - 2026-08-21
+
+Documentation only; no behaviour change.
+
+**Retired the ntfy reference in the `/task-monitor` flow.** The `devops` skill offered "Optional ntfy.sh notification step" as a follow-up to work-item monitoring. The `ntfy-notifications` plugin was removed from the marketplace on 2026-08-21, so that step now points at the replacement `notification` plugin, which fires native desktop notifications from Claude Code hooks with no external service, no account, and no network call.
+
+---
+
 ## [6.9.0] - 2026-08-18
 
 Marketplace-wide architecture upgrade. Skill discovery, invocation-mode metadata, and identity consistency were corrected across the marketplace; no skill, command, agent, hook, or MCP behaviour was removed.
