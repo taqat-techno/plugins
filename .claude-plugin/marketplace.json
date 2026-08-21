@@ -30,15 +30,15 @@
       "homepage": "https://github.com/taqat-techno/plugins/tree/main/devops-plugin"
     },
     {
-      "name": "ntfy-notifications",
-      "description": "Push notifications to your phone via ntfy.sh when Claude completes tasks, needs input, or encounters errors",
+      "name": "notification",
+      "description": "Native desktop notifications when a Claude Code session needs attention - questions, permission prompts, task completions, turn completion, API failures. Hooks only, no AI at runtime, Windows / macOS / Linux, safe silent no-op on WSL and headless hosts.",
       "author": {
         "name": "TaqaTechno",
         "email": "info@taqatechno.com"
       },
-      "source": "./ntfy-plugin",
+      "source": "./notification-plugin",
       "category": "productivity",
-      "homepage": "https://github.com/taqat-techno/plugins/tree/main/ntfy-plugin"
+      "homepage": "https://github.com/taqat-techno/plugins/tree/main/notification-plugin"
     },
     {
       "name": "pandoc",

@@ -1,0 +1,72 @@
+{
+  "description": "notification plugin hooks. FIVE async command hooks, all routed to hooks/notify.py. `async: true` is load-bearing, not a performance tweak: PreToolUse, Stop and TaskCompleted are blocking events where exit code 2 would suppress a question, trap Claude in a non-terminating turn, or refuse a task completion - and an async hook cannot block or control Claude at all. The script never writes to stdout, never exits non-zero, never runs a shell, and never writes state under the plugin root. Failure to notify is silent by design; run /notification:doctor to see why. Exec form (args) is used so path placeholders are passed as single arguments with no shell tokenisation.",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "AskUserQuestion",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python",
+            "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/notify.py", "question"],
+            "async": true,
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "matcher": "permission_prompt",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python",
+            "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/notify.py", "permission"],
+            "async": true,
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "TaskCompleted": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python",
+            "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/notify.py", "task"],
+            "async": true,
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python",
+            "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/notify.py", "turn"],
+            "async": true,
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "StopFailure": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python",
+            "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/notify.py", "failure"],
+            "async": true,
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

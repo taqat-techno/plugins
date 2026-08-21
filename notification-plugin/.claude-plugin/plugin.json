@@ -1,0 +1,20 @@
+{
+  "name": "notification",
+  "version": "1.0.0",
+  "description": "Native desktop notifications when a Claude Code session needs you - questions, permission prompts, task completions, turn completion, and API failures. Hooks only, no AI at runtime, never blocks Claude, silent no-op where no desktop notifier exists.",
+  "author": {
+    "name": "TaqaTechno",
+    "email": "info@taqatechno.com",
+    "url": "https://github.com/taqat-techno"
+  },
+  "homepage": "https://github.com/taqat-techno/plugins/tree/main/notification-plugin",
+  "repository": "https://github.com/taqat-techno/plugins",
+  "license": "MIT",
+  "keywords": [
+    "notifications",
+    "desktop",
+    "hooks",
+    "toast",
+    "observability"
+  ]
+}

@@ -4,7 +4,7 @@
 
 - **Claude Code** (CLI / desktop / web / IDE extension) — current version.
 - **Git** for manual-clone installation.
-- **Network access** to clone the marketplace (one-time). After install, the plugins themselves are local unless they make explicit network calls (ntfy, devops, and the rag upgrade-check are the only network paths; all others are offline).
+- **Network access** to clone the marketplace (one-time). After install, the plugins themselves are local unless they make explicit network calls (devops and the rag upgrade-check are the only network paths; all others, including `notification`, are offline).
 
 ## Method 1 — Claude Code UI (recommended)
 
@@ -17,7 +17,7 @@
    ```
 5. Click **Install**.
 
-All 7 plugins become available automatically. Claude Code clones the marketplace to `~/.claude/plugins/cache/taqat-techno-plugins/` (or the platform equivalent) and registers every plugin's components with the current session.
+All 17 plugins become available automatically. Claude Code clones the marketplace to `~/.claude/plugins/cache/taqat-techno-plugins/` (or the platform equivalent) and registers every plugin's components with the current session.
 
 ## Method 2 — Manual clone
 
@@ -49,7 +49,7 @@ taqat-techno-plugins
   - ui-ux-mechanics        ✓ enabled
   - pandoc                 ✓ enabled
   - remotion               ✓ enabled
-  - ntfy-notifications     ✓ enabled
+  - notification           ✓ enabled
 ```
 
 Run `/mcp` to verify any MCP servers that your installed plugins registered (Azure DevOps, ragtools). They should show `connected`.
@@ -66,7 +66,7 @@ Most plugins have a one-time setup step:
 | ui-ux-mechanics | `/ui-ux-mechanics` (status check) | Verify Figma MCP installation status if using figma-workflow / figma-mcp-mechanics |
 | pandoc | `/pandoc setup` | Install Pandoc + LaTeX if missing |
 | remotion | `/remotion <project-name>` | Scaffold a Remotion project with continuous-audio skeleton |
-| ntfy | `/ntfy setup` | Pick a topic, configure server, test delivery |
+| notification | no setup required | Optional: `/notification:doctor` verifies the backend and sends test notifications |
 
 ## Daily usage pattern
 
@@ -114,7 +114,7 @@ rm -rf ~/.claude/plugins/marketplaces/taqat-techno-plugins
 rmdir /s /q %USERPROFILE%\.claude\plugins\marketplaces\taqat-techno-plugins
 ```
 
-Per-plugin state (like `~/.claude/ntfy-plugin/config.json`, `~/.claude/rag-plugin/usage.log`, or `~/.claude/devops-plugin/timesheet/`) persists unless you delete those directories explicitly.
+Per-plugin state (like `~/.claude/plugins/data/notification-taqat-techno-plugins/config.json`, `~/.claude/rag-plugin/usage.log`, or `~/.claude/devops-plugin/timesheet/`) persists unless you delete those directories explicitly.
 
 ## Common issues after install
 

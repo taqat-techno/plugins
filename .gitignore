@@ -21,14 +21,6 @@ Thumbs.db
 *.bak
 *~
 
-# ntfy-plugin user-specific files (config.json carries the private ntfy topic,
-# which is the ONLY access control on ntfy.sh — never commit a real value)
-ntfy-plugin/ntfy/config.json
-ntfy-plugin/ntfy/scripts/session_state.json
-ntfy-plugin/ntfy/scripts/config.json
-ntfy-plugin/ntfy/scripts/notification_history.json
-ntfy-plugin/ntfy/scripts/failed_notifications.log
-
 # Per-project plugin settings (user-local; templates with .example/.template suffix pass through)
 *.local.md
 *.local.json

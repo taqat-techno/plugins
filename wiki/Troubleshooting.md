@@ -131,14 +131,17 @@ For the rag-plugin specifically, see [`mcp-wiring.md` § After `.mcp.json` edits
 
 **Fix:** run `/quickfix` and manually review the reported residues. Full fix coming in a future version of the upgrade pattern library.
 
-### ntfy notifications not arriving
+### Desktop notifications not appearing
+
+Run `/notification:doctor` first — it names the cause.
 
 **Causes and fixes:**
 
-1. **Topic mismatch.** The phone app subscribed to one topic; `/ntfy config` has a different one. Re-run `/ntfy setup`.
-2. **Server unreachable.** `ping ntfy.sh` must work. For self-hosted, verify the server URL in `~/.claude/ntfy-plugin/config.json`.
-3. **Rate-limited on ntfy.sh public instance.** Soft limit; wait a few minutes or self-host.
-4. **App permissions.** iOS silently drops notifications for apps without granted notification permissions. Check Settings → Notifications → ntfy.
+1. **Backend reports `unsupported`.** WSL, an SSH session, headless Linux, or no notifier installed. This is by design: every hook still exits 0 and Claude is unaffected. On Linux, install `libnotify-bin`.
+2. **macOS shows nothing at all.** Script Editor lacks notification permission and macOS never prompts. Run `osascript -e 'display notification "test"'` once, then enable **Script Editor** under System Settings > Notifications.
+3. **Windows shows nothing.** Focus Assist / Do Not Disturb suppresses toasts. Check Settings > System > Notifications and confirm Windows PowerShell is allowed.
+4. **`✅ Task Completed` never fires but everything else works.** Expected on Opus 4.8 / Sonnet 5 / Fable 5 / Mythos 5: Claude Code does not give those models the Task tools, so the task list stays empty. Start Claude Code with `CLAUDE_CODE_ENABLE_TODO_TOOLS=1`.
+5. **No Python on PATH.** Every hook fails silently. `/notification:doctor` reports the resolved interpreter.
 
 ### `/pandoc convert` fails with "pandoc: command not found"
 
@@ -164,7 +167,7 @@ For the rag-plugin specifically, see [`mcp-wiring.md` § After `.mcp.json` edits
 | ui-ux-mechanics | `/ui-ux-mechanics` (status + Figma MCP check) |
 | pandoc | `/pandoc status` |
 | remotion | `/remotion` (status only, no args) |
-| ntfy | `/ntfy status` then `/ntfy test` |
+| notification | `/notification:doctor` |
 
 ## When you're stuck
 

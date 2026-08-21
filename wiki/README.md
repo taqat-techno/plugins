@@ -20,7 +20,7 @@ wiki/
 ├── Ui-Ux-Mechanics-Plugin.md
 ├── Pandoc-Plugin.md
 ├── Remotion-Plugin.md
-├── Ntfy-Plugin.md
+├── Notification-Plugin.md
 ├── Installation-and-Usage.md
 ├── Plugin-Development-Guide.md
 ├── Architecture.md

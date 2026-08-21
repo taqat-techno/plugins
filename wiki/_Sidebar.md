@@ -13,7 +13,9 @@
 - [[Ui Ux Mechanics Plugin|Ui-Ux-Mechanics-Plugin]]
 - [[Pandoc Plugin|Pandoc-Plugin]]
 - [[Remotion Plugin|Remotion-Plugin]]
-- [[Ntfy Plugin|Ntfy-Plugin]]
+- [[Notification Plugin|Notification-Plugin]]
+
+_The other 10 plugins are documented in their own READMEs - see the catalog._
 
 ### Development
 

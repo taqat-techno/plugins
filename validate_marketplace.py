@@ -33,7 +33,7 @@ import re
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(__file__).resolve().parent  # overridable with --root
 
 # Frontmatter keys Claude Code accepts on a skill. Sourced from the harness
 # allowlist; unknown keys are reported as WARN (forward-compatible, not fatal).
@@ -331,7 +331,15 @@ def main() -> int:
     ap = argparse.ArgumentParser(description="Marketplace architecture validator")
     ap.add_argument("--json", action="store_true", help="machine-readable output")
     ap.add_argument("--list", action="store_true", help="list the check catalogue")
+    ap.add_argument("--root", help="marketplace root to scan (default: this script's directory)")
     args = ap.parse_args()
+
+    if args.root:
+        global ROOT
+        ROOT = Path(args.root).resolve()
+        if not (ROOT / ".claude-plugin" / "marketplace.json").is_file():
+            print(f"error: no .claude-plugin/marketplace.json under {ROOT}", file=sys.stderr)
+            return 2
 
     if args.list:
         for n, desc in CHECKS:

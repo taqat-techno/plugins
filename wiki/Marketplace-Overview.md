@@ -4,7 +4,7 @@
 
 A Claude Code marketplace is a Git repository that ships one or more **plugins**. Users add the marketplace URL in Claude Code (`/plugins` → **Add Marketplace** → enter URL), Claude Code clones it into `~/.claude/plugins/cache/<marketplace-name>/`, and exposes every plugin's commands, agents, skills, hooks, and MCP servers to the running session.
 
-This repo is the **taqat-techno-plugins** marketplace — 7 plugins targeting real operational workflows at TAQAT Techno.
+This repo is the **taqat-techno-plugins** marketplace — 17 plugins targeting real operational workflows at TAQAT Techno.
 
 Some plugins are operator consoles for external products. The `rag` plugin, in particular, is the operations console for the upstream **[ragtools](https://github.com/taqat-techno/rag)** application — installers, product source, CHANGELOG, and release history all live in that separate repo. See [[Rag Plugin|Rag-Plugin]] for the relationship and cross-links.
 
@@ -20,7 +20,7 @@ plugins/                              ← the working marketplace (what you edit
 ├── ui-ux-mechanics-plugin/
 ├── pandoc-plugin/
 ├── remotion-plugin/
-├── ntfy-plugin/
+├── notification-plugin/
 ├── wiki/                            ← this wiki (source files, synced to GitHub Wiki)
 ├── CLAUDE_CODE_PLUGIN_DEVELOPMENT_GUIDE.md
 ├── agent_skills_spec.md
@@ -104,7 +104,7 @@ Not every plugin uses every directory, but the shape is stable:
 | ui-ux-mechanics | ✓ (1) | ✓ (2) | ✓ (3) | ✓ | — | — | — | — |
 | pandoc | ✓ (1) | — | — | ✓ | — | — | — | — |
 | remotion | ✓ (1) | — | — | ✓ | — | — | — | ✓ |
-| ntfy | ✓ (2) | — | — | ✓ | — | — | — | — |
+| notification | ✓ (1) | — | — | ✓ | — | — | — | — |
 
 ## House engineering conventions
 
@@ -130,7 +130,7 @@ Distilled from the repo's history, three audit reports (`HOOK_AUDIT_REPORT.md`, 
 
 ## See also
 
-- [[Plugin Catalog|Plugin-Catalog]] — all 7 plugins at a glance
+- [[Plugin Catalog|Plugin-Catalog]] — all 17 plugins at a glance
 - [[Plugin Development Guide|Plugin-Development-Guide]] — authoring conventions
 - [[Architecture]] — shared layering patterns across plugins
 - [[Contribution Guide|Contribution-Guide]] — PR workflow, account switching, permission-first

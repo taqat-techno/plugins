@@ -1,6 +1,6 @@
 # Architecture
 
-Shared architectural patterns across the 7 plugins in this marketplace. Individual plugins (`rag-plugin`, `devops-plugin`, `odoo-plugin`) carry their own `ARCHITECTURE.md`; this page distills the cross-cutting patterns.
+Shared architectural patterns across the 17 plugins in this marketplace. Individual plugins (`rag-plugin`, `devops-plugin`, `odoo-plugin`) carry their own `ARCHITECTURE.md`; this page distills the cross-cutting patterns.
 
 ## Two-marketplace design
 
@@ -157,7 +157,7 @@ Windows is the primary dev environment, but every command has macOS + Linux bran
 - **No network egress** unless explicit and opt-in.
 - **Telemetry is local JSONL** — user can `cat` it. `rag-plugin` D-012 codifies this; other plugins follow.
 - **No cloud dependencies** in core operations. The only network paths in the marketplace:
-  - `ntfy` → ntfy.sh (explicit, user-configured).
+  - `notification` → none. It talks only to the local OS notifier; nothing leaves the machine.
   - `devops` → Azure DevOps (the whole point of the plugin).
   - `rag` → GitHub releases API (upgrade check in `/rag-setup` branch C).
   - `remotion` → edge-tts voices (one-shot per narration).
