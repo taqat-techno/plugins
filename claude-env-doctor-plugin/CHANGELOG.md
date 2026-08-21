@@ -8,6 +8,36 @@ Marketplace-wide architecture upgrade. Skill discovery, invocation-mode metadata
 
 Resolved a name collision: `commands/env-doctor.md` and `skills/env-doctor/SKILL.md` both resolved to `claude-env-doctor:env-doctor`, so one shadowed the other even though the command explicitly delegates to the skill. The skill is now `env-doctor-router` and the command's delegation target was updated; the `/env-doctor` entry point is unchanged. Also fixed `user_invocable` -> `user-invocable` on 2 skills.
 
+## [0.6.0] - 2026-08-22
+
+Three rules promoted from recorded session lessons via `/lessons-to-plugins`. All land in existing
+reference files; no skill `description` changed and nothing was removed.
+
+### Added
+
+- `windows-script-and-task-authoring/references/shell-boundary-hazards.md` - **do not test for CRLF
+  with `grep` on an escape sequence.** `grep -c $''` collapses to an empty pattern in Git Bash and
+  matches every line, reporting a file as 100% CRLF when it is pure LF; the resulting line-ending
+  "defect" is an artifact of the test. Count raw bytes with `tr -dc '' | wc -c`, and be explicit
+  about whether the working tree or the staged blob is being measured, since `core.autocrlf=true`
+  makes them legitimately differ.
+- Same file - **never deliver multi-line content through a heredoc**: quoting misbehaves at the
+  boundary and long content hits the command-length limit, both of which fail by writing something
+  subtly different rather than by erroring.
+- `env-doctor/references/syncthing.md` - **`.stignore` comments are `//`.** A bare `#` line is parsed
+  as an ordinary *pattern*, not a comment (`#include` remains a real directive), so `# vendored deps`
+  silently becomes a rule. Adds the `(?d)` prefix for deletable trees and the rule that a
+  workspace-root `.stignore` governs every project beneath it, making an edit a cross-project change
+  that needs a backup and approval.
+
+### Changed
+
+- `shell-boundary-hazards.md` workaround #3 ("relative paths after `cd`") is now qualified as holding
+  **within a single invocation only**. Across calls the inherited working directory can drift, and a
+  relative path then resolves somewhere unintended - creating a stray file instead of editing the
+  target, with a success status either way. The guidance was not wrong about path translation; it was
+  silent about cwd drift.
+
 ## [Unreleased]
 
 ### Changed

@@ -18,12 +18,12 @@ Listed in marketplace order. Component counts are the real contents of each plug
 | 8 | **react-kit** | `0.6.0` | development | 3 | 1 | 16 | 0 | — | [README](../../react-kit-plugin/README.md) |
 | 9 | **qa-browser** | `0.5.0` | productivity | 5 | 2 | 13 | 2 | — | [README](../../qa-browser-plugin/README.md) |
 | 10 | **docs-wiki** | `0.8.0` | productivity | 7 | 3 | 10 | 0 | — | [README](../../docs-wiki-plugin/README.md) |
-| 11 | **claude-env-doctor** | `0.5.0` | productivity | 1 | 1 | 2 | 1 | — | [README](../../claude-env-doctor-plugin/README.md) |
+| 11 | **claude-env-doctor** | `0.6.0` | productivity | 1 | 1 | 2 | 1 | — | [README](../../claude-env-doctor-plugin/README.md) |
 | 12 | **agent-safety-guards** | `0.2.0` | productivity | 0 | 0 | 6 | 1 | — | [README](../../agent-safety-guards-plugin/README.md) |
 | 13 | **release-safety** | `0.4.0` | productivity | 1 | 0 | 3 | 1 | — | [README](../../release-safety-plugin/README.md) |
 | 14 | **django** | `0.2.0` | development | 4 | 3 | 7 | 3 | — | [README](../../django-plugin/README.md) |
 | 15 | **fastapi** | `0.2.0` | development | 4 | 3 | 8 | 3 | — | [README](../../fastapi-plugin/README.md) |
-| 16 | **git-safety** | `0.2.0` | productivity | 0 | 0 | 2 | 2 | — | [README](../../git-safety-plugin/README.md) |
+| 16 | **git-safety** | `0.3.0` | productivity | 0 | 0 | 2 | 2 | — | [README](../../git-safety-plugin/README.md) |
 | 17 | **worktree** | `1.0.0` | development | 0 | 0 | 5 | 0 | — | [README](../../worktree-plugin/README.md) |
 
 **Totals:** 66 commands · 23 agents · 105 skills · 27 hook handlers · 3 bundled MCP servers.
