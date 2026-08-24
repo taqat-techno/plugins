@@ -2,8 +2,8 @@
   "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
   "name": "worktree",
   "displayName": "Git Worktree Workspaces",
-  "version": "1.0.0",
-  "description": "Make git worktrees a first-class workspace in Claude Code: list, create, switch, and safely clean parallel worktrees, with the active worktree always visible in the status line. Git stays the source of truth and the plugin registers zero hooks.",
+  "version": "2.0.0",
+  "description": "Make git worktrees a first-class workspace in Claude Code: list, create, switch, and safely clean parallel worktrees, with the active worktree always visible in the status line. Adds Plan-Driven Lane Execution - one main agent orchestrating several worker sessions, each in its own isolated worktree lane, with delegation gates, a board derived from git, and central integration. Git stays the source of truth, PDLE is opt-in, and the plugin registers zero hooks by default.",
   "author": {
     "name": "TaqaTechno",
     "email": "info@taqatechno.com",
@@ -18,6 +18,9 @@
     "parallel",
     "workspace",
     "statusline",
-    "sessions"
+    "sessions",
+    "orchestration",
+    "multi-agent",
+    "pdle"
   ]
 }

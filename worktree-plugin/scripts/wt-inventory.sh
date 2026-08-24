@@ -166,7 +166,11 @@ if [ "$WANT_SESSIONS" = 1 ] && command -v claude >/dev/null 2>&1; then
     printf '%s' "$RAW" | awk 'BEGIN{RS="}"}
       function get(k,  s){
         if (match($0, "\"" k "\"[ \t]*:[ \t]*\"[^\"]*\"")) {
-          s = substr($0, RSTART, RLENGTH); sub(/^"[^"]*"[ \t]*:[ \t]*"/, "", s); return s
+          s = substr($0, RSTART, RLENGTH); sub(/^"[^"]*"[ \t]*:[ \t]*"/, "", s)
+          sub(/"$/, "", s)   # closing quote: without this cwd never matches a
+                             # worktree path and session attachment silently
+                             # reports none, which weakens the clean gate
+          return s
         }
         if (match($0, "\"" k "\"[ \t]*:[ \t]*[0-9]+")) {
           s = substr($0, RSTART, RLENGTH); sub(/^.*:[ \t]*/, "", s); return s

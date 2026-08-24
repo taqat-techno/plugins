@@ -10,6 +10,9 @@ Create an isolated worktree under `.claude/worktrees/` and move this session
 into it. `$0` is the name; if the user gave none, propose one from the task
 they described (kebab-case, e.g. `wallet-fix`).
 
+Flags: `--branch <name>` for a custom branch name · `--lane <package-id>` to
+provision a PDLE lane instead of a plain workspace (see *Lane mode* below).
+
 ## Pre-flight
 
 Run the inventory first:
@@ -83,8 +86,40 @@ did not write.
 
 Skip the lock only if the user asks for a throwaway worktree.
 
+## Lane mode — `--lane <package-id> [--owns a,b] [--base <sha>]`
+
+Only for Plan-Driven Lane Execution. Without `--lane` nothing here applies and
+the plugin behaves exactly as it always has.
+
+A lane is a **work-package execution environment**, not a session workspace: it
+outlives its worker, and workers move between lanes while the lane stays put.
+
+Two differences from the default path:
+
+1. **Always the `git worktree add` path**, never `EnterWorktree({name})` — that
+   tool takes no per-call base ref, so it would cut from `origin/<default>`,
+   usually behind the integrated trunk. A lane must be cut from the **current
+   integrated trunk tip** so it can never depend on work still staged elsewhere.
+
+   ```bash
+   git worktree add "<repo>/.claude/worktrees/<lane>" -b "lane/<lane>" <base>
+   ```
+
+2. **Write the lane record** afterwards — `references/lane-record.md`. Emit one
+   canonical path spelling. A worktree registered under two spellings (a
+   `/mnt/c/...` form from WSL and a `C:/...` form from Git Bash) makes each shell
+   report the other's as prunable, and a prune from the wrong shell deregisters
+   staged work.
+
+Still lock it. The lock is what lets the lane survive its worker's session.
+
+Do **not** move this session into a lane you are provisioning for someone else —
+a worker enters its own lane by being launched there.
+
 ## Report
 
 Give the path, the branch, the base, and one caution: a worktree is a fresh
 checkout, so dependencies are **not** installed. Do not run any install
 command unless asked.
+
+In lane mode, also give the ownership set and the record path.

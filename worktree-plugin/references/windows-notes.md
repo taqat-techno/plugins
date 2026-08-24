@@ -70,9 +70,20 @@ about 2.5s, and about 4s with `claude agents --json` session discovery.
 ## Other Windows specifics
 
 - `--tmux` is not supported on Windows (`Error: --tmux is not supported on Windows`).
-- Cross-session **messaging** is not offered on native Windows (macOS and Linux
-  only, including WSL 2). Session **discovery** via `claude agents --json` does
-  work on Windows — the two are separate mechanisms.
+- Cross-session **messaging works on native Windows** as of Claude Code 2.1.241,
+  over Windows named pipes (`\\.\pipe\LOCAL\cc-msg-*`). `ListAgents` enumerates
+  peers and `SendMessage` delivers.
+
+  > **Corrected in v2.0.0.** Up to v1.0.0 this file said messaging was *"not
+  > offered on native Windows (macOS and Linux only, including WSL 2)"*. That was
+  > accurate against 2.1.229 and is wrong now. The lesson is designed into the
+  > plugin rather than just fixed here: **messaging availability is not stable
+  > across builds, so nothing load-bearing depends on it.** Discovery is
+  > `claude agents --json`, durable state is git and the lane records, and
+  > messages are notifications.
+
+- Session **discovery** via `claude agents --json` works on Windows and needs no
+  TTY — the two are separate mechanisms, and discovery is the more dependable one.
 - Removing a worktree deletes only a junction or directory symlink, not its
   target.
 - Quote every path: spaces are normal on Windows.

@@ -185,7 +185,7 @@
     },
     {
       "name": "worktree",
-      "description": "Make git worktrees a first-class workspace — list, create, switch, and safely clean parallel worktrees, with the active worktree always visible in the status line. A worktree is a place, not a session: it survives session exit (via a git lock Claude Code's cleanup cannot override) and any number of sessions may share it. Git stays the source of truth — no registry, no cache, no plugin state — and it registers ZERO hooks, so installing it cannot disturb a session. Windows/macOS/Linux, no WSL required.",
+      "description": "Make git worktrees a first-class workspace — list, create, switch, and safely clean parallel worktrees, with the active worktree always visible in the status line. A worktree is a place, not a session: it survives session exit (via a git lock Claude Code's cleanup cannot override) and any number of sessions may share it. Adds opt-in Plan-Driven Lane Execution — one main agent orchestrating several worker sessions, each in its own isolated worktree lane, with delegation pre-flight gates, a board derived from git rather than narrated, and central integration behind one approval. Git stays the source of truth, the plugin ships no hooks.json so installing it registers nothing, and PDLE persists only what git cannot answer. Windows/macOS/Linux, no WSL required.",
       "author": {
         "name": "TaqaTechno",
         "email": "info@taqatechno.com"
