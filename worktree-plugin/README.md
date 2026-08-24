@@ -17,10 +17,15 @@ drives Claude Code's native tools rather than replacing them.
 
 - **A worktree is a place, not a session.** Zero, one, or many Claude sessions
   may use one. Sessions come and go; the workspace persists.
-- **Git is the source of truth.** No registry, no cache, no database. The
-  plugin stores nothing.
-- **Zero hooks.** Nothing runs unless you invoke it. Installing this plugin
-  cannot interfere with a session.
+- **Git is the source of truth.** No cache, no database, no mirrored state. If
+  git, the filesystem, or `claude agents --json` can answer it, the plugin does
+  not write it down. *(PDLE adds one exception: a small lane record holding
+  ownership, base, owner and dispatch facts — the things genuinely not derivable.
+  It is created only when you run lanes.)*
+- **Nothing runs unless you invoke it.** The plugin ships no `hooks.json`, so
+  installing it registers nothing and cannot interfere with a session. PDLE's
+  optional role notice is a hook `/worktree:init` writes into your own settings,
+  on request, and `--remove` takes it back out.
 - **No session modes.** No reader/writer split, no artificial edit locks.
 - **The main checkout stays valid.** Worktrees are optional.
 - **Conservative cleanup.** Nothing meaningful is ever deleted silently.
@@ -61,6 +66,84 @@ All five run sensibly with no arguments. `list`, `new`, and `switch` also
 respond to plain language — "create an isolated worktree for the wallet issue",
 "switch to voucher-refactor", "which worktree am I in?". `clean` and `init`
 are deliberately user-invoked only, because they have side effects.
+
+**If worktrees are all you want, you are done — stop reading here.** Everything
+below is opt-in and inert until you use it.
+
+## Plan-Driven Lane Execution
+
+For running several Claude sessions as one team: **one main agent** orchestrating
+**worker sessions**, each in its own isolated worktree.
+
+The unit is a **lane** — one work package, one worktree, one branch, one base
+commit, one exclusive ownership set. A lane outlives its worker: workers move
+between lanes, and the lane and its staged work stay put, which is what makes a
+lost worker recoverable rather than expensive.
+
+```
+                 ┌──────────────────┐
+  you  ────────► │   MAIN AGENT     │   the only session you talk to
+                 └────────┬─────────┘
+              brief       │      report
+        ┌────────────┬────┴───────┬────────────┐
+        ▼            ▼            ▼            ▼
+     worker       worker       worker       worker
+        │            │            │            │
+      lane         lane         lane         lane
+```
+
+| Command | Role | What it does |
+|---|---|---|
+| `/worktree:plan-for-parallel` | either | Makes a plan delegation-ready as you write it, or audits one you have |
+| `/worktree:lead` | main agent | Take orchestration: read the plan, rebuild the board, find workers, compute what is ready |
+| `/worktree:join` | worker | Register under a unique name and confirm reachability |
+| `/worktree:board` | either | What every lane is actually doing — derived from git, never narrated |
+| `/worktree:delegate` | main agent | Assign a lane through nine pre-flight gates |
+| `/worktree:report` | worker | Close a packet: write the report, stage, then notify |
+| `/worktree:integrate` | main agent | Converge lanes into the trunk. User-invoked |
+
+### Getting started
+
+```bash
+# 1. in the repo, one session:   "You are the main agent. Start execution."
+# 2. a background session per worker — launched INSIDE its lane worktree:
+cd .claude/worktrees/<lane> && claude --bg 'You are PDLE worker "agent 2".
+  Run /worktree:join, then read the brief in .claude/lanes/briefs/ and begin.'
+```
+
+Then talk only to the main agent. It discovers the workers, checks each is
+reachable, provisions lanes, and dispatches. If capacity is short it will offer
+to launch workers for you — one confirmation each, never silently.
+
+Three things worth knowing:
+
+- **Launch inside the lane worktree.** The session's working directory becomes
+  the lane, which is how the board knows who owns what.
+- **Name the worker in the launch prompt.** A background session otherwise
+  auto-names itself from its prompt text, and two sessions sharing a name are two
+  sessions pointed at the same worktree.
+- **Workers load the *installed* plugin**, not your working copy — so make sure
+  this version is installed before starting them.
+
+### The rules that make it safe
+
+- **Workers never commit, merge, or push.** A packet ends *staged* and reported.
+  The main agent integrates centrally, once you approve.
+- **Two lanes may not run concurrently if their ownership sets intersect.** That
+  single rule is what prevents two agents editing the same component.
+- **Directives flow by message; durable state flows by file and git.** Messages
+  can be held or lost, so a worker writes its report *before* it notifies. A lost
+  message costs latency, never work.
+- **Capacity is workers that answered a handshake** — not workers that exist. A
+  provisioned worktree is not a staffed lane.
+- **The board is derived, never stored.** A stored board goes stale and is then
+  believed.
+
+The only state on disk is `.claude/lanes/` — ownership, base, owner, and
+dispatch facts. Nothing that git can answer is written down.
+
+Concepts and protocols live in `references/`: `roles`, `lane-record`,
+`board-states`, `plan-schema`, `dispatch-gates`, `convergence`.
 
 ## Two things worth knowing
 
@@ -111,10 +194,15 @@ It also ships **no `WorktreeCreate` hook**. That hook *replaces* git worktree
 creation entirely and disables `.worktreeinclude`; adopting it would remove
 capability, not add it.
 
-Cross-session messaging (`/list-agents`, `SendMessage`) is a good fit for
-coordinating parallel worktrees, but Claude Code does not offer it on native
-Windows, so it is out of scope for now. Session *discovery* via
-`claude agents --json` does work on Windows and is used by `list` and `clean`.
+It ships **no `hooks.json`**, so installing it registers nothing. PDLE's optional
+role notice is a `SessionStart` hook that `/worktree:init` writes into *your*
+settings, only if you ask for it.
+
+> **Correction, v2.0.0.** v1.0.0 said cross-session messaging was not offered on
+> native Windows. That was true against Claude Code 2.1.229 and is false against
+> 2.1.241, where it works over Windows named pipes. PDLE still does not *depend*
+> on it: discovery is `claude agents --json`, durable state is git and the lane
+> records, and messages are only notifications.
 
 ## Uninstalling
 

@@ -115,6 +115,79 @@ Offer these in the current repository:
   secrets into every worktree** before writing it, and check `.gitignore`
   covers the worktrees directory first.
 
+## 5b. Plan-Driven Lane Execution (offer only if asked, or with `--pdle`)
+
+**Skip this by default.** PDLE is for running several Claude sessions as one
+orchestrated team; a single-session user should never be offered it, and nothing
+below is created unless they say yes. Each item is confirmed separately.
+
+**a. The lane directory** — only with `--project`:
+
+```
+.claude/lanes/          lane records (the only state this plugin persists)
+.claude/lanes/briefs/   generated lane briefs
+.claude/lanes/reports/  append-only worker reports
+```
+
+Add `.claude/lanes/` to `.gitignore` **only if** the user wants lane state kept
+out of the repository. Committing it is a legitimate choice — it makes
+orchestration state reviewable and survives a fresh clone. Ask which they want.
+
+**b. The role notice hook.** Say plainly what it does and what it costs:
+
+> Adds a `SessionStart` hook that prints a short notice when a session starts in
+> a repository that has `.claude/lanes/` — telling that session PDLE is running
+> here, which lane its directory is, and how to register. Without it, every new
+> worker has to be told its role by hand.
+>
+> It requires `python` on PATH. It exits 0 unconditionally, writes no files, and
+> no-ops instantly when `.claude/lanes/` is absent. `--remove` takes it out.
+
+**The plugin ships no `hooks.json`, deliberately.** A plugin's `hooks.json` is
+registered for everyone who installs the plugin, which would break the promise
+that installing it cannot interfere with a session. So this hook is installed
+into *user settings*, only on request, exactly like the status line:
+
+1. Copy `${CLAUDE_PLUGIN_ROOT}/hooks/pdle_session_start.py` to
+   `~/.claude/worktree-plugin/pdle_session_start.py` — a stable path, so plugin
+   updates do not break it, and `${CLAUDE_PLUGIN_ROOT}` does not expand in user
+   settings anyway.
+2. Add to `~/.claude/settings.json`, as a diff, confirmed separately:
+
+```json
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python",
+            "args": ["<home>/.claude/worktree-plugin/pdle_session_start.py"],
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+Use a forward-slash absolute path. Merge into any existing `SessionStart` array
+rather than replacing it.
+
+**c. The CLAUDE.md stanza.** `EnterWorktree` is documented to act on CLAUDE.md
+instructions, so this is what makes a session reach for a worktree on its own:
+
+```markdown
+## Parallel execution
+
+This project can run Plan-Driven Lane Execution: one main agent session
+orchestrating several worker sessions, each in its own git worktree lane.
+Use /worktree:lead to orchestrate, /worktree:join to register as a worker,
+/worktree:board for status. Workers never commit; the main agent integrates.
+```
+
 ## 6. Verify
 
 Ask the user to confirm the status line appears. It updates on the next event;
@@ -126,8 +199,11 @@ status-line execution in an untrusted directory — and that
 
 1. `bash "${CLAUDE_PLUGIN_ROOT}/scripts/wt-install-statusline.sh" remove`
 2. Delete the `statusLine` key from `~/.claude/settings.json` (diff first).
-3. Ask before touching the `worktree` settings or the CLAUDE.md stanza — the
+3. Remove the PDLE `SessionStart` hook entry if it was installed (diff first).
+4. Ask before touching the `worktree` settings or the CLAUDE.md stanza — the
    user may want to keep those.
+5. **Never delete `.claude/lanes/`.** Those are lane records for real work.
+   Say where they are and leave them alone.
 
 Removing the plugin leaves no other trace: worktrees are plain git objects and
 keep working through `--worktree`, `EnterWorktree`, and `git worktree`.

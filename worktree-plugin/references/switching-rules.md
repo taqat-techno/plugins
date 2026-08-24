@@ -66,6 +66,32 @@ from it, and it stays on disk untouched — as do any sessions attached to it.
 - `Refusing to use <path> as an isolation worktree` — the directory's git
   identity resolves back into the main checkout.
 
+## One directory, two registrations — the prunable-duplicate trap
+
+A worktree created from a **WSL** shell records its path as `/mnt/c/...`; one
+created from **Git Bash** records `C:/...`. Both can end up in
+`git worktree list` for the *same directory*:
+
+```
+/mnt/c/…/.claude/worktrees/integration-gate   593c99b (detached HEAD) prunable
+C:/…/.claude/worktrees/integration-gate       593c99b (detached HEAD)
+```
+
+Each shell reports the other's spelling as **`prunable`**, because from where it
+is standing that path does not exist.
+
+**The danger is `git worktree prune`.** Run from the wrong shell it deregisters
+the pair — including a worktree holding staged, uncommitted work, which is
+exactly the state a lane sits in while it waits at the gate.
+
+Two rules follow:
+
+1. **Create every worktree from one shell family**, and emit one canonical path
+   spelling. `/worktree:new` does this.
+2. **Never prune when a duplicate registration is present.** `/worktree:clean`
+   surfaces it as `worktree-registered-twice` and refuses; say so out loud rather
+   than silently skipping.
+
 ## Path case (Windows)
 
 The containment check is case-sensitive on the string. A session whose working

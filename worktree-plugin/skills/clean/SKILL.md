@@ -2,7 +2,7 @@
 name: clean
 description: Remove finished git worktrees safely, with a dry-run preview and per-worktree confirmation. Covers the worktrees Claude Code's own sweep never touches.
 disable-model-invocation: true
-allowed-tools: Bash(bash "${CLAUDE_PLUGIN_ROOT}/scripts/wt-inventory.sh"*), Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/wt-inventory.sh *)
+allowed-tools: Bash(bash "${CLAUDE_PLUGIN_ROOT}/scripts/wt-inventory.sh"*), Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/wt-inventory.sh *), Bash(bash "${CLAUDE_PLUGIN_ROOT}/scripts/wt-lanes.sh"*), Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/wt-lanes.sh *)
 ---
 
 # Clean up worktrees
@@ -32,6 +32,32 @@ Group by `verdict` and print, with the `reason` for every entry:
 | `current` | KEPT (this session is inside it) | never offer |
 | `stale` | STALE METADATA | offer `git worktree prune` |
 | `skip` | — | omit from the report |
+
+## Lanes are never cleaned on tree state alone
+
+If `.claude/lanes/` exists, run the lane board too:
+
+```bash
+bash "${CLAUDE_PLUGIN_ROOT}/scripts/wt-lanes.sh"
+```
+
+A worktree that is a **lane** gets an extra verdict which overrides `safe` and
+`review`:
+
+| Verdict | Condition | Action |
+|---|---|---|
+| `lane-active` | the lane has an `owner`, or its state is not `merged` | **never offer** |
+
+A lane can look perfectly clean and still be live — freshly provisioned, or
+acked and not yet begun. Removing it would delete a staffed workspace and strand
+its worker. Only a lane whose work has actually landed (`state: merged`) is a
+candidate, and even then it follows the normal `safe`/`review` rules.
+
+**Never `git worktree prune` when the board reports
+`worktree-registered-twice`.** That flag means one directory is registered under
+two path spellings — one from WSL, one from Git Bash — and each shell reports the
+other's as prunable. A prune from the wrong shell deregisters the pair, including
+any staged work. Say this out loud rather than silently skipping the prune.
 
 Then state the two limits plainly, every time:
 
