@@ -82,7 +82,7 @@ class Profile:
         return {
             "profile": self.name,
             "url": self.url,
-            "database": self.db,
+            "database": self.db or "(selected by host)",
             "username": self.username,
             "mode": self.mode,
             "production": self.production,
@@ -172,10 +172,15 @@ def _build(name: str, raw: dict, source: str) -> Profile:
         raise ProfileError(
             "profile %r has url %r - it must start with http:// or https://" % (name, url)
         )
-    if not db:
-        raise ProfileError(
-            "profile %r (%s) has no \"db\". This is the Odoo database name." % (name, source)
-        )
+    # "db" is deliberately OPTIONAL. Odoo selects the database from the request
+    # host when a server exposes one database per hostname - Odoo.sh and Odoo
+    # Online both do, and there the database name is per-build and unknowable
+    # from outside, so demanding it here made those servers unreachable.
+    #
+    # JSON-2 (Odoo 19+) therefore sends X-Odoo-Database only when db is set;
+    # see odoo_client._call_json2. XML-RPC (Odoo <=18) genuinely cannot work
+    # without it, so it raises there instead - at the point of real need, with
+    # a message that can name the actual cause.
 
     mode = str(raw.get("mode") or "read").strip().lower()
     if mode not in VALID_MODES:

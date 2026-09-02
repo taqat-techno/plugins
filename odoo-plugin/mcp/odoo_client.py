@@ -242,6 +242,15 @@ class OdooClient:
                 "Create one in Odoo: Preferences > Account Security > Developer API Keys, "
                 "then put it in the profile or reference it as ${ENV_VAR}."
             )
+        if not self.p.db:
+            # JSON-2 can let the request host select the database; XML-RPC cannot,
+            # because the name is a positional argument to every call.
+            raise OdooError(
+                "this profile has no \"db\", and XML-RPC needs the database name to "
+                "authenticate.\nThis server speaks XML-RPC rather than the JSON-2 API "
+                "(Odoo 19+), which is the one that can select a database from the "
+                "request host.\nAdd \"db\" to the profile."
+            )
         try:
             res = self._xmlrpc("common").authenticate(
                 self.p.db, self.p.username, self.p.api_key, {}

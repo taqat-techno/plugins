@@ -214,6 +214,42 @@ def test_project_profile_is_discovered_and_key_never_leaks():
             assert data["connected"] is False
 
 
+def test_db_is_optional_when_the_host_selects_the_database():
+    """A hosted Odoo gives each database its own hostname.
+
+    Odoo.sh and Odoo Online name the database per build, so it cannot be known
+    from outside - and demanding it made every such server unreachable, failing
+    with a configuration_error instead of connecting. JSON-2 sends
+    X-Odoo-Database only when db is set, so omitting it is correct there.
+    """
+    with tempfile.TemporaryDirectory() as td:
+        tmp = Path(td)
+        with Client(env_extra=_profile_dir(tmp, db="")) as c:
+            c.handshake()
+            text, is_error = c.text("odoo_status")
+            assert is_error is False
+            data = json.loads(text)
+            # The profile must LOAD. Before the fix this was a configuration_error.
+            assert "configuration_error" not in data, data.get("configuration_error")
+            assert data["profile"]["url"] == "http://127.0.0.1:1"
+            # and it must say plainly that the host picks the database
+            assert data["profile"]["database"] == "(selected by host)"
+
+
+def test_missing_db_is_still_refused_where_xmlrpc_needs_it():
+    """Optional is not the same as ignored.
+
+    XML-RPC passes the database name positionally on every call, so Odoo <= 18
+    cannot work without it. The refusal moved to the point of real need - it
+    must not have been dropped along the way.
+    """
+    src = (Path(__file__).resolve().parents[2] / "mcp" / "odoo_client.py").read_text(
+        encoding="utf-8"
+    )
+    assert "if not self.p.db:" in src, "the XML-RPC db guard is gone"
+    assert "XML-RPC needs the database name" in src
+
+
 def test_read_mode_refuses_every_write_verb():
     with tempfile.TemporaryDirectory() as td:
         tmp = Path(td)
