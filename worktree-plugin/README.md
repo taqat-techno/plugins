@@ -95,6 +95,7 @@ lost worker recoverable rather than expensive.
 | Command | Role | What it does |
 |---|---|---|
 | `/worktree:plan-for-parallel` | either | Makes a plan delegation-ready as you write it, or audits one you have |
+| `/worktree:completion-contract` | main agent | States what must be true of the whole result, maps packages to outcomes, reconciles on the trunk at convergence |
 | `/worktree:lead` | main agent | Take orchestration: read the plan, rebuild the board, find workers, compute what is ready |
 | `/worktree:join` | worker | Register under a unique name and confirm reachability |
 | `/worktree:board` | either | What every lane is actually doing — derived from git, never narrated |
@@ -138,12 +139,17 @@ Three things worth knowing:
   provisioned worktree is not a staffed lane.
 - **The board is derived, never stored.** A stored board goes stale and is then
   believed.
+- **The run has a written end-state.** A Completion Contract names each required
+  outcome with a verification that can fail; packages declare which outcomes they
+  satisfy; the main agent reconciles on the merged trunk. MET is derived at
+  convergence, never stored.
 
 The only state on disk is `.claude/lanes/` — ownership, base, owner, and
 dispatch facts. Nothing that git can answer is written down.
 
 Concepts and protocols live in `references/`: `roles`, `lane-record`,
-`board-states`, `plan-schema`, `dispatch-gates`, `convergence`.
+`board-states`, `plan-schema`, `dispatch-gates`, `convergence`,
+`completion-contract`.
 
 ## Two things worth knowing
 

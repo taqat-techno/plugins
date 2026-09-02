@@ -40,6 +40,11 @@ anything.** Offer `/worktree:plan-for-parallel` to close the gaps. A plan withou
 `Owns` cannot answer *what may run concurrently*, and the answer must be computed,
 not judged under time pressure.
 
+Check it carries a `## Completion Contract` when the request has several
+independently required outcomes (`references/completion-contract.md`). If it
+does not, say so and offer `/worktree:completion-contract` before dispatching —
+a run whose end-state nobody wrote down cannot be reconciled, only narrated.
+
 ## 3. Rebuild state — git wins, always
 
 Reconstruct from four sources, in this precedence:
@@ -143,7 +148,7 @@ and you continue without asking per lane.
 ## Running the loop
 
 ```
-readiness → schedule → provision → delegate → monitor → verify → integrate → re-schedule
+readiness → schedule → provision → delegate → monitor → verify → integrate → reconcile → re-schedule
 ```
 
 - **Monitor by reading the filesystem**, not by asking. `/worktree:board`.

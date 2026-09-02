@@ -8,9 +8,11 @@ What is ready?   What is blocked?   What can run concurrently?
 Who owns each component?   Which packages overlap?
 Whose test is it?   What is done?   What must never be built?
 What must integrate before something else starts?
+What must be true of the whole result?   Which package serves which outcome?
 ```
 
-Eight fields per work package. Nothing else. **The plan does not become an
+Eight fields per work package — nine when the plan carries a Completion
+Contract. Nothing else. **The plan does not become an
 orchestration database** — anything git, the filesystem, or the session list can
 answer is deliberately absent.
 
@@ -27,6 +29,7 @@ answer is deliberately absent.
 | **Acceptance** | definition of done | always |
 | **Must NOT be built** | negative scope | always (`—` if none) |
 | **Integration contract** | what the other side of a shared seam may assume | only where a seam exists |
+| **Satisfies** | *which task-level outcome does this serve?* — see `completion-contract.md` | only when the plan carries a Completion Contract |
 
 ### Owns — the field that decides concurrency
 
@@ -61,6 +64,16 @@ rediscovering that fact halfway through a wave.
 component count is a false pass: the new component simply did not build, and
 nothing in the output says so.
 
+## Completion Contract
+
+Above the packages, one entry per independently required outcome of the whole
+task — what must be true of the integrated trunk, in the user's terms, with a
+verification that can fail. Packages point at it with `Satisfies`. The Main
+Agent reconciles it on the trunk at convergence; MET is derived there, never
+stored here. Entry shape, states and the reconciliation procedure:
+`references/completion-contract.md`. Warranted only when the run has several
+independently required outcomes — one package needs no contract.
+
 ## Readiness
 
 Exactly one rule, computable, no ambiguity:
@@ -82,6 +95,12 @@ ambiguity and refuse to dispatch.** It must not guess.
 ## Worked example
 
 ```markdown
+## Completion Contract  (revision 1)
+
+- CC-01 — A replayed refresh token never authenticates on the deployed gateway
+  Verification: [release] full suite, test `test_replay_rejected_e2e`
+  Expected: that test passes and 14/14 components installed
+
 ## WP-07 — Session token rotation · GATE 3
 
 **Objective.** Refresh tokens rotate on use and a replayed token is rejected.
@@ -89,6 +108,7 @@ ambiguity and refuse to dispatch.** It must not guess.
 **Prerequisites.** WP-02 (auth schema), WP-05 (audit log)
 **Owns.** `auth/tokens`, `auth/middleware`
 **Laneable.** yes
+**Satisfies.** CC-01
 
 | Task | Description | Depends on |
 |---|---|---|
@@ -130,6 +150,8 @@ Run over an existing plan, these find the defects that cost the most:
 | Tests present but untagged | test ownership is undefined at exactly the moment it matters |
 | **A blocker note that never names its own row's subject** | boilerplate copied from a sibling row. Both such rows once turned out to be startable — one blocker was an *instruction* (*"inspect the localisation first"*), not a bar |
 | `Must NOT be built` absent on a package with a tempting adjacent feature | scope drift has no brake |
+| A Completion Contract entry no package `Satisfies` | an outcome the run cannot deliver — **report it, never guess it** |
+| A package that `Satisfies` nothing while a contract exists | work outside the contract: scope drift, or an outcome nobody wrote down |
 
 ## Proportion
 

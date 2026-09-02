@@ -73,6 +73,11 @@ paragraph. This is the thing most likely to be got wrong.>
 
 <The package's acceptance criteria, numbered.>
 
+<`Satisfies: CC-…` — each task-level outcome this package serves, with its
+`Expected`, when the plan carries a Completion Contract. Whether a CC is MET is
+decided by the Main Agent at convergence, on the integrated trunk — never by
+this lane. Report evidence toward it; do not claim it.>
+
 ## Do not
 
 - touch anything outside `<owns>`
@@ -105,4 +110,5 @@ In that order. The file first, always.
 | The deciding boundary | The single most likely way to fail the gate, stated once, in advance |
 | Test ownership | Duplicated expensive runs, and integration tests run by the wrong party |
 | Explicit **Do not** | Scope drift, and shared-namespace collisions |
+| **Satisfies** | A lane serving no required outcome, and a lane claiming a task-level completion it cannot see |
 | Report protocol **in order** | A lost message costing work instead of latency |
