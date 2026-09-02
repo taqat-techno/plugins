@@ -308,6 +308,10 @@ Developer API Keys > New API Key. Use a DEDICATED least-privilege Odoo user, nev
 an administrator - this server executes as that user and inherits exactly its
 access rights and record rules.
 
+"db" is optional on Odoo 19+: omit it when each database has its own hostname, as
+on Odoo.sh and Odoo Online, and the host selects it. Set it only to disambiguate
+several databases on one hostname, or for Odoo <= 18, whose XML-RPC needs the name.
+
 Keep the secret out of the file by writing "${ODOO_MCP_API_KEY}" and exporting that
 environment variable, or paste the key directly if the file is git-ignored.
 
