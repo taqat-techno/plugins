@@ -55,6 +55,13 @@ still reports zero failures.>
 <For each instrument used to prove a negative: the known positive it was checked
 against. A text scan that has never been seen to fail is not evidence.>
 
+## Contract evidence
+
+<For each CC in this lane's `Satisfies`: where the Main Agent can observe it on
+this staged work — a test id, a file:line, a measurement. Evidence toward the
+outcome, never a MET claim: MET is decided at convergence, on the integrated
+trunk. Omit this section when the plan has no Completion Contract.>
+
 ## Decisions
 
 <Anything chosen rather than found, and why. Silence here is not an answer.>
@@ -94,6 +101,7 @@ believing the report:
 | nothing committed | `git -C <worktree> rev-parse HEAD` still equals the base |
 | nothing outside ownership | the staged paths against `Owns` |
 | branch and base | `git -C <worktree> symbolic-ref --short HEAD`, `rev-list` |
+| contract evidence | re-running the CC's `Verification` on the trunk at convergence |
 
 Write the report so those checks agree with it. A report that cannot be
 independently verified is a claim, not evidence — and *"the server started"* is

@@ -82,8 +82,12 @@ evidence. Rule from the merged trunk, not from either report.
 1. Run the `[release]` contract against the stated expectation.
 2. Diff against the baseline; **attribute every new failure to a named owner.** A
    merge-caused failure is the run working — route it, do not absorb it.
-3. Notify every gate-holder, by name, that its work is committed and merged.
-4. Stamp the new trunk tip as the next wave base.
+3. Reconcile the completion contract, if the plan carries one —
+   `references/completion-contract.md`, convergence step 8b. You re-verify every
+   CC on the merged trunk; no COMPLETE verdict while any CC is UNMET or
+   uncovered.
+4. Notify every gate-holder, by name, that its work is committed and merged.
+5. Stamp the new trunk tip as the next wave base.
 
 ## Guardrails
 
@@ -92,6 +96,8 @@ evidence. Rule from the merged trunk, not from either report.
   peer; route it back to the user instead.
 - Never merge on a merge plan written earlier than this run.
 - Never accept a lane's own test result as the integration result.
+- Never mark a contract entry MET from a lane's contract evidence or an
+  earlier convergence.
 - Never release a gate silently.
 - Never `git reset --soft` a commit you did not make. Check
   `git merge-base --is-ancestor <sha> <default>` first — if it is an ancestor the

@@ -8,7 +8,7 @@ Every gate exists because skipping it caused a documented failure.
 | # | Gate | Check | Failure it prevents |
 |---|---|---|---|
 | 1 | **Ready** | Package prerequisites complete ∧ task `depends_on` complete ∧ no unresolved blocker | A lane assigned to work several prerequisite levels deep. It produced nothing and its branch never left the base commit |
-| 2 | **Contract sufficient** | Package has `Owns`, `Laneable: yes`, tests, acceptance | Dispatching work whose done-condition nobody can state |
+| 2 | **Contract sufficient** | Package has `Owns`, `Laneable: yes`, tests, acceptance — and `Satisfies` when the plan carries a Completion Contract | Dispatching work whose done-condition nobody can state, or that serves no required outcome |
 | 3 | **Background** | Target `kind == "background"` in `claude agents --json` | Dispatch to an interactive session is **held for its user's approval** and may never be seen. Three provisioned lanes once produced nothing while the board reported them running |
 | 4 | **Unambiguous** | Exactly one live session answers to that name | Two sessions sharing a name are two sessions pointed at the same worktree. Both may act; the branch then holds staged content from two writers with no commit boundary between them |
 | 5 | **Handshake answered** | The target has answered a channel test this session | "Probably available" is not available |

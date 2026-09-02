@@ -116,6 +116,17 @@ portal ×3            idempotency guard failed its first real
 A merge-caused failure is not a regression to hide; it is the run working. Route
 it, do not absorb it.
 
+### 8b — Reconcile the completion contract
+
+If the plan carries a `## Completion Contract`, reconcile it now, on the merged
+trunk: run every CC's `Verification` yourself, take ABANDONED from the plan's
+amendments, render MET / UNMET / ABANDONED, and give the verdict. On the final
+convergence, COMPLETE requires every CC MET or ABANDONED-by-decision and none
+uncovered; anything else is NOT COMPLETE, with the unmet ids named. On an
+intermediate convergence, report progress toward the contract and claim
+nothing. A lane's contract evidence is where to look, never the result.
+Procedure and table format: `completion-contract.md`.
+
 ### 9 — Tell every gate-holder
 
 **Releasing a gate is an event the holder must be told about.**

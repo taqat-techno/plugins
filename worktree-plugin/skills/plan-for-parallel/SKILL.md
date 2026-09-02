@@ -40,6 +40,11 @@ them are facts the author already knows and would otherwise write as prose:
 | Acceptance | what done means |
 | **Must NOT be built** | negative scope |
 | Integration contract | what the other side of a shared seam may assume |
+| **Satisfies** | which task-level outcome it serves — when a Completion Contract exists |
+
+If the request has several independently required outcomes and the plan has no
+`## Completion Contract`, establish one first — `/worktree:completion-contract`
+— and point each package at it with `Satisfies`.
 
 Retrofitting these later costs far more than writing them down once.
 
@@ -60,6 +65,7 @@ Checks that find the expensive defects:
 | Tests present but untagged | ownership undefined at the moment it matters |
 | **A blocker note that never names its own row's subject** | boilerplate copied from a sibling row. Suspect it — such rows have turned out to be startable, one blocker being an *instruction* rather than a bar |
 | No `Must NOT be built` next to a tempting adjacent feature | scope drift has no brake |
+| A Completion Contract entry no package `Satisfies`, or a package that satisfies nothing | an outcome the run cannot deliver, or work outside the contract. **Report; never guess** |
 
 ## Readiness must be computable
 

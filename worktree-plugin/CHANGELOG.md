@@ -5,6 +5,49 @@ All notable changes to the Git Worktree Workspaces plugin.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.1.0] - 2026-09-02
+
+Adds the **completion contract** — the task-level layer above the work
+packages: what must be objectively true of the whole integrated result before a
+plan-driven parallel run may be called complete, which package serves which
+outcome, and a reconciliation on the merged trunk at convergence. Additive: a
+plan without a `## Completion Contract` section behaves exactly as in 2.0.0.
+
+### Added
+
+- `/worktree:completion-contract` — establish, audit, or reconcile the
+  contract. Main Agent only. `reconcile` runs the named instruments on the trunk
+  and merges nothing.
+- `references/completion-contract.md` — the owning reference: `CC-nn` entry
+  shape (Outcome / Verification / Expected), expectations that can fail, the
+  `Satisfies` mapping with its two coverage findings, the state model (MET /
+  UNMET derived at reconciliation and never stored; ABANDONED as a recorded
+  amendment), revision and amendments, and the reconciliation procedure.
+
+### Changed
+
+- `plan-schema.md` — `Satisfies` field, Completion Contract section pointer,
+  two audit checks (uncovered outcome, orphan package), worked example.
+- `convergence.md` — step 8b, reconcile the completion contract.
+- `dispatch-gates.md` — gate 2 also requires `Satisfies` when a contract exists.
+- `brief-template.md` — `Satisfies` carried into the brief; MET is decided at
+  convergence, never by the lane.
+- `report-template.md` — `Contract evidence` section: where to look, never a
+  MET claim.
+- `plan-for-parallel`, `lead`, `integrate` — one routing line each.
+
+### Provenance
+
+Adapted from the acceptance-ledger idea in the `unlazy` skill
+(github.com/Leonxlnx/unlazy, MIT): gates written before the work, expectations
+that can fail, MET / UNMET / ABANDONED, reconciliation against the request and
+its amendments, re-measuring every reported number. Deliberately not ported:
+its Node checker, approval store, ownership leases, dispatch-wave machinery,
+Stop hook, `GATES.md` / `.unlazy/` state, and the Depth Tree effort arithmetic
+— each is either native to Claude Code, already owned by this plugin or
+`agent-safety-guards`, or retracted upstream. No hooks, no scripts, no new
+on-disk state.
+
 ## [2.0.0] - 2026-08-24
 
 Adds **Plan-Driven Lane Execution (PDLE)** — one main agent orchestrating several
