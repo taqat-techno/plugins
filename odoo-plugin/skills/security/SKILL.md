@@ -258,6 +258,35 @@ session). Do not "fix" the ACL that is already correct.
   guaranteed cache miss, which is why "it works for the new test user" is not
   evidence the old user's grant failed.
 
+### `has_group()` has no superuser branch — the Administrator is not a universal actor
+
+Verified against `odoo/addons/base/models/res_users.py:1063-1125` (v19):
+`has_group()`, `_has_group()` and `all_group_ids` contain **no** special case for
+the superuser, and `base.group_system` implies no business group. A normal
+Administrator account therefore fails every `has_group('module.group_x')` guard
+for a group it does not actually hold. This is a different mechanism from
+`SUPERUSER_ID` / `sudo()`, which bypass ACLs and record rules but do **not**
+satisfy an explicit group check — so "run it as admin" and "run it with sudo" fix
+different failures, and neither fixes this one.
+
+When "the Administrator cannot do X" is the report, classify the blocker first —
+the four kinds have four different fixes:
+
+| Blocker | Does the Administrator hit it? | Fix |
+|---|---|---|
+| Model ACL (`ir.model.access`) | Only if no held group grants the operation | Grant via a group, or widen the ACL |
+| Record rule, **global** (no `groups`) | **Always** — global rules restrict everyone | Amend the rule's domain; a group cannot escape it |
+| Record rule, group-scoped | Only if the Administrator holds that group | Usually nothing; it is already inert |
+| `has_group()` check in code | Yes, for any group not held | Umbrella group that **implies** the business groups, or an explicit authority predicate |
+| Identity guard (`self.env.user != rec.holder_id`) | **Always** — no group can satisfy it | Admit an explicit authority predicate at the guard; no ACL change helps |
+
+Two consequences worth stating to the user before implementing: an umbrella group
+that implies every business group **deliberately collapses segregation of duties**
+for that account, and an authority predicate at an identity guard must also
+correct any side effect that assumed the actor *was* the subject (a guard
+guaranteeing `actor == holder` often means downstream code writes to
+`actor.field` where it meant `holder.field`).
+
 ### A themed page that 500s only for logged-in internal users
 
 Anonymous and portal visitors work, the internal user gets a 500: that

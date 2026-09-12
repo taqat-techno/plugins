@@ -382,6 +382,23 @@ additionally can't see rows it doesn't `search()` — it is not a guarantee.
 
 ## Integrity semantics the ORM does not enforce
 
+### A guard is only real if the caller's own arguments leave it reachable
+
+`stock.picking.button_validate()` can legitimately return a **dict** after
+`_action_done()` has already completed. A caller passing `skip_backorder=True`
+closes the one non-`True` exit that actually means failure — so under that call,
+every non-`True` value observable at a `if res is not True: raise UserError(...)`
+guard belongs to a picking that already validated. The guard is not mis-ordered
+relative to a following `state != 'done'` check; it is unreachable-as-intended,
+and its only possible effect is to raise on success and roll the transaction
+back.
+
+The reusable move, before accepting any "these two checks are in the wrong
+order" finding: enumerate the callee's exits, then strike the ones the caller's
+own arguments have already eliminated. If nothing reachable remains that means
+failure, the repair is to **remove** the guard, not to reorder it — and the
+report should say so, because "reorder" leaves a false-positive raise in place.
+
 ### A relational field's `domain=` is not a write constraint
 
 The `domain=` on a `Many2one` / `Many2many` is a **UI / search descriptor**:

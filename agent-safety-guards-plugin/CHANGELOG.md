@@ -3,6 +3,22 @@
 All notable changes to the `agent-safety-guards` plugin are documented here.
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.2] - 2026-09-12
+
+Absorbs five recorded lessons into the two skills that already own their mechanisms. No new skill, no `description` change, no behaviour removed.
+
+### `test-result-evidence` - three new evidence rules
+
+- **Rule 8 - prove the instrument FIRED, not just that it ran on the right artifact.** Rule 2 asks *which* artifact a control touched; rule 8 asks whether the command ran at all. A before/after comparison of two no-ops always reports "identical" - observed when a seeding command was launched from the wrong working directory, so both sides were the untouched baseline. Any identical / unchanged / no-op claim now requires the exit path, the cwd printed by the command itself, and one observable side effect. The producer side of this stays with `workflow-reliability`; `defers_to` now names that boundary explicitly.
+- **Rule 9 - a mass failure is evidence about the instrument.** A fresh checker firing on most of a mature corpus is far likelier wrong than the corpus. Two shapes: uniform failure across every check (something upstream is broken), and mass failure with plausible findings (a validator reported 13 FAIL + 4 WARN, all false positives - a "don't name the plugin" rule fired because for framework plugins the plugin name *is* the technology a user must say, and `\w+\.(js|md)` matched `Next.js`). Read the flagged artifacts before changing either side; narrow the rule to the hazard rather than loosening it.
+- **Rule 10 - when a narrow green and a wide red disagree, the wide one wins.** The failure lives outside the narrow test's reach. Instrument the boundaries *between* pipeline stages - observed where a data loss happened during the data-file load, in the gap between `pre` and `post`, not inside either. Then move the assertion onto the real mechanism.
+
+Each rule also gains its row in every surface the skill uses to represent a rule: `owns:`, the decision framework, the control-run ladder (new step 0 - firing precedes identity), the validation checklist, and the anti-pattern table.
+
+### `defensive-failure-design` - rule 6, the fail-closed counterpart to rule 2
+
+A **restriction** resolver must fail CLOSED, which is the opposite of what rule 2 requires of a **narrowing hint**. The two look identical in code - a lookup that may not resolve - and differ only in what absence means: a missing hint costs precision, a missing restriction costs the restriction. Observed where a tool-profile resolver returned `undefined` for an unrecognised profile name and an undefined policy meant *no restriction applied*, so a typo silently granted the full tool surface. Assert the **resolved object**, not the presence of the config key; treat any nullable policy resolver as fail-open until proven otherwise, and grep the call sites rather than the definition.
+
 ## [0.2.1] - 2026-09-12
 
 Adds a behavioural eval suite under `evals/` (2 must-fire cases + 1 must-not-fire case), so this plugin's value claim is measured as

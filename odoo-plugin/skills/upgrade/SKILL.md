@@ -264,6 +264,31 @@ deleted. Enumerate the adoption set by `(model, res_id)`, never by hand-typed
 `LIKE` patterns — field xmlids are `module.field_<model>__<field>` and
 selection xmlids have a different shape again, so patterns miss rows.
 
+### A `migrations/` folder numbered ABOVE the manifest version never runs
+
+The upgrade selects migration folders by comparing them against the version the
+module **declares**. A folder numbered higher than that declaration is silently
+skipped: no error, exit 0, the upgrade reports success, and the data is still
+broken. Measured with the module at `.22` and the script in a `.23` folder — the
+script never executed.
+
+The test suite cannot see this, and that is the second half of the trap. A
+migration test that drives `migrate()` directly (`load_script`, or importing the
+module and calling it) **bypasses the version gate entirely**, so the script runs
+in the test and never in production. A green suite is compatible with a
+migration that can never be selected.
+
+- Name the folder at or below the `version` in `__manifest__.py` for the release
+  you are shipping. If you bump the manifest to `1.0.23`, the folder is `1.0.23`
+  or lower — never ahead of it.
+- Any suite that calls `migrate()` directly needs at least one arm that performs
+  a **real module upgrade end to end** (`-u <module>` against a database at the
+  prior version), or the gate is untested. Assert on the data afterwards, not on
+  the script's return.
+- When an upgrade "succeeds" and the data is unchanged, check folder selection
+  before reading the script. A skipped script and a script that ran and did
+  nothing are indistinguishable from the log.
+
 ### Removing a field without a cleanup migration wedges the next upgrade
 
 Bumping a module's version after **removing** a field, with no migration that
@@ -305,6 +330,20 @@ OWL v1 fully adopted, widget system changes, publicWidget API stabilization
 
 ### Odoo 17 to 18
 OWL v1 -> v2 starts, minor XML changes, snippet group system introduced
+
+### Model existence is version-specific — confirm before building a finding on it
+
+`stock.valuation.layer` **does not exist as a model in Odoo 19**; the stock move
+carries its own `value` field instead. A reasonable reading of older source
+produced the opposite conclusion ("you cannot read a move's value from the
+move"), and it had already been written into a findings register before anyone
+checked the target version.
+
+Confirm the model in the version you are actually targeting — query `ir.model`
+on a database at that version, or read that version's source tree — before
+asserting either its absence or its presence. When correcting a recorded
+finding, say which part of it survives: the observations here were right and only
+the conclusion was wrong, which is a different repair from discarding the finding.
 
 ### Odoo 18 to 19
 **Major frontend overhaul**: RPC service removed, snippet system overhauled, kanban-box->card, search <group> banned, tree->list, portal templates restructured, mail template helpers changed, cron numbercall removed

@@ -2,6 +2,18 @@
 
 All notable changes to this plugin are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.2] - 2026-09-12
+
+Absorbs two recorded lessons into `windows-script-and-task-authoring`, split across the two layers so neither rule is stated twice.
+
+### Authoring side - `SKILL.md` rule 8
+
+**A script that writes a file for another tool must pin `newline="\n"`.** Python's text-mode `open(p, "w")` translates `\n` to CRLF on Windows, so every value a shell later reads back carries a trailing `\r`. Nothing errors - a CR is a legal argument character - and the symptoms are silent: a `case`/`[[ ]]` membership test that should obviously match does not, and a CLI called with the value rejects it as unknown. The diagnostic tell is an **n-1 failure count**: every line fails except the last, which has no trailing newline and therefore no CR. Pipe through `tr -d '\r'` and re-test before theorising about quoting or stdin.
+
+### Verification side - `references/shell-boundary-hazards.md`
+
+**Verify every byte-level claim in Python, not with a shell regex.** Git Bash `grep -E` mishandles an `\x`-range character class, so a search built to prove "this file is pure ASCII" reports non-ASCII content in files that are pure ASCII with no CR bytes. The engine is wrong, not the files - and the false positive matters because encoding claims are exactly what gets written into a validator and enforced against a whole corpus. Read the bytes and count them. Placed beside the existing CRLF-grep trap it extends.
+
 ## [0.6.1] - 2026-09-12
 
 Adds a behavioural eval suite under `evals/` (1 must-fire case + 1 must-not-fire case), so this plugin's value claim is measured as

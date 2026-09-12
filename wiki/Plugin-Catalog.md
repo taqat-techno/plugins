@@ -8,7 +8,7 @@ Listed in marketplace order. Component counts are the real contents of each plug
 
 | # | Plugin | Version | Category | Commands | Agents | Skills | Hooks | MCP | Evals | Docs |
 |---|---|---|---|---|---|---|---|---|---|---|
-| 1 | **odoo** | `2.9.2` | development | 19 | 4 | 23 | 5 | yes | 3 + 1 | [[Odoo Plugin\|Odoo-Plugin]] · [README](../../odoo-plugin/README.md) |
+| 1 | **odoo** | `2.9.3` | development | 19 | 4 | 23 | 5 | yes | 3 + 1 | [[Odoo Plugin\|Odoo-Plugin]] · [README](../../odoo-plugin/README.md) |
 | 2 | **devops** | `6.9.2` | productivity | 9 | 3 | 1 | 2 | yes | 1 + 1 | [[DevOps Plugin\|DevOps-Plugin]] · [README](../../devops-plugin/README.md) |
 | 3 | **notification** | `1.0.1` | productivity | 1 | 0 | 0 | 5 | — | n/a (D-012) | [[Notification Plugin\|Notification-Plugin]] · [README](../../notification-plugin/README.md) |
 | 4 | **pandoc** | `2.2.1` | productivity | 1 | 0 | 1 | 0 | — | 1 + 1 | [[Pandoc Plugin\|Pandoc-Plugin]] · [README](../../pandoc-plugin/README.md) |
@@ -18,8 +18,8 @@ Listed in marketplace order. Component counts are the real contents of each plug
 | 8 | **react-kit** | `0.6.1` | development | 3 | 1 | 16 | 0 | — | 3 + 1 | [README](../../react-kit-plugin/README.md) |
 | 9 | **qa-browser** | `0.5.1` | productivity | 5 | 2 | 13 | 2 | — | 3 + 1 | [README](../../qa-browser-plugin/README.md) |
 | 10 | **docs-wiki** | `0.8.1` | productivity | 7 | 3 | 10 | 0 | — | 3 + 1 | [README](../../docs-wiki-plugin/README.md) |
-| 11 | **claude-env-doctor** | `0.6.1` | productivity | 1 | 1 | 2 | 1 | — | 1 + 1 | [README](../../claude-env-doctor-plugin/README.md) |
-| 12 | **agent-safety-guards** | `0.2.1` | productivity | 0 | 0 | 6 | 1 | — | 2 + 1 | [README](../../agent-safety-guards-plugin/README.md) |
+| 11 | **claude-env-doctor** | `0.6.2` | productivity | 1 | 1 | 2 | 1 | — | 1 + 1 | [README](../../claude-env-doctor-plugin/README.md) |
+| 12 | **agent-safety-guards** | `0.2.2` | productivity | 0 | 0 | 6 | 1 | — | 2 + 1 | [README](../../agent-safety-guards-plugin/README.md) |
 | 13 | **release-safety** | `0.4.1` | productivity | 1 | 0 | 3 | 1 | — | 1 + 1 | [README](../../release-safety-plugin/README.md) |
 | 14 | **django** | `0.2.1` | development | 4 | 3 | 7 | 3 | — | 2 + 1 | [README](../../django-plugin/README.md) |
 | 15 | **fastapi** | `0.2.1` | development | 4 | 3 | 8 | 3 | — | 2 + 1 | [README](../../fastapi-plugin/README.md) |

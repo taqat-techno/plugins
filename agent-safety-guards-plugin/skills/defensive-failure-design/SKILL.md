@@ -10,6 +10,7 @@ owns:
   - the wrong-step diagnosis for a shipped fix that did not recover the machine (enumerate entry-point branches; ask which one production takes)
   - crash-context capture in the `except`, before teardown (re-check every consumer that reads state after a failure once cleanup is added)
   - the silence-assertion rule (pair every "nothing happened" assertion with a positive one, and prove it by reverting the fix)
+  - the fail-closed rule for a RESTRICTION resolver (a nullable policy lookup is fail-open; assert the resolved object, not the config key) and its boundary against the fail-quiet rule for a narrowing hint
 defers_to:
   - test-result-evidence skill (this plugin) for the general rule that a passing run is not proof until you have shown it could have failed — the named discriminator, the control on the control, and the collection-error reading
   - test-double-seams skill (this plugin) for the per-branch coverage ledger form of a branch enumeration (which side of the seam each branch's tests called)
@@ -94,6 +95,22 @@ Two tests for a notification handler asserted `notifications).toHaveLength(0)` f
 
 `test-result-evidence` (this plugin) owns the general rule that a passing run is not proof until you have shown it could have failed, including the named discriminator and the control on the control. This rule is only its silence-shaped instance — go there for how to read the run.
 
+### 6. A restriction resolver must fail CLOSED — the opposite of rule 2
+
+Rule 2 requires a *narrowing hint* to degrade quietly: an unresolvable scope hint is ignored, never fatal. Apply that to a **restriction** and it becomes a hole. The two look identical in code — a lookup that may not resolve — and differ only in what their absence means: a missing hint costs precision, a missing restriction costs the restriction.
+
+Observed shape: a tool-profile resolver returned `undefined` for any profile string it did not recognise, and an undefined policy meant **no profile restriction applied**. So a typo in a profile name silently granted the full tool surface instead of the intended minimal subset — and from the outside, a restriction that vanished is indistinguishable from one that is working.
+
+Decide which kind the lookup is, then make the failure mode match:
+
+- **Narrowing hint** (performance, convenience, a default) — unresolvable is ignored; raise on the ambiguity it was meant to prevent, per rule 2.
+- **Restriction** (a permission, allowlist, profile, quota, tenant scope) — unresolvable is **fatal**. Deny, or refuse to start. Never treat "no policy resolved" as "no policy needed".
+
+Two checks that catch it:
+
+- Assert the **resolved** object is non-null, not that the config key is present. A present-and-misspelled value is the whole failure.
+- Any resolver whose return type is nullable is fail-open until proven otherwise. Grep the call sites for the unchecked use, not the definition — the definition is usually honest about the `None` and the caller is what forgets.
+
 ## Decision framework
 
 ```
@@ -108,6 +125,8 @@ which branch is live?           --> log the selection at the entry point; a fix 
 adding cleanup to a failure path? --> re-check every consumer that reads state AFTER the failure
 crash recorder present?         --> capture in the `except` before teardown; `finally` runs first and wins
 test expects nothing to happen? --> pair with a positive assertion; revert the fix and watch it fail, or it proves nothing
+lookup may not resolve?         --> HINT: ignore it and widen. RESTRICTION: deny or refuse to start; never "no policy resolved" == "no policy needed"
+resolver returns nullable?      --> assert the RESOLVED object at each call site, not the presence of the config key
 ```
 
 ## Validation checklist
@@ -123,6 +142,8 @@ test expects nothing to happen? --> pair with a positive assertion; revert the f
 - [ ] Every diagnostic that reads post-failure state captures it in the `except`, before cleanup.
 - [ ] Every consumer reading state after a failure was re-checked when cleanup was added to that path.
 - [ ] Every silence assertion is paired with a positive assertion, and the pair was proven by reverting the fix.
+- [ ] Every lookup that may fail to resolve was classified as hint or restriction, and its failure mode matches that class.
+- [ ] Every restriction resolver is asserted on the resolved object; no call site reads a nullable policy without handling the null as a denial.
 
 ## Anti-patterns
 
@@ -138,6 +159,8 @@ test expects nothing to happen? --> pair with a positive assertion; revert the f
 | Read engine/migration state at crash-record time | `finally` has already nulled it, so the record describes a machine that had nothing | Capture the snapshot in the `except`, before cleanup, and write it afterwards |
 | Add teardown to a failure path and stop there | Every post-failure consumer now reads state that moved under it, silently and without going red | Re-check each consumer that reads after the failure when cleanup is introduced |
 | Assert `toHaveLength(0)` for a case that should be silent | Passes identically against code with no handler at all — against the exact bug | Pair it with a positive assertion that the error still reaches the user elsewhere |
+| Treat an unrecognised profile / policy name as "no restriction" | The restriction disappears on a typo, and from outside that is indistinguishable from it working | Deny or refuse to start; assert the resolved policy is non-null |
+| Check that the policy config key is present | A present-but-misspelled value is the entire failure mode | Check the resolver's OUTPUT, at the call site that consumes it |
 | Ship a silence test without reverting the fix | A test that survives the revert never discriminated | Revert, confirm it goes red, restore |
 
 ## Cross-references

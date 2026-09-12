@@ -28,6 +28,7 @@ owns:
   - the deliberate task-registration choices (RunLevel, hidden-window wrapper, ExecutionTimeLimit, argv-over-environment)
   - the bitness rule for any process/module audit (a 32-bit host silently under-reports 64-bit processes)
   - the MSYS/WSL path-translation hazards at authoring time (empty glob, mangled rev:path, reserved-device file)
+  - the newline="\n" rule for any script writing a file another tool will read (text-mode CRLF, the trailing-CR membership/argument failure, the n-1 tell)
   - the pipeline-exit-status rule at authoring time (a pipe reports its LAST stage, so do not wrap a status-bearing command in one, and verify the side effect of anything irreversible)
   - the vary-one-dimension-at-a-time discipline on a refusal, and the privileged-environment blind spot
   - the pre-flight checklist run BEFORE a Windows script is written or a task is registered
@@ -140,6 +141,8 @@ Translation rewrites arguments before the native tool ever sees them, and none o
 
 - **A Windows path with backslashes handed to a native exe is mangled the same way.** `node C:\dir\x.mjs` from Git Bash fails `MODULE_NOT_FOUND` — which reads as a deleted or mis-pathed script, not as an argument that never arrived intact. Quote it and use forward slashes: `node "C:/dir/x.mjs"`.
 - **Do not wrap a status-bearing command in a pipe — the pipeline reports the LAST stage's exit code.** `<cmd> | tail` exits **0** when `<cmd>` died, so the one hazard on this boundary that *does* raise gets converted into a silent success alongside all the ones that never did. Run it unpiped and read the output, or set `pipefail` and check `${PIPESTATUS[0]}`. The companion rule for irreversible work — verify the **side effect**, never the exit code — is stated in full under *Verification discipline* in `references/shell-boundary-hazards.md`.
+
+- **A script that writes a file for another tool must pin `newline="\n"`.** Python's text-mode `open(p, "w")` translates `\n` to CRLF on Windows, so every value a shell later reads back from that file carries a trailing `\r`. Nothing errors — a CR is a legal argument character — and the symptoms are silent: a `case "$x" in` / `[[ "$x" == ... ]]` membership test that should obviously match does not, and a CLI called with the value rejects it as unknown. The tell is an **n-1 failure count**: every line fails except the last, which has no trailing newline and therefore no CR. Pipe through `tr -d '\r'` and re-test before theorising about quoting, stdin, or the tool itself.
 
 **General rule: on Windows a "file not found" or empty result from a cross-boundary tool is a path-translation suspect FIRST** — confirm with a second, differently-shaped command before concluding anything about the repo or the disk. Once a command has already misbehaved, the workaround catalogue (`MSYS_NO_PATHCONV=1`, the `--%` stop-parsing token, stdin feeding, BOM-on-pipe) belongs to env-doctor's `references/windows-powershell.md`; what this rule buys is not composing the argument that needs it.
 

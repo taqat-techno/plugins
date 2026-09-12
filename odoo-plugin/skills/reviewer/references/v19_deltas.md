@@ -325,6 +325,22 @@ all still documented.
 The only review-level view change is the tag rename. Inherited-view rules
 and primary-view rules are unchanged.
 
+### §9 Views — `web_ribbon` inside `<list>` ignores `invisible`
+
+A `<widget name="web_ribbon">` placed inside a `<list>` renders on **every row**
+regardless of its `invisible` domain: the v19 list renderer does not evaluate it.
+Observed consequence — every sale order form showing at least one order line
+painted a green RENTAL ribbon, including a blank line the user had just started
+and including pure-consumable requests with no rentable device. Zero lines meant
+zero rows, which is why it presented to the client as intermittent.
+
+At review time: flag any `web_ribbon` that is not inside a form view's `<sheet>`.
+The fix is to delete the node, not to tighten its domain — it is invisible by its
+author's own declaration, so removing it forfeits nothing intended, and it is the
+whole of the visible defect. Beware the mis-diagnosis: this looks like a
+classification or data bug (a wrongly set rental flag) and gets chased in the
+wrong module. When a ribbon appears "sometimes", count the rows.
+
 ### §10 JS / Owl / assets — QUnit replaced
 
 v17 documents the QUnit-based JS test harness on the testing page. v19
