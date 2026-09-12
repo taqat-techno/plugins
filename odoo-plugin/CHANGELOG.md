@@ -2,6 +2,21 @@
 
 All notable changes to `odoo-plugin` are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/). Versioning follows [SemVer](https://semver.org/).
 
+## [2.9.2] - 2026-09-12
+
+Adds a behavioural eval suite under `evals/` (3 must-fire cases + 1 must-not-fire case), so this plugin's value claim is measured as
+`Delta` against a no-plugin baseline instead of asserted. Each must-fire case
+pairs a namespace-tolerant `tool_used: Skill` indicator with an `llm` rubric
+that demands a fact this plugin uniquely teaches, so a no-plugin run fails it.
+
+- `fires-on-optional-tenant-anchor-field` targets `multi-tenancy-isolation`
+- `fires-on-public-widget-rpc-unavailable` targets `upgrade`
+- `fires-on-standalone-owl-kiosk-screen` targets `owl-architecture`
+- `ignores-multi-tenant-saas-architecture` asserts no skill of this plugin fires (`min: 0`, `max: 0`, `arm: both`)
+
+Pilot with `claude plugin eval . --case <case> --runs 1 --ablation none`,
+then measure with `claude plugin eval .`. No runtime behaviour changed.
+
 ## [2.9.0] - 2026-08-18
 
 Marketplace-wide architecture upgrade. Skill discovery, invocation-mode metadata, and identity consistency were corrected across the marketplace; no skill, command, agent, hook, or MCP behaviour was removed.

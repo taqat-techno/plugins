@@ -2,6 +2,20 @@
 
 All notable changes to `rag-plugin` are documented here. Format is loosely based on [Keep a Changelog](https://keepachangelog.com/). Versioning follows [SemVer](https://semver.org/).
 
+## [0.18.1] - 2026-09-12
+
+Adds a behavioural eval suite under `evals/` (2 must-fire cases + 1 must-not-fire case), so this plugin's value claim is measured as
+`Delta` against a no-plugin baseline instead of asserted. Each must-fire case
+pairs a namespace-tolerant `tool_used: Skill` indicator with an `llm` rubric
+that demands a fact this plugin uniquely teaches, so a no-plugin run fails it.
+
+- `fires-on-empty-search-result-means-absent` targets `ragtools-retrieval`
+- `fires-on-runbook-frontmatter-tags` targets `markdown-authoring`
+- `ignores-markdown-table-bulleted-list` asserts no skill of this plugin fires (`min: 0`, `max: 0`, `arm: both`)
+
+Pilot with `claude plugin eval . --case <case> --runs 1 --ablation none`,
+then measure with `claude plugin eval .`. No runtime behaviour changed.
+
 ## [0.18.0] — 2026-08-02 — Retrieval actually works again
 
 **The retrieval-reminder hook had been completely non-functional since 2026-07-29, and nothing said so.**

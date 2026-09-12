@@ -1,6 +1,6 @@
 {
   "name": "rag",
-  "version": "0.18.0",
+  "version": "0.18.1",
   "description": "Operational console AND retrieval guide for the ragtools local RAG product. Install, configure, diagnose, repair, upgrade, and run the local knowledge base \u2014 and teach Claude to use it correctly: scope every search (ragtools refuses unscoped calls), check a project indexing mode before code questions, resolve the right service among several, and validate citation paths. Does NOT re-implement search.",
   "author": {
     "name": "TaqaTechno",

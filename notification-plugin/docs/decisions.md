@@ -252,3 +252,33 @@ can explain.
 **Reverse only if.** A `wsl_host` backend is added that reaches the Windows host
 through interop. `backends.detect()` already returns a named key for exactly this
 extension.
+
+## D-012 — No eval suite: there is no routing surface to measure
+
+**Rule.** This plugin ships no `skills/` and no `agents/`, so it ships no `evals/`
+suite. HR-20's eval path does not apply, and this entry is the recorded N/A.
+
+**Why.** `claude plugin eval` measures `Δ` — the score of a run with the plugin
+loaded minus the score of the same run with nothing loaded — on prompts a user
+would type. Every capability this plugin has is a hook that fires on a *harness
+event*, never on a prompt. There is no routing decision for the plugin to win, so
+no case could produce a non-zero `Δ`: a suite here would report `Δ = 0` on every
+case and document nothing. Worse, it would not even be inert — an eval run loads a
+plugin's hooks and executes them as the user, outside the agent's sandbox, so
+evaluating this plugin fires real desktop notifications as a side effect of
+measuring nothing.
+
+**Violation looks like.** An `evals/` directory added here to satisfy a checklist,
+containing cases whose `Δ` is structurally 0; or broadening HR-20 so that
+hooks-only and commands-only plugins are required to carry suites.
+
+**Check.** `ls notification-plugin/skills notification-plugin/agents` — neither
+exists. Behavioural coverage for this plugin lives in `tests/test_notification.py`,
+which exercises the hook manifest and the notifier directly, where the behaviour
+actually is.
+
+**Reverse only if.** The plugin gains a skill or an agent — any component a user
+prompt can route to. At that point the eval path applies (one must-fire case, one
+must-not-fire case, released on a recorded `Δ > 0`) and this entry is superseded.
+
+---

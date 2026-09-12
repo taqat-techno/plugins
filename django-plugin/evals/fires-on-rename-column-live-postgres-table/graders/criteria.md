@@ -1,0 +1,5 @@
+---
+type: llm
+---
+PASS if the reply lays out a multi-step, multi-deploy expand-contract sequence for the rename: (1) add the new "status" column (nullable / with a default) while the old "stat" column stays, (2) dual-write both columns from the application code, (3) backfill "status" from "stat" for existing rows, (4) switch application reads over to "status" and deploy, (5) drop the old "stat" column only in a later deploy once no running code references it. The reply must also explicitly say that a single-step rename (a plain RenameField / one migration that renames the column directly) is unsafe against live traffic during a rolling deploy.
+FAIL if the reply proposes a single RenameField or one-migration ALTER TABLE RENAME COLUMN as sufficient, if it only gives generic migration hygiene advice (e.g. "test it in staging first", "make sure it's reversible", "take a backup") without the specific add/dual-write/backfill/switch/drop sequence, or if it omits the requirement that dropping the old column must wait for a later deploy.

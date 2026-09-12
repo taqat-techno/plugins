@@ -1,0 +1,5 @@
+---
+type: llm
+---
+PASS if the reply identifies that calling the synchronous requests library inside an async def route blocks the shared event loop, and explains that this is exactly why unrelated endpoints stall too under load (one blocking call on the loop freezes every concurrent request being served by that worker, not just the pricing endpoint) and why a single local request looks fine (nothing else is competing for the loop). The reply must give a concrete fix: replace requests with an async HTTP client such as httpx.AsyncClient and await it, or run the blocking call via run_in_threadpool, or change the route to a plain def so FastAPI runs it in its threadpool.
+FAIL if the reply attributes the problem only to "the third-party API being slow" or generic scaling advice (add more workers/servers, add a timeout, add retries, add caching) without naming the event-loop-blocking mechanism, or if it proposes a fix that keeps the blocking requests call directly inside the async def route with no threadpool offload or async client swap.

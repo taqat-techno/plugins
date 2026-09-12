@@ -21,12 +21,14 @@ plugins/                              ← the working marketplace (what you edit
 ├── pandoc-plugin/
 ├── remotion-plugin/
 ├── notification-plugin/
-├── wiki/                            ← this wiki (source files, synced to GitHub Wiki)
+├── wiki/                            ← this wiki (source files, synced to GitHub Wiki - documentation, not a plugin)
 ├── CLAUDE_CODE_PLUGIN_DEVELOPMENT_GUIDE.md
 ├── agent_skills_spec.md
 ├── CONTRIBUTING.md
-├── validate_plugin.py
-├── validate_plugin_simple.py
+├── validate_plugin.py               ← gate 1: one plugin's shape
+├── validate_plugin_simple.py        ← gate 1, without PyYAML
+├── validate_marketplace.py          ← gate 2: cross-plugin discoverability
+├── validate_evals.py                ← gate 4: eval-suite shape (HR-20)
 ├── README.md                        ← marketplace-level overview
 └── LICENSE
 
@@ -115,7 +117,8 @@ Distilled from the repo's history, three audit reports (`HOOK_AUDIT_REPORT.md`, 
 3. **Single-owner layering.** Each concern lives in exactly one file. If two files have the same logic, one of them is wrong. Documented in `rag-plugin/ARCHITECTURE.md` and `devops-plugin/ARCHITECTURE.md`.
 4. **Hooks enforce, they don't reason.** Hooks are command-type bash/python, fail fast, return structured JSON. No prompt-type hooks (they trigger Claude Code's prompt-injection detection). Minimal SessionStart output.
 5. **Binding decisions (D-NNN).** Load-bearing choices go into `docs/decisions.md` with date, status, rationale, and a "Reverse only if:" exit clause. Supersede with new dated entries; never rewrite earlier ones.
-6. **Validator discipline.** `python validate_plugin.py <plugin-dir>` runs before commits. Documented false positives live in CHANGELOGs, not silenced.
+6. **Validator discipline.** `validate_plugin.py <plugin-dir>`, `validate_marketplace.py`, and `validate_evals.py` all run before commits. Documented false positives live in CHANGELOGs, not silenced.
+6a. **Measured value, not asserted value (HR-20).** All three validators measure structure and stay green on a plugin whose skill loads, validates, and never wins the routing decision. A plugin shipping `skills/` or `agents/` ships `evals/` with a must-fire and a must-not-fire case and releases on a recorded `claude plugin eval` delta greater than zero; a plugin with no routing surface records the N/A as a `D-NNN` instead.
 7. **Cross-platform parity.** Windows is the primary dev environment, but every command has macOS and Linux branches. `os.execvp` stdio semantics, `cp1252` codec, CRLF vs LF, `where` vs `which`, `%LOCALAPPDATA%` are first-class concerns.
 8. **Local-first posture.** No network egress unless explicit and opt-in. Telemetry is local-only JSONL; the user can always `cat` it. No plugin phones home.
 9. **Typed confirmation for every destructive step.** `DELETE` / actual PID / project ID verbatim — never `yes/no` for destruction.
