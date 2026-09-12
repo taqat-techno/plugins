@@ -126,6 +126,21 @@ For each hit, ask whether your set satisfies its `depends`. If it does, that
 module is in your install whether you listed it or not. The only real escape is
 a set (or a base DB) that leaves at least one of its deps unsatisfied.
 
+### An object button naming an optional module's method breaks INSTALLATION
+
+`<button type="object" name="portal_confirm">` is resolved against the model
+**when the view loads**, not when the button is pressed. If that method is
+contributed by a module outside this one's dependency closure, the owning module
+fails to **install** in any database where the contributing module is absent —
+and it surfaces as an install error in an apparently unrelated module, only in
+the deployment that lacks the optional one.
+
+At review time, for every `type="object"` button: the named method must be
+defined by this module or by something in `depends`. If it is genuinely optional,
+route the call through a `TransientModel` wizard (the wizard resolves the verb at
+runtime instead of naming it in a view), or gate the button on a computed
+availability field whose compute tolerates the method's absence.
+
 ## `external_dependencies`
 
 ```python

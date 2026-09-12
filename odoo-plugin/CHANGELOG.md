@@ -2,6 +2,25 @@
 
 All notable changes to `odoo-plugin` are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/). Versioning follows [SemVer](https://semver.org/).
 
+## [2.9.3] - 2026-09-12
+
+Absorbs six recorded Odoo lessons into the three skills that own their layers. `reviewer/SKILL.md` is at its body-size limit, so all three reviewer rules went to `references/` rather than the body.
+
+### `upgrade` - two migration traps
+
+- **A `migrations/` folder numbered ABOVE the manifest version never runs.** Measured with the module at `.22` and the script in a `.23` folder: no error, exit 0, upgrade reports success, data still broken. The second half of the trap is that the suite cannot see it - a test driving `migrate()` via `load_script` bypasses the version gate entirely, so the script runs in the test and never in production. Any such suite needs one arm that performs a real `-u <module>` upgrade end to end.
+- **Model existence is version-specific.** `stock.valuation.layer` does not exist in Odoo 19; the move carries its own `value` field. Confirm the model in the version you target before asserting its absence *or* its presence - and when correcting a recorded finding, say which part survives.
+
+### `security` - the Administrator is not a universal actor
+
+`has_group()` / `_has_group()` / `all_group_ids` contain **no** superuser branch (`res_users.py:1063-1125`, v19), and `base.group_system` implies no business group - a mechanism distinct from `SUPERUSER_ID`/`sudo()`, which bypass ACLs and record rules but not an explicit group check. Adds the four-way classification table for "the Administrator cannot do X": model ACL, global record rule (always restricts), group-scoped record rule, `has_group()` check, and identity guard (which no group can ever satisfy). Also states the two consequences to raise before implementing - an umbrella group deliberately collapses segregation of duties, and an authority predicate at an identity guard must correct any side effect that assumed the actor *was* the subject.
+
+### `reviewer` - three review rules, all in `references/`
+
+- `references/v19_deltas.md` (§9 Views) - **`web_ribbon` inside `<list>` ignores `invisible`**; the v19 list renderer does not evaluate it, so it paints on every row. Presents as a data/classification bug and gets chased in the wrong module; when a ribbon appears "sometimes", count the rows. The fix is to delete the node.
+- `references/module_manifest.md` - **an object button naming an optional module's method breaks INSTALLATION**, because `type="object"` is resolved at view load. Surfaces as an install error in an unrelated module, only where the optional module is absent. Route through a wizard or gate on a computed availability field.
+- `references/orm_patterns.md` - **a guard is only real if the caller's own arguments leave it reachable.** With `skip_backorder=True`, `if res is not True: raise` can only ever fire as a false positive, so the repair is removal rather than reordering. Enumerate the callee's exits and strike the ones the caller already eliminated before accepting an ordering finding.
+
 ## [2.9.2] - 2026-09-12
 
 Adds a behavioural eval suite under `evals/` (3 must-fire cases + 1 must-not-fire case), so this plugin's value claim is measured as

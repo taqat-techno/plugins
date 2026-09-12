@@ -61,6 +61,15 @@ env-doctor's `references/windows-powershell.md`; this list is not a second copy 
   instead: `tr -dc '\r' < "$f" | wc -c`. Then be explicit about **which object** you measured: under
   `core.autocrlf=true` the working tree legitimately holds CRLF while the committed blob holds LF, so when
   the question is "what will be committed", measure the staged blob — `git show :<path> | tr -dc '\r' | wc -c`.
+- **Verify every byte-level claim in Python, not with a shell regex.** Git Bash `grep -E` mishandles an
+  `\x`-range character class, so a search built to prove "this file is pure ASCII" reports non-ASCII
+  content in files that are pure ASCII with no CR bytes. The regex engine is wrong, not the files — and a
+  false positive here is dangerous because encoding claims are exactly the kind that get written into a
+  validator and then enforced against a whole corpus. Read the bytes and count them:
+  `open(p, "rb").read()`, then check `.count(b"\r")`, the `b"\xef\xbb\xbf"` prefix, and
+  `max(b) < 128`. This is the read side of the same boundary as the `newline="\n"` authoring rule in
+  the skill body: one governs what a script writes, this governs what you are allowed to conclude about
+  what is on disk.
 - **Never deliver multi-line content through a heredoc.** Quoting misbehaves at the boundary for large
   markdown or code blocks, and long content additionally runs into the command-length limit; both fail by
   writing something subtly different from what you wrote, not by erroring. Write the file with a dedicated

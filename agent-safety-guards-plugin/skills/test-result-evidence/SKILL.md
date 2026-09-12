@@ -11,13 +11,16 @@ owns:
   - comparing COLLECTED COUNTS across versions rather than pass/fail lines
   - cleanup-assertion form (assert the resource is closed; never assert its temp directory deletes)
   - the one-OS-flake reading (a control that can only fail on one platform did not run as a control anywhere else)
+  - proving the instrument FIRED at all (exit path, printed cwd, one observable side effect) before any identical / unchanged / no-op claim is read
+  - the mass-failure prior (a fresh checker firing on most of a mature corpus is evidence about the checker; read the flagged artifacts before changing either side)
+  - the narrow-green vs wide-red precedence (the wide failure is ground truth; instrument the boundaries BETWEEN stages, then upgrade the narrow test to the real mechanism)
 defers_to:
   - structural-assertions skill (this plugin) for every claim about SOURCE SHAPE — the harness-free side-by-side AST probe, the ast.walk ordering trap, the no-path-does-the-unsafe-thing universal, and the new-test-just-went-red reading
   - test-double-seams skill (this plugin) for the at-the-seam vs across-the-seam contract and what a hand-built double can structurally never expose
   - the framework testing skills (django-testing, fastapi-testing, odoo-plugin test) for runner selection, fixture strategy, and test authoring — this skill judges a result, it does not write the test
   - release-verification skill (release-safety plugin) for the DEPLOY-altitude twin of this failure — a /health 200 served by the OLD build, per-service SHA, code-marker probes
   - agent-safety skill for what to do with a green verdict that is about to authorize an irreversible action
-  - workflow-reliability skill for whether the producer of a result completed at all (a zero from a crashed producer reads identical to a clean zero)
+  - workflow-reliability skill for whether the PRODUCER of a result completed at all (a zero from a crashed producer reads identical to a clean zero); rule 8 here is the mirror case - whether the INSTRUMENT you pointed yourself ever fired
 user-invocable: false
 ---
 
@@ -109,6 +112,42 @@ So: assert **`conn.closed is True`** (or the library's equivalent — the handle
 
 When a failure appears on exactly one platform, the useful reading is not "flaky on Windows" but **"the other platforms were never able to fail this test."** The green legs of the matrix were not corroboration; they were silence. Fix the resource lifetime (rule 6) rather than skipping or retrying the leg that can actually see it — the skip removes the only instrument that works.
 
+### 8. Prove the command ran at all — not just that it ran on the right artifact
+
+Rule 2 asks *which* artifact the instrument touched. This one asks whether the instrument fired. They fail differently: a misdirected run produces a real result about the wrong thing, while a run that never happened produces a result about **nothing** — and a before/after comparison of two no-ops always reports "identical".
+
+Observed shape: an idempotency check reported "two consecutive runs, output byte-identical." The seeding command had been launched from the wrong working directory, so it never executed; both sides of the comparison were the untouched baseline. The numbers looked unusually clean, which was the only tell.
+
+For any claim of the form *identical / unchanged / no-op / still passes*, show the run happened before reading its result:
+
+- **Exit path** — the command's own exit code, captured, not inferred from the absence of an error.
+- **Working directory** — printed by the command itself, in the same invocation, not asserted by the caller.
+- **One observable side effect** — a new file, a changed row, a non-empty stdout, a bumped counter. If a successful run and a run that never started are indistinguishable in the evidence, there is no evidence.
+
+The producer side of this — did the upstream agent or job that generated a result finish at all — belongs to `workflow-reliability`. This rule is about the instrument you are pointing yourself.
+
+### 9. A mass failure is evidence about the instrument, not the subject
+
+When a fresh checker fires on most of what it inspects, the prior should be that the checker is wrong. A new linter, grader, validator or assertion has had orders of magnitude less exposure than the mature corpus it is judging, and a corpus that was working yesterday did not become broken overnight.
+
+Two shapes, one prior:
+
+- **Uniform failure across every check** — every item fails, or every check reports the same finding. Something upstream of the subject is broken: the harness, the fixture, a path, an environment variable.
+- **Mass failure with plausible-looking findings** — a validator reported 13 FAIL + 4 WARN, all false positives. A rule forbidding "naming the plugin in the prompt" fired because for framework plugins the plugin name *is* the technology a real user must say; a `\w+\.(js|md)` pattern matched `Next.js` and `Node.js`. Every flagged artifact was correct.
+
+The discipline: **read the flagged artifacts before changing anything.** Then decide per case whether each is a real instance of the hazard, and narrow the rule to the hazard. Never loosen the rule globally to make the noise stop, and never edit the subject to satisfy a rule that has not itself been validated. Validate a new checker against content known to be good first — nonzero findings there are findings about the checker.
+
+### 10. When a narrow green and a wide red disagree, the wide one wins
+
+A scoped test passing while an end-to-end run fails is not a contradiction to be argued away; it is a statement that the failure lives outside the narrow test's reach. Report neither until you have localised it.
+
+Observed shape: a fix made its unit test green, then the end-to-end run still showed the data loss. Probing the *end* of the preceding stage localised it — the loss happened during the data-file load, in the gap **between** two pipeline stages, not inside either one. The scoped test had been asserting on an adjacent code path the whole time.
+
+- Instrument the **boundaries between stages**, not only the stage you suspect. Code you did not write runs in those gaps.
+- Treat the wide failure as the ground truth and the narrow pass as a statement about coverage.
+- Once located, upgrade the narrow test to exercise the real mechanism. A test that stays pointed at the old path re-opens the defect the moment the real one changes.
+- Never ship the scoped fix with its green attached while the wide run disagrees.
+
 ## Decision framework
 
 | Signal | What it usually means | Do this |
@@ -122,10 +161,14 @@ When a failure appears on exactly one platform, the useful reading is not "flaky
 | Assertion is "tempdir deleted / file removable" | Vacuous on POSIX | Assert the connection/handle/thread is closed or joined |
 | Fails only on Windows (WinError 32) | A handle is alive; other OSes cannot detect it | Fix the lifetime; never skip the only leg that can observe it |
 | A green run is about to authorize a mutation | Evidence quality now has blast radius | Hand off to `agent-safety` (refute the pass before it mutates) |
+| "identical" / "unchanged" / "no-op" on a before-after check | The command may never have executed; two no-ops always compare equal | Show the exit path, the printed cwd and one observable side effect |
+| A new checker fails most of what it inspects | The checker is far likelier wrong than the mature corpus | Read the flagged artifacts first; narrow the rule to the real hazard |
+| Narrow test green, end-to-end red | The failure lives outside the narrow test's reach | Probe the stage boundaries; the wide result is ground truth |
 
 Ladder for a control run, in order — each step is worthless until the one above it holds:
 
 ```
+0. Did the command run at all?              -> exit path + printed cwd + one side effect
 1. Which artifact did this import?          -> print the resolved path, don't infer it
 2. Did the discriminating tests execute?    -> collected count, no collection errors
 3. Could any of them have failed?           -> named discriminator, reachable assertion
@@ -144,6 +187,9 @@ Ladder for a control run, in order — each step is worthless until the one abov
 - [ ] Every green produced by a hand-built fixture is recorded as evidence for "handles X" only; the seam question was taken to `test-double-seams`.
 - [ ] Every cleanup assertion targets a closed/joined resource, not a deletable path.
 - [ ] No single-OS failure was skipped, retried, or marked flaky in place of fixing the resource lifetime.
+- [ ] Every identical / unchanged / no-op claim is backed by proof the command executed: its exit path, its own printed cwd, and one observable side effect.
+- [ ] No new checker's findings were acted on before its flagged artifacts were read and it was run against content known to be good.
+- [ ] No scoped fix is being reported while a wider run disagrees; the boundaries between stages were probed and the narrow test now exercises the real mechanism.
 
 ## Anti-patterns
 
@@ -156,6 +202,9 @@ Ladder for a control run, in order — each step is worthless until the one abov
 | Assert the temp directory was deleted | Vacuously true on POSIX — an open file unlinks fine; only Windows raises `WinError 32` | Assert `conn.closed` / handle released / thread joined |
 | Mark the Windows-only failure flaky and skip it | Removes the only platform that can observe a live handle | Fix the resource lifetime (context-manage or close before `raise`) |
 | Cite a stub-fixture green as proof the production path works | The double was authored from the component's own expectations, so the producer's defect is out of its reach | Record it as "handles X" only; take the seam question to `test-double-seams` |
+| Report "byte-identical" from a command launched in the wrong directory | The command never ran; both sides of the comparison are the same untouched baseline | Print the cwd and one side effect from inside the invocation before comparing |
+| Loosen a new rule, or edit the corpus, because the checker flagged a lot | Mass findings on mature content are almost always the checker; loosening hides the real hazard too | Read the flagged artifacts, then narrow the rule to the hazard each one does or does not show |
+| Ship the scoped fix because its unit test is green | The end-to-end red says the failure is outside that test's reach | Localise at the stage boundary first, then move the assertion onto the real mechanism |
 | Settle "is X wired up?" with a harness run against an old checkout | Import resolution, conftest and caches all sit between the claim and the answer (rules 2-3) | Use the side-by-side source probe owned by `structural-assertions` |
 
 ## Cross-references
