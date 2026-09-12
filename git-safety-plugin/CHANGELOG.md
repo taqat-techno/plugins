@@ -4,6 +4,19 @@ All notable changes to the `git-safety` plugin are documented here. The format i
 based on [Keep a Changelog](https://keepachangelog.com/), and the project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [0.3.1] - 2026-09-12
+
+Adds a behavioural eval suite under `evals/` (1 must-fire case + 1 must-not-fire case), so this plugin's value claim is measured as
+`Delta` against a no-plugin baseline instead of asserted. Each must-fire case
+pairs a namespace-tolerant `tool_used: Skill` indicator with an `llm` rubric
+that demands a fact this plugin uniquely teaches, so a no-plugin run fails it.
+
+- `fires-on-git-reset-on-synced-folder` targets `shared-checkout-safety`
+- `ignores-merge-vs-rebase-explanation` asserts no skill of this plugin fires (`min: 0`, `max: 0`, `arm: both`)
+
+Pilot with `claude plugin eval . --case <case> --runs 1 --ablation none`,
+then measure with `claude plugin eval .`. No runtime behaviour changed.
+
 ## [0.3.0] - 2026-08-22
 
 Two rules promoted from recorded session lessons via `/lessons-to-plugins`. Both extend

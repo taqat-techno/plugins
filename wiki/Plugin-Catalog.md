@@ -2,31 +2,31 @@
 
 All 17 plugins in the **taqat-techno-plugins** marketplace, with current version, category, component inventory, and a link to each plugin's own documentation.
 
-Listed in marketplace order. Component counts are the real contents of each plugin directory; versions are the value in each plugin's `.claude-plugin/plugin.json`.
+Listed in marketplace order. Component counts are the real contents of each plugin directory; versions are the value in each plugin's `.claude-plugin/plugin.json`. The **Evals** column is `<must-fire> + <must-not-fire>` cases under `<plugin>/evals/` (HR-20); `n/a` means the plugin has no routing surface to measure and records that as a binding decision instead.
 
 ## Catalog
 
-| # | Plugin | Version | Category | Commands | Agents | Skills | Hooks | MCP | Docs |
-|---|---|---|---|---|---|---|---|---|---|
-| 1 | **odoo** | `2.9.0` | development | 19 | 4 | 23 | 5 | yes | [[Odoo Plugin\|Odoo-Plugin]] · [README](../../odoo-plugin/README.md) |
-| 2 | **devops** | `6.9.1` | productivity | 9 | 3 | 1 | 2 | yes | [[DevOps Plugin\|DevOps-Plugin]] · [README](../../devops-plugin/README.md) |
-| 3 | **notification** | `1.0.0` | productivity | 1 | 0 | 0 | 5 | — | [[Notification Plugin\|Notification-Plugin]] · [README](../../notification-plugin/README.md) |
-| 4 | **pandoc** | `2.2.0` | productivity | 1 | 0 | 1 | 0 | — | [[Pandoc Plugin\|Pandoc-Plugin]] · [README](../../pandoc-plugin/README.md) |
-| 5 | **remotion** | `2.2.0` | development | 1 | 0 | 1 | 0 | — | [[Remotion Plugin\|Remotion-Plugin]] · [README](../../remotion-plugin/README.md) |
-| 6 | **ui-ux-mechanics** | `3.2.0` | design | 1 | 2 | 3 | 0 | — | [[Ui Ux Mechanics Plugin\|Ui-Ux-Mechanics-Plugin]] · [README](../../ui-ux-mechanics-plugin/README.md) |
-| 7 | **rag** | `0.18.0` | productivity | 9 | 1 | 4 | 2 | yes | [[Rag Plugin\|Rag-Plugin]] · [README](../../rag-plugin/README.md) |
-| 8 | **react-kit** | `0.6.0` | development | 3 | 1 | 16 | 0 | — | [README](../../react-kit-plugin/README.md) |
-| 9 | **qa-browser** | `0.5.0` | productivity | 5 | 2 | 13 | 2 | — | [README](../../qa-browser-plugin/README.md) |
-| 10 | **docs-wiki** | `0.8.0` | productivity | 7 | 3 | 10 | 0 | — | [README](../../docs-wiki-plugin/README.md) |
-| 11 | **claude-env-doctor** | `0.6.0` | productivity | 1 | 1 | 2 | 1 | — | [README](../../claude-env-doctor-plugin/README.md) |
-| 12 | **agent-safety-guards** | `0.2.0` | productivity | 0 | 0 | 6 | 1 | — | [README](../../agent-safety-guards-plugin/README.md) |
-| 13 | **release-safety** | `0.4.0` | productivity | 1 | 0 | 3 | 1 | — | [README](../../release-safety-plugin/README.md) |
-| 14 | **django** | `0.2.0` | development | 4 | 3 | 7 | 3 | — | [README](../../django-plugin/README.md) |
-| 15 | **fastapi** | `0.2.0` | development | 4 | 3 | 8 | 3 | — | [README](../../fastapi-plugin/README.md) |
-| 16 | **git-safety** | `0.3.0` | productivity | 0 | 0 | 2 | 2 | — | [README](../../git-safety-plugin/README.md) |
-| 17 | **worktree** | `1.0.0` | development | 0 | 0 | 5 | 0 | — | [README](../../worktree-plugin/README.md) |
+| # | Plugin | Version | Category | Commands | Agents | Skills | Hooks | MCP | Evals | Docs |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 1 | **odoo** | `2.9.2` | development | 19 | 4 | 23 | 5 | yes | 3 + 1 | [[Odoo Plugin\|Odoo-Plugin]] · [README](../../odoo-plugin/README.md) |
+| 2 | **devops** | `6.9.2` | productivity | 9 | 3 | 1 | 2 | yes | 1 + 1 | [[DevOps Plugin\|DevOps-Plugin]] · [README](../../devops-plugin/README.md) |
+| 3 | **notification** | `1.0.1` | productivity | 1 | 0 | 0 | 5 | — | n/a (D-012) | [[Notification Plugin\|Notification-Plugin]] · [README](../../notification-plugin/README.md) |
+| 4 | **pandoc** | `2.2.1` | productivity | 1 | 0 | 1 | 0 | — | 1 + 1 | [[Pandoc Plugin\|Pandoc-Plugin]] · [README](../../pandoc-plugin/README.md) |
+| 5 | **remotion** | `2.2.1` | development | 1 | 0 | 1 | 0 | — | 1 + 1 | [[Remotion Plugin\|Remotion-Plugin]] · [README](../../remotion-plugin/README.md) |
+| 6 | **ui-ux-mechanics** | `3.2.1` | design | 1 | 2 | 3 | 0 | — | 1 + 1 | [[Ui Ux Mechanics Plugin\|Ui-Ux-Mechanics-Plugin]] · [README](../../ui-ux-mechanics-plugin/README.md) |
+| 7 | **rag** | `0.18.1` | productivity | 9 | 1 | 4 | 2 | yes | 2 + 1 | [[Rag Plugin\|Rag-Plugin]] · [README](../../rag-plugin/README.md) |
+| 8 | **react-kit** | `0.6.1` | development | 3 | 1 | 16 | 0 | — | 3 + 1 | [README](../../react-kit-plugin/README.md) |
+| 9 | **qa-browser** | `0.5.1` | productivity | 5 | 2 | 13 | 2 | — | 3 + 1 | [README](../../qa-browser-plugin/README.md) |
+| 10 | **docs-wiki** | `0.8.1` | productivity | 7 | 3 | 10 | 0 | — | 3 + 1 | [README](../../docs-wiki-plugin/README.md) |
+| 11 | **claude-env-doctor** | `0.6.1` | productivity | 1 | 1 | 2 | 1 | — | 1 + 1 | [README](../../claude-env-doctor-plugin/README.md) |
+| 12 | **agent-safety-guards** | `0.2.1` | productivity | 0 | 0 | 6 | 1 | — | 2 + 1 | [README](../../agent-safety-guards-plugin/README.md) |
+| 13 | **release-safety** | `0.4.1` | productivity | 1 | 0 | 3 | 1 | — | 1 + 1 | [README](../../release-safety-plugin/README.md) |
+| 14 | **django** | `0.2.1` | development | 4 | 3 | 7 | 3 | — | 2 + 1 | [README](../../django-plugin/README.md) |
+| 15 | **fastapi** | `0.2.1` | development | 4 | 3 | 8 | 3 | — | 2 + 1 | [README](../../fastapi-plugin/README.md) |
+| 16 | **git-safety** | `0.3.1` | productivity | 0 | 0 | 2 | 2 | — | 1 + 1 | [README](../../git-safety-plugin/README.md) |
+| 17 | **worktree** | `2.1.1` | development | 0 | 0 | 13 | 0 | — | 3 + 1 | [README](../../worktree-plugin/README.md) |
 
-**Totals:** 66 commands · 23 agents · 105 skills · 27 hook handlers · 3 bundled MCP servers.
+**Totals:** 66 commands · 23 agents · 113 skills · 27 hook handlers · 3 bundled MCP servers · 46 eval cases (30 must-fire + 16 must-not-fire).
 
 Plugins without a dedicated wiki page are documented in their own `README.md`; the link column points there.
 
@@ -101,6 +101,8 @@ The `ui-ux-mechanics` plugin's Figma integration uses an external Figma MCP that
 | Any plugin | `agent-safety-guards` | Guardrails for fan-out and credential handling |
 
 ## Version compatibility
+
+Running the behavioral gate (`claude plugin eval`) needs **Claude Code ≥ 2.1.269** regardless of plugin. On native Windows there is no OS sandbox backend, so a suite that grants `Bash`/PowerShell is refused — run those under WSL2. The routing cases in this marketplace grant only `Skill`, so they run natively.
 
 | Plugin | Claude Code | Product compatibility |
 |---|---|---|

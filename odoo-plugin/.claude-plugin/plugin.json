@@ -1,6 +1,6 @@
 {
   "name": "odoo",
-  "version": "2.9.1",
+  "version": "2.9.2",
   "description": "Unified Odoo development toolkit — code review & technical-debt, upgrade, frontend themes, testing, security auditing, i18n, reports, Docker infrastructure, server lifecycle, OWL app scaffolding, architecture & linting, and a live-instance MCP connection across Odoo 14-19",
   "author": {
     "name": "TaqaTechno",

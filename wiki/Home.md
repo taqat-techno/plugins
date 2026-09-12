@@ -60,7 +60,11 @@ Full inventory with versions and component counts: [[Plugin Catalog\|Plugin-Cata
 - **Marketplace manifest:** `plugins/.claude-plugin/marketplace.json`
 - **Plugin development guide (source):** `plugins/CLAUDE_CODE_PLUGIN_DEVELOPMENT_GUIDE.md`
 - **Skills spec:** `plugins/agent_skills_spec.md`
-- **Structural validator:** `plugins/validate_plugin.py` (plus `validate_plugin_simple.py` for fast PyYAML-free checks)
+- **Verification gates (all four must pass before a release):**
+  1. **Shape** - `plugins/validate_plugin.py` (plus `validate_plugin_simple.py` for fast PyYAML-free checks)
+  2. **Discoverability** - `plugins/validate_marketplace.py` (a per-plugin check structurally cannot see a skill that never loads)
+  3. **Uploadability** - `marketplace_preflight.py` (MP-1..MP-14), in the `claude-plugin-builder` skill's `lib/`
+  4. **Behavior** - `claude plugin eval <plugin-dir>` measures the ablation delta; `plugins/validate_evals.py` checks the suites themselves (HR-20)
 - **Reference marketplace (read-only):** `claude-plugins-official/` — Anthropic's official patterns, consulted not modified
 
 ## Support and maintenance

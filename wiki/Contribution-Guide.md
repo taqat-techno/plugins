@@ -52,10 +52,15 @@ Full details in [[Plugin Development Guide|Plugin-Development-Guide]] and [[Arch
 ### 4. Validate
 
 ```bash
-python plugins/validate_plugin.py <plugin-dir>
+python plugins/validate_plugin.py <plugin-dir>     # gate 1: shape
+python plugins/validate_marketplace.py             # gate 2: discoverability
+python plugins/validate_evals.py                   # gate 4: eval-suite shape
+claude plugin eval <plugin-dir> --trust-plugin     # gate 4: behavior (costs plan usage)
 ```
 
 Fix all errors. Document known-false-positive warnings in the plugin's CHANGELOG; never silence them.
+
+The first two gates are structural — both stay green on a plugin whose skill loads, validates, and never wins the routing decision. If your change touches a skill's or agent's `description`, the eval run is the only gate that can tell you whether the change helped: read the per-case `delta` on the **must-fire** cases, not `meanDelta` (a must-not-fire case pins `delta` at 0 by construction and dilutes the mean).
 
 ### 5. Update documentation
 
@@ -135,6 +140,9 @@ PR template:
 
 ## Test plan
 - [ ] `python plugins/validate_plugin.py <plugin-dir>` passes
+- [ ] `python plugins/validate_marketplace.py` passes
+- [ ] `python plugins/validate_evals.py` passes
+- [ ] `claude plugin eval <plugin-dir>` recorded `Δ > 0` on the must-fire cases (or the N/A is a D-NNN)
 - [ ] Updated plugin README + CHANGELOG
 - [ ] Updated marketplace README if plugin count changed
 - [ ] Updated wiki page

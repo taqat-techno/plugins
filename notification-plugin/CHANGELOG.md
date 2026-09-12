@@ -3,6 +3,14 @@
 All notable changes to the notification plugin are documented here.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [1.0.1] - 2026-09-12
+
+Records decision D-012: this plugin ships no eval suite. It has no `skills/`
+and no `agents/`, so there is no routing surface for `claude plugin eval` to
+measure and every case would report `Delta = 0` by construction. This is the
+N/A path of the marketplace's behavioural-verification rule. Hook behaviour
+remains covered by `tests/test_notification.py`. No runtime behaviour changed.
+
 ## [1.0.0] - 2026-08-21
 
 First release. Replaces the retired `ntfy-notifications` plugin, which pushed to

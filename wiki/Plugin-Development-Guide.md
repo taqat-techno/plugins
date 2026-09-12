@@ -300,9 +300,18 @@ Load-bearing choices — "which schema shape?", "ops tools are fair game?" — g
 
 ## Testing and validation
 
-- **Structural:** `python plugins/validate_plugin.py <plugin-dir>` — checks manifest, command/agent/skill frontmatter, hook wiring, README presence, naming.
-- **Fast check:** `python plugins/validate_plugin_simple.py <plugin-dir>` — same check without PyYAML.
-- **Behavioral:** plugin-specific — e.g., `/rag-doctor` on a test ragtools install, `/pandoc convert` on sample documents. No universal E2E harness yet.
+Four gates, in order. The first three measure **structure**; all three are green on a plugin whose skill loads, validates, uploads — and never wins the routing decision. Only the fourth measures behavior.
+
+1. **Shape:** `python plugins/validate_plugin.py <plugin-dir>` — checks manifest, command/agent/skill frontmatter, hook wiring, README presence, naming. `validate_plugin_simple.py` is the same check without PyYAML.
+2. **Discoverability:** `python plugins/validate_marketplace.py` — cross-plugin sweep. A per-plugin check structurally cannot see a skill that never loads; this gate exists because an audit once found 15 skills that had never loaded while every per-plugin validator reported green.
+3. **Uploadability:** `marketplace_preflight.py` (MP-1..MP-14) in the `claude-plugin-builder` skill's `lib/` — the checks the marketplace itself applies on publish.
+4. **Behavior:** `claude plugin eval <plugin-dir>` (Claude Code ≥ 2.1.269). Each case runs N times **with** the plugin and N times with nothing loaded; `Δ = WITH − W/OUT` is the plugin's real contribution, and `Δ ≈ 0` means the plugin is not what produced the outcome. `python plugins/validate_evals.py` checks the suites themselves.
+
+Under **HR-20**, a plugin shipping `skills/` or `agents/` ships `evals/` with at least one **must-fire** case and one **must-not-fire** case, and releases only on a recorded `Δ > 0`. A hooks-or-commands-only plugin has no routing surface to measure and records that as a binding decision instead (see `notification-plugin/docs/decisions.md` D-012).
+
+Suite layout, grader types, and the routing-case conventions live in the `claude-plugin-builder` skill's `references/plugin-evals.md`.
+
+Plugin-specific smoke checks remain useful alongside the gates — e.g., `/rag-doctor` on a test ragtools install, `/pandoc convert` on sample documents.
 
 ## Versioning
 

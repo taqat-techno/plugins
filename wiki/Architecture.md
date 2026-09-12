@@ -8,9 +8,11 @@ Shared architectural patterns across the 17 plugins in this marketplace. Individ
 <workspace>\claude_plugins\
 ├── plugins/                              ← THE WORKING MARKETPLACE (edit here)
 │   ├── .claude-plugin/marketplace.json   ← single source of truth
-│   ├── <7 plugin dirs>/
-│   ├── wiki/                             ← this wiki's source
-│   └── validate_plugin.py
+│   ├── <17 plugin dirs>/                 ← each may carry evals/ (HR-20)
+│   ├── wiki/                             ← this wiki's source (documentation, not a plugin)
+│   ├── validate_plugin.py                ← gate 1: shape
+│   ├── validate_marketplace.py           ← gate 2: discoverability
+│   └── validate_evals.py                 ← gate 4: eval-suite shape
 │
 └── claude-plugins-official/         ← READ-ONLY REFERENCE
     └── plugins/

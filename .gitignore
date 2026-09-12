@@ -72,3 +72,7 @@ devops.local.md
 !*.env.template
 !*.env.example
 !*.env.sample
+
+# Eval run output (transcripts, reports, absolute machine paths) - HR-20
+*/evals/results/
+*/evals/**/mock-recordings/

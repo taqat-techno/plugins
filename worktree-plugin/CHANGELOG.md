@@ -5,6 +5,21 @@ All notable changes to the Git Worktree Workspaces plugin.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.1.1] - 2026-09-12
+
+Adds a behavioural eval suite under `evals/` (3 must-fire cases + 1 must-not-fire case), so this plugin's value claim is measured as
+`Delta` against a no-plugin baseline instead of asserted. Each must-fire case
+pairs a namespace-tolerant `tool_used: Skill` indicator with an `llm` rubric
+that demands a fact this plugin uniquely teaches, so a no-plugin run fails it.
+
+- `fires-on-persistent-isolated-workspace` targets `new`
+- `fires-on-registering-as-parallel-worker` targets `join`
+- `fires-on-splitting-plan-for-multiple-agents` targets `plan-for-parallel`
+- `ignores-python-virtualenv-isolation` asserts no skill of this plugin fires (`min: 0`, `max: 0`, `arm: both`)
+
+Pilot with `claude plugin eval . --case <case> --runs 1 --ablation none`,
+then measure with `claude plugin eval .`. No runtime behaviour changed.
+
 ## [2.1.0] - 2026-09-02
 
 Adds the **completion contract** — the task-level layer above the work

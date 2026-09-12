@@ -107,18 +107,37 @@ Major audit reports produced in this era:
 
   Full investigation: `.claude/docs/2026-08-21_notification-plugin-investigation.md` in the workspace root.
 
-## Current state (Aug 2026)
+### Era 6 - The behavioral gate (Sep 2026)
+
+- **2026-09-12 - eval suites shipped marketplace-wide (HR-20).** `claude plugin eval` (Claude Code 2.1.269) added a **fourth** verification gate behind shape, discoverability, and uploadability. The first three all measure structure, and all three stay green on a plugin whose skill loads, validates, uploads - and never wins the routing decision. This is the same class of failure as the 2026-08-18 audit above, where 15 skills had never loaded while every per-plugin validator reported green; the difference is that a validator cannot see it at all, because the question is behavioral.
+
+  Each eval case runs N times **with** the plugin and N times with nothing loaded. `delta = WITH - W/OUT` is the plugin's real contribution, so `delta ~ 0` means the plugin is not what produced the outcome. **16 plugins** got suites: **46 cases** total, **30 must-fire** plus **16 must-not-fire** (one per plugin). The must-not-fire case is not optional - without it a suite cannot distinguish a well-targeted skill from one that fires on everything. `notification` is the exception: hooks-only, no routing surface, so its Delta is 0 by construction and the N/A was recorded as binding decision **D-012** rather than left implicit. A new `plugins/validate_evals.py` checks the suites themselves.
+
+  Three findings from the rollout are worth carrying forward.
+
+  First, **the addressable skill id is the DIRECTORY name, not the frontmatter `name:`** - and 19 of this marketplace's 113 skills disagree between the two (`owl-architecture` vs `odoo-owl-architecture`, `pandoc` vs `pandoc-conversion`, `env-doctor` vs `env-doctor-router`). A grader written against the frontmatter name silently never matches and reads as "the skill never fired" forever. All 30 fire graders now accept both spellings.
+
+  Second, **a routing case must grant only `Skill`.** With `[Read, Glob, Grep, Skill]` granted, one case spent 10 of its 12 turns inspecting the empty scratch workspace and answered with an environment report instead of routing. The eval workspace is empty by construction, so file tools can only add exploration noise. Narrowing every case to `allowed_tools: [Skill]` took that case from 10 turns to 3 with no regression elsewhere.
+
+  Third, **read the per-case `delta` on the must-fire cases, not `aggregates.meanDelta`** - a must-not-fire case passes at `delta = 0` by construction and dilutes the mean.
+
+  The suite earned its keep on its first run: `worktree:new` does not win routing on natural "spin off a separate copy of a repo for a long refactor" phrasing, scoring 0 with the skill never called in 3 clean turns and no `paths:` gating to explain it. That is a description weakness, not an instrument artifact, and the repair belongs in the skill's `description` rather than in the grader.
+
+  Measured cost on this marketplace is about **$0.25 per agent run** including judge calls, so a 4-case plugin is roughly 24 runs. Suite layout, grader types, and case conventions live in the `claude-plugin-builder` skill's `references/plugin-evals.md`.
+
+## Current state (Sep 2026)
 
 | Metric | Value |
 |---|---|
 | **Plugins in marketplace** | 17 |
 | **Total commands** | 66 across all plugins |
 | **Total agents** | 23 across all plugins |
-| **Total skills** | 105 across all plugins |
+| **Total skills** | 113 across all plugins |
 | **Total hook handlers** | 27 across 11 plugins |
 | **Plugins with MCP servers** | 3 (`odoo`, `devops`, `rag`) |
 | **Plugins with no hooks at all** | 6 (`pandoc`, `remotion`, `ui-ux-mechanics`, `react-kit`, `docs-wiki`, `worktree`) |
 | **Marketplace maintainer** | Single (Ahmed Lakosha, 4 git identity variants, 132+ commits) |
+| **Eval cases** | 46 across 16 plugins (30 must-fire + 16 must-not-fire); `notification` records N/A as D-012 |
 | **Vendored references** | `claude-plugins-official/` (read-only) |
 
 ## Milestones on the roadmap
@@ -136,6 +155,8 @@ Based on open follow-ups in the plugin CHANGELOGs and enhancement reports:
 
 - Automated marketplace-README sync (a lightweight CI check that catches stale catalog vs filesystem).
 - Per-plugin E2E smoke tests in CI.
+- Wire the HR-20 checks into `validate_marketplace.py`, and exclude `evals/results/` from `marketplace_preflight.py --package` (candidate MP-15).
+- Record measured `delta` per plugin from a full `claude plugin eval` sweep (276 runs; costs real plan usage).
 - `rag-plugin` v0.6.0 — session-ID correlation in observability.
 - `odoo-plugin` Odoo 19 controller type migration auto-fix (`type='json'` → `type='jsonrpc'`).
 - `odoo-plugin` `attrs={}` removal full coverage.
