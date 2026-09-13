@@ -12,12 +12,14 @@ Background investigation: `.claude/docs/2026-08-21_notification-plugin-investiga
 
 **Rule.** Every hook this plugin registers sets `"async": true`. No exceptions.
 
-**Why.** Three of the five subscribed events are *blocking* events, and exit code
+**Why.** Five of the seven subscribed events are *blocking* events, and exit code
 2 on them is destructive:
 
 | Event | Effect of exit 2 |
 |---|---|
 | `PreToolUse` (`AskUserQuestion`) | Blocks the tool call — Claude's question is silently suppressed |
+| `PostToolUse` (`AskUserQuestion`) | Feeds stderr back to Claude as if the answer had failed |
+| `UserPromptSubmit` | Blocks the prompt and erases it from the input |
 | `Stop` | Prevents Claude from stopping; the turn continues, overridden only after 8 consecutive blocks |
 | `TaskCompleted` | The task is not marked completed |
 
@@ -110,9 +112,11 @@ is under a few milliseconds.
 
 ## D-005 — Persistent state lives only under `${CLAUDE_PLUGIN_DATA}`
 
-**Rule.** Nothing is written under `${CLAUDE_PLUGIN_ROOT}`. The only file the
-plugin ever writes is `${CLAUDE_PLUGIN_DATA}/config.json`, and only when the user
-asks for it via `/notification:doctor --write-config`.
+**Rule.** Nothing is written under `${CLAUDE_PLUGIN_ROOT}`. The plugin writes
+exactly two things, both under `${CLAUDE_PLUGIN_DATA}`: `config.json`, only when
+the user asks for it via `/notification:doctor --write-config`, and the
+short-lived question markers in `state/` (D-013). The Windows app identity in
+HKCU (D-014) is a registry registration, not plugin state.
 
 **Why.** `${CLAUDE_PLUGIN_ROOT}` is version-pinned and replaced on every plugin
 update; anything written there is lost. `${CLAUDE_PLUGIN_DATA}` resolves to
@@ -282,3 +286,113 @@ prompt can route to. At that point the eval path applies (one must-fire case, on
 must-not-fire case, released on a recorded `Δ > 0`) and this entry is superseded.
 
 ---
+
+---
+
+## D-013 — One question, one notification
+
+**Rule.** A question that has been notified suppresses the `permission_prompt`
+notification it raises. The bridge is a per-session marker file,
+`${CLAUDE_PLUGIN_DATA}/state/question-<session_id>`: written by the `question`
+verb just before sending, read by the `permission` verb, deleted by `answered`
+(`PostToolUse` on `AskUserQuestion`), `prompted` (`UserPromptSubmit`), `turn` and
+`failure`, and ignored once it is older than 120 seconds. Markers older than a day are swept on every write.
+
+**Why.** Claude Code presents `AskUserQuestion` through its permission-prompt
+path. Captured live on 2026-09-13, the second event raised by a single question
+was:
+
+    {"hook_event_name": "Notification", "notification_type": "permission_prompt",
+     "message": "Claude needs your permission", ...}
+
+It names no tool, so no payload-only rule can tell it apart from a genuine
+permission prompt, and the user saw two notifications for one question. The
+question notification is the one to keep: it arrives immediately instead of
+after the idle delay, and it carries the question text.
+
+**Failure direction.** Every failure fails toward notifying. An unwritable data
+directory means no marker, so the permission notification appears — a duplicate,
+never a lost alert. A question suppressed by config or by D-007 writes no marker,
+so the permission prompt remains the fallback alert. A question dismissed with Esc
+fires no `PostToolUse`, but the user's next prompt clears it; only a genuine
+permission prompt arriving before that prompt, inside the 120-second window, can
+be lost.
+
+**Violation looks like.** Suppressing `permission` by matching its message text;
+writing the marker when no question notification was built; clearing the marker
+from a subagent's `PostToolUse`; removing the time window.
+
+**Check.** `tests/test_notification.py::QuestionDeduplication`, which uses the
+captured payload.
+
+**Reverse only if.** Claude Code stops raising `permission_prompt` for
+`AskUserQuestion`, or starts naming the tool in the Notification payload. Then
+replace the marker with a payload rule and delete `state.py`.
+
+---
+
+## D-014 — Windows toasts use a per-user "Claude Code" app identity
+
+**Rule.** `win_toast.ps1` shows toasts under the AppUserModelID
+`TaqaTechno.ClaudeCode.Notifications`, registered idempotently under
+`HKCU\Software\Classes\AppUserModelId\` with `DisplayName` "Claude Code",
+`ShowInSettings` 1, and `IconUri` pointing at `hooks/icon.png` - written before the
+first toast, because Windows caches an app's header icon the first time it sees
+the app. The icon appears in the header only, not inside the toast. If
+registration fails, the toast falls back to Windows PowerShell's identity and is
+still shown.
+
+**Why.** Under PowerShell's identity every toast was headed "Windows PowerShell"
+with the PowerShell icon, was grouped with unrelated PowerShell notifications, and
+could only be muted together with them. A registry-registered AUMID needs no
+Start Menu shortcut and no admin rights, gets its own switch in Settings >
+Notifications, and lets the plugin withdraw its own stale toasts from
+Notification Center.
+
+**Cost.** One registry key under HKCU that uninstalling the plugin does not
+remove; it is inert without the plugin. `IconUri` is re-pointed on each run, so
+an upgrade that moves the install directory heals itself.
+
+**Violation looks like.** Writing under HKLM; creating a Start Menu shortcut;
+failing the toast because registration failed.
+
+**Check.** `WindowsBackend::test_toast_script_parses`; `/notification:doctor`.
+
+**Reverse only if.** Windows stops honouring registry-registered AUMIDs for
+unpackaged applications.
+
+---
+
+## D-015 — Waiting-for-you notifications stay until closed
+
+**Rule.** `question`, `permission`, `failure` and `turn` stay on screen until the
+user closes them (config `persistent`, per category); `task` stays transient.
+Notifications never replace each other — every toast has its own tag — and the
+plugin withdraws them only in response to the user: an answered question
+(`PostToolUse`), and every waiting toast of the session when the user sends the
+next prompt (`UserPromptSubmit`). A new notification never removes an older one.
+
+**Why.** Each of these means Claude has stopped and is waiting for the person. A
+banner that disappears after a few seconds is missed exactly when the user has
+stepped away — the only time the plugin is useful. Withdrawal is what keeps
+persistence from turning into clutter: a toast still on screen after the user
+has already replied in the terminal would be wrong.
+
+**Platform cost.** Windows keeps a toast on screen only with the `reminder`
+scenario, which it silently ignores unless the toast shows a button with a
+background action, so persistent toasts carry a Close button. The same action
+placed only in the toast's … menu (`placement="contextMenu"`) was tested live on
+Windows 11 on 2026-09-13, side by side with the button version, and does not keep
+the toast on screen. Linux uses critical urgency. macOS has
+no programmatic persistence; the Alerts style is a user setting.
+
+**Violation looks like.** Making `task` persistent by default; persisting without
+the withdrawal hooks; keeping `scenario="reminder"` but removing its visible
+button or moving it to the context menu (the toast then silently stops
+persisting); a new notification replacing or withdrawing an older one.
+
+**Check.** `Configuration::test_waiting_categories_persist_and_tasks_do_not`,
+`WindowsBackend::test_persistence_brings_a_visible_close_button`, `NeverReplace`.
+
+**Reverse only if.** Windows gains a way to keep a toast on screen without a
+visible button — then drop the button, keep the rule.

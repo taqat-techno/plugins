@@ -63,10 +63,12 @@ def attribution(payload):
         return "Claude Code"
 
 
-def replace_key(payload, category):
-    """Stable key for replace-in-place, so a burst updates one notification.
+def group_key(payload, category):
+    """The group a notification belongs to: one session, one category.
 
-    Scoped to the session so two sessions never overwrite each other's alerts.
+    Notifications never replace each other - every toast gets its own tag - but
+    the group lets the plugin withdraw a session's stale toasts together. Scoped
+    to the session so two sessions never touch each other's alerts.
     """
     try:
         return "claude-{0}-{1}".format(session_tag(payload.get("session_id")) or "x", category)

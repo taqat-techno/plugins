@@ -8,12 +8,22 @@
     placed in the toast document.
 
     Environment contract (set by hooks/backends.py):
-        CCN_TITLE    notification title
-        CCN_BODY     notification body
-        CCN_ATTRIB   attribution line, "project - a1b2c3"
-        CCN_STICKY   "1" to stay on screen until dismissed
-        CCN_SILENT   "1" to suppress the notification sound
-        CCN_TAG      replace-in-place key, so a burst updates one toast
+        CCN_MODE        "show" (default) or "remove"
+        CCN_TITLE       notification title
+        CCN_BODY        notification body
+        CCN_ATTRIB      attribution line, "session a1b2c3"
+        CCN_ATTENTION   "1" for attention class: long duration when not persistent
+        CCN_PERSISTENT  "1" to stay on screen until the user closes it (D-015)
+        CCN_SILENT      "1" to suppress the notification sound
+        CCN_TAG         unique toast id, never reused, so toasts never replace each other
+        CCN_GROUP       session + category, so stale toasts can be withdrawn together
+        CCN_REMOVE      ";"-separated groups of earlier toasts to withdraw
+        CCN_ICON        absolute path of the header icon PNG (registered as IconUri)
+
+    App identity (D-014): toasts are shown under a per-user AppUserModelID whose
+    display name is "Claude Code", registered under HKCU on first use - no admin
+    rights, no Start Menu shortcut. If registration fails for any reason, the
+    toast falls back to Windows PowerShell's own identity and still appears.
 
     Must run under Windows PowerShell 5.1 (powershell.exe), NOT PowerShell 7:
     pwsh cannot load WinRT types without the Windows SDK projections.
@@ -23,6 +33,11 @@
 
 [CmdletBinding()]
 param()
+
+$AppId         = 'TaqaTechno.ClaudeCode.Notifications'
+$AppName       = 'Claude Code'
+$FallbackAppId = '{1AC14E77-02E7-4E5D-B744-2EB1AE5198B7}\WindowsPowerShell\v1.0\powershell.exe'
+$DefaultGroup  = 'claude-code'
 
 function ConvertTo-XmlText {
     param([string] $Value)
@@ -35,25 +50,74 @@ function ConvertTo-XmlText {
     return $escaped
 }
 
-try {
-    $title  = if ($env:CCN_TITLE)  { $env:CCN_TITLE }  else { 'Claude Code' }
-    $body   = if ($env:CCN_BODY)   { $env:CCN_BODY }   else { '' }
-    $attrib = if ($env:CCN_ATTRIB) { $env:CCN_ATTRIB } else { '' }
-    $sticky = ($env:CCN_STICKY -eq '1')
-    $silent = ($env:CCN_SILENT -eq '1')
-    $tag    = if ($env:CCN_TAG) { $env:CCN_TAG } else { 'claude-code' }
+function Register-AppIdentity {
+    # Idempotent: reads first and writes only what differs, so a normal call
+    # touches nothing. IconUri is written BEFORE the first toast is shown,
+    # because Windows caches an app's header icon the first time it sees it. It
+    # is re-pointed after a plugin upgrade moves the install directory.
+    param([string] $IconPath)
+    try {
+        $key = "HKCU:\Software\Classes\AppUserModelId\$AppId"
+        if (-not (Test-Path -Path $key)) { [void](New-Item -Path $key -Force) }
+        $current = Get-ItemProperty -Path $key
+        if ($IconPath -and (Test-Path -LiteralPath $IconPath) -and ($current.IconUri -ne $IconPath)) {
+            Set-ItemProperty -Path $key -Name IconUri -Value $IconPath
+        }
+        if ($current.DisplayName -ne $AppName) {
+            Set-ItemProperty -Path $key -Name DisplayName -Value $AppName
+        }
+        if ($current.ShowInSettings -ne 1) {
+            Set-ItemProperty -Path $key -Name ShowInSettings -Value 1 -Type DWord
+        }
+        return $true
+    }
+    catch {
+        return $false
+    }
+}
 
+try {
     [void][Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime]
     [void][Windows.Data.Xml.Dom.XmlDocument, Windows.Data.Xml.Dom.XmlDocument, ContentType = WindowsRuntime]
 
-    # scenario="reminder" keeps the toast on screen until it is dismissed, but
-    # Windows SILENTLY IGNORES it unless the toast carries at least one action
-    # with background activation - hence the Dismiss button.
-    $scenario = ''
-    $actions  = ''
-    if ($sticky) {
-        $scenario = ' scenario="reminder"'
-        $actions  = '<actions><action content="Dismiss" arguments="dismiss" activationType="background"/></actions>'
+    $appId = if (Register-AppIdentity $env:CCN_ICON) { $AppId } else { $FallbackAppId }
+
+    # Withdraw stale toasts - only ever because the user acted: an answered
+    # question, or a session's waiting toasts once the user types again. A new
+    # notification never removes an older one.
+    if ($env:CCN_REMOVE) {
+        $history = [Windows.UI.Notifications.ToastNotificationManager]::History
+        foreach ($oldGroup in ($env:CCN_REMOVE -split ';')) {
+            if ($oldGroup) {
+                try { $history.RemoveGroup($oldGroup, $appId) } catch { }
+            }
+        }
+    }
+
+    if ($env:CCN_MODE -eq 'remove') { exit 0 }
+
+    $title      = if ($env:CCN_TITLE)  { $env:CCN_TITLE }  else { 'Claude Code' }
+    $body       = if ($env:CCN_BODY)   { $env:CCN_BODY }   else { '' }
+    $attrib     = if ($env:CCN_ATTRIB) { $env:CCN_ATTRIB } else { '' }
+    $attention  = ($env:CCN_ATTENTION -eq '1')
+    $persistent = ($env:CCN_PERSISTENT -eq '1')
+    $silent     = ($env:CCN_SILENT -eq '1')
+    $tag        = if ($env:CCN_TAG) { $env:CCN_TAG } else { [guid]::NewGuid().ToString('N').Substring(0, 16) }
+    $group      = if ($env:CCN_GROUP) { $env:CCN_GROUP } else { $DefaultGroup }
+
+    # Persistent toasts use scenario="reminder", which stays on screen until the
+    # user closes it - but Windows SILENTLY IGNORES that scenario unless the toast
+    # shows a button with a background action. Verified live on 2026-09-13: the
+    # same action placed only in the ... menu (placement="contextMenu") does NOT
+    # keep the toast on screen, hence the visible Close button. Everything else
+    # auto-dismisses: attention after about 25 s, informational sooner.
+    $toastAttributes = ''
+    $actions = ''
+    if ($persistent) {
+        $toastAttributes = ' scenario="reminder"'
+        $actions = '<actions><action content="Close" arguments="dismiss" activationType="background"/></actions>'
+    } elseif ($attention) {
+        $toastAttributes = ' duration="long"'
     }
 
     $audio = if ($silent) { '<audio silent="true"/>' } else { '' }
@@ -64,10 +128,10 @@ try {
     }
 
     $xml = @"
-<toast$scenario>
+<toast$toastAttributes>
   <visual>
     <binding template="ToastGeneric">
-      <text>$(ConvertTo-XmlText $title)</text>
+      <text hint-maxLines="2">$(ConvertTo-XmlText $title)</text>
       <text>$(ConvertTo-XmlText $body)</text>
       $attribNode
     </binding>
@@ -81,15 +145,11 @@ try {
     $document.LoadXml($xml)
 
     $toast = New-Object Windows.UI.Notifications.ToastNotification $document
-    # Tag and group give Windows a stable identity for this notification, so a
-    # burst of task completions updates one toast instead of stacking five.
+    # A unique tag means a new toast never replaces an older one; the group
+    # (session + category) is what lets a later event withdraw stale toasts.
     $toast.Tag   = $tag
-    $toast.Group = 'claude-code'
+    $toast.Group = $group
 
-    # Windows PowerShell's own AppUserModelID. It already has a Start Menu
-    # shortcut, which is what Windows requires to accept a toast, so the plugin
-    # registers nothing.
-    $appId = '{1AC14E77-02E7-4E5D-B744-2EB1AE5198B7}\WindowsPowerShell\v1.0\powershell.exe'
     [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier($appId).Show($toast)
 }
 catch {
