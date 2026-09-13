@@ -37,8 +37,8 @@ Print the script's output verbatim, then add a short verdict of your own:
 
 The script reports whether `CLAUDE_CODE_ENABLE_TODO_TOOLS` is set. Add what only
 you can see: check whether `TaskCreate` / `TaskUpdate` are in your own tool list
-for this session. If they are absent, confirm that `✅ Task Completed` cannot
-fire here — the task list is never populated, so the `TaskCompleted` event never
+for this session. If they are absent, confirm that `☑️ … finished a task`
+cannot fire here — the task list is never populated, so the `TaskCompleted` event never
 occurs — and that starting Claude Code with `CLAUDE_CODE_ENABLE_TODO_TOOLS=1`
 enables it. Do not describe this as a plugin bug; it is a model-availability
 rule in Claude Code v2.1.233 and later.
@@ -68,11 +68,22 @@ wiped on every plugin upgrade.
     "task": true, "turn": true, "failure": true
   },
   "sound": { "attention": true, "informational": false },
-  "suppress_teammate_tasks": true
+  "suppress_teammate_tasks": true,
+  "persistent": {
+    "question": true,
+    "permission": true,
+    "failure": true,
+    "turn": true,
+    "task": false
+  }
 }
 ```
 
-Turning off `turn` is the usual first edit — `✅ Claude Finished` fires once per
+`persistent` lists the notifications that stay on screen until closed — by
+default everything that means Claude is waiting for you. On Windows each of those
+toasts carries a Close button, which Windows requires for this.
+
+Turning off `turn` is the usual first edit — `✅ … is done` fires once per
 assistant turn, which is the highest-volume notification the plugin sends.
 
 ## Scope

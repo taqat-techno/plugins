@@ -17,26 +17,34 @@ behaves identically every time.
 
 | Notification | Fires on | Class |
 |---|---|---|
-| ❓ **Claude Needs Your Answer** | Claude is about to ask a multiple-choice question | attention |
-| 🔐 **Claude Needs Approval** | A permission prompt has waited ~6 s with no keystroke | attention |
-| ❌ **Claude Failed** | The turn ended on an API error (rate limit, auth, overloaded, …) | attention |
-| ✅ **Task Completed** | A single task was marked complete | informational |
-| ✅ **Claude Finished** | Claude finished responding | informational |
+| ❓ **‹project› needs your answer** | Claude asks a multiple-choice question — exactly one notification per question | attention |
+| 🔐 **‹project› needs your approval** | A permission prompt has waited ~6 s with no keystroke | attention |
+| ❌ **‹project› hit an error** | The turn ended on an API error (rate limit, auth, overloaded, …) | attention |
+| ☑️ **‹project› finished a task** | A single task was marked complete | informational |
+| ✅ **‹project› is done** | Claude finished responding | informational |
 
-**Attention** notifications stay on screen until dismissed where the OS allows
-it, and play a sound. **Informational** ones are transient and silent.
+Everything that means Claude is waiting for you — a question, an approval, an
+error, or a finished turn — **stays on screen until you close it**, and is
+withdrawn automatically once you answer or type your next prompt. New
+notifications never replace older ones. Task completions are transient. Questions, approvals and errors play a
+sound; the rest are silent.
 
-Every notification carries an identity line — `project · a1b2c3` — so several
-concurrent sessions stay distinguishable at a glance. The project name is the git
-repository the session is working in (a worktree reads as itself), and the tag is
-the first six characters of the session id.
+Each notification is three lines: what happened and where, the content, and
+which session. The project name is the git repository the session is working in
+(a worktree reads as itself); the session tag is the first six characters of the
+session id, so concurrent sessions stay distinguishable.
 
 ```
-❓ Claude Needs Your Answer          ❌ Claude Failed
-KhairGate-BMS-19 · a1b2c3            claude_plugins · 7f2e91
-Which migration strategy             rate_limit — API Error: Rate
-should I use?                        limit reached
+❓ KhairGate-BMS-19 needs your answer     ✅ claude_plugins is done
+Which migration strategy should I use?   Fixed the duplicate notification.
+session a1b2c3                           All 72 tests pass.
+                                         session 7f2e91
 ```
+
+Content is cleaned up for reading: Markdown is stripped from Claude's final
+message, API error codes become plain words ("Rate limit reached"), and a prompt
+with several questions shows `(+2 more)`. On Windows the toasts appear under
+**Claude Code** with the plugin's icon.
 
 ---
 
@@ -70,12 +78,13 @@ marketplace) and Claude Code **v2.1.202 or later**; v2.1.233+ is recommended.
 |---|---|---|---|
 | Mechanism | WinRT toast via Windows PowerShell 5.1 | `osascript` | `notify-send` (libnotify) |
 | Extra install | none | none | `libnotify-bin` if `notify-send` is missing |
-| Attention notifications stay until dismissed | **yes** | see below | **yes** (GNOME, KDE) |
-| Replace-in-place on bursts | yes | no | yes (GNOME, dunst) |
+| Waiting-for-you notifications stay until closed | **yes** (Close button) | see below | **yes** (GNOME, KDE) |
+| Withdraws stale notifications when you act | yes | no | no |
 
-**Persistence: best available.** Windows uses the `reminder` toast scenario, and
-GNOME and KDE honour the freedesktop rule that critical notifications should not
-auto-expire. macOS has no programmatic equivalent — `display notification`
+**Persistence.** Windows keeps a toast on screen only with its `reminder`
+scenario, which it ignores unless the toast shows a button — hence the Close
+button on waiting-for-you toasts. GNOME and KDE honour the freedesktop rule that critical
+notifications should not auto-expire. macOS has no programmatic equivalent. macOS has no programmatic equivalent — `display notification`
 produces a banner, and whether it waits for you is a *user* setting.
 
 ### macOS one-time setup
@@ -108,7 +117,7 @@ and quietly do nothing. A WSL-to-Windows-host adapter is planned.
 Since Claude Code v2.1.233, the Task tools (`TaskCreate`, `TaskUpdate`,
 `TaskList`, `TodoWrite`) are **not provided** on Opus 4.8, Sonnet 5, Fable 5,
 Mythos 5 or later families unless you opt in. Without them the task list is never
-populated, so the `TaskCompleted` event never fires and **✅ Task Completed will
+populated, so the `TaskCompleted` event never fires and **☑️ finished a task will
 never appear**.
 
 To enable it, start Claude Code with:
@@ -145,12 +154,23 @@ writes defaults to `${CLAUDE_PLUGIN_DATA}/config.json`
     "failure": true
   },
   "sound": { "attention": true, "informational": false },
-  "suppress_teammate_tasks": true
+  "suppress_teammate_tasks": true,
+  "persistent": {
+    "question": true,
+    "permission": true,
+    "failure": true,
+    "turn": true,
+    "task": false
+  }
 }
 ```
 
-Turning off `turn` is the usual first edit — ✅ Claude Finished fires once per
+Turning off `turn` is the usual first edit — ✅ *is done* fires once per
 assistant turn, the highest-volume notification the plugin sends.
+
+`persistent` chooses which notifications stay on screen until you close them.
+Set `"turn": false` there to keep ✅ *is done* transient instead of switching it
+off.
 
 Config never lives under the plugin's install directory, which is replaced on
 every update.
@@ -187,12 +207,20 @@ Full rationale, including what would justify reversing each rule, is in
 | Event | Matcher | Category |
 |---|---|---|
 | `PreToolUse` | `AskUserQuestion` | question |
+| `PostToolUse` | `AskUserQuestion` | answered — closes the question, never notifies |
+| `UserPromptSubmit` | — | prompted — withdraws this session's waiting toasts, never notifies |
 | `Notification` | `permission_prompt` | permission |
 | `TaskCompleted` | — | task |
 | `Stop` | — | turn |
 | `StopFailure` | — | failure |
 
-Five registrations, one script, all async, each with a 10-second timeout.
+Seven registrations, one script, all async, each with a 10-second timeout.
+
+`PreToolUse` and `PostToolUse` bracket each question. Claude Code shows a
+question through its permission-prompt path, so every question also raises a
+generic permission prompt a few seconds later; while a question is open that
+prompt is not notified a second time. See
+[D-013](docs/decisions.md#d-013--one-question-one-notification).
 
 `PermissionRequest` is deliberately **not** registered: it fires on every
 permission ask rather than only when you have stepped away, and a hook on that
@@ -208,10 +236,10 @@ no business on the permission decision path.
 test notifications did not appear, check your OS notification settings — Focus
 Assist on Windows, Do Not Disturb on macOS, or the Script Editor permission above.
 
-**Notifications appear but ✅ Task Completed never does.** See the opt-in section
+**Notifications appear but ☑️ finished a task never does.** See the opt-in section
 above.
 
-**Too many ✅ Claude Finished notifications.** Set `"turn": false` in
+**Too many ✅ is done notifications.** Set `"turn": false` in
 `config.json`.
 
 **Nothing changed after editing the plugin.** Claude Code runs plugins from
@@ -226,10 +254,11 @@ above.
 python notification-plugin/tests/test_notification.py
 ```
 
-43 stdlib-only tests, no desktop required. They cover the isolation contract
+75 stdlib-only tests, no desktop required. They cover the isolation contract
 (silent stdout, always exit 0, survives garbage input), text safety (shell
 metacharacters, ANSI escapes, non-ASCII, clipping), rendering per category,
-identity derivation, every suppression rule, and structural assertions on
+identity derivation, every suppression rule including one notification per
+question, UTF-8 payload decoding on Windows, and structural assertions on
 `hooks.json` itself — including that every hook is async and that no
 `SessionStart` hook exists.
 

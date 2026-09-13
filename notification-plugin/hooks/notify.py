@@ -2,19 +2,33 @@
 """notification plugin - the single hook entry point.
 
 Reads one Claude Code hook payload from stdin and, if policy allows, hands a
-title/body to the platform's native notifier. Five events route here, all with
-`async: true`, all with the category as the first argument:
+title/body to the platform's native notifier. Seven registrations route here,
+all with `async: true`, all with the verb as the first argument:
 
-    notify.py question     PreToolUse   matcher AskUserQuestion
-    notify.py permission   Notification matcher permission_prompt
+    notify.py question     PreToolUse        matcher AskUserQuestion
+    notify.py answered     PostToolUse       matcher AskUserQuestion   never notifies
+    notify.py prompted     UserPromptSubmit                            never notifies
+    notify.py permission   Notification      matcher permission_prompt
     notify.py task         TaskCompleted
     notify.py turn         Stop
     notify.py failure      StopFailure
 
+Waiting-for-you notifications stay on screen until closed (D-015). They never
+replace each other, and the plugin withdraws them only when the user acts:
+`answered` removes the answered question, and `prompted` removes the session's
+waiting toasts when the user types again.
+
+One question, one notification (D-013): Claude Code presents AskUserQuestion
+through its permission-prompt path, so every question also raises a generic
+permission_prompt a few seconds later. `question` leaves a short-lived marker,
+`permission` is suppressed while it stands, and `answered`, `turn` and `failure`
+clear it.
+
 Hard guarantees (see docs/decisions.md):
   D-001  Every hook is async, so this script structurally cannot block Claude.
-         Three of the five events are blocking events where exit 2 would
-         suppress a question, trap a turn, or refuse a task completion.
+         Five of the seven events are blocking events where exit 2 would
+         suppress a question, feed an error back to Claude, block and erase the
+         user's prompt, trap a turn, or refuse a task completion.
   D-002  In hook mode this script writes NOTHING to stdout. Before Claude Code
          v2.1.202 malformed async JSON could crash the session and re-crash it
          on resume; emitting nothing is safe on every version.
@@ -35,6 +49,7 @@ import backends      # noqa: E402
 import identity      # noqa: E402
 import policy        # noqa: E402
 import render        # noqa: E402
+import state         # noqa: E402
 
 try:
     sys.stdout.reconfigure(encoding="utf-8")
@@ -43,16 +58,27 @@ except Exception:
     pass
 
 
-def read_payload():
-    """Parse the hook payload. Any failure yields an empty dict, never a raise."""
+def read_payload(stream=None):
+    """Parse the hook payload as UTF-8. Any failure yields an empty dict, never a raise.
+
+    Claude Code writes UTF-8, but on Windows Python decodes a PIPED stdin with the
+    ANSI code page (cp1252, surrogateescape). Every non-ASCII question - Arabic,
+    emoji, box-drawing previews - then arrives as mojibake or lone surrogates,
+    which no backend can deliver. Decoding the raw bytes explicitly is the only
+    path that does not depend on the machine's locale.
+    """
+    stream = sys.stdin if stream is None else stream
     try:
-        raw = sys.stdin.read()
+        buffer = getattr(stream, "buffer", None)
+        raw = buffer.read() if buffer is not None else stream.read()
     except Exception:
         return {}
+    if isinstance(raw, bytes):
+        raw = raw.decode("utf-8", errors="replace")
     if not raw:
         return {}
     try:
-        data = json.loads(raw)
+        data = json.loads(raw.lstrip("﻿"))
         return data if isinstance(data, dict) else {}
     except Exception:
         return {}
@@ -60,24 +86,77 @@ def read_payload():
 
 def deliver(category, payload, config):
     """Render and send one notification. Returns a short outcome string."""
+    session = payload.get("session_id")
+
+    if category == state.ANSWERED:
+        return _answered(payload, config)
+    if category == state.PROMPTED:
+        return _prompted(payload, config)
+
+    # A turn that ended - normally or on an error - closes any open question.
+    if category in ("turn", "failure"):
+        state.clear_question(session)
+
     reason = policy.suppression_reason(category, payload, config)
     if reason:
         return "suppressed: " + reason
 
-    built = render.build(category, payload, identity.attribution(payload))
+    built = render.build(
+        category, payload,
+        project=identity.project_name(payload.get("cwd")),
+        tag=identity.session_tag(session),
+    )
     if built is None:
         return "suppressed: nothing to say"
 
     klass, title, body, attribution = built
+
+    if category == "question":
+        # Marked before sending: the permission_prompt this question raises
+        # arrives a few seconds later and must find the marker already there.
+        state.mark_question(session)
+
     sent = backends.send(
         title=title,
         body=body,
         attribution=attribution,
-        sticky=(klass == render.ATTENTION),
+        attention=klass == render.ATTENTION,
+        persistent=policy.wants_persistent(category, config),
         silent=not policy.wants_sound(klass, config),
-        key=identity.replace_key(payload, category),
+        key=identity.group_key(payload, category),
     )
     return "sent" if sent else "no backend"
+
+
+def _answered(payload, config):
+    """PostToolUse(AskUserQuestion): the question is closed. Never notifies."""
+    if payload.get("agent_id"):
+        return "ignored: event came from a subagent"
+    state.clear_question(payload.get("session_id"))
+    categories = config.get("categories") or {}
+    if config.get("enabled", True) and categories.get("question", True):
+        # An answered question should not linger in Notification Center.
+        backends.remove([identity.group_key(payload, "question")])
+    return "cleared"
+
+
+# Every notification that can still be on screen when the user types again.
+_WAITING_CATEGORIES = ("question", "permission", "turn", "failure")
+
+
+def _prompted(payload, config):
+    """UserPromptSubmit: the user is back at the terminal. Never notifies.
+
+    Waiting-for-you notifications stay until closed, so without this they would
+    remain on screen after the user has already replied in the terminal. It also
+    closes a question dismissed with Esc, where PostToolUse never fires.
+    """
+    if payload.get("agent_id"):
+        return "ignored: event came from a subagent"
+    state.clear_question(payload.get("session_id"))
+    if config.get("enabled", True):
+        backends.remove([identity.group_key(payload, name) for name in _WAITING_CATEGORIES])
+    return "cleared"
 
 
 def run_hook(category):
@@ -104,8 +183,10 @@ _SETUP_HINTS = {
         "  If notify-send is missing:  sudo apt install libnotify-bin"
     ),
     backends.WINDOWS: (
-        "Windows: toasts respect Focus Assist / Do Not Disturb. If nothing appears,\n"
-        "  check Settings > System > Notifications and confirm Windows PowerShell\n"
+        "Windows: toasts appear under \"Claude Code\", an app identity registered\n"
+        "  per user (HKCU, no admin) on first use. They respect Focus Assist / Do\n"
+        "  Not Disturb. If nothing appears, check Settings > System > Notifications\n"
+        "  and confirm Claude Code - or Windows PowerShell, the fallback identity -\n"
         "  is allowed to send notifications."
     ),
 }
@@ -130,11 +211,23 @@ _UNSUPPORTED_HINTS = {
     ),
 }
 
+_DOCTOR_SESSION = "doctor-test"
+
 _TEST_PAYLOADS = [
     ("question", {"tool_input": {"questions": [
-        {"header": "Test", "question": "Notification plugin test - can you see this?"}]}}),
-    ("task", {"task_subject": "Notification plugin test - informational class"}),
+        {"header": "Test", "question": "Notification test - can you see this attention toast?"}]}}),
+    ("task", {"task_subject": "Notification test - this one disappears on its own"}),
 ]
+
+
+def plugin_version():
+    try:
+        manifest = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                                ".claude-plugin", "plugin.json")
+        with open(manifest, "r", encoding="utf-8") as handle:
+            return json.load(handle).get("version") or "?"
+    except Exception:
+        return "?"
 
 
 def _print_config(config):
@@ -151,6 +244,9 @@ def _print_config(config):
     sound = config.get("sound") or {}
     print("  sound     attention={0} informational={1}".format(
         bool(sound.get("attention")), bool(sound.get("informational"))))
+    persistent = config.get("persistent") or {}
+    print("  persist   {0}".format(
+        ", ".join(name for name in render.CATEGORIES if persistent.get(name)) or "none"))
 
 
 def _print_tasks():
@@ -163,7 +259,7 @@ def _print_tasks():
         print("  TaskList / TodoWrite) are NOT provided on Opus 4.8, Sonnet 5, Fable 5,")
         print("  Mythos 5 or later families unless you opt in. Without them the task")
         print("  list stays empty, so the TaskCompleted event never fires and")
-        print("  '✅ Task Completed' will never appear. To enable it:")
+        print("  '☑️ ... finished a task' will never appear. To enable it:")
         print("      CLAUDE_CODE_ENABLE_TODO_TOOLS=1 claude")
         print("  On older families such as Opus 4.7 the Task tools are on by default.")
 
@@ -187,12 +283,13 @@ def run_doctor(send_tests=True, as_json=False):
     config = policy.load()
 
     if as_json:
+        info["version"] = plugin_version()
         info["config"] = config
         info["config_path"] = policy.config_path()
         print(json.dumps(info, indent=2, ensure_ascii=False))
         return
 
-    print("notification v1.0.0 - capability report")
+    print("notification v{0} - capability report".format(plugin_version()))
     print("")
     print("Environment")
     print("  system    {0} {1}".format(info["system"], info["release"]))
@@ -232,12 +329,13 @@ def run_doctor(send_tests=True, as_json=False):
     for category, payload in _TEST_PAYLOADS:
         payload = dict(payload)
         payload.setdefault("cwd", os.getcwd())
-        payload.setdefault("session_id", "doctor-test")
+        payload.setdefault("session_id", _DOCTOR_SESSION)
         outcome = deliver(category, payload, config)
         print("  {0:<11} {1}".format(category, outcome))
+    state.clear_question(_DOCTOR_SESSION)
     print("")
-    print("  Two notifications should have appeared: one attention-class (sticky")
-    print("  where the OS allows it) and one informational (transient, silent).")
+    print("  Two notifications should have appeared: a question that stays on screen")
+    print("  until you close it, and a task completion that disappears on its own.")
     print("  If nothing appeared, re-read the platform notes above.")
 
 

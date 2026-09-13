@@ -3,6 +3,54 @@
 All notable changes to the notification plugin are documented here.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [1.1.0] - 2026-09-13
+
+### Fixed
+
+- **One notification per question.** Claude Code presents `AskUserQuestion`
+  through its permission-prompt path, so every question also raised a generic
+  `permission_prompt` a few seconds later and two notifications appeared. The
+  question hook now leaves a short-lived per-session marker under
+  `${CLAUDE_PLUGIN_DATA}/state/`, the permission notification is suppressed while
+  it stands, and a new `PostToolUse` hook on `AskUserQuestion`, `Stop`, `StopFailure` and
+  your next prompt clear it. It also expires on its own after 120 seconds. Every
+  failure fails toward notifying. See D-013.
+- **Non-ASCII text on Windows.** Python decodes a piped stdin with the ANSI code
+  page on Windows, so questions containing Arabic, emoji or box-drawing
+  characters arrived as mojibake or were silently dropped. The payload is now
+  read as raw bytes and decoded as UTF-8.
+
+### Changed
+
+- **Cleaner layout.** The title names the project and what happened
+  (`❓ claude_plugins needs your answer`), the body carries the content, and the
+  attribution line is `session 2ecaaa`.
+- **Readable content.** Markdown is stripped from Claude's final message, the
+  generic "Claude needs your permission" is replaced with where to act, API error
+  codes are humanised (`rate_limit` becomes "Rate limit reached") without
+  repeating the detail, a prompt with several questions shows `(+N more)`, and
+  long text is clipped at a word boundary.
+- **Windows: "Claude Code" instead of "Windows PowerShell".** Toasts appear under a
+  per-user app identity, with the plugin icon in the header and their own entry in Settings >
+  Notifications, registered under HKCU on first use - no admin, and a fallback to
+  PowerShell's identity on any failure. See D-014.
+- **Waiting-for-you notifications stay until you close them.** Questions,
+  approvals, errors and "is done" stay on screen until closed - on Windows with a
+  Close button, which Windows requires for this (a menu-only action was tested
+  and does not keep the toast up); on Linux via critical urgency. Task completions stay transient. Per-category `persistent` option.
+  See D-015.
+- **Notifications never replace each other.** Every toast gets its own id, so a
+  new question or "is done" stacks instead of overwriting the previous one. The
+  1.0 replace-in-place behaviour is gone on Windows and Linux.
+- **Stale notifications are withdrawn only when you act (Windows).** Answering a
+  question removes its toast, and your next prompt removes that session's
+  waiting toasts, through a new async `UserPromptSubmit` hook. A new
+  notification never removes an older one.
+- `/notification:doctor` reports the real plugin version and the
+  `persistent` setting.
+- Tests: 43 to 79, including the captured live `permission_prompt` payload, a
+  cp1252 stdin reproduction, and a PowerShell parse check of the toast script.
+
 ## [1.0.1] - 2026-09-12
 
 Records decision D-012: this plugin ships no eval suite. It has no `skills/`

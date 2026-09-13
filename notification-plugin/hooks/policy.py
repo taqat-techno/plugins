@@ -2,7 +2,8 @@
 """notification plugin - configuration and suppression rules.
 
 Answers one question: given this payload, should a notification be sent at all?
-Every rule is deterministic and reads only fields the payload already carries.
+Every rule is deterministic and reads only fields the payload already carries,
+plus one short-lived marker owned by state.py (D-013).
 
 Config lives at ${CLAUDE_PLUGIN_DATA}/config.json and is entirely optional -
 absent means every category is on. ${CLAUDE_PLUGIN_ROOT} is version-pinned and
@@ -29,6 +30,17 @@ DEFAULTS = {
     },
     "sound": {"attention": True, "informational": False},
     "suppress_teammate_tasks": True,
+    # D-015 - categories that stay on screen until the user closes them: every
+    # notification that means "Claude is waiting for you". Windows needs a Close
+    # button for this (the toast "reminder" scenario is ignored without one),
+    # Linux uses critical urgency, and macOS leaves it to the Alerts setting.
+    "persistent": {
+        "question": True,
+        "permission": True,
+        "failure": True,
+        "turn": True,
+        "task": False,
+    },
 }
 
 
@@ -80,6 +92,7 @@ def suppression_reason(category, payload, config):
     The reasons are the deterministic filters from the architecture decisions:
       D-007  subagent and teammate events are not signals for the human
       D-008  a turn that ends with background work still in flight is not "done"
+      D-013  a question already notified covers the permission prompt it raises
     """
     try:
         if not config.get("enabled", True):
@@ -92,6 +105,12 @@ def suppression_reason(category, payload, config):
         # D-007 - these fields are present only inside a subagent / --agent run.
         if payload.get("agent_id"):
             return "event came from a subagent"
+
+        if category == "permission":
+            # Imported here: state.py imports this module for data_dir().
+            import state
+            if state.question_pending(payload.get("session_id")):
+                return "the question notification already covers this prompt"
 
         if category == "task":
             if config.get("suppress_teammate_tasks", True) and payload.get("teammate_name"):
@@ -116,5 +135,12 @@ def suppression_reason(category, payload, config):
 def wants_sound(klass, config):
     try:
         return bool((config.get("sound") or {}).get(klass, False))
+    except Exception:
+        return False
+
+
+def wants_persistent(category, config):
+    try:
+        return bool((config.get("persistent") or {}).get(category, False))
     except Exception:
         return False
