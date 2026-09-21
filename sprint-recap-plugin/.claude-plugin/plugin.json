@@ -1,0 +1,24 @@
+{
+  "name": "sprint-recap",
+  "version": "0.1.0",
+  "description": "Turn a finished sprint into a narrated walkthrough video of the real app plus a matching HTML reproduction guide. Correlates Azure DevOps iteration items, git history and Claude session transcripts into a reviewable step script, captures one browser clip per step under read-only discipline, renders it with Remotion step-text overlays, and publishes a shareable guide whose credentials stay in a separate gitignored file.",
+  "author": {
+    "name": "TAQAT Techno",
+    "email": "info@taqatechno.com",
+    "url": "https://github.com/taqat-techno"
+  },
+  "homepage": "https://github.com/taqat-techno/plugins/tree/main/sprint-recap-plugin",
+  "repository": "https://github.com/taqat-techno/plugins",
+  "license": "MIT",
+  "keywords": [
+    "sprint",
+    "video",
+    "remotion",
+    "playwright",
+    "azure-devops",
+    "demo",
+    "documentation",
+    "walkthrough",
+    "sprint-review"
+  ]
+}
