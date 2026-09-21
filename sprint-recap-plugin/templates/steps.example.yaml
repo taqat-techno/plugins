@@ -1,0 +1,58 @@
+# sprint-recap step script — the single source of truth.
+#
+# Every `caption` below is written ONCE and used THREE times:
+#   1. burned into the video as on-screen step text
+#   2. as the numbered instruction in the HTML reproduction guide
+#   3. as the narration line (when --narrate is on)
+# That is what keeps the video and the written guide from ever disagreeing.
+#
+# A step is a unit of NARRATION, not a single click. Each step starts at a URL
+# (`start`), which is what makes its clip self-contained and re-runnable.
+
+sprint: "Sprint 24"
+iteration_path: "KhairGate (HUB)\Sprint 24"
+target: staging          # base_url + roles resolved from .sprint-recap.local.json
+window:
+  since: "2026-09-01"
+  until: "2026-09-14"
+
+intro:
+  title: "Sprint 24 — What we shipped"
+  subtitle: "KhairGate (HUB)"
+
+items:
+  - work_item: 23923
+    title: "Add donor export to the admin list"
+    parent_pbi: 23900
+    role: qa_admin
+    steps:
+      - id: s1
+        caption: "Open the Donors admin list"
+        start: "/admin/donors"
+        hold_ms: 1200
+        actions:
+          - { do: expect, selector: "text=Donors" }
+
+      - id: s2
+        caption: "Export the filtered donors to CSV"
+        start: "/admin/donors"
+        hold_ms: 1500
+        actions:
+          - { do: fill, selector: "input[name='search']", value: "Cairo" }
+          - { do: press, key: "Enter" }
+          - { do: click, selector: "role=button[name='Export']" }
+          - { do: click, selector: "text=CSV" }
+          - { do: expect, selector: "text=Export started" }
+
+  - work_item: 23940
+    title: "Beneficiary profile shows KYC status"
+    parent_pbi: 23901
+    role: qa_reviewer
+    steps:
+      - id: s1
+        caption: "Open a beneficiary profile and read the KYC badge"
+        start: "/beneficiaries/1042"
+        hold_ms: 2000
+        actions:
+          - { do: expect, selector: "[data-testid='kyc-badge']" }
+          - { do: scroll, to: "[data-testid='kyc-history']" }
