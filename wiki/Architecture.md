@@ -1,6 +1,6 @@
 # Architecture
 
-Shared architectural patterns across the 17 plugins in this marketplace. Individual plugins (`rag-plugin`, `devops-plugin`, `odoo-plugin`) carry their own `ARCHITECTURE.md`; this page distills the cross-cutting patterns.
+Shared architectural patterns across the 18 plugins in this marketplace. Individual plugins (`rag-plugin`, `devops-plugin`, `odoo-plugin`) carry their own `ARCHITECTURE.md`; this page distills the cross-cutting patterns.
 
 ## Two-marketplace design
 
@@ -8,7 +8,7 @@ Shared architectural patterns across the 17 plugins in this marketplace. Individ
 <workspace>\claude_plugins\
 ├── plugins/                              ← THE WORKING MARKETPLACE (edit here)
 │   ├── .claude-plugin/marketplace.json   ← single source of truth
-│   ├── <17 plugin dirs>/                 ← each may carry evals/ (HR-20)
+│   ├── <18 plugin dirs>/                 ← each may carry evals/ (HR-20)
 │   ├── wiki/                             ← this wiki's source (documentation, not a plugin)
 │   ├── validate_plugin.py                ← gate 1: shape
 │   ├── validate_marketplace.py           ← gate 2: discoverability

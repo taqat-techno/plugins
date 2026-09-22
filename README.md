@@ -1,9 +1,9 @@
 # TAQAT Techno Plugins — Claude Code Marketplace
 
-![Plugins](https://img.shields.io/badge/plugins-17-blue.svg)
+![Plugins](https://img.shields.io/badge/plugins-18-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 
-Production-ready Claude Code plugins for professional development — Odoo ERP, Azure DevOps, desktop notifications, UI/UX design, video creation, document conversion, local RAG knowledge bases, reusable React/Next.js and Django/FastAPI patterns, browser QA, project wikis, git and release safety, worktree workspaces, and local-environment diagnosis.
+Production-ready Claude Code plugins for professional development — Odoo ERP, Azure DevOps, desktop notifications, UI/UX design, video creation, document conversion, local RAG knowledge bases, reusable React/Next.js and Django/FastAPI patterns, browser QA, project wikis, git and release safety, worktree workspaces, sprint recap videos, and local-environment diagnosis.
 
 > **Design policy:** every plugin is **generic and reusable** by any team in any workspace (see [Genericness & reusability](#genericness--reusability-policy)), and we deliberately **do not rebuild capabilities that official Claude plugins already cover well** (see [Official-plugin coverage boundary](#official-plugin-coverage-boundary)). Recent rationale and decisions: [`OFFICIAL_PLUGINS_COVERAGE_AUDIT.md`](./OFFICIAL_PLUGINS_COVERAGE_AUDIT.md), [`LESSONS_TO_PLUGINS_GLOBAL_RECOMMENDATION_PLAN.md`](./LESSONS_TO_PLUGINS_GLOBAL_RECOMMENDATION_PLAN.md), and the latest change log [`LOCAL_PLUGIN_ENHANCEMENT_IMPLEMENTATION_REPORT.md`](./LOCAL_PLUGIN_ENHANCEMENT_IMPLEMENTATION_REPORT.md).
 
@@ -32,6 +32,7 @@ Listed in marketplace order. Versions are the value in each plugin's `.claude-pl
 | 15 | **fastapi** | `0.2.1` | development | Reusable FastAPI engineering toolkit — Pydantic v2 schemas, async routing & DI, SQLAlchemy/SQLModel data layer, Alembic migration safety, pydantic-settings config, security auditing, pytest + httpx testing, async correctness. | [README](./fastapi-plugin/README.md) |
 | 16 | **git-safety** | `0.3.1` | productivity | Generic local git-workflow safety guardrails — stage explicit paths, re-check the tree before commit/push, never silent-switch or discard when dirty, per-repo identity, plus shared-checkout safety. Advisory only. | [README](./git-safety-plugin/README.md) |
 | 17 | **worktree** | `2.1.1` | development | Make git worktrees a first-class workspace — list, create, switch, and safely clean parallel worktrees, with the active worktree in the status line. Git stays the source of truth; registers **zero hooks**. | [README](./worktree-plugin/README.md) |
+| 18 | **sprint-recap** | `0.1.0` | productivity | Turn a finished sprint into a narrated walkthrough video of the real app plus a matching HTML reproduction guide — correlates Azure DevOps iteration items, git history and session transcripts into an approved step script, captures one browser clip per step read-only, renders it with Remotion overlays. | [README](./sprint-recap-plugin/README.md) |
 
 ---
 
@@ -300,12 +301,26 @@ List, create, switch, and safely clean parallel git worktrees, with the active w
 
 ---
 
+### 18. sprint-recap — Sprint review video + reproduction guide
+
+> 📖 [**Full documentation → `sprint-recap-plugin/README.md`**](./sprint-recap-plugin/README.md)
+
+Turn a finished sprint into two review artifacts that cannot drift apart: an MP4 walkthrough of the **real application** with step text burned in, and an HTML guide that lets a reviewer reproduce every step by hand. Evidence from Azure DevOps iteration items, git history, and Claude session transcripts is correlated on work-item ID into `steps.yaml` — the single contract whose `caption` is written once and consumed three times (on-screen text, written instruction, narration line).
+
+Runs in resumable stages — `collect` → `script` → `capture` → `render` → `publish` — with a **human approval gate** on the step script before anything touches a browser. Drives the Playwright Python library and the Remotion CLI directly (no MCP dependency); `collect`, `render`, and `publish` run on a bare Python 3.9+, and only `capture` needs a third-party package.
+
+**Commands:** `/sprint-recap`, `/sprint-recap-target`. **5 skills:** `sprint-step-script`, `sprint-evidence-correlation`, `sprint-capture-clips`, `sprint-video-overlays`, `sprint-repro-guide`.
+
+**Safety:** credentials live in a gitignored `.sprint-recap.local.json` and are never printed unmasked; a `SessionStart` advisory checks that config hygiene; a `PreToolUse` gate on Bash **blocks** git from staging the plaintext credential artifacts this plugin generates. Capture is read-only, with production-URL and destructive-action gates, and uncaptured steps get an honest status badge rather than a fabricated one.
+
+---
+
 ## Repository structure
 
 ```
 taqat-techno-plugins/
 ├── .claude-plugin/
-│   └── marketplace.json          # Marketplace metadata (17 plugins)
+│   └── marketplace.json          # Marketplace metadata (18 plugins)
 ├── odoo-plugin/                  # Unified Odoo development toolkit (v14-19)
 ├── devops-plugin/                # Azure DevOps HYBRID integration (CLI + MCP)
 ├── notification-plugin/          # Native desktop notifications (hooks only)
@@ -323,6 +338,7 @@ taqat-techno-plugins/
 ├── fastapi-plugin/               # FastAPI engineering toolkit
 ├── git-safety-plugin/            # Local git-workflow guardrails
 ├── worktree-plugin/              # Git worktrees as first-class workspaces
+├── sprint-recap-plugin/          # Sprint review video + reproduction guide
 ├── wiki/                         # GitHub Wiki source pages
 ├── agent_skills_spec.md          # Claude Code skills specification
 ├── CLAUDE_CODE_PLUGIN_DEVELOPMENT_GUIDE.md  # Plugin development guide
