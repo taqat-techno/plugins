@@ -1,6 +1,6 @@
 # Plugin Catalog
 
-All 17 plugins in the **taqat-techno-plugins** marketplace, with current version, category, component inventory, and a link to each plugin's own documentation.
+All 18 plugins in the **taqat-techno-plugins** marketplace, with current version, category, component inventory, and a link to each plugin's own documentation.
 
 Listed in marketplace order. Component counts are the real contents of each plugin directory; versions are the value in each plugin's `.claude-plugin/plugin.json`. The **Evals** column is `<must-fire> + <must-not-fire>` cases under `<plugin>/evals/` (HR-20); `n/a` means the plugin has no routing surface to measure and records that as a binding decision instead.
 
@@ -25,8 +25,11 @@ Listed in marketplace order. Component counts are the real contents of each plug
 | 15 | **fastapi** | `0.2.1` | development | 4 | 3 | 8 | 3 | — | 2 + 1 | [README](../../fastapi-plugin/README.md) |
 | 16 | **git-safety** | `0.3.1` | productivity | 0 | 0 | 2 | 2 | — | 1 + 1 | [README](../../git-safety-plugin/README.md) |
 | 17 | **worktree** | `2.1.1` | development | 0 | 0 | 13 | 0 | — | 3 + 1 | [README](../../worktree-plugin/README.md) |
+| 18 | **sprint-recap** | `0.1.0` | productivity | 2 | 0 | 5 | 2 | — | 4 + 1 | [README](../../sprint-recap-plugin/README.md) |
 
-**Totals:** 66 commands · 23 agents · 113 skills · 27 hook handlers · 3 bundled MCP servers · 46 eval cases (30 must-fire + 16 must-not-fire).
+**Totals:** 68 commands · 23 agents · 118 skills · 29 hook handlers · 3 bundled MCP servers · 51 eval cases (34 must-fire + 17 must-not-fire).
+
+> `sprint-recap`'s 4 fire cases cover `sprint-evidence-correlation`, `sprint-step-script`, `sprint-capture-clips` and `sprint-repro-guide`. `sprint-video-overlays` has no case: it documents rendering conventions for a generated project rather than a question a user arrives with, so there is no natural prompt that should route to it.
 
 Plugins without a dedicated wiki page are documented in their own `README.md`; the link column points there.
 
@@ -49,13 +52,14 @@ Plugins without a dedicated wiki page are documented in their own `README.md`; t
 - **fastapi** — "FastAPI done the safe way — Pydantic v2, async correctness, Alembic, security, tests."
 - **git-safety** — "Stop the git commands that quietly destroy someone else's work."
 - **worktree** — "Make a worktree a place you can live in, not a command you have to remember."
+- **sprint-recap** — "Show the sprint working in the real app, and hand over a guide that says exactly the same thing."
 
 ## Category breakdown
 
 | Category | Plugins |
 |---|---|
 | **development** | `odoo`, `remotion`, `react-kit`, `django`, `fastapi`, `worktree` |
-| **productivity** | `devops`, `notification`, `pandoc`, `rag`, `qa-browser`, `docs-wiki`, `claude-env-doctor`, `agent-safety-guards`, `release-safety`, `git-safety` |
+| **productivity** | `devops`, `notification`, `pandoc`, `rag`, `qa-browser`, `docs-wiki`, `claude-env-doctor`, `agent-safety-guards`, `release-safety`, `git-safety`, `sprint-recap` |
 | **design** | `ui-ux-mechanics` |
 
 ## Components at a glance
@@ -72,15 +76,16 @@ The `ui-ux-mechanics` plugin's Figma integration uses an external Figma MCP that
 
 ### Hooks
 
-11 of 17 plugins register hooks; 6 register none at all. The house posture is **advisory over blocking**:
+12 of 18 plugins register hooks; 6 register none at all. The house posture is **advisory over blocking**:
 
 | Plugin | Hooks | Posture |
 |---|---|---|
 | `odoo` | 5 | SessionStart detection + `guard_core_odoo.py` **blocks** edits to core Odoo files (the one true data-loss guard) |
 | `notification` | 5 | All `async: true` — structurally cannot block Claude |
 | `django`, `fastapi` | 3 each | SessionStart detection + advisory write/bash guards |
-| `devops`, `rag`, `qa-browser`, `git-safety` | 2 each | Advisory; `qa-browser`'s production-URL gate is the only other blocker |
+| `devops`, `rag`, `qa-browser`, `git-safety` | 2 each | Advisory; `qa-browser`'s production-URL gate is the only blocker among these four |
 | `claude-env-doctor`, `agent-safety-guards`, `release-safety` | 1 each | Advisory only, exit 0 always |
+| `sprint-recap` | 2 | SessionStart credential-hygiene advisory + a `PreToolUse` Bash gate that **blocks** (exit 2) any `git add` of the plaintext credential artifacts it generates |
 | `pandoc`, `remotion`, `ui-ux-mechanics`, `react-kit`, `docs-wiki`, `worktree` | 0 | No hooks registered |
 
 `worktree` advertises zero hooks as a feature: installing it cannot disturb a session. `notification` reaches the same guarantee a different way — every hook is async, so it cannot block or control Claude even if the script is broken.
@@ -98,6 +103,8 @@ The `ui-ux-mechanics` plugin's Figma integration uses an external Figma MCP that
 | `worktree` | `git-safety` | Parallel checkouts are exactly where `reset --hard` and `stash` bite |
 | `devops` | `rag` | Search internal runbooks and SOPs while triaging PRs |
 | `docs-wiki` | `rag` | Index the wiki you just wrote so Claude can retrieve it |
+| `devops` | `sprint-recap` | The iteration items you tracked become the evidence the sprint video is built from |
+| `sprint-recap` | `qa-browser` | Both drive a real app per role; `qa-browser` proves it works, `sprint-recap` shows it working |
 | Any plugin | `agent-safety-guards` | Guardrails for fan-out and credential handling |
 
 ## Version compatibility
@@ -123,6 +130,7 @@ Running the behavioral gate (`claude plugin eval`) needs **Claude Code ≥ 2.1.2
 | fastapi | current | FastAPI 0.11x+, Pydantic v2, SQLAlchemy 2.x, Alembic |
 | git-safety | current | Any git ≥ 2.20 |
 | worktree | current | Any git with `worktree` support. Windows / macOS / Linux, no WSL required |
+| sprint-recap | current | Python 3.9+ for `collect`/`render`/`publish`; Playwright + Chromium for `capture`; Node 18+ for the Remotion render. Azure DevOps evidence needs `az`; ffmpeg optional (frame-accurate clip durations) |
 
 ## See also
 

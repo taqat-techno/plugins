@@ -1,10 +1,10 @@
 # TAQAT Techno Plugins — Marketplace Wiki
 
-Welcome to the **taqat-techno-plugins** marketplace for Claude Code. This wiki is the operator and contributor guide for the 17 production plugins shipped from this repository.
+Welcome to the **taqat-techno-plugins** marketplace for Claude Code. This wiki is the operator and contributor guide for the 18 production plugins shipped from this repository.
 
 ## What this marketplace is
 
-A curated Claude Code plugin catalog published at **[github.com/taqat-techno/plugins](https://github.com/taqat-techno/plugins)**. Each plugin delivers domain-specific capabilities: Odoo ERP development, Azure DevOps integration, desktop notifications, local RAG knowledge bases, UI/UX design, document conversion, video creation, React / Django / FastAPI engineering patterns, browser QA, project wikis, and git, release, and environment safety.
+A curated Claude Code plugin catalog published at **[github.com/taqat-techno/plugins](https://github.com/taqat-techno/plugins)**. Each plugin delivers domain-specific capabilities: Odoo ERP development, Azure DevOps integration, desktop notifications, local RAG knowledge bases, UI/UX design, document conversion, video creation, React / Django / FastAPI engineering patterns, browser QA, project wikis, sprint review videos, and git, release, and environment safety.
 
 > **Upstream products powering these plugins.** Some plugins in this marketplace are operator consoles for external products that live in their own repositories:
 >
@@ -52,6 +52,7 @@ The marketplace targets a single power-user workflow: real client projects at TA
 | **fastapi** | FastAPI toolkit - Pydantic v2, async routing, SQLAlchemy, Alembic, security, tests | [README](../../fastapi-plugin/README.md) |
 | **git-safety** | Local git-workflow guardrails, including shared-checkout safety. Advisory only | [README](../../git-safety-plugin/README.md) |
 | **worktree** | Git worktrees as first-class workspaces, with status-line integration. Zero hooks | [README](../../worktree-plugin/README.md) |
+| **sprint-recap** | Sprint review video of the real app + a matching HTML reproduction guide, from one approved step script | [README](../../sprint-recap-plugin/README.md) |
 
 Full inventory with versions and component counts: [[Plugin Catalog\|Plugin-Catalog]].
 
