@@ -9,6 +9,7 @@ For plugin-specific changelogs, see each plugin's `CHANGELOG.md`:
 - [`devops-plugin/CHANGELOG.md`](../../devops-plugin/CHANGELOG.md) — v2.0 → v6.3 evolution
 - [`rag-plugin/CHANGELOG.md`](../../rag-plugin/CHANGELOG.md) — v0.1.0 → v0.5.0 evolution
 - [`remotion-plugin/CHANGELOG.md`](../../remotion-plugin/CHANGELOG.md) — v1.0 → v2.1
+- [`sprint-recap-plugin/CHANGELOG.md`](../../sprint-recap-plugin/CHANGELOG.md) — v0.1.0 (initial release)
 
 ## Three eras
 
@@ -125,19 +126,31 @@ Major audit reports produced in this era:
 
   Measured cost on this marketplace is about **$0.25 per agent run** including judge calls, so a 4-case plugin is roughly 24 runs. Suite layout, grader types, and case conventions live in the `claude-plugin-builder` skill's `references/plugin-evals.md`.
 
+- **2026-09-21 - `sprint-recap` shipped (v0.1.0), the 18th plugin.** A sprint review usually leaves behind either a screen-share nobody recorded or a wiki page nobody follows. This plugin produces both from one source: an MP4 walkthrough of the **real application** with the step text burned in, and an HTML guide that reproduces those exact steps by hand.
+
+  The load-bearing design choice is the **single contract**. Everything downstream reads `02-script/steps.yaml`, and each step's `caption` is written once and consumed three times - as the on-screen video text, as the numbered instruction in the guide, and as the narration line. Writing the caption into the video and the guide separately is exactly how the two artifacts drift apart, so the schema does not allow it.
+
+  The pipeline is five resumable stages (`collect`, `script`, `capture`, `render`, `publish`) with a **human approval gate** at stage 2: Claude drafts the step script from collected evidence and stops, because stage 3 drives a real application with real credentials and board titles rarely describe a click-path well enough to trust blindly. Stages re-run independently - a caption fix does not mean re-recording the browser.
+
+  Evidence is correlated across Azure DevOps iteration items, git commits and Claude session transcripts, joined on work-item ID. Explicit `#23923` and branch-style `feature/23923-x` references are recognised while bare year-like numbers are rejected, so `release/2026-planning` cannot invent work item 2026. Each source degrades independently and reports its own status rather than implying full coverage.
+
+  Two conventions are worth carrying forward. First, **capture records one clip per step in its own browser context** rather than one continuous take, which pins a caption to a clip instead of to a timestamp; login is captured once per role via storage state instead of re-recorded per step. Second, the **two-file credential policy**: the shareable guide contains no secrets and points at config keys, while the plaintext credentials page is written only with `--with-credentials`, into a gitignored directory, and is never bundled with the video. A `PreToolUse` Bash hook **blocks** (exit 2) any `git add` of those artifacts, including via `git add --force` - the third real blocker in this marketplace after `odoo`'s core-file guard and `qa-browser`'s production-URL gate. Git history is not erased by a later delete, which is why this one blocks rather than warns.
+
+  It ships with a 5-case suite (4 must-fire + 1 must-not-fire) covering correlation, the step-script contract, capture discipline and the credential split. `sprint-video-overlays` is deliberately uncovered: it documents conventions for editing the generated render project, not a question a user shows up with, so no natural prompt should route to it. The must-not-fire case is a plain product-explainer video request - video-adjacent, with no sprint, no evidence and nothing to reproduce.
+
 ## Current state (Sep 2026)
 
 | Metric | Value |
 |---|---|
-| **Plugins in marketplace** | 17 |
-| **Total commands** | 66 across all plugins |
+| **Plugins in marketplace** | 18 |
+| **Total commands** | 68 across all plugins |
 | **Total agents** | 23 across all plugins |
-| **Total skills** | 113 across all plugins |
-| **Total hook handlers** | 27 across 11 plugins |
+| **Total skills** | 118 across all plugins |
+| **Total hook handlers** | 29 across 12 plugins |
 | **Plugins with MCP servers** | 3 (`odoo`, `devops`, `rag`) |
 | **Plugins with no hooks at all** | 6 (`pandoc`, `remotion`, `ui-ux-mechanics`, `react-kit`, `docs-wiki`, `worktree`) |
 | **Marketplace maintainer** | Single (Ahmed Lakosha, 4 git identity variants, 132+ commits) |
-| **Eval cases** | 46 across 16 plugins (30 must-fire + 16 must-not-fire); `notification` records N/A as D-012 |
+| **Eval cases** | 51 across 17 plugins (34 must-fire + 17 must-not-fire); `notification` records N/A as D-012 |
 | **Vendored references** | `claude-plugins-official/` (read-only) |
 
 ## Milestones on the roadmap

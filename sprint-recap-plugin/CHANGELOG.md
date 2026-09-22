@@ -38,6 +38,21 @@ Initial release.
   `--with-credentials`, into a gitignored directory, and is never bundled with
   the video.
 
+### Verification
+
+- **Eval suite (HR-20)** - 4 must-fire cases plus 1 must-not-fire, under
+  `evals/`. The fire cases target `sprint-evidence-correlation` (a branch named
+  `release/2026-planning` must not become work item 2026),
+  `sprint-step-script` (the video and the written guide disagreeing),
+  `sprint-capture-clips` (one continuous take with timestamp-positioned
+  captions, plus the production and destructive-action gates) and
+  `sprint-repro-guide` (logins written into a page that gets committed and
+  shared). `sprint-video-overlays` is deliberately uncovered: it documents
+  conventions for editing the generated render project rather than a question a
+  user arrives with, so no natural prompt should route to it. The must-not-fire
+  case is an ordinary product-explainer video request - video-adjacent, with no
+  sprint, no evidence and nothing to reproduce.
+
 ### Safety
 
 - Production-looking base URLs are refused unless `--allow-production` is passed.

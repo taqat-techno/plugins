@@ -15,7 +15,7 @@
 - [[Remotion Plugin|Remotion-Plugin]]
 - [[Notification Plugin|Notification-Plugin]]
 
-_The other 10 plugins are documented in their own READMEs - see the catalog._
+_The other 11 plugins are documented in their own READMEs - see the catalog._
 
 ### Development
 
