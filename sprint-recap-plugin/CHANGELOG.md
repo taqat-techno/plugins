@@ -3,6 +3,30 @@
 All notable changes to the sprint-recap plugin are documented here.
 This project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.3.0] - 2026-09-22
+
+### Fixed
+
+- **Work-item references in the commit BODY are now collected.** The git pass
+  formatted `%s` and `%D` only, so a team whose subjects are prose and whose
+  references live in the body (`Closes #33724 #33727`) correlated almost
+  nothing. Measured on one real sprint: 0 commits carried an ID in the
+  subject, 49 carried one only in the body, and 111 distinct work items were
+  invisible. The body is read in its own `git log` pass, because it is
+  multi-line and cannot be told apart from the `--name-only` file list in the
+  same call. The per-repo note now reports how many commits matched on a body
+  reference alone.
+
+  Body matching is explicit-only (`#123456` / `AB#123456`). A branch-style
+  bare number is right for a ref, but in prose it is a version or a count.
+
+- **A bare number in prose is no longer a work item.** `extract_ids` applied
+  the branch-style rule to every whitespace-separated token, so "serve a
+  favicon instead of a 404 on every page" filed that commit under work item
+  404, and ports and counts did the same. A token that is nothing but digits
+  is now skipped: a real branch-style reference carries its delimiter
+  (`feature/23923-donor-export`, `bugfix_23923`). The year rule is unchanged.
+
 ## [0.2.0] - 2026-09-22
 
 ### Added
