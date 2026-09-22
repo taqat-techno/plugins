@@ -17,7 +17,7 @@
    ```
 5. Click **Install**.
 
-All 17 plugins become available automatically. Claude Code clones the marketplace to `~/.claude/plugins/cache/taqat-techno-plugins/` (or the platform equivalent) and registers every plugin's components with the current session.
+All 18 plugins become available automatically. Claude Code clones the marketplace to `~/.claude/plugins/cache/taqat-techno-plugins/` (or the platform equivalent) and registers every plugin's components with the current session.
 
 ## Method 2 — Manual clone
 

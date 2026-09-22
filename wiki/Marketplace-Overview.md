@@ -4,7 +4,7 @@
 
 A Claude Code marketplace is a Git repository that ships one or more **plugins**. Users add the marketplace URL in Claude Code (`/plugins` → **Add Marketplace** → enter URL), Claude Code clones it into `~/.claude/plugins/cache/<marketplace-name>/`, and exposes every plugin's commands, agents, skills, hooks, and MCP servers to the running session.
 
-This repo is the **taqat-techno-plugins** marketplace — 17 plugins targeting real operational workflows at TAQAT Techno.
+This repo is the **taqat-techno-plugins** marketplace — 18 plugins targeting real operational workflows at TAQAT Techno.
 
 Some plugins are operator consoles for external products. The `rag` plugin, in particular, is the operations console for the upstream **[ragtools](https://github.com/taqat-techno/rag)** application — installers, product source, CHANGELOG, and release history all live in that separate repo. See [[Rag Plugin|Rag-Plugin]] for the relationship and cross-links.
 
@@ -107,6 +107,7 @@ Not every plugin uses every directory, but the shape is stable:
 | pandoc | ✓ (1) | — | — | ✓ | — | — | — | — |
 | remotion | ✓ (1) | — | — | ✓ | — | — | — | ✓ |
 | notification | ✓ (1) | — | — | ✓ | — | — | — | — |
+| sprint-recap | ✓ (2) | — | ✓ (5) | ✓ | — | — | — | ✓ |
 
 ## House engineering conventions
 
@@ -133,7 +134,7 @@ Distilled from the repo's history, three audit reports (`HOOK_AUDIT_REPORT.md`, 
 
 ## See also
 
-- [[Plugin Catalog|Plugin-Catalog]] — all 17 plugins at a glance
+- [[Plugin Catalog|Plugin-Catalog]] — all 18 plugins at a glance
 - [[Plugin Development Guide|Plugin-Development-Guide]] — authoring conventions
 - [[Architecture]] — shared layering patterns across plugins
 - [[Contribution Guide|Contribution-Guide]] — PR workflow, account switching, permission-first
