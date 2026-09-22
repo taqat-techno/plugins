@@ -21,6 +21,26 @@ intro:
   subtitle: "KhairGate (HUB)"
 
 items:
+  # Optional opening item: record the sign-in itself.
+  #
+  # `show_login: true` runs the login flow from `.sprint-recap.local.json`
+  # inside the RECORDED context, so the credentials never enter this file.
+  # The step starts signed out on purpose - handing it the cached session
+  # would make the app redirect away from the login screen before a single
+  # frame of it was recorded. Every other step still reuses the session, so
+  # this costs one sign-in, not one per step.
+  #
+  # Leave it out and the video simply opens on the first real screen.
+  - work_item: 0
+    title: "Sign in"
+    role: qa_admin
+    steps:
+      - id: login
+        caption: "Sign in as a QA administrator"
+        start: "/login"
+        show_login: true
+        hold_ms: 2000
+
   - work_item: 23923
     title: "Add donor export to the admin list"
     parent_pbi: 23900
