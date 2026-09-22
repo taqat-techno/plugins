@@ -130,12 +130,19 @@ def require_playwright():
     return sync_playwright
 
 
-def login(context, target_cfg: dict, creds: dict, timeout: int) -> None:
-    """Perform the configured login flow in a throwaway page."""
+def perform_login(page, target_cfg: dict, creds: dict, timeout: int,
+                  navigate: bool = True) -> None:
+    """Drive the configured login flow on an already-open page.
+
+    `navigate=False` is for a `show_login` step, which has already gone to its
+    own `start` URL and only wants the form filled from here. The credentials
+    come from the config in both cases - never from the step script - so a
+    password is typed on camera into a masked field but never written into an
+    artifact.
+    """
     flow = target_cfg.get("login") or {}
-    page = context.new_page()
-    page.set_default_timeout(timeout)
-    page.goto(target_cfg["base_url"].rstrip("/") + flow.get("path", "/login"))
+    if navigate:
+        page.goto(target_cfg["base_url"].rstrip("/") + flow.get("path", "/login"))
     if flow.get("username_selector"):
         page.fill(flow["username_selector"], creds["username"])
     if flow.get("password_selector"):
@@ -146,6 +153,13 @@ def login(context, target_cfg: dict, creds: dict, timeout: int) -> None:
         page.wait_for_selector(flow["success_selector"], timeout=timeout)
     else:
         page.wait_for_load_state("networkidle")
+
+
+def login(context, target_cfg: dict, creds: dict, timeout: int) -> None:
+    """Perform the configured login flow in a throwaway page."""
+    page = context.new_page()
+    page.set_default_timeout(timeout)
+    perform_login(page, target_cfg, creds, timeout)
     page.close()
 
 
@@ -191,7 +205,7 @@ def run_actions(page, step: dict, timeout: int) -> None:
 
 
 def capture_step(browser, item, step, target_cfg, state_path, out_dir, args,
-                 secrets) -> dict:
+                 secrets, creds=None) -> dict:
     """Record exactly one step. Returns its row for the capture log."""
     step_key = str(item.get("work_item")) + "-" + str(step.get("id"))
     clip_dir = out_dir / "clips" / step_key
@@ -200,8 +214,13 @@ def capture_step(browser, item, step, target_cfg, state_path, out_dir, args,
     console_errors, failed_requests = [], []
     started = time.monotonic()
 
+    # A show_login step records the sign-in itself, so it must start signed
+    # OUT. Handing it the cached storage state would make the app redirect
+    # away from the login screen before a single frame of it was recorded.
+    show_login = bool(step.get("show_login"))
+
     context = browser.new_context(
-        storage_state=str(state_path) if state_path else None,
+        storage_state=None if show_login else (str(state_path) if state_path else None),
         viewport={"width": args.width, "height": args.height},
         record_video_dir=str(clip_dir),
         record_video_size={"width": args.width, "height": args.height},
@@ -225,6 +244,12 @@ def capture_step(browser, item, step, target_cfg, state_path, out_dir, args,
     try:
         url = target_cfg["base_url"].rstrip("/") + str(step.get("start", "/"))
         page.goto(url)
+        if show_login:
+            if not creds:
+                raise RuntimeError(
+                    "show_login needs the role's credentials; none were resolved"
+                )
+            perform_login(page, target_cfg, creds, args.timeout, navigate=False)
         run_actions(page, step, args.timeout)
         page.wait_for_timeout(int(step.get("hold_ms", 1200)))
         page.screenshot(path=str(screenshot), full_page=False)
@@ -256,6 +281,7 @@ def capture_step(browser, item, step, target_cfg, state_path, out_dir, args,
         "caption": step.get("caption"),
         "role": item.get("role"),
         "start": step.get("start"),
+        "show_login": show_login,
         "actions": step.get("actions") or [],
         "status": status,
         "error": error,
@@ -312,6 +338,10 @@ def main() -> int:
                 if flag:
                     warn("  would SKIP " + str(item.get("work_item")) + "-"
                          + str(step.get("id")) + ": destructive (" + flag + ")")
+                elif step.get("show_login"):
+                    info("  would RECORD SIGN-IN " + str(item.get("work_item"))
+                         + "-" + str(step.get("id")) + " as " + str(item.get("role"))
+                         + " (starts signed out; password typed into a masked field)")
         return 0
 
     sync_playwright = require_playwright()
@@ -328,10 +358,11 @@ def main() -> int:
             headless=not args.headed, slow_mo=args.slow_mo
         )
         try:
-            states = {}
+            states, creds_by_role = {}, {}
             for item in items:
                 role = item.get("role")
                 if role not in states:
+                    creds_by_role[role] = resolve_role(config, target, role)
                     states[role] = storage_for_role(
                         playwright, browser, target_cfg, config, target, role,
                         state_dir, args.timeout,
@@ -356,7 +387,7 @@ def main() -> int:
                     info("capturing " + key + " - " + str(step.get("caption")))
                     rows.append(capture_step(
                         browser, item, step, target_cfg, states[role],
-                        out_dir, args, secrets,
+                        out_dir, args, secrets, creds_by_role[role],
                     ))
         finally:
             browser.close()

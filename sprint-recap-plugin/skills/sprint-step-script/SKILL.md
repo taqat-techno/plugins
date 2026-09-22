@@ -1,13 +1,14 @@
 ---
 name: sprint-step-script
 description: Authoring rules for steps.yaml, the sprint-recap contract. Owns the step-script schema, the "caption written once, used three times" rule, the step-is-a-narration-unit granularity rule, and the requirement that every step declare a start URL. Use when drafting or reviewing a sprint step script, or when the video and the written guide disagree.
-version: 0.1.0
-last_reviewed: 2026-09-21
+version: 0.2.0
+last_reviewed: 2026-09-22
 owns:
   - steps.yaml schema and validation rules
   - caption authoring (one caption, three consumers)
   - step granularity (narration unit, not single click)
   - the start-URL requirement that makes a step self-contained
+  - show_login as the only way a step may involve credentials
 defers_to:
   - sprint-capture-clips (how a step is executed and recorded)
   - sprint-repro-guide (how a step renders as written instructions)

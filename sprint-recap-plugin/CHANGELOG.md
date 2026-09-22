@@ -3,6 +3,39 @@
 All notable changes to the sprint-recap plugin are documented here.
 This project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.2.0] - 2026-09-22
+
+### Added
+
+- **`show_login: true` on a step** - records the sign-in itself as the opening
+  scene. The step is built without the cached storage state, so the login
+  screen actually renders, and the flow is driven from the target's `login`
+  block plus the role's entry in `.sprint-recap.local.json`.
+
+  This closes the only gap that would have forced a credential into
+  `steps.yaml`: actions take literal strings, so spelling a sign-in out as
+  `fill` actions meant a working password in a file that gets reviewed and
+  shared. Credentials now stay in the config for this case too, and the
+  existing redaction already scrubs them from console and network logs.
+
+  The reproduction guide renders the step as "Sign in as <role>" pointing at
+  the config key - never the password, because that page is the shareable one.
+
+### Fixed
+
+- **The credential commit gate blocked discussion, not just staging.** It
+  matched the secret filenames against the whole Bash command, so a commit
+  whose MESSAGE named the file was refused - including the commit that
+  documents why the file must never be committed. It now matches only the
+  part of a command that can name a path to stage: a heredoc body and an
+  inline `-m` message are excluded. Every real staging path still blocks, and
+  the tests pin both directions.
+
+- A step could not start signed out. Every context was built with the role's
+  storage state, so a step targeting `/login` was redirected away by the app
+  before a frame was recorded - the clip showed a dashboard under a caption
+  that said "sign in", silently.
+
 ## [0.1.0] - 2026-09-21
 
 Initial release.

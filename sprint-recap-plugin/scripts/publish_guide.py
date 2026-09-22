@@ -197,9 +197,19 @@ def build_guide(script, log, args, out_dir: Path, config) -> str:
             key = str(wid) + "-" + str(step.get("id"))
             row = rows.get(key, {})
             label, tone = STATUS_LABEL.get(row.get("status", ""), ("not captured", "warn"))
-            actions = "".join(
+            steps_html = [
                 "<li>" + describe(a) + "</li>" for a in (step.get("actions") or [])
-            )
+            ]
+            if step.get("show_login"):
+                # The role NAME and the config key, never the credentials -
+                # this page is the shareable one.
+                steps_html.insert(0, (
+                    "<li>Sign in as <strong>" + esc(item.get("role"))
+                    + "</strong> - the username and password are the <code>"
+                    + esc(item.get("role")) + "</code> entry for this target in"
+                    " <code>.sprint-recap.local.json</code></li>"
+                ))
+            actions = "".join(steps_html)
             parts.append("<li>")
             parts.append("<div class='cap'>" + esc(step.get("caption")) + "</div>")
             parts.append(
