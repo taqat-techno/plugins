@@ -26,7 +26,7 @@ Listed in marketplace order. Component counts are the real contents of each plug
 | 16 | **fastapi** | `0.5.4` | development | 4 | 3 | 8 | 3 | — | 8 + 9 | [README](../../fastapi-plugin/README.md) |
 | 17 | **git-safety** | `0.6.0` | productivity | 0 | 0 | 2 | 1 | — | 2 + 2 | [README](../../git-safety-plugin/README.md) |
 | 18 | **worktree** | `2.1.5` | development | 0 | 0 | 13 | 0 | — | 3 + 1 | [README](../../worktree-plugin/README.md) |
-| 19 | **sprint-recap** | `0.4.2` | productivity | 2 | 0 | 5 | 2 | — | 5 + 2 | [README](../../sprint-recap-plugin/README.md) |
+| 19 | **sprint-recap** | `0.4.3` | productivity | 2 | 0 | 5 | 2 | — | 5 + 2 | [README](../../sprint-recap-plugin/README.md) |
 
 **Totals:** 78 commands · 24 agents · 124 skills · 39 hook handlers · 4 bundled MCP servers · 220 eval cases (115 must-fire + 105 must-not-fire).
 

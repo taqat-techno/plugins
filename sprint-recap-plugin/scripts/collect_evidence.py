@@ -159,6 +159,34 @@ def attach_parents(items, args) -> None:
 # --------------------------------------------------------------------------- #
 # git
 # --------------------------------------------------------------------------- #
+def commit_bodies(repo, args) -> dict:
+    """SHA -> commit body, fetched in its own pass.
+
+    The body cannot ride along in the main `--name-only` call: it is
+    multi-line, and git appends the file list straight after the formatted
+    output, so there is no way to tell where a body ends and the paths begin.
+    A second log is cheap next to the Azure DevOps round trips and keeps the
+    header parsing unchanged.
+    """
+    log_args = [
+        "log", "--all", "--no-merges",
+        "--since=" + args.since, "--until=" + args.until,
+        "--pretty=format:%x1d%H\x1e%b",
+    ]
+    if args.author:
+        log_args.append("--author=" + args.author)
+    bodies = {}
+    code, raw, _ = git_run(log_args, repo, timeout=120)
+    if code != 0:
+        return bodies  # the main log pass already reported why this repo failed
+    for block in raw.split("\x1d"):
+        if not block.strip():
+            continue
+        sha, _, body = block.partition("\x1e")
+        bodies[sha.strip()] = body
+    return bodies
+
+
 def collect_git(repos, args):
     commits, notes = [], []
     sep = "\x1e"
@@ -189,7 +217,8 @@ def collect_git(repos, args):
         if not raw.strip():
             notes.append(repo.name + ": 0 commits in window")
             continue
-        count = 0
+        bodies = commit_bodies(repo, args)
+        count = body_only = 0
         for block in raw.split("\x1d"):
             block = block.strip("\n")
             if not block.strip():
@@ -201,6 +230,22 @@ def collect_git(repos, args):
             sha, short, author, date, subject = parts[:5]
             refs = parts[5] if len(parts) > 5 else ""
             files = [f for f in files_blob.splitlines() if f.strip()]
+            # A team that writes "Closes #4520 #4521" in the BODY and keeps
+            # the subject prose-only is invisible to subject-plus-refs
+            # matching. Only EXPLICIT references count here: a bare number in
+            # free prose is a version, a count or an HTTP status far more
+            # often than it is a work item.
+            # A project's own --id-pattern is explicit by definition, so it
+            # applies to the body as well.
+            head_ids = extract_ids(PR_SUFFIX_RE.sub("", subject) + " " + refs, args.id_pattern)
+            body = bodies.get(sha, "")
+            if args.id_pattern:
+                body_ids = extract_ids(body, args.id_pattern)
+            else:
+                body_ids = sorted(set(EXPLICIT_ID_RE.findall(body)))
+            work_items = sorted(set(head_ids) | set(body_ids))
+            if body_ids and not head_ids:
+                body_only += 1
             commits.append({
                 "repo": repo.name,
                 "repo_path": str(repo),
@@ -212,11 +257,13 @@ def collect_git(repos, args):
                 "refs": refs,
                 "files": files[:50],
                 "file_count": len(files),
-                "work_items": extract_ids(PR_SUFFIX_RE.sub("", subject) + " " + refs,
-                                          args.id_pattern),
+                "work_items": work_items,
             })
             count += 1
-        notes.append(repo.name + ": " + str(count) + " commits")
+        note = repo.name + ": " + str(count) + " commits"
+        if body_only:
+            note += " (" + str(body_only) + " matched on a body reference only)"
+        notes.append(note)
     return commits, notes
 
 
@@ -324,6 +371,13 @@ def extract_ids(text: str, pattern: str | None = None):
                        for m in re.findall(pattern, text) if m})
     found = set(EXPLICIT_ID_RE.findall(text))
     for token in re.split(r"[\s,;()\[\]]+", text):
+        # A token that is nothing BUT digits is not a branch-style reference.
+        # In prose it is a status code, a port, a count or a version:
+        # "serve a favicon instead of a 404 on every page" must not file that
+        # commit under work item 404. A real branch-style reference always
+        # carries its delimiter -- feature/4512-customer-export, bugfix_4512.
+        if token.isdigit():
+            continue
         for candidate in BRANCH_ID_RE.findall(token):
             if not YEAR_RE.match(candidate):
                 found.add(candidate)
