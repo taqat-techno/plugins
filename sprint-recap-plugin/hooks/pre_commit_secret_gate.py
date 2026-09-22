@@ -41,6 +41,28 @@ BROAD_ADD = re.compile(r"\bgit\s+add\b[^|;&]*(-A\b|--all\b|\s\.(?:\s|$))", re.IG
 FORCE_ADD = re.compile(r"\bgit\s+add\b[^|;&]*(-f\b|--force\b)", re.IGNORECASE)
 
 
+def path_bearing(command: str) -> str:
+    """The part of a command that can actually name a path to stage.
+
+    A commit MESSAGE is not a path. `git commit -F - <<'EOF'` with a body that
+    explains why credentials must never be committed, or `-m "... do not commit
+    .sprint-recap.local.json ..."`, must not trip this gate: it exists to stop
+    the file entering git, not to stop anyone writing about it. Matching the
+    raw command string blocks the very commit that documents the rule.
+    """
+    # A heredoc body is message text, never an argument list. Once a heredoc
+    # operator appears, only the first line can carry paths.
+    if re.search(r"<<-?\s*['\"]?\w+", command):
+        command = command.split("\n", 1)[0]
+    # Same for an inline -m/--message body.
+    # `\b` would not match before `-m`: both the space and the dash are
+    # non-word characters, so there is no boundary between them.
+    command = re.sub(
+        r"(?<!\S)(?:-m|--message)(?:=|\s+)('[^']*'|\"[^\"]*\")", " ", command
+    )
+    return command
+
+
 def main() -> int:
     try:
         payload = json.load(sys.stdin)
@@ -48,9 +70,10 @@ def main() -> int:
         return 0
 
     tool_input = payload.get("tool_input") or payload.get("toolInput") or {}
-    command = str(tool_input.get("command") or "")
-    if not command or not STAGING.search(command):
+    raw_command = str(tool_input.get("command") or "")
+    if not raw_command or not STAGING.search(raw_command):
         return 0
+    command = path_bearing(raw_command)
 
     for pattern in SECRET_PATTERNS:
         hit = pattern.search(command)
