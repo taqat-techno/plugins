@@ -2,7 +2,7 @@
   "azure-devops": {
     "type": "stdio",
     "command": "npx",
-    "args": ["-y", "@azure-devops/mcp@2.8.0", "${ADO_ORGANIZATION}", "--authentication", "envvar"],
+    "args": ["-y", "@azure-devops/mcp@2.8.0", "${ADO_ORGANIZATION}", "--authentication", "${ADO_MCP_AUTH_MODE:-azcli}", "--tenant", "${ADO_TENANT_ID:-2cba7780-c301-4e7d-a494-f0aea716e04b}"],
     "env": {
       "ADO_MCP_AUTH_TOKEN": "${ADO_MCP_AUTH_TOKEN}",
       "ado_mcp_project": "${ADO_MCP_PROJECT:-}",

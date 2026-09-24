@@ -97,23 +97,66 @@ def _profile_days_old(profile: str) -> "int | None":
         return None
 
 
+_TOKEN_AUTH_MODES = ("envvar", "env", "pat")
+
+
+def _resolve_var(token: str) -> str:
+    """Resolve a ${VAR} / ${VAR:-default} reference the way the harness would."""
+    s = token.strip()
+    if s.startswith("${") and s.endswith("}"):
+        name, sep, default = s[2:-1].partition(":-")
+        return os.environ.get(name) or (default if sep else "")
+    return s
+
+
+def _auth_mode() -> str:
+    """Effective --authentication value, read from the plugin's own .mcp.json.
+
+    Returns "" when it cannot be determined -- callers must then NOT assert that
+    any particular variable is required.
+    """
+    raw = _read_text(os.path.join(PLUGIN_ROOT, ".mcp.json"))
+    if not raw:
+        return ""
+    try:
+        args = json.loads(raw).get("azure-devops", {}).get("args", []) or []
+    except Exception:
+        return ""
+    for i, arg in enumerate(args):
+        if arg in ("--authentication", "-a") and i + 1 < len(args):
+            return _resolve_var(args[i + 1]).lower()
+    return "interactive"  # the server's own default when the flag is absent
+
+
 def _mcp_env_messages() -> list:
-    """Check the environment the azure-devops MCP server requires.
+    """Check the environment the azure-devops MCP server actually requires.
 
-    .mcp.json passes ADO_ORGANIZATION as a positional arg and ADO_MCP_AUTH_TOKEN
-    as an env var, both as bare ${VAR}. Claude Code does NOT substitute an unset,
-    defaultless ${VAR} with empty -- it forwards the literal text "${ADO_ORGANIZATION}",
-    which the server then uses as an organization name. The user sees an obscure
-    auth/404 failure instead of "you haven't configured this yet".
+    .mcp.json passes ADO_ORGANIZATION as a positional arg as a bare ${VAR}. Claude
+    Code does NOT substitute an unset, defaultless ${VAR} with empty -- it forwards
+    the literal text "${ADO_ORGANIZATION}", which the server then uses as an
+    organization name. The user sees an obscure auth/404 failure instead of "you
+    haven't configured this yet".
 
-    Deliberately NOT solved by rewriting those to ${VAR:-}: an empty organization
-    or empty token reaching the server is just as opaque, and it discards the
-    missing-variable warning `claude mcp list` would otherwise show. Instead the
-    variables stay strictly required and this preflight explains the fix, routing
-    to the plugin's existing /init setup flow rather than duplicating its logic.
+    Deliberately NOT solved by rewriting that to ${VAR:-}: an empty organization
+    reaching the server is just as opaque, and it discards the missing-variable
+    warning `claude mcp list` would otherwise show. Instead the variable stays
+    strictly required and this preflight explains the fix, routing to the plugin's
+    existing /init setup flow rather than duplicating its logic.
+
+    ADO_MCP_AUTH_TOKEN is required ONLY by the token-bearing auth modes. Under the
+    default 'azcli' mode the server rides the Azure CLI session and never reads the
+    variable, so warning about it there is a false alarm -- one that trains the user
+    to ignore this advisory wholesale. The az session itself is NOT probed here:
+    that would reintroduce the subprocess latency this hook was rewritten to remove.
+    `az account show` is the documented first check in the skill's troubleshooting
+    path instead.
     """
     out = []
-    missing = [v for v in ("ADO_ORGANIZATION", "ADO_MCP_AUTH_TOKEN") if not os.environ.get(v)]
+    required = ["ADO_ORGANIZATION"]
+    if _auth_mode() in _TOKEN_AUTH_MODES:
+        required.append("ADO_MCP_AUTH_TOKEN")
+
+    missing = [v for v in required if not os.environ.get(v)]
     if missing:
         out.append(
             "[DevOps] Azure DevOps MCP is not configured: "
