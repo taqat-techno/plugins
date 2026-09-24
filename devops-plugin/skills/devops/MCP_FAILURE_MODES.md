@@ -11,12 +11,15 @@ When the Azure DevOps MCP server (`@azure-devops/mcp`) is unavailable or errors 
 **Common Causes**:
 - `npx` installation failed (network issue, npm registry down)
 - Node.js not installed or wrong version (requires 16+)
-- Environment variables not set (`ADO_MCP_AUTH_TOKEN`, `ADO_ORGANIZATION`)
+- `ADO_ORGANIZATION` not set (required in every auth mode)
+- Expired `az login` session (default `azcli` auth mode depends on it)
+- In token modes only: `ADO_MCP_AUTH_TOKEN` not set. An unset `${VAR}` is forwarded **literally**, so the
+  server hangs instead of returning 401 — it reads as a **timeout**, not an auth error
 
 **Recovery**:
 1. Check Node.js: `node --version` (expect 16+)
 2. Check npx: `npx --version`
-3. Verify env vars: `echo $ADO_MCP_AUTH_TOKEN` (should not be empty)
+3. Verify auth: `az account show` (default `azcli` mode) — or `echo $ADO_MCP_AUTH_TOKEN` in token modes
 4. Reinstall: Run `/init` to reconfigure MCP server
 5. Manual test: `npx -y @azure-devops/mcp@latest`
 
@@ -31,7 +34,7 @@ When the Azure DevOps MCP server (`@azure-devops/mcp`) is unavailable or errors 
 **Recovery**:
 1. Regenerate PAT at `https://dev.azure.com/{org}/_usersSettings/tokens`
 2. Required scopes: **Code** (Read/Write), **Work Items** (Read/Write), **Build** (Read/Execute)
-3. Set env var: `export ADO_MCP_AUTH_TOKEN="your-new-pat"`
+3. Default `azcli` mode: re-run `az login` — no PAT involved. Token modes: `export ADO_MCP_AUTH_TOKEN="your-new-pat"`
 4. Verify: `az devops login` (for CLI fallback)
 
 **CLI Fallback**: `az login` uses device code authentication (no PAT needed).

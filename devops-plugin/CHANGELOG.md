@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [6.9.3] - 2026-09-24
+
+**Default MCP auth switched to `azcli`; the token advisory is now auth-mode aware.**
+
+`.mcp.json` shipped `--authentication envvar`, which reads `ADO_MCP_AUTH_TOKEN`. That variable is unset
+by default, and Claude Code forwards an unset, defaultless `${VAR}` **literally** -- so the server received
+the string `"${ADO_MCP_AUTH_TOKEN}"` as its bearer token, could never authenticate, and **hung instead of
+exiting**. Users saw a 30s connect timeout rather than an auth error, and the SessionStart advisory and the
+timeout were the same defect wearing two faces.
+
+- Auth mode is now `${ADO_MCP_AUTH_MODE:-azcli}` with `--tenant ${ADO_TENANT_ID:-<default>}`. `azcli` rides
+  the `az login` session, so **no secret is stored in any file** -- what the org's OneDrive policy requires.
+  Setting `ADO_MCP_AUTH_MODE` to `envvar`/`env`/`pat` restores the old behaviour unchanged; `--tenant` is
+  documented upstream as applied only to `interactive`/`azcli`, so it is inert in those modes.
+- `session_start_check.py` now reads the effective `--authentication` value out of the plugin's own
+  `.mcp.json` and demands `ADO_MCP_AUTH_TOKEN` **only** in the token-bearing modes. Under `azcli` it was a
+  false alarm -- one that trains users to ignore the advisory wholesale. `ADO_ORGANIZATION` is still required
+  in every mode. When the mode cannot be determined the hook asserts nothing about the token.
+- The az session is deliberately **not** probed in the hook: that would reintroduce the subprocess latency
+  this hook was rewritten to remove. `az account show` is now the documented first check in
+  `MCP_FAILURE_MODES.md` and `SKILL.md` instead.
+- The `${VAR}` contract in `.mcp.json` is **unchanged** -- `ADO_MCP_AUTH_TOKEN` stays a bare `${VAR}` so the
+  `claude mcp list` missing-variable warning still works in the modes that need it.
+
+Known gap, not addressed here: `/init` still walks the user through creating a PAT and assumes `envvar`.
+
+---
+
 ## [6.9.2] - 2026-09-12
 
 Adds a behavioural eval suite under `evals/` (1 must-fire case + 1 must-not-fire case), so this plugin's value claim is measured as

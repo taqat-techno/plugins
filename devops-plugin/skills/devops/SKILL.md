@@ -60,7 +60,7 @@ user-invocable: false
 - **MCP Server**: `@azure-devops/mcp`
 - **CLI Extension**: `azure-devops` (via Azure CLI 2.30.0+)
 - **Auth CLI**: `AZURE_DEVOPS_EXT_PAT` env var
-- **Auth MCP**: `ADO_MCP_AUTH_TOKEN` env var
+- **Auth MCP**: `azcli` by default — rides the `az login` session, no token stored on disk. Override with `ADO_MCP_AUTH_MODE` (`envvar`/`env`/`pat` then read `ADO_MCP_AUTH_TOKEN`).
 - **Tools**: 100+ MCP tools + full CLI
 - **MCP Failures**: If MCP server is unavailable, see `devops/MCP_FAILURE_MODES.md` for recovery and CLI fallback matrix.
 
@@ -72,13 +72,16 @@ Durable facts that prevent the most common "DevOps doesn't work" reports. For fu
 
 ### MCP auth env vars (the silent-unauth trap)
 
-The official `@azure-devops/mcp` server in `--authentication envvar` mode reads the PAT from `ADO_MCP_AUTH_TOKEN` — **not** `ADO_PAT_TOKEN`. Setting the wrong variable leaves the server unauthenticated, which surfaces as "DevOps doesn't work / no tools appear" rather than a clear 401. The organization is passed as a **positional argument**, and you should also export `ADO_ORGANIZATION`.
+**The default mode is `azcli`**: the server rides the Azure CLI session, so there is no PAT to set and nothing secret on disk. If MCP stops working, run **`az account show` first** — an expired `az login` is the likely cause. Do not go hunting for a missing PAT.
+
+In the token-bearing modes (`envvar`/`env`/`pat`, selected via `ADO_MCP_AUTH_MODE`) the server reads the PAT from `ADO_MCP_AUTH_TOKEN` — **not** `ADO_PAT_TOKEN`. Setting the wrong variable leaves the server unauthenticated; because it then *hangs rather than exiting*, this surfaces as a **connect timeout**, not a clear 401. The organization is passed as a **positional argument**, and you should also export `ADO_ORGANIZATION` — it is required in every mode.
 
 | Item | Correct value | Common mistake |
 |------|---------------|----------------|
 | PAT env var | `ADO_MCP_AUTH_TOKEN` | `ADO_PAT_TOKEN` (leaves server silently unauthenticated) |
 | Organization | positional arg **and** `ADO_ORGANIZATION` env var | omitting it / only setting one |
-| Auth mode | `--authentication envvar` | mismatched mode vs. the var you set |
+| Auth mode | `azcli` (default) | mismatched mode vs. the var you set |
+| Auth looks "timed out" | check `az account show` **before** suspecting a PAT | assuming a token is missing |
 
 ### Tool names drift across MCP versions
 

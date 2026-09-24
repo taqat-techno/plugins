@@ -215,7 +215,8 @@ class TestMcpServerDeclared:
     def test_mcp_json_uses_env_vars(self):
         with open(PLUGIN_ROOT / ".mcp.json") as f:
             content = f.read()
-        # @azure-devops/mcp with "--authentication envvar" reads the PAT from ADO_MCP_AUTH_TOKEN.
+        # The default auth mode is azcli (no stored token); ADO_MCP_AUTH_TOKEN stays wired up
+        # so ADO_MCP_AUTH_MODE=envvar/env/pat remains a drop-in override.
         assert "${ADO_MCP_AUTH_TOKEN}" in content, ".mcp.json should use ADO_MCP_AUTH_TOKEN env var"
         assert "${ADO_ORGANIZATION}" in content, ".mcp.json should use ADO_ORGANIZATION env var"
 
