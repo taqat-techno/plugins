@@ -3,6 +3,12 @@
 All notable changes to the `agent-safety-guards` plugin are documented here.
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.3] - 2026-09-27
+
+### `defensive-failure-design` - rule 7
+
+- **An idempotent skip must not skip a side effect later steps depend on.** A re-runnable loader that skipped an "already exists" phase also skipped the lookup map built inside it, and the next phase silently defaulted almost every row. Lookup maps belong in an always-run step reading live state; a missing lookup is a hard error, not a default; reconcile per group, not only on totals. No `description` change.
+
 ## [0.2.2] - 2026-09-12
 
 Absorbs five recorded lessons into the two skills that already own their mechanisms. No new skill, no `description` change, no behaviour removed.

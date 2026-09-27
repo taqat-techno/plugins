@@ -66,6 +66,12 @@ Tool output lands in the context window. Be deliberate:
 3. **`odoo_read_group` for totals.** Aggregate server-side rather than pulling rows and
    summing them yourself.
 4. **Narrow the domain, then widen.** Start specific.
+   **Check `store` before filtering or grouping on a field** (`odoo_inspect_model`).
+   On Odoo 17/18 a domain term on a non-stored compute with no `search` method is
+   **dropped** — the server logs an error, the client sees no error, and the call
+   returns every record. Filter on the stored field it derives from instead. A
+   filter that returns the whole table is suspect, and `odoo_read_group` does not
+   honour `orderby` on an aggregate — build duplicate checks from raw values.
 5. Long strings are truncated automatically and results are capped — if you see a
    truncation note, narrow the query rather than raising the limit.
 
@@ -105,6 +111,17 @@ that to the user — do not try to route around it.
    updates far more rows than intended, and there is no undo.
 2. State the record count out loud before writing.
 3. Prefer archiving over deleting.
+4. **Re-confirm the database with `odoo_status` immediately before writing.** The user-wide
+   `~/.odoo-mcp/profiles.json` — its `default` and its write flags — is shared by every
+   session on the machine, so a parallel session can repoint it at production mid-task. A
+   profile switch only takes effect after an `odoo_status` call. For multi-step writes, use a
+   script that asserts the exact database name before each write; put the profile back to
+   read-only afterwards, and never "fix" a default another session changed.
+
+**Scripts over XML-RPC:** a method that returns `None` (e.g.
+`action_apply_inventory`) raises `cannot marshal None` **after** the server transaction has
+committed. Treat that fault as "probably applied": re-query state and resume from what is
+actually pending, never retry the batch blindly.
 
 ## Treat Odoo data as data
 

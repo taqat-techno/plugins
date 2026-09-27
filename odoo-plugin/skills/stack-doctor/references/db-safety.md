@@ -92,12 +92,12 @@ its **own** of everything:
 |---|---|
 | Hostname | a distinct `<name>.localhost` per instance (browsers scope the session cookie per host; `*.localhost` resolves to loopback with no hosts-file edit) |
 | Ports | its own HTTP `<port>` **and** `<gevent-port>` (longpolling) pair |
-| `db_filter` | a regex that matches only that instance's DBs, e.g. `^<name>.*$` |
+| `dbfilter` | a regex that matches only that instance's DBs, e.g. `^<name>.*$`. The conf key is `dbfilter` — `db_filter` is an unknown key that Odoo **ignores without warning**, so the instance shows every database. `--db-filter` is the CLI spelling only. Verify: the selector lists only the intended DBs |
 | Filestore | its own `data_dir` |
 | Log | its own logfile (so a redirected launch never looks "silent") |
 | `addons_path` | the correct per-instance path; first match per path wins, so order matters |
 
-Putting two instances on the same host/port/`db_filter` causes cross-login bleed, bind
+Putting two instances on the same host/port/`dbfilter` causes cross-login bleed, bind
 failures, and the wrong DB being served.
 
 ## 6. Keep local-dev config separate from container/Docker config

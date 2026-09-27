@@ -111,6 +111,14 @@ Two checks that catch it:
 - Assert the **resolved** object is non-null, not that the config key is present. A present-and-misspelled value is the whole failure.
 - Any resolver whose return type is nullable is fail-open until proven otherwise. Grep the call sites for the unchecked use, not the definition — the definition is usually honest about the `None` and the caller is what forgets.
 
+### 7. An idempotent skip must not skip a side effect later steps depend on
+
+A phased, re-runnable loader that skips "what already exists" is only safe if the skipped phase did nothing *else*. Observed shape: a name → id lookup map was built inside the phase that created categories; on a re-run that phase was skipped, the map stayed empty, and the next phase silently fell back to the root category for all but one of the rows. Nothing errored — only a per-group reconciliation against the source caught it.
+
+- Build lookup maps in a separate step that **always runs** and reads live state, never as a by-product of a create phase.
+- A missing lookup is a **hard error**, not a default. A silent default in a data path is the rule-6 hole wearing a different coat.
+- Reconcile after loading **per group** (per category, per location, per product), not only on totals — a total can match while every row sits in the wrong bucket.
+
 ## Decision framework
 
 ```

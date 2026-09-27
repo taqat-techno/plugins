@@ -317,7 +317,7 @@ Fix by putting the missing tree back on `addons_path` (in the correct order), or
 Clone an Odoo DB with `odoo-bin db duplicate` (or a full dump/load) — **never**
 `psql ... TEMPLATE`, which copies SQL only and breaks the filestore. Use a **separate
 local config**; never mutate the Docker/container conf to debug locally. Full detail,
-multi-instance isolation (own hostname / port pair / `db_filter` / filestore / log /
+multi-instance isolation (own hostname / port pair / `dbfilter` / filestore / log /
 addons_path), and snapshot backup+checksum are in `references/db-safety.md`.
 
 ## Version-aware notes (Odoo 14-19)
