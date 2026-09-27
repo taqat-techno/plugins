@@ -3,6 +3,21 @@
 All notable changes to the sprint-recap plugin are documented here.
 This project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.3.0] - 2026-09-27
+
+### Fixed
+
+- **The broad `git add` note now reaches Claude.** `pre_commit_secret_gate.py`
+  printed it to stderr with exit 0. On `PreToolUse`, Claude Code only writes that
+  to the debug log, so neither the user nor Claude ever saw it. It is now emitted
+  as `hookSpecificOutput.additionalContext` with `hookEventName: "PreToolUse"`,
+  which Claude receives next to the tool result. No `permissionDecision` is set,
+  so nothing is blocked or prompted. The two exit-2 `BLOCKED` paths are unchanged.
+- Hook stdin is decoded as UTF-8 explicitly (Windows defaulted it to cp1252), and
+  stdout/stderr are reconfigured to UTF-8.
+- `tests/test_secret_gate.py` pins the channel: the note is additionalContext
+  JSON, an explicit-path add is silent, and blocks still report on stderr.
+
 ## [0.2.0] - 2026-09-22
 
 ### Added

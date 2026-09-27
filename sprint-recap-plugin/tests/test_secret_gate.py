@@ -25,14 +25,18 @@ HOOK = Path(__file__).resolve().parent.parent / "hooks" / "pre_commit_secret_gat
 ALLOW, BLOCK = 0, 2
 
 
-def run(command: str) -> int:
+def run_full(command: str) -> tuple[int, str, str]:
     """Invoke the hook exactly as Claude Code does: JSON on stdin."""
     payload = json.dumps({"tool_input": {"command": command}})
     proc = subprocess.run(
         [sys.executable, str(HOOK)],
-        input=payload, capture_output=True, text=True, timeout=30,
+        input=payload.encode("utf-8"), capture_output=True, timeout=30,
     )
-    return proc.returncode
+    return proc.returncode, proc.stdout.decode("utf-8"), proc.stderr.decode("utf-8")
+
+
+def run(command: str) -> int:
+    return run_full(command)[0]
 
 
 class BlocksRealStaging(unittest.TestCase):
@@ -111,6 +115,28 @@ class StillBlocksWhenMessageIsPresent(unittest.TestCase):
             "EOF"
         )
         self.assertEqual(run(command), BLOCK)
+
+
+class BroadAddNoteReachesClaude(unittest.TestCase):
+    """Exit-0 stderr never reaches the model; the note must be additionalContext."""
+
+    def test_broad_add_note_is_additional_context(self):
+        code, out, err = run_full("git add -A")
+        self.assertEqual(code, ALLOW)
+        self.assertEqual(err.strip(), "")
+        hso = json.loads(out)["hookSpecificOutput"]
+        self.assertEqual(hso["hookEventName"], "PreToolUse")
+        self.assertNotIn("permissionDecision", hso)
+        self.assertIn("git check-ignore", hso["additionalContext"])
+
+    def test_explicit_path_add_is_silent(self):
+        self.assertEqual(run_full("git add src/app.py"), (ALLOW, "", ""))
+
+    def test_blocks_still_report_on_stderr(self):
+        code, out, err = run_full("git add .sprint-recap.local.json")
+        self.assertEqual(code, BLOCK)
+        self.assertEqual(out.strip(), "")
+        self.assertIn("BLOCKED", err)
 
 
 if __name__ == "__main__":

@@ -17,7 +17,8 @@ Blocked paths:
   * *-credentials.html                (the generated file, moved anywhere)
 
 Exit codes:
-  0 - allow
+  0 - allow; a broad `git add` also hands Claude a note as PreToolUse
+      additionalContext JSON (exit-0 stderr never reaches the model)
   2 - block (Claude Code treats non-zero as a block)
 """
 from __future__ import annotations
@@ -25,6 +26,12 @@ from __future__ import annotations
 import json
 import re
 import sys
+
+try:
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[attr-defined]
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[attr-defined]
+except Exception:
+    pass
 
 SECRET_PATTERNS = [
     re.compile(r"\.sprint-recap\.local\.json", re.IGNORECASE),
@@ -63,10 +70,27 @@ def path_bearing(command: str) -> str:
     return command
 
 
+def _advise(text: str) -> None:
+    """Hand a note to Claude without blocking the tool call.
+
+    On PreToolUse, stderr and plain stdout from an exit-0 hook never reach the
+    model; only hookSpecificOutput.additionalContext does, and only with
+    hookEventName set. Claude receives it next to the tool result. No
+    permissionDecision is emitted, so the normal permission flow is untouched.
+    """
+    print(json.dumps({"hookSpecificOutput": {
+        "hookEventName": "PreToolUse",
+        "additionalContext": text,
+    }}))
+
+
 def main() -> int:
     try:
-        payload = json.load(sys.stdin)
+        # Decode as UTF-8 explicitly: Windows defaults stdin to cp1252.
+        payload = json.loads(sys.stdin.buffer.read().decode("utf-8", errors="replace"))
     except Exception:  # noqa: BLE001 - a hook must never break the session
+        return 0
+    if not isinstance(payload, dict):
         return 0
 
     tool_input = payload.get("tool_input") or payload.get("toolInput") or {}
@@ -103,11 +127,10 @@ def main() -> int:
         # Not a block: a broad add is normal and usually safe because the paths
         # are gitignored. Warn so the ignore rules get verified rather than
         # assumed.
-        print(
+        _advise(
             "[sprint-recap] note: broad `git add` detected. Confirm "
             ".sprint-recap.local.json and .sprint-recap/credentials/ are "
-            "ignored here (`git check-ignore -v <path>`).",
-            file=sys.stderr,
+            "ignored here (`git check-ignore -v <path>`)."
         )
     return 0
 
