@@ -43,6 +43,21 @@ class OdooError(Exception):
     """Actionable failure. The message is shown to the model, so it explains the fix."""
 
 
+class DatabaseMissing(OdooError):
+    """The configured database is not on this server any more.
+
+    Typical cause: an Odoo.sh staging rebuild or a restore gave the database a new
+    name while the URL stayed the same. The session layer reacts by discovering the
+    current database (list_databases) and following it for non-production profiles."""
+
+
+_DB_GONE = re.compile(
+    r"database \S+ does not exist|database .* not found|FATAL:\s+database|"
+    r"KeyError: ['\"]?[\w.-]+['\"]?$|no such database",
+    re.I,
+)
+
+
 def _ssl_context(verify: bool):
     if verify:
         return None  # urllib default: verified
@@ -257,6 +272,10 @@ class OdooClient:
             )
         except xmlrpc.client.Fault as exc:
             msg = _clean_fault(exc.faultString)
+            if _DB_GONE.search(msg) or _DB_GONE.search(exc.faultString or ""):
+                raise DatabaseMissing(
+                    "database %r does not exist on %s (%s)" % (self.p.db, self.p.url, msg)
+                )
             if "database" in msg.lower():
                 raise OdooError(
                     "%s\nThe database %r may not exist on this server. "
@@ -324,7 +343,17 @@ class OdooClient:
         # several databases are served, X-Odoo-Database disambiguates.
         if self.p.db:
             headers["X-Odoo-Database"] = self.p.db
-        result = self._post_json("/json/2/%s/%s" % (model, method), payload, headers)
+        try:
+            result = self._post_json("/json/2/%s/%s" % (model, method), payload, headers)
+        except OdooError as exc:
+            # A stale X-Odoo-Database (the database was renamed by a rebuild) makes
+            # the route unresolvable. Let the host pick instead - the normal mode on
+            # Odoo.sh - and report it so the session can drop the stale name.
+            if self.p.db and "X-Odoo-Database" in headers and str(exc).startswith("404"):
+                raise DatabaseMissing(
+                    "database %r was not found on %s via JSON-2 (HTTP 404)" % (self.p.db, self.p.url)
+                )
+            raise
         if isinstance(result, dict) and result.get("error") and "result" not in result:
             err = result["error"]
             msg = err.get("message") if isinstance(err, dict) else str(err)
@@ -391,6 +420,30 @@ class OdooClient:
         if self.flavor == "json2":
             return self.call(model, "unlink", ids=ids, context=context)
         return self.call(model, "unlink", args=[ids], context=context)
+
+    # -- database discovery ------------------------------------------------
+
+    def list_databases(self) -> Optional[list]:
+        """Databases this server exposes, or None when listing is disabled.
+
+        Odoo filters the list by its dbfilter, so on a one-database-per-host
+        deployment (Odoo.sh) it returns exactly the database behind this URL."""
+        try:
+            data = self._post_json(
+                "/web/database/list",
+                {"jsonrpc": "2.0", "method": "call", "params": {}},
+            )
+            if isinstance(data, dict) and isinstance(data.get("result"), list):
+                return [str(d) for d in data["result"]]
+        except OdooError:
+            pass
+        try:
+            res = self._xmlrpc("db").list()
+            if isinstance(res, list):
+                return [str(d) for d in res]
+        except Exception:
+            pass
+        return None
 
     # -- identity ----------------------------------------------------------
 

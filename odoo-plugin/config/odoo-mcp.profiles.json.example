@@ -1,74 +1,73 @@
 {
   "//": [
-    "Example connection profiles for the bundled Odoo MCP server.",
+    "Developer-owned connection profiles for the bundled Odoo MCP server.",
+    "Save as ~/.odoo-mcp/servers.json (one file for all your projects), or pin one checkout",
+    "with <project>/.odoo-mcp.json (keep that out of version control).",
     "",
-    "Copy to ONE of these locations (the first match wins):",
-    "  <your project>/.odoo-mcp.json   - per project. ADD IT TO .gitignore.",
-    "  ~/.odoo-mcp/profiles.json       - one file covering all your projects.",
+    "LOCAL instances do not belong here: Claude creates them itself with",
+    "  python <odoo-plugin>/scripts/mcp/local_profile.py provision",
+    "into ~/.odoo-mcp/local/, one file per checkout, with expiring keys.",
     "",
-    "Never commit a real API key. Either keep the file git-ignored, or write",
-    "\"${SOME_ENV_VAR}\" and export that variable - the server expands it at runtime.",
+    "Keys: write \"${ENV_VAR}\" and export the variable. For Odoo.sh staging, create the",
+    "MCP user and key in PRODUCTION - every staging build copies production, so the key",
+    "survives rebuilds; a staging-made key dies with the build. The staging database",
+    "name itself is followed automatically after a rebuild.",
     "",
-    "Create the key in Odoo: user menu > Preferences > Account Security >",
-    "Developer API Keys > New API Key. Use a DEDICATED, least-privilege Odoo user:",
-    "the MCP server acts as that user and inherits exactly its access rights and",
-    "record rules. Never use an administrator account."
+    "Use a DEDICATED least-privilege Odoo user for remote instances - the server acts as",
+    "that user and inherits exactly its access rights and record rules."
   ],
-
-  "default": "local",
-
-  "project_map": {
-    "//": "Optional. Maps a checkout path to a profile so one user-level file serves many projects. Longest matching path wins.",
-    "~/work/some-project": "local",
-    "~/work/another-project": "staging"
-  },
-
   "profiles": {
-    "local": {
-      "url": "http://localhost:8069",
-      "db": "my_database",
+    "acme-stage": {
+      "url": "https://acme-stage.example.com",
       "username": "mcp_agent",
-      "api_key": "${ODOO_MCP_API_KEY}",
-      "mode": "write",
-      "allow_unlink": false
+      "api_key": "${ACME_STAGE_KEY}",
+      "tier": "staging",
+      "ceiling": "write",
+      "projects": [
+        "~/work/acme"
+      ]
     },
-
-    "staging": {
-      "url": "https://staging.example.com",
-      "db": "staging_db",
-      "username": "mcp_agent",
-      "api_key": "${ODOO_STAGING_API_KEY}",
-      "mode": "write",
-      "allow_unlink": false,
-      "allowed_company_ids": [1],
-      "timeout": 60
-    },
-
-    "production": {
-      "url": "https://erp.example.com",
-      "db": "production_db",
+    "acme-prod": {
+      "url": "https://erp.acme.example.com",
+      "db": "acme",
       "username": "mcp_readonly",
-      "api_key": "${ODOO_PROD_API_KEY}",
-      "mode": "read",
-      "production": true,
+      "api_key": "${ACME_PROD_KEY}",
+      "tier": "production",
+      "ceiling": "read",
+      "projects": [
+        "~/work/acme"
+      ],
       "timeout": 60
+    },
+    "shared-dev-box": {
+      "url": "http://dev-box.test:8069",
+      "db": "team_dev",
+      "username": "mcp_agent",
+      "api_key": "${DEV_BOX_KEY}",
+      "tier": "local",
+      "projects": [
+        "~/work/acme",
+        "~/work/other"
+      ]
     }
   },
-
   "//options": {
-    "url": "Base URL of the Odoo instance. Required.",
-    "db": "Database name. Required.",
-    "username": "Odoo login. Required for Odoo <=18 (XML-RPC authentication).",
-    "api_key": "API key. Required. Supports ${ENV_VAR} expansion.",
-    "mode": "'read' (default) or 'write'. Read mode refuses create/write/unlink and any method not known to be read-only.",
-    "production": "Marks the instance as production. Writes are refused unless allow_production_writes is also true.",
-    "allow_production_writes": "Deliberate opt-in to write against a production-marked instance. Default false.",
-    "allow_unlink": "Permit odoo_unlink. Default false. Archiving (active=false) is reversible and usually better.",
-    "allow_write_models": "Escape hatch: model names to exempt from the privilege-escalation write blocklist (res.users, ir.actions.server, ir.cron, ir.config_parameter, ...). Leave empty unless you are certain.",
-    "allowed_company_ids": "Sets allowed_company_ids in the Odoo context for every call. Important on multi-company databases.",
+    "url": "Base URL. Required. tier local is accepted only for loopback hosts (localhost, 127.x, ::1, *.localhost, *.test).",
+    "db": "Database. Optional on Odoo 19+ (the host selects it). Followed automatically when a staging rebuild renames it; the new name is recorded in ~/.odoo-mcp/state/learned.json, never here.",
+    "db_pattern": "Optional regex that picks the right database when a rebuilt server lists several, e.g. \"^acme-stage-\\\\d+$\".",
+    "username": "Odoo login. Required for Odoo <=18 (XML-RPC).",
+    "api_key": "API key. Supports ${ENV_VAR}.",
+    "tier": "local | staging | production. Default: local for a loopback url, else staging; legacy \"production\": true means production.",
+    "ceiling": "The MOST any session may do: read | write | write+unlink. Claude can move below it with approval, never above. Default: local write+unlink, staging write, production read.",
+    "start": "The mode a session starts in. Default: local write, otherwise read.",
+    "approval": "What raising the mode needs: none | chat (the developer's verbatim yes) | human (odoo_mcp_ctl.py approve, run in the developer's terminal). Default: local none, staging chat, production human. Production may be chat, never none.",
+    "projects": "Checkouts this profile serves. A remote profile is only used when bound here or chosen with odoo_session - never as a global default.",
+    "allow_write_models": "Escape hatch: models exempt from the privilege-escalation write blocklist (res.users, ir.actions.server, ir.cron, ir.config_parameter, ...). Leave empty unless certain.",
+    "allowed_company_ids": "allowed_company_ids in the Odoo context for every call. Important on multi-company databases.",
     "lang": "Context language, e.g. 'fr_FR'.",
     "tz": "Context timezone, e.g. 'Europe/Paris'.",
     "timeout": "Per-request timeout in seconds. Default 30, max 600.",
-    "verify_ssl": "Default true. Setting false disables TLS certificate verification and is refused on production profiles - prefer trusting your dev CA."
+    "verify_ssl": "Default true. false is refused on production profiles.",
+    "legacy": "mode / production / allow_unlink / allow_production_writes / project_map still load and map onto start / tier / ceiling / projects."
   }
 }

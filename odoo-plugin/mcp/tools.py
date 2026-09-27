@@ -1,6 +1,6 @@
 """Tool definitions and dispatch for the Odoo MCP server.
 
-Deliberately small: ten tools. Every MCP tool schema is injected into the
+Deliberately small: eleven tools. Every MCP tool schema is injected into the
 context window of every session where this server is enabled, so a sprawling
 surface is a permanent tax on unrelated work. Servers in the wild range from 3
 to 138 tools; this one stays near the low end and pushes breadth into
@@ -13,12 +13,15 @@ offers SQL, shell, filesystem or module-installation access.
 from __future__ import annotations
 
 import json
+import re
 from typing import Any
 
 import guards
+import profiles as profiles_mod
 from guards import GuardError
-from odoo_client import OdooClient, OdooError
-from profiles import ProfileError, discover
+from odoo_client import DatabaseMissing, OdooClient, OdooError
+from profiles import NoProfile, ProfileError, discover
+from session_state import ApprovalError, SessionState, audit
 
 DEFAULT_LIMIT = 50
 MAX_LIMIT = 500
@@ -64,6 +67,43 @@ TOOLS = [
                                    "and propose a starter profile.",
                 }
             },
+        },
+    },
+    {
+        "name": "odoo_session",
+        "description": "Switch THIS session's Odoo connection or its read/write mode, within "
+                       "the limits the developer set in each profile. action=list shows every "
+                       "profile (tier, ceiling, approval) and which is active and why; "
+                       "use <profile> switches the connection; mode raises or lowers "
+                       "read | write | write+unlink up to the profile's ceiling; reset returns to "
+                       "the resolved profile. Raising a local profile needs nothing; a staging "
+                       "profile needs the developer's explicit yes passed verbatim as "
+                       "approved_by_user (ask first - never assume it); a production profile "
+                       "needs the developer's own terminal grant. Other sessions are unaffected.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "action": {"type": "string", "enum": ["list", "use", "mode", "reset"]},
+                "profile": {"type": "string", "description": "Profile name for action=use."},
+                "mode": {"type": "string", "enum": ["read", "write", "write+unlink"]},
+                "ttl_minutes": {
+                    "type": "integer",
+                    "description": "How long an elevation lasts (staging default 60, max 480; "
+                                   "production default 30, max 120; local: whole session).",
+                },
+                "models": {
+                    "type": "array", "items": {"type": "string"},
+                    "description": "Optional: restrict writes in this elevation to these models.",
+                },
+                "reason": {"type": "string", "description": "Why - recorded in the audit log."},
+                "approved_by_user": {
+                    "type": "string",
+                    "description": "The developer's answer, verbatim, when the profile needs chat "
+                                   "approval. Only fill this from an explicit reply to a question "
+                                   "that named the profile and the mode.",
+                },
+            },
+            "required": ["action"],
         },
     },
     {
@@ -179,7 +219,7 @@ TOOLS = [
                        "(e.g. default_get, name_search, get_views, onchange, or a business "
                        "method). Private methods (leading underscore) and code-execution / "
                        "module-install methods are refused. Methods that are not known to be "
-                       "read-only require the profile to be in write mode.",
+                       "read-only require the session to be in write mode (odoo_session).",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -201,8 +241,8 @@ TOOLS = [
     },
     {
         "name": "odoo_create",
-        "description": "Create one or more records. Requires the profile to be in write "
-                       "mode. Returns the new ids.",
+        "description": "Create one or more records. Requires the session to be in write "
+                       "mode (see odoo_session). Returns the new ids.",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -235,8 +275,8 @@ TOOLS = [
     },
     {
         "name": "odoo_unlink",
-        "description": "Delete records permanently. Requires write mode AND "
-                       "\"allow_unlink\": true in the profile. Prefer archiving "
+        "description": "Delete records permanently. Requires the session mode "
+                       "write+unlink (see odoo_session). Prefer archiving "
                        "(odoo_write active=false), which is reversible.",
         "inputSchema": {
             "type": "object",
@@ -281,44 +321,19 @@ def _dump(payload: Any, secrets=()) -> str:
     return text
 
 
-SETUP_HELP = """No Odoo connection is configured yet, so this MCP server has nothing to talk to.
+SETUP_HELP = """No Odoo connection is configured for this project.
 
-Create ONE of these (the first match wins):
+LOCAL instance: connect without asking - from the project directory run
+  python "<odoo-plugin>/scripts/mcp/local_profile.py" provision
+then call odoo_status again (no restart).
 
-  1. <project>/.odoo-mcp.json      - per project. Add it to .gitignore.
-  2. ~/.odoo-mcp/profiles.json     - one file for all your projects.
+STAGING / PRODUCTION: the developer defines profiles in ~/.odoo-mcp/servers.json
+(url, username, api_key as "${ENV_VAR}", tier, ceiling, projects), or pins one
+checkout with <project>/.odoo-mcp.json. A remote profile is never a global default.
 
-Minimal example:
-
-{
-  "profiles": {
-    "local": {
-      "url": "http://localhost:8069",
-      "db": "<database name>",
-      "username": "<odoo login>",
-      "api_key": "${ODOO_MCP_API_KEY}",
-      "mode": "read"
-    }
-  },
-  "default": "local"
-}
-
-Getting the API key: in Odoo, open the user menu > Preferences > Account Security >
-Developer API Keys > New API Key. Use a DEDICATED least-privilege Odoo user, never
-an administrator - this server executes as that user and inherits exactly its
-access rights and record rules.
-
-"db" is optional on Odoo 19+: omit it when each database has its own hostname, as
-on Odoo.sh and Odoo Online, and the host selects it. Set it only to disambiguate
-several databases on one hostname, or for Odoo <= 18, whose XML-RPC needs the name.
-
-Keep the secret out of the file by writing "${ODOO_MCP_API_KEY}" and exporting that
-environment variable, or paste the key directly if the file is git-ignored.
-
-Alternatively set ODOO_URL, ODOO_DB, ODOO_USERNAME and ODOO_API_KEY in the
-environment.
-
-Run the /odoo-mcp command for a guided walkthrough."""
+API keys: Preferences > Account Security > Developer API Keys. For Odoo.sh staging
+create the key in PRODUCTION so it survives staging rebuilds. Details: the odoo
+plugin's mcp skill and /mcp-setup."""
 
 
 # --------------------------------------------------------------------------
@@ -327,24 +342,46 @@ Run the /odoo-mcp command for a guided walkthrough."""
 
 
 class Session:
-    """Caches the resolved profile and client for the life of the process."""
+    """Resolved catalog + in-memory session state (active profile, mode, expiry)."""
 
     def __init__(self):
-        self._profile = None
+        self.state = SessionState()
+        self._catalog = None
+        self._base = None
         self._client = None
         self._error = None
 
     def load(self, force=False):
+        """Return (effective profile or NoProfile, error)."""
         if force:
-            self._profile = self._client = self._error = None
-        if self._profile is None and self._error is None:
+            self._catalog = self._base = self._client = self._error = None
+        if self._catalog is None and self._error is None:
             try:
-                import profiles as profiles_mod
-
-                self._profile = profiles_mod.resolve()
+                wanted = self.state.override or profiles_mod.wanted_from_env()
+                cat = profiles_mod.load_catalog(wanted)
+                self._catalog = cat
+                self._base = cat.profiles[cat.chosen] if cat.chosen else NoProfile(
+                    searched=cat.searched, problem=cat.problem)
             except ProfileError as exc:
                 self._error = str(exc)
-        return self._profile, self._error
+        if self._error:
+            return None, self._error
+        if self._base is not None and self._base.configured:
+            return self.state.effective(self._base), None
+        return self._base, None
+
+    @property
+    def catalog(self):
+        self.load()
+        return self._catalog
+
+    def base_profile(self):
+        prof, err = self.load()
+        if err:
+            raise OdooError("configuration problem:\n%s" % err)
+        if prof is None or not prof.configured:
+            raise OdooError(SETUP_HELP)
+        return self._base
 
     def client(self):
         prof, err = self.load()
@@ -353,12 +390,88 @@ class Session:
         if prof is None or not prof.configured:
             raise OdooError(SETUP_HELP)
         if self._client is None:
-            self._client = OdooClient(prof)
+            self._client = OdooClient(self._base)
         return self._client
 
     def secrets(self):
-        prof = self._profile
+        prof = self._base
         return prof.secrets() if prof is not None else ()
+
+    # ---- database follow ---------------------------------------------------
+
+    def follow_database(self, exc: DatabaseMissing) -> str:
+        """The configured database vanished (staging rebuild / restore renamed it).
+
+        Non-production: discover the database now behind this URL, record it in the
+        learned-state file (never in the developer's file) and return a notice.
+        Production: report the candidate and change nothing."""
+        base = self.base_profile()
+        client = self.client()
+        found = client.list_databases()
+        old = base.db
+        if found is not None and old in found:
+            raise exc  # the database exists; this was something else
+        new = _pick_database(old, found or [], base.db_pattern)
+        if new is None and found is None and client.flavor == "json2":
+            new = ""  # listing disabled, but JSON-2 lets the host select the database
+        if new is None:
+            raise OdooError(
+                "%s\nThe server lists %s. Could not pick the new database unambiguously - set "
+                "\"db_pattern\" (a regex) on profile %r, or update \"db\"."
+                % (exc, ", ".join(found) if found else "no databases (listing disabled)", base.name)
+            )
+        if base.kind == "local":
+            raise OdooError(
+                "%s\nThis is a local profile: re-run local_profile.py provision to connect to %r."
+                % (exc, new or "the host-selected database")
+            )
+        if base.tier == "production":
+            audit({"action": "db-changed-not-followed", "profile": base.name,
+                   "from": old, "candidate": new})
+            raise OdooError(
+                "%s\nThe server now serves %r. Production profiles are not re-pointed "
+                "automatically - the developer updates \"db\" for %r."
+                % (exc, new or "(host-selected)", base.name)
+            )
+        entry = profiles_mod.remember_db(base, new)
+        audit({"action": "db-followed", "profile": base.name, "tier": base.tier,
+               "from": old, "to": new or "(host-selected)"})
+        self.load(force=True)
+        return (
+            "NOTE: the database for profile %r changed: %r -> %r. Updated automatically "
+            "(recorded %s in %s; the developer's servers file is unchanged)."
+            % (base.name, old, new or "(host-selected)", entry["learned_at"],
+               profiles_mod.state_dir() / "learned.json")
+        )
+
+
+def _pick_database(old: str, found: list, pattern: str):
+    cands = [d for d in found if d != old]
+    if pattern:
+        cands = [d for d in cands if re.search(pattern, d)]
+    if len(cands) == 1:
+        return cands[0]
+    stem = re.sub(r"[-_]?\d+$", "", old or "")
+    if stem:
+        same = [d for d in cands if d.startswith(stem)]
+        if len(same) == 1:
+            return same[0]
+    return None
+
+
+KEY_AFTER_REBUILD_HINT = (
+    "\nThe database was renamed, and the API key was rejected: a key created inside a "
+    "staging build is deleted with that build. Fix once: create the MCP user and its API "
+    "key in PRODUCTION - every staging build is a copy of production, so the key then "
+    "survives every rebuild. Put the new key in the developer's servers file (or the env "
+    "variable it references)."
+)
+
+
+def _write_audit(prof, op, model, count):
+    if getattr(prof, "tier", "local") != "local":
+        audit({"action": "write", "op": op, "model": model, "count": count,
+               "profile": prof.name, "tier": prof.tier, "mode": prof.mode})
 
 
 def _status(sess: Session, args: dict) -> str:
@@ -378,20 +491,78 @@ def _status(sess: Session, args: dict) -> str:
             out["problem"] = problem
         out["searched"] = searched
         out["help"] = SETUP_HELP
-        if args.get("suggest_config"):
-            out["discovered"] = discover()
+        cat = sess.catalog
+        if cat is not None and cat.warnings:
+            out["warnings"] = list(cat.warnings)
+        disc = discover()
+        if disc.get("conf_files") or disc.get("compose_files"):
+            out["local_candidate"] = disc
+        elif args.get("suggest_config"):
+            out["discovered"] = disc
         return _dump(out)
 
+    cat = sess.catalog
     out["profile"] = prof.describe()
+    out["selected_because"] = cat.reason
+    if sess.state.describe():
+        out["session"] = sess.state.describe()
+    others = sorted(n for n in cat.profiles if n != prof.name)
+    if others:
+        out["other_profiles"] = others
     try:
         out["connection"] = sess.client().whoami()
         out["connected"] = True
+    except DatabaseMissing as exc:
+        try:
+            out["notice"] = sess.follow_database(exc)
+            prof, _ = sess.load()
+            out["profile"] = prof.describe()
+            out["connection"] = sess.client().whoami()
+            out["connected"] = True
+        except OdooError as exc2:
+            out["connected"] = False
+            out["error"] = str(exc2)
     except OdooError as exc:
         out["connected"] = False
         out["error"] = str(exc)
+    warnings = list(cat.warnings)
+    warnings += _hygiene_warnings(cat)
+    if warnings:
+        out["warnings"] = warnings
+    if sess.state.notices:
+        out["notices"] = sess.state.notices[:]
+        sess.state.notices.clear()
     if args.get("suggest_config"):
         out["discovered"] = discover()
     return _dump(out, sess.secrets())
+
+
+def _hygiene_warnings(cat) -> list:
+    """Keep ~/.odoo-mcp tidy: flag the patterns that turn it into a mess."""
+    out = []
+    try:
+        sfile = profiles_mod.user_file()
+        if sfile.is_file():
+            raw = json.loads(sfile.read_text(encoding="utf-8"))
+            for name, p in (raw.get("profiles") or {}).items():
+                if isinstance(p, dict) and p.get("api_key") and "${" not in str(p.get("api_key")):
+                    out.append("profile %r stores its API key literally in %s - prefer "
+                               "\"${SOME_ENV_VAR}\"." % (name, sfile.name))
+        known = {"servers.json", "profiles.json", "local", "state", "grants", "audit.log"}
+        home = profiles_mod.home()
+        if home.is_dir():
+            stray = sorted(x.name for x in home.iterdir() if x.name not in known
+                           and not x.name.endswith((".bak", ".tmp")))
+            if stray:
+                out.append("non-config files in %s: %s - project data belongs in the project "
+                           "(e.g. .claude/docs), not the connection store." % (home, ", ".join(stray)))
+    except Exception:
+        pass
+    for prof in cat.profiles.values():
+        if prof.tier == "production" and prof.ceiling != "read":
+            out.append("production profile %r allows %s (ceiling). Confirm that is intended."
+                       % (prof.name, prof.ceiling))
+    return out
 
 
 def _list_models(sess: Session, args: dict) -> str:
@@ -526,6 +697,8 @@ def _call(sess: Session, args: dict) -> str:
     if not isinstance(kwargs, dict):
         raise GuardError("kwargs must be an object")
     result = c.call(model, method, ids=ids, kwargs=kwargs, context=ctx)
+    if method not in guards.READ_ONLY_METHODS:
+        _write_audit(prof, method, model, len(ids))
     return _dump({"model": model, "method": method, "result": result}, sess.secrets())
 
 
@@ -541,6 +714,7 @@ def _create(sess: Session, args: dict) -> str:
     if not isinstance(values, list) or not values or not all(isinstance(v, dict) for v in values):
         raise GuardError("values must be a non-empty list of objects")
     ids = c.create(model, values, context=ctx)
+    _write_audit(prof, "create", model, len(values))
     return _dump({"model": model, "created_ids": ids, "count": len(values)}, sess.secrets())
 
 
@@ -557,6 +731,7 @@ def _write(sess: Session, args: dict) -> str:
     if not isinstance(values, dict) or not values:
         raise GuardError("values must be a non-empty object of field -> value")
     ok = c.write(model, ids, values, context=ctx)
+    _write_audit(prof, "write", model, len(ids))
     return _dump(
         {"model": model, "updated_ids": ids, "count": len(ids), "result": ok}, sess.secrets()
     )
@@ -572,11 +747,63 @@ def _unlink(sess: Session, args: dict) -> str:
     if not ids:
         raise GuardError("ids must contain at least one record id")
     ok = c.unlink(model, ids, context=ctx)
+    _write_audit(prof, "unlink", model, len(ids))
     return _dump({"model": model, "deleted_ids": ids, "result": ok}, sess.secrets())
+
+
+def _session(sess: Session, args: dict) -> str:
+    action = (args.get("action") or "list").strip().lower()
+    if action == "reset":
+        sess.state.reset()
+        sess.load(force=True)
+        prof, _ = sess.load()
+        return _dump({"reset": True, "active": getattr(prof, "name", None),
+                      "mode": getattr(prof, "mode", None)}, sess.secrets())
+
+    cat = sess.catalog
+    if cat is None:
+        raise ProfileError(sess._error or "configuration could not be loaded")
+
+    if action == "list":
+        active = cat.chosen
+        rows = []
+        for name in sorted(cat.profiles):
+            p = cat.profiles[name]
+            view = sess.state.effective(p) if name == active else p
+            d = view.describe()
+            rows.append({k: d[k] for k in ("profile", "kind", "tier", "url", "database", "mode",
+                                           "ceiling", "approval_to_raise", "source") if k in d})
+        return _dump({"active": active, "selected_because": cat.reason,
+                      "session": sess.state.describe() or None,
+                      "profiles": rows, "warnings": cat.warnings or None}, sess.secrets())
+
+    if action == "use":
+        name = (args.get("profile") or "").strip()
+        if name not in cat.profiles:
+            raise ApprovalError("unknown profile %r. Available: %s"
+                                % (name, ", ".join(sorted(cat.profiles)) or "(none)"))
+        out = sess.state.use(cat.profiles[name], args.get("approved_by_user"))
+        sess.load(force=True)
+        prof, _ = sess.load()
+        out["profile"] = prof.describe()
+        return _dump(out, sess.secrets())
+
+    if action == "mode":
+        target = (args.get("mode") or "").strip().lower()
+        base = sess.base_profile()
+        models = args.get("models") or []
+        if not isinstance(models, list):
+            raise GuardError("models must be a list of model names")
+        out = sess.state.set_mode(base, target, args.get("ttl_minutes"), models,
+                                  args.get("reason") or "", args.get("approved_by_user"))
+        return _dump(out, sess.secrets())
+
+    raise GuardError("action must be one of list, use, mode, reset")
 
 
 HANDLERS = {
     "odoo_status": _status,
+    "odoo_session": _session,
     "odoo_list_models": _list_models,
     "odoo_inspect_model": _inspect_model,
     "odoo_search": _search,
@@ -589,14 +816,34 @@ HANDLERS = {
 }
 
 
+def _with_notices(sess: Session, text: str) -> str:
+    if sess.state.notices:
+        notes = "\n".join("NOTE: %s" % n for n in sess.state.notices)
+        sess.state.notices.clear()
+        return notes + "\n\n" + text
+    return text
+
+
 def dispatch(sess: Session, name: str, args: dict):
     """Return (text, is_error). Never raises."""
     handler = HANDLERS.get(name)
     if handler is None:
         return ("Unknown tool %r. Available: %s" % (name, ", ".join(sorted(HANDLERS))), True)
     try:
-        return (handler(sess, args or {}), False)
-    except (GuardError, ProfileError) as exc:
+        return _with_notices(sess, handler(sess, args or {})), False
+    except DatabaseMissing as exc:
+        try:
+            notice = sess.follow_database(exc)
+        except (GuardError, ProfileError, ApprovalError, OdooError) as exc2:
+            return ("Odoo error: %s" % guards.redact(str(exc2), sess.secrets()), True)
+        try:
+            return notice + "\n\n" + handler(sess, args or {}), False
+        except OdooError as exc2:
+            msg = str(exc2)
+            if re.search(r"401|no usable uid|Access Denied|authentication failed", msg):
+                msg += KEY_AFTER_REBUILD_HINT
+            return (notice + "\n\nOdoo error: %s" % guards.redact(msg, sess.secrets()), True)
+    except (GuardError, ProfileError, ApprovalError) as exc:
         return ("Refused: %s" % guards.redact(str(exc), sess.secrets()), True)
     except OdooError as exc:
         return ("Odoo error: %s" % guards.redact(str(exc), sess.secrets()), True)
