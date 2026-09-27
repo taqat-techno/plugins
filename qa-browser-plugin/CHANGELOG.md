@@ -2,6 +2,29 @@
 
 All notable changes to `qa-browser-plugin` are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/). Versioning follows [SemVer](https://semver.org/).
 
+## [0.6.0] - 2026-09-27
+
+### Fixed
+- **The production-override audit line now reaches Claude.** With
+  `QA_BROWSER_ALLOW_PRODUCTION=1`, `pre_navigate_prod_gate.py` printed
+  "navigation ... ALLOWED" to stderr with exit 0 "so the user sees the audit
+  trail". On `PreToolUse`, Claude Code only writes that to the debug log, so no
+  one saw it. It is now `hookSpecificOutput.additionalContext` with
+  `hookEventName: "PreToolUse"`, which Claude receives next to the tool result.
+  `systemMessage` is ignored on PreToolUse, and `permissionDecision: "ask"` would
+  add a prompt to every navigation under an override the user already opted into,
+  so Claude is the audit recipient.
+- Hook stdin is decoded as UTF-8 explicitly; stdout/stderr reconfigured to UTF-8.
+
+### Changed
+- The audit line is emitted only when the URL matches a production marker. It
+  used to fire on every navigation while the override was set, localhost included.
+  The block path (exit 2) is unchanged.
+
+### Added
+- `tests/test_prod_gate.py`: block without override, audit JSON with override,
+  silence on non-production URLs, fail-open on missing or garbage payloads.
+
 ## [0.5.1] - 2026-09-12
 
 Adds a behavioural eval suite under `evals/` (3 must-fire cases + 1 must-not-fire case), so this plugin's value claim is measured as

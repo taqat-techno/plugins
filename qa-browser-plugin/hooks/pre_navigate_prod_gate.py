@@ -16,7 +16,10 @@ disables the gate for the current session. The user must set it deliberately
 session's scope, OR by setting it manually in the shell).
 
 Exit codes:
-  0 — allow (URL safe OR override active)
+  0 — allow (URL safe OR override active). With the override active, the audit
+      line goes to Claude as PreToolUse additionalContext JSON: exit-0 stderr is
+      never shown to the user or the model, and systemMessage is ignored on
+      PreToolUse. No permissionDecision is set, so no extra prompt is added.
   2 — block (production URL without override) — Claude Code interprets non-zero as block
 """
 
@@ -27,40 +30,63 @@ import os
 import sys
 from pathlib import Path
 
+try:
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[attr-defined]
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[attr-defined]
+except Exception:
+    pass
+
 
 CONFIG_FILENAME = ".qa-browser.local.json"
 DEFAULT_MARKERS = ["prod", "production"]
 OVERRIDE_ENV = "QA_BROWSER_ALLOW_PRODUCTION"
 
 
+def _advise(text: str) -> None:
+    """Hand a note to Claude without blocking the tool call.
+
+    On PreToolUse, stderr and plain stdout from an exit-0 hook never reach the
+    model; only hookSpecificOutput.additionalContext does, and only with
+    hookEventName set. Claude receives it next to the tool result. No
+    permissionDecision is emitted, so the normal permission flow is untouched.
+    """
+    print(json.dumps({"hookSpecificOutput": {
+        "hookEventName": "PreToolUse",
+        "additionalContext": text,
+    }}))
+
+
 def main() -> int:
-    # Read tool-call payload from stdin (Claude Code convention).
+    # Read tool-call payload from stdin (Claude Code convention). Decode as
+    # UTF-8 explicitly: Windows defaults stdin to cp1252.
     try:
-        payload = json.load(sys.stdin)
+        payload = json.loads(sys.stdin.buffer.read().decode("utf-8", errors="replace"))
     except Exception:
         # If we cannot parse the payload, do not block. (Hook is best-effort.)
         return 0
+    if not isinstance(payload, dict):
+        return 0
 
     tool_input = payload.get("tool_input") or payload.get("toolInput") or {}
-    url = _extract_url(tool_input)
+    url = _extract_url(tool_input) if isinstance(tool_input, dict) else None
 
     if not url:
         return 0  # no URL → nothing to gate
-
-    if os.environ.get(OVERRIDE_ENV) == "1":
-        # Override active — allow, but log to stderr so the user sees the audit trail.
-        print(
-            f"[qa-browser] navigation to {url} ALLOWED — "
-            f"{OVERRIDE_ENV}=1 is set for this session.",
-            file=sys.stderr,
-        )
-        return 0
 
     markers = _load_markers()
     matched = _matched_marker(url.lower(), [m.lower() for m in markers])
 
     if matched is None:
         return 0  # non-production URL — allow
+
+    if os.environ.get(OVERRIDE_ENV) == "1":
+        # Override active — allow, and put the production visit on record for
+        # Claude (only for production URLs; other navigations stay silent).
+        _advise(
+            f"[qa-browser] navigation to production URL {url} (marker '{matched}') "
+            f"ALLOWED because {OVERRIDE_ENV}=1 is set for this session."
+        )
+        return 0
 
     # Production URL detected, no override → block.
     print(
