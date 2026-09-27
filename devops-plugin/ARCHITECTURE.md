@@ -53,7 +53,7 @@ Each concern has exactly ONE owner. Other layers reference but never re-implemen
 │  HOOKS (6) — Lifecycle automation                               │
 │                                                                 │
 │  session-start.sh       Context: profile check + staleness      │
-│  pre-write-validate.sh  Context: state/hierarchy hints           │
+│  pre_write_validate.py  Context: state/hierarchy hints           │
 │                         Enforce: bug creation block (exit 2)     │
 │                         Enforce: close/remove restriction (exit 2)│
 │                         Enforce: unresolved @mentions (exit 2)   │
@@ -110,7 +110,7 @@ Each concern has exactly ONE owner. Other layers reference but never re-implemen
 1. Add to `rules/guards.md` as a new numbered guard
 2. Reference from SKILL.md rules table
 3. Reference from relevant agents
-4. Add context injection to `hooks/pre-write-validate.sh` if detectable
+4. Add context injection to `hooks/pre_write_validate.py` if detectable
 
 ### New agent
 1. Create `agents/new-agent.md` with frontmatter (model, tools)

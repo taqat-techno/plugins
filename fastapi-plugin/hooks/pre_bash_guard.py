@@ -8,8 +8,8 @@ Two tiers:
     * alembic downgrade base       (rolls every migration back — drops the schema)
     * dropdb / DROP DATABASE       (destroys the whole database)
 
-  ADVISORY (exit 0, stderr nudge) — not destructive but desynchronizes migration
-  state and is a frequent foot-gun:
+  ADVISORY (exit 0, JSON additionalContext for Claude) — not destructive but
+  desynchronizes migration state and is a frequent foot-gun:
     * alembic stamp ...            (marks a revision as applied WITHOUT running it)
 
 Stays SILENT on normal commands (alembic upgrade/revision, uvicorn, pytest, etc.).
@@ -22,6 +22,12 @@ import os
 import re
 import sys
 import threading
+
+try:
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[attr-defined]
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[attr-defined]
+except Exception:
+    pass
 
 # Fail-OPEN after 3s — cheap regex work; a hang should not block all Bash calls.
 _timer = threading.Timer(3.0, lambda: os._exit(0))
@@ -49,11 +55,31 @@ def _classify_block(cmd):
     return None
 
 
-def main():
+def _read_payload():
+    """Parse the hook payload, decoding stdin as UTF-8 (Windows defaults to cp1252)."""
     try:
-        data = json.load(sys.stdin)
-    except (json.JSONDecodeError, EOFError, ValueError):
-        sys.exit(0)
+        return json.loads(sys.stdin.buffer.read().decode("utf-8", errors="replace"))
+    except (ValueError, OSError):
+        return None
+
+
+def _advise(text):
+    """Hand an advisory to Claude without blocking the tool call.
+
+    On PreToolUse, stderr and plain stdout from an exit-0 hook never reach the
+    model; only hookSpecificOutput.additionalContext does, and only with
+    hookEventName set. Claude receives it next to the tool result, so it steers
+    the next step rather than this call. No permissionDecision is emitted, so
+    the normal permission flow is untouched.
+    """
+    print(json.dumps({"hookSpecificOutput": {
+        "hookEventName": "PreToolUse",
+        "additionalContext": text,
+    }}))
+
+
+def main():
+    data = _read_payload()
 
     tool_input = (data.get("tool_input") or {}) if isinstance(data, dict) else {}
     command = tool_input.get("command", "")
@@ -82,12 +108,11 @@ def main():
 
     # Advisory: alembic stamp (desyncs DB from migration history).
     if _STAMP_RE.search(command):
-        print(
+        _advise(
             "[fastapi] advisory: `alembic stamp` marks a revision as applied WITHOUT running its "
             "upgrade(), desynchronizing the DB from migration state. Use it only when the schema "
-            "is PROVEN to already match the target revision — otherwise prefer a real "
-            "`alembic upgrade`.",
-            file=sys.stderr,
+            "is PROVEN to already match the target revision - otherwise prefer a real "
+            "`alembic upgrade`."
         )
 
     _timer.cancel()

@@ -170,7 +170,7 @@ devops-plugin/
 +-- hooks/                             # Lifecycle hooks (3 files)
 |   +-- hooks.json                     # Hook configuration
 |   +-- session_start_check.py         # Lightweight profile/data health check (advisory)
-|   +-- pre-write-validate.sh          # Azure DevOps work-item write validation (role-based)
+|   +-- pre_write_validate.py          # Azure DevOps work-item write validation (role-based)
 |                                      #   (no git-push gate — git pushes are unrestricted)
 +-- agents/                            # Specialized subagents (3)
 |   +-- work-item-ops.md              # Haiku — CRUD, queries
@@ -227,7 +227,7 @@ for layer ownership):
 | Hook | Event | Behavior |
 |------|-------|----------|
 | `session_start_check.py` | SessionStart | Advisory profile / data-file health check; always exits 0, never blocks. |
-| `pre-write-validate.sh` | PreToolUse (ADO MCP writes) | Injects state/hierarchy context; hard-blocks bug-creation authority, close/remove restriction, unresolved @mentions |
+| `pre_write_validate.py` | PreToolUse (ADO MCP writes) | Injects state/hierarchy context; hard-blocks bug-creation authority, close/remove restriction, unresolved @mentions |
 
 There is **no git-push gate** — git pushes (including force-push) are **not** gated by this plugin.
 `rules/git-remote-write-gate.md` remains as advisory guidance only (permission-first +

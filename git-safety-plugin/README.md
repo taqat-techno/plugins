@@ -2,7 +2,7 @@
 
 Generic **local git-workflow safety guardrails** for Claude Code — the safety layer that git *integration* (GitHub/GitLab/GitKraken MCPs), *commit helpers*, and *PR-review* plugins leave out. It does not create commits, open PRs, or review diffs; it keeps the local git operations around that work from destroying data.
 
-**Advisory only.** Every skill reasons and warns; the one hook prints a single reminder. Nothing here blocks a command, rewrites git state, or auto-mutates anything. The user owns every commit, push, discard, and recovery decision.
+**Advisory only.** Every skill reasons and warns; the one hook hands Claude a single reminder. Nothing here blocks a command, rewrites git state, or auto-mutates anything. The user owns every commit, push, discard, and recovery decision.
 
 ## Why this plugin exists
 
@@ -27,7 +27,7 @@ Both auto-activate from their `description` triggers; they are not user-invocabl
 
 ## Hook
 
-One non-blocking `PreToolUse` hook (`hooks/risky_git_advisory.py`) inspects a shell command and, if it contains a risky git shape (`git add -A`/`.`/`-u`, `reset --hard`, `clean -fd`, `stash`, `checkout -- `/`restore`, `push --force`, `rm --cached`), prints a single reminder pointing at the relevant skill. It never blocks, never rewrites the command, and exits 0 always.
+One non-blocking `PreToolUse` hook (`hooks/risky_git_advisory.py`) inspects a shell command and, if it contains a risky git shape (`git add -A`/`.`/`-u`, `reset --hard`, `clean -fd`, `stash`, `checkout -- `/`restore`, `push --force`, `rm --cached`), hands Claude a single reminder (as PreToolUse `additionalContext`, delivered next to the tool result) pointing at the relevant skill. It never blocks, never rewrites the command, and exits 0 always.
 
 ## Boundaries (what this plugin does NOT do)
 

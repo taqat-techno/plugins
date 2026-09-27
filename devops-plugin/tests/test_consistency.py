@@ -43,7 +43,7 @@ class TestFileExistence:
         "agents/pr-reviewer.md",
         "hooks/hooks.json",
         "hooks/session_start_check.py",
-        "hooks/pre-write-validate.sh",
+        "hooks/pre_write_validate.py",
         ".claude-plugin/plugin.json",
     ])
     def test_expected_file_exists(self, path):

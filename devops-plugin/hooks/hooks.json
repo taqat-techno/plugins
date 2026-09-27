@@ -19,7 +19,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/pre-write-validate.sh\"",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/pre_write_validate.py\"",
             "timeout": 10
           }
         ]

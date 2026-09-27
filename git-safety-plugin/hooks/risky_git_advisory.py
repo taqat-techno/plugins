@@ -7,7 +7,11 @@ advisory line pointing at the relevant guardrail. It never blocks the command.
 
 Hard guarantees (per plugin house rules):
   - NON-FATAL: never blocks, never denies, never asks. Exit 0 in all cases.
-  - Advisory only: prints at most one short reminder; never rewrites the command.
+  - Advisory only: emits at most one short reminder; never rewrites the command.
+  - The reminder goes to Claude as PreToolUse JSON hookSpecificOutput.additionalContext.
+    Plain stdout/stderr from an exit-0 PreToolUse hook never reaches the model; only
+    additionalContext (with hookEventName) does. Claude receives it next to the tool
+    result, so it shapes the NEXT step - it cannot stop this command.
   - Stdlib only. No third-party dependencies. Cross-platform.
   - Silent-pass on any error or on no match (prints nothing).
 
@@ -29,7 +33,8 @@ import re
 import sys
 
 try:
-    sys.stdout.reconfigure(encoding="utf-8")
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[attr-defined]
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[attr-defined]
 except Exception:
     pass
 
@@ -97,7 +102,8 @@ def _extract_command(data):
 
 def _read_stdin():
     try:
-        raw = sys.stdin.read()
+        # Decode as UTF-8 explicitly: Windows defaults stdin to cp1252.
+        raw = sys.stdin.buffer.read().decode("utf-8", errors="replace")
     except Exception:
         return ""
     if not raw:
@@ -117,7 +123,10 @@ def main():
             return
         for pattern, message in _RULES:
             if pattern.search(command):
-                print(message)
+                print(json.dumps({"hookSpecificOutput": {
+                    "hookEventName": "PreToolUse",
+                    "additionalContext": message,
+                }}))
                 return  # one advisory line, first match only
     except Exception:
         # Advisory only — never let the hook disturb the turn.

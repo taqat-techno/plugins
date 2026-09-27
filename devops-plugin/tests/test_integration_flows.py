@@ -85,7 +85,7 @@ class TestMentionFlow:
         assert "Guard 2" in content
 
     def test_hook_checks_mentions_on_comment(self):
-        content = (HOOKS_DIR / "pre-write-validate.sh").read_text(encoding="utf-8")
+        content = (HOOKS_DIR / "pre_write_validate.py").read_text(encoding="utf-8")
         assert "wit_add_work_item_comment" in content
         assert "data-vss-mention" in content
 
@@ -106,7 +106,7 @@ class TestStateMachineFlow:
         assert "state_machine.json" in content
 
     def test_hook_references_state_machine(self):
-        content = (HOOKS_DIR / "pre-write-validate.sh").read_text(encoding="utf-8")
+        content = (HOOKS_DIR / "pre_write_validate.py").read_text(encoding="utf-8")
         assert "state_machine.json" in content or "state change" in content.lower()
 
     def test_state_machine_has_all_required_sections(self):
@@ -149,22 +149,23 @@ class TestHookToolTargeting:
 
     def test_bug_block_exits_with_2(self):
         """The bug creation authority check must hard-block (exit 2)."""
-        content = (HOOKS_DIR / "pre-write-validate.sh").read_text(encoding="utf-8")
-        assert "exit 2" in content, "Bug creation block must use exit 2"
+        content = (HOOKS_DIR / "pre_write_validate.py").read_text(encoding="utf-8")
+        assert "sys.exit(2)" in content, "Bug creation block must use exit 2"
 
     def test_three_hard_blocks_exist(self):
         """Should have exit 2 for bug creation, close/remove restriction, and mention resolution."""
-        content = (HOOKS_DIR / "pre-write-validate.sh").read_text(encoding="utf-8")
-        assert content.count("exit 2") >= 3, "Should have at least 3 hard blocks (exit 2)"
+        content = (HOOKS_DIR / "pre_write_validate.py").read_text(encoding="utf-8")
+        # One `def _block(` plus a call per hard block; behavior is in test_hooks.py.
+        assert content.count("_block(") >= 4, "Should have at least 3 hard blocks (exit 2)"
 
     def test_close_remove_block_in_hook(self):
         """The close/remove restriction check must hard-block."""
-        content = (HOOKS_DIR / "pre-write-validate.sh").read_text(encoding="utf-8")
+        content = (HOOKS_DIR / "pre_write_validate.py").read_text(encoding="utf-8")
         assert "BLOCKED" in content and "Closed" in content, "Should block non-PM/Lead from closing"
 
     def test_mention_block_exits_with_2(self):
         """The unresolved mention check must hard-block (exit 2)."""
-        content = (HOOKS_DIR / "pre-write-validate.sh").read_text(encoding="utf-8")
+        content = (HOOKS_DIR / "pre_write_validate.py").read_text(encoding="utf-8")
         assert "BLOCKED: Unresolved @mentions" in content
 
 

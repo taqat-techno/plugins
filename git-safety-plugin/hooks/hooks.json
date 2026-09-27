@@ -1,5 +1,5 @@
 {
-  "description": "git-safety advisory hooks. ONE non-fatal PreToolUse hook that inspects a shell command (Bash or PowerShell) and, if it contains a risky git operation shape (git add -A/./-u, reset --hard, clean -fd, stash, checkout -- / restore, push --force, rm --cached), prints ONE short reminder pointing at the relevant guardrail skill. It never blocks, never denies, never rewrites the command. Exit 0 always.",
+  "description": "git-safety advisory hooks. ONE non-fatal PreToolUse hook that inspects a shell command (Bash or PowerShell) and, if it contains a risky git operation shape (git add -A/./-u, reset --hard, clean -fd, stash, checkout -- / restore, push --force, rm --cached), hands Claude ONE short reminder (PreToolUse additionalContext JSON) pointing at the relevant guardrail skill. It never blocks, never denies, never rewrites the command. Exit 0 always.",
   "hooks": {
     "PreToolUse": [
       {

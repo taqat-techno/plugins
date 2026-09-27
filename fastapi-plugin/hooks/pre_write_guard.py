@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """PreToolUse hook (Write|Edit): ADVISORY nudges for risky FastAPI edits.
 
-This hook NEVER blocks and NEVER mutates anything. It prints one-line nudges to
-stderr and ALWAYS exits 0. It inspects the content being written/edited and the
+This hook NEVER blocks and NEVER mutates anything. It hands one-line nudges to
+Claude as PreToolUse additionalContext JSON on stdout and ALWAYS exits 0. It inspects the content being written/edited and the
 target path, and warns on a few deterministic, documented-risky shapes:
 
   Any Python file containing an `async def`:
@@ -33,6 +33,12 @@ import os
 import re
 import sys
 import threading
+
+try:
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[attr-defined]
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[attr-defined]
+except Exception:
+    pass
 
 # Fail-OPEN after 3s — advisory only, never wedge a Write/Edit.
 _timer = threading.Timer(3.0, lambda: os._exit(0))
@@ -136,11 +142,31 @@ def _check_migration(content):
     return []
 
 
-def main():
+def _read_payload():
+    """Parse the hook payload, decoding stdin as UTF-8 (Windows defaults to cp1252)."""
     try:
-        data = json.load(sys.stdin)
-    except (json.JSONDecodeError, EOFError, ValueError):
-        sys.exit(0)
+        return json.loads(sys.stdin.buffer.read().decode("utf-8", errors="replace"))
+    except (ValueError, OSError):
+        return None
+
+
+def _advise(text):
+    """Hand an advisory to Claude without blocking the tool call.
+
+    On PreToolUse, stderr and plain stdout from an exit-0 hook never reach the
+    model; only hookSpecificOutput.additionalContext does, and only with
+    hookEventName set. Claude receives it next to the tool result, so it steers
+    the next step rather than this call. No permissionDecision is emitted, so
+    the normal permission flow is untouched.
+    """
+    print(json.dumps({"hookSpecificOutput": {
+        "hookEventName": "PreToolUse",
+        "additionalContext": text,
+    }}))
+
+
+def main():
+    data = _read_payload()
 
     tool_input = (data.get("tool_input") or {}) if isinstance(data, dict) else {}
     path = tool_input.get("file_path") or tool_input.get("path") or ""
@@ -163,7 +189,7 @@ def main():
         warnings += _check_migration(content)
 
     if warnings:
-        print("\n".join(warnings), file=sys.stderr)
+        _advise("\n".join(warnings))
 
     _timer.cancel()
     sys.exit(0)  # ALWAYS allow — advisory only
