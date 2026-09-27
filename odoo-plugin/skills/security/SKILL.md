@@ -339,6 +339,24 @@ Related: `skills/reviewer/references/security_pitfalls.md` covers the converse
 — never trusting a caller-supplied context key as the *authority* for a
 security decision.
 
+### Portal/public user sees too little: widen with a narrow rule, never with public ACLs
+
+Record rules from different groups are **OR'd**, so a portal-type user who
+cannot see records their business role needs is usually reached only by some
+unrelated shared rule (e.g. the website shop rule). Add a read-only `ir.rule`
+on *their* group that admits exactly those records. Do not loosen the shared
+rule and do not change the data (publishing, "Can be Sold") — both leak the
+records to every anonymous visitor.
+
+When a public-facing search raises AccessError because a term evaluates a
+`compute_sudo=False` field (e.g. `virtual_available`) as the public user, sudo
+that one term: `('id', 'in', self.sudo()._search([...]))` — the pattern core
+`website_sale_stock` uses. **Never** grant `base.group_public` /
+`base.group_portal` read on internal models (`stock.quant`, `stock.move`,
+`stock.location`, `stock.warehouse`) to silence one search; that exposes the
+whole model. To revoke such a grant, delete the CSV rows — the upgrade then
+removes the database rows.
+
 ## Configuration
 
 Users can create `.odoo-security.json` in the module root to customize:

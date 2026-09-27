@@ -2,6 +2,28 @@
 
 All notable changes to `odoo-plugin` are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/). Versioning follows [SemVer](https://semver.org/).
 
+## [2.9.4] - 2026-09-27
+
+Absorbs seven recorded Odoo lessons into the four skills that own their layers. No new skill, no `description` change.
+
+### `upgrade` - production hand-edits are reconciled on the next `-u`
+
+New section covering the three ways `-u` meets manual changes to module-owned data (re-import of `noupdate="0"` records plus `_process_end` deleting unloaded xmlids): a shipped record deleted in the UI is re-created and fails on its leftovers (fix: idempotent pre-upgrade xmlid re-link with dry-run, DB-name guard and a `res_groups_users_rel` before/after diff); a hand-made hotfix given a module xmlid is silently deleted (create it with none); a UI edit to a code-defined record is reverted - and a role's Portal ↔ Internal switch cannot be made in place at all because of `_check_one_user_type`.
+
+### `security` - widen portal/public visibility with a narrow rule, never public ACLs
+
+Record rules from different groups are OR'd; add a read-only rule on the user's own group rather than loosening a shared rule or publishing data. For a public search that trips AccessError on a `compute_sudo=False` field, sudo that one term (`self.sudo()._search`) as core `website_sale_stock` does - never grant `base.group_public`/`base.group_portal` read on internal stock models.
+
+### `mcp` - three live-instance traps
+
+- A domain on a non-stored compute with no `search` method is **dropped** on Odoo 17/18 (verified in `osv/expression.py`: logged server-side, replaced by a dummy leaf), so the call returns every record with no client-side error. Check `store` first; `odoo_read_group` also ignores `orderby` on an aggregate.
+- `~/.odoo-mcp/profiles.json` is shared by every session on the machine; re-confirm the database with `odoo_status` immediately before any write and assert the DB name inside multi-step write scripts.
+- `cannot marshal None` from an XML-RPC call to a void method fires after the commit - re-query and resume, never retry blindly.
+
+### `stack-doctor` - the conf key is `dbfilter`
+
+`references/db-safety.md` named the isolation axis `db_filter`, which is an unknown conf key that Odoo ignores without warning (`odoo/tools/config.py`: `--db-filter`, `dest="dbfilter"`). The table now gives the correct key, the silent-failure consequence and the check. The plugin's own generators already wrote `dbfilter`.
+
 ## [2.9.3] - 2026-09-12
 
 Absorbs six recorded Odoo lessons into the three skills that own their layers. `reviewer/SKILL.md` is at its body-size limit, so all three reviewer rules went to `references/` rather than the body.

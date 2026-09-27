@@ -225,6 +225,34 @@ update). To fix a seed already shipped as `noupdate="0"`: flip the XML to
 a `pre-migrate.py` (the flag change alone doesn't restore a value that was
 already clobbered — re-enter the intended value once).
 
+### Production hand-edits to module-owned data are reconciled on the next `-u`
+
+Every `-u <module>` re-imports that module's `noupdate="0"` records and then
+deletes any xmlid the module still owns but did not load this run
+(`_process_end` against `loaded_xmlids`). Three failures follow, and all three
+present as a broken release rather than as a data problem:
+
+- **A shipped record deleted in the UI is re-created** — and the re-create fails
+  on its leftovers (e.g. a role's implied group still exists → "duplicate group
+  name") or on NOT NULL columns that later-loading modules added. Fix without a
+  code change: an idempotent pre-upgrade script that re-links each missing xmlid
+  (`ir.model.data`) to the surviving record, with a rollback dry-run, a DB-name
+  guard, and a before/after diff of `res_groups_users_rel` proving nobody's
+  access moved. Prove the code is innocent by upgrading a pre-deletion dump.
+- **A hotfix record created by hand under a module's xmlid is silently deleted**
+  on that module's next upgrade. Create it with *no* xmlid, name it as a hotfix
+  to be replaced, and track the follow-up that ships it as code.
+- **A UI edit to a code-defined record is reverted** — including a role's user
+  type. Portal ↔ Internal cannot even be edited in place: core
+  `_check_one_user_type` allows one user-type group per user, and the role adds
+  the new type without removing the old. Ship it as code plus a pre-migration
+  that unlinks the old type from the group's `implied_ids`, then resync holders.
+
+Before debugging code when an upgrade crashes inserting rows the module ships,
+diff the module's xmlids against the target database. On hosted platforms that
+rebuild staging from a production copy, a repair made on one staging build is
+lost on the next — it belongs in the pre-upgrade script.
+
 ### Moving a model to a NEW module skips its `migrations/` and can drop columns
 
 `migrations/` scripts are **per-module** and keyed to the module whose
