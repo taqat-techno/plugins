@@ -3,6 +3,48 @@
 All notable changes to the `agent-safety-guards` plugin are documented here.
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2026-09-27
+
+Test the change, not the system. Adds a test-scope policy and a hook that enforces it.
+
+### Added
+- **`skills/test-scope`** - a four-tier ladder:
+  - T0: static checks on the touched files, per edit.
+  - T1: the tests for the changed units plus new tests, once per coherent change.
+  - T2: each touched module's suite, before calling a task done.
+  - T3: the full suite, **only when the user asks, or in CI**.
+
+  Also covers escalation triggers that widen T2 without jumping to T3, batching, the
+  `FULL_SUITE=1` override semantics, test-file hygiene (extend before creating, scratch
+  probes outside the repo, every new test must bite and be collected), and a report block
+  that says what was not run. `references/runner-recipes.md` adds change-scoped selection
+  for pytest, vitest (`related`, `--changed`), jest (`--findRelatedTests`, `-o`),
+  playwright (`--only-changed`, `--last-failed`) and npm scripts, including the vitest
+  watch-mode trap.
+- **`hooks/test_scope_guard.py`**:
+  - `track` (PostToolUse `Write|Edit`, async) records the files edited per session under
+    `${CLAUDE_PLUGIN_DATA}`.
+  - `check` (PreToolUse `Bash|PowerShell`) **denies** a whole-suite run. It recognises
+    Django `manage.py test` without labels, bare `pytest`, `odoo-bin --test-enable` without
+    module tags or with `-u all`, `npm test`, `vitest run`, `jest` and `playwright test`.
+    The deny reason lists the changed files and a scoped command.
+  - `FULL_SUITE=1` in the command passes it. `TEST_SCOPE_GUARD=off` disables it.
+  - It fails open, and its decision log never stores command text.
+  - Covered by `--self-test` (46 classification cases) and `tests/test_test_scope_guard.py`
+    (10 end-to-end cases).
+- `docs/decisions.md` D-001 records why a deny is used: it is the only PreToolUse output
+  guaranteed to reach the model.
+- Evals: `fires-on-full-suite-after-small-fix`, `ignores-junit-report-config`.
+
+### Changed
+- `test-double-seams`: the checklist item "the full suite was run after the change" now
+  reads "the consumers' tests ran". A seam change widens T2 to every module injecting the
+  collaborator, and recommends the full suite when that set is unknown.
+- `workflow-reliability`: verifying an agent's claim now runs the new tests plus the
+  affected modules' suites (T2), not "the regression suite". Re-runs after a failure report
+  start from the reported failures.
+- README and the `hooks.json` description now say that the plugin has one denying hook.
+
 ## [0.2.3] - 2026-09-27
 
 ### `defensive-failure-design` - rule 7

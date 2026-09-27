@@ -171,8 +171,10 @@ bad = [e for e in polib.pofile(path)
 
 - Sweep **all** catalogues in the estate afterwards, not just the file you
   edited — the same script usually touched several.
-- Run the full suite on the exact tree even when the change "is only
-  translations": the last green run predates these files.
+- Re-run the affected modules' suites (with `-u`, because `.po` loads on
+  update) on the exact tree, even when the change "is only translations": the
+  last green run predates these files. Run the whole estate only when the user
+  asks, or in CI.
 
 ## Version-aware notes (Odoo 14-19)
 

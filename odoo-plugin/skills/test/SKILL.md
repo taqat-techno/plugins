@@ -28,7 +28,7 @@ description: |
   <example>
   Context: User wants to run tests
   user: "Run tests for my custom module with post_install tag"
-  assistant: "I will execute the test suite with --test-enable and --test-tags=post_install, showing colored output."
+  assistant: "I will execute the test suite with --test-enable and --test-tags=post_install/my_module (scoped to that module), showing colored output."
   <commentary>Test run trigger.</commentary>
   </example>
 
@@ -154,9 +154,31 @@ Base-class detail + version deltas (`SavepointCase` vs `TransactionCase`, `Comma
 - **`TransactionCase` structurally cannot see request-context bugs.** Failures that live in code which only runs inside a real request — a framework model read unelevated on the render path, a host/auth gate, session-dependent behaviour — are unreachable from a transaction test no matter how many you write. Any portal or frontend whose users hold an **unusual group set** (a custom group implying none of `base.group_public` / `group_portal` / `group_user`) needs at least one `HttpCase` that **logs in and fetches the app page**. Testing the login page alone is worthless there: it renders as the public user, so it passes against a build that 403s every logged-in request. The design-time rule behind this belongs to the **multi-tenancy-isolation** skill; this skill owns proving it.
 - **A relational field drags in another model's ACL**, and no model-level test exercises that — opening a form reads the whole field set as the restricted user. The fact and the arch-walking `get_view` recipe live in the odoo-security skill ("Access-control facts beyond the automated scan"); write that test whenever a menu is exposed to a narrow group.
 
+### Scoped runs during development (test-scope tiers)
+
+Test the change, not every installed module. The tier policy is owned by the `test-scope`
+skill (agent-safety-guards plugin). These are the Odoo selectors for each tier:
+
+| Tier | Odoo run |
+|---|---|
+| T0 | `python -m py_compile` on changed `.py`; parse changed XML (`lxml.etree.parse`); `ast.literal_eval` the manifest - no database |
+| T1, Python-only change | warm DB, **no `-u`**: `--test-enable --test-tags /<module>:<Class>[.<method>] --stop-after-init` (`test_runner.py --no-update --test-class C`) |
+| T1, manifest / XML / CSV-ACL / `.po` / field change | `-u <module> --test-tags /<module>:<Class>` - the warm loop cannot see these |
+| T2 | `-u <module> --test-tags /<module>` once per changed module; widen to modules that inherit a changed model or view |
+| T3 | every module or `-u all` - **only when the user asks, or in CI**; prefix `FULL_SUITE=1` |
+
+Warm-loop limits (trap 2 below):
+- `at_install` and untagged classes cannot be selected without `-u`;
+- a warm database is stale after a field or column removal (see the schema-removal note).
+
+Both are T1 reasons to add `-u`, not reasons to run everything.
+
+Check `N tests` in the summary on every scoped run: a selector that matches nothing reports
+`of 0 tests` with exit 0 (traps 2 and 3).
+
 ### Workflows
 
-- **Generate** — classify → pick base/tags → create only the relevant `test_*.py` + wire `tests/__init__.py` → cover happy + negative + edge + (bugfix) the exact regression → run → report.
+- **Generate** — classify → pick base/tags → **extend the module's existing test file for that model first**; create a new `test_*.py` only when none covers it, and wire it in `tests/__init__.py` → cover happy + negative + edge + (bugfix) the exact regression → run T1 → report the new file and why.
 - **Review** — inventory existing tests → map vs module behavior → score against `references/review-checklist.md` → report gaps + required changes + CLI validation.
 - **Diagnose** — capture the real failure (grep `FAIL:` / `ERROR:` + traceback) → isolate with `--test-tags /<module>:Class.test_method` → decide **test-issue vs product-bug** (do NOT weaken an assertion that caught a real bug) → fix → re-run.
 - **Requirements → tests** — parse issue / Acceptance Criteria into discrete behaviors → write a test per behavior that would **FAIL on the unfixed code** → map each test back to its requirement.
@@ -276,11 +298,11 @@ Produce the matching template for the task:
 # Generate test skeleton for a model
 python test_generator.py --model sale.order --module /c/odoo/odoo17/projects/myproject/my_module
 
-# Run tests for a module
+# Run tests for a module (install)
 python -m odoo -c conf/project17.conf -d project17 --test-enable -i my_module --stop-after-init
 
-# Run tests with specific tags
-python -m odoo -c conf/project17.conf -d project17 --test-enable --test-tags=post_install --stop-after-init
+# Run a tag within one module (a bare tag like post_install selects EVERY installed module)
+python -m odoo -c conf/project17.conf -d project17 --test-enable --test-tags=post_install/my_module --stop-after-init
 
 # Run specific test class
 python -m odoo -c conf/project17.conf -d project17 --test-enable --test-tags=/my_module:TestMyModel --stop-after-init
@@ -405,8 +427,8 @@ Default run: --test-tags=standard
 Post-install: --test-tags=post_install (most common for production tests)
 
 Examples:
-  --test-tags=post_install           → all post_install tagged tests
-  --test-tags=my_module              → all tests in module my_module
+  --test-tags=post_install           → all post_install tests of EVERY installed module
+  --test-tags=/my_module             → all tests in module my_module (without the "/" it is a TAG)
   --test-tags=/my_module:MyClass     → specific class in module
   --test-tags=/my_module:MyClass.test_method  → specific method
 ```
@@ -1063,17 +1085,19 @@ python -m odoo -c conf/project17.conf -d project17 \
 ### By Tags
 
 ```bash
-# Run only post_install tagged tests
+# Run only post_install tagged tests of one module
+# (a bare --test-tags=post_install runs them for EVERY installed module - T3)
 python -m odoo -c conf/project17.conf -d project17 \
-    --test-enable --test-tags=post_install --stop-after-init
+    --test-enable --test-tags=post_install/my_module --stop-after-init
 
-# Run standard tests only
+# Run standard tests of one module
 python -m odoo -c conf/project17.conf -d project17 \
-    --test-enable --test-tags=standard --stop-after-init
+    --test-enable --test-tags=standard/my_module --stop-after-init
 
-# Run tests for specific module
+# Run tests for a specific module - the leading "/" makes it a MODULE filter;
+# --test-tags=my_module would select a TAG named my_module and match nothing
 python -m odoo -c conf/project17.conf -d project17 \
-    --test-enable --test-tags=my_module --stop-after-init
+    --test-enable --test-tags=/my_module --stop-after-init
 ```
 
 ### By Class or Method
@@ -1087,9 +1111,9 @@ python -m odoo -c conf/project17.conf -d project17 \
 python -m odoo -c conf/project17.conf -d project17 \
     --test-enable --test-tags=/my_module:TestMyModel.test_create --stop-after-init
 
-# Exclude a tag and run the rest
+# Exclude a tag within one module
 python -m odoo -c conf/project17.conf -d project17 \
-    --test-enable --test-tags=standard,-slow --stop-after-init
+    --test-enable --test-tags=/my_module,-slow --stop-after-init
 ```
 
 ### Test-invocation traps

@@ -129,7 +129,7 @@ One move per commit. Never batch unrelated moves; a failed gate must point at ex
 
 ## Safety gates
 
-- **Never** migrate without a passing type-check (TS) — in JS, never migrate without a passing build and green tests.
+- **Never** migrate without a passing type-check (TS) — in JS, never migrate without a passing build and green tests for the touched files (`vitest related --run <files>` / `jest --findRelatedTests <files>`); the whole suite runs once at the end of the migration only if the user asks, or in CI (see `test-scope`, agent-safety-guards).
 - **Never** change runtime behavior inside a migration step (no new conditionals, no reordered effects, no "while I'm here" tweaks).
 - **Never** assume a codemod finished the job — re-read each touched file and run the gate.
 - **Never** apply ref-as-prop or `use(Ctx)` while the lockfile still resolves React 18.

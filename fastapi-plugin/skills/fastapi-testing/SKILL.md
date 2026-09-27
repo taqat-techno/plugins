@@ -80,6 +80,24 @@ app.dependency_overrides.clear()   # reset between tests, or via a fixture
 - Each test **creates its own data** (factories) and relies on rollback for isolation — never depend on execution order or leftover rows.
 - **Speed:** reuse the schema across the run where possible; a fast password hasher in test config; build the *minimum* data a test needs.
 
+## Scoped runs during development
+
+Test the change, not the project. The tier policy is owned by the `test-scope` skill
+(agent-safety-guards plugin). These are the pytest selectors for each tier:
+
+| Tier | Run |
+|---|---|
+| T0 | `python -m py_compile` on changed files; a schema/migration check when models changed |
+| T1 | `pytest tests/api/test_orders.py::test_create_rejects_negative` or `-k "orders and create"` |
+| T2 | the test package of each changed area (`pytest tests/api/orders/`), widened to the packages that import a changed model, dependency, settings or `conftest.py` |
+| T3 | Everything: **only when the user asks, or in CI**, with `FULL_SUITE=1`. Postgres-parity runs belong in CI (see Backend parity) |
+
+- After a red run: `pytest --lf --lfnf=none -x`, then the whole T1 set.
+- A path or `-k` that collects nothing reports "no tests ran" (exit 5). That is a failed
+  invocation. Async tests silently skipped by a missing asyncio/anyio config are the same
+  false pass.
+- Extend the existing test module before creating one; repro scripts live outside the repo.
+
 ## Backend parity — test on the engine you deploy
 
 A suite that runs on SQLite for speed while production runs Postgres **cannot** catch a whole class of constraint bugs, because SQLite silently ignores them:

@@ -487,7 +487,12 @@ steps:
         --test-enable --stop-after-init \
         -i my_module \
         --log-level=test 2>&1 | tee /tmp/test.log
-      grep -q "FAILED\|ERROR" /tmp/test.log && exit 1 || true
+      rc=${PIPESTATUS[0]}
+      # Verdict = Odoo's summary line + exit code. Never an ERROR-line grep:
+      # expected-exception tests log at ERROR legitimately.
+      grep -Eq "[1-9][0-9]* failed|[1-9][0-9]* error\(s\)" /tmp/test.log && exit 1
+      grep -Eq "of [1-9][0-9]* tests" /tmp/test.log || exit 1   # 0 tests = failed invocation
+      exit $rc
 ```
 
 ### Running Tests for Changed Modules Only (10x faster than `-u all`)
@@ -542,15 +547,15 @@ test_tags = standard,at_install
 Odoo writes test results to the log. Check for failures:
 
 ```bash
-# These patterns indicate test failure
-grep -E "FAILED|ERROR|Traceback|AssertionError" /tmp/odoo_test.log
-
-# Odoo 17+ also prints summary
-# "Ran X tests in Y.Zs — FAILED (failures=N, errors=M)"
-grep -E "FAILED \(failures=" /tmp/odoo_test.log && exit 1
-
-# Check exit code (Odoo returns 0 even on test failures in some versions!)
-# Always grep the log for failure patterns
+# Verdict = the summary line plus the process exit code. Never an ERROR/Traceback grep:
+# expected-exception tests (assertRaises on a bad query, NOT NULL probes) log at ERROR
+# on a green run.
+# Odoo 16+ prints one summary per phase: "N failed, M error(s) of T tests ..."
+grep -E "[0-9]+ failed, [0-9]+ error\(s\) of [0-9]+ tests" /tmp/odoo_test.log
+# Fail if any phase reports failures/errors, or if NO tests ran ("of 0 tests" = a
+# selector that matched nothing - a failed invocation, never a pass)
+grep -Eq "[1-9][0-9]* failed|[1-9][0-9]* error\(s\)" /tmp/odoo_test.log && exit 1
+grep -Eq "of [1-9][0-9]* tests" /tmp/odoo_test.log || exit 1
 ```
 
 ### Coverage in CI

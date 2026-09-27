@@ -68,6 +68,24 @@ The trap: `TestCase`'s outer transaction means **`on_commit` callbacks never fir
 - **Speed:** `--keepdb` (reuse the test DB across runs), `--parallel` (split across processes), and a fast password hasher in test settings (`MD5PasswordHasher`) — hashing is a top hidden cost in auth-heavy suites.
 - Use `setUpTestData` (classmethod) for read-only data shared across a class's tests — created once per class, not per test.
 
+## Scoped runs during development
+
+Test the change, not the project. The tier policy is owned by the `test-scope` skill
+(agent-safety-guards plugin). These are the Django selectors for each tier:
+
+| Tier | Django run |
+|---|---|
+| T0 | `python -m py_compile` on changed files; `makemigrations --check --dry-run` when models changed |
+| T1 | `manage.py test orders.tests.test_services.ServiceTest.test_round --keepdb`, or pytest `orders/tests/test_services.py::test_round` |
+| T2 | `manage.py test orders --keepdb` for each changed app, plus the apps importing a changed model, migration, settings or base class |
+| T3 | Whole project: **only when the user asks, or in CI**, with `FULL_SUITE=1`. Postgres-parity runs belong in CI (see Backend parity) |
+
+- After a red run, re-run only the failing labels (`--failed` / pytest `--lf`), then the
+  whole T1 set.
+- A label that matches nothing runs **0 tests** and exits 0. Read the `Ran N tests` line.
+- Extend the app's existing test module before creating a new one. Throwaway repro
+  scripts (see "Reproducing deployed behavior") live outside the repo.
+
 ## Backend parity — test on the engine you deploy
 
 A suite that runs on SQLite for speed while production runs Postgres **cannot** catch a whole class of constraint bugs, because SQLite silently ignores them:

@@ -549,4 +549,4 @@ class TestStockPicking(TransactionCase):
 - [ ] Test file is in `tests/` directory with `__init__.py`
 - [ ] `__init__.py` imports the test module
 - [ ] Module manifest has `'installable': True`
-- [ ] Tests pass: `python -m odoo -c conf/project.conf -d db --test-enable -u module --stop-after-init`
+- [ ] The module's tests pass (T2): `python -m odoo -c conf/project.conf -d db --test-enable -u module --test-tags /module --stop-after-init`, and the summary shows `of N tests` with N > 0

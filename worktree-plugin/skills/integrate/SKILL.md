@@ -26,7 +26,7 @@ that touched shared ground is excluded from this convergence and returned to its
 owner.
 
 **2. Capture the baseline before merging anything.** Run the `[release]`
-contract on the trunk first and keep the result. This is what turns post-merge
+contract on the trunk first and keep the result. Integration is a full-suite gate the user invoked, so when the agent-safety-guards test-scope hook is installed, prefix the `[release]` command with `FULL_SUITE=1`. This is what turns post-merge
 failures from *"was that already broken?"* into an assignment with a name on it.
 
 **3. Re-derive the merge order immediately before merging.** A pre-written

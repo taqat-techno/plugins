@@ -3,6 +3,18 @@
 All notable changes to the `django` plugin are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/); this plugin uses [Semantic Versioning](https://semver.org/).
 
+## [0.3.0] - 2026-09-27
+
+### Changed
+- **Bare `/django-test` tests what changed.** It maps the edited files to apps and test
+  labels, runs T1 with `--keepdb`, then each changed app once (T2). It widens when a model,
+  migration, settings, permissions, a shared base class or `conftest.py` changed.
+- `--all` runs the whole project, only on request. An explicit app or path runs exactly
+  that. `--keepdb` is the default for scoped runs. The command warns that `--parallel` is
+  unreliable on native Windows and that a label matching nothing runs 0 tests.
+- `django-testing`: new "Scoped runs during development" tier table (T0-T3). The tier policy
+  lives in agent-safety-guards `test-scope`.
+
 ## [0.2.1] - 2026-09-12
 
 Adds a behavioural eval suite under `evals/` (2 must-fire cases + 1 must-not-fire case), so this plugin's value claim is measured as

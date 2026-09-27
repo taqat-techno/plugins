@@ -130,7 +130,7 @@
     },
     {
       "name": "agent-safety-guards",
-      "description": "Generic agent-session safety and multi-agent workflow-reliability guardrails for Claude Code — credential-compromise response, read-only immutability, authorization verification, no-fabrication discipline, and reliable fan-out orchestration (small waves, null-safe reduce, journaled resume, verify-before-done). Advisory, never auto-mutates.",
+      "description": "Generic agent-session safety and multi-agent workflow-reliability guardrails for Claude Code — credential-compromise response, read-only immutability, authorization verification, no-fabrication discipline, and reliable fan-out orchestration (small waves, null-safe reduce, journaled resume, verify-before-done), plus test-scope: targeted tests during development, full suite only on request or in CI. Never auto-mutates.",
       "author": {
         "name": "TaqaTechno",
         "email": "info@taqatechno.com"

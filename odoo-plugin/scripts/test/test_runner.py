@@ -10,6 +10,10 @@ Usage:
     python test_runner.py --module my_module --config conf/project17.conf --database project17 --tags post_install
     python test_runner.py --module my_module --config conf/project17.conf --database project17 --show-logs
     python test_runner.py --module my_module --config conf/project17.conf --database project17 --output-format junit --output results.xml
+    python test_runner.py --module my_module --config conf/project17.conf --database project17 --no-update --test-class TestMyModel
+
+A run that collected 0 tests, or where Odoo itself exited non-zero, is reported as a
+failure - never as "ALL PASSED". A mistyped or shell-mangled selector matches nothing.
 """
 
 import argparse
@@ -86,6 +90,8 @@ class OdooTestLogParser:
     ERROR_PATTERN = re.compile(r'ERROR\s+odoo\.tests[:\.](.+)')
     SKIP_PATTERN  = re.compile(r'SKIP\s+odoo\.tests[:\.](.+)')
     RAN_PATTERN   = re.compile(r'Ran (\d+) test[s]? in ([\d.]+)s')
+    # Odoo 16+ per-phase summary: "0 failed, 0 error(s) of 12 tests when loading database"
+    ODOO_SUMMARY  = re.compile(r'(\d+) failed, (\d+) error\(s\) of (\d+) tests')
     FAIL_MSG_PATTERN  = re.compile(r'AssertionError|ValidationError|UserError|psycopg2')
     TRACEBACK_START   = re.compile(r'^Traceback \(most recent call last\):')
     LOG_PREFIX        = re.compile(r'^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d+ \d+ (?:INFO|DEBUG|WARNING|ERROR) ')
@@ -97,6 +103,7 @@ class OdooTestLogParser:
         self.total_ran = 0
         self.total_time = 0.0
         self.raw_lines = []
+        self.phase_summaries = []  # (failed, errors, total) per Odoo test phase
 
     def feed(self, line: str):
         """Process a single log line."""
@@ -153,6 +160,11 @@ class OdooTestLogParser:
             })
             return
 
+        m = self.ODOO_SUMMARY.search(clean)
+        if m:
+            self.phase_summaries.append((int(m.group(1)), int(m.group(2)), int(m.group(3))))
+            return
+
         m = self.RAN_PATTERN.search(clean)
         if m:
             self.total_ran = int(m.group(1))
@@ -168,20 +180,29 @@ class OdooTestLogParser:
             if self.FAIL_MSG_PATTERN.search(clean):
                 self.current_fail['message'] = clean
 
-    def get_summary(self) -> dict:
+    def get_summary(self, return_code: int = 0) -> dict:
         passed = sum(1 for r in self.results if r['status'] == 'pass')
         failed = sum(1 for r in self.results if r['status'] == 'fail')
         errors = sum(1 for r in self.results if r['status'] == 'error')
         skipped = sum(1 for r in self.results if r['status'] == 'skip')
+        odoo_failed = sum(p[0] for p in self.phase_summaries)
+        odoo_errors = sum(p[1] for p in self.phase_summaries)
+        odoo_total = sum(p[2] for p in self.phase_summaries)
+        collected = max(self.total_ran, odoo_total, len(self.results))
         return {
             'passed': passed,
             'failed': failed,
             'errors': errors,
             'skipped': skipped,
             'total': len(self.results),
-            'total_ran': self.total_ran or len(self.results),
+            'total_ran': collected,
             'duration_s': self.total_time,
-            'success': failed == 0 and errors == 0,
+            'odoo_exit_code': return_code,
+            'no_tests_collected': collected == 0,
+            # The verdict is the summary line plus the process exit code. Zero
+            # collected tests is a failed invocation, never a pass.
+            'success': (failed == 0 and errors == 0 and odoo_failed == 0
+                        and odoo_errors == 0 and collected > 0 and return_code == 0),
         }
 
 
@@ -195,6 +216,7 @@ def build_odoo_command(
     class_name: str | None = None,
     method_name: str | None = None,
     install: bool = False,
+    no_update: bool = False,
     log_level: str = 'test',
     extra_args: list | None = None,
 ) -> list[str]:
@@ -211,16 +233,23 @@ def build_odoo_command(
 
     if install:
         cmd += ['-i', module]
-    else:
+    elif not no_update:
         cmd += ['-u', module]
 
     cmd += ['--test-enable']
 
-    # Build --test-tags
-    if tags or class_name or method_name:
+    # Build --test-tags. Without -u/-i (warm database) an unscoped tag selects tests
+    # from EVERY installed module, so warm runs always pin each tag to this module.
+    if tags or class_name or method_name or no_update:
         tag_parts = []
         if tags:
-            tag_parts.append(tags)
+            for tag in tags.split(','):
+                tag = tag.strip()
+                if no_update and tag and '/' not in tag:
+                    tag = f'{tag}/{module}'
+                tag_parts.append(tag)
+        if no_update and not tag_parts and not class_name:
+            tag_parts.append(f'/{module}')
         if class_name:
             selector = f'/{module}:{class_name}'
             if method_name:
@@ -291,6 +320,7 @@ def run_tests(args: argparse.Namespace) -> int:
         class_name=args.test_class,
         method_name=args.test_method,
         install=args.install,
+        no_update=args.no_update,
         log_level='debug' if args.show_logs else 'test',
     )
 
@@ -356,7 +386,7 @@ def run_tests(args: argparse.Namespace) -> int:
         return 130
 
     elapsed = time.time() - start_time
-    summary = log_parser.get_summary()
+    summary = log_parser.get_summary(return_code)
     if not summary['duration_s']:
         summary['duration_s'] = round(elapsed, 2)
 
@@ -364,9 +394,20 @@ def run_tests(args: argparse.Namespace) -> int:
     print(fmt_section('Test Results Summary'))
 
     status_color = Color.GREEN if summary['success'] else Color.RED
-    overall = 'ALL PASSED' if summary['success'] else 'TESTS FAILED'
+    if summary['no_tests_collected']:
+        overall = 'NO TESTS RAN - failed invocation'
+    elif summary['success']:
+        overall = 'ALL PASSED'
+    elif summary['failed'] == 0 and summary['errors'] == 0 and return_code != 0:
+        overall = f'ODOO EXITED {return_code} - not a pass'
+    else:
+        overall = 'TESTS FAILED'
     print(f"  {status_color}{Color.BOLD}{overall}{Color.RESET}\n")
 
+    if summary['no_tests_collected']:
+        print(fmt_info('0 tests collected. Check the selector: a tag must name an installed '
+                       'module, a warm run cannot select at_install/untagged classes, and Git '
+                       'Bash rewrites a leading "/" in --test-tags (set MSYS_NO_PATHCONV=1).'))
     print(fmt_summary_line('Total Tests:', str(summary['total_ran'])))
     print(fmt_summary_line('Passed:', str(summary['passed']), Color.GREEN))
     print(fmt_summary_line('Failed:', str(summary['failed']), Color.RED if summary['failed'] else ''))
@@ -415,7 +456,10 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=dedent("""
         Examples:
-          # Run all tests in a module
+          # Fast loop on a warm database: no -u, this module's tests only (Python-only changes)
+          python test_runner.py --module my_module --config conf/project17.conf --database project17 --no-update
+
+          # All tests in a module, with a module update (manifest/XML/CSV/field changes)
           python test_runner.py --module my_module --config conf/project17.conf --database project17
 
           # Run with specific tags
@@ -441,6 +485,9 @@ def main():
     parser.add_argument('--test-class', help='Specific test class to run (e.g., TestMyModel)')
     parser.add_argument('--test-method', help='Specific test method to run (requires --test-class)')
     parser.add_argument('--install', action='store_true', help='Use -i (install) instead of -u (update)')
+    parser.add_argument('--no-update', action='store_true',
+                        help='Warm database: skip -u/-i. Fast for Python-only changes; cannot select '
+                             'at_install or untagged classes, and misses manifest/XML/CSV/field changes')
     parser.add_argument('--show-logs', action='store_true', help='Show full Odoo log output during run')
     parser.add_argument('--output', help='Output file path for test report')
     parser.add_argument('--output-format', choices=['junit', 'json'], default='junit',
@@ -450,6 +497,8 @@ def main():
 
     if args.test_method and not args.test_class:
         parser.error("--test-method requires --test-class")
+    if args.install and args.no_update:
+        parser.error("--install and --no-update are mutually exclusive")
 
     sys.exit(run_tests(args))
 

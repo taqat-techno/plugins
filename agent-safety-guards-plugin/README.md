@@ -1,10 +1,10 @@
 # agent-safety-guards
 
-Advisory safety and reliability guardrails for agent sessions and multi-agent workflows in Claude Code. It encodes the reflexes that keep a session from failing dangerously and a fan-out from failing flakily. It is **advisory only** — it reasons, recommends, and reminds; it never auto-mutates your files, git, auth, or any state.
+Advisory safety and reliability guardrails for agent sessions and multi-agent workflows in Claude Code. It encodes the reflexes that keep a session from failing dangerously and a fan-out from failing flakily. It reasons, recommends, and reminds; it never auto-mutates your files, git, auth, or any state. One hook, the test-scope guard, can **deny** a command - a whole-suite test run - and tells Claude exactly how to proceed instead.
 
 ## What it does
 
-`agent-safety-guards` bundles six skills and one optional, non-fatal advisory hook.
+`agent-safety-guards` bundles seven skills and two hooks: a non-fatal credential advisory and the test-scope guard.
 
 ### Safety primitives (`skills/agent-safety`)
 
@@ -64,6 +64,15 @@ The two-sided contract at the boundary between production code and a test double
 - **`getattr(obj, "name", default)`** for newly added reads on injected collaborators, unless the value is genuinely load-bearing.
 - **A diagnostic must never veto a startup path**, and shipping a feature must never require existing doubles to grow new methods.
 
+### Test scope (`skills/test-scope`)
+
+Test the change, not the system - without losing accuracy:
+
+- **A four-tier ladder.** T0 static checks on touched files per edit; T1 the tests for the changed units plus new tests, once per coherent change; T2 each touched module's suite before calling a task done; T3 the full suite **only when the user asks, or in CI**.
+- **Widen, do not jump.** Shared code, schema/migrations, security/settings/dependency changes and seam changes widen T2 to the dependents, and the report recommends T3 instead of silently running it.
+- **Test-file hygiene.** Extend the existing test module before creating one; scratch probes never enter the repo; every new test must bite and be collected.
+- **Runner recipes** for pytest, vitest, jest, playwright and npm scripts (`references/runner-recipes.md`); framework selectors live in the Odoo, Django and FastAPI plugins.
+
 ### Defensive failure design (`skills/defensive-failure-design`)
 
 How code must behave when something goes wrong — language- and framework-neutral:
@@ -80,9 +89,16 @@ How code must behave when something goes wrong — language- and framework-neutr
 
 Prints a single one-line reminder when the submitted prompt contains a token-shaped string (common key prefixes, a `Bearer` marker, a long base64 run, or a PEM private-key header). It **never blocks, never denies, and never echoes the matched value**, and it exits 0 in all cases. Stdlib only.
 
+### `test_scope_guard.py` (PreToolUse Bash|PowerShell + PostToolUse Write|Edit)
+
+- `track` (async) records the files edited in the session, under `${CLAUDE_PLUGIN_DATA}`.
+- `check` recognises a whole-suite run - `manage.py test` without labels, bare `pytest`, `odoo-bin --test-enable` without module tags or with `-u all`, `npm test`, `vitest run`, `jest`, `playwright test` without a selector - and **denies** it with a reason listing the changed files and a scoped command.
+- Put `FULL_SUITE=1` in the command when the user asked for the full suite. Set `TEST_SCOPE_GUARD=off` to disable the hook.
+- It fails open on any error, and its decision log never records command text. Rationale: `docs/decisions.md` D-001.
+
 ## Design stance
 
-- **Advisory, never mutating.** Nothing in this plugin applies a change on its own. Every decision — grant, override, revocation, apply — stays with the user.
+- **Advisory, never mutating.** Nothing in this plugin applies a change on its own. Every decision — grant, override, revocation, apply — stays with the user. The one deny (test-scope) blocks a command; it never changes one, and `FULL_SUITE=1` always passes.
 - **Generic and portable.** No project, client, host, or credential specifics. The rules describe *how to reason*, not *what to type*.
 - **Conservative detection.** The hook prefers a harmless extra reminder over a missed leak, because its only effect is one advisory line.
 

@@ -149,7 +149,7 @@ the suite went red after adding a field / method?
 - [ ] The change ships without requiring existing test doubles to grow new methods or fields.
 - [ ] Where a tolerance pattern already exists in the codebase, this change uses it rather than adding a second one.
 - [ ] A load-bearing requirement fails early with a message naming the missing attribute and the collaborator.
-- [ ] The full suite was run after the change — a seam narrowing shows up as a broad, shallow failure across unrelated tests.
+- [ ] The consumers' tests ran, not just the seam's own — a seam narrowing shows up as a broad, shallow failure across tests that inject the collaborator. Widen T2 to every module that injects it; if that set is unknown, recommend the full suite rather than claiming coverage (see `test-scope`).
 
 ## Anti-patterns
 
