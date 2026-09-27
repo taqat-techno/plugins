@@ -2,7 +2,8 @@
 Behavioral tests for the FastAPI plugin hooks.
 
 Each hook is invoked as a subprocess with a PreToolUse/SessionStart JSON payload
-on stdin (exactly as Claude Code calls it), and we assert on exit code + stderr.
+on stdin (exactly as Claude Code calls it), and we assert on exit code, the
+stderr block reason, and the advisory JSON on stdout.
 
 Run:  pytest fastapi-plugin/tests/test_hooks.py
 """
@@ -27,6 +28,21 @@ def run_hook(script: str, payload: dict):
         timeout=15,
     )
     return proc.returncode, proc.stdout, proc.stderr
+
+
+def advice(out: str) -> str:
+    """additionalContext from a PreToolUse advisory ("" when the hook stayed silent).
+
+    Enforces the channel contract: exit-0 stderr/plain stdout never reach Claude,
+    so an advisory must be hookSpecificOutput JSON with hookEventName set and no
+    permissionDecision (the normal permission flow stays untouched).
+    """
+    if not out.strip():
+        return ""
+    hso = json.loads(out)["hookSpecificOutput"]
+    assert hso["hookEventName"] == "PreToolUse"
+    assert "permissionDecision" not in hso
+    return hso["additionalContext"]
 
 
 def write_payload(file_path: str, content: str) -> dict:
@@ -80,7 +96,7 @@ class TestBashGuard:
 
     @pytest.mark.parametrize("cmd", BLOCKED)
     def test_destructive_blocked(self, cmd):
-        code, _, err = run_hook("pre_bash_guard.py", bash_payload(cmd))
+        code, out, err = run_hook("pre_bash_guard.py", bash_payload(cmd))
         assert code == 2, f"expected block for: {cmd}"
         assert "BLOCKED" in err
 
@@ -95,14 +111,14 @@ class TestBashGuard:
         assert code == 0, f"expected allow for: {cmd}"
 
     def test_alembic_stamp_is_advisory_not_blocking(self):
-        code, _, err = run_hook("pre_bash_guard.py", bash_payload("alembic stamp head"))
+        code, out, err = run_hook("pre_bash_guard.py", bash_payload("alembic stamp head"))
         assert code == 0  # advisory, never blocks
-        assert "advisory" in err and "stamp" in err
+        assert "advisory" in advice(out) and "stamp" in advice(out)
 
     def test_plain_downgrade_one_is_silent(self):
-        code, _, err = run_hook("pre_bash_guard.py", bash_payload("alembic downgrade -1"))
+        code, out, err = run_hook("pre_bash_guard.py", bash_payload("alembic downgrade -1"))
         assert code == 0
-        assert err.strip() == ""
+        assert out.strip() == "" and err.strip() == ""
 
 
 # ─── pre_write_guard.py (advisory only — always exit 0) ───────────
@@ -115,10 +131,10 @@ class TestWriteGuard:
             "    time.sleep(1)\n"
             "    requests.get('http://x')\n"
         )
-        code, _, err = run_hook("pre_write_guard.py", write_payload("app/routers/x.py", content))
+        code, out, err = run_hook("pre_write_guard.py", write_payload("app/routers/x.py", content))
         assert code == 0  # advisory never blocks
-        assert "time.sleep" in err
-        assert "requests" in err
+        assert "time.sleep" in advice(out)
+        assert "requests" in advice(out)
 
     def test_sync_route_is_silent(self):
         content = (
@@ -127,15 +143,15 @@ class TestWriteGuard:
             "    time.sleep(1)\n"
             "    requests.get('http://x')\n"
         )
-        code, _, err = run_hook("pre_write_guard.py", write_payload("app/routers/x.py", content))
+        code, out, err = run_hook("pre_write_guard.py", write_payload("app/routers/x.py", content))
         assert code == 0
-        assert err.strip() == ""
+        assert out.strip() == "" and err.strip() == ""
 
     def test_hardcoded_secret_in_config_warns(self):
         content = 'SECRET_KEY = "supersecretliteralvalue123"\n'
-        code, _, err = run_hook("pre_write_guard.py", write_payload("app/core/config.py", content))
+        code, out, err = run_hook("pre_write_guard.py", write_payload("app/core/config.py", content))
         assert code == 0
-        assert "SECRET_KEY" in err
+        assert "SECRET_KEY" in advice(out)
 
     def test_env_driven_settings_are_silent(self):
         content = (
@@ -144,47 +160,47 @@ class TestWriteGuard:
             "    secret_key: str\n"
             "    database_url: str\n"
         )
-        code, _, err = run_hook("pre_write_guard.py", write_payload("app/core/config.py", content))
+        code, out, err = run_hook("pre_write_guard.py", write_payload("app/core/config.py", content))
         assert code == 0
-        assert err.strip() == ""
+        assert out.strip() == "" and err.strip() == ""
 
     def test_wildcard_cors_with_credentials_warns(self):
         content = (
             "from fastapi.middleware.cors import CORSMiddleware\n"
             "app.add_middleware(CORSMiddleware, allow_origins=['*'], allow_credentials=True)\n"
         )
-        code, _, err = run_hook("pre_write_guard.py", write_payload("app/main.py", content))
+        code, out, err = run_hook("pre_write_guard.py", write_payload("app/main.py", content))
         assert code == 0
-        assert "CORS" in err or "allow_origins" in err
+        assert "CORS" in advice(out) or "allow_origins" in advice(out)
 
     def test_scoped_cors_is_silent(self):
         content = (
             "from fastapi.middleware.cors import CORSMiddleware\n"
             "app.add_middleware(CORSMiddleware, allow_origins=['https://app.example.com'], allow_credentials=True)\n"
         )
-        code, _, err = run_hook("pre_write_guard.py", write_payload("app/main.py", content))
+        code, out, err = run_hook("pre_write_guard.py", write_payload("app/main.py", content))
         assert code == 0
-        assert err.strip() == ""
+        assert out.strip() == "" and err.strip() == ""
 
     def test_empty_downgrade_warns(self):
         content = (
             "def upgrade():\n    op.add_column('t', sa.Column('c', sa.String()))\n\n"
             "def downgrade():\n    pass\n"
         )
-        code, _, err = run_hook("pre_write_guard.py", write_payload("alembic/versions/ab12_x.py", content))
+        code, out, err = run_hook("pre_write_guard.py", write_payload("alembic/versions/ab12_x.py", content))
         assert code == 0
-        assert "downgrade" in err
+        assert "downgrade" in advice(out)
 
     def test_real_downgrade_is_silent(self):
         content = (
             "def upgrade():\n    op.add_column('t', sa.Column('c', sa.String()))\n\n"
             "def downgrade():\n    op.drop_column('t', 'c')\n"
         )
-        code, _, err = run_hook("pre_write_guard.py", write_payload("alembic/versions/ab12_x.py", content))
+        code, out, err = run_hook("pre_write_guard.py", write_payload("alembic/versions/ab12_x.py", content))
         assert code == 0
-        assert err.strip() == ""
+        assert out.strip() == "" and err.strip() == ""
 
     def test_non_python_file_ignored(self):
-        code, _, err = run_hook("pre_write_guard.py", write_payload("README.md", "SECRET_KEY = \"x\""))
+        code, out, err = run_hook("pre_write_guard.py", write_payload("README.md", "SECRET_KEY = \"x\""))
         assert code == 0
-        assert err.strip() == ""
+        assert out.strip() == "" and err.strip() == ""

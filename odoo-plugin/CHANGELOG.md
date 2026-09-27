@@ -2,6 +2,21 @@
 
 All notable changes to `odoo-plugin` are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/). Versioning follows [SemVer](https://semver.org/).
 
+## [2.11.0] - 2026-09-27
+
+### Fixed
+- **`pre_odoo_restart_guard.py` advisories now reach Claude.** The unbounded
+  `curl --retry-connrefused`, `pkill ... && odoo-bin`, and `CREATE DATABASE ... TEMPLATE` /
+  `createdb -T` nudges are emitted as PreToolUse `additionalContext` JSON instead of stderr.
+  On `PreToolUse`, stdout and stderr from a hook that exits 0 never reach the model, so
+  Claude never saw these advisories. Only `hookSpecificOutput.additionalContext` with
+  `hookEventName: "PreToolUse"` does (checked against Claude Code 2.1.282 and the hooks
+  docs). Claude receives it next to the tool result, so the advisory informs its next
+  step. It cannot stop the call. No `permissionDecision` is emitted, so permissions are unchanged.
+- Hook stdin is decoded as UTF-8 explicitly; stdout/stderr reconfigured to UTF-8 (HR-5).
+- `pre_odoo_volume_guard.py` is unchanged: it only hard-blocks (exit 2), and Claude already
+  sees exit-2 stderr as the denial reason.
+
 ## [2.10.0] - 2026-09-27
 
 Scoped testing by default. The tier policy lives in agent-safety-guards `test-scope`.

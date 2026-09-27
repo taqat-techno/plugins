@@ -4,6 +4,19 @@ All notable changes to the `git-safety` plugin are documented here. The format i
 based on [Keep a Changelog](https://keepachangelog.com/), and the project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [0.4.0] - 2026-09-27
+
+### Fixed
+- **The risky-git reminder now reaches Claude.** `risky_git_advisory.py` printed its one
+  line as plain stdout, which Claude Code only writes to the transcript. It now emits PreToolUse
+  `additionalContext` JSON.
+  On `PreToolUse`, stdout and stderr from a hook that exits 0 never reach the model, so
+  Claude never saw these advisories. Only `hookSpecificOutput.additionalContext` with
+  `hookEventName: "PreToolUse"` does (checked against Claude Code 2.1.282 and the hooks
+  docs). Claude receives it next to the tool result, so the advisory informs its next
+  step. It cannot stop the call. No `permissionDecision` is emitted, so permissions are unchanged.
+- Hook stdin is decoded as UTF-8 explicitly; stdout/stderr reconfigured to UTF-8 (HR-5).
+
 ## [0.3.1] - 2026-09-12
 
 Adds a behavioural eval suite under `evals/` (1 must-fire case + 1 must-not-fire case), so this plugin's value claim is measured as

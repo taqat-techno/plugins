@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [6.10.0] - 2026-09-27
+
+### Fixed
+- **Write-validation reminders now reach Claude.** `emit_json` omitted `hookEventName`, so
+  Claude Code rejected every reminder as a schema-validation failure and showed a
+  `hook error` notice instead. Reminders now carry `hookEventName: "PreToolUse"`.
+- The reminder message is no longer spliced into a `python3 -c '''...'''` literal, so a
+  tool-input value (e.g. a `repositoryId` containing quotes) can no longer break or execute
+  inside that string.
+
+### Changed
+- **`hooks/pre-write-validate.sh` ported to `hooks/pre_write_validate.py`**, invoked via
+  `python3` (HR-12). Bug-creation, @mention, and repositoryId checks keep the bash regexes
+  over the raw payload; a bash-vs-python differential run (96 cases across 6 profile
+  shapes) confirmed equal exit codes and reminder presence before the fix below.
+- **The close/remove restriction now actually fires.** The bash hook looked for a quoted
+  `"System.State"` token, but `wit_update_work_item` sends
+  `path: "/fields/System.State"`, so the block and the state-change reminder never
+  triggered on real calls. Detection now reads the parsed JSON-Patch update whose path
+  ends in `System.State`, and takes the value from that update rather than the first
+  `"value"` in the payload. **Behavior change:** a non-PM/Lead moving a work item to
+  Closed or Removed is now hard-blocked, as `universalRules` always intended.
+- New `tests/test_hooks.py` covers every branch, including the real MCP path shape and a
+  state update that is not the first in the list.
+
+---
+
 ## [6.9.2] - 2026-09-12
 
 Adds a behavioural eval suite under `evals/` (1 must-fire case + 1 must-not-fire case), so this plugin's value claim is measured as

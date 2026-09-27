@@ -2,7 +2,8 @@
 Behavioral tests for the Django plugin hooks.
 
 Each hook is invoked as a subprocess with a PreToolUse/SessionStart JSON payload
-on stdin (exactly as Claude Code calls it), and we assert on exit code + stderr.
+on stdin (exactly as Claude Code calls it), and we assert on exit code, the
+stderr block reason, and the advisory JSON on stdout.
 
 Run:  pytest django-plugin/tests/test_hooks.py
 """
@@ -27,6 +28,21 @@ def run_hook(script: str, payload: dict):
         timeout=15,
     )
     return proc.returncode, proc.stdout, proc.stderr
+
+
+def advice(out: str) -> str:
+    """additionalContext from a PreToolUse advisory ("" when the hook stayed silent).
+
+    Enforces the channel contract: exit-0 stderr/plain stdout never reach Claude,
+    so an advisory must be hookSpecificOutput JSON with hookEventName set and no
+    permissionDecision (the normal permission flow stays untouched).
+    """
+    if not out.strip():
+        return ""
+    hso = json.loads(out)["hookSpecificOutput"]
+    assert hso["hookEventName"] == "PreToolUse"
+    assert "permissionDecision" not in hso
+    return hso["additionalContext"]
 
 
 def write_payload(file_path: str, content: str) -> dict:
@@ -81,7 +97,7 @@ class TestBashGuard:
 
     @pytest.mark.parametrize("cmd", BLOCKED)
     def test_destructive_blocked(self, cmd):
-        code, _, err = run_hook("pre_bash_guard.py", bash_payload(cmd))
+        code, out, err = run_hook("pre_bash_guard.py", bash_payload(cmd))
         assert code == 2, f"expected block for: {cmd}"
         assert "BLOCKED" in err
 
@@ -96,14 +112,14 @@ class TestBashGuard:
         assert code == 0, f"expected allow for: {cmd}"
 
     def test_migrate_fake_is_advisory_not_blocking(self):
-        code, _, err = run_hook("pre_bash_guard.py", bash_payload("python manage.py migrate app 0001 --fake"))
+        code, out, err = run_hook("pre_bash_guard.py", bash_payload("python manage.py migrate app 0001 --fake"))
         assert code == 0  # advisory, never blocks
-        assert "advisory" in err and "--fake" in err
+        assert "advisory" in advice(out) and "--fake" in advice(out)
 
     def test_fake_initial_alone_is_silent(self):
-        code, _, err = run_hook("pre_bash_guard.py", bash_payload("python manage.py migrate --fake-initial"))
+        code, out, err = run_hook("pre_bash_guard.py", bash_payload("python manage.py migrate --fake-initial"))
         assert code == 0
-        assert err.strip() == ""
+        assert out.strip() == "" and err.strip() == ""
 
 
 # ─── pre_write_guard.py (advisory only — always exit 0) ───────────
@@ -111,41 +127,41 @@ class TestBashGuard:
 class TestWriteGuard:
     def test_hardcoded_debug_and_secret_warn(self):
         content = 'DEBUG = True\nSECRET_KEY = "abc123literal"\nALLOWED_HOSTS = ["*"]\n'
-        code, _, err = run_hook("pre_write_guard.py", write_payload("config/settings/prod.py", content))
+        code, out, err = run_hook("pre_write_guard.py", write_payload("config/settings/prod.py", content))
         assert code == 0  # advisory never blocks
-        assert "DEBUG = True" in err
-        assert "SECRET_KEY" in err
-        assert "ALLOWED_HOSTS" in err
+        assert "DEBUG = True" in advice(out)
+        assert "SECRET_KEY" in advice(out)
+        assert "ALLOWED_HOSTS" in advice(out)
 
     def test_env_driven_settings_are_silent(self):
         content = 'DEBUG = env.bool("DEBUG", default=False)\nSECRET_KEY = os.environ["SECRET_KEY"]\n'
-        code, _, err = run_hook("pre_write_guard.py", write_payload("config/settings/prod.py", content))
+        code, out, err = run_hook("pre_write_guard.py", write_payload("config/settings/prod.py", content))
         assert code == 0
-        assert err.strip() == ""
+        assert out.strip() == "" and err.strip() == ""
 
     def test_runpython_without_reverse_warns(self):
         content = "from app.models import Order\noperations = [migrations.RunPython(forwards)]\n"
-        code, _, err = run_hook("pre_write_guard.py", write_payload("orders/migrations/0003_x.py", content))
+        code, out, err = run_hook("pre_write_guard.py", write_payload("orders/migrations/0003_x.py", content))
         assert code == 0
-        assert "RunPython" in err
-        assert "apps.get_model" in err  # also flags the real-model import
+        assert "RunPython" in advice(out)
+        assert "apps.get_model" in advice(out)  # also flags the real-model import
 
     def test_reversible_migration_is_silent_on_reverse_rule(self):
         content = (
             "def fwd(apps, se):\n    pass\n"
             "operations = [migrations.RunPython(fwd, migrations.RunPython.noop)]\n"
         )
-        code, _, err = run_hook("pre_write_guard.py", write_payload("orders/migrations/0004_y.py", content))
+        code, out, err = run_hook("pre_write_guard.py", write_payload("orders/migrations/0004_y.py", content))
         assert code == 0
-        assert "has no reverse" not in err
+        assert "has no reverse" not in advice(out)
 
     def test_fields_all_warns_in_serializer(self):
         content = 'class S(ModelSerializer):\n    class Meta:\n        fields = "__all__"\n'
-        code, _, err = run_hook("pre_write_guard.py", write_payload("orders/serializers.py", content))
+        code, out, err = run_hook("pre_write_guard.py", write_payload("orders/serializers.py", content))
         assert code == 0
-        assert "__all__" in err
+        assert "__all__" in advice(out)
 
     def test_non_python_file_ignored(self):
-        code, _, err = run_hook("pre_write_guard.py", write_payload("README.md", "DEBUG = True"))
+        code, out, err = run_hook("pre_write_guard.py", write_payload("README.md", "DEBUG = True"))
         assert code == 0
-        assert err.strip() == ""
+        assert out.strip() == "" and err.strip() == ""

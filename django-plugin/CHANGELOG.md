@@ -3,6 +3,21 @@
 All notable changes to the `django` plugin are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/); this plugin uses [Semantic Versioning](https://semver.org/).
 
+## [0.4.0] - 2026-09-27
+
+### Fixed
+- **Advisories now reach Claude.** `pre_bash_guard.py` (`migrate --fake`) and
+  `pre_write_guard.py` (hardcoded DEBUG/secrets, irreversible `RunPython`, `fields =
+  "__all__"`) now emit their nudges as PreToolUse `additionalContext` JSON instead of stderr.
+  On `PreToolUse`, stdout and stderr from a hook that exits 0 never reach the model, so
+  Claude never saw these advisories. Only `hookSpecificOutput.additionalContext` with
+  `hookEventName: "PreToolUse"` does (checked against Claude Code 2.1.282 and the hooks
+  docs). Claude receives it next to the tool result, so the advisory informs its next
+  step. It cannot stop the call. No `permissionDecision` is emitted, so permissions are unchanged.
+- Hook stdin is decoded as UTF-8 explicitly (Windows defaulted it to cp1252), and
+  stdout/stderr are reconfigured to UTF-8 (HR-5). Exit-2 blocks are unchanged.
+- `tests/test_hooks.py` asserts advisories on the JSON channel and the channel contract.
+
 ## [0.3.0] - 2026-09-27
 
 ### Changed

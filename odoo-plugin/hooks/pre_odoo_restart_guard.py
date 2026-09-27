@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """PreToolUse hook (Bash): ADVISORY nudges for risky Odoo stack restart / clone shapes.
 
-This hook NEVER blocks, NEVER mutates files, NEVER kills processes. It only prints a
-one-line nudge to stderr and ALWAYS exits 0. It warns on three deterministic,
-documented-dangerous Bash command shapes:
+This hook NEVER blocks, NEVER mutates files, NEVER kills processes. It only hands a
+one-line nudge to Claude as PreToolUse additionalContext JSON on stdout and ALWAYS
+exits 0. Claude receives it next to the tool result, so it informs the next call
+rather than this one. It warns on three deterministic, documented-dangerous Bash
+command shapes:
 
   1. Unbounded Odoo readiness polling: `curl --retry-connrefused` aimed at an
      Odoo-like port/endpoint with no bound (`--max-time` / `--retry-max-time` /
@@ -26,6 +28,12 @@ import os
 import re
 import sys
 import threading
+
+try:
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[attr-defined]
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[attr-defined]
+except Exception:
+    pass
 
 # Fail-OPEN after 3s. This hook does only cheap regex work; >3s means something is
 # wrong, and since it is advisory we simply exit 0 (never wedge a Bash call).
@@ -90,11 +98,31 @@ def _warn_psql_template(cmd):
     return None
 
 
-def main():
+def _read_payload():
+    """Parse the hook payload, decoding stdin as UTF-8 (Windows defaults to cp1252)."""
     try:
-        data = json.load(sys.stdin)
-    except (json.JSONDecodeError, EOFError, ValueError):
-        sys.exit(0)
+        return json.loads(sys.stdin.buffer.read().decode("utf-8", errors="replace"))
+    except (ValueError, OSError):
+        return None
+
+
+def _advise(text):
+    """Hand an advisory to Claude without blocking the tool call.
+
+    On PreToolUse, stderr and plain stdout from an exit-0 hook never reach the
+    model; only hookSpecificOutput.additionalContext does, and only with
+    hookEventName set. Claude receives it next to the tool result, so it steers
+    the next step rather than this call. No permissionDecision is emitted, so
+    the normal permission flow is untouched.
+    """
+    print(json.dumps({"hookSpecificOutput": {
+        "hookEventName": "PreToolUse",
+        "additionalContext": text,
+    }}))
+
+
+def main():
+    data = _read_payload()
 
     tool_input = (data.get("tool_input") or {}) if isinstance(data, dict) else {}
     command = tool_input.get("command", "")
@@ -117,7 +145,7 @@ def main():
         if w
     ]
     if warnings:
-        print("\n".join(warnings), file=sys.stderr)
+        _advise("\n".join(warnings))
 
     _timer.cancel()
     sys.exit(0)  # ALWAYS allow — advisory only
