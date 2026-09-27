@@ -1,6 +1,6 @@
 ---
-description: Run the FastAPI test suite with pytest and the project's test client (sync TestClient or httpx.AsyncClient for async apps), using the test settings and dependency overrides, and report results — with options to scope to a path and to add missing regression coverage.
-argument-hint: "[path] [--cov] [--failed] [--async] [-k EXPR]"
+description: Run the FastAPI tests for what changed (default) or --all, with pytest, the right test client and dependency overrides, and report results.
+argument-hint: "[path | --all] [--cov] [--failed] [--async] [-k EXPR]"
 author: TaqaTechno
 version: 0.1.0
 allowed-tools: Read, Glob, Grep, Bash, Write, Edit
@@ -16,13 +16,22 @@ Read `.fastapi-kit.local.json` for `runPrefix`, `testClient` (testclient/httpx-a
 
 ## Step 1 — Build the command
 
+- **Scope first (bare invocation = what changed):** with no `path` and no `--all`, collect
+  the files edited this session (or `git status` + `git diff --name-only`). Map each to its
+  tests: a test file maps to itself; `app/services/orders.py` maps to
+  `tests/**/test_orders.py`, or to whatever greps for the module. Run those (T1). If they
+  pass, run the test package of each changed area once (T2). Widen when models,
+  migrations, settings, dependencies or `conftest.py` changed. `--all` runs everything,
+  only when the user asked (the test-scope hook then needs `FULL_SUITE=1`). Report per the
+  `test-scope` report block.
 - `<runPrefix> pytest [path]` with the test settings honored via `pytest.ini`/`pyproject`/`conftest`.
 - `--failed` → `--lf` (last failed). `-k EXPR` passes through. `--cov` → `--cov=<localPackages> --cov-report=term-missing`.
 - For an async app, confirm `asyncio_mode = auto` (pytest-asyncio) or the `anyio` plugin is configured so `async def` tests actually run — silently-skipped async tests are a common false "pass".
 
 ## Step 2 — Run
 
-Execute the suite (or the scoped subset). Capture full output. Do not hide failures or summarize away errors — report exit status faithfully.
+Execute the scoped selection (or the whole suite for `--all`). A path that collects
+0 tests is a failed invocation, not a pass. Capture full output. Do not hide failures or summarize away errors — report exit status faithfully.
 
 ## Step 3 — Interpret failures
 

@@ -1,6 +1,6 @@
 ---
-description: Run the Django test suite with the project's detected runner (pytest-django or manage.py test), using the test settings module, and report results — with options to scope to an app/path and to add missing regression coverage.
-argument-hint: "[app-or-path] [--keepdb] [--parallel] [--cov] [--failed]"
+description: Run the Django tests for what changed (default) or --all, with the detected runner and test settings, and report results honestly.
+argument-hint: "[app-or-path | --all] [--keepdb] [--parallel] [--cov] [--failed]"
 author: TaqaTechno
 version: 0.1.0
 allowed-tools: Read, Glob, Grep, Bash, Write, Edit
@@ -14,16 +14,39 @@ You run the project's tests with the **correct runner and settings** and interpr
 
 Read `.django-kit.local.json` for `testRunner`, `managePrefix`, `settingsModules.test`. If absent, detect them yourself (read-only): locate `manage.py` and its invocation prefix, the settings layout/test module, and the test runner. Confirm the **test settings module** (fast hasher, appropriate backends) — running tests on dev/prod settings is a flag.
 
+## Step 0.5 — Scope (bare invocation = what changed)
+
+With **no** `app-or-path` and no `--all`, test what changed, not the project:
+
+1. Changed files = the files edited this session. If there are none, use
+   `git status --porcelain` plus `git diff --name-only` against upstream.
+2. Map each file to its app (nearest directory with `apps.py`), then to its tests:
+   a changed test file maps to itself; `orders/services.py` maps to
+   `orders/tests/test_services.py`, or to whatever the app's tests grep for that module.
+3. **T1:** run those tests (`orders.tests.test_services`, or pytest `path::Class`) with
+   `--keepdb`. If they pass, **T2:** each changed app's whole suite, once, with `--keepdb`.
+4. Widen T2 to the apps that import the change when a model/migration, settings,
+   permissions, a shared base class or `conftest.py` changed.
+5. Report per the `test-scope` report block, saying that the full suite was not run.
+
+`--all` runs the whole project. Use it only when the user asked; the test-scope hook
+then needs `FULL_SUITE=1` in the command. An explicit `app-or-path` runs exactly that.
+When nothing changed and nothing is named, ask which app to test.
+
 ## Step 1 — Build the command
 
 - **pytest-django:** `pytest [app-or-path]` with `DJANGO_SETTINGS_MODULE` (from cache) honored via `pytest.ini`/`pyproject`. Add `-p no:cacheprovider` only if asked. `--failed` → `--lf` (last failed). `--cov` → `--cov=<localApps> --cov-report=term-missing`.
 - **manage.py test:** `<managePrefix> test [app-or-path] --settings=<test settings>`. `--keepdb`, `--parallel`, `--failed` → re-run named failures. `--cov` → wrap with `coverage run` + `coverage report`.
 
-Always pass the test settings module explicitly if the runner doesn't pick it up. Use `--keepdb`/`--parallel` when requested (and note when the suite would benefit from them).
+Always pass the test settings module explicitly if the runner doesn't pick it up. Default to `--keepdb` for scoped development runs (it is the biggest time saver after
+scoping). Use `--parallel` when requested; on native Windows it needs `tblib` and often
+fails to pickle, so prefer serial runs there.
 
 ## Step 2 — Run
 
-Execute the suite (or the scoped subset). Capture full output. Do not hide failures or summarize away errors — report exit status faithfully.
+Execute the scoped selection (or the whole suite for `--all`). Capture full output.
+Check the collected count: a label that matches nothing runs 0 tests, and that is a
+failed invocation, not a pass. Do not hide failures or summarize away errors — report exit status faithfully.
 
 ## Step 3 — Interpret failures
 

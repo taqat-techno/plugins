@@ -5,6 +5,13 @@ All notable changes to the Git Worktree Workspaces plugin.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.1.2] - 2026-09-27
+
+### Changed
+- `integrate`: the `[release]` baseline is a full-suite gate the user invoked. When the
+  agent-safety-guards test-scope hook is installed, the command is prefixed with
+  `FULL_SUITE=1` so the hook does not deny it.
+
 ## [2.1.1] - 2026-09-12
 
 Adds a behavioural eval suite under `evals/` (3 must-fire cases + 1 must-not-fire case), so this plugin's value claim is measured as

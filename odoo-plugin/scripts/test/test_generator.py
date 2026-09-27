@@ -665,7 +665,11 @@ def main():
     print("Next steps:")
     print(f"  1. Review and adjust fixtures in setUpClass()")
     print(f"  2. Add model-specific assertions")
-    print(f"  3. Run: python -m odoo -c conf/project.conf -d db --test-enable -u {module_path.name} --stop-after-init")
+    print(f"  3. Import it in tests/__init__.py (an unimported file is never collected)")
+    print(f"  4. Run this module's tests on a warm DB: python -m odoo -c conf/project.conf -d db "
+          f"--test-enable --test-tags /{module_path.name} --stop-after-init")
+    print(f"     (add -u {module_path.name} if the manifest, XML, CSV or a field changed; "
+          f"the summary must show 'of N tests' with N > 0)")
 
 
 if __name__ == '__main__':

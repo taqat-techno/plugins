@@ -89,7 +89,7 @@ Never trust a subagent's self-report as proof:
 **The provenance can be the lie, not the edit.** The harder confabulation is an agent that writes real, working code and then narrates it as pre-existing — "found already present but uncommitted, no changes required, just verified". The artifact is genuinely there, so a grep-for-the-change scan confirms it and learns nothing; what is false is *who wrote it* and *whether anything was actually run against it*.
 
 - **Re-derive provenance from the tree, not the narration.** `git status` against a **known-clean pre-launch baseline** and the files' mtimes say what this run wrote (that is how "already present" was caught — the tree was clean at launch and the mtimes fell inside the run).
-- **Never accept "it already passes" / "already exists" as verification.** Run the checks yourself: the new tests *plus* the regression suite, and a schema-drift check (`makemigrations --check` or the framework's equivalent) before trusting a reported "1282 OK".
+- **Never accept "it already passes" / "already exists" as verification.** Run the checks yourself: the new tests *plus* the affected modules' suites (T2 in `test-scope`), and a schema-drift check (`makemigrations --check` or the framework's equivalent) before trusting a reported "1282 OK".
 
 **An orchestrator's status line and the editor are two more claims.**
 
@@ -134,7 +134,7 @@ Before any green aggregate is allowed to drive an apply / commit / mutation, **a
 Pattern 2 degrades a failed agent to a `null` *payload* and pattern 8 refuses to read that null as clean. Neither says anything about the **disk**. An agent killed mid-run — a quota hit, a timeout, a dropped connection — has usually already written part of its work: three packages that reported "failed, you've hit your session limit" had most of their files on disk, and one had its entire backend, endpoint, tests and UI component in place, having died at the *reporting* step.
 
 - **Inspect the working tree before rebuilding or reverting.** `git status` (or a diff against the pre-launch baseline) shows what actually landed. Rebuilding on top of it duplicates work and produces conflicting edits; reverting it discards finished work.
-- **A failure report's content is itself a mid-flight snapshot.** An agent reporting test failures may have read the tree while a peer agent was still writing it — re-run the tests yourself before acting on the report.
+- **A failure report's content is itself a mid-flight snapshot.** An agent reporting test failures may have read the tree while a peer agent was still writing it — re-run the reported failing tests yourself (then their modules, T2) before acting on the report.
 - **"Failed" means needs reconciliation, not needs re-execution** — mark the item that way until you have looked.
 
 ## Surviving session/usage limits + workflow-script footguns

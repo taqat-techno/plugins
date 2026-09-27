@@ -4,17 +4,13 @@ Regenerated 2026-09-27. Supersedes the 2026-09-12 edition.
 
 This run took the newest batch: the 48 lessons `/lessons` added on 2026-09-27.
 The batch was 31 lessons: 24 Odoo-routed or framework-neutral, plus 7
-project-specific. 9 lessons are **staged for absorption** into 5 skills across 2
+project-specific. 9 lessons were absorbed into 5 skills across 2
 plugins. Everything below is what could **not** or should **not** be absorbed,
 with the reason. The 17 remaining 2026-09-27 lessons (Django/DRF, React/CSS,
 release, user preferences) were not analyzed this run and stay candidates.
 
-> **Status: P7 passed, P8 commit declined for review.** The edits are
-> uncommitted in the working tree. **No ledger writes were made**: no absorb,
-> defer or reject. Nothing retires until the commit exists. Once it is
-> committed, run the P9 `absorb` calls for the 9 ids in "Absorbed this run",
-> plus the `defer` and `reject` calls for the tables below, against that sha.
-
+> **Status: complete.** Committed as `e302c75`; P9 recorded in the ledger (9 absorbed,
+> 15 deferred, 7 rejected; `ledger_write.py verify` clean).
 ---
 
 ## Corpus state after this run
@@ -22,8 +18,8 @@ release, user preferences) were not analyzed this run and stay candidates.
 | | |
 |---|---|
 | Lessons in corpus | 503 (h2 = 139, h3 = 325) |
-| Ledger entries | 162 (unchanged; P9 pending the commit) |
-| Candidates remaining | 348 (unchanged until P9) |
+| Ledger entries | 193 (162 + 9 absorbed + 15 deferred + 7 rejected) |
+| Candidates remaining | 332 (348 - 31 resolved + 15 deferred that stay live) |
 | Analyzed this run | 31 |
 
 ---
@@ -73,7 +69,7 @@ The `lessons_index.py` section-attribution defect is still open. The trailing
 
 ---
 
-## Absorbed this run (staged — pending commit)
+## Absorbed this run
 
 | id(s) | Owner | Rule (short) |
 |---|---|---|
@@ -131,7 +127,7 @@ analyzed this run and remain candidates.
 |---|---|
 | Candidates in | 348 |
 | Analyzed | 31 |
-| **Staged for absorption** | **9** → 5 skills (+1 reference), 2 plugins, 12 files, +108 / −9 lines |
+| **Absorbed** | **9** → 5 skills (+1 reference), 2 plugins, 12 files, +108 / −9 lines |
 | Deferred | 15 |
 | Rejected (project-specific) | 7 |
 | Already covered | 0 |

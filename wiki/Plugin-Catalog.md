@@ -8,23 +8,23 @@ Listed in marketplace order. Component counts are the real contents of each plug
 
 | # | Plugin | Version | Category | Commands | Agents | Skills | Hooks | MCP | Evals | Docs |
 |---|---|---|---|---|---|---|---|---|---|---|
-| 1 | **odoo** | `2.9.4` | development | 19 | 4 | 23 | 5 | yes | 3 + 1 | [[Odoo Plugin\|Odoo-Plugin]] · [README](../../odoo-plugin/README.md) |
+| 1 | **odoo** | `2.10.0` | development | 19 | 4 | 23 | 5 | yes | 3 + 1 | [[Odoo Plugin\|Odoo-Plugin]] · [README](../../odoo-plugin/README.md) |
 | 2 | **devops** | `6.9.2` | productivity | 9 | 3 | 1 | 2 | yes | 1 + 1 | [[DevOps Plugin\|DevOps-Plugin]] · [README](../../devops-plugin/README.md) |
 | 3 | **notification** | `1.0.1` | productivity | 1 | 0 | 0 | 5 | — | n/a (D-012) | [[Notification Plugin\|Notification-Plugin]] · [README](../../notification-plugin/README.md) |
 | 4 | **pandoc** | `2.2.1` | productivity | 1 | 0 | 1 | 0 | — | 1 + 1 | [[Pandoc Plugin\|Pandoc-Plugin]] · [README](../../pandoc-plugin/README.md) |
 | 5 | **remotion** | `2.2.1` | development | 1 | 0 | 1 | 0 | — | 1 + 1 | [[Remotion Plugin\|Remotion-Plugin]] · [README](../../remotion-plugin/README.md) |
 | 6 | **ui-ux-mechanics** | `3.2.1` | design | 1 | 2 | 3 | 0 | — | 1 + 1 | [[Ui Ux Mechanics Plugin\|Ui-Ux-Mechanics-Plugin]] · [README](../../ui-ux-mechanics-plugin/README.md) |
 | 7 | **rag** | `0.18.1` | productivity | 9 | 1 | 4 | 2 | yes | 2 + 1 | [[Rag Plugin\|Rag-Plugin]] · [README](../../rag-plugin/README.md) |
-| 8 | **react-kit** | `0.6.1` | development | 3 | 1 | 16 | 0 | — | 3 + 1 | [README](../../react-kit-plugin/README.md) |
+| 8 | **react-kit** | `0.6.2` | development | 3 | 1 | 16 | 0 | — | 3 + 1 | [README](../../react-kit-plugin/README.md) |
 | 9 | **qa-browser** | `0.5.1` | productivity | 5 | 2 | 13 | 2 | — | 3 + 1 | [README](../../qa-browser-plugin/README.md) |
 | 10 | **docs-wiki** | `0.8.1` | productivity | 7 | 3 | 10 | 0 | — | 3 + 1 | [README](../../docs-wiki-plugin/README.md) |
 | 11 | **claude-env-doctor** | `0.6.2` | productivity | 1 | 1 | 2 | 1 | — | 1 + 1 | [README](../../claude-env-doctor-plugin/README.md) |
-| 12 | **agent-safety-guards** | `0.2.3` | productivity | 0 | 0 | 6 | 1 | — | 2 + 1 | [README](../../agent-safety-guards-plugin/README.md) |
+| 12 | **agent-safety-guards** | `0.3.0` | productivity | 0 | 0 | 7 | 3 | — | 3 + 2 | [README](../../agent-safety-guards-plugin/README.md) |
 | 13 | **release-safety** | `0.4.1` | productivity | 1 | 0 | 3 | 1 | — | 1 + 1 | [README](../../release-safety-plugin/README.md) |
-| 14 | **django** | `0.2.1` | development | 4 | 3 | 7 | 3 | — | 2 + 1 | [README](../../django-plugin/README.md) |
-| 15 | **fastapi** | `0.2.1` | development | 4 | 3 | 8 | 3 | — | 2 + 1 | [README](../../fastapi-plugin/README.md) |
+| 14 | **django** | `0.3.0` | development | 4 | 3 | 7 | 3 | — | 2 + 1 | [README](../../django-plugin/README.md) |
+| 15 | **fastapi** | `0.3.0` | development | 4 | 3 | 8 | 3 | — | 2 + 1 | [README](../../fastapi-plugin/README.md) |
 | 16 | **git-safety** | `0.3.1` | productivity | 0 | 0 | 2 | 2 | — | 1 + 1 | [README](../../git-safety-plugin/README.md) |
-| 17 | **worktree** | `2.1.1` | development | 0 | 0 | 13 | 0 | — | 3 + 1 | [README](../../worktree-plugin/README.md) |
+| 17 | **worktree** | `2.1.2` | development | 0 | 0 | 13 | 0 | — | 3 + 1 | [README](../../worktree-plugin/README.md) |
 | 18 | **sprint-recap** | `0.1.0` | productivity | 2 | 0 | 5 | 2 | — | 4 + 1 | [README](../../sprint-recap-plugin/README.md) |
 
 **Totals:** 68 commands · 23 agents · 118 skills · 29 hook handlers · 3 bundled MCP servers · 51 eval cases (34 must-fire + 17 must-not-fire).
@@ -84,7 +84,8 @@ The `ui-ux-mechanics` plugin's Figma integration uses an external Figma MCP that
 | `notification` | 5 | All `async: true` — structurally cannot block Claude |
 | `django`, `fastapi` | 3 each | SessionStart detection + advisory write/bash guards |
 | `devops`, `rag`, `qa-browser`, `git-safety` | 2 each | Advisory; `qa-browser`'s production-URL gate is the only blocker among these four |
-| `claude-env-doctor`, `agent-safety-guards`, `release-safety` | 1 each | Advisory only, exit 0 always |
+| `agent-safety-guards` | 3 | Credential advisory (never blocks) + test-scope: an async edit tracker and a PreToolUse guard that **denies** whole-suite test runs (`FULL_SUITE=1` overrides, `TEST_SCOPE_GUARD=off` disables) |
+| `claude-env-doctor`, `release-safety` | 1 each | Advisory only, exit 0 always |
 | `sprint-recap` | 2 | SessionStart credential-hygiene advisory + a `PreToolUse` Bash gate that **blocks** (exit 2) any `git add` of the plaintext credential artifacts it generates |
 | `pandoc`, `remotion`, `ui-ux-mechanics`, `react-kit`, `docs-wiki`, `worktree` | 0 | No hooks registered |
 

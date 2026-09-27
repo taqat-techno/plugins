@@ -1,5 +1,5 @@
 {
-  "description": "agent-safety-guards advisory hooks. ONE non-fatal UserPromptSubmit hook that prints a single short reminder when the submitted prompt contains a token-shaped string (common key prefixes, a Bearer marker, a long base64 run, or a PEM header). It never blocks, never denies, and never echoes the matched value. Exit 0 always.",
+  "description": "agent-safety-guards hooks. (1) credential_paste_advisory: non-fatal UserPromptSubmit reminder when a prompt contains a token-shaped string; never blocks, never echoes the value. (2) test_scope_guard: PostToolUse(Write|Edit) records edited files per session (async); PreToolUse(Bash|PowerShell) denies a command that runs a WHOLE test suite, naming the changed files and a scoped command. Override with FULL_SUITE=1 in the command; disable with TEST_SCOPE_GUARD=off. Fails open on any error. See docs/decisions.md D-001.",
   "hooks": {
     "UserPromptSubmit": [
       {
@@ -8,6 +8,31 @@
           {
             "type": "command",
             "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/credential_paste_advisory.py"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash|PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/test_scope_guard.py\" check",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/test_scope_guard.py\" track",
+            "timeout": 5,
+            "async": true
           }
         ]
       }

@@ -2,6 +2,41 @@
 
 All notable changes to `odoo-plugin` are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/). Versioning follows [SemVer](https://semver.org/).
 
+## [2.10.0] - 2026-09-27
+
+Scoped testing by default. The tier policy lives in agent-safety-guards `test-scope`.
+
+### Changed
+- **Bare `/test` tests what changed.** It collects the edited files, maps them to modules
+  and test classes, runs T1 (warm DB with no `-u` for Python-only changes, `-u` when a
+  manifest, XML, CSV, `.po` or field changed), then T2 (each changed module once).
+- `--all` runs a module's whole suite. Skeleton generation is **opt-in** (`generate`) and
+  extends existing test files first. Bare `/test` no longer offers to generate files.
+- `skills/test`:
+  - New "Scoped runs during development" tier table, with the warm-loop limits.
+  - The Generate workflow extends the existing test file before creating one.
+  - **Fixed wrong examples:**
+    - `--test-tags=my_module` selects a *tag* named my_module and matches nothing. The
+      module filter is `/my_module`.
+    - A bare `--test-tags=post_install` / `standard` runs those tests for **every installed
+      module**. The examples now pin `post_install/my_module`.
+- `memories/test/testing_patterns.md`: the CI verdict is now the summary line plus the exit
+  code, and fails on "of 0 tests". It replaces the ERROR/Traceback grep that contradicted
+  the skill.
+- `i18n-audit`: after a catalogue change, re-run the affected modules' suites with `-u`. The
+  whole estate runs only on request or in CI.
+- `test_generator.py`: the next-steps footer now says to register the file and run a warm,
+  module-scoped selection.
+
+### Fixed
+- **`scripts/test/test_runner.py` reported "ALL PASSED" (exit 0) when zero tests ran, and
+  ignored Odoo's exit code.** It now parses Odoo's per-phase summary (`N failed, M
+  error(s) of T tests`). "NO TESTS RAN" is reported as a failed invocation, a non-zero Odoo
+  exit is never a pass, and a hint names the usual causes: an uninstalled-module tag, an
+  at_install class on a warm DB, or an MSYS `/` rewrite.
+- `test_runner.py --no-update`: a warm-database mode (no `-u`/`-i`) that pins every tag to
+  the module, because a bare tag on a warm DB selects every installed module.
+
 ## [2.9.4] - 2026-09-27
 
 Absorbs seven recorded Odoo lessons into the four skills that own their layers. No new skill, no `description` change.

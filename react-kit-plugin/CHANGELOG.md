@@ -2,6 +2,14 @@
 
 All notable changes to `react-kit-plugin` are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/). Versioning follows [SemVer](https://semver.org/).
 
+## [0.6.2] - 2026-09-27
+
+### Changed
+- `react19-migration`: the JS-mode gate is now green tests **for the touched files**
+  (`vitest related --run` / `jest --findRelatedTests`) per move, instead of the whole suite
+  per move. The whole suite runs once at the end only if the user asks, or in CI (see
+  agent-safety-guards `test-scope`).
+
 ## [0.6.1] - 2026-09-12
 
 Adds a behavioural eval suite under `evals/` (3 must-fire cases + 1 must-not-fire case), so this plugin's value claim is measured as

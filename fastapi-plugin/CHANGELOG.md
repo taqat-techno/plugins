@@ -3,6 +3,17 @@
 All notable changes to the `fastapi` plugin are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/); this plugin uses [Semantic Versioning](https://semver.org/).
 
+## [0.3.0] - 2026-09-27
+
+### Changed
+- **Bare `/fastapi-test` tests what changed.** It maps the edited files to test modules
+  (T1), then runs the test package of each changed area (T2), widening on model, migration,
+  dependency, settings or `conftest.py` changes. `--all` runs everything, only on request.
+  A path that collects 0 tests is a failed invocation.
+- `fastapi-testing`: new "Scoped runs during development" tier table (T0-T3), with
+  `--lf --lfnf=none` for red runs and the silently-skipped async test trap. The tier policy
+  lives in agent-safety-guards `test-scope`.
+
 ## [0.2.1] - 2026-09-12
 
 Adds a behavioural eval suite under `evals/` (2 must-fire cases + 1 must-not-fire case), so this plugin's value claim is measured as
