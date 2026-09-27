@@ -3,6 +3,24 @@
 All notable changes to the `agent-safety-guards` plugin are documented here.
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-09-27
+
+### Added
+- **`TEST_SCOPE_GUARD=advise`.** The whole-suite run goes ahead, and the guidance (the files
+  changed this session, a scoped command, the T2 reminder) arrives with its result as
+  PreToolUse `additionalContext`. It steers the next run and cannot stop the current one.
+  `enforce` stays the default (deny), and `off` still disables the hook. Unknown values mean
+  `enforce`. The decision log records `advise` as well.
+- Three end-to-end tests: advise mode never denies, it is silent for scoped runs, and an
+  unknown value means enforce.
+
+### Fixed
+- **D-001's rationale was wrong.** It said a deny reason is the only PreToolUse output
+  that reaches Claude. `additionalContext` with `hookEventName: "PreToolUse"` reaches it
+  too, as verified on Claude Code 2.1.282. D-002 records the correction without rewriting
+  D-001, per the append-only rule. The hook docstring, `hooks.json`, the README and the
+  `test-scope` skill are corrected to match.
+
 ## [0.3.0] - 2026-09-27
 
 Test the change, not the system. Adds a test-scope policy and a hook that enforces it.

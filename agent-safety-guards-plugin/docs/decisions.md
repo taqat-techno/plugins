@@ -5,6 +5,9 @@ supersede it with a new dated entry that references the old one.
 
 ## D-001 - The test-scope guard denies whole-suite runs, with an in-command override
 
+> Rationale corrected and extended by **D-002** (2026-09-27). The decision itself (deny by
+> default, `FULL_SUITE=1` override) stands.
+
 Date: 2026-09-27
 Phase: Post-0.2
 Status: binding
@@ -68,3 +71,50 @@ Evals:
 `evals/fires-on-full-suite-after-small-fix` (must-fire) and
 `evals/ignores-junit-report-config` (must-not-fire) cover the skill. The hook is
 covered by `tests/test_test_scope_guard.py` and `test_scope_guard.py --self-test`.
+
+## D-002 - Correction to D-001's rationale; add an advise mode
+
+Date: 2026-09-27
+Phase: Post-0.3
+Status: binding
+Ships in: v0.4.0
+Supersedes: the rationale paragraph of D-001 (not its decision)
+
+Decision:
+
+1. **Correction.** D-001 said a deny reason is "the only PreToolUse output that is
+   guaranteed to reach the model". That is false.
+   `hookSpecificOutput.additionalContext` with `hookEventName: "PreToolUse"` also reaches
+   Claude. This was verified on Claude Code 2.1.282 by the hook-advisory fix shipped the
+   same day (odoo-plugin 2.11.0, and siblings). What does NOT reach the model is plain
+   stdout or stderr from a PreToolUse hook that exits 0. D-001's statement about those
+   stands.
+2. **`TEST_SCOPE_GUARD` gains a third value.** `enforce` (the default) keeps D-001: deny.
+   `advise` lets the run happen and attaches the same guidance (changed files, scoped
+   command, T2 reminder) as `additionalContext`. `off` disables the hook. Unknown values
+   mean `enforce`, so the hook fails safe, toward the user's chosen policy.
+3. **The difference between the modes is stated wherever advise is offered.**
+   `additionalContext` arrives alongside the tool result, so advise mode cannot save the run
+   it reacts to. It only steers the next run. Enforce saves the current run.
+4. `FULL_SUITE=1` passes untouched in every mode. The decision log records
+   `deny` / `advise` / `override` and still never stores command text.
+
+Rationale:
+
+The default stays `enforce` because that is what the user chose on 2026-09-27. Advise mode
+is for developers who want the guidance without the speed bump: pairing, a
+full-suite-heavy phase, or a week of measuring through the decision log before enforcing.
+D-001's reverse-only criteria named "a reliable PreToolUse advisory channel" as the
+condition for revisiting. That condition is met. The right response is to offer the channel
+as an option, not to silently change the policy the user picked.
+
+Non-violation of prior decisions:
+
+- D-001 decisions 1 to 7 are unchanged under the default mode.
+- HR-6 properties are kept in both modes: fail open, exit 0, no MCP calls, content-free log.
+
+Reverse-only criteria:
+
+Make `advise` the default only if the user asks, or if a measured period of the decision
+log shows advise-mode sessions rarely repeat a whole-suite run after the first advisory.
+

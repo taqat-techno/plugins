@@ -72,6 +72,24 @@ class TestScopeGuard(unittest.TestCase):
         proc = run_hook("check", bash("pytest"), self.data, {"TEST_SCOPE_GUARD": "off"})
         self.assertIsNone(self.decision(proc))
 
+    def test_advise_mode_lets_the_run_happen_and_steers_the_next(self):
+        run_hook("track", {"session_id": "s1", "tool_input": {"file_path": "shop/cart.py"}}, self.data)
+        out = self.decision(run_hook("check", bash("pytest"), self.data, {"TEST_SCOPE_GUARD": "advise"}))
+        self.assertEqual(out["hookEventName"], "PreToolUse")
+        self.assertNotIn("permissionDecision", out, "advise mode must never deny")
+        self.assertIn("shop/cart.py", out["additionalContext"])
+        self.assertIn("advise mode", out["additionalContext"])
+        with open(os.path.join(self.data, "test-scope", "decisions.jsonl"), encoding="utf-8") as fh:
+            self.assertIn("\"advise\"", fh.read())
+
+    def test_advise_mode_is_silent_for_scoped_runs(self):
+        proc = run_hook("check", bash("pytest tests/test_a.py"), self.data, {"TEST_SCOPE_GUARD": "advise"})
+        self.assertIsNone(self.decision(proc))
+
+    def test_unknown_mode_value_means_enforce(self):
+        out = self.decision(run_hook("check", bash("pytest"), self.data, {"TEST_SCOPE_GUARD": "banana"}))
+        self.assertEqual(out["permissionDecision"], "deny")
+
     def test_fails_open_on_garbage(self):
         for raw in ("", "not json", "[1,2]", "{\"tool_input\": 5}"):
             proc = run_hook("check", None, self.data, raw=raw)
