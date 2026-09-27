@@ -36,6 +36,10 @@ class Client:
         ):
             env.pop(var, None)
         env["PYTHONIOENCODING"] = "utf-8"
+        # Never read the developer's real ~/.odoo-mcp: every client gets an empty home
+        # unless the test supplies one.
+        self._home = tempfile.TemporaryDirectory()
+        env["ODOO_MCP_HOME"] = self._home.name
         env.update(env_extra or {})
         self.proc = subprocess.Popen(
             [sys.executable, str(SERVER)],
@@ -91,6 +95,10 @@ class Client:
             self.proc.wait(timeout=10)
         except subprocess.TimeoutExpired:
             self.proc.kill()
+        try:
+            self._home.cleanup()
+        except Exception:
+            pass
 
     def __enter__(self):
         return self
@@ -130,7 +138,7 @@ def test_tool_surface_is_small_and_well_formed():
         c.handshake()
         tools = c.request("tools/list")["result"]["tools"]
         names = [t["name"] for t in tools]
-        assert len(tools) == 10, "tool surface grew to %d: %s" % (len(tools), names)
+        assert len(tools) == 11, "tool surface changed to %d: %s" % (len(tools), names)
         assert len(set(names)) == len(names)
         for t in tools:
             assert t["description"].strip()
@@ -391,6 +399,10 @@ def test_guards_module_has_no_sql_or_shell_paths():
         blob += f.read_text(encoding="utf-8")
     for banned in ("subprocess", "os.system", "eval(", "exec(", "psycopg2", "pty."):
         assert banned not in blob, "MCP server contains %r" % banned
+    # The developer-side CLIs (local provisioning runs odoo-bin shell) live in
+    # scripts/mcp/ and must never be imported by the server package.
+    for cli in ("import local_profile", "import odoo_mcp_ctl"):
+        assert cli not in blob, "MCP server imports a CLI: %r" % cli
 
 
 # --------------------------------------------------------------------------

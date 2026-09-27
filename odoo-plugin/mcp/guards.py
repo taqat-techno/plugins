@@ -141,37 +141,59 @@ def check_method_name(method: Any) -> str:
     return method
 
 
-def check_write_allowed(profile: Any, model: str, op: str) -> None:
-    """Gate every state-changing operation. `op` is create|write|unlink."""
-    if profile.mode != "write":
-        raise GuardError(
-            "profile %r is read-only (mode=%s), so %s on %s was refused.\n"
-            "To allow writes, set \"mode\": \"write\" in the profile. "
-            "Keep production profiles read-only."
-            % (profile.name, profile.mode, op, model)
-        )
+_RANK = {"read": 0, "write": 1, "write+unlink": 2}
 
-    if profile.production and not profile.allow_production_writes:
+
+def _raise_hint(profile: Any, needed: str) -> str:
+    """How this session could get `needed`, within what the developer allows."""
+    ceiling = getattr(profile, "ceiling", "read")
+    if _RANK.get(needed, 9) > _RANK.get(ceiling, 0):
+        return (
+            "Its ceiling is %r, set by the developer in %s - only they can raise it."
+            % (ceiling, getattr(profile, "source", "the profile"))
+        )
+    approval = getattr(profile, "approval", "chat")
+    how = {
+        "none": "no approval needed",
+        "chat": "ask the developer first and pass their answer as approved_by_user",
+        "human": "needs the developer's terminal grant (odoo_mcp_ctl.py approve)",
+    }.get(approval, approval)
+    return "Raise it with odoo_session action=mode mode=%s (%s)." % (needed, how)
+
+
+def check_write_allowed(profile: Any, model: str, op: str) -> None:
+    """Gate every state-changing operation. `op` is create|write|unlink.
+
+    `profile` is the EFFECTIVE profile: its `mode` is this session's current mode,
+    already clamped to the developer's ceiling (see session_state)."""
+    mode = getattr(profile, "mode", "read")
+    tier = getattr(profile, "tier", "staging")
+    if _RANK.get(mode, 0) < _RANK["write"]:
         raise GuardError(
-            "profile %r is marked \"production\": true, so %s on %s was refused.\n"
-            "Production writes require \"allow_production_writes\": true, set deliberately."
-            % (profile.name, op, model)
+            "profile %r (%s) is read-only in this session (mode=%s), so %s on %s was refused.\n%s"
+            % (profile.name, tier, mode, op, model, _raise_hint(profile, "write"))
         )
 
     if model in HARD_DENY_WRITE_MODELS and model not in profile.allow_write_models:
         raise GuardError(
             "writing to %s is blocked: this model can escalate privilege, execute "
             "code, or alter schema/secrets.\n"
-            "If you genuinely need it, add it to \"allow_write_models\" in the profile "
-            "and understand the risk." % model
+            "If you genuinely need it, the developer adds it to \"allow_write_models\" in the "
+            "profile." % model
         )
 
-    if op == "unlink" and not profile.allow_unlink:
+    scope = getattr(profile, "write_scope", frozenset())
+    if scope and model not in scope:
         raise GuardError(
-            "delete (unlink) is disabled for profile %r.\n"
-            "Set \"allow_unlink\": true in the profile to permit deletion. "
-            "Consider archiving (active=False) instead - it is reversible."
-            % profile.name
+            "this session's write access on %r is scoped to %s; %s on %s was refused."
+            % (profile.name, ", ".join(sorted(scope)), op, model)
+        )
+
+    if op == "unlink" and _RANK.get(mode, 0) < _RANK["write+unlink"]:
+        raise GuardError(
+            "delete (unlink) needs mode write+unlink (legacy: \"allow_unlink\"); profile %r is "
+            "at %s.\n%s Consider archiving (active=False) instead - it is reversible."
+            % (profile.name, mode, _raise_hint(profile, "write+unlink"))
         )
 
 
@@ -179,18 +201,20 @@ def check_call_allowed(profile: Any, model: str, method: str) -> None:
     """odoo_call gate: read-only methods pass; anything else needs write mode."""
     if method in READ_ONLY_METHODS:
         return
-    if profile.mode != "write":
+    mode = getattr(profile, "mode", "read")
+    if _RANK.get(mode, 0) < _RANK["write"]:
         raise GuardError(
             "%s.%s is not on the read-only method list, so it may change state.\n"
-            "Profile %r is read-only (mode=%s). Set \"mode\": \"write\" to allow it, "
-            "or use odoo_search / odoo_read_group for reads."
-            % (model, method, profile.name, profile.mode)
+            "Profile %r (%s) is read-only in this session. %s Or use odoo_search / "
+            "odoo_read_group for reads."
+            % (model, method, profile.name, getattr(profile, "tier", "staging"),
+               _raise_hint(profile, "write"))
         )
-    if profile.production and not profile.allow_production_writes:
+    scope = getattr(profile, "write_scope", frozenset())
+    if scope and model not in scope:
         raise GuardError(
-            "profile %r is marked production; calling the potentially state-changing "
-            "method %s.%s was refused. Set \"allow_production_writes\": true to permit it."
-            % (profile.name, model, method)
+            "this session's write access on %r is scoped to %s; %s.%s was refused."
+            % (profile.name, ", ".join(sorted(scope)), model, method)
         )
 
 

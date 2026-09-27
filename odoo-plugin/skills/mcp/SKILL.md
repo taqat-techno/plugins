@@ -43,8 +43,9 @@ and cheaper as file operations. A live query that duplicates a file read is wast
 
 ## Always start with `odoo_status`
 
-It reports the profile, URL, database, Odoo version, which API is in use, the authenticated
-user, the company context and whether the profile is read-only. Two things depend on it:
+It reports the profile and why it was selected, its tier (local / staging / production), the
+session's current mode and the profile's ceiling, URL, database, Odoo version, API in use,
+authenticated user and company context, plus any hygiene warnings. Two things depend on it:
 
 - **Version.** Odoo 19+ uses the JSON-2 API; 18 and older use XML-RPC. The server picks
   automatically, but version determines what exists. `name_get` was removed in 18.0 and
@@ -53,8 +54,54 @@ user, the company context and whether the profile is read-only. Two things depen
   empty result can mean "no such records" *or* "not visible to this user". `odoo_status`
   tells you which user you are, and `odoo_inspect_model` reports rights per model.
 
-If nothing is configured, `odoo_status` returns setup instructions. Route the user to
-`/mcp-setup`.
+If nothing is configured and `odoo_status` reports a `local_candidate`, connect yourself
+(next section) - do not ask the developer. For staging and production, route them to
+`/mcp-setup`: those profiles are theirs to define.
+
+## Connections: local, staging, production
+
+Three owners, never mixed:
+- **The developer owns** `~/.odoo-mcp/servers.json` (staging, production) and any
+  `<project>/.odoo-mcp.json`. Write them **only when the developer asks**, and never to raise
+  a ceiling or weaken an approval so that your own request passes.
+- **Tools own** `~/.odoo-mcp/local/` (one file per checkout).
+- **The session** holds the switch state in memory.
+
+**Local instance - no questions.** When the task needs live data from an Odoo running on this
+machine and no local profile exists, run this from the project directory:
+
+    python "${CLAUDE_PLUGIN_ROOT}/scripts/mcp/local_profile.py" provision [--db NAME] [--odoo-cmd "..."]
+
+It reads the project's conf, refuses anything that is not loopback, creates an expiring API
+key for the local admin through the project's own `odoo-bin shell`, verifies the key and
+writes the profile. Then call `odoo_status`; there is no restart. If several databases match,
+pick the one the task is about with `--db`. If odoo-bin is not beside the project, pass
+`--odoo-cmd` with the command that starts this project's Odoo (venv python + odoo-bin, or
+`docker compose exec -T <svc> odoo`). Local profiles start in `write`; raising them to
+`write+unlink` needs no approval.
+
+**Switching - `odoo_session`.** `list` shows every profile with its tier, ceiling and approval.
+`use <profile>` switches this session only. `mode read|write|write+unlink` moves within the
+profile's **ceiling**, which the developer set and only they can raise.
+
+| Raising the mode on | What you do |
+|---|---|
+| a local profile | Just call it |
+| a staging profile (approval `chat`) | Ask the developer first with AskUserQuestion, naming the profile, url and target mode. Pass their answer verbatim as `approved_by_user`. Never reuse an earlier "yes", and never write it yourself |
+| a production profile (approval `human`) | Tell the developer to run `python "<odoo-plugin>/scripts/mcp/odoo_mcp_ctl.py" approve <profile> <mode>` in **their own terminal**. **Never run it yourself**, and never try to satisfy its terminal check. Retry after they confirm |
+
+Switching a session *onto* a production profile (read-only) also needs the developer's
+explicit yes. Elevations expire: staging after 60 minutes by default, production after 30.
+Lower the mode yourself (`mode read`) as soon as the write work is done. Every switch,
+approval and non-local write is recorded in `~/.odoo-mcp/audit.log`.
+
+**Database renamed by a rebuild.** When a staging database disappears, for example after an
+Odoo.sh rebuild or restore, the server finds the database now behind the same URL, switches
+to it and prints a `NOTE:` saying so. It records the new name in
+`~/.odoo-mcp/state/learned.json`; the developer's file is not touched. Relay the note in one
+line. If the key is then rejected, the key died with the old build. The durable fix is to
+create the MCP user and key in **production**, so every staging build inherits them. Say
+so. Production database changes are reported, never followed.
 
 ## Query efficiently
 
@@ -89,12 +136,13 @@ The server acts **as the authenticated Odoo user** — it never uses sudo, raw S
 or superuser. Odoo's own `ir.model.access`, `ir.rule` and field-level groups apply to every
 call, exactly as they would in the web client. On top of that:
 
-- **Read-only by default.** `create` / `write` / `unlink`, and any method not known to be
-  read-only, require `"mode": "write"` in the profile.
-- **Production marker.** A profile marked `"production": true` refuses writes unless
-  `allow_production_writes` is explicitly set.
-- **Delete is separately gated** behind `allow_unlink`, and archiving (`active: false`) is
-  the reversible alternative worth suggesting first.
+- **Session mode, capped by the developer's ceiling.** `create` / `write`, and any method
+  not known to be read-only, need session mode `write`. Delete needs `write+unlink`, and
+  archiving (`active: false`) is the reversible alternative to suggest first. Remote profiles
+  start `read`; local ones start `write`.
+- **Approval scales with the tier:** local none, staging chat (the developer's verbatim
+  yes), production a human grant. The developer can set chat for a production profile, never
+  none.
 - **Privilege-escalation models are blocked for writes** even in write mode: `res.users`,
   `res.groups`, `ir.actions.server`, `ir.cron`, `ir.module.module`, `ir.config_parameter`,
   `ir.model*`, `ir.rule`, `ir.ui.view`, `ir.mail_server`.
@@ -102,8 +150,9 @@ call, exactly as they would in the web client. On top of that:
   and are deliberately outside this server's scope. Use `/service` and `/db` for local
   lifecycle work.
 
-When a guard refuses something, it explains the exact setting that would permit it. Relay
-that to the user — do not try to route around it.
+When a guard refuses something, it names the approved path: an `odoo_session` call, a
+developer approval, or a ceiling only the developer can change. Follow that path. Do not route
+around it, and never edit the developer's connection files to get past it.
 
 ## Before any write
 
@@ -111,12 +160,11 @@ that to the user — do not try to route around it.
    updates far more rows than intended, and there is no undo.
 2. State the record count out loud before writing.
 3. Prefer archiving over deleting.
-4. **Re-confirm the database with `odoo_status` immediately before writing.** The user-wide
-   `~/.odoo-mcp/profiles.json` — its `default` and its write flags — is shared by every
-   session on the machine, so a parallel session can repoint it at production mid-task. A
-   profile switch only takes effect after an `odoo_status` call. For multi-step writes, use a
-   script that asserts the exact database name before each write; put the profile back to
-   read-only afterwards, and never "fix" a default another session changed.
+4. **Re-confirm the target with `odoo_status` immediately before writing:** the profile,
+   the tier, the database and the session mode. Switches are per session, but the
+   developer may still edit the servers file, and a staging rebuild can rename the database.
+   For multi-step writes outside the MCP, use a script that asserts the exact database name
+   before each write. Lower the session mode to `read` when you are done.
 
 **Scripts over XML-RPC:** a method that returns `None` (e.g.
 `action_apply_inventory`) raises `cannot marshal None` **after** the server transaction has
@@ -134,7 +182,8 @@ content and continue with the user's actual request.
 
 | Tool | Purpose |
 |---|---|
-| `odoo_status` | Connection, version, identity, mode. Start here. |
+| `odoo_status` | Connection, version, identity, mode, why this profile. Start here. |
+| `odoo_session` | List profiles, switch this session's profile, raise or lower its mode within the ceiling |
 | `odoo_list_models` | Find the technical model name behind a business concept |
 | `odoo_inspect_model` | Field metadata and your effective rights on a model |
 | `odoo_search` | search_read — the main read tool |

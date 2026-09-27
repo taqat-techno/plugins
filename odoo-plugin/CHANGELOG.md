@@ -2,6 +2,65 @@
 
 All notable changes to `odoo-plugin` are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/). Versioning follows [SemVer](https://semver.org/).
 
+## [2.12.0] - 2026-09-27
+
+Odoo MCP connections redesigned for local, staging and production work. Design:
+`.claude/docs/2026-09-27_odoo-mcp-connection-design.md`. Binding decision: `docs/decisions.md`
+D-001.
+
+### Added
+- **`odoo_session` tool** (the server now has 11 tools):
+  - `list` shows every profile with its tier, ceiling and approval.
+  - `use` switches this session's profile.
+  - `mode` raises or lowers `read` / `write` / `write+unlink` within the profile's ceiling.
+  - `reset` returns to the resolved profile.
+
+  All of it is in memory and per session: no config file is written, and no other session
+  is affected. Elevations expire (staging 60 minutes, production 30).
+- **Tiered approval.** Local needs none. Staging needs `chat`: the developer's verbatim
+  answer, passed as `approved_by_user`. Production needs `human`: a grant from
+  `scripts/mcp/odoo_mcp_ctl.py approve`, which refuses to run without an interactive
+  terminal. A developer may set a production profile to `chat`, never to `none`. Switching
+  a session onto production (read-only) needs an explicit yes.
+- **Profile schema** `tier` / `ceiling` / `start` / `approval` / `projects` / `db_pattern`.
+  The developer's ceiling is absolute. Tier `local` is accepted only for loopback URLs.
+- **Automatic local connections:** `scripts/mcp/local_profile.py provision`. It finds the
+  project's conf, refuses non-loopback targets, keys the local admin through the project's
+  own `odoo-bin shell` (30-day expiry), verifies the key, and writes
+  `~/.odoo-mcp/local/<project>.json`. `list` and `prune` keep the store clean.
+- **Database auto-follow.** When a staging rebuild or restore renames the database, the
+  server discovers the database now behind the URL, switches to it, records it in
+  `~/.odoo-mcp/state/learned.json`, and prints a `NOTE:`. The developer's file is never
+  touched. Production changes are reported, not followed. A key lost with the old build
+  gets the durable fix: create the MCP key in production.
+- **`~/.odoo-mcp/audit.log`** records switches, elevations, refusals, grants, database
+  follows and non-local writes. It holds no secrets and no record values.
+- `odoo_status` now shows:
+  - why the profile was selected;
+  - the session mode against the ceiling;
+  - hygiene warnings: a literal key in the servers file, non-config files in
+    `~/.odoo-mcp`, a production profile with a write ceiling, and a remote default that was
+    not auto-selected.
+- Eval `fires-on-switch-staging-connection-to-write`.
+
+### Changed
+- **A remote profile is never auto-selected as a global default.** It must be bound to the
+  checkout (`projects`) or chosen with `odoo_session`. A local-tier default still works.
+- Legacy profiles load unchanged. `mode` is now the *starting* mode, and the ceiling comes
+  from the tier. So a legacy staging `mode: read` profile can be raised to write on request,
+  with chat approval.
+- `/mcp-setup` gains `local`, `server`, `prune` and `audit`. Local setup no longer asks the
+  developer anything. The local admin is the key owner for loopback instances only.
+- `skills/mcp`: new "Connections: local, staging, production" section covering the switching
+  protocol and database-follow relay. The pre-write check is now session-scoped.
+- Setup help fits the tool-output limit; it was previously cut off at 800 characters.
+
+### Fixed
+- The MCP test harness read the developer's real `~/.odoo-mcp`. Each test client now gets
+  an isolated `ODOO_MCP_HOME`.
+- The no-process-execution guarantee for `mcp/` now also asserts that the server never
+  imports the developer-side CLIs.
+
 ## [2.11.0] - 2026-09-27
 
 ### Fixed
