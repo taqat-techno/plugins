@@ -136,11 +136,18 @@ Not run: T3 full suite - <recommended before merge because ... | not needed: ...
 
 ## The hook
 
-`hooks/test_scope_guard.py` records the files you edit and denies a command that runs a
-whole suite. Its denial reason lists the changed files and a scoped command to use
-instead. `FULL_SUITE=1` in the command passes it. The user can switch the hook off with
-the environment variable `TEST_SCOPE_GUARD=off`. Detection is best-effort: a runner it
-does not recognise is simply allowed. See `docs/decisions.md` D-001.
+`hooks/test_scope_guard.py` records the files you edit and reacts to a command that runs a
+whole suite. The user chooses the mode with the environment variable `TEST_SCOPE_GUARD`:
+
+| Value | Effect |
+|---|---|
+| `enforce` (default) | The run is **denied**. The reason lists the changed files and a scoped command |
+| `advise` | The run **happens**, and the same guidance arrives with its result. It steers your next run; it cannot undo this one |
+| `off` | No hook |
+
+`FULL_SUITE=1` in the command passes in every mode. Treat an advise-mode note exactly like a
+denial: the next run is scoped. Detection is best-effort; a runner the hook does not
+recognise is simply allowed. See `docs/decisions.md` D-001 and D-002.
 
 ## Anti-patterns
 

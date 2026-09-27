@@ -93,8 +93,12 @@ Prints a single one-line reminder when the submitted prompt contains a token-sha
 
 - `track` (async) records the files edited in the session, under `${CLAUDE_PLUGIN_DATA}`.
 - `check` recognises a whole-suite run - `manage.py test` without labels, bare `pytest`, `odoo-bin --test-enable` without module tags or with `-u all`, `npm test`, `vitest run`, `jest`, `playwright test` without a selector - and **denies** it with a reason listing the changed files and a scoped command.
-- Put `FULL_SUITE=1` in the command when the user asked for the full suite. Set `TEST_SCOPE_GUARD=off` to disable the hook.
-- It fails open on any error, and its decision log never records command text. Rationale: `docs/decisions.md` D-001.
+- Put `FULL_SUITE=1` in the command when the user asked for the full suite.
+- `TEST_SCOPE_GUARD` picks the mode:
+  - `enforce` (default): deny the whole-suite run.
+  - `advise`: let it run and attach the guidance to its result, which steers the next run but cannot stop this one.
+  - `off`: disable the hook.
+- It fails open on any error, and its decision log never records command text. Rationale: `docs/decisions.md` D-001, D-002.
 
 ## Design stance
 

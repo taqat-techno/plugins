@@ -26,7 +26,7 @@ Listed in marketplace order. Versions are the value in each plugin's `.claude-pl
 | 9 | **qa-browser** | `0.5.1` | productivity | Framework-agnostic browser QA + role-based smoke tests, layered over chrome-devtools / playwright MCP. Live identity/RBAC proof, host-scoped headers, disposable-data safety, production-URL gate. | [README](./qa-browser-plugin/README.md) |
 | 10 | **docs-wiki** | `0.8.1` | productivity | Generic toolkit for creating, organising, editing, validating, and auditing a project Wiki. Source-of-truth doctrine, page templates, flat-namespace + link conventions, code-vs-wiki drift. | [README](./docs-wiki-plugin/README.md) |
 | 11 | **claude-env-doctor** | `0.6.2` | productivity | Diagnose (never blindly mutate) the local Claude Code / dev environment — MCP wiring, Windows/WSL networking, login/401, LSP/Node spawn, Python encoding, Playwright browser setup. | [README](./claude-env-doctor-plugin/README.md) |
-| 12 | **agent-safety-guards** | `0.3.0` | productivity | Generic agent-session safety + multi-agent workflow-reliability guardrails — credential-compromise response, read-only immutability, authorization verification, no-fabrication discipline, reliable fan-out. | [README](./agent-safety-guards-plugin/README.md) |
+| 12 | **agent-safety-guards** | `0.4.0` | productivity | Generic agent-session safety + multi-agent workflow-reliability guardrails — credential-compromise response, read-only immutability, authorization verification, no-fabrication discipline, reliable fan-out. | [README](./agent-safety-guards-plugin/README.md) |
 | 13 | **release-safety** | `0.4.1` | productivity | Provider-neutral release / deployment / migration safety — verify a fix is actually deployed (not just merged), diff environment secrets before promotion, detect migration drift, run risky cutovers safely, keep CI signals honest. | [README](./release-safety-plugin/README.md) |
 | 14 | **django** | `0.3.0` | development | Reusable Django / DRF engineering toolkit — ORM & model design, zero-downtime migration safety, views & DRF API patterns, 12-factor config, security auditing, pytest-django testing, performance/caching. | [README](./django-plugin/README.md) |
 | 15 | **fastapi** | `0.3.0` | development | Reusable FastAPI engineering toolkit — Pydantic v2 schemas, async routing & DI, SQLAlchemy/SQLModel data layer, Alembic migration safety, pydantic-settings config, security auditing, pytest + httpx testing, async correctness. | [README](./fastapi-plugin/README.md) |
@@ -249,7 +249,7 @@ Generic guardrails for agent sessions and multi-agent fan-out. Covers credential
 
 **7 skills**, no commands. Includes `test-scope`: test the change, not the system (T0 static, T1 targeted, T2 affected modules; the full suite only when the user asks or in CI).
 
-**Hooks:** a non-fatal `UserPromptSubmit` credential advisory (never blocks, never echoes the value), and the test-scope guard. The guard records edited files asynchronously and **denies** a whole-suite test run with a reason naming the changed files and a scoped command. `FULL_SUITE=1` in the command overrides it; `TEST_SCOPE_GUARD=off` disables it.
+**Hooks:** a non-fatal `UserPromptSubmit` credential advisory (never blocks, never echoes the value), and the test-scope guard. The guard records edited files asynchronously and **denies** a whole-suite test run with a reason naming the changed files and a scoped command. `FULL_SUITE=1` in the command overrides it. `TEST_SCOPE_GUARD=advise` lets the run happen and attaches the guidance instead, and `off` disables the hook.
 
 ---
 

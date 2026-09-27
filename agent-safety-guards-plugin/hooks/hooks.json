@@ -1,5 +1,5 @@
 {
-  "description": "agent-safety-guards hooks. (1) credential_paste_advisory: non-fatal UserPromptSubmit reminder when a prompt contains a token-shaped string; never blocks, never echoes the value. (2) test_scope_guard: PostToolUse(Write|Edit) records edited files per session (async); PreToolUse(Bash|PowerShell) denies a command that runs a WHOLE test suite, naming the changed files and a scoped command. Override with FULL_SUITE=1 in the command; disable with TEST_SCOPE_GUARD=off. Fails open on any error. See docs/decisions.md D-001.",
+  "description": "agent-safety-guards hooks. (1) credential_paste_advisory: non-fatal UserPromptSubmit reminder when a prompt contains a token-shaped string; never blocks, never echoes the value. (2) test_scope_guard: PostToolUse(Write|Edit) records edited files per session (async); PreToolUse(Bash|PowerShell) reacts to a command that runs a WHOLE test suite per TEST_SCOPE_GUARD: enforce (default) denies it, advise lets it run and attaches guidance as additionalContext, off disables. FULL_SUITE=1 in the command always passes. Fails open. See docs/decisions.md D-001, D-002.",
   "hooks": {
     "UserPromptSubmit": [
       {

@@ -5,18 +5,22 @@ One script, two modes:
 
   track   PostToolUse(Write|Edit|MultiEdit|NotebookEdit), async. Records the edited
           file path for this session so the guard can name what actually changed.
-  check   PreToolUse(Bash|PowerShell). If the command runs a WHOLE test suite, deny it
-          with a reason naming the files changed this session and a scoped command.
-          A command carrying FULL_SUITE=1 passes untouched.
+  check   PreToolUse(Bash|PowerShell). When the command runs a WHOLE test suite, react
+          according to TEST_SCOPE_GUARD:
+            enforce (default)  deny, with a reason naming the files changed this session
+                               and a scoped command. The run does not happen.
+            advise             let the run happen and attach the same guidance as
+                               PreToolUse additionalContext. Claude reads it with the
+                               result, so it steers the NEXT run, not this one.
+            off                do nothing.
+          A command carrying FULL_SUITE=1 passes untouched in every mode.
 
-Why a deny and not an advisory: on PreToolUse, plain stdout/stderr with exit 0 is not
-fed to the model. A permissionDecision "deny" reason is, and it holds in every
-permission mode. The deny is a speed bump, not a wall: FULL_SUITE=1 is the documented
-override for when the user asked for the full suite or a user-invoked gate needs it.
+Both outputs reach the model: a permissionDecision "deny" reason, and
+hookSpecificOutput.additionalContext with hookEventName "PreToolUse" (verified on Claude
+Code 2.1.282). Plain stdout/stderr with exit 0 does not. See docs/decisions.md D-002.
 
 Fails OPEN everywhere: bad input, an unknown shape, an exception or a slow filesystem
 all end in exit 0 with no output, so the tool call proceeds exactly as without the hook.
-Disable entirely with the environment variable TEST_SCOPE_GUARD=off.
 
 Policy lives in skills/test-scope/SKILL.md. This script only classifies and reports.
 Stdlib only. `--self-test` runs the built-in classification table.
@@ -393,6 +397,30 @@ def suggestion(runner: str, files: list[str]) -> str:
     return "the tests that cover the files you changed"
 
 
+def guard_mode() -> str:
+    """enforce | advise | off, from TEST_SCOPE_GUARD. Unknown values mean enforce."""
+    value = os.environ.get("TEST_SCOPE_GUARD", "").strip().lower()
+    if value in ("off", "0", "false", "disabled"):
+        return "off"
+    if value in ("advise", "advice", "warn", "soft"):
+        return "advise"
+    return "enforce"
+
+
+def advise_text(runner: str, files: list[str]) -> str:
+    listed = ", ".join(files[:MAX_LISTED]) if files else "(none recorded this session)"
+    more = " (+%d more)" % (len(files) - MAX_LISTED) if len(files) > MAX_LISTED else ""
+    return (
+        "test-scope (advise mode): the command you just ran is the WHOLE %s test suite. "
+        "Unless the user asked for it or a user-invoked release/integration gate requires "
+        "it, the next run should cover only what changed.\n"
+        "Files changed this session: %s%s\n"
+        "Scoped alternative: %s\n"
+        "Widen to the affected modules/apps (T2) before calling the task done."
+        % (runner, listed, more, suggestion(runner, files))
+    )
+
+
 def deny_reason(runner: str, files: list[str]) -> str:
     listed = ", ".join(files[:MAX_LISTED]) if files else "(none recorded this session)"
     more = " (+%d more)" % (len(files) - MAX_LISTED) if len(files) > MAX_LISTED else ""
@@ -423,6 +451,12 @@ def check(data: dict) -> dict | None:
     if kind != "full":
         return None
     files = _load_files(str(data.get("session_id") or "unknown"))
+    if guard_mode() == "advise":
+        _log(runner or "unknown", "advise")
+        return {"hookSpecificOutput": {
+            "hookEventName": "PreToolUse",
+            "additionalContext": advise_text(runner or "unknown", files),
+        }}
     _log(runner or "unknown", "deny")
     return {"hookSpecificOutput": {
         "hookEventName": "PreToolUse",
@@ -502,7 +536,7 @@ def self_test() -> int:
 def main(argv: list[str]) -> int:
     if len(argv) > 1 and argv[1] == "--self-test":
         return self_test()
-    if os.environ.get("TEST_SCOPE_GUARD", "").lower() in ("off", "0", "false", "disabled"):
+    if guard_mode() == "off":
         return 0
     watchdog = threading.Timer(3.0, lambda: os._exit(0))
     watchdog.daemon = True

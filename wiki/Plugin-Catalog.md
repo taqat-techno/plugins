@@ -19,7 +19,7 @@ Listed in marketplace order. Component counts are the real contents of each plug
 | 9 | **qa-browser** | `0.5.1` | productivity | 5 | 2 | 13 | 2 | — | 3 + 1 | [README](../../qa-browser-plugin/README.md) |
 | 10 | **docs-wiki** | `0.8.1` | productivity | 7 | 3 | 10 | 0 | — | 3 + 1 | [README](../../docs-wiki-plugin/README.md) |
 | 11 | **claude-env-doctor** | `0.6.2` | productivity | 1 | 1 | 2 | 1 | — | 1 + 1 | [README](../../claude-env-doctor-plugin/README.md) |
-| 12 | **agent-safety-guards** | `0.3.0` | productivity | 0 | 0 | 7 | 3 | — | 3 + 2 | [README](../../agent-safety-guards-plugin/README.md) |
+| 12 | **agent-safety-guards** | `0.4.0` | productivity | 0 | 0 | 7 | 3 | — | 3 + 2 | [README](../../agent-safety-guards-plugin/README.md) |
 | 13 | **release-safety** | `0.4.1` | productivity | 1 | 0 | 3 | 1 | — | 1 + 1 | [README](../../release-safety-plugin/README.md) |
 | 14 | **django** | `0.3.0` | development | 4 | 3 | 7 | 3 | — | 2 + 1 | [README](../../django-plugin/README.md) |
 | 15 | **fastapi** | `0.3.0` | development | 4 | 3 | 8 | 3 | — | 2 + 1 | [README](../../fastapi-plugin/README.md) |
@@ -84,7 +84,7 @@ The `ui-ux-mechanics` plugin's Figma integration uses an external Figma MCP that
 | `notification` | 5 | All `async: true` — structurally cannot block Claude |
 | `django`, `fastapi` | 3 each | SessionStart detection + advisory write/bash guards |
 | `devops`, `rag`, `qa-browser`, `git-safety` | 2 each | Advisory; `qa-browser`'s production-URL gate is the only blocker among these four |
-| `agent-safety-guards` | 3 | Credential advisory (never blocks) + test-scope: an async edit tracker and a PreToolUse guard that **denies** whole-suite test runs (`FULL_SUITE=1` overrides, `TEST_SCOPE_GUARD=off` disables) |
+| `agent-safety-guards` | 3 | Credential advisory (never blocks) + test-scope: an async edit tracker and a PreToolUse guard that **denies** whole-suite test runs by default (`TEST_SCOPE_GUARD=advise` lets them run with guidance attached; `off` disables; `FULL_SUITE=1` overrides) |
 | `claude-env-doctor`, `release-safety` | 1 each | Advisory only, exit 0 always |
 | `sprint-recap` | 2 | SessionStart credential-hygiene advisory + a `PreToolUse` Bash gate that **blocks** (exit 2) any `git add` of the plaintext credential artifacts it generates |
 | `pandoc`, `remotion`, `ui-ux-mechanics`, `react-kit`, `docs-wiki`, `worktree` | 0 | No hooks registered |
