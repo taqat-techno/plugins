@@ -254,6 +254,125 @@ def parse_access_csv(csv_path: Path) -> Tuple[List[Dict], List[str]]:
     return rows, errors
 
 
+# ---------------------------------------------------------------------------
+# Odoo 20+: security/ir.access.csv (ir.access replaces ir.model.access + ir.rule)
+# ---------------------------------------------------------------------------
+
+OPEN_GROUPS = ('base.group_portal', 'base.group_public', 'base.group_everyone')
+
+
+def parse_ir_access_csv(csv_path: Path) -> Tuple[List[Dict], List[str]]:
+    """Parse an Odoo 20 security/ir.access.csv.
+
+    Header: id,name,model_id,group_id/id,operation,domain. model_id is the model
+    NAME (e.g. sale.order). A row WITH a group is a permission (adds access); a row
+    WITHOUT one is a restriction (limits everyone). operation is a subset of 'crud'.
+    """
+    rows, errors = [], []
+    try:
+        with open(csv_path, newline='', encoding='utf-8') as f:
+            reader = csv.DictReader(f)
+            fields_ = set(reader.fieldnames or [])
+            group_col = 'group_id/id' if 'group_id/id' in fields_ else ('group_id:id' if 'group_id:id' in fields_ else 'group_id')
+            missing = {'id', 'model_id', 'operation'} - fields_
+            if missing:
+                errors.append("Missing CSV columns: %s" % ', '.join(sorted(missing)))
+            for line_num, row in enumerate(reader, start=2):
+                if not any((v or '').strip() for v in row.values()):
+                    continue
+                model = (row.get('model_id') or '').strip()
+                op = (row.get('operation') or '').strip().lower()
+                if not model:
+                    errors.append("Line %d: empty model_id" % line_num)
+                    continue
+                if not op or set(op) - set('crud'):
+                    errors.append("Line %d: operation %r is not a subset of 'crud'" % (line_num, op))
+                rows.append({
+                    'id': (row.get('id') or '').strip(),
+                    'model': model,  # Odoo 20 uses the model name, e.g. sale.order
+                    'group_id': (row.get(group_col) or '').strip(),
+                    'operation': op,
+                    'domain': (row.get('domain') or '').strip(),
+                    'line': line_num,
+                })
+    except Exception as e:  # a malformed CSV must never crash the audit
+        errors.append("Error reading CSV: %s" % e)
+    return rows, errors
+
+
+def check_ir_access_v20(module_path: Path, all_models: List[Dict], py_files: List[Path],
+                        csv_path: Path) -> List[Dict]:
+    issues: List[Dict] = []
+    rel_csv = str(csv_path.relative_to(module_path))
+    rows, errors = parse_ir_access_csv(csv_path)
+    for error in errors:
+        issues.append({'severity': 'MEDIUM', 'type': 'csv_parse_error', 'file': rel_csv,
+                       'line': None, 'message': "ir.access.csv: %s" % error})
+    defined_groups = find_defined_groups(module_path)
+    new_models = [m for m in all_models if m.get('name') and not m.get('is_abstract')]
+
+    for model in new_models:
+        name = model['name']
+        file_rel = Path(model['file']).relative_to(module_path) if module_path in Path(model['file']).parents else model['file']
+        mine = [r for r in rows if r['model'] == name]
+        perms = [r for r in mine if r['group_id']]
+        restrictions = [r for r in mine if not r['group_id']]
+        if not perms:
+            issues.append({
+                'severity': 'HIGH' if model['is_transient'] else 'CRITICAL',
+                'type': 'missing_access_rule', 'file': str(file_rel), 'line': model['line'],
+                'message': ("%s '%s' has no permission row (a row with group_id) in "
+                            "security/ir.access.csv - no user group can access it (Odoo 20 ir.access)."
+                            % ('Transient (wizard)' if model['is_transient'] else 'Model', name)),
+            })
+        granted = set(''.join(r['operation'] for r in perms))
+        for r in perms:
+            if r['group_id'] in OPEN_GROUPS or r['group_id'].endswith(OPEN_GROUPS):
+                wide = set(r['operation']) & set('cud')
+                issues.append({
+                    'severity': 'HIGH' if wide else 'LOW', 'type': 'open_group_access',
+                    'file': rel_csv, 'line': r['line'],
+                    'message': ("'%s' grants '%s' on %s to %s. %s" % (
+                        r['id'], r['operation'], name, r['group_id'],
+                        "Create/update/delete for portal/public/everyone is almost never intended."
+                        if wide else "Confirm this model holds no personal or business-sensitive data.")),
+                })
+            if r['group_id'] and '.' in r['group_id'] and r['group_id'] not in defined_groups \
+                    and r['group_id'].split('.', 1)[0] == module_path.name:
+                issues.append({'severity': 'LOW', 'type': 'unknown_group_reference', 'file': rel_csv,
+                               'line': r['line'],
+                               'message': "'%s' references %s, not defined in this module." % (r['id'], r['group_id'])})
+        if restrictions:
+            covered = set(''.join(r['operation'] for r in restrictions))
+            gap = sorted(granted - covered)
+            if gap:
+                issues.append({
+                    'severity': 'MEDIUM', 'type': 'partial_restriction', 'file': rel_csv,
+                    'line': restrictions[0]['line'],
+                    'message': ("Restriction rows for %s cover '%s' but permissions also grant '%s'. "
+                                "Each operation is checked on its own (write checks write access only), "
+                                "so records the restriction hides stay open to '%s'. Restrict every "
+                                "operation that needs it." % (name, ''.join(sorted(covered)), ''.join(gap), ''.join(gap))),
+                })
+
+    company_pattern = re.compile(r"company_id\s*=\s*fields\.(Many2one|Integer)\s*\(\s*['\"]res\.company['\"]")
+    company_rows = [r for r in rows if not r['group_id'] and 'company' in r['domain']]
+    for py_file in py_files:
+        try:
+            if company_pattern.search(py_file.read_text(encoding='utf-8', errors='replace')) and not company_rows:
+                issues.append({
+                    'severity': 'HIGH', 'type': 'missing_record_rule',
+                    'file': str(py_file.relative_to(module_path)), 'line': None,
+                    'message': ("'%s' defines a company_id field but ir.access.csv has no company "
+                                "restriction row (no group, domain on company_ids). Multi-company "
+                                "isolation may be missing (Odoo 20)." % py_file.name),
+                })
+                break
+        except OSError:
+            continue
+    return issues
+
+
 def find_defined_groups(module_path: Path) -> set:
     """Scan security XML files to find all defined group XML IDs."""
     group_ids = set()
@@ -335,6 +454,12 @@ def check_access_rules(module_path: Path) -> List[Dict]:
             'message': 'No model definitions found in models/ directory.',
         })
         return issues
+
+    # Odoo 20+: ir.access.csv carries both access rights and record-level restrictions,
+    # with inverted meaning for an empty group (a restriction, not "all users").
+    v20_csv = module_path / 'security' / 'ir.access.csv'
+    if v20_csv.exists() and not (module_path / 'security' / 'ir.model.access.csv').exists():
+        return issues + check_ir_access_v20(module_path, all_models, py_files, v20_csv)
 
     # Find ir.model.access.csv
     csv_candidates = [

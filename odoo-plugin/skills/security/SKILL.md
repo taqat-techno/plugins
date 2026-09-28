@@ -54,8 +54,19 @@ You are an expert Odoo security auditor. You analyze Odoo module codebases syste
 
 When triggered, follow this methodology:
 
+0. **Know the version.** Read `version` in `__manifest__.py`. On **20.0+**:
+   - Access lives in `security/ir.access.csv`. `ir.access` replaces `ir.model.access` and
+     `ir.rule`, and a row with no group is a *restriction*, not "all users". The Access
+     Checker switches to those semantics automatically.
+   - If Odoo's official skills are installed (`.claude/skills/odoo-security/
+     .odoo-official.json`), run their pattern sweep as the floor, and use this skill for
+     what they do not cover.
+   - Otherwise suggest `/official-skills` once.
+
+   Detail: the reviewer's `references/v20_deltas.md` and `references/official_odoo_skills.md`.
 1. **Validate module** — confirm `__manifest__.py` exists at the given path.
-2. **Run Access Checker** — scan `models/*.py` vs `security/ir.model.access.csv`.
+2. **Run Access Checker** — scan `models/*.py` vs `security/ir.model.access.csv`
+   (Odoo 20+: `security/ir.access.csv`).
 3. **Run Route Auditor** — scan `controllers/*.py` for `@http.route()` issues.
 4. **Run Sudo Finder** — scan all `.py` files for `.sudo()` risk patterns.
 5. **Run SQL Scanner** — find `env.cr.execute()` with unsafe string formatting.
@@ -299,6 +310,13 @@ And the load rule that hides the fix: **security CSV / ACL edits load on `-u`,
 never on a restart.** A corrected `ir.model.access.csv` that was only followed
 by a server restart is still the old grant in the database, which makes a
 correct fix look like it did not work.
+
+### Code-level pivots the scanners do not catch (17.0+)
+
+The sudo'd `related` field, x2many `Command` payloads inside a sudo write,
+`@api.private`, `file_open`, `pickle`, dynamic `getattr` and `consteq` are covered in the
+reviewer's `references/security_pitfalls.md`. The sweep scripts do not detect them, so
+check them by hand whenever a controller or public method is in scope.
 
 ### A `create()` under a privilege-implying context flag is a privilege grant
 

@@ -368,3 +368,46 @@ Pattern: `--[root]__[element]-[property]--[modifier]` (BEM).
 Define them inside the component's main block with default fallbacks. Avoid
 defining CSS variables on the `:root` pseudo-class except for templates that
 genuinely need cross-bundle contextual awareness.
+
+## Changing a module that is already deployed
+
+Once a module version runs in production, its public surface is API. Other modules,
+customer data and existing translations depend on it. For a fix to a deployed version,
+the equivalent of a stable branch:
+
+- Keep the change minimal and about the defect. Improvements, refactors and restyling go
+  in the next feature version, not in the fix.
+- **Public method signatures** (no `_` prefix) do not change, and private ones avoid
+  changes too: other modules override them.
+- **No incompatible data-model change.** Stored columns are not removed, renamed or
+  retyped. A new stored field needs a migration plan, while a non-stored compute is safe.
+- **XML ids of existing records stay.** Do not delete data records that user data may
+  reference.
+- Python must keep working on a database whose module has **not** been upgraded yet: the
+  view or data change lands on `-u`, the code lands on restart.
+- **Translatable source terms do not change**, not even for a typo, because every
+  existing translation of the term is lost. Fix the wording in the next feature version.
+
+Why: a deployed fix is applied under pressure and often without a full upgrade. Every
+rule above removes a way it can break the database it was meant to fix.
+
+## Plain ASCII punctuation in code text
+
+Write code comments, docstrings, user-facing strings and commit messages in Odoo
+repositories with ASCII punctuation only. That means no em or en dash, no curly quotes and
+no ellipsis character. Use `:`, `,`, `;`, parentheses, `-`, `"`, `'` and `...` instead.
+
+```python
+# bad:  # recompute totals — taxes may have changed
+# good: # recompute totals: taxes may have changed
+```
+
+Why:
+- ASCII is what reviewers type when they grep.
+- Odoo stores a translation under the literal's exact text: the same sentence written with a
+  hyphen and with an em dash becomes two separate terms for translators.
+- A diff full of em dashes reads as generated text.
+
+Exceptions: data whose content is the character itself (fixtures, localisation files), and
+existing text in a deployed version (see above).
+

@@ -15,7 +15,7 @@ Listed in marketplace order. Versions are the value in each plugin's `.claude-pl
 
 | # | Plugin | Version | Category | Description | Documentation |
 |---|--------|---------|----------|-------------|---------------|
-| 1 | **odoo** | `2.12.0` | development | Unified Odoo development toolkit — upgrade, frontend themes, testing, security auditing, i18n/PO, reports, Docker infrastructure, server lifecycle, OWL app scaffolding, and a live-instance MCP connection across Odoo 14–19. | [README](./odoo-plugin/README.md) |
+| 1 | **odoo** | `2.13.0` | development | Unified Odoo development toolkit — upgrade, frontend themes, testing, security auditing, i18n/PO, reports, Docker infrastructure, server lifecycle, OWL app scaffolding, and a live-instance MCP connection across Odoo 14–19. | [README](./odoo-plugin/README.md) |
 | 2 | **devops** | `6.9.2` | productivity | Azure DevOps HYBRID integration — work items, PRs, pipelines, repos, wiki via CLI + MCP, persistent profile, role-based state machine, plus a provider-neutral remote-write gate and CI-hardening checklist. | [README](./devops-plugin/README.md) |
 | 3 | **notification** | `1.0.1` | productivity | Native desktop notifications when a session needs you — questions, permission prompts, task completions, turn completion, API failures. Hooks only, zero tokens at runtime, never blocks Claude, silent no-op on WSL and headless hosts. | [README](./notification-plugin/README.md) |
 | 4 | **pandoc** | `2.2.1` | productivity | Universal document conversion powered by Pandoc — 50+ input and 60+ output formats, citations, Arabic/RTL support. | [README](./pandoc-plugin/README.md) |
