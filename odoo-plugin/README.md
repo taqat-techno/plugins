@@ -24,6 +24,7 @@ Unified Odoo development toolkit for Claude Code — covering upgrade, frontend 
 | `/i18n [sub]` | i18n | Translation management |
 | `/report [sub]` | report | Email templates and QWeb reports |
 | `/mcp-setup [sub]` | mcp | Configure, test, and troubleshoot the live Odoo connection |
+| `/official-skills [sub]` | reviewer | Install Odoo's official agent skills (20.0+) into the project, matched to its version; refuses on 14-19 |
 | `/owl [sub] [path]` | owl | Scaffold a standalone OWL app, lint anti-patterns, choose a UI shape, diagnose silent failures |
 
 ## Safety Hooks

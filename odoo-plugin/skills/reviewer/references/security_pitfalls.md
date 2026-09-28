@@ -160,6 +160,11 @@ Rules:
   wrapper that validates state, identity, and inputs.
 - Making a method private is *necessary* but not sufficient — care still
   needed.
+- **(17.0+) `@api.private`.** The RPC dispatcher (`get_public_method` in
+  `odoo/service/model.py`) refuses `_`-prefixed names, class/static methods, and any
+  method decorated `@api.private` anywhere in the MRO. When a public name must stay for
+  Python callers or overrides, `@api.private` closes the RPC entry without a rename.
+  Check for it before flagging a public-named method as exposed.
 
 ### Bypassing the ORM
 
@@ -185,10 +190,23 @@ Never `+`-concatenate or `%`-format query strings. Let psycopg2 format
 parameters — it knows that a tuple becomes `(…)` for `IN %s`, that a list
 becomes an array, etc.
 
+**(17.0+) Identifiers and ORM-filtered SQL.** Table or column names cannot be
+parameters. Build them with `odoo.tools.SQL.identifier(name)` (inside `SQL(...)`), never
+by formatting. It validates with `assert`, so it is skipped under `python -O`: never feed
+it raw user input either. When custom SQL must run over rows the current user may see,
+start from `self._search(domain)` and select from that query. Access rules and `active`
+handling then still apply, where a hand-written `WHERE` would bypass them.
+
 ### Unescaped QWeb content (`t-raw`)
 
 `t-raw` injects HTML verbatim. It's an XSS vector. The "current input is
 safe" argument fails after the next refactor.
+
+Version facts: since 15.0 `t-out` is the directive. It escapes, unless the value is
+`Markup`. `t-esc` and `t-raw` are deprecated aliases that the 17.0–19.0 engine still
+accepts ("Deprecated, please use `t-out`"). On 20.0 / master both are gone: the
+raw-HTML vector is then a `Markup` / `markup()` value reaching `t-out`, and a leftover
+`t-esc` in server QWeb renders nothing. That is a bug, though not an XSS.
 
 ```xml
 <!-- vulnerable -->
@@ -198,13 +216,14 @@ safe" argument fails after the next refactor.
 ```xml
 <!-- safe -->
 <div id="information-bar">
-    <div class="info"><t t-esc="message"/></div>
-    <div class="subject"><t t-esc="subject"/></div>
+    <div class="info"><t t-out="message"/></div>
+    <div class="subject"><t t-out="subject"/></div>
 </div>
 ```
 
-Default to `t-esc`. When you genuinely need HTML, use `Markup` (see below)
-or structured templates.
+Default to `t-out` (on 14.0, `t-esc`). When you genuinely need HTML, use `Markup` (see
+below) or structured templates. Never build `Markup` with an f-string
+(`Markup(f"<p>{x}</p>")` escapes nothing). Use `Markup("<p>{x}</p>").format(x=...)`.
 
 ### `Markup` — safe HTML formatting
 
@@ -300,12 +319,46 @@ record.sudo().with_company(target_company).do_stuff()
 
 Otherwise you can silently leak data across companies.
 
+## Privilege pivots that look harmless
+
+### (17.0+) Sudo'd `related` fields
+
+A `related` field is evaluated as superuser unless it says otherwise (`related_sudo`
+defaults to `True`). If the chain passes through a Many2one the user may edit, they can aim
+it at an arbitrary record and see that record's value without holding read access to it.
+Mark chains that end in sensitive data `related_sudo=False`. Never relate onto
+`ir.attachment` through a user-writable Many2one: it reads arbitrary files. Use a
+`Binary` field, or search `ir.attachment` so its own access rules apply.
+
+### (17.0+) x2many commands inside a sudo write
+
+Under `sudo()`, the `Command` tuples in an x2many value run with sudo **on the comodel**,
+unless that model sets `_allow_sudo_commands = False`. A controller that does
+`record.sudo().write(post)` with request values can therefore create or link records in
+another model. Whitelist the keys **and** reject or rebuild command lists from request
+data.
+
+## Code-execution and file-access primitives
+
+| Construct | Why it is dangerous | Write instead |
+|---|---|---|
+| `open(path)` on an influenced path | Reads or writes any file on the host | `odoo.tools.file_open()`, confined to addons paths and registered temp dirs. It is a path confinement, not write protection |
+| `pickle.loads` on stored or received data | Runs code on load (`__reduce__`) | `json` |
+| `eval` / `exec` | Remote code execution | `json.loads`, `ast.literal_eval`. `safe_eval` only for trusted privileged input |
+| `getattr(record, name)` / `setattr` with a name from input | Reaches `__class__` → globals → import | `record[name]`, after validating the field name against `_fields` |
+| `==` on a token or secret | Leaks by timing | `odoo.tools.consteq`, or look the token up with `search` |
+| a public model method **returning** a rich object (a key or backend handle) | Server actions and automations run `safe_eval` code that can call it and walk its internals | A module-level function, or a name that `safe_eval` cannot reach |
+| `def f(vals=[])` / `={}` | Shared across calls, so data leaks between requests | `None` default, created inside |
+
 ## Self-audit checklist (drop into PR description)
 
 - [ ] Every new model has an `ir.model.access.csv` row.
 - [ ] No public method mutates state without re-validating preconditions.
 - [ ] No `cr.execute` with string concatenation / `%`-formatting.
-- [ ] No `t-raw` introduced; existing `t-raw` is justified in a comment.
+- [ ] No `t-raw` / `t-esc` introduced (use `t-out`); no `Markup` built from an f-string.
+- [ ] Every public method that must not be RPC-callable is `_`-prefixed or `@api.private` (17.0+).
+- [ ] No sudo write takes x2many commands from request data; sensitive `related` chains set `related_sudo=False`.
+- [ ] No `open()`, `pickle`, `eval`, or dynamic `getattr` on input; secrets compared with `consteq`.
 - [ ] Every `sudo()` has a one-line `# justification` comment.
 - [ ] No security decision relies on a context key alone.
 - [ ] Cross-company writes use `with_company`.

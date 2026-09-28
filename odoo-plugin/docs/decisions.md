@@ -98,3 +98,47 @@ Evals:
 This skill ships in the existing odoo-plugin eval suite. The connection behaviour is covered
 by `tests/mcp/test_mcp_connections.py` (19 cases, including a fake Odoo for database follow)
 and `tests/mcp/test_mcp_server.py` (22 cases).
+
+## D-002 - Odoo's official agent skills are fetched per project, never vendored
+
+Date: 2026-09-28
+Phase: Post-2.12
+Status: binding
+Ships in: v2.13.0
+
+Decision:
+
+1. **odoo-plugin never copies Odoo's official skills into its own tree.**
+   `/official-skills` fetches the set that matches the project's Odoo branch from
+   `odoo/odoo` into `<project>/.claude/skills/`, and marks each skill directory with
+   `.odoo-official.json`.
+2. **Installation happens only for 20.0+.** Before 20.0, `odoo/odoo` has no `skills/`, and
+   the 20.0 rules contradict 14-19: `ir.access`, removed `t-esc`/`t-raw`, and
+   `models.Constraint`-only constraints. The command refuses. `--branch` exists for a
+   project that really targets that branch.
+3. **Precedence on 20.0+ with the set installed:** the official rules are the floor, and
+   odoo-plugin's reviewer and security skills add what they lack. A finding from both is
+   reported once, citing the official section.
+4. **Rules that also hold on older versions are restated in odoo-plugin's own words,
+   version-gated and verified against the 17.0/18.0/19.0 source**: `@api.private`,
+   `related_sudo`, `_allow_sudo_commands`, `SQL.identifier`, `file_open` and `consteq`.
+   Their wording is never copied.
+
+Rationale:
+
+The official skills are high quality, authoritative and updated weekly. They are also
+tied to one branch, licensed LGPL-3, and would compete with odoo-plugin's reviewer and
+security skills for the same requests. Fetching keeps them exact and current and
+redistributes nothing. Deferral removes the routing competition. Restating the
+version-independent rules closes the gaps for the 14-19 projects the official set
+cannot serve.
+
+Non-violation of prior decisions:
+
+- D-001 is unaffected. No MCP change.
+
+Reverse-only criteria:
+
+Supersede if Odoo publishes skills on a 14-19 branch (install those per branch), or ships
+them as a Claude Code plugin in a marketplace (then depend on it rather than fetching).
+

@@ -19,23 +19,19 @@ Use it when reviewing code, planning refactors, or producing technical-debt
 estimates for any Odoo module. The goal is to ground every judgement in a
 documented Odoo rule, not in personal taste.
 
-This skill primarily targets **Odoo 17**. Where a rule has changed in
-**Odoo 19**, the section below points at `references/v19_deltas.md`. In
-mixed-version environments (a fleet where some clusters/instances run v17
-and others v19), always identify the target's Odoo version before applying
-a finding — many rules are version-specific.
+Baseline **Odoo 17**; version changes live in `references/v19_deltas.md` and
+`references/v20_deltas.md`. Always identify the target's Odoo version before a finding.
 
 ## How to use this skill
 
-1. **Identify the scope and version.** Is the review for a single file, a
-   module, a repo, a cluster, or a cross-module pattern? Which Odoo version
-   does the target run on (17 or 19)? In a multi-cluster fleet, this is
-   per-cluster.
-2. **Walk the checklist below in order.** Each section names a *category of
-   risk* with the specific rule and a pointer to the deep-dive reference file.
-3. **Cross-check the v19 deltas.** Any rule that names a renamed API or a
-   v19-only construct (e.g. `<list>`, `Domain` class, `aggregator=`) is in
-   `references/v19_deltas.md`. Apply it only on the version it targets.
+1. **Identify the scope and version.** Single file, module, repo, cluster, or
+   cross-module pattern? Which Odoo version (17, 19, 20)? Per cluster in a fleet.
+   On 20.0+ with Odoo's official skills installed (`.claude/skills/odoo-review/
+   .odoo-official.json`), they are the rule floor: `references/official_odoo_skills.md`.
+2. **Walk the checklist below in order**, then the merits pass and the consumers the
+   diff never shows (`references/change_impact.md`).
+3. **Cross-check the version deltas** (`v19_deltas.md`, `v20_deltas.md`: `<list>`,
+   `Domain`, `ir.access`, ...). Apply each only on the version it targets.
 4. **Score severity, not aesthetics.** A violation is BLOCKER, MAJOR, MINOR, or
    STYLE. The severity model is in `references/severity_model.md`.
 5. **Cite the rule.** When flagging a finding, include the relevant rule name
@@ -56,7 +52,10 @@ reviewer/
     ├── module_manifest.md                ← manifest keys + versioning rules
     ├── testing.md                        ← TransactionCase, HttpCase, tours, naming
     ├── severity_model.md                 ← how to grade findings & estimate debt
-    └── v19_deltas.md                     ← every rule that changed in Odoo 19 + mixed-cluster checklist
+    ├── change_impact.md                  ← two-pass review; consumers the diff never shows
+    ├── official_odoo_skills.md           ← when Odoo's own 20.0+ skills are the rule floor
+    ├── v19_deltas.md                     ← every rule that changed in Odoo 19 + mixed-cluster checklist
+    └── v20_deltas.md                     ← Odoo 20: ir.access, Constraint-only, t-out only
 ```
 
 Read a reference file when a check requires the detail it holds. Otherwise the
@@ -345,9 +344,8 @@ Security pitfalls (each is BLOCKER unless noted):
 - **SQL injection** via `cr.execute('… ' + user_input + ' …')`. Use
   parameterised queries `cr.execute('… WHERE x = %s', (val,))`. Use
   `tuple(ids)` for `IN %s`. Never `%-format` SQL strings yourself.
-- **Unescaped QWeb (`t-raw`).** Frequent XSS vector. Default to `t-esc`;
-  use `Markup(...)` for safe HTML and let `_(...)` / `%`-formatting work
-  with it.
+- **Unescaped QWeb (`t-raw`).** Frequent XSS vector. Use `t-out` (15.0+;
+  `t-esc`/`t-raw` are deprecated aliases, gone on 20); `Markup(...)` for safe HTML.
 - **Sudo'd writes from a public method** without sanity checks.
 - **Trusting context keys** like `default_*` to enforce policy — context
   is user-controlled.

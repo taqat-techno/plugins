@@ -2,6 +2,73 @@
 
 All notable changes to `odoo-plugin` are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/). Versioning follows [SemVer](https://semver.org/).
 
+## [2.13.0] - 2026-09-28
+
+Integrates Odoo's official agent skills (`odoo-guidelines`, `odoo-web-guidelines`,
+`odoo-security`, `odoo-review`, published in `odoo/odoo` `skills/` on 20.0 and master).
+They are fetched, not vendored. Decision: `docs/decisions.md` D-002.
+
+### Added
+- **`/official-skills`** (`scripts/official_skills.py`) installs, updates, checks or removes
+  the official set in `<project>/.claude/skills/`. It works out the project's Odoo version
+  from its module manifests, falling back to `odoo/release.py`:
+  - On 20.0+ it installs the matching branch from upstream. Each skill gets a
+    `.odoo-official.json` marker recording the branch, the commit and the licence.
+  - On 14-19 it **refuses**, because the 20.0 rules are wrong there.
+  - It never overwrites a same-named skill the user wrote (`--force` is needed for that).
+  - `remove` deletes only marker-verified directories.
+
+  Verified live against GitHub: install, update when already current, status, remove, the
+  17.0 refusal, and the user-owned directory refusal.
+- **Reviewer and security skills defer to the official set on 20.0+** (new reference
+  `official_odoo_skills.md`). When it is installed it is the rule floor, and odoo-plugin
+  adds multi-tenancy, live MCP verification and recorded lessons on top. If a 20.0 set is
+  installed on a 14-19 project, that is flagged.
+- `reviewer/references/v20_deltas.md`: Odoo 20's `ir.access` replaces
+  `ir.model.access` and `ir.rule`. This was verified against the 20.0 source:
+  - the CSV header is `id,name,model_id,group_id/id,operation,domain`;
+  - a row with a group is a permission, and a row without one is a restriction;
+  - a restriction must cover every operation it restricts.
+
+  The file also covers `_sql_constraints` being ignored, `Domain` composition, and `t-out`
+  being the only output directive.
+- `reviewer/references/change_impact.md`: a two-pass review (rules, then merits: edge
+  values, timezones, empty and multi-record sets, the second run, tests that would fail
+  without the change). It adds a pinned-revision rule and a sweep of "the code the diff
+  never shows": overrides, renamed names across Python, XML and JS, and the producers of
+  shared templates and keys.
+- `security_pitfalls.md`, all verified present from 17.0:
+  - `@api.private` and `get_public_method`;
+  - `SQL.identifier` and `_search`-based SQL;
+  - the sudo'd `related` field pivot (`related_sudo`);
+  - x2many `Command` payloads in a sudo write (`_allow_sudo_commands`);
+  - a primitives table covering `open`/`file_open`, `pickle`, `eval`, dynamic `getattr`,
+    `consteq`, rich return values and mutable defaults.
+
+  The self-audit checklist is extended to match.
+- `coding_guidelines.md`:
+  - "Changing a module that is already deployed": public signatures, stored columns, XML
+    ids and translatable terms are treated as API.
+  - "Plain ASCII punctuation in code text".
+- `tests/security/test_access_checker_v20.py` (9 checks, 20.0 and legacy).
+
+### Fixed
+- **`scripts/security/access_checker.py` gave inverted results on Odoo 20.** It only read
+  `ir.model.access.csv`, so every model came back "unprotected". It also reported a
+  group-less row as "grants access to ALL users", but on 20 that row is a restriction.
+  When `security/ir.access.csv` is present, the checker now applies the 20.0 semantics:
+  - the permission row each model needs;
+  - create, update or delete granted to portal, public or everyone;
+  - partial restrictions;
+  - invalid operation letters;
+  - the company restriction row.
+
+  The legacy path is unchanged.
+- The reviewer said "Default to `t-esc`". That has been wrong since 15.0: `t-out` escapes,
+  and `t-esc`/`t-raw` are deprecated aliases on 17-19 (per the engine's own docstring) and
+  gone on 20.0. Fixed in `SKILL.md` and `security_pitfalls.md`, including the examples.
+- `reviewer/SKILL.md` gained pointers only, and went from 507 to 505 lines.
+
 ## [2.12.0] - 2026-09-27
 
 Odoo MCP connections redesigned for local, staging and production work. Design:
