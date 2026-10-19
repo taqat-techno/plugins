@@ -79,3 +79,6 @@ devops.local.md
 
 # Internal working docs (kept locally, never published)
 .claude/docs/
+
+# Local-only privacy denylist read by tools/check_privacy.py (never published)
+.privacy-denylist

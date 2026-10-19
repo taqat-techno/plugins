@@ -1,0 +1,15 @@
+# gitleaks configuration for CI (see .github/workflows/validate.yml).
+# Extends the default rule set; allowlists only test fixtures that are token-SHAPED on purpose
+# so the redaction code has something to redact.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Redaction test fixtures"
+paths = [
+  '''(^|/)tests?/''',
+  '''(^|/)test_[^/]*\.py$''',
+]
+regexes = [
+  '''ghp_ABCD[A-Za-z0-9]*''',
+]
