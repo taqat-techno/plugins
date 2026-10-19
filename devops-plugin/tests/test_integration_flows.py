@@ -217,8 +217,9 @@ class TestMcpServerDeclared:
         with open(PLUGIN_ROOT / ".mcp.json") as f:
             content = f.read()
         # @azure-devops/mcp with "--authentication envvar" reads the PAT from ADO_MCP_AUTH_TOKEN.
-        assert "${ADO_MCP_AUTH_TOKEN}" in content, ".mcp.json should use ADO_MCP_AUTH_TOKEN env var"
-        assert "${ADO_ORGANIZATION}" in content, ".mcp.json should use ADO_ORGANIZATION env var"
+        # ${VAR:-} so an unset variable expands to empty, never to the literal "${VAR}".
+        assert "${ADO_MCP_AUTH_TOKEN:-}" in content, ".mcp.json should use ADO_MCP_AUTH_TOKEN env var"
+        assert "${ADO_ORGANIZATION:-}" in content, ".mcp.json should use ADO_ORGANIZATION env var"
 
 
 # ─── Flow: Staleness threshold is configurable ───────────────────
@@ -271,3 +272,22 @@ class TestSessionStartConsistencyChecks:
     def test_profile_schema_version_check(self):
         content = (HOOKS_DIR / "session_start_check.py").read_text(encoding="utf-8")
         assert "schemaVersion" in content, "session-start should check profile schema version"
+
+
+# --- Flow: /init never collects the PAT in chat (QW #16a / F-DEV-04) -----------
+
+class TestInitNeverAsksForPat:
+    def _init_text(self):
+        return (PLUGIN_ROOT / "commands" / "init.md").read_text(encoding="utf-8")
+
+    def test_no_set_them_for_me_option(self):
+        text = self._init_text()
+        assert "Set them for me" not in text
+        assert "Set automatically" not in text
+        assert "What is your Azure DevOps Personal Access Token" not in text
+
+    def test_no_setx_of_a_chat_supplied_token(self):
+        assert 'setx ADO_MCP_AUTH_TOKEN "{token}"' not in self._init_text()
+
+    def test_explicitly_forbids_pasting_pat(self):
+        assert "NEVER ask the user to paste their Personal Access Token" in self._init_text()

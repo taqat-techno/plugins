@@ -7,6 +7,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [6.10.1] - 2026-10-19
+
+### Security
+- **`/init` never asks for the PAT in chat.** The "Option 2: Set them for me" path asked the
+  user to paste their Personal Access Token into the conversation (where it is persisted in
+  the session transcript) and then wrote it with `setx`. It is removed: `/init` now only shows
+  the commands for the user to run in their own terminal (the Windows command prompts with
+  `Read-Host` so the token stays out of shell history), adds least-privilege PAT scope
+  guidance, and tells the user to revoke a PAT they paste anyway.
+
+### Fixed
+- **E-mail addresses no longer hard-block comments.** The @mention check matched any
+  `@letter` in the whole payload, so `jane.doe@example.com` in a comment was rejected as an
+  "unresolved @mention". The check now inspects only `tool_input.comment` and requires the
+  `@` not to follow a word character or dot.
+- **Role checks are case-insensitive.** A profile with `role: "PM"` (or `Lead`,
+  `Project Manager`, `Tech Lead`) was blocked from closing work items because the comparison
+  was case-sensitive and label-literal. Roles are normalized to the lower-case ids in
+  `data/state_machine.json` for both the Close/Remove and the Bug-creation checks.
+- **`.mcp.json` no longer leaks a literal `${ADO_ORGANIZATION}` / `${ADO_MCP_AUTH_TOKEN}`.**
+  Both now use `${VAR:-}`, so an unset variable expands to empty instead of the placeholder
+  text being sent to dev.azure.com as an organization name / PAT. The SessionStart preflight
+  reports an unset **or empty/whitespace** value with a clear "run /init" message. The
+  `@azure-devops/mcp@2.8.0` pin is unchanged.
+- **Portable hook launcher.** `hooks/hooks.json` launches both python hooks through a quoted
+  `${CLAUDE_PLUGIN_ROOT}` path with a `python3` -> `python` -> `py -3` fallback, so a plugin
+  path containing a space no longer breaks every hook, and a missing interpreter exits 0
+  instead of blocking (`tests/test_hook_launcher.py`).
+
+### Tests
+- `tests/test_hooks.py`: e-mail-in-comment, mention-beside-email, `@` outside the comment
+  field, case-insensitive role (YAML and Markdown-table profiles), `.mcp.json` `${VAR:-}`
+  defaults, and SessionStart unset/empty/configured env warnings.
+- `tests/test_integration_flows.py`: `/init` never offers to collect the PAT in chat; the
+  `.mcp.json` env-var assertion updated to the `${VAR:-}` form.
+
+---
+
 ## [6.10.0] - 2026-09-27
 
 ### Fixed

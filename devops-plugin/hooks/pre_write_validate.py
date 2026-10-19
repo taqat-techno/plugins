@@ -73,6 +73,40 @@ def _user_role(profile):
     return ""
 
 
+# Role labels people actually write in a profile, mapped to the canonical
+# lower-case role ids used by data/state_machine.json.
+_ROLE_ALIASES = {
+    "project manager": "pm",
+    "product manager": "pm",
+    "team lead": "lead",
+    "tech lead": "lead",
+    "technical lead": "lead",
+}
+
+
+def _normalize_role(role):
+    """Case-insensitive canonical role id ("PM" -> "pm", "Tech Lead" -> "lead")."""
+    norm = " ".join(str(role or "").strip().strip("'\"").lower().split())
+    return _ROLE_ALIASES.get(norm, norm)
+
+
+# An @mention is "@" + letter NOT preceded by a word char or dot, so the "@" inside
+# an e-mail address (jane.doe@example.com) is not mistaken for a mention.
+_MENTION_RE = re.compile(r"(?<![\w.])@[A-Za-z]")
+
+
+def _comment_text(raw):
+    """The comment body from tool_input.comment; falls back to the raw payload."""
+    try:
+        tool_input = json.loads(raw).get("tool_input") or {}
+    except (ValueError, AttributeError):
+        return raw
+    if not isinstance(tool_input, dict):
+        return raw
+    comment = tool_input.get("comment")
+    return comment if isinstance(comment, str) else raw
+
+
 def _advise(text):
     print(json.dumps({"hookSpecificOutput": {
         "hookEventName": "PreToolUse",
@@ -118,7 +152,7 @@ def _update_work_item(raw, profile):
     # HARD BLOCK: Close/Remove restriction (universalRules).
     if target_state in ("Closed", "Removed") and profile.is_file():
         role = _user_role(profile)
-        if role not in ("pm", "lead"):
+        if _normalize_role(role) not in ("pm", "lead"):
             _block(
                 f"[DevOps] BLOCKED: Role '{role}' cannot transition to '{target_state}'. "
                 "Only PM/Lead can close or remove work items. See data/state_machine.json "
@@ -138,7 +172,7 @@ def _create_work_item(raw, profile):
     # HARD BLOCK: Bug creation authority (developers cannot create bugs).
     if wi_type == "Bug" and profile.is_file():
         role = _user_role(profile)
-        if role in ("developer", "backend", "fullstack", "frontend", "devops"):
+        if _normalize_role(role) in ("developer", "backend", "fullstack", "frontend", "devops"):
             _block(
                 f"[DevOps] BLOCKED: Role '{role}' cannot create Bugs. Create a "
                 "[Dev-Internal-fix] Task instead. See data/state_machine.json "
@@ -160,8 +194,10 @@ def _create_work_item(raw, profile):
 
 
 def _add_comment(raw):
-    # HARD BLOCK: unresolved @mentions.
-    if re.search(r"@[a-zA-Z]", raw) and "data-vss-mention" not in raw:
+    # HARD BLOCK: unresolved @mentions. Only the comment body is inspected, and an
+    # e-mail address is not a mention.
+    text = _comment_text(raw)
+    if _MENTION_RE.search(text) and "data-vss-mention" not in text:
         _block(
             "[DevOps] BLOCKED: Unresolved @mentions detected. Resolve to GUIDs and use HTML "
             "format before posting. See rules/guards.md Guard 2."

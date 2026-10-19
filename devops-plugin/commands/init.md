@@ -94,62 +94,49 @@ If registry has values but shell doesn't, tell the user: "Environment variables 
 
 If both `ADO_MCP_AUTH_TOKEN` and `ADO_ORGANIZATION` are already set and non-empty, skip to Step 2.
 
-#### If env vars are missing, ask the user:
+#### If env vars are missing: the user sets them
 
-```
-How would you like to set your Azure DevOps environment variables?
+**NEVER ask the user to paste their Personal Access Token (PAT) into the chat, and never
+set it on their behalf.** Anything typed in the conversation is stored in the session
+transcript under `~/.claude/projects/`. Show the commands below and let the user run them
+in their own terminal, then STOP. The user restarts and runs `/init` again.
 
-Option 1: I'll set them myself
-   -> Show the exact commands below and stop. User will restart and run /init again.
+If the user volunteers a PAT in chat anyway, do not use or echo it: tell them it is now in
+the transcript and that they should revoke it in Azure DevOps (User settings ->
+Personal access tokens) and create a new one.
 
-Option 2: Set them for me
-   -> Ask for PAT token and organization name, then set them automatically.
-```
+**Organization name:** the value must be just the org name (e.g. `MyOrgName`), NOT a URL.
+If the user mentions `https://dev.azure.com/MyOrgName/...`, tell them to use only the first
+path segment after `dev.azure.com/`.
 
-#### Option 1: User sets them manually
+**PAT scopes:** create the PAT with the narrowest scopes covering what the user will do
+(typically Work Items Read & Write, Code Read & Write, Build Read; add Build Read & Execute
+only if they will run pipelines) and a short expiry.
 
 Show platform-specific commands:
 
-**Windows (PowerShell or CMD):**
+**Windows (PowerShell)** - prompts for the PAT so it never lands in shell history:
 ```
-setx ADO_MCP_AUTH_TOKEN "your-personal-access-token-here"
+[Environment]::SetEnvironmentVariable('ADO_MCP_AUTH_TOKEN', (Read-Host 'Azure DevOps PAT'), 'User')
 setx ADO_ORGANIZATION "YourOrgName"
 ```
 
 **Linux/Mac:**
 ```
-# Add to ~/.bashrc or ~/.zshrc:
+# Add to ~/.bashrc or ~/.zshrc (edit the file in your editor, not via a command
+# that would leave the token in shell history):
 export ADO_MCP_AUTH_TOKEN="your-personal-access-token-here"
 export ADO_ORGANIZATION="YourOrgName"
 ```
 
 Then show the restart notice (see below).
 
-#### Option 2: Set automatically
-
-1. Ask: "What is your Azure DevOps Personal Access Token (PAT)?"
-2. Ask: "What is your Azure DevOps organization name?"
-
-3. **VALIDATE the organization name** before setting:
-   - Strip `https://dev.azure.com/` prefix if present
-   - Strip `http://dev.azure.com/` prefix if present
-   - Strip trailing slashes
-   - If the result contains `/`, take only the first segment
-   - The value must be just the org name (e.g., `MyOrgName`), NOT a URL
-   - If it looks wrong, warn: "Organization name should be just the name (e.g., 'MyOrgName'), not a full URL."
-
-4. Set the variables:
-   - **Windows:** `setx ADO_MCP_AUTH_TOKEN "{token}"` and `setx ADO_ORGANIZATION "{org}"`
-   - **Linux/Mac:** Append exports to `~/.bashrc` or `~/.zshrc`
-
-5. Confirm what was set (mask the token: show first 4 and last 4 chars only).
-
 #### RESTART NOTICE (MANDATORY after setting env vars)
 
-After setting environment variables, ALWAYS show this notice and STOP the setup:
+After showing the commands, ALWAYS show this notice and STOP the setup:
 
 ```
-Environment variables have been saved to the system registry.
+Once you have set the environment variables:
 
 IMPORTANT: You MUST restart for changes to take effect.
 
