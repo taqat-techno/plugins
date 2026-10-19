@@ -1,24 +1,39 @@
-#!/bin/bash
-# Pandoc Plugin - Automated Setup Script
-# =======================================
-# This script installs and configures Pandoc + LaTeX for PDF generation
-# Run as: bash setup.sh
+#!/usr/bin/env bash
+# Pandoc Plugin - Linux / macOS setup
+# ===================================
+# Checks for Pandoc and a LaTeX engine and installs what is missing.
+#
+#   bash setup.sh [--skip-latex] [--quiet] [--print-only] [--install]
+#
+# Consent rules:
+#   - Package managers run WITHOUT -y / --noconfirm, so the user confirms every
+#     install and sees its size.
+#   - When stdin is not a terminal (for example when Claude runs this script),
+#     sudo and the package managers cannot ask, so the script only checks and
+#     PRINTS the commands for the user to run in their own terminal, then exits 0.
+#     --install overrides that; --print-only forces it.
+#
+# Sizes (approximate): pandoc 30-100 MB; TeX Live via apt/dnf with the extras
+# below 500 MB - 1 GB; MacTeX about 5 GB (BasicTeX about 100 MB is enough for
+# most documents; add packages later with tlmgr).
 
 set -e
 
 SKIP_LATEX=false
 QUIET=false
+PRINT_ONLY=false
+FORCE_INSTALL=false
 
-# Parse arguments
 while [[ $# -gt 0 ]]; do
     case $1 in
         --skip-latex) SKIP_LATEX=true; shift ;;
         --quiet) QUIET=true; shift ;;
+        --print-only) PRINT_ONLY=true; shift ;;
+        --install) FORCE_INSTALL=true; shift ;;
         *) shift ;;
     esac
 done
 
-# Colors
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -26,159 +41,128 @@ CYAN='\033[0;36m'
 WHITE='\033[1;37m'
 NC='\033[0m'
 
-log() { [[ "$QUIET" != "true" ]] && echo -e "${CYAN}$1${NC}"; }
-success() { [[ "$QUIET" != "true" ]] && echo -e "${GREEN}[OK] $1${NC}"; }
-warn() { [[ "$QUIET" != "true" ]] && echo -e "${YELLOW}[!] $1${NC}"; }
-error() { echo -e "${RED}[X] $1${NC}"; }
+# Each helper returns 0 even under --quiet: a bare `[[ ]] && echo` returns 1 when
+# the test is false, which aborted the whole script under `set -e`.
+log()     { if [[ "$QUIET" != "true" ]]; then echo -e "${CYAN}$1${NC}"; fi; return 0; }
+success() { if [[ "$QUIET" != "true" ]]; then echo -e "${GREEN}[OK] $1${NC}"; fi; return 0; }
+warn()    { if [[ "$QUIET" != "true" ]]; then echo -e "${YELLOW}[!] $1${NC}"; fi; return 0; }
+error()   { echo -e "${RED}[X] $1${NC}"; return 0; }
 
-echo -e "${WHITE}============================================${NC}"
-echo -e "${WHITE}   Pandoc Plugin - Automated Setup${NC}"
-echo -e "${WHITE}============================================${NC}"
-echo ""
+MAY_INSTALL=false
+if [[ "$PRINT_ONLY" != "true" ]]; then
+    if [[ "$FORCE_INSTALL" == "true" || -t 0 ]]; then
+        MAY_INSTALL=true
+    fi
+fi
 
-# Detect OS
+PENDING=()
+
 OS="unknown"
 if [[ "$OSTYPE" == "linux-gnu"* ]]; then
     OS="linux"
 elif [[ "$OSTYPE" == "darwin"* ]]; then
     OS="macos"
-elif [[ "$OSTYPE" == "msys" ]] || [[ "$OSTYPE" == "cygwin" ]]; then
+elif [[ "$OSTYPE" == "msys" || "$OSTYPE" == "cygwin" ]]; then
     OS="windows"
 fi
 
-log "Detected OS: $OS"
-echo ""
+log "Pandoc Plugin - Setup (detected OS: $OS)"
+if [[ "$MAY_INSTALL" != "true" ]]; then
+    warn "Check-only mode: nothing will be installed. Run the printed commands yourself in a terminal."
+fi
 
-# ============================================
-# STEP 1: Check/Install Pandoc
-# ============================================
-log "Step 1: Checking Pandoc installation..."
-
-if command -v pandoc &> /dev/null; then
-    PANDOC_VERSION=$(pandoc --version | head -1)
-    success "Pandoc found: $PANDOC_VERSION"
-else
-    warn "Pandoc not found. Installing..."
-
+# The install command for a package on this host, or empty when unknown.
+install_cmd() {
+    local what=$1
     case $OS in
         linux)
-            if command -v apt &> /dev/null; then
-                sudo apt update && sudo apt install -y pandoc
+            if command -v apt-get &> /dev/null; then
+                if [[ "$what" == "pandoc" ]]; then echo "sudo apt-get install pandoc"
+                else echo "sudo apt-get install texlive texlive-latex-extra texlive-fonts-recommended texlive-xetex"; fi
             elif command -v dnf &> /dev/null; then
-                sudo dnf install -y pandoc
+                if [[ "$what" == "pandoc" ]]; then echo "sudo dnf install pandoc"
+                else echo "sudo dnf install texlive texlive-latex texlive-xetex"; fi
             elif command -v pacman &> /dev/null; then
-                sudo pacman -S --noconfirm pandoc
-            else
-                error "Could not detect package manager. Install Pandoc manually."
-                exit 1
+                if [[ "$what" == "pandoc" ]]; then echo "sudo pacman -S pandoc"
+                else echo "sudo pacman -S texlive-core texlive-latexextra"; fi
             fi
             ;;
         macos)
             if command -v brew &> /dev/null; then
-                brew install pandoc
-            else
-                error "Homebrew not found. Install from https://pandoc.org/installing.html"
-                exit 1
+                if [[ "$what" == "pandoc" ]]; then echo "brew install pandoc"
+                else echo "brew install --cask basictex"; fi
             fi
             ;;
         windows)
-            warn "On Windows, run: winget install JohnMacFarlane.Pandoc"
-            exit 1
-            ;;
-        *)
-            error "Unsupported OS. Install Pandoc manually from https://pandoc.org/installing.html"
-            exit 1
+            if [[ "$what" == "pandoc" ]]; then echo "winget install --id JohnMacFarlane.Pandoc -e"
+            else echo "winget install --id MiKTeX.MiKTeX -e"; fi
             ;;
     esac
+    return 0
+}
 
-    success "Pandoc installed"
+# Install (when allowed) or queue the command for the user. Returns 0 always.
+ensure() {
+    local what=$1 label=$2
+    local cmd
+    cmd=$(install_cmd "$what")
+    if [[ -z "$cmd" ]]; then
+        error "No known package manager for $label. See https://pandoc.org/installing.html"
+        PENDING+=("install $label manually")
+        return 0
+    fi
+    if [[ "$MAY_INSTALL" == "true" && "$OS" != "windows" ]]; then
+        warn "$label not found. Running: $cmd"
+        if ! $cmd; then
+            error "$label installation failed: $cmd"
+        fi
+    else
+        PENDING+=("$cmd")
+    fi
+    return 0
+}
+
+log "Step 1: Checking Pandoc..."
+if command -v pandoc &> /dev/null; then
+    success "Pandoc found: $(pandoc --version | head -1)"
+else
+    ensure pandoc "Pandoc"
 fi
 
-# ============================================
-# STEP 2: Check/Install LaTeX
-# ============================================
 if [[ "$SKIP_LATEX" != "true" ]]; then
-    echo ""
-    log "Step 2: Checking LaTeX installation..."
-
-    if command -v pdflatex &> /dev/null; then
-        LATEX_VERSION=$(pdflatex --version | head -1)
-        success "LaTeX found: $LATEX_VERSION"
+    log "Step 2: Checking LaTeX (needed only for PDF output)..."
+    if command -v pdflatex &> /dev/null || command -v xelatex &> /dev/null; then
+        success "LaTeX found"
     else
-        warn "LaTeX not found. Installing..."
-
-        case $OS in
-            linux)
-                if command -v apt &> /dev/null; then
-                    sudo apt install -y texlive texlive-latex-extra texlive-fonts-recommended texlive-xetex
-                elif command -v dnf &> /dev/null; then
-                    sudo dnf install -y texlive texlive-latex texlive-xetex
-                elif command -v pacman &> /dev/null; then
-                    sudo pacman -S --noconfirm texlive-core texlive-latexextra
-                fi
-                ;;
-            macos)
-                if command -v brew &> /dev/null; then
-                    brew install --cask mactex-no-gui
-                    # Or smaller: brew install basictex
-                fi
-                ;;
-            windows)
-                warn "On Windows, run: winget install MiKTeX.MiKTeX"
-                ;;
-        esac
-
-        if command -v pdflatex &> /dev/null; then
-            success "LaTeX installed"
-        else
-            warn "LaTeX installation may require restart or PATH update"
+        ensure latex "LaTeX"
+        if [[ "$OS" == "macos" ]]; then
+            log "   Full MacTeX instead (about 5 GB): brew install --cask mactex-no-gui"
         fi
     fi
-else
-    echo ""
-    log "Step 2: Skipped LaTeX installation (--skip-latex)"
 fi
 
-# ============================================
-# STEP 3: Verify Installation
-# ============================================
 echo ""
-log "Step 3: Verifying installation..."
-
-ALL_GOOD=true
+if [[ ${#PENDING[@]} -gt 0 ]]; then
+    echo -e "${YELLOW}Run these yourself in a terminal to install what is missing:${NC}"
+    for cmd in "${PENDING[@]}"; do
+        echo "  $cmd"
+    done
+    echo -e "${YELLOW}Then open a new terminal and run: pandoc --version${NC}"
+    exit 0
+fi
 
 if command -v pandoc &> /dev/null; then
     success "Pandoc: $(pandoc --version | head -1)"
 else
-    error "Pandoc not found"
-    ALL_GOOD=false
+    error "Pandoc not found after installation"
+    exit 1
 fi
-
 if [[ "$SKIP_LATEX" != "true" ]]; then
-    if command -v pdflatex &> /dev/null; then
-        success "LaTeX: Available"
+    if command -v pdflatex &> /dev/null || command -v xelatex &> /dev/null; then
+        success "LaTeX: available"
     else
-        warn "LaTeX: Not available (PDF generation disabled)"
+        warn "LaTeX: not available (PDF output disabled)"
     fi
 fi
-
-# ============================================
-# DONE
-# ============================================
-echo ""
-echo -e "${WHITE}============================================${NC}"
-if [[ "$ALL_GOOD" == "true" ]]; then
-    echo -e "${GREEN}   Setup Complete!${NC}"
-    echo -e "${WHITE}============================================${NC}"
-    echo ""
-    echo -e "${WHITE}You can now use:${NC}"
-    echo -e "${CYAN}  /pandoc convert <file> pdf    - Convert to PDF${NC}"
-    echo -e "${CYAN}  /pandoc convert <file> docx   - Convert to Word${NC}"
-    echo -e "${CYAN}  /pandoc convert <file> html   - Convert to HTML${NC}"
-    echo -e "${CYAN}  /pandoc status                - Check installation${NC}"
-    echo -e "${CYAN}  /pandoc help                  - Full usage guide${NC}"
-else
-    echo -e "${YELLOW}   Setup completed with warnings${NC}"
-    echo -e "${WHITE}============================================${NC}"
-fi
-echo ""
+log "Setup complete. Open a new terminal if PATH changed."
+exit 0

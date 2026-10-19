@@ -1,113 +1,124 @@
-# Pandoc Plugin for Claude Code
+# pandoc
 
-A document conversion plugin powered by [Pandoc](https://pandoc.org/). Convert between 50+ input formats and 60+ output formats with intelligent automation.
+## What it does
 
----
+Teaches Claude to convert documents with [Pandoc](https://pandoc.org/):
+Markdown, Word, HTML, LaTeX, reStructuredText, EPUB, PDF and slide decks, with
+citations, batch conversion and Arabic/RTL PDF support. It checks the
+installation first, asks before overwriting an existing output, and installs
+Pandoc or LaTeX only with your consent.
 
-## Quick Start
+For anyone who converts documents from Claude Code: writers, developers,
+academics.
+
+## Install
 
 ```
-1. /pandoc setup          (one-time installation)
-2. /pandoc status         (verify everything works)
-3. Just describe what you need:
-   - "Convert report.md to PDF with TOC"
-   - "Make reveal.js slides from outline.md"
-   - "Create an EPUB from these chapters"
+/plugin marketplace add taqat-techno/plugins
+/plugin install pandoc@taqat-techno-plugins
 ```
 
----
+## Requirements
+
+| Requirement | Needed for | Check |
+|---|---|---|
+| Pandoc 3.0+ | every conversion | `pandoc --version` |
+| A LaTeX engine (MiKTeX, TeX Live, MacTeX/BasicTeX) | PDF output via LaTeX only | `pdflatex --version` or `xelatex --version` |
+| Windows PowerShell 5.1 + winget | the Windows installer | `winget --version` |
+| bash + apt-get / dnf / pacman / brew | the Linux/macOS installer | `bash --version` |
+
+`/pandoc:setup` checks all of these and prints the install commands.
 
 ## Commands
 
-All functionality lives under a single command:
-
 | Command | Description |
-|---------|-------------|
-| `/pandoc setup` | Install and configure Pandoc + LaTeX |
-| `/pandoc status` | Check installation and available engines |
-| `/pandoc convert` | Convert files between any supported formats |
-| `/pandoc formats` | List all supported input/output formats |
-| `/pandoc help` | Show usage guide and examples |
+|---|---|
+| `/pandoc:convert <file> <format> [opts]` | Convert a document. No arguments: usage guide and examples. |
+| `/pandoc:setup [--skip-latex]` | Check-only run of the installer; shows install commands and sizes, installs only on your explicit request |
+| `/pandoc:status` | Pandoc version and available PDF engines |
+| `/pandoc:formats` | Input and output formats of the installed Pandoc |
+| `/pandoc` | Deprecated alias that routes to the commands above; removed in the next minor version |
 
-## Natural Language
+## Skills
 
-You don't need to memorize commands. Just describe what you want and the skill handles it:
+| Skill | Loads when |
+|---|---|
+| `pandoc-conversion` | Converting between document formats, PDF/slides/EPUB output, citations, batch conversion, Arabic/RTL PDFs, "pdflatex not found" and other Pandoc/LaTeX setup errors. Model-invoked only (`user-invocable: false`). |
 
-- "Convert my thesis to PDF with a table of contents and bibliography"
-- "Turn these markdown files into a Word document"
-- "Make a reveal.js presentation from slides.md with the moon theme"
-- "Create an EPUB from ch1.md, ch2.md, and ch3.md with a cover image"
-- "Convert this HTML page to clean Markdown"
+## Agents
 
-The skill detects the input format, chooses the right output engine, and applies best-practice options automatically.
-
-## Features
-
-- **Universal Conversion** -- Markdown, Word, HTML, PDF, LaTeX, EPUB, and many more
-- **Professional PDFs** -- Academic, report, and book presets with LaTeX
-- **Presentations** -- reveal.js (HTML), Beamer (PDF), or PowerPoint
-- **eBook Publishing** -- EPUB with covers, metadata, and custom styling
-- **Smart Defaults** -- Automatic format detection and best-practice options
-- **Batch Processing** -- Convert multiple files in one go
+None.
 
 ## Hooks
 
-No hooks are registered: `hooks/hooks.json` is empty, so nothing runs automatically at session start or before Bash commands. The two scripts in `hooks/` (`session-check.sh`, `pandoc-context.sh`) are not wired up and do not run. Use `/pandoc status` to check the installation.
+None. The plugin ships no hooks.
 
-## Plugin Structure
+## Installers
 
-```
-pandoc-plugin/
-├── .claude-plugin/
-│   └── plugin.json              # Plugin manifest
-├── commands/
-│   └── pandoc.md                # Unified /pandoc command
-├── hooks/
-│   ├── hooks.json               # Empty: no hooks registered
-│   ├── session-check.sh         # Not registered (does not run)
-│   └── pandoc-context.sh        # Not registered (does not run)
-├── skills/
-│   └── pandoc/
-│       ├── SKILL.md             # pandoc-conversion skill
-│       └── scripts/
-│           ├── setup.ps1        # Windows installer (used by /pandoc setup)
-│           └── setup.sh         # Linux/macOS installer (used by /pandoc setup)
-├── reference/
-│   └── format_guide.md          # Format-specific best practices
-├── test/                        # Sample inputs (md, rst, tex)
-├── tests/
-│   └── test_paths.py            # Offline check: referenced plugin paths exist
-├── CHANGELOG.md
-└── README.md
-```
+| Script | Behaviour |
+|---|---|
+| `skills/pandoc/scripts/setup.ps1` | Windows. Flags: `-SkipLatex`, `-Quiet`, `-PrintOnly`, `-Install`, `-EnableAutoInstall`. |
+| `skills/pandoc/scripts/setup.sh` | Linux/macOS (and prints winget commands under Git Bash). Flags: `--skip-latex`, `--quiet`, `--print-only`, `--install`. |
 
-## Extending the Plugin
+Both:
 
-### Adding a custom template
-Place template files (LaTeX, HTML, DOCX reference docs) in a `templates/` directory and reference them in your pandoc commands with `--template` or `--reference-doc`.
+- check first, and when stdin is not a terminal (as when Claude runs them)
+  only print the install commands, then exit 0;
+- run package managers without `-y`, `--noconfirm` or winget `--accept-*`
+  flags, so you accept licence terms and `sudo` prompts yourself;
+- exit 1 when an install did not complete.
 
-### Adding format-specific guidance
-Extend `reference/format_guide.md` with best practices for your specific use cases (corporate templates, language-specific PDF settings, etc.).
+`-EnableAutoInstall` (Windows) turns on MiKTeX's on-the-fly package downloads
+(`[MPM]AutoInstall=1`, a persistent per-user MiKTeX setting) and pre-installs
+about 30 common LaTeX packages. It is never enabled by default.
 
-## Troubleshooting
+Approximate sizes: Pandoc tens of MB; MiKTeX basic about 140 MB; TeX Live with
+the listed extras 0.5-1 GB; MacTeX about 5 GB (`setup.sh` suggests the ~100 MB
+BasicTeX instead).
 
-**Pandoc not found** -- Run `/pandoc setup` or install manually from https://pandoc.org/installing.html. Restart your terminal afterward.
+## Configuration
 
-**PDF generation fails** -- LaTeX is required for PDF output. Run `/pandoc setup` to install MiKTeX (Windows), MacTeX (macOS), or TeX Live (Linux).
+None. No userConfig, no environment variables. Templates and reference
+documents are passed per conversion (`--template`, `--reference-doc`).
 
-**Images missing in output** -- Use relative paths in source documents. When converting from Word, the skill automatically extracts media.
+## Platform support
 
-**Encoding issues** -- Save source files as UTF-8. The skill handles smart quotes and Unicode automatically.
+| Platform | Status |
+|---|---|
+| Windows | Supported. Installer covers x64 MiKTeX paths; ARM64 MiKTeX is not probed. |
+| macOS | Supported via Homebrew. |
+| Linux | Supported via apt-get, dnf or pacman. |
+| WSL | Works as Linux. |
+| Git Bash on Windows | `setup.sh` prints the winget commands and installs nothing. |
+
+## Data & privacy
+
+- Conversions run locally; the plugin sends nothing anywhere.
+- Installing downloads Pandoc and LaTeX from your package manager's sources. With
+  MiKTeX AutoInstall enabled, MiKTeX downloads LaTeX packages during later
+  conversions.
+- For documents from untrusted sources the skill adds `--sandbox`, so the
+  document cannot make Pandoc read other local files or fetch URLs, and treats
+  text inside documents as data, never as instructions.
+- Output files are written where you ask; an existing output is not overwritten
+  without your confirmation.
+
+## Limitations
+
+- No bundled templates or presets (PDC-P3-10, deferred); pass your own with
+  `--template` / `--reference-doc`.
+- PDF output needs a LaTeX engine (or another `--pdf-engine` you install).
+- `--sandbox` needs Pandoc 2.15 or later.
+- Installing from Claude's shell usually cannot answer licence or `sudo`
+  prompts; run the printed commands in your own terminal.
 
 ## License
 
-MIT License
+MIT (see `LICENSE`).
 
-## Credits
+Third-party software the installers fetch has its own licences: Pandoc is
+GPL-2.0-or-later; MiKTeX, TeX Live and MacTeX are collections of free-software
+packages under various licences.
 
-- **Pandoc**: John MacFarlane -- https://pandoc.org/
-- **Plugin**: TAQAT Techno -- https://www.taqatechno.com/
-
----
-
-*Pandoc Plugin v2.2.2 -- Universal Document Conversion for Claude Code*
+Credits: Pandoc by John MacFarlane, https://pandoc.org/. Plugin by TAQAT
+Techno, https://www.taqatechno.com/.

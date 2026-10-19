@@ -1,11 +1,30 @@
-# Pandoc Plugin - Automated Setup Script
-# =======================================
-# This script installs and configures Pandoc + LaTeX for PDF generation
-# Run as: powershell -ExecutionPolicy Bypass -File setup.ps1
+# Pandoc Plugin - Windows setup
+# =============================
+# Checks for Pandoc and a LaTeX engine (MiKTeX) and installs what is missing.
+#
+#   powershell -ExecutionPolicy Bypass -File setup.ps1 [-SkipLatex] [-Quiet]
+#       [-PrintOnly] [-Install] [-EnableAutoInstall]
+#
+# Consent rules:
+#   - Nothing is installed without the user's go-ahead. winget runs WITHOUT
+#     --accept-package-agreements / --accept-source-agreements, so the user
+#     reads and accepts the licence terms themselves.
+#   - When stdin is not a terminal (for example when Claude runs this script),
+#     the script only checks and PRINTS the install commands for the user to run
+#     in their own terminal, then exits 0. -Install overrides that; -PrintOnly
+#     forces it.
+#   - Enabling MiKTeX on-the-fly package installation changes persistent MiKTeX
+#     configuration for this user, so it happens only with -EnableAutoInstall.
+#
+# Sizes: Pandoc about 35 MB; MiKTeX basic about 140 MB download, more as
+# packages are added.
 
 param(
     [switch]$SkipLatex,
-    [switch]$Quiet
+    [switch]$Quiet,
+    [switch]$PrintOnly,
+    [switch]$Install,
+    [switch]$EnableAutoInstall
 )
 
 $ErrorActionPreference = "Stop"
@@ -16,159 +35,133 @@ function Write-Status($message, $color = "Cyan") {
     }
 }
 
-function Write-Success($message) {
-    Write-Status "[OK] $message" "Green"
+function Write-Ok($message) { Write-Status "[OK] $message" "Green" }
+function Write-Warn($message) { Write-Status "[!] $message" "Yellow" }
+# Failures are printed even with -Quiet.
+function Write-Fail($message) { Write-Host "[X] $message" -ForegroundColor Red }
+
+# Decide whether installers may run.
+$interactive = $false
+try { $interactive = -not [Console]::IsInputRedirected } catch { $interactive = $false }
+$mayInstall = (-not $PrintOnly) -and ($Install -or $interactive)
+
+function Find-Exe([string[]]$candidates, [string]$name) {
+    foreach ($path in $candidates) {
+        if ($path -and (Test-Path -LiteralPath $path)) { return $path }
+    }
+    $found = Get-Command $name -ErrorAction SilentlyContinue
+    if ($found) { return $found.Source }
+    return $null
 }
 
-function Write-Warning($message) {
-    Write-Status "[!] $message" "Yellow"
+function Invoke-Winget([string]$id) {
+    # Returns $true only when winget exits 0. A native command's failure does not
+    # throw in Windows PowerShell 5.1, so $LASTEXITCODE is the only reliable signal.
+    $winget = Get-Command winget -ErrorAction SilentlyContinue
+    if (-not $winget) {
+        Write-Fail "winget is not available. Install manually (see the URL below)."
+        return $false
+    }
+    # Out-Host keeps winget's text out of this function's return value.
+    & $winget.Source install --id $id -e | Out-Host
+    return ($LASTEXITCODE -eq 0)
 }
 
-function Write-Error($message) {
-    Write-Status "[X] $message" "Red"
-}
-
-Write-Status "============================================" "White"
-Write-Status "   Pandoc Plugin - Automated Setup" "White"
-Write-Status "============================================" "White"
-Write-Status ""
-
-# ============================================
-# STEP 1: Check/Install Pandoc
-# ============================================
-Write-Status "Step 1: Checking Pandoc installation..."
-
-$pandocPath = $null
-$pandocPaths = @(
+$pandocCandidates = @(
     "$env:LOCALAPPDATA\Pandoc\pandoc.exe",
-    "$env:ProgramFiles\Pandoc\pandoc.exe",
-    "C:\Program Files\Pandoc\pandoc.exe"
+    "$env:ProgramFiles\Pandoc\pandoc.exe"
+)
+$latexCandidates = @(
+    "$env:LOCALAPPDATA\Programs\MiKTeX\miktex\bin\x64\pdflatex.exe",
+    "$env:ProgramFiles\MiKTeX\miktex\bin\x64\pdflatex.exe"
 )
 
-foreach ($path in $pandocPaths) {
-    if (Test-Path $path) {
-        $pandocPath = $path
-        break
-    }
+Write-Status "============================================" "White"
+Write-Status "   Pandoc Plugin - Setup" "White"
+Write-Status "============================================" "White"
+if (-not $mayInstall) {
+    Write-Status "Check-only mode: nothing will be installed. Run the printed commands" "Yellow"
+    Write-Status "yourself in a terminal (or re-run this script there) to install." "Yellow"
 }
+Write-Status ""
 
-if (-not $pandocPath) {
-    # Try to find in PATH
-    $pandocInPath = Get-Command pandoc -ErrorAction SilentlyContinue
-    if ($pandocInPath) {
-        $pandocPath = $pandocInPath.Source
-    }
-}
+$pending = @()
+
+# --------------------------------------------------------------- Step 1: Pandoc
+Write-Status "Step 1: Checking Pandoc..."
+$pandocPath = Find-Exe $pandocCandidates "pandoc"
 
 if ($pandocPath) {
     $version = & $pandocPath --version | Select-Object -First 1
-    Write-Success "Pandoc found: $version"
-    Write-Status "   Path: $pandocPath"
-} else {
-    Write-Warning "Pandoc not found. Installing via winget..."
-    try {
-        winget install JohnMacFarlane.Pandoc --accept-package-agreements --accept-source-agreements --silent
-        Write-Success "Pandoc installed successfully"
-        $pandocPath = "$env:LOCALAPPDATA\Pandoc\pandoc.exe"
-    } catch {
-        Write-Error "Failed to install Pandoc. Please install manually from https://pandoc.org/installing.html"
+    Write-Ok "Pandoc found: $version ($pandocPath)"
+} elseif ($mayInstall) {
+    Write-Warn "Pandoc not found. Installing with winget (you will be asked to accept its terms)..."
+    if (Invoke-Winget "JohnMacFarlane.Pandoc") {
+        $pandocPath = Find-Exe $pandocCandidates "pandoc"
+    }
+    if ($pandocPath) {
+        Write-Ok "Pandoc installed: $pandocPath"
+    } else {
+        Write-Fail "Pandoc installation failed or pandoc.exe was not found afterwards."
+        Write-Fail "Install manually from https://pandoc.org/installing.html"
         exit 1
     }
-}
-
-# ============================================
-# STEP 2: Add Pandoc to PATH (session)
-# ============================================
-Write-Status ""
-Write-Status "Step 2: Configuring PATH..."
-
-$pandocDir = Split-Path $pandocPath -Parent
-if ($env:PATH -notlike "*$pandocDir*") {
-    $env:PATH = "$pandocDir;$env:PATH"
-    Write-Success "Added Pandoc to session PATH"
 } else {
-    Write-Success "Pandoc already in PATH"
+    Write-Warn "Pandoc not found (about 35 MB)."
+    $pending += "winget install --id JohnMacFarlane.Pandoc -e"
 }
 
-# ============================================
-# STEP 3: Check/Install LaTeX (MiKTeX)
-# ============================================
+if ($pandocPath) {
+    $pandocDir = Split-Path $pandocPath -Parent
+    if ($env:PATH -notlike "*$pandocDir*") { $env:PATH = "$pandocDir;$env:PATH" }
+}
+
+# --------------------------------------------------------------- Step 2: LaTeX
+$latexPath = $null
 if (-not $SkipLatex) {
     Write-Status ""
-    Write-Status "Step 3: Checking LaTeX installation..."
+    Write-Status "Step 2: Checking LaTeX (needed only for PDF output)..."
+    $latexPath = Find-Exe $latexCandidates "pdflatex"
 
-    $miktexPath = $null
-    $miktexPaths = @(
-        "$env:LOCALAPPDATA\Programs\MiKTeX\miktex\bin\x64\pdflatex.exe",
-        "$env:ProgramFiles\MiKTeX\miktex\bin\x64\pdflatex.exe",
-        "C:\Program Files\MiKTeX\miktex\bin\x64\pdflatex.exe"
-    )
-
-    foreach ($path in $miktexPaths) {
-        if (Test-Path $path) {
-            $miktexPath = $path
-            break
+    if ($latexPath) {
+        Write-Ok "LaTeX found: $latexPath"
+    } elseif ($mayInstall) {
+        Write-Warn "LaTeX not found. Installing MiKTeX with winget (about 140 MB)..."
+        if (Invoke-Winget "MiKTeX.MiKTeX") {
+            $latexPath = Find-Exe $latexCandidates "pdflatex"
         }
-    }
-
-    if (-not $miktexPath) {
-        $pdflatexInPath = Get-Command pdflatex -ErrorAction SilentlyContinue
-        if ($pdflatexInPath) {
-            $miktexPath = $pdflatexInPath.Source
+        if ($latexPath) {
+            Write-Ok "MiKTeX installed: $latexPath"
+        } else {
+            Write-Warn "MiKTeX installation failed or pdflatex.exe was not found afterwards."
+            Write-Warn "PDF output will not work. Install manually from https://miktex.org/download"
         }
-    }
-
-    if ($miktexPath) {
-        Write-Success "LaTeX (MiKTeX) found"
-        Write-Status "   Path: $miktexPath"
     } else {
-        Write-Warning "LaTeX not found. Installing MiKTeX via winget..."
-        Write-Status "   This may take a few minutes (140MB download)..."
-        try {
-            winget install MiKTeX.MiKTeX --accept-package-agreements --accept-source-agreements --silent
-            Write-Success "MiKTeX installed successfully"
-            $miktexPath = "$env:LOCALAPPDATA\Programs\MiKTeX\miktex\bin\x64\pdflatex.exe"
-        } catch {
-            Write-Warning "Failed to install MiKTeX. PDF generation will not be available."
-            Write-Warning "Install manually from https://miktex.org/download"
-        }
+        Write-Warn "LaTeX not found (MiKTeX basic, about 140 MB)."
+        $pending += "winget install --id MiKTeX.MiKTeX -e"
     }
+}
 
-    # ============================================
-    # STEP 4: Configure MiKTeX Auto-Install
-    # ============================================
-    if ($miktexPath) {
-        Write-Status ""
-        Write-Status "Step 4: Configuring MiKTeX auto-install..."
+# ------------------------------------------------- Step 3: MiKTeX configuration
+if ($latexPath) {
+    $binDir = Split-Path $latexPath -Parent
+    if ($env:PATH -notlike "*$binDir*") { $env:PATH = "$binDir;$env:PATH" }
+    $initexmf = Join-Path $binDir "initexmf.exe"
+    $miktexCli = Join-Path $binDir "miktex.exe"
 
-        $miktexDir = Split-Path (Split-Path (Split-Path (Split-Path $miktexPath -Parent) -Parent) -Parent) -Parent
-        $initexmf = Join-Path $miktexDir "miktex\bin\x64\initexmf.exe"
-        $miktexCli = Join-Path $miktexDir "miktex\bin\x64\miktex.exe"
-
-        if (Test-Path $initexmf) {
-            try {
-                & $initexmf --set-config-value="[MPM]AutoInstall=1" 2>$null
-                Write-Success "MiKTeX auto-install enabled (no more popups!)"
-            } catch {
-                Write-Warning "Could not enable auto-install"
-            }
+    Write-Status ""
+    if ($EnableAutoInstall -and $mayInstall) {
+        Write-Status "Step 3: Enabling MiKTeX on-the-fly package installation (user consented)..."
+        if (Test-Path -LiteralPath $initexmf) {
+            & $initexmf --set-config-value="[MPM]AutoInstall=1"
+            if ($LASTEXITCODE -eq 0) { Write-Ok "MiKTeX AutoInstall enabled" }
+            else { Write-Warn "Could not enable AutoInstall (initexmf exit $LASTEXITCODE)" }
+        } else {
+            Write-Warn "initexmf.exe not found next to pdflatex; AutoInstall unchanged."
         }
 
-        # Add MiKTeX to PATH
-        $miktexBinDir = Split-Path $miktexPath -Parent
-        if ($env:PATH -notlike "*$miktexBinDir*") {
-            $env:PATH = "$miktexBinDir;$env:PATH"
-            Write-Success "Added MiKTeX to session PATH"
-        }
-
-        # ============================================
-        # STEP 5: Pre-install Required LaTeX Packages
-        # ============================================
-        Write-Status ""
-        Write-Status "Step 5: Installing required LaTeX packages..."
-        Write-Status "   (This prevents popup dialogs during PDF conversion)"
-
-        if (Test-Path $miktexCli) {
+        Write-Status "Pre-installing common LaTeX packages (downloads from the MiKTeX repository)..."
+        if (Test-Path -LiteralPath $miktexCli) {
             $packages = @(
                 "parskip", "geometry", "fancyvrb", "framed", "booktabs",
                 "longtable", "upquote", "microtype", "bookmark", "etoolbox",
@@ -177,84 +170,54 @@ if (-not $SkipLatex) {
                 "graphicx", "grffile", "unicode-math", "fontspec", "selnolig",
                 "natbib", "biblatex", "csquotes", "soul", "enumitem", "titlesec"
             )
-
-            $installed = 0
-            $total = $packages.Count
-
+            $failed = @()
             foreach ($pkg in $packages) {
-                $installed++
-                if (-not $Quiet) {
-                    Write-Progress -Activity "Installing LaTeX packages" -Status "$pkg ($installed/$total)" -PercentComplete (($installed / $total) * 100)
-                }
+                # In PowerShell 5.1 a native command's stderr becomes a terminating
+                # error under ErrorActionPreference=Stop, hence the try.
                 try {
                     & $miktexCli packages install $pkg 2>$null | Out-Null
-                } catch {
-                    # Package might already be installed or not available
-                }
+                    if ($LASTEXITCODE -ne 0) { $failed += $pkg }
+                } catch { $failed += $pkg }
             }
-
-            Write-Progress -Activity "Installing LaTeX packages" -Completed
-            Write-Success "LaTeX packages installed ($total packages)"
+            if ($failed.Count -eq 0) { Write-Ok "LaTeX packages ready ($($packages.Count))" }
+            else { Write-Warn "Not installed (may already exist or be unavailable): $($failed -join ', ')" }
         } else {
-            Write-Warning "Could not find MiKTeX CLI. Some packages may need manual installation."
+            Write-Warn "miktex.exe not found; skipped package pre-install."
         }
-    }
-} else {
-    Write-Status ""
-    Write-Status "Step 3-5: Skipped LaTeX installation (--SkipLatex)"
-}
-
-# ============================================
-# STEP 6: Verify Installation
-# ============================================
-Write-Status ""
-Write-Status "Step 6: Verifying installation..."
-
-$allGood = $true
-
-# Check Pandoc
-$pandocCheck = & $pandocPath --version 2>$null | Select-Object -First 1
-if ($pandocCheck) {
-    Write-Success "Pandoc: $pandocCheck"
-} else {
-    Write-Error "Pandoc verification failed"
-    $allGood = $false
-}
-
-# Check LaTeX
-if (-not $SkipLatex -and $miktexPath) {
-    $latexCheck = & $miktexPath --version 2>$null | Select-Object -First 1
-    if ($latexCheck -like "*pdfTeX*") {
-        Write-Success "LaTeX: $latexCheck"
     } else {
-        Write-Warning "LaTeX verification: Could not verify"
+        Write-Status "Step 3: MiKTeX configuration left unchanged."
+        Write-Status "   Optional: let MiKTeX download missing LaTeX packages on demand instead of"
+        Write-Status "   showing a dialog for each one. This changes persistent MiKTeX settings for"
+        Write-Status "   your user account; re-run with -EnableAutoInstall, or run:"
+        Write-Status "     initexmf --set-config-value=[MPM]AutoInstall=1"
     }
 }
 
-# ============================================
-# DONE
-# ============================================
+# --------------------------------------------------------------- Step 4: verify
 Write-Status ""
-Write-Status "============================================" "White"
-if ($allGood) {
-    Write-Status "   Setup Complete!" "Green"
-    Write-Status "============================================" "White"
-    Write-Status ""
-    Write-Status "You can now use:" "White"
-    Write-Status "  /pandoc convert <file> pdf    - Convert to PDF" "Cyan"
-    Write-Status "  /pandoc convert <file> docx   - Convert to Word" "Cyan"
-    Write-Status "  /pandoc convert <file> html   - Convert to HTML" "Cyan"
-    Write-Status "  /pandoc status                - Check installation" "Cyan"
-    Write-Status "  /pandoc help                  - Full usage guide" "Cyan"
-    Write-Status ""
-    if (-not $SkipLatex) {
-        Write-Status "NOTE: You may need to restart your terminal" "Yellow"
-        Write-Status "      for PATH changes to take effect." "Yellow"
-    }
+Write-Status "Step 4: Summary"
+
+if ($pending.Count -gt 0) {
+    Write-Status "Run these yourself in a terminal to install what is missing:" "Yellow"
+    foreach ($cmd in $pending) { Write-Status "  $cmd" "White" }
+    Write-Status "Then open a new terminal and run: pandoc --version" "Yellow"
+    exit 0
+}
+
+$pandocCheck = $null
+if ($pandocPath) { $pandocCheck = & $pandocPath --version 2>$null | Select-Object -First 1 }
+if ($pandocCheck) {
+    Write-Ok "Pandoc: $pandocCheck"
 } else {
-    Write-Status "   Setup completed with warnings" "Yellow"
-    Write-Status "============================================" "White"
-    Write-Status "Some features may not work correctly." "Yellow"
+    Write-Fail "Pandoc verification failed"
+    exit 1
+}
+
+if (-not $SkipLatex) {
+    if ($latexPath) { Write-Ok "LaTeX: $latexPath" }
+    else { Write-Warn "LaTeX: not available (PDF output disabled)" }
 }
 
 Write-Status ""
+Write-Status "Setup complete. Open a new terminal if PATH changed." "Green"
+exit 0

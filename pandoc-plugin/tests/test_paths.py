@@ -34,7 +34,7 @@ class PluginRootPaths(unittest.TestCase):
         self.assertTrue(any(refs(md) for md in md_files()), "no references scanned")
 
     def test_setup_command_and_skill_reference_both_installers(self):
-        for md in (ROOT / "commands" / "pandoc.md", ROOT / "skills" / "pandoc" / "SKILL.md"):
+        for md in (ROOT / "commands" / "setup.md", ROOT / "skills" / "pandoc" / "SKILL.md"):
             found = refs(md)
             for installer in INSTALLERS:
                 self.assertIn(installer, found, f"{md.name} does not reference {installer}")

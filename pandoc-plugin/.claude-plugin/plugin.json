@@ -1,11 +1,14 @@
 {
   "name": "pandoc",
-  "version": "2.2.3",
+  "version": "3.0.0",
   "license": "MIT",
-  "description": "Universal document conversion powered by Pandoc — convert between 50+ input and 60+ output formats. PDF, Word, HTML, EPUB, presentations, citations, and Arabic/RTL support.",
+  "description": "Document conversion with Pandoc: Markdown, Word, HTML, LaTeX, EPUB, PDF and slides, citations, batch conversion and Arabic/RTL PDFs. Asks before overwriting outputs, uses --sandbox for untrusted documents, and installs Pandoc/LaTeX only with your consent.",
   "author": {
     "name": "TaqaTechno",
     "email": "info@taqatechno.com",
     "url": "https://github.com/taqat-techno"
-  }
+  },
+  "homepage": "https://github.com/taqat-techno/plugins/tree/main/pandoc-plugin",
+  "repository": "https://github.com/taqat-techno/plugins",
+  "keywords": ["pandoc", "document-conversion", "pdf", "docx", "latex", "rtl"]
 }

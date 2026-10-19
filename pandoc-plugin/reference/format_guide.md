@@ -11,17 +11,20 @@ Best practices for different format conversions that Claude should apply automat
 ### Before ANY conversion, verify setup:
 1. Check if Pandoc is installed: `pandoc --version`
 2. For PDF: Check LaTeX: `pdflatex --version`
-3. If missing, direct user to run `/pandoc setup`
+3. If missing, direct user to run `/pandoc:setup`
 
 ### Windows-Specific PATH Issues:
 - Pandoc installs to: `%LOCALAPPDATA%\Pandoc\`
 - MiKTeX installs to: `%LOCALAPPDATA%\Programs\MiKTeX\miktex\bin\x64\`
 - If "command not found", add these to PATH or use full paths
 
-### MiKTeX Auto-Install (CRITICAL for Windows):
-- **ALWAYS** ensure auto-install is enabled before PDF conversion
-- Command: `initexmf --set-config-value=[MPM]AutoInstall=1`
-- Without this, users get popup dialogs for EVERY missing package
+### MiKTeX Auto-Install (Windows, opt-in):
+- Without it, MiKTeX shows a dialog for each missing LaTeX package.
+- Enabling it changes persistent MiKTeX settings for the user and lets MiKTeX
+  download packages during later conversions. **Ask the user first**; never enable
+  it silently before a conversion.
+- On a clear yes: `/pandoc:setup` re-runs the installer with `-Install -EnableAutoInstall`,
+  or the user runs `initexmf --set-config-value=[MPM]AutoInstall=1` themselves.
 
 ### Required LaTeX Packages (pre-install to avoid popups):
 ```
@@ -33,7 +36,7 @@ graphicx, fontspec, unicode-math
 
 ### Quick Fix Commands (Windows):
 ```powershell
-# Enable auto-install
+# Enable auto-install (only after the user agreed; see above)
 & "$env:LOCALAPPDATA\Programs\MiKTeX\miktex\bin\x64\initexmf.exe" --set-config-value="[MPM]AutoInstall=1"
 
 # Install package manually
@@ -267,7 +270,9 @@ This paragraph is in English (LTR) within an Arabic document.
 
 ### Word Count for RTL
 ```bash
-# Pandoc includes RTL characters in word count
+# Pandoc includes RTL characters in word count. wordcount.lua is the filter from
+# pandoc's own lua-filters collection; read any third-party Lua filter before
+# running it - a filter is a program with full access to your files.
 pandoc --lua-filter=wordcount.lua arabic.md
 ```
 
