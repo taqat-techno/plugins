@@ -33,7 +33,7 @@ BS4_REPLACEMENTS = (
 
 def main():
     try:
-        data = json.load(sys.stdin)
+        data = json.loads(sys.stdin.buffer.read().decode("utf-8", "replace"))
     except (json.JSONDecodeError, EOFError, ValueError):
         sys.exit(0)
 

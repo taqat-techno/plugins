@@ -46,7 +46,7 @@ except ImportError:
 
 def main():
     try:
-        data = json.load(sys.stdin)
+        data = json.loads(sys.stdin.buffer.read().decode("utf-8", "replace"))
     except (json.JSONDecodeError, EOFError, ValueError):
         sys.exit(0)
 
@@ -73,7 +73,9 @@ def main():
                     "Core framework files (odoo/addons/, odoo/*.py) must not be edited.\n"
                     "Use model/view inheritance in projects/ instead."
                 )
-                print(msg, file=sys.stderr)
+                # UTF-8 bytes, not the locale codec: the path may be non-ASCII.
+                sys.stderr.buffer.write((msg + "\n").encode("utf-8", "replace"))
+                sys.stderr.flush()
                 _timer.cancel()
                 sys.exit(2)
         except re.error:

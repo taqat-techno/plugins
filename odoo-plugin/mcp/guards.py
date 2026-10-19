@@ -197,8 +197,25 @@ def check_write_allowed(profile: Any, model: str, op: str) -> None:
         )
 
 
+# ORM methods reachable through odoo_call that are the same operation as a
+# dedicated tool. They get that tool's gate exactly (e.g. unlink needs
+# write+unlink), so odoo_call is never a way around odoo_unlink / odoo_write.
+CALL_METHOD_OPS = {
+    "create": "create",
+    "copy": "create",
+    "write": "write",
+    "unlink": "unlink",
+}
+
+
 def check_call_allowed(profile: Any, model: str, method: str) -> None:
-    """odoo_call gate: read-only methods pass; anything else needs write mode."""
+    """odoo_call gate: read-only methods pass; anything else is a write.
+
+    A non-read method gets the same decision as the dedicated write tools, via
+    check_write_allowed: write mode, the HARD_DENY_WRITE_MODELS list (so
+    `res.users.write` or `ir.config_parameter.set_param` cannot slip through),
+    the session write scope, and - for unlink - the write+unlink mode."""
+    model = check_model_name(model)
     if method in READ_ONLY_METHODS:
         return
     mode = getattr(profile, "mode", "read")
@@ -210,12 +227,8 @@ def check_call_allowed(profile: Any, model: str, method: str) -> None:
             % (model, method, profile.name, getattr(profile, "tier", "staging"),
                _raise_hint(profile, "write"))
         )
-    scope = getattr(profile, "write_scope", frozenset())
-    if scope and model not in scope:
-        raise GuardError(
-            "this session's write access on %r is scoped to %s; %s.%s was refused."
-            % (profile.name, ", ".join(sorted(scope)), model, method)
-        )
+    op = CALL_METHOD_OPS.get(method, "%s()" % method)
+    check_write_allowed(profile, model, op)
 
 
 def check_context(context: Any) -> dict:

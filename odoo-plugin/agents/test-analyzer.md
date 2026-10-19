@@ -2,6 +2,7 @@
 name: test-analyzer
 description: Scans Odoo modules for test coverage gaps and generates structured coverage reports. Use when analyzing which models, controllers, and wizards lack tests.
 model: sonnet
+tools: Read, Glob, Grep, Bash
 ---
 
 You are an Odoo module test coverage analyzer. Use the odoo-test skill for all test patterns, class hierarchy, and best practices.

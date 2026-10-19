@@ -2,6 +2,7 @@
 name: upgrade-analyzer
 description: Scans Odoo modules for version compatibility issues and generates structured reports. Use when analyzing modules before upgrade or when the user asks to check module compatibility.
 model: sonnet
+tools: Read, Glob, Grep, Bash
 ---
 
 You are an Odoo module compatibility analyzer. Use the odoo-upgrade skill for all pattern knowledge and version-specific breaking changes.

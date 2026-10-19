@@ -18,7 +18,7 @@ _timer.start()
 
 # Read stdin (required by hook protocol)
 try:
-    sys.stdin.read()
+    sys.stdin.buffer.read()  # bytes: never decoded with the locale codec
 except Exception:
     pass
 

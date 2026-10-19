@@ -2,6 +2,39 @@
 
 All notable changes to `odoo-plugin` are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/). Versioning follows [SemVer](https://semver.org/).
 
+## [2.13.2] - 2026-10-19
+
+Public-readiness audit fixes (ODOO-P0-01, ODOO-P1-03, ECO-14, ECO-19/SEC-12).
+
+### Security
+- **`odoo_call` no longer bypasses the write gates.** `check_call_allowed` now sends every
+  non-read method through `check_write_allowed`, the same gate `odoo_write`/`odoo_unlink` use:
+  the `HARD_DENY_WRITE_MODELS` list, the session write scope and, for `unlink`, the
+  `write+unlink` mode. `create`/`copy`/`write`/`unlink` map to their op; any other method is
+  gated as a write. In write mode, `odoo_call res.users write`, `ir.config_parameter set_param`
+  and `res.partner unlink` are now refused. A model listed in `allow_write_models` still opts in.
+- The `security-auditor`, `test-analyzer` and `upgrade-analyzer` agents declare
+  `tools: Read, Glob, Grep, Bash`. They used to inherit every session tool, including the odoo
+  MCP write tools. All three return their report in the reply, so none needs Write.
+
+### Fixed
+- `hooks/upgrade/config_loader.py` reads `CLAUDE_PROJECT_DIR` (what Claude Code exports), with
+  `CLAUDE_PROJECT_ROOT` kept only as a fallback. A project `odoo-upgrade.config.json` was never
+  loaded before.
+- Hooks decode stdin as UTF-8 (`sys.stdin.buffer.read().decode("utf-8", "replace")`):
+  `frontend/session_start.py`, `frontend/pre_write_check.py`, `frontend/post_write_check.py`,
+  `pre_odoo_volume_guard.py`, `upgrade/check_odoo19_compat.py`, `upgrade/guard_core_odoo.py`.
+  Windows Python read the payload as cp1252, so non-ASCII (e.g. Arabic) paths became mojibake
+  and the compatibility check silently skipped the file. `guard_core_odoo.py` also writes its
+  refusal to stderr as UTF-8 so the blocked path is shown correctly.
+- `hooks/hooks.json` launches every Python hook through a portable launcher: the plugin path is
+  quoted (a space in it no longer breaks every hook), the interpreter falls back
+  `python3` -> `python` -> `py -3`, and a missing script or interpreter exits 0 instead of 2.
+
+### Added
+- Tests: `tests/mcp/test_call_guard.py`, `tests/test_upgrade_config_loader.py`,
+  `tests/test_hook_stdin_utf8.py`, `tests/test_agent_tools.py`, `tests/test_hook_launcher.py`.
+
 ## [2.13.1] - 2026-10-19
 
 Reviewer references absorb eight lessons (lessons-to-plugins run). Content only;

@@ -46,7 +46,10 @@ def load_config() -> dict:
     """Load plugin configuration from file or return defaults."""
     search_paths = []
 
-    project_root = os.environ.get("CLAUDE_PROJECT_ROOT", "")
+    # Claude Code exports CLAUDE_PROJECT_DIR. CLAUDE_PROJECT_ROOT was read here
+    # by mistake and is kept only as a fallback for anyone who set it by hand.
+    project_root = (os.environ.get("CLAUDE_PROJECT_DIR", "")
+                    or os.environ.get("CLAUDE_PROJECT_ROOT", ""))
     if project_root:
         search_paths.append(Path(project_root) / "odoo-upgrade.config.json")
 
