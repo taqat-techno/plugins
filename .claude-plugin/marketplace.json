@@ -97,7 +97,7 @@
     },
     {
       "name": "qa-browser",
-      "description": "Framework-agnostic browser QA and role-based smoke testing. Drives chrome-devtools / playwright MCP servers to login as each role, walk modals and table actions, verify UI vs API permissions, capture console / network / screenshot evidence, and produce PASS / BLOCKED / NOT-TESTABLE reports for UAT signoff. Ships 9 skills + 5 commands (/qa-target, /qa-smoke, /qa-roles, /qa-route, /qa-report) + 2 agents (qa-evidence-collector, qa-failure-classifier) + production-URL gate hook. Refuses destructive actions on non-disposable data.",
+      "description": "Framework-agnostic browser QA and role-based smoke testing. Drives chrome-devtools / playwright MCP servers to login as each role, walk modals and table actions, verify UI vs API permissions, capture console / network / screenshot evidence, and produce PASS / BLOCKED / NOT-TESTABLE reports for UAT signoff. Ships 13 skills + 5 commands (/qa-target, /qa-smoke, /qa-roles, /qa-route, /qa-report) + 2 agents (qa-evidence-collector, qa-failure-classifier) + a SessionStart config-safety warning hook and a PreToolUse production-URL substring gate hook. Refuses destructive actions on non-disposable data.",
       "author": {
         "name": "TaqaTechno",
         "email": "info@taqatechno.com"

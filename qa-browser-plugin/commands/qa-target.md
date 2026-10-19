@@ -29,7 +29,7 @@ Verify that at least one browser MCP server is loaded:
 If neither is loaded, surface a clear message:
 
 > qa-browser requires a browser MCP server. Install one of:
->   - chrome-devtools-mcp: https://github.com/anthropics/chrome-devtools-mcp
+>   - chrome-devtools-mcp: https://github.com/ChromeDevTools/chrome-devtools-mcp
 >   - playwright-mcp: https://github.com/microsoft/playwright-mcp
 > Then restart Claude Code and rerun /qa-target.
 

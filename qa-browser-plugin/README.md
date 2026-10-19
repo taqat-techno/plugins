@@ -1,12 +1,12 @@
 # qa-browser
 
-![Version](https://img.shields.io/badge/version-0.4.0-blue.svg)
+![Version](https://img.shields.io/badge/version-0.7.0-blue.svg)
 ![Status](https://img.shields.io/badge/status-functional-green.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 
 Framework-agnostic browser QA and role-based smoke testing.
 
-This plugin drives the [`chrome-devtools-mcp`](https://github.com/anthropics/chrome-devtools-mcp) or [`playwright-mcp`](https://github.com/microsoft/playwright-mcp) servers to log in as each role, walk through the UI, capture evidence (screenshot + console + network), and produce a PASS / BLOCKED / NOT-TESTABLE table for UAT signoff. It enforces evidence discipline — no silent "looks good" passes — and refuses destructive operations on non-disposable data.
+This plugin drives the [`chrome-devtools-mcp`](https://github.com/ChromeDevTools/chrome-devtools-mcp) or [`playwright-mcp`](https://github.com/microsoft/playwright-mcp) servers to log in as each role, walk through the UI, capture evidence (screenshot + console + network), and produce a PASS / BLOCKED / NOT-TESTABLE table for UAT signoff. It enforces evidence discipline — no silent "looks good" passes — and refuses destructive operations on non-disposable data.
 
 ## What this plugin owns
 
@@ -49,8 +49,8 @@ This plugin drives the [`chrome-devtools-mcp`](https://github.com/anthropics/chr
 
 | Hook | Trigger | Purpose |
 |---|---|---|
-| `SessionStart` | startup | Reminder to run `/qa-target` if no target configured |
-| `PreToolUse` | `browser_navigate` to a URL containing `prod` or `production` | Confirmation gate — refuse without explicit user approval |
+| `SessionStart` | startup | If `.qa-browser.local.json` exists in the working directory: warns (as hook context Claude sees, plus a user-visible message) when it is tracked by git, missing from `.gitignore`, unparseable, or its `targetUrl` matches a production marker. Silent when no config exists. Advisory only — never blocks |
+| `PreToolUse` | `navigate_page` / `browser_navigate` tool calls | Blocks (exit 2) navigation to a URL containing a production marker substring (`prod`, `production`, or `productionMarkers` from the config). There is no in-session approval: the only override is launching Claude Code with `QA_BROWSER_ALLOW_PRODUCTION=1`. Other navigation paths (new pages, link clicks, other browser MCPs) are not gated |
 
 ## Framework scope
 
@@ -75,13 +75,13 @@ The plugin **never assumes** a framework. It detects what it sees and adapts.
 | Optional route map | `{role-name: [allowed-routes]}` for stricter access checks |
 | Optional "do not click" selectors | E.g. delete buttons on non-disposable data |
 
-**Credential storage:** written to `.qa-browser.local.json` in the project root. This file MUST be gitignored — the plugin refuses to operate if it is tracked by git.
+**Credential storage:** written to `.qa-browser.local.json` in the project root. This file MUST be gitignored. If it is tracked by git, the SessionStart hook surfaces a DANGER warning and the commands instruct Claude to stop; this is not enforced by code.
 
 ## MCP server dependencies
 
 This plugin drives one of:
 
-- [`chrome-devtools-mcp`](https://github.com/anthropics/chrome-devtools-mcp) — preferred for performance + DevTools-grade introspection.
+- [`chrome-devtools-mcp`](https://github.com/ChromeDevTools/chrome-devtools-mcp) — preferred for performance + DevTools-grade introspection.
 - [`playwright-mcp`](https://github.com/microsoft/playwright-mcp) — preferred for cross-browser coverage.
 
 `/qa-target` checks for at least one of them and surfaces a clear "please install one" message if neither is loaded. It does **not** auto-install MCP servers.
@@ -96,10 +96,10 @@ This plugin drives one of:
 
 ## Safety rules baked in
 
-1. Production URL gate — any URL containing `prod` or `production` (configurable substring) requires explicit per-session approval.
-2. Destructive-action gate — `delete`, `purge`, `truncate`, `drop` selectors require explicit per-action approval AND a disposable-data signal.
-3. Credential redaction — passwords, JWTs, OTP codes are redacted from console / network captures.
-4. Refusal-on-tracked-credentials — plugin refuses to operate if `.qa-browser.local.json` is tracked by git.
+1. Production URL gate (hook) — a navigate call to any URL containing `prod` or `production` (configurable substrings) is blocked unless Claude Code was launched with `QA_BROWSER_ALLOW_PRODUCTION=1`. Substring match only: a production host without a marker in its URL is not caught unless you add it to `productionMarkers`.
+2. Destructive-action discipline (skill guidance, not a hook) — `delete`, `purge`, `truncate`, `drop` actions require explicit per-action approval AND a disposable-data signal.
+3. Credential redaction (skill/agent guidance, not a script) — Claude is instructed to redact passwords, JWTs and OTP codes from console / network captures before writing them.
+4. Tracked-credentials warning (hook) — the SessionStart hook warns when `.qa-browser.local.json` is tracked by git; the refusal to continue is an instruction to Claude, not a code-level block.
 
 ## Installation
 
@@ -111,16 +111,19 @@ This plugin is published as part of the `taqat-techno-plugins` marketplace. To i
 4. Find **qa-browser** and click **Install**.
 5. (Recommended) install `chrome-devtools-mcp` or `playwright-mcp` from their respective marketplaces.
 
-## Roadmap
+## Release history
 
 | Version | Scope |
 |---|---|
 | `0.1.0` | Scaffold |
-| `0.2.0` | 9 skills + 5 commands + 2 agents + 2 hooks (target check + production gate) |
+| `0.2.0` | Initial skills, 5 commands, 2 agents, 2 hooks (target check + production gate) |
 | `0.3.0` | Live identity/RBAC proof skill + host-scoped auth-header skill |
-| `0.4.0` (this release) | Anti-fraud + guard-hygiene skill (artifact-is-not-auth, host canonicalization, CSRF no-Origin reject); RBAC three-layer checklist; UAT smoke-report template |
-| `0.5.0` | Recorded evidence retention + report archival conventions; built-in fixtures; `/qa-action` command |
-| `1.0.0` | First stable release after real-project shakedown |
+| `0.4.0` | Anti-fraud + guard-hygiene skill; RBAC three-layer checklist; UAT smoke-report template |
+| `0.5.x` | Marketplace-wide frontmatter fixes; behavioural eval suite |
+| `0.6.0` | Production-override audit line reaches Claude; UTF-8 hook I/O |
+| `0.7.0` (current) | Evidence agent can drive the browser; SessionStart warnings become visible; portable hook launcher; README matches shipped behaviour |
+
+See [`CHANGELOG.md`](./CHANGELOG.md) for details.
 
 ## License
 

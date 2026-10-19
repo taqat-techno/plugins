@@ -3,7 +3,67 @@ name: qa-evidence-collector
 description: For one (role × route) cell, drive the browser MCP to login, navigate, capture screenshot + console + network with redaction, and produce one row of the smoke / access-matrix report. Use when the main session needs to delegate evidence capture for a single cell (e.g., re-run a failing cell after a fix). Always read-only — no clicks on action buttons, no form submits, no mutations.
 model: sonnet
 color: cyan
-tools: Read, Bash, Glob, Grep, Write
+tools:
+  - Read
+  - Bash
+  - Glob
+  - Grep
+  - Write
+  # playwright-mcp, installed as the `playwright` plugin (namespaced mcp__plugin_<plugin>_<server>__)
+  - mcp__plugin_playwright_playwright__browser_navigate
+  - mcp__plugin_playwright_playwright__browser_snapshot
+  - mcp__plugin_playwright_playwright__browser_take_screenshot
+  - mcp__plugin_playwright_playwright__browser_console_messages
+  - mcp__plugin_playwright_playwright__browser_network_requests
+  - mcp__plugin_playwright_playwright__browser_wait_for
+  - mcp__plugin_playwright_playwright__browser_type
+  - mcp__plugin_playwright_playwright__browser_fill_form
+  - mcp__plugin_playwright_playwright__browser_click
+  - mcp__plugin_playwright_playwright__browser_press_key
+  - mcp__plugin_playwright_playwright__browser_close
+  # chrome-devtools-mcp, installed as the `chrome-devtools-mcp` plugin
+  - mcp__plugin_chrome-devtools-mcp_chrome-devtools__new_page
+  - mcp__plugin_chrome-devtools-mcp_chrome-devtools__navigate_page
+  - mcp__plugin_chrome-devtools-mcp_chrome-devtools__take_snapshot
+  - mcp__plugin_chrome-devtools-mcp_chrome-devtools__take_screenshot
+  - mcp__plugin_chrome-devtools-mcp_chrome-devtools__list_console_messages
+  - mcp__plugin_chrome-devtools-mcp_chrome-devtools__get_console_message
+  - mcp__plugin_chrome-devtools-mcp_chrome-devtools__list_network_requests
+  - mcp__plugin_chrome-devtools-mcp_chrome-devtools__get_network_request
+  - mcp__plugin_chrome-devtools-mcp_chrome-devtools__wait_for
+  - mcp__plugin_chrome-devtools-mcp_chrome-devtools__fill
+  - mcp__plugin_chrome-devtools-mcp_chrome-devtools__fill_form
+  - mcp__plugin_chrome-devtools-mcp_chrome-devtools__type_text
+  - mcp__plugin_chrome-devtools-mcp_chrome-devtools__click
+  - mcp__plugin_chrome-devtools-mcp_chrome-devtools__press_key
+  - mcp__plugin_chrome-devtools-mcp_chrome-devtools__close_page
+  # Same servers configured directly in .mcp.json / settings (not via a plugin)
+  - mcp__playwright__browser_navigate
+  - mcp__playwright__browser_snapshot
+  - mcp__playwright__browser_take_screenshot
+  - mcp__playwright__browser_console_messages
+  - mcp__playwright__browser_network_requests
+  - mcp__playwright__browser_wait_for
+  - mcp__playwright__browser_type
+  - mcp__playwright__browser_fill_form
+  - mcp__playwright__browser_click
+  - mcp__playwright__browser_press_key
+  - mcp__playwright__browser_close
+  - mcp__chrome-devtools__new_page
+  - mcp__chrome-devtools__navigate_page
+  - mcp__chrome-devtools__take_snapshot
+  - mcp__chrome-devtools__take_screenshot
+  - mcp__chrome-devtools__list_console_messages
+  - mcp__chrome-devtools__get_console_message
+  - mcp__chrome-devtools__list_network_requests
+  - mcp__chrome-devtools__get_network_request
+  - mcp__chrome-devtools__wait_for
+  - mcp__chrome-devtools__fill
+  - mcp__chrome-devtools__fill_form
+  - mcp__chrome-devtools__type_text
+  - mcp__chrome-devtools__click
+  - mcp__chrome-devtools__press_key
+  - mcp__chrome-devtools__close_page
 ---
 
 # qa-evidence-collector
@@ -79,6 +139,10 @@ Before writing any artifact:
 - If the project's PII catalogue was provided in the prompt, replace matching field values with `***PII***` while preserving keys.
 
 After redaction, verify no credentials remain visible in any artifact. If verification fails, BLOCK the row with reason "credential leaked in evidence" and do NOT write the artifact.
+
+## Browser tool grant
+
+The `tools:` list grants only capture tools (navigate, snapshot, screenshot, console, network, wait, close) plus the input tools the login recipe needs (type / fill / fill_form / press_key / click). The input tools are granted for the login form ONLY — the rules below still apply. Script-evaluation, file-upload, drag, dialog and run-code tools are deliberately not granted. If none of the granted browser tools is available in this session, return `[BLOCKED] no browser MCP tools available to the agent`.
 
 ## Safety rules
 

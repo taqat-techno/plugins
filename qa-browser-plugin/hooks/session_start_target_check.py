@@ -9,6 +9,10 @@ a warning if anything looks off.
 
 Exit codes:
   0 — always (this hook is informational only)
+
+Output: issues are written to stdout as SessionStart hook JSON
+(`hookSpecificOutput.additionalContext` for Claude, `systemMessage` for the
+user). Nothing is printed when there are no issues.
 """
 
 from __future__ import annotations
@@ -60,17 +64,40 @@ def main() -> int:
         if target_url and _matches_any(target_url.lower(), [m.lower() for m in markers]):
             issues.append(
                 f"WARNING: targetUrl ({target_url}) matches a production marker. "
-                f"qa-browser will refuse navigation unless you pass --allow-production."
+                f"The production gate will block navigation to it unless Claude Code "
+                f"was launched with QA_BROWSER_ALLOW_PRODUCTION=1."
             )
     except Exception:
         issues.append(f"WARNING: could not parse {CONFIG_FILENAME} (invalid JSON?).")
 
     if issues:
-        print("[qa-browser] safety check found issues:", file=sys.stderr)
-        for issue in issues:
-            print("  - " + issue, file=sys.stderr)
+        _emit(issues)
     # Always exit 0 — this hook is advisory.
     return 0
+
+
+def _emit(issues: list[str]) -> None:
+    """Report issues on the channel Claude Code actually surfaces.
+
+    Exit-0 stderr from a SessionStart hook only reaches the debug log, so the
+    warning used to be invisible to both the model and the user. SessionStart
+    stdout JSON with `hookSpecificOutput.additionalContext` is injected into
+    Claude's context; `systemMessage` is shown to the user.
+    """
+    text = "[qa-browser] safety check found issues:\n" + "\n".join(
+        "  - " + issue for issue in issues
+    )
+    payload = {
+        "systemMessage": text,
+        "hookSpecificOutput": {
+            "hookEventName": "SessionStart",
+            "additionalContext": text,
+        },
+    }
+    # ensure_ascii keeps stdout pure ASCII, so the Windows console code page
+    # cannot mangle it.
+    sys.stdout.write(json.dumps(payload))
+    sys.stdout.flush()
 
 
 def _is_git_repo(path: Path) -> bool:

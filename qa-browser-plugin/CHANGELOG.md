@@ -2,6 +2,46 @@
 
 All notable changes to `qa-browser-plugin` are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/). Versioning follows [SemVer](https://semver.org/).
 
+## [0.7.0] - 2026-10-19
+
+### Fixed
+- **`qa-evidence-collector` can now drive a browser** (QAB-P0-01). Its `tools:`
+  was `Read, Bash, Glob, Grep, Write` with no browser MCP tools, so delegated
+  evidence capture could not work. It now lists the capture tools (navigate,
+  snapshot, screenshot, console, network, wait, close) and the login-form input
+  tools (type, fill, fill_form, press_key, click) for both servers, using the
+  plugin-namespaced names (`mcp__plugin_playwright_playwright__*`,
+  `mcp__plugin_chrome-devtools-mcp_chrome-devtools__*`) plus the bare names used
+  when the server is configured directly. Script-evaluation, upload, drag and
+  dialog tools are deliberately not granted, matching its read-only contract.
+- **SessionStart safety warnings are now visible** (QAB-P1-05).
+  `session_start_target_check.py` printed "DANGER: ... tracked by git" to stderr
+  with exit 0, which Claude Code only writes to the debug log. Issues are now
+  emitted on stdout as `hookSpecificOutput.additionalContext`
+  (`hookEventName: "SessionStart"`) for Claude, plus `systemMessage` for the
+  user. Still exit 0, still silent when there is nothing to report.
+- The production-marker warning no longer tells users to pass a nonexistent
+  `--allow-production` flag; it names the real override
+  (`QA_BROWSER_ALLOW_PRODUCTION=1` at Claude Code launch).
+- **Hooks launch portably.** `hooks/hooks.json` runs both hooks through a POSIX-sh
+  launcher that quotes `${CLAUDE_PLUGIN_ROOT}` (paths with spaces work) and tries
+  `python3`, then `python`, then `py -3`; a missing script or interpreter exits 0
+  instead of failing.
+- README: version badge, hooks table (the gate is an env-var block, not a
+  confirmation prompt; the SessionStart hook is a config-safety check, not a
+  reminder), the safety-rules list now says which rules are hooks and which are
+  skill guidance, the stale roadmap is replaced by the release history, and the
+  chrome-devtools-mcp link points at the `ChromeDevTools` org. Marketplace
+  description: 13 skills (was "9") and both hooks named accurately.
+
+### Added
+- `tests/test_hook_launcher.py`: quoted root, missing script, exit-code
+  propagation, no python on PATH.
+- `tests/test_session_start.py`: tracked config -> hook JSON on stdout and empty
+  stderr; production target names the real override; silent when clean.
+- `tests/test_paths.py`: every `${CLAUDE_PLUGIN_ROOT}/...` reference resolves;
+  the evidence collector grants namespaced browser tools and no mutation tools.
+
 ## [0.6.0] - 2026-09-27
 
 ### Fixed
