@@ -2459,7 +2459,7 @@ def _self_test() -> int:
     # Redaction sanity
     samples = [
         ("Authorization: Bearer abcdef.GHIJKL_123456789", "<redacted-bearer>"),
-        ("api_key=sk_live_abcdef123456ABCDEF", "<redacted-secret>"),
+        ("api_key=" + "sk_" + "live_" + "abcdef123456ABCDEF", "<redacted-secret>"),
         ("ghp_ABCDEFGHIJKLMNOP01234567890123456789", "<redacted-github-pat>"),
         ("Cookie: session=AAAAAAAA", "<redacted-cookie>"),
         ("plain text with no secret", "plain text with no secret"),

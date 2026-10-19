@@ -14,7 +14,7 @@ Listed in marketplace order. Component counts are the real contents of each plug
 | 4 | **pandoc** | `3.0.0` | productivity | 4 | 0 | 1 | 0 | — | 1 + 1 | [[Pandoc Plugin\|Pandoc-Plugin]] · [README](../../pandoc-plugin/README.md) |
 | 5 | **remotion** | `3.0.0` | development | 4 | 0 | 1 | 0 | — | 1 + 1 | [[Remotion Plugin\|Remotion-Plugin]] · [README](../../remotion-plugin/README.md) |
 | 6 | **ui-ux-mechanics** | `4.0.0` | design | 1 | 2 | 3 | 0 | — | 3 + 3 | [[Ui Ux Mechanics Plugin\|Ui-Ux-Mechanics-Plugin]] · [README](../../ui-ux-mechanics-plugin/README.md) |
-| 7 | **rag** | `0.20.1` | productivity | 9 | 1 | 4 | 2 | yes | 4 + 5 | [[Rag Plugin\|Rag-Plugin]] · [README](../../rag-plugin/README.md) |
+| 7 | **rag** | `0.20.2` | productivity | 9 | 1 | 4 | 2 | yes | 4 + 5 | [[Rag Plugin\|Rag-Plugin]] · [README](../../rag-plugin/README.md) |
 | 8 | **react-kit** | `0.8.1` | development | 3 | 1 | 16 | 0 | — | 16 + 16 | [README](../../react-kit-plugin/README.md) |
 | 9 | **qa-browser** | `0.9.0` | productivity | 5 | 2 | 13 | 3 | — | 13 + 13 | [README](../../qa-browser-plugin/README.md) |
 | 10 | **docs-wiki** | `0.11.0` | productivity | 7 | 3 | 10 | 0 | — | 10 + 7 | [README](../../docs-wiki-plugin/README.md) |

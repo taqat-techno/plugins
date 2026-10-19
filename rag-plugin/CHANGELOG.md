@@ -2,6 +2,11 @@
 
 All notable changes to `rag-plugin` are documented here. Format is loosely based on [Keep a Changelog](https://keepachangelog.com/). Versioning follows [SemVer](https://semver.org/).
 
+## [0.20.2] - 2026-10-19
+
+### Changed
+- The `/report` self-test builds its Stripe-shaped redaction sample at run time, so secret scanners no longer flag the source file.
+
 ## [0.20.1] - 2026-10-19
 
 ### Fixed
