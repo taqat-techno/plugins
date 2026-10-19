@@ -1,5 +1,5 @@
 {
-  "description": "qa-browser hooks — SessionStart config-safety check + PreToolUse production host gate. SessionStart is advisory; the gate BLOCKS production hosts and asks for unknown hosts when a QA target is configured.",
+  "description": "qa-browser hooks: SessionStart config/evidence safety check (advisory); PreToolUse production host gate (blocks production hosts, asks for unknown hosts when a QA target is configured); PreToolUse do-not-click skiplist (asks when a click matches the project's skiplist).",
   "hooks": {
     "SessionStart": [
       {
@@ -20,6 +20,16 @@
           {
             "type": "command",
             "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/pre_navigate_prod_gate.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\"; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "^mcp__.+__(browser_click|click)$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/pre_click_skiplist.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\"; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0",
             "timeout": 5
           }
         ]

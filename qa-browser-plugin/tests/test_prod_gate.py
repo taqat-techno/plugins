@@ -39,7 +39,8 @@ TARGET = {"targetUrl": "https://shop.example.com",
 def run(tool_input=None, tool=PW + "browser_navigate", config=None,
         override=False, raw=None, subdir=False):
     env = {k: v for k, v in os.environ.items()
-           if k not in (OVERRIDE_ENV, "CLAUDE_PROJECT_DIR")}
+           if k not in (OVERRIDE_ENV, "CLAUDE_PROJECT_DIR")
+           and not k.upper().startswith("CLAUDE_PLUGIN_OPTION_")}
     if override:
         env[OVERRIDE_ENV] = "1"
     payload = raw if raw is not None else json.dumps(

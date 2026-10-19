@@ -1,18 +1,21 @@
 #!/usr/bin/env python3
 """
-qa-browser SessionStart hook — friendly reminder.
+qa-browser SessionStart hook - config and evidence safety check.
 
-Checks for `.qa-browser.local.json` in CWD (typical project root). If absent,
-prints a non-blocking reminder so the user knows to run /qa-target before /qa-smoke.
-If present, performs a quick safety check (gitignored, not tracked) and prints
-a warning if anything looks off.
+Runs only when `.qa-browser.local.json` exists in the project root
+($CLAUDE_PROJECT_DIR, else the cwd). Silent otherwise, and silent when every
+check passes. Checks:
 
-Exit codes:
-  0 — always (this hook is informational only)
+  1. the config is tracked by git                      -> DANGER
+  2. the config is not git-ignored                     -> WARNING
+  3. the config holds inline credential values
+     (`password` / `totp` / `totpSecret` strings) instead of env-var
+     references (`passwordEnv` / `totpEnv`)            -> WARNING
+  4. a `qa-evidence/` directory exists and is not git-ignored -> WARNING
+  5. `targetUrl` is a production host under the gate's rules  -> WARNING
 
-Output: issues are written to stdout as SessionStart hook JSON
-(`hookSpecificOutput.additionalContext` for Claude, `systemMessage` for the
-user). Nothing is printed when there are no issues.
+Output: SessionStart hook JSON on stdout (`additionalContext` for Claude,
+`systemMessage` for the user). Always exit 0; any error fails open.
 """
 
 from __future__ import annotations
@@ -23,42 +26,77 @@ import subprocess
 import sys
 from pathlib import Path
 
+sys.dont_write_bytecode = True
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "_vendor"))
+import hooklib  # noqa: E402
 
 CONFIG_FILENAME = ".qa-browser.local.json"
+EVIDENCE_DIR = "qa-evidence"
+INLINE_SECRET_KEYS = ("password", "totp", "totpSecret")
+
+
+def project_root() -> Path:
+    project = os.environ.get("CLAUDE_PROJECT_DIR")
+    if project and Path(project).is_dir():
+        return Path(project)
+    return Path.cwd()
+
+
+def inline_secret_roles(data: dict) -> list[str]:
+    """Roles whose entry stores a credential value directly in the file."""
+    roles = data.get("roles")
+    if not isinstance(roles, dict):
+        return []
+    hits = []
+    for name, entry in roles.items():
+        if isinstance(entry, dict) and any(
+                isinstance(entry.get(k), str) and entry.get(k).strip()
+                for k in INLINE_SECRET_KEYS):
+            hits.append(str(name))
+    return sorted(hits)
 
 
 def main() -> int:
-    cwd = Path.cwd()
-    config_path = cwd / CONFIG_FILENAME
+    hooklib.watchdog(4.5)
+    root = project_root()
+    config_path = root / CONFIG_FILENAME
+    if not config_path.is_file():
+        return 0  # first-time user or a project that does not use qa-browser
 
-    # Quiet exit if there is no indication this project uses qa-browser at all.
-    # We only chirp on session start if the user has previously configured.
-    if not config_path.exists():
-        # First-time user: no config yet. Stay silent — /qa-target will explain.
-        return 0
-
-    # Config exists. Run safety checks.
     issues: list[str] = []
+    in_git = _is_git_repo(root)
 
-    # 1. Is the file tracked by git?
-    if _is_git_repo(cwd) and _is_tracked(cwd, CONFIG_FILENAME):
+    if in_git and _is_tracked(root, CONFIG_FILENAME):
         issues.append(
             f"DANGER: {CONFIG_FILENAME} is tracked by git. Run:\n"
             f"    git rm --cached {CONFIG_FILENAME}\n"
             f"    echo '{CONFIG_FILENAME}' >> .gitignore\n"
-            f"    git add .gitignore && git commit -m '[CHORE] gitignore qa-browser credentials'"
+            f"  then commit the .gitignore change. If the file ever held a password, "
+            f"rotate it: it is in the git history."
         )
-
-    # 2. Is the file listed in .gitignore?
-    if _is_git_repo(cwd) and not _is_in_gitignore(cwd, CONFIG_FILENAME):
+    if in_git and not _is_ignored(root, CONFIG_FILENAME):
         issues.append(
             f"WARNING: {CONFIG_FILENAME} is not in .gitignore. Add it:\n"
             f"    echo '{CONFIG_FILENAME}' >> .gitignore"
         )
 
-    # 3. Quick credential / URL sanity (no parsing of secrets)
     try:
         data = json.loads(config_path.read_text(encoding="utf-8"))
+        if not isinstance(data, dict):
+            raise ValueError("not an object")
+    except Exception:
+        data = None
+        issues.append(f"WARNING: could not parse {CONFIG_FILENAME} (invalid JSON?).")
+
+    if data is not None:
+        roles = inline_secret_roles(data)
+        if roles:
+            issues.append(
+                f"WARNING: {CONFIG_FILENAME} stores credential values inline for "
+                f"role(s) {', '.join(roles)}. Replace them with env-var references "
+                f"(\"passwordEnv\": \"QA_<ROLE>_PASSWORD\", \"totpEnv\": ...) set "
+                f"before launching Claude Code; see /qa-browser:target."
+            )
         target_url = data.get("targetUrl", "")
         hit = _production_hit(target_url, data) if isinstance(target_url, str) else None
         if hit:
@@ -67,95 +105,61 @@ def main() -> int:
                 f"The production gate will block navigation to it unless Claude Code "
                 f"was launched with QA_BROWSER_ALLOW_PRODUCTION=1."
             )
-    except Exception:
-        issues.append(f"WARNING: could not parse {CONFIG_FILENAME} (invalid JSON?).")
+
+    if in_git and (root / EVIDENCE_DIR).is_dir() and not _is_ignored(root, EVIDENCE_DIR + "/"):
+        issues.append(
+            f"WARNING: {EVIDENCE_DIR}/ is not git-ignored. Screenshots and network "
+            f"captures can contain personal data. Add it:\n"
+            f"    echo '{EVIDENCE_DIR}/' >> .gitignore"
+        )
 
     if issues:
-        _emit(issues)
-    # Always exit 0 — this hook is advisory.
+        text = "[qa-browser] safety check found issues:\n" + "\n".join(
+            "  - " + issue for issue in issues)
+        # systemMessage reaches the user; additionalContext reaches Claude.
+        sys.stdout.write(json.dumps({
+            "systemMessage": text,
+            "hookSpecificOutput": {"hookEventName": "SessionStart",
+                                   "additionalContext": text},
+        }))
+        sys.stdout.flush()
     return 0
 
 
-def _emit(issues: list[str]) -> None:
-    """Report issues on the channel Claude Code actually surfaces.
-
-    Exit-0 stderr from a SessionStart hook only reaches the debug log, so the
-    warning used to be invisible to both the model and the user. SessionStart
-    stdout JSON with `hookSpecificOutput.additionalContext` is injected into
-    Claude's context; `systemMessage` is shown to the user.
-    """
-    text = "[qa-browser] safety check found issues:\n" + "\n".join(
-        "  - " + issue for issue in issues
-    )
-    payload = {
-        "systemMessage": text,
-        "hookSpecificOutput": {
-            "hookEventName": "SessionStart",
-            "additionalContext": text,
-        },
-    }
-    # ensure_ascii keeps stdout pure ASCII, so the Windows console code page
-    # cannot mangle it.
-    sys.stdout.write(json.dumps(payload))
-    sys.stdout.flush()
-
-
-def _is_git_repo(path: Path) -> bool:
+def _git(root: Path, *args: str) -> subprocess.CompletedProcess | None:
     try:
-        result = subprocess.run(
-            ["git", "rev-parse", "--is-inside-work-tree"],
-            cwd=str(path),
-            capture_output=True,
-            text=True,
-            timeout=3,
-        )
-        return result.returncode == 0 and result.stdout.strip() == "true"
+        return subprocess.run(["git", *args], cwd=str(root), capture_output=True,
+                              text=True, timeout=3)
     except Exception:
-        return False
+        return None
 
 
-def _is_tracked(path: Path, filename: str) -> bool:
-    try:
-        result = subprocess.run(
-            ["git", "ls-files", "--error-unmatch", filename],
-            cwd=str(path),
-            capture_output=True,
-            text=True,
-            timeout=3,
-        )
-        return result.returncode == 0
-    except Exception:
-        return False
+def _is_git_repo(root: Path) -> bool:
+    r = _git(root, "rev-parse", "--is-inside-work-tree")
+    return bool(r) and r.returncode == 0 and r.stdout.strip() == "true"
 
 
-def _is_in_gitignore(path: Path, filename: str) -> bool:
-    gitignore = path / ".gitignore"
-    if not gitignore.exists():
-        return False
-    try:
-        contents = gitignore.read_text(encoding="utf-8").splitlines()
-        for line in contents:
-            stripped = line.strip()
-            if not stripped or stripped.startswith("#"):
-                continue
-            if stripped == filename or stripped == "/" + filename:
-                return True
-        return False
-    except Exception:
-        return False
+def _is_tracked(root: Path, name: str) -> bool:
+    r = _git(root, "ls-files", "--error-unmatch", name)
+    return bool(r) and r.returncode == 0
+
+
+def _is_ignored(root: Path, name: str) -> bool:
+    # --no-index: answer from the ignore rules even for a tracked path.
+    r = _git(root, "check-ignore", "-q", "--no-index", name)
+    return bool(r) and r.returncode == 0
 
 
 def _production_hit(url: str, config: dict) -> str | None:
     """Ask the navigation gate (single owner of the host rules) about `url`."""
-    sys.dont_write_bytecode = True
     sys.path.insert(0, str(Path(__file__).resolve().parent))
     try:
         import pre_navigate_prod_gate as gate
     finally:
         sys.path.pop(0)
     host = gate.hostname_of(url)
-    return gate.production_match(host, config) if host else None
+    return gate.production_match(host, gate.effective_config(config)) if host else None
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    hooklib.run(main)

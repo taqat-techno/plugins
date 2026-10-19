@@ -13,6 +13,7 @@ Contract:
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -25,10 +26,14 @@ CONFIG = ".qa-browser.local.json"
 GIT = shutil.which("git")
 
 
-def run(cwd: str):
+def run(cwd: str, project_dir: str | None = None):
     payload = json.dumps({"hook_event_name": "SessionStart", "source": "startup"})
+    env = {k: v for k, v in os.environ.items()
+           if k != "CLAUDE_PROJECT_DIR" and not k.startswith("CLAUDE_PLUGIN_OPTION_")}
+    if project_dir:
+        env["CLAUDE_PROJECT_DIR"] = project_dir
     proc = subprocess.run([sys.executable, str(HOOK)], input=payload.encode("utf-8"),
-                          capture_output=True, cwd=cwd, timeout=30)
+                          capture_output=True, cwd=cwd, env=env, timeout=30)
     return proc.returncode, proc.stdout.decode("utf-8"), proc.stderr.decode("utf-8")
 
 

@@ -1,158 +1,177 @@
 # qa-browser
 
-![Version](https://img.shields.io/badge/version-0.7.0-blue.svg)
-![Status](https://img.shields.io/badge/status-functional-green.svg)
+![Version](https://img.shields.io/badge/version-0.9.0-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 
-Framework-agnostic browser QA and role-based smoke testing.
+## What it does
 
-This plugin drives the [`chrome-devtools-mcp`](https://github.com/ChromeDevTools/chrome-devtools-mcp) or [`playwright-mcp`](https://github.com/microsoft/playwright-mcp) servers to log in as each role, walk through the UI, capture evidence (screenshot + console + network), and produce a PASS / BLOCKED / NOT-TESTABLE table for UAT signoff. It enforces evidence discipline — no silent "looks good" passes — and refuses destructive operations on non-disposable data.
+qa-browser drives a browser MCP server ([chrome-devtools-mcp](https://github.com/ChromeDevTools/chrome-devtools-mcp) or [playwright-mcp](https://github.com/microsoft/playwright-mcp)) to log in as each role of a web app, walk its menus, modals and table actions, compare what the UI shows with what the API allows, and capture screenshot, console and network evidence. It reports every check as PASS / BLOCKED / NOT-TESTABLE / FAIL and compiles a UAT readiness report. Hooks block production hosts and ask before clicks on a do-not-click list.
 
-## What this plugin owns
+It is for QA engineers and developers running acceptance-level checks against a staging, UAT or local deployment of any browser-accessible app (Next.js, React SPAs, Django admin, Laravel, Odoo, WordPress, ...). It does not assume a framework.
 
-### Skills (under `skills/`)
+## Install
 
-| Skill | Owns |
-|---|---|
-| `browser-qa-discipline` | PASS / BLOCKED / NOT-TESTABLE vocabulary, per-check evidence requirement, "code-read is not runtime evidence" rule |
-| `runtime-reality-check` | Verify the target is actually reachable, the build is the one you think it is, before testing |
-| `role-smoke-tests` | Login as each role, visit each menu item, capture screenshot + console + network |
-| `route-access-matrix` | Verify each role's allowed/blocked routes at UI AND at API |
-| `modal-and-action-walkthroughs` | Row actions, bulk actions, modal open/close, confirmation dialog handling |
-| `import-export-ui-checks` | Upload → preview → commit → verify result |
-| `console-and-network-capture` | What to capture, when to fail, redaction rules for credentials in logs |
-| `safe-destructive-testing` | Disposable-data-only rule, never run delete on production data |
-| `verify-identity-and-rbac` | Live identity + RBAC proof via status codes; three-layer denial checklist (route/API + service/backend + UI) |
-| `host-scoped-auth-headers` | Host-scope preview-bypass/auth headers so cross-origin data calls survive CORS preflight |
-| `anti-fraud-and-guard-hygiene` | A client-rendered barcode/QR/SVG/badge is NOT authentication (no signature/binding/expiry); host canonicalization + no-Origin-and-no-Referer CSRF reject |
-| `uat-readiness-report` | Composing the final PASS / BLOCKED report; includes a copy-paste role × route smoke-report template |
-| `defect-triage-and-closure` | The gate before "working as designed" / "cannot reproduce" / "external blocker" / "won't do" is written; spec granularity, exact-gesture repro, the reporter's workaround as diagnostic, file-before-fix ordering, re-probing a stale blocker |
+```
+/plugin marketplace add taqat-techno/plugins
+/plugin install qa-browser@taqat-techno-plugins
+```
 
-### Commands
+Then install one browser MCP server and restart Claude Code. Quick start:
 
-| Command | Purpose |
-|---|---|
-| `/qa-smoke <role>` | Run smoke tests for one role |
-| `/qa-roles` | Run smoke tests across all configured roles |
-| `/qa-route <url>` | Focused check of one route across roles |
-| `/qa-report` | Compile the final UAT report from captured evidence |
-| `/qa-target` | Set or inspect target URL + credentials |
+```
+/qa-browser:target set      # target URL, roles, hosts, skiplist
+/qa-browser:smoke admin     # one role
+/qa-browser:roles           # every role + cross-role consistency
+/qa-browser:report          # UAT report from qa-evidence/
+```
 
-### Agents
+## Requirements
 
-| Agent | Purpose |
-|---|---|
-| `qa-evidence-collector` | For one role + one route, capture screenshot + console + network and produce one row of the PASS table |
-| `qa-failure-classifier` | Take a failure description and classify as ui-bug / api-bug / data-issue / env-issue / spec-ambiguity / unknown |
-
-### Hooks
-
-| Hook | Trigger | Purpose |
+| Requirement | Why | How to check |
 |---|---|---|
-| `SessionStart` | startup | If `.qa-browser.local.json` exists in the working directory: warns (as hook context Claude sees, plus a user-visible message) when it is tracked by git, missing from `.gitignore`, unparseable, or its `targetUrl` matches a production marker. Silent when no config exists. Advisory only — never blocks |
-| `PreToolUse` | Browser navigation: `navigate_page`, `new_page`, `browser_navigate`, `browser_tabs`, Claude in Chrome / Claude Browser `navigate`, and script tools (`browser_evaluate`, `browser_run_code_unsafe`, `evaluate_script`, `javascript_tool`) when the script navigates | Host-based production gate (rules below). Link clicks and form submits that navigate are not gated |
+| A browser MCP server: chrome-devtools-mcp or playwright-mcp | All browser work goes through it | `/mcp` lists it; `/qa-browser:target` checks for its tools |
+| Python 3.8+ as `python3`, `python` or `py -3` | Hooks and `scripts/` | `python3 --version` |
+| `sh` (Git Bash on Windows) | The hook launcher | `sh -c 'echo ok'` |
+| git (optional) | Tracked / ignored checks on the config and `qa-evidence/` | `git --version` |
+| A reachable non-production target and test accounts | What is tested | `/qa-browser:target check` sends one HEAD request |
 
-## Framework scope
+### What each MCP server can do
 
-**Framework-agnostic.** Requires a reachable URL + at least one role credential. Tested mental-model against:
+| Need | playwright-mcp | chrome-devtools-mcp | Claude in Chrome / other |
+|---|---|---|---|
+| Navigate, snapshot, screenshot | yes | yes | yes |
+| Console messages | yes | yes | yes (`read_console_messages`) |
+| Network request list | yes, as a list (not HAR) | yes, as a list (not HAR) | yes, as a list |
+| Fresh state per role | `--isolated` or one `--storage-state` per role | `new_page` shares the profile; use `--isolated` and restart between roles | your own profile: log out and clear site data |
+| Do-not-click hook can see the target | yes (`element` description, `target`) | no (only an element `uid`) | no |
+| Mask secrets in tool responses | `--secrets <dotenv>` | no | no |
 
-- Next.js apps
-- React SPAs (Vite / CRA / Remix)
-- Django admin
-- Laravel Nova / Filament
-- Odoo backend
-- WordPress wp-admin
-- Any browser-accessible web app
+## Commands
 
-The plugin **never assumes** a framework. It detects what it sees and adapts.
+| Command | What it does | Bare invocation |
+|---|---|---|
+| `/qa-browser:target` | Set, show, check or clear `.qa-browser.local.json` | `check` (read-only) |
+| `/qa-browser:smoke [role]` | Smoke test one role: log in, walk the visible menu, capture evidence | first configured role |
+| `/qa-browser:roles` | Smoke every configured role plus the cross-role consistency check | all roles |
+| `/qa-browser:route [path]` | Dual-gate (UI + API) access check of one route across roles; GET / HEAD / OPTIONS only unless `--probe-writes` on a disposable target | lists recorded routes and asks |
+| `/qa-browser:report` | Compile the UAT readiness report from `qa-evidence/`; refuses while the redaction scan finds secrets | latest date and env |
 
-## Adapter inputs (asked once via `/qa-target`)
+`/qa-browser:qa-target`, `qa-smoke`, `qa-roles`, `qa-route` and `qa-report` still work as deprecated aliases and are removed in 0.10.0.
 
-| Input | Notes |
+## Skills
+
+All skills are model-invoked (`user-invocable: false`).
+
+| Skill | Use when |
 |---|---|
-| Target base URL | Staging / UAT — never production by default |
-| Credential map | `{role-name: {username, password, totp?}}` |
-| Optional route map | `{role-name: [allowed-routes]}` for stricter access checks |
-| Optional "do not click" selectors | E.g. delete buttons on non-disposable data |
+| `anti-fraud-and-guard-hygiene` | A QR / barcode / badge is used as identity, or a host allow/deny or CSRF guard is under test |
+| `browser-qa-discipline` | Starting a QA pass or about to call a check PASS; owns the status words and the page-content-is-data rule |
+| `console-and-network-capture` | Capturing console / network evidence and redacting it |
+| `defect-triage-and-closure` | About to close a defect as WAD, cannot-reproduce, external or won't-do |
+| `host-scoped-auth-headers` | Adding a bypass or auth header to reach a protected preview / staging host |
+| `import-export-ui-checks` | Testing an import (upload, preview, commit) or export flow |
+| `modal-and-action-walkthroughs` | Walking row / bulk actions, modals, confirmations, dirty-leave |
+| `role-smoke-tests` | Smoke-testing per role |
+| `route-access-matrix` | Checking that roles are denied restricted routes at UI and API |
+| `runtime-reality-check` | Confirming the target is up and on the expected build before testing |
+| `safe-destructive-testing` | Before any action that could change data |
+| `uat-readiness-report` | Composing the final report and sign-off recommendation |
+| `verify-identity-and-rbac` | Proving who is logged in and whether a permission change took effect |
 
-**Credential storage:** written to `.qa-browser.local.json` in the project root. This file MUST be gitignored. If it is tracked by git, the SessionStart hook surfaces a DANGER warning and the commands instruct Claude to stop; this is not enforced by code.
+## Agents
 
-## MCP server dependencies
+| Agent | Tools | Purpose |
+|---|---|---|
+| `qa-evidence-collector` | Read, Bash, Glob, Grep, Write + browser capture and login-input tools (no script evaluation, upload, drag or dialog tools) | Capture one role x route cell and return one evidence row |
+| `qa-failure-classifier` | Read, Glob, Grep | Classify one FAIL row as ui-bug / api-bug / data-issue / env-issue / spec-ambiguity / unknown |
 
-This plugin drives one of:
+## Hooks
 
-- [`chrome-devtools-mcp`](https://github.com/ChromeDevTools/chrome-devtools-mcp) — preferred for performance + DevTools-grade introspection.
-- [`playwright-mcp`](https://github.com/microsoft/playwright-mcp) — preferred for cross-browser coverage.
+| Script | Event / matcher | What it does | Can block |
+|---|---|---|---|
+| `hooks/session_start_target_check.py` | SessionStart `startup` | When `.qa-browser.local.json` exists: warns if it is tracked by git, not git-ignored, unparseable, holds inline credential values, or targets a production host; warns if `qa-evidence/` exists and is not git-ignored. Silent otherwise. | No (advisory) |
+| `hooks/pre_navigate_prod_gate.py` | PreToolUse: `navigate`, `navigate_page`, `new_page`, `browser_navigate`, `browser_tabs`, and script tools (`browser_evaluate`, `browser_run_code(_unsafe)`, `evaluate_script`, `javascript_tool`) when the script navigates | Host-based production gate, table below. Also denies all gated navigation while a git-tracked config holds inline credentials. | Yes |
+| `hooks/pre_click_skiplist.py` | PreToolUse: `browser_click`, `click` | Asks the user when a click's `target` equals a `doNotClick` selector or its element description contains a `doNotClickText` entry | Asks |
 
-`/qa-target` checks for at least one of them and surfaces a clear "please install one" message if neither is loaded. It does **not** auto-install MCP servers.
+All hooks use the portable launcher (`python3`, `python`, `py -3`), share `hooks/_vendor/hooklib.py`, and fail open on bad input.
 
-## What this plugin deliberately does NOT do
-
-- Replace a unit / integration test suite. This is acceptance-level UI QA, not the test pyramid base.
-- Drive headless API testing without a browser. Use a dedicated API testing tool for that.
-- Author the admin panel itself. See [`react-kit`](../react-kit-plugin/README.md) for that.
-- Document QA SOPs / runbooks. See [`docs-wiki`](../docs-wiki-plugin/README.md) for that.
-- Manage credentials in any way other than the local gitignored file. No vault, no secrets manager.
-
-## Safety rules baked in
-
-1. Production host gate (hook) — see below.
-2. Destructive-action discipline (skill guidance, not a hook) — `delete`, `purge`, `truncate`, `drop` actions require explicit per-action approval AND a disposable-data signal.
-3. Credential redaction (skill/agent guidance, not a script) — Claude is instructed to redact passwords, JWTs and OTP codes from console / network captures before writing them.
-4. Tracked-credentials warning (hook) — the SessionStart hook warns when `.qa-browser.local.json` is tracked by git; the refusal to continue is an instruction to Claude, not a code-level block.
-
-### Production host gate
-
-`hooks/pre_navigate_prod_gate.py` owns the rules (its docstring is the reference). It looks at the URL's **hostname only**, never the path, so `https://shop.example.com/products` is not "prod". Config is read from `.qa-browser.local.json` in `$CLAUDE_PROJECT_DIR`, else the working directory or a parent.
+**Production host gate.** Decided on the URL's hostname only, never the path (`/products` is not "prod"):
 
 | Host | Result |
 |---|---|
-| In `productionHosts` (exact or subdomain), or a hostname label / `-`-separated part equals a `productionMarkers` entry (default `prod`, `production`; an entry with a dot is matched as a host) | **Blocked** (exit 2) |
-| localhost, 127.0.0.1, ::1, `*.localhost`, `*.test`, the `targetUrl` host, or in `allowedHosts` | Allowed |
-| Anything else, when `targetUrl` or `allowedHosts` is configured | You are **asked** to approve |
-| Anything else, no target configured | Allowed |
+| In `productionHosts` or the `production_hosts` plugin option (exact or subdomain), or a hostname label / `-`-part equals a `productionMarkers` entry (default `prod`, `production`) | Blocked (exit 2) |
+| localhost, 127.0.0.1, ::1, `*.localhost`, `*.test`, the `targetUrl` host, `allowedHosts` | Allowed |
+| Any other host while `targetUrl` or `allowedHosts` is set | You are asked |
+| Any other host, no target configured | Allowed |
 
-For script tools, URLs are taken from the script only when it contains `location =`, `location.href =`, `location.assign/replace(`, `window.open(` or `.goto(`.
+Link clicks and form submits that navigate are not gated; the `safe-destructive-testing` skill covers them. **Override:** none in-session. To test production on purpose, quit and relaunch Claude Code with `QA_BROWSER_ALLOW_PRODUCTION=1`; blocks become allows with an audit note to Claude.
+
+## Configuration
+
+**Plugin option** (`/plugin` -> qa-browser -> configure):
+
+| Key | Type | Default | Meaning |
+|---|---|---|---|
+| `production_hosts` | string | empty | Comma-separated hosts blocked in every project |
+
+**Environment variables:**
+
+| Variable | Meaning |
+|---|---|
+| `QA_BROWSER_ALLOW_PRODUCTION=1` | Set before launching Claude Code to lift the production block |
+| `QA_<ROLE>_PASSWORD`, `QA_<ROLE>_TOTP` (names are yours) | Role passwords and TOTP seeds, referenced from the config by name |
+
+**Per-project file** `.qa-browser.local.json` (git-ignored; found in `$CLAUDE_PROJECT_DIR` or the cwd and its parents):
 
 ```json
 {
   "targetUrl": "https://staging.example.com",
-  "allowedHosts": ["auth.staging.example.com", "*.cdn.example.net"],
-  "productionHosts": ["www.example.com", "app.example.com"],
-  "productionMarkers": ["prod", "production"]
+  "disposable": false,
+  "roles": {
+    "admin":   { "username": "qa-admin@example.com", "passwordEnv": "QA_ADMIN_PASSWORD", "totpEnv": null },
+    "manager": { "username": "qa-manager@example.com", "storageState": ".auth/manager.json" }
+  },
+  "allowedHosts": ["auth.staging.example.com"],
+  "productionHosts": ["www.example.com"],
+  "productionMarkers": ["prod", "production"],
+  "doNotClick": ["button:has-text('Refund')"],
+  "doNotClickText": ["Delete account", "Refund"],
+  "consoleAllowlist": []
 }
 ```
 
-**Override:** there is no flag and no in-session approval. To test production on purpose, quit and relaunch Claude Code with `QA_BROWSER_ALLOW_PRODUCTION=1` in its environment; blocks then become allows with an audit note to Claude. Exporting the variable from a Bash tool call or another shell does not reach the hook.
+The file holds no credential values. Each role either reuses a session the user logged in by hand (`storageState`, preferred) or names env vars set before launch. `"disposable": true` is required for write-verb probes and confirm-and-commit walkthroughs. Files from 0.8 and earlier with inline `password` / `totp` values still load, with a warning.
 
-## Installation
+## Scripts
 
-This plugin is published as part of the `taqat-techno-plugins` marketplace. To install:
-
-1. Open Claude Code.
-2. Run `/plugins`.
-3. Click **Add Marketplace** and enter `https://github.com/taqat-techno/plugins.git` (skip if already installed).
-4. Find **qa-browser** and click **Install**.
-5. (Recommended) install `chrome-devtools-mcp` or `playwright-mcp` from their respective marketplaces.
-
-## Release history
-
-| Version | Scope |
+| Script | Use |
 |---|---|
-| `0.1.0` | Scaffold |
-| `0.2.0` | Initial skills, 5 commands, 2 agents, 2 hooks (target check + production gate) |
-| `0.3.0` | Live identity/RBAC proof skill + host-scoped auth-header skill |
-| `0.4.0` | Anti-fraud + guard-hygiene skill; RBAC three-layer checklist; UAT smoke-report template |
-| `0.5.x` | Marketplace-wide frontmatter fixes; behavioural eval suite |
-| `0.6.0` | Production-override audit line reaches Claude; UTF-8 hook I/O |
-| `0.7.0` (current) | Evidence agent can drive the browser; SessionStart warnings become visible; portable hook launcher; README matches shipped behaviour |
+| `scripts/redact_evidence.py [--check] <path>...` | Mask (or, with `--check`, detect and exit 1 on) cookies, auth headers, passwords and token shapes in JSON / text evidence. Never prints the values. Cannot scan screenshots. |
+| `scripts/totp.py <ENV_NAME>` | Print the current RFC 6238 code from a base32 seed held in that env var; the seed is never printed |
 
-See [`CHANGELOG.md`](./CHANGELOG.md) for details.
+## Platform support
+
+| Platform | Status |
+|---|---|
+| Windows | Supported. Hooks need `sh` (Git Bash, installed with Git for Windows) and Python as `python3`, `python` or `py`. |
+| macOS | Supported (`python3`). |
+| Linux | Supported (`python3`). |
+| WSL | Supported when Claude Code and the browser MCP run on the same side. |
+
+## Data & privacy
+
+- **Stored locally:** `.qa-browser.local.json` (target, usernames, env-var names, host lists) and `qa-evidence/<date>/<env>/...` (screenshots, `console.json`, `network.json`, `status.json`, notes, `REPORT.md`) in your project. Both must be git-ignored; the SessionStart hook warns when they are not. The plugin stores nothing elsewhere.
+- **Leaves the machine:** only the browser traffic to your QA target that you ask for, and one HEAD request from `/qa-browser:target`. Nothing is sent to TAQAT Techno or any other third party by this plugin.
+- **On screen / in the model's context:** page snapshots, console and network output, and screenshots of the target. With env-var login, the password value appears in the one tool call that types it; use dedicated test accounts, or storage-state login so no credential passes through the model. Redact evidence (`redact_evidence.py`) before sharing it; review screenshots by eye.
+
+## Limitations
+
+- The production gate sees navigation tools only; a link click or form submit that leaves the target host is guarded by skill guidance, not code.
+- The click skiplist hook cannot see chrome-devtools-mcp or Claude in Chrome clicks.
+- Redaction is shape-based: a secret with no recognisable key or form is not caught, and images are not scanned.
+- Write-verb route probes can still change data on a misconfigured server; they run only on targets you mark disposable, after you confirm the request list.
+- Acceptance-level UI QA only: not a replacement for unit or API test suites. For building admin panels see the optional `react-kit` plugin; for QA runbooks, `docs-wiki`.
 
 ## License
 
-MIT. See [`LICENSE`](./LICENSE).
-
-## Author
-
-TAQAT Techno · [github.com/taqat-techno](https://github.com/taqat-techno) · `info@taqatechno.com`
+MIT (see `LICENSE`). The browser MCP servers are separate projects with their own licences.

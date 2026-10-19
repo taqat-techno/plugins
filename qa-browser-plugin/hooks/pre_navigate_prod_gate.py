@@ -28,7 +28,13 @@ URLs without a host (about:, data:, relative) are allowed.
 
 Config: `.qa-browser.local.json`, looked up in $CLAUDE_PROJECT_DIR, then the
 cwd and its parents. Keys: targetUrl, allowedHosts, productionHosts,
-productionMarkers (default ["prod", "production"]).
+productionMarkers (default ["prod", "production"]). The plugin option
+`production_hosts` (userConfig, delivered as CLAUDE_PLUGIN_OPTION_PRODUCTION_HOSTS,
+comma-separated) adds hosts to productionHosts in every project.
+
+Tracked credentials: when the config holds inline credential values
+(roles.<r>.password / totp / totpSecret) AND git tracks the file, every gated
+navigation is denied until the file is untracked (audit QAB-P1-05).
 
 Override: QA_BROWSER_ALLOW_PRODUCTION=1 in the environment Claude Code was
 LAUNCHED with turns a BLOCK into an allow plus an audit line for Claude. A hook
@@ -45,9 +51,14 @@ import ipaddress
 import json
 import os
 import re
+import subprocess
 import sys
 from pathlib import Path
 from urllib.parse import urlsplit
+
+sys.dont_write_bytecode = True
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "_vendor"))
+import hooklib  # noqa: E402
 
 try:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[attr-defined]
@@ -59,6 +70,8 @@ except Exception:
 CONFIG_FILENAME = ".qa-browser.local.json"
 DEFAULT_MARKERS = ["prod", "production"]
 OVERRIDE_ENV = "QA_BROWSER_ALLOW_PRODUCTION"
+OPTION_ENV = "CLAUDE_PLUGIN_OPTION_PRODUCTION_HOSTS"
+INLINE_SECRET_KEYS = ("password", "totp", "totpSecret")
 
 URL_KEYS = ("url", "URL", "href", "address")
 SCRIPT_KEYS = ("function", "code", "expression", "script", "text")
@@ -76,22 +89,6 @@ NAV_CONSTRUCT_RE = re.compile(
 SCRIPT_URL_RE = re.compile(r"""(?:https?:)?//[^\s'"`<>)\]}]+""", re.IGNORECASE)
 
 _RANK = {"allow": 0, "ask": 1, "block": 2}
-
-
-def _advise(text: str) -> None:
-    """Hand a note to Claude without blocking or prompting (additionalContext)."""
-    print(json.dumps({"hookSpecificOutput": {
-        "hookEventName": "PreToolUse",
-        "additionalContext": text,
-    }}))
-
-
-def _ask(reason: str) -> None:
-    print(json.dumps({"hookSpecificOutput": {
-        "hookEventName": "PreToolUse",
-        "permissionDecision": "ask",
-        "permissionDecisionReason": reason,
-    }}))
 
 
 # ---------------------------------------------------------------- config
@@ -120,6 +117,35 @@ def load_config(path: Path | None = None) -> dict:
     except Exception:
         return {}
     return data if isinstance(data, dict) else {}
+
+
+def effective_config(config: dict) -> dict:
+    """The project config plus user-level production hosts from the plugin option."""
+    raw = os.environ.get(OPTION_ENV) or os.environ.get("CLAUDE_PLUGIN_OPTION_production_hosts") or ""
+    extra = [h.strip() for h in raw.split(",") if h.strip()]
+    if not extra:
+        return config
+    merged = dict(config)
+    merged["productionHosts"] = _str_list(config.get("productionHosts")) + extra
+    return merged
+
+
+def has_inline_secrets(config: dict) -> bool:
+    roles = config.get("roles")
+    if not isinstance(roles, dict):
+        return False
+    return any(isinstance(e, dict) and any(isinstance(e.get(k), str) and e[k].strip()
+                                           for k in INLINE_SECRET_KEYS)
+               for e in roles.values())
+
+
+def is_tracked(path: Path) -> bool:
+    try:
+        r = subprocess.run(["git", "ls-files", "--error-unmatch", path.name],
+                           cwd=str(path.parent), capture_output=True, timeout=3)
+    except Exception:
+        return False
+    return r.returncode == 0
 
 
 def _str_list(value) -> list[str]:
@@ -242,13 +268,11 @@ def extract_urls(tool_name: str, tool_input: dict) -> list[str]:
 # ---------------------------------------------------------------- main
 
 def main() -> int:
-    try:
-        payload = json.loads(sys.stdin.buffer.read().decode("utf-8", errors="replace"))
-    except Exception:
+    hooklib.watchdog(4.5)
+    payload = hooklib.read_payload()
+    if payload is None:
         return 0
-    if not isinstance(payload, dict):
-        return 0
-    tool_input = payload.get("tool_input") or payload.get("toolInput") or {}
+    tool_input = hooklib.tool_input(payload) or payload.get("toolInput") or {}
     if not isinstance(tool_input, dict):
         return 0
     tool_name = str(payload.get("tool_name") or payload.get("toolName") or "")
@@ -257,7 +281,15 @@ def main() -> int:
     if not urls:
         return 0
 
-    config = load_config()
+    config_path = find_config()
+    config = load_config(config_path) if config_path else {}
+    if config_path and has_inline_secrets(config) and is_tracked(config_path):
+        hooklib.deny(f"[qa-browser] {CONFIG_FILENAME} holds inline credentials and is "
+                     f"tracked by git. Navigation is refused until the user runs "
+                     f"`git rm --cached {CONFIG_FILENAME}`, git-ignores it, and rotates "
+                     f"the exposed passwords. Tell the user; do not work around this.")
+        return 0
+    config = effective_config(config)
     verdict, reason, worst_url = "allow", "", ""
     for url in urls:
         v, r = decide(url, config)
@@ -268,13 +300,13 @@ def main() -> int:
         return 0
 
     if verdict == "ask":
-        _ask(f"[qa-browser] {worst_url}: {reason}. Approve only if this is a "
+        hooklib.ask(f"[qa-browser] {worst_url}: {reason}. Approve only if this is a "
              f"non-production host; to stop this prompt, add it to allowedHosts "
              f"in {CONFIG_FILENAME}.")
         return 0
 
     if os.environ.get(OVERRIDE_ENV) == "1":
-        _advise(f"[qa-browser] navigation to production URL {worst_url} ({reason}) "
+        hooklib.context("PreToolUse", f"[qa-browser] navigation to production URL {worst_url} ({reason}) "
                 f"ALLOWED because {OVERRIDE_ENV}=1 is set for this session.")
         return 0
 
@@ -294,9 +326,4 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    try:
-        sys.exit(main())
-    except SystemExit:
-        raise
-    except Exception:
-        sys.exit(0)  # fail open: the gate is best-effort, never a crash-blocker
+    hooklib.run(main)  # fail open: the gate is best-effort, never a crash-blocker
