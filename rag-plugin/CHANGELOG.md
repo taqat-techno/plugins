@@ -2,6 +2,11 @@
 
 All notable changes to `rag-plugin` are documented here. Format is loosely based on [Keep a Changelog](https://keepachangelog.com/). Versioning follows [SemVer](https://semver.org/).
 
+## [0.20.5] - 2026-10-19
+
+### Changed
+- The README states that ragtools is MIT-licensed. [taqat-techno/rag#11](https://github.com/taqat-techno/rag/pull/11) added its LICENSE, which closes the last audit item RAG-P1-02.
+
 ## [0.20.4] - 2026-10-19
 
 ### Changed
