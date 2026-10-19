@@ -1,6 +1,6 @@
 {
   "name": "react-kit",
-  "version": "0.8.1",
+  "version": "0.8.2",
   "description": "Reusable React / Next.js implementation patterns: admin panels and dashboards (architecture, shell, CRUD lists and trees, forms, kanban workflows, role-aware UI in the project's own access model, dangerous actions, import/export, RTL/LTR), loading/error/empty states and data-fetching error handling, React 19 migration, build-and-tooling trap recovery, and lint-finding triage. Entity names, roles, APIs and libraries are detected from the project or asked, never baked in.",
   "author": {
     "name": "TAQAT Techno",

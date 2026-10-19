@@ -190,6 +190,17 @@ Before committing a board/workflow change:
 
 ## Output format
 
+### Advisory answers ("what should I watch out for?", or no repo to build in yet)
+
+Do not answer with a generic drag-and-drop checklist. Lead with the two decisions this skill exists for, then sketch the spec:
+
+1. **Columns are the project's state set, not three literals.** Ask for (or propose) the `STATE_SET` and render columns from it in that order.
+2. **Every drag is a typed transition, not a status update.** For each move name: the allowed-from states, the role gate (enforced by the server), the guard/validation it needs, whether it is destructive (then it asks for confirmation through `admin-dangerous-actions` — e.g. closing, cancelling or reopening a ticket), the update rule (confirmed: the card stays put until the server succeeds; only cosmetic edits are optimistic), and the audit event the backend records.
+
+Then give a draft WORKFLOW SPEC for the user's columns (below), marking every value you assumed so they can correct it. Layout, accessibility and pagination notes come after these, not instead of them.
+
+### Scaffolding
+
 When scaffolding a board/workflow, output a WORKFLOW SPEC block:
 
 ```

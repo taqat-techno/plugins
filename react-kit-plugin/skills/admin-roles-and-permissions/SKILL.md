@@ -1,10 +1,12 @@
 ---
 name: admin-roles-and-permissions
 description: >-
-  Use when building an admin route, changing a sidebar or menu, adding an access-conditional render,
-  masking a sensitive field or rendering an audit log. Covers 'hiding UI is not authorization',
-  pairing every UI gate with an API gate, access-aware menus, PII masking in admin views and audit
-  visibility, in whatever access model the project already uses.
+  Use when an admin feature is protected only by hiding a button, menu item or page from some users
+  and someone asks whether that is enough to stop them (hiding UI is not authorization), or when
+  building an admin route, changing a sidebar or menu, adding an access-conditional render, masking
+  a sensitive field or rendering an audit log. Covers pairing every UI gate with an API gate,
+  access-aware menus, PII masking in admin views and audit visibility, in whatever access model the
+  project already uses.
 version: 0.2.0
 user-invocable: false
 metadata:

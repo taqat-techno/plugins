@@ -2,6 +2,17 @@
 
 All notable changes to `react-kit-plugin` are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/). Versioning follows [SemVer](https://semver.org/).
 
+## [0.8.2] - 2026-10-19
+
+Skill triggering tuned against real eval results. Measured with `claude plugin eval --runs 1 --model claude-sonnet-5-5`; the no-plugin baseline is the 2026-10-19 run, and Δ counts the criteria grader only.
+
+### Changed
+- `admin-roles-and-permissions` description opens with "a feature is protected only by hiding a button or menu item. Is that enough?"
+- `admin-kanban-workflow` gains an "Advisory answers" output rule. When asked what to watch out for, or when there is no repo to build in yet, it leads with columns-from-the-state-set and the typed transition contract. That contract covers allowed-from states, the server-enforced role gate, the guard, confirmation for destructive moves, the confirmed-update rule and the audit event. It then sketches a WORKFLOW SPEC. Before this, a skill-loaded answer to `fires-on-support-ticket-kanban-board` gave a generic drag-and-drop checklist and failed its criteria (score 0). The case and grader were correct; the skill body lacked guidance for advisory questions.
+
+### Eval results
+- Must-fire: 15/16 -> 16/16. Must-not-fire: 16/16 quiet before and after. Mean Δ: +0.16 -> +0.19. The kanban case score went 0 -> 1.
+
 ## [0.8.1] - 2026-10-19
 
 ### Changed
