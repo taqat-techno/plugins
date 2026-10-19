@@ -1147,7 +1147,9 @@ def synthesize_findings(state: State, plugin: PluginInspection,
                 app.append(Finding(
                     id="A-007", title="watcher process not running",
                     severity="medium",
-                    evidence=f"watcher status: {redact(json.dumps(state.watcher_status))[:200]}",
+                    # Counts only (D-038 / RA-RAG-01): the raw status names the
+                    # user's watched project directories.
+                    evidence=f"watcher status: {_watcher_counts(state.watcher_status)}",
                     recommendation="POST /api/watcher/start or run `/rag:doctor --symptom F-004 --fix`.",
                     target="rag",
                 ))
@@ -1874,12 +1876,36 @@ def _render_findings_table(findings: list[Finding]) -> str:
     return "\n".join(lines) + "\n"
 
 
-def _render_findings_detail(findings: list[Finding]) -> str:
+def _watcher_counts(ws: Any) -> str:
+    """Counts-only summary of a watcher status object for finding evidence:
+    booleans, None and numbers are kept, lists/objects become entry counts, and
+    strings (paths, roots, project names) are withheld (D-038 / RA-RAG-01)."""
+    if not isinstance(ws, dict) or not ws:
+        return "no status fields"
+    parts: list[str] = []
+    for k in sorted(ws, key=str):
+        v = ws[k]
+        if v is None or isinstance(v, (bool, int, float)):
+            parts.append(f"{k}={v}")
+        elif isinstance(v, (list, tuple, dict)):
+            parts.append(f"{k}=<{len(v)} entries withheld>")
+        else:
+            parts.append(f"{k}=<withheld>")
+    return redact(", ".join(parts))[:300]
+
+
+def _render_findings_detail(findings: list[Finding],
+                            public_terms: Optional[list[str]] = None) -> str:
+    """Finding sections. When `public_terms` is given (a PUBLIC issue body),
+    every evidence string also passes `scrub_for_public`, so a path or project
+    name that reached a finding cannot reach the public body (RA-RAG-01)."""
     out: list[str] = []
     for f in _sort_findings(findings):
+        evidence = (scrub_for_public(f.evidence, public_terms)
+                    if public_terms is not None else f.evidence)
         out.append(f"### {f.id} — {f.title}\n")
         out.append(f"- **Severity:** {f.severity}")
-        out.append(f"- **Evidence:** {f.evidence}")
+        out.append(f"- **Evidence:** {evidence}")
         out.append(f"- **Recommendation:** {f.recommendation}\n")
     return "\n".join(out) + "\n"
 
@@ -2282,7 +2308,8 @@ def render_github_issue(target: str, findings: list[Finding], state: State,
     md.append("## Findings\n")
     md.append(_render_findings_table(findings))
     md.append("\n### Detail\n")
-    md.append(_render_findings_detail(findings))
+    # Public body: evidence is scrubbed of paths / project names (RA-RAG-01).
+    md.append(_render_findings_detail(findings, public_terms=_project_terms(state, scan)))
 
     # ------------------------------------------------------------------ #
     # Section 4 — target-specific evidence dumps                           #
@@ -2308,8 +2335,12 @@ def render_github_issue(target: str, findings: list[Finding], state: State,
         if state.watcher_status:
             # Watched-path lists name the user's project directories — public
             # body carries their count only (D-038).
-            ws = {k: (f"<{len(v)} entries withheld>" if isinstance(v, list)
-                      and k in ("paths", "watched_paths", "projects", "roots") else v)
+            # Every list/object is a count, and every string passes
+            # scrub_for_public, so a single-path field (`root`, `last_error`)
+            # cannot leak either (RA-RAG-01).
+            terms = _project_terms(state, scan)
+            ws = {k: (f"<{len(v)} entries withheld>" if isinstance(v, (list, tuple, dict))
+                      else scrub_for_public(v, terms) if isinstance(v, str) else v)
                   for k, v in state.watcher_status.items()}
             md.append("**`GET /api/watcher/status`:**")
             md.append("```json")

@@ -2,6 +2,23 @@
 
 All notable changes to `rag-plugin` are documented here. Format is loosely based on [Keep a Changelog](https://keepachangelog.com/). Versioning follows [SemVer](https://semver.org/).
 
+## [0.20.4] - 2026-10-19
+
+### Changed
+- **`ragtools-retrieval` triggers on an empty search.** The description now opens with the case where a knowledge-base search returned zero, low-confidence or conflicting results, especially before concluding that a function, file or decision does not exist. It also says that an empty result is never proof of absence and that the docs/code mode must be checked first. Before this change the skill was never loaded on that prompt. The reply then missed the point that most projects index in `docs` mode, and it scored 0.
+- **`ragtools-release` shows the whole gate in its first reply** (body fix). The skill loaded, but its "one item at a time, never show all six" rule meant that a single-turn reply only asked for the version number. It scored 0, because the maintainer never saw an invariant. A new Phase 0 lists all six invariants in the first reply. Each one is marked load-bearing or pending from what the maintainer already said, and each needs an explicit ack or hold. Phase 1 skips the questions that are already answered. Acks are still collected one at a time. Neither case needed the ragtools MCP server: both prompts can be answered from the skill's guidance alone, so no mocks were added.
+- Eval (`claude plugin eval`, claude-sonnet-5-5, 1 run per case after the change): must-fire fire rate **3/4 -> 4/4**, and both previously failing cases now pass (score 0 -> 1). Δ on those two cases went from 0.00 to +1.00; plugin-wide Δ was +0.11 before. All 5 `ignores-*` cases stayed quiet (0 fires).
+
+## [0.20.3] - 2026-10-19
+
+### Security
+- **Legacy watcher finding is counts-only** (RA-RAG-01). On older ragtools (no structured watcher state), finding A-007 copied the raw `/api/watcher/status` JSON, including watched project paths, into its evidence and from there into the public issue body. The evidence is now a counts-only summary (`running=False, paths=<2 entries withheld>, root=<withheld>`), built by the new `_watcher_counts()`.
+- **Public finding evidence is scrubbed** (defence in depth). `render_github_issue` passes every finding's evidence through `scrub_for_public` (paths -> `<path>`, project keys / IDs -> `<project>`); the local reports keep the full evidence. The runtime-evidence watcher block in the public body now counts every list or object and scrubs every string field, so a single-path field such as `root` or `last_error` no longer leaks.
+- Tests: four new cases in `scripts/test_rag_report.py` (legacy A-007 evidence, public body, evidence scrubbing in public vs local, `_watcher_counts` edge cases).
+
+### Docs
+- README: the upstream ragtools MIT licence is proposed in taqat-techno/rag#11, which is pending review and not merged; the repository still declares no licence today.
+
 ## [0.20.2] - 2026-10-19
 
 ### Changed

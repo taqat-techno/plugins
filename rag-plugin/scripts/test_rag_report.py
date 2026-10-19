@@ -1166,6 +1166,57 @@ class TestPublicIssueBodyPrivacy(unittest.TestCase):
         self.assertIn(_SESSION_FILE, local)
         self.assertIn("I don't have information", local)
 
+    # --- RA-RAG-01: legacy A-007 evidence must be counts-only -------------
+    def _legacy_watcher_a007(self):
+        state = _installed_up_state(self.rr, watcher_status={
+            "running": False,
+            "paths": ["C:/work/acme-secret-proj", "/home/bob/zeta-internal"],
+            "root": "C:\\Users\\bob\\acme-secret-proj",
+            "pid": 0})
+        app, _ = _synth(self.rr, state)
+        return state, _by_id(app, "A-007")
+
+    def test_legacy_watcher_a007_evidence_is_counts_only(self):
+        _, f = self._legacy_watcher_a007()
+        self.assertIsNotNone(f)
+        self.assertIn("running=False", f.evidence)
+        self.assertIn("paths=<2 entries withheld>", f.evidence)
+        self.assertIn("root=<withheld>", f.evidence)
+        self.assertNotIn("acme-secret-proj", f.evidence)
+        self.assertNotIn("zeta-internal", f.evidence)
+
+    def test_legacy_watcher_a007_public_body_has_no_paths(self):
+        state, f = self._legacy_watcher_a007()
+        _, plugin, cci, hook_stats, scan, meta = _leaky_inputs(self.rr)
+        body = self.rr.render_github_issue("rag", [f], state, plugin, cci, hook_stats,
+                                           scan, meta, config=self.cfg)
+        self.assertIn("A-007", body)
+        self._assert_no_leaks(body)
+        self.assertNotIn("C:/work", body)
+        self.assertNotIn("/home/bob", body)
+
+    def test_public_body_scrubs_any_finding_evidence(self):
+        # Defence in depth: a path or project ID in ANY finding's evidence is
+        # scrubbed in the public body but kept in the local report.
+        state, plugin, cci, hook_stats, scan, meta = _leaky_inputs(self.rr)
+        f = self.rr.Finding(id="A-007", title="watcher not running", severity="high",
+                            evidence="cause: cannot watch C:\\work\\acme-secret-proj\\docs "
+                                     "(project zeta-internal)",
+                            recommendation="r", target="rag")
+        body = self.rr.render_github_issue("rag", [f], state, plugin, cci, hook_stats,
+                                           scan, meta, config=self.cfg)
+        self._assert_no_leaks(body)
+        self.assertIn("<path>", body)
+        self.assertIn("<project>", body)
+        local = self.rr._render_findings_detail([f])
+        self.assertIn("acme-secret-proj", local)
+
+    def test_watcher_counts_negative_cases(self):
+        self.assertEqual(self.rr._watcher_counts({}), "no status fields")
+        self.assertEqual(self.rr._watcher_counts(None), "no status fields")
+        self.assertEqual(self.rr._watcher_counts({"running": True, "count": 3}),
+                         "count=3, running=True")
+
 
 class TestReportConfigRouting(unittest.TestCase):
     def setUp(self):

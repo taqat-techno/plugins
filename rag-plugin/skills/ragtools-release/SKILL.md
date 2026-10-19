@@ -44,9 +44,26 @@ Loaded from `references/release-checklist.md`. Every ragtools release must pass 
 | 5 | Uninstall manually tested with opt-in prompt (YES full wipe / NO keep data) — both paths correct | Inno Setup `[UninstallRun]` + installer script |
 | 6 | `<ragtools repo>/docs/RELEASE_LIFECYCLE.md` still accurate for this version | Upstream product repo |
 
+## Phase 0 — Open with the whole gate
+
+The first reply always shows the maintainer the complete gate before asking anything, so
+nothing depends on a later turn arriving:
+
+- List all six invariants (table above), each with what it requires in one line and its
+  pre-check status: `load-bearing` when what the maintainer already said touches it (a
+  schema change makes item 2 load-bearing; an installer change makes items 1, 4 and 5
+  load-bearing), otherwise `pending`.
+- Say that each item needs an explicit **ack or hold** from the maintainer and that nothing
+  is tagged, pushed or published by this skill.
+- Then ask only the first Phase 1 question the maintainer has not already answered.
+
+Showing the gate is not acking it: Phase 2 still collects one ack per item.
+
 ## Phase 1 — Ground the release
 
-Before walking the checklist, gather structured context from the maintainer. Ask, one at a time:
+Before walking the checklist, gather structured context from the maintainer. Skip any
+question the maintainer already answered in the request (record that answer instead).
+Ask the rest one at a time:
 
 1. **Version being verified.** `vX.Y.Z` (e.g. `v2.5.1`).
 2. **Previous version on disk.** If this is an upgrade path (e.g. `v2.5.0 → v2.5.1`), capture it.
@@ -149,7 +166,7 @@ The skill never tags, never pushes, never triggers a workflow. Handoff is verbal
 
 ## Interaction discipline
 
-- **One item at a time.** Do not dump all six at once. The maintainer needs to think about each.
+- **One ack at a time.** After the Phase 0 overview, collect acks item by item; do not ask the maintainer to ack all six in one answer. The maintainer needs to think about each.
 - **Record acks verbatim.** If the maintainer says "yes, I'll manually test before promote," that specific text goes in the release ack log — do not paraphrase.
 - **No inference on schema changes.** If the maintainer says "no schema changes" and Phase 1 heuristics disagree, ask explicitly which file has the apparent change. Never override the maintainer's statement silently; never accept it silently when the evidence contradicts it.
 - **No fallback to auto-pass.** Every ack is explicit. An unresponsive skill invocation is a block, not a pass.

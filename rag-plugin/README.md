@@ -48,7 +48,9 @@ a Windows x64 installer, a macOS 14+ Apple Silicon tarball and a Linux arm64 tar
 Other platforms install from source (`pip install -e ".[dev]"` in a clone).
 
 **ragtools licence.** ragtools is a separate project and this plugin does not include
-it. As of 2026-10-19 the `taqat-techno/rag` repository declares no licence. Check that
+it. As of 2026-10-19 the `taqat-techno/rag` repository does not yet declare a licence. An
+MIT licence for it is proposed in [taqat-techno/rag#11](https://github.com/taqat-techno/rag/pull/11),
+which is open and pending review, not merged. Until that pull request lands, check the
 repository for its current licence before you depend on it.
 
 ## Commands
