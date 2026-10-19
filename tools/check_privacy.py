@@ -42,7 +42,9 @@ FILE_LIKE = re.compile(r"\.[A-Za-z0-9]{1,5}$")
 
 
 def tracked_files() -> list[Path]:
-    out = subprocess.run(["git", "-C", str(ROOT), "ls-files", "-z"], capture_output=True, check=True).stdout
+    # Tracked plus new-but-not-ignored files, so a local run before `git add` sees what CI will see.
+    out = subprocess.run(["git", "-C", str(ROOT), "ls-files", "-z", "--cached", "--others", "--exclude-standard"],
+                         capture_output=True, check=True).stdout
     return [ROOT / p for p in out.decode("utf-8").split("\0") if p]
 
 
@@ -68,6 +70,9 @@ def main() -> int:
         for n, line in enumerate(text.splitlines(), 1):
             for m in EMAIL.finditer(line):
                 addr, domain = m.group(0).lower(), m.group(1).lower()
+                token_start = max(line.rfind(c, 0, m.start()) for c in " \t\"'`(<[=") + 1
+                if "://" in line[token_start:m.start() + 1] or addr.startswith("git@"):
+                    continue  # URL userinfo (https://user@host) or an SSH git remote, not an address
                 allowed_domain = domain in ALLOWED_EMAIL_DOMAINS or any(
                     domain.endswith("." + d) for d in ALLOWED_EMAIL_DOMAINS)
                 if addr not in ALLOWED_EMAILS and not allowed_domain \
