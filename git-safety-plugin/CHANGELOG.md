@@ -4,6 +4,15 @@ All notable changes to the `git-safety` plugin are documented here. The format i
 based on [Keep a Changelog](https://keepachangelog.com/), and the project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [0.4.1] - 2026-10-19
+
+### Fixed
+- **Hook launch is portable and space-safe (Wave 1, QW #2/#3).** `hooks/hooks.json` now runs each python hook through one POSIX-sh launcher: the `${CLAUDE_PLUGIN_ROOT}` path is quoted (a plugin root containing a space no longer hands python a truncated path, which exited 2 and blocked the call), the interpreter is picked from `python3` -> `python` -> `py -3` with the `command -v` builtin (guards no longer fail open where `python3` is not the name), a missing script or unresolved root exits 0, and the hook's own exit code is propagated unchanged. Known limit: on Windows without Git Bash, Claude Code runs shell-form hooks in PowerShell, where the launcher does not parse and the hook fails open (non-blocking).
+- Both `risky_git_advisory.py` hooks now carry a 10 s `timeout` (GIT-P0-01).
+
+### Tests
+- `tests/test_hook_launcher.py` proves quoting, exit-2 propagation from a root with a space, unresolved root -> 0, and no python on PATH -> 0.
+
 ## [0.4.0] - 2026-09-27
 
 ### Fixed
