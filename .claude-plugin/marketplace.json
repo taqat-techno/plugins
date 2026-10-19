@@ -108,7 +108,7 @@
     },
     {
       "name": "docs-wiki",
-      "description": "Generic toolkit for creating, organising, editing, validating, and auditing a project Wiki. Adapts to GitHub Wiki sibling repos, in-repo wiki/ folders, GitLab Wiki, and Azure DevOps Wiki. Ships 7 skills + 6 commands (/wiki-init, /wiki-audit, /wiki-update, /wiki-new, /wiki-drift, /wiki-sync-audit) + 3 agents (wiki-link-auditor, wiki-cleanup-validator, wiki-drift-reporter) + push-approval gate + stray-docs warning hooks. Owns flat-namespace + filename-uniqueness + internal-link conventions, Mermaid authoring rules, broken-link sweeps, and code-vs-wiki drift reporting. Does NOT handle wiki-to-memory sync (separate future plugin).",
+      "description": "Generic toolkit for creating, organising, editing, validating, and auditing a project Wiki. Adapts to GitHub Wiki sibling repos, in-repo wiki/ folders, GitLab Wiki, and Azure DevOps Wiki. Ships 10 skills + 7 commands (/wiki-init, /wiki-audit, /wiki-update, /wiki-new, /wiki-drift, /wiki-sync-audit, /wiki-swimlane) + 3 agents (wiki-link-auditor, wiki-cleanup-validator, wiki-drift-reporter); no hooks (advisory only, never blocks git push or writes). Owns flat-namespace + filename-uniqueness + internal-link conventions, Mermaid authoring rules, broken-link sweeps, and code-vs-wiki drift reporting. Does NOT handle wiki-to-memory sync (separate future plugin).",
       "author": {
         "name": "TaqaTechno",
         "email": "info@taqatechno.com"

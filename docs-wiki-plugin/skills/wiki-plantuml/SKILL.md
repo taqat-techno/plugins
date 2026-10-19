@@ -180,7 +180,7 @@ PlantUML **never** native; Mermaid only a restricted subset (no swimlane). Pipel
 | `render_puml.ps1` | Render `.puml` → SVG (default) or PNG with the **pinned** local jar; lint for the deprecated prefix colour + unbalanced gateways before render; set `PLANTUML_LIMIT_SIZE`. No network. |
 | `upload_attachment.ps1` | **Azure only** — PUT a PNG to `/.attachments` (PAT from `$env:AZDO_PAT`, never echoed; **base64 body**; `api-version=7.1`; **verify-on-500**). |
 | `embed_swimlane.py` | Idempotently insert/replace the `### Swimlane` block in a page with the **flavour-correct** embed; prints a diff, never pushes. |
-| `publish_update.py` | Orchestrate render → (Azure attach / GitHub stage) → embed → diff-preview → approval (via `wiki-safe-updates`) → commit/push only on approval; handles ETag + verify-on-fail. |
+| `publish_update.py` | Without `--approve`: preview only (temp-dir render, page diff via `embed_swimlane.py --dry-run`, list of pending actions; no upload, no staging, no page write). With `--approve`: render → (Azure attach / GitHub stage) → embed. Never commits or pushes — that stays a `wiki-safe-updates` step; handles verify-on-fail. |
 
 ## Governance
 

@@ -1,6 +1,6 @@
 # docs-wiki
 
-![Version](https://img.shields.io/badge/version-0.7.0-blue.svg)
+![Version](https://img.shields.io/badge/version-0.9.0-blue.svg)
 ![Status](https://img.shields.io/badge/status-functional-green.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 
@@ -26,20 +26,20 @@ This plugin packages the conventions and helpers every project needs when its te
 | `wiki-code-vs-docs-discrepancy` | Report wiki-vs-code drift with `file:line` evidence; never silently choose one side |
 | `wiki-source-of-truth` | Declared knowledge-layer order; current-state vs target separation; config-constant single-location rule; stale-checkbox distrust; provenance-vs-active-prose judgement |
 | `wiki-safe-updates` | Optional tips (advisory, non-blocking): diff preview for big overwrites, revert-over-reset rollback, one-purpose commits, retired-folder awareness, optional pre-deletion reference check; **plan-first/dry-run** for multi-step restructures, deterministic content-preserving edits, safe move/rename/delete + link-repointing, and a scoped approval gate for live-wiki/work-item publishes (GitHub git-push stays unrestricted) |
-| `wiki-vs-stray-docs` | Refuse to create stray `docs/` folders when a wiki exists; surface the conflict to the user |
+| `wiki-vs-stray-docs` | When a wiki exists and a new `docs/` file appears, surface the wiki-is-the-source option to the user (advisory; never blocks or refuses the write) |
 | `wiki-traceability` | Navigation-only bidirectional traceability — backlog work items ↔ wiki workflow pages ↔ Figma design nodes ↔ spec pages, plus the central Epic→Feature matrix. Figma node URL format + colon→dash, harvest-don't-invent, `&t=` share-token omission, exact/lane/pending coverage, visible-heading idempotency, Description-only PBI patching |
 
 ### Commands
 
 | Command | Purpose |
 |---|---|
-| `/wiki init <wiki-path>` | Initialise wiki structure (Home / _Sidebar / _Footer scaffolds) |
-| `/wiki audit` | Link validation + filename-collision audit + visible-prefix scan + drift report |
-| `/wiki update <page>` | Guided edit of an existing page with diff preview |
-| `/wiki new <page>` | Create a new page with template (SOP / role guide / runbook / onboarding) |
-| `/wiki drift` | Code-vs-wiki discrepancy sweep — produces a table; never edits silently |
-| `/wiki sync-audit` | Audit-first sync mode — reports differences without applying changes |
-| `/wiki swimlane <page>` | Author/refresh a BPMN swimlane (PlantUML) — render → embed per flavour → governed publish |
+| `/docs-wiki:wiki-init <wiki-path>` | Initialise wiki structure (Home / _Sidebar / _Footer scaffolds) |
+| `/docs-wiki:wiki-audit` | Link validation + filename-collision audit + visible-prefix scan + drift report |
+| `/docs-wiki:wiki-update <page>` | Guided edit of an existing page with diff preview |
+| `/docs-wiki:wiki-new <page>` | Create a new page with template (SOP / role guide / runbook / onboarding) |
+| `/docs-wiki:wiki-drift` | Code-vs-wiki discrepancy sweep — produces a table; never edits silently |
+| `/docs-wiki:wiki-sync-audit` | Audit-first sync mode — reports differences without applying changes |
+| `/docs-wiki:wiki-swimlane <page>` | Author/refresh a BPMN swimlane (PlantUML) — preview first (diff + pending actions, no upload or write); render → attach/stage → embed only with `--approve` |
 
 ### Agents
 
@@ -51,10 +51,16 @@ This plugin packages the conventions and helpers every project needs when its te
 
 ### Hooks
 
-| Hook | Trigger | Purpose |
-|---|---|---|
-| `PreToolUse` | `Bash(git push)` against any path containing `.wiki` | Push-confirmation gate — refuse without explicit user approval |
-| `PreToolUse` | `Write` matching `docs/**` in a repo that has a `<repo>.wiki/` sibling | Stray-docs warning — suggest the wiki instead |
+None. `hooks/hooks.json` is intentionally empty: there is no push gate and no stray-docs hook. All guidance is delivered by the skills and commands above.
+
+### Scripts (under `skills/wiki-plantuml/scripts/`)
+
+| Script | Purpose |
+|---|---|
+| `render_puml.ps1` | Local PlantUML render (pinned jar, no network). Needs `pwsh` + Java |
+| `upload_attachment.ps1` | Azure DevOps `/.attachments` upload (PAT from `$env:AZDO_PAT`) |
+| `embed_swimlane.py` | Idempotent `### Swimlane` block embed; `--dry-run` prints the diff only |
+| `publish_update.py` | Swimlane pipeline. Preview by default; uploads, stages and writes only with `--approve`; never commits or pushes |
 
 ## Wiki flavours supported
 
@@ -102,18 +108,20 @@ This plugin is published as part of the `taqat-techno-plugins` marketplace. To i
 3. Click **Add Marketplace** and enter `https://github.com/taqat-techno/plugins.git` (skip if already installed).
 4. Find **docs-wiki** and click **Install**.
 
-## Roadmap
+## Release history
 
 | Version | Scope |
 |---|---|
 | `0.1.0` | Scaffold |
-| `0.2.0` | 7 skills + 6 commands + 3 agents + 2 hooks (push gate + stray-docs warning) |
+| `0.2.0` | Initial skills, commands and agents |
 | `0.3.0` | `wiki-source-of-truth` skill + generic page templates |
-| `0.4.0` (this release) | Heading-anchor slug rules + broken-anchor scan in `wiki-link-validation`; safe-doc-deletion gate in `wiki-safe-updates`; tenant/client neutralization discipline in `wiki-authoring` + `wiki-source-of-truth` |
-| `0.5.0` | Polished GitLab / Azure DevOps Wiki adapters; `/wiki-archive` command; ADR numbering helper |
-| `0.6.0` | `wiki-plantuml` skill + `/wiki-swimlane` command + 4 render/embed scripts — BPMN swimlanes that render on neither GitHub nor Azure wiki natively (PlantUML → PNG → per-flavour embed) |
-| `0.7.0` (this release) | Build-any-wiki enhancement from a real Azure DevOps wiki session — hub-first IA + default structure template (`wiki-structure`), resolution-based link validation + Azure page-ID URL **correction** (`wiki-structure`/`wiki-link-validation`), single-master-swimlane + diagram-altitude (`wiki-mermaid`), hub + workflow-journey templates (`wiki-authoring`), page-level source-of-truth + backlog-leakage guard (`wiki-source-of-truth`), plan-first restructure governance (`wiki-safe-updates`), and the new `wiki-traceability` skill |
-| `1.0.0` | First stable release after real-project shakedown |
+| `0.4.0` | Heading-anchor slug rules + broken-anchor scan; safe-doc-deletion check; neutralization discipline |
+| `0.6.0` | `wiki-plantuml` skill + `/docs-wiki:wiki-swimlane` command + 4 render/embed scripts |
+| `0.7.0` | Hub-first IA, resolution-based link validation, single-master-swimlane, `wiki-traceability` skill |
+| `0.8.x` | Marketplace-wide frontmatter fixes; behavioural eval suite |
+| `0.9.0` (current) | `publish_update.py` makes no upload / staging / page write without `--approve`; README matches shipped components |
+
+See [`CHANGELOG.md`](./CHANGELOG.md) for details.
 
 ## Related plugins
 

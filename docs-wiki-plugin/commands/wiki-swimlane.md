@@ -44,7 +44,7 @@ Generate or refresh an actor-lane / BPMN-pool **swimlane** for a wiki page. Appl
 
 ## Step 4 — Publish (governed)
 
-- `scripts/publish_update.py` orchestrates render → attach/stage → embed → **diff preview** → approval.
+- `scripts/publish_update.py` runs in two passes. **Without `--approve`** (default) it is a pure preview: it renders into a temp dir, prints the page diff (`embed_swimlane.py --dry-run`) and the list of pending actions — no Azure upload, no image staged into the wiki clone, no page write. **With `--approve`** it renders, uploads (azure) or stages (github), then writes the page. It never commits or pushes.
 - Route through **`wiki-safe-updates`**: show the diff, get explicit approval, then commit/push. **Never** push or publish an attachment without approval.
 
 ## Step 5 — Report

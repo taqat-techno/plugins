@@ -13,7 +13,8 @@ Embed tracks (one source .puml, four wrappers):
 
 Idempotent: re-running with the same inputs yields a byte-identical file (no diff).
 Does NOT push or render — it only rewrites the "### Swimlane" region and prints the
-unified diff for wiki-safe-updates to preview.
+unified diff for wiki-safe-updates to preview. With --dry-run it prints the diff and
+writes nothing.
 """
 from __future__ import annotations
 import argparse
@@ -68,6 +69,8 @@ def main() -> int:
     ap.add_argument("--puml-link", default=None, help="relative path/URL to the .puml source")
     ap.add_argument("--puml-source", default=None,
                     help="the .puml text (required for gitlab/mkdocs native fences)")
+    ap.add_argument("--dry-run", action="store_true",
+                    help="print the diff only; do not write the page")
     args = ap.parse_args()
 
     if not args.alt.strip():
@@ -102,6 +105,10 @@ def main() -> int:
         fromfile=args.page + " (current)", tofile=args.page + " (proposed)",
     )
     sys.stdout.writelines(diff)
+
+    if args.dry_run:
+        print(f"\ndry run: {args.page} was NOT written.")
+        return 0
 
     with io.open(args.page, "w", encoding="utf-8", newline="") as f:
         f.write(updated)

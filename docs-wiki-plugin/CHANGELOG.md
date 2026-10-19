@@ -2,6 +2,41 @@
 
 All notable changes to `docs-wiki-plugin` are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/). Versioning follows [SemVer](https://semver.org/).
 
+## [0.9.0] - 2026-10-19
+
+### Fixed
+- **`publish_update.py` no longer acts before approval** (WIKI-P0-01). The
+  Azure attachment upload, the GitHub image staging into the wiki clone and the
+  page write (via `embed_swimlane.py`) all ran *before* the `--approve` check, so
+  a "preview" had already published. The gate is now the first step after
+  argument validation. Without `--approve` the run renders into a temp dir
+  (deleted on exit), prints the page diff via `embed_swimlane.py --dry-run` and
+  lists the pending actions — zero network calls, zero writes outside temp. With
+  `--approve` it renders, uploads (azure) or stages (github), then writes the
+  page. It still never commits or pushes.
+- All argument checks (azure `--org/--project/--wiki-id`, github `--wiki-clone`,
+  Kroki endpoint) now run before any command executes.
+- README: removed the two PreToolUse hooks it documented (`hooks/hooks.json` has
+  always been empty), command names now match the namespaced
+  `/docs-wiki:wiki-*` form, `/docs-wiki:wiki-swimlane` describes the preview-first
+  flow, `wiki-vs-stray-docs` is described as advisory (it never refuses a write),
+  the version badge is current and the stale roadmap is replaced by the release
+  history. Marketplace description: 10 skills + 7 commands (was "7 + 6") and no
+  phantom push-gate / stray-docs hooks.
+
+### Added
+- `embed_swimlane.py --dry-run`: print the diff, write nothing.
+- `tests/test_publish_update_gate.py` (offline, stdlib `unittest`): with every
+  external command recorded and sockets patched to fail, a preview makes no
+  upload, stages nothing and leaves the page byte-identical; an approved run
+  uploads/stages and writes the page; invalid args fail before any command.
+  Run with `python -m unittest discover -s tests -v`.
+
+### Changed
+- `publish_update.py` CLI behaviour: a run without `--approve` no longer leaves a
+  rendered image next to the `.puml`, an uploaded attachment, a staged image or
+  an edited page behind. Re-run with `--approve` to perform them.
+
 ## [0.8.1] - 2026-09-12
 
 Adds a behavioural eval suite under `evals/` (3 must-fire cases + 1 must-not-fire case), so this plugin's value claim is measured as
