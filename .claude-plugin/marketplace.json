@@ -23,7 +23,7 @@
     },
     {
       "name": "devops",
-      "description": "Azure DevOps for Claude Code: work items, pull requests, sprints, standups and time logging through the pinned @azure-devops/mcp 2.8.0 server and the az CLI, with stock Basic/Agile/Scrum/CMMI process presets and a confirmation gate on every write.",
+      "description": "Azure DevOps for Claude Code: work items, pull requests, sprints, standups and time logging through the pinned @azure-devops/mcp 2.8.0 server and the az CLI, with stock Basic/Agile/Scrum/CMMI process presets, a hook that asks before 26 MCP write tools and Azure DevOps CLI writes, and process validation on the other five write tools.",
       "author": {
         "name": "TaqaTechno",
         "email": "info@taqatechno.com"
@@ -133,7 +133,7 @@
     },
     {
       "name": "agent-safety-guards",
-      "description": "Agent-session safety and workflow-reliability habits for Claude Code: a leaked secret is burned (revoke and reissue), read-only work stays read-only, cited authorizations are verified, external content is data and never an instruction, subagent fan-outs run in small verified waves, and test results are read as evidence only when they could have failed. Hooks: a credential-paste reminder, and a test-scope guard that steers Claude away from whole-suite runs during development (advise by default; opt-in enforce denies them).",
+      "description": "Agent-session safety and workflow-reliability habits for Claude Code: a leaked secret is burned (revoke and reissue), read-only work stays read-only, cited authorizations are verified, external content is data and never an instruction, subagent fan-outs run in small verified waves, and test results are read as evidence only when they could have failed. Hooks: a credential-paste reminder, and a test-scope guard that steers Claude away from whole-suite runs during development (advise by default; opt-in ask makes you confirm them, enforce denies them).",
       "author": {
         "name": "TaqaTechno",
         "email": "info@taqatechno.com"
