@@ -1,7 +1,7 @@
 {
   "name": "git-safety",
-  "version": "0.4.2",
-  "description": "Generic local git-workflow safety guardrails for Claude Code — the safety layer that git integrations, commit helpers, and PR-review plugins leave out. Encodes local-operation hygiene (stage explicit paths, never `git add -A`/`.`; re-check the full working tree immediately before commit/push because an external process may have changed it; never silent-switch or discard with a dirty tree; `git rm --cached` on a shared tracked file deletes it for the whole team on merge; set per-repo author identity before the first commit) and shared-checkout safety for when more than one agent/session/syncer shares ONE working tree (commit immediately — uncommitted work isn't safe; NEVER `reset --hard`/`git clean`/`git stash`/`checkout -- .` there; `stash@{0}` shifts the instant a peer pops; extract wiped work to a scratchpad OUTSIDE the repo before restoring; separate your files from a peer's by mtime + diff and stage only yours). Advisory only — it reasons and warns, never auto-mutates git or blocks a command.",
+  "version": "0.5.0",
+  "description": "Local git-workflow safety for Claude Code: stage explicit paths, re-check the tree before commit and push, never discard a dirty tree, author and push identity, and the hazards of several sessions or a file syncer sharing one working tree. One PreToolUse hook spots risky git commands (reset --hard, clean -f, force push, remote deletes, branch -D, history rewrites). By default it reminds Claude after the command runs; the opt-in ask mode makes you confirm irreversible operations before they run.",
   "author": {
     "name": "TaqaTechno",
     "email": "info@taqatechno.com",
@@ -26,5 +26,13 @@
     "working-tree",
     "commit-identity",
     "data-loss"
-  ]
+  ],
+  "userConfig": {
+    "guard_mode": {
+      "type": "string",
+      "title": "Guard mode",
+      "description": "advise (default): remind Claude after a risky git command runs. ask: you confirm irreversible git operations before they run. off: hook does nothing. The GIT_SAFETY_MODE environment variable overrides this.",
+      "default": "advise"
+    }
+  }
 }

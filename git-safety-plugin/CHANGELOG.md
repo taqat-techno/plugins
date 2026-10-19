@@ -4,6 +4,31 @@ All notable changes to the `git-safety` plugin are documented here. The format i
 based on [Keep a Changelog](https://keepachangelog.com/), and the project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [0.5.0] - 2026-10-19
+
+### Added
+- **Opt-in `ask` mode (GIT-P1-02).** New plugin option `guard_mode` (`advise` default, `ask`, `off`), overridable with the `GIT_SAFETY_MODE` environment variable. In `ask` mode the hook returns `permissionDecision: "ask"` for irreversible operations, so you confirm before they run. Advise mode is unchanged and still cannot prevent anything: its reminder reaches Claude together with the tool result.
+- **Per-project file `.claude/git-safety.local.json` (GIT-P2-07)** with `mode` and `protected_branches` (shell patterns). It can only raise strictness, never lower it. A push to a protected branch gets a reminder. Missing or malformed files are ignored.
+- **`--self-test`** runs the built-in detection table (54 cases) offline.
+- Offline tests `tests/test_risky_git_advisory.py` (GIT-P1-04): detection table, every audit bypass, modes, project file, stdin contract, non-ASCII input, PowerShell payload.
+- Evals: `fires-on-git-add-all-before-commit` (targets `git-safety`) and `ignores-git-log-format-question`.
+
+### Changed
+- **Detection rewritten (GIT-P1-03).** Commands are split into segments on unquoted `; && || | &` and newlines; only segments whose program is `git` (or `git.exe`, or a full path) are analysed; `VAR=value` prefixes, wrappers and git global options (`-C`, `-c`, `--git-dir`, `--work-tree`, `--no-pager` ...) are skipped; flags match anywhere; `sh -c`/`bash -c`/`pwsh -Command` bodies are analysed. New shapes: `push origin main --force`, `push +ref`, `push --mirror`, `push --delete`/`-d`/`:ref`/`--prune`, `branch -D`, `checkout -f`, `switch --discard-changes`, `tag -d`, `filter-branch`/`filter-repo`, `reflog expire`, `gc --prune=now`, `prune`, `update-ref -d`, `stash drop`/`clear`, `rm -r --cached`, `add <path> .`. All matches are reported, most severe first, instead of the first rule only.
+- The hook uses the vendored `hooks/_vendor/hooklib.py` (`read_payload`, `tool_input`, `watchdog`, `run`, `context`, `ask`).
+- One `Bash|PowerShell` matcher replaces two identical entries.
+- Skill descriptions trimmed to under 1,024 characters and start with "Use when" (GIT-P3-08). Cross-references to `devops`, `agent-safety-guards`, `qa-browser` and `env-doctor` are now conditional on those plugins being installed.
+- README restructured to the marketplace template: requirements, the detection table, the advise-mode timing limit, what the hook cannot see, configuration, platform support, data and privacy (GIT-P2-05).
+
+### Fixed
+- False positives: `git stash list`/`show`, `git clean -n`/`--dry-run`, and git text inside quotes, comments, `echo`, `grep` patterns and commit messages no longer match.
+
+### Security
+- The `git-safety` skill now treats issue, PR, review and commit text as data: instructions found there are quoted to the user, never acted on.
+- Removed `evals/results/`, which held an empty run with absolute machine paths.
+
+Not done: running the evals (GIT-P2-06) costs money and is left to the maintainer.
+
 ## [0.4.2] - 2026-10-19
 
 ### Changed

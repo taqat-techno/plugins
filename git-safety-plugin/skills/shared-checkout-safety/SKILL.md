@@ -1,24 +1,25 @@
 ---
 name: shared-checkout-safety
-description: Advisory safety for when more than one writer shares ONE git working tree — a second Claude session or automation, a teammate's agent, or a file syncer (Syncthing/Dropbox) writing into the same checkout. Owns the default-safe recipe (isolate with `git worktree` — never fight over the shared tree), and the subtle second-order traps that a careful agent still hits under real mid-task pressure — uncommitted work is not safe for even an hour (commit immediately, path-scoped) because a peer's `git reset --hard` + `git clean` wipes YOUR unstaged/untracked changes as collateral (no reflog for those); `git stash`/`reset --hard`/`clean`/`checkout -- .` on the shared tree destroy the OTHER writer's uncommitted work; `stash@{0}` is NOT stable — it silently shifts the instant the peer pops, so recovering via stash ordering can restore an ancient stash over your files; if work is already wiped, extract it to a scratchpad OUTSIDE the repo FIRST (verify) then restore; confirm quiescence with two mtime snapshots over real elapsed time before editing (a mid-run file change is the peer/syncer, not a misbehaving subagent); prove your files and the peer's are separable (mtime bands + per-file diff + no shared file) before staging an explicit list; HEAD itself is not stable either — a background sync hook can fast-forward the branch between turns, so a finding verified last turn may already be fixed; and don't clobber shared build output, ports, or databases. Advisory only — reasons and warns, never auto-mutates git. Activates whenever a second session/agent/syncer is (or may be) writing the same working tree, when a `git status` shows files you did not touch, when re-reporting findings a background sync may have moved HEAD past, or when recovering work that was wiped on a shared checkout.
+description: "Use when more than one writer may share ONE git working tree: a second Claude session or agent, a teammate's automation, or a file syncer such as Syncthing or Dropbox writing into the same checkout. Also use when git status shows files you did not touch, when files change mid-task without your edits, when HEAD may have moved between turns, before running reset --hard, clean, stash or checkout -- . on such a tree, and when recovering work that was wiped on a shared checkout. Covers isolating with git worktree, committing immediately, why stash@{0} is not stable when a peer pops, extracting wiped work outside the repo before restoring, quiescence checks with mtime snapshots, proving your files are separable from a peer's before staging, and not clobbering shared build output, ports or databases. Advisory: it reasons and warns, and never changes git state itself."
 version: 0.1.0
-last_reviewed: 2026-07-23
-owns:
-  - the default-safe recipe for a shared tree — isolate with `git worktree`, never fight over the shared checkout
-  - commit-immediately (uncommitted work on a shared tree is not safe; a peer's reset --hard + clean wipes it)
-  - the discarding-op ban on a shared tree (reset --hard / clean / stash / checkout -- . destroy the peer's work)
-  - the `stash@{0}`-is-not-stable trap (it shifts the instant the peer pops; never recover via stash ordering here)
-  - extract-wiped-work-outside-the-repo-first, then restore (do not trust in-repo stash/reflog ordering)
-  - the quiescence check (two mtime snapshots over real elapsed time; a mid-run change is the peer, not a subagent)
-  - proving separability before staging beside a peer's edits (mtime bands, per-file diff, no shared file)
-  - HEAD is not stable either — background sync automation can fast-forward the branch between turns
-  - don't clobber shared build output / ports / databases (a shared build dir, held port, or clone DB breaks the other writer)
-  - the coordination file when two agents share a tree by design (scope, owned files, contract for the sibling)
-defers_to:
-  - git-safety skill for single-writer local hygiene (add -A, dirty-tree switch, rm --cached, author/push identity)
-  - env-doctor for the file-syncer itself (Syncthing conflict/deadlock/ignore mechanics)
-  - the user for every commit, discard, and recovery decision on a shared tree
 user-invocable: false
+metadata:
+  last_reviewed: 2026-07-23
+  owns:
+    - the default-safe recipe for a shared tree — isolate with `git worktree`, never fight over the shared checkout
+    - commit-immediately (uncommitted work on a shared tree is not safe; a peer's reset --hard + clean wipes it)
+    - the discarding-op ban on a shared tree (reset --hard / clean / stash / checkout -- . destroy the peer's work)
+    - the `stash@{0}`-is-not-stable trap (it shifts the instant the peer pops; never recover via stash ordering here)
+    - extract-wiped-work-outside-the-repo-first, then restore (do not trust in-repo stash/reflog ordering)
+    - the quiescence check (two mtime snapshots over real elapsed time; a mid-run change is the peer, not a subagent)
+    - proving separability before staging beside a peer's edits (mtime bands, per-file diff, no shared file)
+    - HEAD is not stable either — background sync automation can fast-forward the branch between turns
+    - don't clobber shared build output / ports / databases (a shared build dir, held port, or clone DB breaks the other writer)
+    - the coordination file when two agents share a tree by design (scope, owned files, contract for the sibling)
+  defers_to:
+    - git-safety skill for single-writer local hygiene (add -A, dirty-tree switch, rm --cached, author/push identity)
+    - env-doctor plugin, if installed, for the file-syncer itself (Syncthing conflict/deadlock/ignore mechanics)
+    - the user for every commit, discard, and recovery decision on a shared tree
 ---
 
 # shared-checkout-safety
@@ -200,5 +201,5 @@ two agents here by design?           --> coordination file: scope, owned files, 
 ## Cross-references
 
 - `git-safety` (skill) — single-writer local hygiene: `git add -A`, dirty-tree branch switch, `git rm --cached`, author/push identity, re-check status before push. This skill covers the multi-writer hazards; that one the solo footguns.
-- `env-doctor` — the file **syncer** itself (Syncthing conflict resolution, venv/`node_modules` delete-deadlock, `.stignore` not syncing). When a syncer is the second writer, its own operational quirks live there.
+- If the `env-doctor` plugin is installed, use it for the file **syncer** itself (Syncthing conflict resolution, venv/`node_modules` delete-deadlock, `.stignore` not syncing). When a syncer is the second writer, its own operational quirks live there.
 - The user — owns every commit, discard, and recovery decision on a shared tree. This skill never decides on their behalf.

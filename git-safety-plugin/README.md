@@ -1,44 +1,137 @@
 # git-safety
 
-Generic **local git-workflow safety guardrails** for Claude Code — the safety layer that git *integration* (GitHub/GitLab/GitKraken MCPs), *commit helpers*, and *PR-review* plugins leave out. It does not create commits, open PRs, or review diffs; it keeps the local git operations around that work from destroying data.
+## What it does
 
-**Advisory only.** Every skill reasons and warns; the one hook hands Claude a single reminder. Nothing here blocks a command, rewrites git state, or auto-mutates anything. The user owns every commit, push, discard, and recovery decision.
+Local git-workflow safety for Claude Code. Two skills teach the habits that stop an agent
+from destroying work: stage explicit paths, re-check the tree right before commit and push,
+never discard a dirty tree, get author and push identity right, and handle a working tree
+that a second session or a file syncer is also writing to. One hook spots risky git
+commands; by default it reminds Claude, and in the opt-in `ask` mode it makes you confirm
+irreversible operations before they run.
 
-## Why this plugin exists
+It is for anyone who lets Claude run git in a real repository, and especially for setups
+where several sessions, agents or a syncer (Syncthing, Dropbox) share one checkout. It does
+not make commits, open PRs or review code.
 
-An audit of accumulated engineering lessons found that the most damaging git mistakes agents make are blunt *local* footguns with no owner in any marketplace:
+## Install
 
-- `git add -A` sweeping another session's staged work into a commit,
-- switching branches or `checkout -- .` throwing away a dirty tree,
-- `git rm --cached` deleting a shared file for the whole team on merge,
-- committing under the wrong author, pushing on the wrong identity,
-- and — most severe — **two agents/sessions sharing one working tree**, where a `reset --hard`/`clean`/`stash` wipes the other writer's uncommitted work and `stash@{0}` shifts the instant the peer pops.
+```
+/plugin marketplace add taqat-techno/plugins
+/plugin install git-safety@taqat-techno-plugins
+```
 
-Git integrations and PR-review plugins cover *doing* git and *reviewing* code; none covers this hygiene layer.
+On Claude Code 2.1.275 or later, one step also works:
+`/plugin install git-safety --marketplace taqat-techno/plugins`.
+
+## Requirements
+
+| Requirement | Why | Check |
+|---|---|---|
+| Python 3.8 or later as `python3`, `python` or `py -3` | runs the hook | `python3 --version` |
+| A POSIX shell for hook commands (Git Bash on Windows) | the hook launcher is POSIX sh | `sh --version` |
+| git | the commands the hook inspects | `git --version` |
+
+Without Python or a POSIX shell the hook exits 0 and does nothing; the skills still work.
 
 ## Skills
 
-| Skill | Use when | Owns |
-|---|---|---|
-| **git-safety** | before any `git add`, commit, branch switch, `git rm --cached`, push, or repo-MCP write (including ticking issue checkboxes) | stage explicit paths (never `git add -A`/`.`); re-check `git status` immediately before commit/push; never silent-switch/discard a dirty tree; `git rm --cached` team-impact; per-repo author identity; remote push identity (right account, re-asserted; MCP is not a bypass); the remote-mutation preview gate (no-mutation preview per target + explicit go-ahead, minimal verified change set only) |
-| **shared-checkout-safety** | when a second session/agent/syncer shares ONE working tree, or when recovering wiped work | the default-safe recipe (isolate with `git worktree`, never fight the shared tree); commit immediately; never `reset --hard`/`clean`/`stash`/`checkout -- .` there; `stash@{0}` is not stable; extract wiped work outside the repo first; quiescence via mtime snapshots; proving separability before staging beside a peer's edits; HEAD is not stable either (background sync can fast-forward it between turns); don't clobber shared build output, ports, or databases; the coordination file when two agents share a tree by design |
+| Skill | Use when |
+|---|---|
+| `git-safety` | about to `git add`, commit, switch or restore, `git rm --cached`, push, merge two long-lived branches, or write to issues or PRs through `gh` or an MCP tool |
+| `shared-checkout-safety` | a second session, agent or file syncer may be writing the same working tree, or you are recovering work wiped on such a tree |
 
-Both auto-activate from their `description` triggers; they are not user-invocable slash commands.
+Both load automatically from their descriptions. Neither is a slash command. There are no
+commands or agents.
 
-## Hook
+## Hooks
 
-One non-blocking `PreToolUse` hook (`hooks/risky_git_advisory.py`) inspects a shell command and, if it contains a risky git shape (`git add -A`/`.`/`-u`, `reset --hard`, `clean -fd`, `stash`, `checkout -- `/`restore`, `push --force`, `rm --cached`), hands Claude a single reminder (as PreToolUse `additionalContext`, delivered next to the tool result) pointing at the relevant skill. It never blocks, never rewrites the command, and exits 0 always.
+| Hook | Event / matcher | What it does | Can block? |
+|---|---|---|---|
+| `hooks/risky_git_advisory.py` | `PreToolUse` on `Bash\|PowerShell` | Finds risky git operations in the command and either reminds Claude (`advise`) or asks you to confirm (`ask`) | Only in `ask` mode, and only for irreversible operations, by asking you; it never denies |
 
-## Boundaries (what this plugin does NOT do)
+**Timing matters.** In `advise` mode the reminder is PreToolUse `additionalContext`, which
+Claude Code hands to Claude together with the tool result. The command has already run by
+the time Claude reads it. Advise mode improves the next step; it prevents nothing. Only
+`ask` mode stops an irreversible command before it runs.
 
-- **Git/platform integration & context** → use the GitHub / GitLab / GitKraken MCP plugins.
-- **Making commits / pushing / opening PRs** → use a commit-workflow plugin.
-- **Reviewing code or PRs** → use a code-review plugin.
-- **Provider-specific remote push gates** (e.g. Azure DevOps push identity / account policy) → the `devops` plugin's `git-remote-write-gate`.
-- **The file syncer itself** (Syncthing conflict/deadlock/ignore mechanics) → the `env-doctor` plugin.
-- **General "an MCP tool is not a permission bypass"** principle → the `agent-safety-guards` plugin (this plugin applies it specifically to git/repo writes).
-- **Whether a claim being written to a remote was actually earned** (an item read statically is not runtime-verified) → the `qa-browser` plugin's `runtime-reality-check`. This plugin owns *how* a remote write is gated, not what licenses it.
+What it detects:
+
+| Operation | Irreversible (asks in `ask` mode) |
+|---|---|
+| `reset --hard` | yes |
+| `clean` with `-f`/`--force` (not with `-n`/`--dry-run`) | yes |
+| `checkout -f`, `checkout -- <paths>`, `checkout .`, `switch --discard-changes`/`-f`, `restore <paths>` without `--staged` | yes |
+| `push --force`, `push -f`, `push <remote> +<ref>`, `push --mirror` | yes |
+| `push --delete`, `push -d`, `push <remote> :<ref>`, `push --prune` | yes |
+| `branch -D`, `branch --delete --force` | yes |
+| `tag -d` | yes |
+| `filter-branch`, `filter-repo` | yes |
+| `reflog expire`/`delete`, `gc --prune=now`, `prune` | yes |
+| `update-ref -d` | yes |
+| `push --force-with-lease` | no (reminder only) |
+| `stash drop`/`clear`, `stash`/`stash pop`/`apply` (not `list`/`show`) | no |
+| `add -A`, `add --all`, `add -u`, `add .` | no |
+| `rm --cached` | no |
+| push to a branch listed in `protected_branches` | no |
+
+How it reads a command: it splits on unquoted `;`, `&&`, `||`, `|`, `&` and newlines, and
+looks only at segments whose program is `git` (also `git.exe` or a full path to it). It
+skips `VAR=value` prefixes, wrappers such as `command`, `sudo`, `env` and `nohup`, and git's
+global options (`-C <path>`, `-c key=value`, `--git-dir`, `--work-tree`, `--no-pager`, ...).
+Flags count anywhere after the subcommand. It looks inside `sh -c` / `bash -c` /
+`pwsh -Command` bodies. Text in quotes, comments, `echo` and `grep` patterns and commit
+messages is not matched.
+
+What it cannot see: git aliases (`git config alias.nuke 'reset --hard'`), scripts that call
+git (`./cleanup.sh`), commands assembled at runtime (`eval`, `$(...)`), IDE git
+integrations and MCP git tools. Treat it as a seatbelt, not a sandbox.
+
+Check the detection table offline: `python hooks/risky_git_advisory.py --self-test`.
+
+## Configuration
+
+| Setting | Where | Values | Default |
+|---|---|---|---|
+| `guard_mode` | plugin option (`/config`, stored by Claude Code; reaches the hook as `CLAUDE_PLUGIN_OPTION_GUARD_MODE`) | `advise`, `ask`, `off` | `advise` |
+| `GIT_SAFETY_MODE` | environment variable set before you start Claude Code (overrides `guard_mode`) | `advise`, `ask`, `off` | unset |
+| `.claude/git-safety.local.json` | per project, at the repository root | `{"mode": "ask", "protected_branches": ["main", "release/*"]}` | absent |
+
+The project file can only make the guard stricter (`advise` to `ask`). It cannot lower the
+mode or turn the hook off, because Claude can write files in the repository.
+`protected_branches` takes shell-style patterns; a push whose target matches gets a
+reminder (a bare `git push` targets the current branch from `.git/HEAD`). A missing or
+malformed file is ignored.
+
+To turn the hook off, set `guard_mode` to `off`, or disable the plugin with `/plugin`.
+
+## Platform support
+
+| Platform | Status |
+|---|---|
+| Linux, macOS | Supported. |
+| Windows with Git Bash | Supported, for both the Bash and PowerShell tools; `git.exe` and full paths are recognised. |
+| Windows without Git Bash | Claude Code runs hook commands in PowerShell, where the POSIX launcher does not parse; the hook fails open (does nothing). Skills work. |
+| WSL | Same as Linux. |
+
+## Data & privacy
+
+The hook reads the command from the hook payload, `.claude/git-safety.local.json` and
+`.git/HEAD` in the current repository. It writes no files, keeps no log, makes no network
+calls and never echoes the command text: its messages are fixed strings. Nothing leaves the
+machine. The reminder or the confirmation prompt is what appears on screen.
+
+## Limitations
+
+- Advise mode cannot stop a command; see "Timing matters" above.
+- String matching on shell commands misses aliases, scripts, runtime-built commands and
+  non-shell git tools.
+- Ask mode follows Claude Code's permission flow; how an `ask` behaves under a permission
+  mode that skips prompts is decided by Claude Code, not by this plugin.
+- The skills are advice. They never run git themselves and never decide for you.
+- Related plugins are optional: if `devops`, `agent-safety-guards`, `qa-browser` or
+  `env-doctor` is installed, the skills point to it for provider push gates, the general
+  permission principle, evidence classes and syncer or Windows git problems.
 
 ## License
 
-MIT
+MIT. See `LICENSE`.
