@@ -1,11 +1,23 @@
 {
   "name": "ui-ux-mechanics",
-  "version": "3.2.3",
+  "version": "4.0.0",
   "license": "MIT",
-  "description": "UI/UX design plus Figma-MCP execution mechanics — screen design, wireframing, design review, design systems, accessibility auditing, and safe Figma MCP write workflows (write-access probing, metadata-lossiness handling, auto-layout/variant mechanics, prototype-link-safe edits) for web, mobile, and desktop platforms.",
+  "description": "UI/UX design plus Figma MCP execution mechanics: screen design, wireframing, design review, design systems and WCAG 2.2 accessibility auditing for web, mobile and desktop, and safe Figma MCP workflows (user approval before any write, write-access probing, metadata lossiness, auto-layout and variant mechanics, prototype-safe edits).",
   "author": {
     "name": "TaqaTechno",
     "email": "info@taqatechno.com",
     "url": "https://www.taqatechno.com"
-  }
+  },
+  "homepage": "https://github.com/taqat-techno/plugins/tree/main/ui-ux-mechanics-plugin",
+  "repository": "https://github.com/taqat-techno/plugins",
+  "keywords": [
+    "ui",
+    "ux",
+    "design",
+    "wireframe",
+    "design-system",
+    "accessibility",
+    "wcag",
+    "figma"
+  ]
 }

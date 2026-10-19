@@ -1,6 +1,8 @@
-# Accessibility Checklist (WCAG 2.1 AA)
+# Accessibility Checklist (WCAG 2.2 AA)
 
-Organized by the four WCAG principles: **P**erceivable, **O**perable, **U**nderstandable, **R**obust.
+Organized by the four WCAG principles: **P**erceivable, **O**perable, **U**nderstandable, **R**obust. WCAG 2.2 (W3C Recommendation, October 2023) includes every 2.1 criterion except 4.1.1 Parsing, which is obsolete; the criteria added in 2.2 are in the section "New in WCAG 2.2" below.
+
+> Source: a paraphrased checklist based on the W3C *Web Content Accessibility Guidelines (WCAG) 2.2*, https://www.w3.org/TR/WCAG22/, and the W3C "Understanding WCAG 2.2" notes. It is a working summary, not the normative text; check the W3C documents for exact success-criterion wording.
 
 ---
 
@@ -184,6 +186,22 @@ Content must be robust enough for diverse user agents and assistive technologies
 - [ ] Loading states communicated: `aria-busy="true"` on container
 
 ---
+
+## New in WCAG 2.2
+
+| SC | Level | Check |
+|---|---|---|
+| 2.4.11 Focus Not Obscured (Minimum) | AA | A focused element is never entirely hidden by sticky headers, footers, cookie banners or chat widgets |
+| 2.4.12 Focus Not Obscured (Enhanced) | AAA | No part of the focused element is hidden |
+| 2.4.13 Focus Appearance | AAA | Focus indicator is at least a 2 CSS px perimeter-equivalent area with 3:1 change in contrast |
+| 2.5.7 Dragging Movements | AA | Every drag action (sortable lists, sliders, maps) has a single-pointer alternative such as buttons or tap-to-place |
+| 2.5.8 Target Size (Minimum) | AA | Pointer targets are at least 24 x 24 CSS px, or have enough spacing, with the listed exceptions (inline links, equivalent control elsewhere) |
+| 3.2.6 Consistent Help | A | Help mechanisms (contact link, chat, FAQ) appear in the same relative order on every page that has them |
+| 3.3.7 Redundant Entry | A | Information already entered in the same process is auto-filled or selectable, not asked for again |
+| 3.3.8 Accessible Authentication (Minimum) | AA | Login does not require a cognitive function test (remembering, transcribing, puzzles) unless an alternative, paste support or password-manager autofill is allowed |
+| 3.3.9 Accessible Authentication (Enhanced) | AAA | As 3.3.8, with no object- or content-recognition exception |
+
+4.1.1 Parsing was removed as obsolete in WCAG 2.2; do not report it as a failure.
 
 ## Quick Testing Checklist
 

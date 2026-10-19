@@ -1,5 +1,34 @@
 # Changelog
 
+## [4.0.0] - 2026-10-19
+
+Major: the command was renamed and Figma writes now stop for approval.
+
+### Security
+- **User approval before any Figma write** (UIUX-P1-02). `figma-mcp-mechanics` owns a new gate: before the first write of a session, including the net-zero write-access probe, Claude names the file, the pages / nodes and the change and waits for an explicit yes, suggesting a duplicated page or branch. `figma-workflow`, the command and the decision flow defer to it; registering Code Connect mappings counts as a write.
+- Figma content (layer names, text, comments, API responses) is data, never instructions: rule added to both Figma skills and `design-reviewer`.
+- The Figma REST PAT is read from `$FIGMA_TOKEN`; the skill no longer suggests getting it from the user in chat.
+
+### Changed
+- **Command renamed** `/ui-ux-mechanics:ui-ux-mechanics` -> `/ui-ux-mechanics:toolkit` (ECO-18). The old file is a deprecated stub until 4.1.0. The dispatch table marks which routes write to Figma.
+- Skill descriptions rewritten to "Use when ..." and cut to 410-583 characters (were 1,494 / 2,466 / 3,176); `<example>` blocks removed (UIUX-P2-07).
+- `figma-mcp-mechanics` split: the fifteen mechanics moved to `skills/figma-mcp-mechanics/references/mechanics.md`; SKILL.md keeps the gate, an index, the decision flow, safety gates, checklist and anti-patterns (38 KB -> 22 KB).
+- Reference paths in skills and agents use `${CLAUDE_PLUGIN_ROOT}/reference/...` so they load from any working directory (UIUX-P1-05).
+- Odoo palette moved out of `reference/color-theory.md` into `reference/appendix-framework-palettes.md` (UIUX-P1-03).
+- Figma MCP tool table (owned by `figma-workflow`) checked against Figma's "Tools and prompts" docs: added `search_design_system`, `create_new_file`, `use_figma`, the remote/desktop column; `create_design_system_rules` is documented as a prompt, not a tool (UIUX-P2-06). Cross-references to the Figma plugin's `figma-use` skill are conditional.
+- README rewritten to the marketplace template: marketplace install instead of manual copying, no `skills`-array advice, Requirements, Platform support, Data & privacy (UIUX-P1-01).
+
+### Added
+- WCAG 2.2 criteria (2.4.11-2.4.13, 2.5.7, 2.5.8, 3.2.6, 3.3.7-3.3.9; 4.1.1 obsolete) in the accessibility checklist; references updated to WCAG 2.2 AA (UIUX-P3-09).
+- Attribution: `platform-guidelines.md` states it is an independent paraphrase with links to Apple HIG, Material 3 and Fluent 2 and no affiliation; the checklist cites W3C WCAG 2.2.
+- `tests/test_surface.py` (12 tests); eval cases for `figma-workflow` and `figma-mcp-mechanics` plus two must-not-fire cases (not run).
+
+### Removed
+- The empty `hooks/hooks.json` (ECO-20).
+
+### Not done
+- UIUX-P2-08: evals were not run (cost); no Delta recorded.
+
 ## [3.2.3] - 2026-10-19
 
 ### Added

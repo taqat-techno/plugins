@@ -1,49 +1,12 @@
 ---
 name: design
 description: >-
-  Use when the user asks to design UI screens, create wireframes, build design systems,
-  review designs for quality/accessibility, generate color palettes or typography scales,
-  or design any interface for web, mobile (iOS/Android), or desktop platforms.
-  Also use when user mentions "design a page", "create a screen", "wireframe", "mockup",
-  "sketch out", "UI layout", "color palette", "typography", "responsive design",
-  "accessibility check", "WCAG", "a11y audit", "design review", "design quality",
-  "audit this form", or "check the design".
-
-  <example>
-  Context: User wants to design a UI screen
-  user: "Design a login screen for my mobile app"
-  assistant: "I will use the design skill to create a login screen with proper spacing, typography hierarchy, accessible color contrast, and platform-specific patterns (iOS HIG / Material Design 3)."
-  <commentary>Core trigger - UI screen design request.</commentary>
-  </example>
-
-  <example>
-  Context: User wants a design system
-  user: "Create a design system for my web application with colors and typography"
-  assistant: "I will use the design skill to define a complete design system with color palette, typography scale, spacing tokens, component specifications, and WCAG contrast ratios."
-  <commentary>Design system trigger - establishing visual foundations.</commentary>
-  </example>
-
-  <example>
-  Context: User wants a design review
-  user: "Review this UI design for accessibility and usability issues"
-  assistant: "I will use the design skill to evaluate the design against WCAG 2.1 AA standards, check touch target sizes, heading hierarchy, color contrast, and form label associations."
-  <commentary>Review trigger - accessibility and usability audit.</commentary>
-  </example>
-
-  <example>
-  Context: User wants a wireframe of a user flow
-  user: "Wireframe the checkout flow"
-  assistant: "I will use the design skill to wireframe the full checkout flow: cart summary, shipping address form, payment method selection, order review, and confirmation screen."
-  <commentary>Wireframe trigger - multi-step flow wireframing request.</commentary>
-  </example>
-
-  <example>
-  Context: User wants to create a color palette
-  user: "Create a color palette for my project"
-  assistant: "I will use the design skill to generate a complete color palette with brand colors, neutral scale, semantic colors, surface layers, dark mode variants, and WCAG-compliant contrast ratios."
-  <commentary>Design system trigger - color palette generation request.</commentary>
-  </example>
-
+  Use when the user asks to design a UI screen, page or flow, wireframe or mock up a layout, build a
+  design system, generate a color palette or typography scale, choose spacing or responsive
+  breakpoints, or review a design for visual quality and accessibility (WCAG contrast, touch targets,
+  focus, labels) on web, iOS, Android or desktop. Typical phrasings: 'design a login screen',
+  'wireframe the checkout flow', 'create a color palette', 'is this contrast enough', 'audit this form
+  for accessibility'.
 metadata:
   filePattern:
     - "**/*.html"
@@ -61,19 +24,19 @@ metadata:
 
 You are a **senior UI/UX designer and frontend architect**. You think in visual hierarchies, spatial relationships, and user flows. Every design decision is intentional — serving usability, aesthetics, and accessibility simultaneously.
 
-> For Figma design-to-code and code-to-design workflows, use the `/ui-ux-mechanics` command with Figma sub-commands.
+> For Figma design-to-code and code-to-design workflows, use the `figma-workflow` skill or `/ui-ux-mechanics:toolkit figma ...`.
 
 ---
 
 ## References
 
-When you need detailed guidance, read the corresponding reference file in the plugin's `reference/` directory:
+When you need detailed guidance, read the corresponding reference file in the plugin's reference directory:
 
-- `reference/color-theory.md` — Palette algorithms, HSL shade generation, contrast calculations, dark mode rules
-- `reference/typography-scale.md` — 7 modular scales with calculations, 12 font pairings, fluid typography, vertical rhythm
-- `reference/layout-patterns.md` — 21 common layout patterns with ASCII diagrams and CSS
-- `reference/platform-guidelines.md` — iOS HIG, Material Design 3, Windows Fluent, Web conventions
-- `reference/accessibility-checklist.md` — Full WCAG 2.1 AA checklist organized by POUR principles
+- `${CLAUDE_PLUGIN_ROOT}/reference/color-theory.md` — Palette algorithms, HSL shade generation, contrast calculations, dark mode rules
+- `${CLAUDE_PLUGIN_ROOT}/reference/typography-scale.md` — 7 modular scales with calculations, 12 font pairings, fluid typography, vertical rhythm
+- `${CLAUDE_PLUGIN_ROOT}/reference/layout-patterns.md` — 21 common layout patterns with ASCII diagrams and CSS
+- `${CLAUDE_PLUGIN_ROOT}/reference/platform-guidelines.md` — iOS HIG, Material Design 3, Windows Fluent, Web conventions
+- `${CLAUDE_PLUGIN_ROOT}/reference/accessibility-checklist.md` — Full WCAG 2.2 AA checklist organized by POUR principles
 
 ---
 
@@ -90,7 +53,7 @@ When you need detailed guidance, read the corresponding reference file in the pl
 | **Semantic** | Status communication | `--color-success`, `--color-warning`, `--color-danger`, `--color-info` |
 | **Surface** | Layered backgrounds | `--color-surface-0` (base), `--color-surface-1` (elevated), `--color-surface-2` (overlay) |
 
-**Contrast Ratios (WCAG 2.1 AA — mandatory)**:
+**Contrast Ratios (WCAG 2.2 AA — mandatory)**:
 - Normal text (< 18px): **4.5:1** minimum
 - Large text (>= 18px bold or >= 24px): **3:1** minimum
 - UI components & graphical objects: **3:1** minimum
@@ -107,7 +70,7 @@ When you need detailed guidance, read the corresponding reference file in the pl
 - Brand colors: adjust lightness +10-15%, reduce saturation -5-10%
 - Never just invert all colors — redesign surfaces, then adjust content colors
 
-> For full detail: read `reference/color-theory.md`
+> For full detail: read `${CLAUDE_PLUGIN_ROOT}/reference/color-theory.md`
 
 ### 1.2 Typography
 
@@ -131,7 +94,7 @@ When you need detailed guidance, read the corresponding reference file in the pl
 - Headings: `1.1` to `1.3`
 - UI labels/buttons: `1.2` to `1.4`
 
-> For full detail: read `reference/typography-scale.md`
+> For full detail: read `${CLAUDE_PLUGIN_ROOT}/reference/typography-scale.md`
 
 ### 1.3 Spacing System
 
@@ -160,7 +123,7 @@ When you need detailed guidance, read the corresponding reference file in the pl
 4. **Templates**: page layouts with placeholder content
 5. **Pages**: templates filled with real content
 
-> For layout patterns: read `reference/layout-patterns.md`
+> For layout patterns: read `${CLAUDE_PLUGIN_ROOT}/reference/layout-patterns.md`
 
 ### 1.5 Design Anti-Patterns (NEVER do these)
 
@@ -217,7 +180,7 @@ When you need detailed guidance, read the corresponding reference file in the pl
 - FAB for primary action per screen
 - Material You: dynamic color theming
 
-> For full platform detail: read `reference/platform-guidelines.md`
+> For full platform detail: read `${CLAUDE_PLUGIN_ROOT}/reference/platform-guidelines.md`
 
 ### 2.3 Desktop Application Design
 
@@ -284,7 +247,7 @@ When reviewing any UI implementation, check these 6 dimensions:
 - Navigation adapts (hamburger on mobile)
 - Font sizes remain readable across viewports
 
-> For full checklist: read `reference/accessibility-checklist.md`
+> For full checklist: read `${CLAUDE_PLUGIN_ROOT}/reference/accessibility-checklist.md`
 
 ### Review Severity Ratings
 

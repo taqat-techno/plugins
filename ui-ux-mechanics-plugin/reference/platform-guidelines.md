@@ -1,5 +1,11 @@
 # Platform-Specific Design Guidelines
 
+> **Sources and attribution.** This file is an independent, paraphrased summary for quick reference. It is not affiliated with or endorsed by Apple, Google or Microsoft, and it quotes none of their text. Product and guideline names are trademarks of their owners. Measurements and rules change; check the current originals before relying on a value:
+> - Apple Human Interface Guidelines: https://developer.apple.com/design/human-interface-guidelines/
+> - Material Design 3 (Google): https://m3.material.io/
+> - Fluent 2 Design System (Microsoft): https://fluent2.microsoft.design/
+> - Web conventions: WCAG 2.2, https://www.w3.org/TR/WCAG22/
+
 ## iOS — Human Interface Guidelines (HIG)
 
 ### Core Principles

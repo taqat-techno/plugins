@@ -243,4 +243,4 @@ If Figma MCP tools are available:
 
 ## Reference Docs
 
-For layout pattern examples and platform conventions, read `reference/layout-patterns.md` and `reference/platform-guidelines.md` in the plugin directory.
+For layout pattern examples and platform conventions, read `${CLAUDE_PLUGIN_ROOT}/reference/layout-patterns.md` and `${CLAUDE_PLUGIN_ROOT}/reference/platform-guidelines.md` in the plugin directory.

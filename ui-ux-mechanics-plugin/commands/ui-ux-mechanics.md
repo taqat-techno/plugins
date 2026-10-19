@@ -1,28 +1,6 @@
 ---
-name: ui-ux-mechanics
-description: 'UI/UX Design toolkit - Figma sync, design system management, and capabilities overview'
-argument-hint: '[figma|system] [sub-command] [args...]'
-author: TaqaTechno
-version: 3.1.0
+description: "Deprecated: use /ui-ux-mechanics:toolkit"
+argument-hint: "(same arguments as /ui-ux-mechanics:toolkit)"
 ---
 
-# ui-ux-mechanics - Unified Design Toolkit
-
-Parse `$ARGUMENTS` and dispatch:
-
-| Arguments | Action |
-|-----------|--------|
-| *(empty)* | Show capabilities + status |
-| `figma pull <url>` | Extract design from Figma URL |
-| `figma push <desc> [url]` | Push design to Figma/FigJam |
-| `figma status <url>` | Compare code vs Figma design |
-| `figma suggest <url>` | Get improvement suggestions from Figma |
-| `figma diagram <desc>` | Create diagram in FigJam |
-| `system generate` | Generate design system from codebase |
-| `system analyze` | Analyze existing design patterns |
-
-Use the ui-ux-mechanics skills for:
-- **design skill**: Color theory, typography scales, accessibility (WCAG), layout patterns, platform guidelines (iOS HIG, Material Design 3)
-- **figma-workflow skill**: Figma MCP integration, design-to-code pipelines, Code Connect
-
-If arguments don't match any route, infer intent from natural language.
+This command was renamed to `/ui-ux-mechanics:toolkit` and this alias is removed in ui-ux-mechanics 4.1.0. Tell the user that in one line, then read `${CLAUDE_PLUGIN_ROOT}/commands/toolkit.md` and follow it with these arguments: $ARGUMENTS

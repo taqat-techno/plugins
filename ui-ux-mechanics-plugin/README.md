@@ -1,214 +1,94 @@
-# ui-ux-mechanics - UI/UX Design Specialist Plugin for Claude Code
+# ui-ux-mechanics
 
-> **Version:** 3.1.0 | **Author:** TaqaTechno | **License:** MIT
+![Version](https://img.shields.io/badge/version-4.0.0-blue.svg)
+![License](https://img.shields.io/badge/license-MIT-green.svg)
 
-ui-ux-mechanics transforms Claude into a **professional UI/UX designer** capable of designing screens, wireframes, and full design systems for any platform — web, mobile (iOS/Android), or desktop applications.
+## What it does
 
-> **Migration Note (v3.0):** In v3.0, the monolithic skill was split into 2 focused skills (`design` + `figma-workflow`), all project-specific content was removed, and the command was slimmed to a pure dispatcher. Reference docs are now explicitly connected to skills and agents. (The file-type-scoped hooks were subsequently emptied — the plugin now ships none; see [Hooks](#hooks).)
+ui-ux-mechanics gives Claude working UI/UX design knowledge: screen and flow design, wireframes, design systems (color, typography, spacing), design review and WCAG 2.2 accessibility audits for web, iOS, Android and desktop. With a Figma MCP server connected it also pulls designs into code and pushes designs to Figma, with a user-approval gate before any write and a catalogue of how Figma MCP writes actually behave.
 
----
+It is for developers and designers who want design decisions and reviews grounded in concrete rules (contrast ratios, type scales, touch targets) and for anyone editing shared Figma files through MCP.
 
-## What ui-ux-mechanics Does
-
-| Capability | Description |
-|-----------|-------------|
-| **Screen Design** | Design any screen with wireframe + code for web, iOS, Android, desktop |
-| **Design Systems** | Generate complete design systems (colors, typography, spacing, components) |
-| **Design Review** | Audit existing UI for quality, accessibility (WCAG 2.1 AA), responsiveness |
-| **Wireframing** | Rapid ASCII wireframes + HTML/CSS prototypes |
-| **Figma Integration** | Read from / write to Figma via MCP (requires Figma plugin separately) |
-
----
-
-## Quick Start
+## Install
 
 ```
-1. /ui-ux-mechanics                 (check status + Figma connection)
-2. Just describe what you need:
-   - "Design a login page for iOS"
-   - "Wireframe an admin dashboard"
-   - "Review this template for accessibility"
-3. For Figma sync:
-   /ui-ux-mechanics figma pull <figma-url>
-4. For design systems:
-   /ui-ux-mechanics system generate
+/plugin marketplace add taqat-techno/plugins
+/plugin install ui-ux-mechanics@taqat-techno-plugins
 ```
 
----
+Quick start: describe the task ("design a login screen for iOS", "review this form for accessibility"), or run `/ui-ux-mechanics:toolkit` to see capabilities and Figma status.
 
-## Prerequisites
+## Requirements
 
-- **Required:** Claude Code CLI
-- **Optional:** Figma MCP plugin for Figma integration
-  ```bash
-  claude plugin install figma@claude-plugins-official
-  ```
+| Requirement | Needed for | How to check |
+|---|---|---|
+| Claude Code | everything | `claude --version` |
+| A Figma MCP server (optional), for example `/plugin install figma@claude-plugins-official` | Figma pull / push / mechanics | `/mcp` lists a Figma server; `/ui-ux-mechanics:toolkit` reports it |
+| A Figma editor seat (optional) | Figma writes | the write-access probe, after your approval |
+| `FIGMA_TOKEN` env var with a Figma personal access token (optional) | Direct Figma REST API calls only | `[ -n "$FIGMA_TOKEN" ] && echo set` |
 
----
+Without Figma, design theory, wireframing, code prototypes, reviews and design-system generation all work.
 
-## Installation
+## Commands
 
-### Option A: Project-Level (Recommended)
+| Command | What it does | Bare invocation |
+|---|---|---|
+| `/ui-ux-mechanics:toolkit` | `figma pull / status / suggest` (read), `figma push / diagram` (write, after approval), `system generate / analyze` | capabilities + Figma connection status |
 
-```bash
-cd /path/to/your/project
-mkdir -p .claude/plugins
-cp -r /path/to/ui-ux-mechanics-plugin .claude/plugins/ui-ux-mechanics-plugin
-```
-
-### Option B: Global
-
-```bash
-cp -r /path/to/ui-ux-mechanics-plugin ~/.claude/plugins/ui-ux-mechanics-plugin
-```
-
-### Option C: Register from Current Location
-
-```bash
-claude plugin add /path/to/ui-ux-mechanics-plugin
-```
-
-### Verify
-
-```bash
-claude plugin list    # should show 'ui-ux-mechanics'
-/ui-ux-mechanics      # in a session, shows status
-```
-
----
+`/ui-ux-mechanics:ui-ux-mechanics` still works as a deprecated alias and is removed in 4.1.0.
 
 ## Skills
 
-### `design` (Core)
-
-**Activates when:** You describe a design task in natural language — "design a login page", "wireframe the checkout flow", "review this for accessibility", "create a color palette".
-
-Covers: color theory, typography scales, spacing systems, layout fundamentals, multi-platform design (web/iOS/Android/desktop), design review checklists, and anti-patterns.
-
-### `figma-workflow`
-
-**Activates when:** You mention Figma, provide a Figma URL, or ask to sync designs between code and Figma.
-
-Covers: Figma MCP tools reference, design-to-code workflow, code-to-design workflow, design system sync, asset handling rules. Requires the Figma MCP plugin.
-
-### `figma-mcp-mechanics`
-
-**Activates when:** You are about to *write* to a Figma file via MCP — creating, editing, repositioning, relabeling, or variant-swapping nodes — or when `get_metadata` reports a file looks empty, an auto-layout collapses after a resize, a font-not-loaded error rolls back a write, a cloned RTL frame renders tofu, `setReactionsAsync` rejects an action, a design "keeps looking corrupted", prototype links may be at risk, or you need the Figma REST API.
-
-Covers the fifteen mechanics: the net-zero write-access probe, `get_metadata` lossiness handling, component/instance discovery plus "systemic"-finding triage, geometry-and-locale QA, exhaustive enumeration, auto-layout child-order/resize/variant-swap mechanics, atomic-write rollback, prototype-link-safe repositioning, the X-Figma-Token REST path, loading every font before a text write, explicit target fonts on blank/cloned RTL nodes, cloning (never hand-building) reactions for `setReactionsAsync` plus BFS reachability as the wiring proof, page-load timing before trusting `page.children.length`, relabeling by node-id / full title phrase with an old→new echo, and per-finding before/after capture that distinguishes a broken export from a corrupt source. Tool-mechanics companion to `figma-workflow`. Requires the Figma MCP plugin.
-
----
-
-## Command: `/ui-ux-mechanics`
-
-The single unified command for Figma and design system operations.
-
-| Sub-command | Description |
-|-------------|-------------|
-| *(none)* | Show status + Figma connection + help |
-| `figma pull <url>` | Read a Figma design and generate code |
-| `figma push <description>` | Push a design description to Figma |
-| `figma status <url>` | Check which components are mapped |
-| `figma suggest <url>` | Get AI-suggested component mappings |
-| `figma diagram <description>` | Generate a FigJam diagram |
-| `system generate` | Generate a complete design system |
-| `system analyze` | Analyze existing CSS/SCSS for design patterns |
-
----
+| Skill | Invocation | Use when |
+|---|---|---|
+| `design` | model and `/ui-ux-mechanics:design` | Designing screens, wireframes, design systems, palettes, type scales; reviewing a design or its accessibility |
+| `figma-workflow` | model and `/ui-ux-mechanics:figma-workflow` | Figma design-to-code, code-to-design, Code Connect, token sync; owns the Figma MCP tool table |
+| `figma-mcp-mechanics` | model only | About to write to Figma, or a Figma read / write behaves unexpectedly; owns the approval gate. Detail in `skills/figma-mcp-mechanics/references/mechanics.md` |
 
 ## Agents
 
-### design-reviewer
-
-**Triggered when:** You ask to review, audit, or check existing UI code.
-
-Performs a systematic 6-dimension review: Visual Hierarchy, Color & Contrast, Typography, Spacing & Layout, Accessibility, Responsive Behavior. Produces a scored report with severity ratings.
-
-### wireframe-builder
-
-**Triggered when:** You ask to wireframe, mockup, sketch, or prototype a screen.
-
-Creates ASCII wireframes, component inventories, responsive behavior specs, and optional HTML/CSS prototypes.
-
----
+| Agent | Tools | Purpose |
+|---|---|---|
+| `design-reviewer` | Read, Glob, Grep, Bash + Figma read tools (`get_screenshot`, `get_design_context`, `get_metadata`, `get_variable_defs`) | Six-dimension review of existing UI code, optionally against a Figma design; read-only |
+| `wireframe-builder` | Read, Write, Glob, Grep, Bash | ASCII wireframes, component inventories, optional HTML/CSS prototypes; no Figma tools |
 
 ## Hooks
 
-**This plugin ships no active hooks.** `hooks/hooks.json` is intentionally empty (`{"hooks":{}}`), so editing a UI file triggers **no** automatic design reminder. Design guidance is delivered through the skills and agents above — invoke the `design` skill or the `design-reviewer` agent when you want a review.
+None.
 
-The empty `hooks/hooks.json` is a placeholder you can populate yourself (see [Customization](#add-a-design-check-hook) below); nothing is wired by default.
+## Configuration
 
----
+None required. Optional: `FIGMA_TOKEN` in the environment Claude Code is launched with, for Figma REST API calls the MCP tools cannot make. Never paste the token into the chat.
 
-## Reference Documentation
+## Reference documents
 
-| Document | Content |
-|----------|---------|
-| [color-theory.md](reference/color-theory.md) | Color wheel, palette algorithms, HSL shade generation, contrast ratios, dark mode rules |
-| [typography-scale.md](reference/typography-scale.md) | 7 modular scales, 12 font pairings, line height guide, fluid typography, vertical rhythm |
-| [layout-patterns.md](reference/layout-patterns.md) | 21 layout patterns with ASCII diagrams and CSS |
-| [platform-guidelines.md](reference/platform-guidelines.md) | iOS HIG, Material Design 3, Windows Fluent, Web conventions |
-| [accessibility-checklist.md](reference/accessibility-checklist.md) | WCAG 2.1 AA organized by POUR principles, testing methods, ARIA patterns |
+| File | Content |
+|---|---|
+| `reference/color-theory.md` | Palette construction, HSL shades, contrast ratios, dark mode |
+| `reference/typography-scale.md` | Modular scales, font pairings, line height, fluid type, vertical rhythm |
+| `reference/layout-patterns.md` | Layout patterns with ASCII diagrams and CSS |
+| `reference/platform-guidelines.md` | Paraphrased iOS, Material 3, Fluent and web conventions, with source links |
+| `reference/accessibility-checklist.md` | WCAG 2.2 AA checklist by POUR principle, incl. the 2.2 additions |
+| `reference/appendix-framework-palettes.md` | Optional framework mappings (Odoo website themes) |
 
-Reference docs are used by skills and agents when detailed guidance is needed.
+## Platform support
 
----
+| Platform | Status |
+|---|---|
+| Windows / macOS / Linux / WSL | Supported. The plugin is markdown only (no hooks or scripts). Figma features depend on the Figma MCP server's own support. |
 
-## Customization
+## Data & privacy
 
-### Add a design-check hook
+- **Stored:** nothing by the plugin. Files it writes (prototypes, design-system docs) go into your project only when you ask.
+- **Leaves the machine:** only through a Figma MCP server or the Figma REST API you connect, to Figma, and only for the files you name. Every write needs your explicit approval first.
+- **On screen / in context:** Figma design data, screenshots and layer text you ask it to read. Figma content is treated as data, never as instructions.
 
-`hooks/hooks.json` ships empty (`{"hooks":{}}`) — no hooks run by default. To add a file-type-scoped design check, define your own `PostToolUse` entry in `hooks/hooks.json` matching the file types you care about. Nothing fires unless you add it.
+## Limitations
 
-### Add framework-specific knowledge
+- Design rules are guidance; platform guidelines change, so check the linked originals for exact values.
+- Figma tool names follow Figma's docs as of 2026-10-19; trust the tool list your session shows.
+- Evals exist for each skill but have not been run with a recorded Delta.
 
-Create a new skill directory under `skills/` with a `SKILL.md` containing framework-specific patterns. Add its path to the `skills` array in `.claude-plugin/plugin.json`.
+## License
 
-Example: to add support for a specific UI framework, create `skills/<framework>-design/SKILL.md` with that framework's patterns and register it in the manifest.
-
-### Extend reference docs
-
-Add new `.md` files to `reference/` and reference them from your skill's SKILL.md.
-
----
-
-## Project Structure
-
-```
-ui-ux-mechanics-plugin/
-├── .claude-plugin/
-│   └── plugin.json                    # Plugin manifest
-├── skills/
-│   ├── design/
-│   │   └── SKILL.md                   # Core design knowledge
-│   ├── figma-workflow/
-│   │   └── SKILL.md                   # Figma design-to-code / code-to-design workflow
-│   └── figma-mcp-mechanics/
-│       └── SKILL.md                   # Figma MCP tool-execution mechanics
-├── agents/
-│   ├── design-reviewer.md             # UI quality audit agent
-│   └── wireframe-builder.md           # Wireframe + prototype agent
-├── commands/
-│   └── ui-ux-mechanics.md             # /ui-ux-mechanics — unified command
-├── hooks/
-│   └── hooks.json                     # empty placeholder — no active hooks
-├── reference/
-│   ├── color-theory.md                # Color palettes, contrast, dark mode
-│   ├── typography-scale.md            # Type scales, font pairing, vertical rhythm
-│   ├── layout-patterns.md             # 21 layout patterns with ASCII diagrams
-│   ├── platform-guidelines.md         # iOS HIG, Material 3, Fluent, Web
-│   └── accessibility-checklist.md     # WCAG 2.1 AA complete checklist
-└── README.md                          # This file
-```
-
----
-
-## Credits
-
-Built by **TaqaTechno** (info@taqatechno.com) for the Claude Code ecosystem.
-
-Design knowledge synthesized from:
-- Apple Human Interface Guidelines
-- Google Material Design 3
-- Microsoft Fluent Design System
-- W3C WCAG 2.1 Accessibility Guidelines
+MIT (see `LICENSE`). Apple Human Interface Guidelines, Material Design and Fluent are trademarks of their owners; this plugin paraphrases and links them and is not affiliated with them. WCAG content is summarised from W3C documents (W3C Document License).
