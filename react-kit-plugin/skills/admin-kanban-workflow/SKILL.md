@@ -43,7 +43,7 @@ Every project-specific value is a NAMED adapter input. The skill hardcodes none 
 
 1. **`STATE_SET`** — the ordered list of workflow stages (e.g. the columns). Source of truth for both column order and the state machine. The board renders this order regardless of API response order.
 2. **`TRANSITIONS`** — list of typed transitions, each `{ action, from[], to, roleGate, guard, destructive, updateRule, auditEvent }`. See the state-machine shape below.
-3. **`roleCheck(role, action)`** — adapter that resolves whether the current actor may invoke a transition. Owned by `admin-roles-and-permissions`; this skill only calls it.
+3. **`guardHelper(user, requirement)`** — the shared access check (adapter schema key, see `admin-panel-architecture/references/admin-panel-adapter.md`); each transition's `roleGate` is a requirement in the project's `accessModel` shape. Owned by `admin-roles-and-permissions`; this skill only calls it.
 4. **`boardQuery(stages)`** — data adapter returning records grouped (or groupable) by stage, plus `{ isLoading, isError, refetch, isFetching }`. Loading/error/empty affordances are owned by `data-fetching-states`.
 5. **`transitionMutation(action)`** — server call that performs one transition; returns `{ isPending, mutateAsync, error }`. The server enforces authorization + validation; the UI never decides the outcome.
 6. **`recordSummary(record)`** — adapter mapping a record to the compact card fields (title/id, status badge, owner badge).
@@ -94,7 +94,7 @@ A transition is *available* for a record only when ALL hold:
 
 ```
 record.status ∈ transition.from
-  AND roleCheck(currentRole, transition.action) == true
+  AND guardHelper(currentUser, transition.roleGate) == true
   AND transition.guard is satisfied (required fields/proof present or collected)
 ```
 
@@ -228,7 +228,7 @@ DESTRUCTIVE MOVES: <cancel> -> confirm via admin-dangerous-actions
 The board and workflow are entirely data-driven, so the skill is reusable across domains (Orders, Tickets, Requests, Records) and frameworks:
 
 - Stages, transitions, and guards are adapter inputs, not literals — any team supplies its own `STATE_SET`/`TRANSITIONS`.
-- Roles resolve through an adapter (`roleCheck`), so any RBAC model plugs in.
+- Access resolves through the shared `guardHelper`, so any access model (role enum, permission strings, module levels, policy engine) plugs in.
 - The layout rules (full-height flex, sticky headers, per-column scroll) are CSS-pattern level, not tied to a UI kit.
 - Authorization, validation, and audit live server-side; the frontend names the expectations rather than implementing policy.
 

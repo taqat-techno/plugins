@@ -1,191 +1,211 @@
 ---
-description: Generate or validate a role × resource × operation permission matrix for the admin panel. Reads the project's role list and resource list from the adapter cache; writes a Markdown table + a TypeScript / JSON config file the matrix-driven menu reads.
+description: Generate or validate the admin panel's access matrix (who may perform which operation on which resource) in the project's own access model — role enum, permission strings, module-level grants, or a policy engine. Writes a Markdown matrix plus a code config the navigation builder and guards read.
 argument-hint: "[--generate | --validate | --diff]"
 author: TAQAT Techno
-version: 0.2.0
+version: 0.3.0
 allowed-tools: Read, Glob, Grep, Write, Edit
 ---
 
 # /admin-role-matrix
 
-You are building or checking the **permission matrix** — the single source of truth for who can do what in the admin panel. The matrix drives:
+You are building or checking the **access matrix** — the single source of truth for who can do what in the admin panel. The matrix drives:
 
-- The sidebar menu (`admin-shell` reads `allowedRoles` per menu item from the matrix).
-- The per-route role guards (`admin-roles-and-permissions`).
+- The navigation builder (each nav item's `requires` comes from the matrix's `read` cell).
+- The route guards and API handlers (`admin-roles-and-permissions`), all calling one `guardHelper`.
 - The per-row permissions returned by APIs (predicates derive from the matrix).
 - The audit-log visibility scoping.
 
-Without a single matrix, role logic scatters across components and APIs, drifts, and produces "I can see X but cannot edit X" bugs.
+Without a single matrix, access logic scatters across components and APIs, drifts, and produces "I can see X but cannot edit X" bugs.
+
+Every adapter key named below is defined in `skills/admin-panel-architecture/references/admin-panel-adapter.md`. The matrix is always written in the project's existing `accessModel`; this command never converts a project to a different model.
 
 ## Modes
 
-- `--generate` (default if matrix does not exist): produce a new matrix from the adapter cache + a user-provided resource list.
-- `--validate`: read the existing matrix and the codebase; report inconsistencies.
-- `--diff`: compare the matrix to the codebase's actual role checks; report unmatched gates.
+- `--generate` (default when no matrix exists): produce a new matrix.
+- `--validate` (default when a matrix exists): read the existing matrix and the codebase; report inconsistencies.
+- `--diff`: compare the matrix to the codebase's actual access checks; report unmatched gates.
 
-## Step 0 — Read the adapter cache
+## Step 0 — Load or build the adapter
 
-Load `.react-kit.local.json`. Required keys:
+Load `.react-kit.local.json`. Required keys: `accessModel`, the `access` fields for that model, `guardHelper`, `panelDir`, `navSource`.
 
-- `roleList` — array of role names.
-- `adminBasePath` — where admin pages live (for `--validate` / `--diff`).
-
-If absent, run `/admin-scaffold` first to populate.
+- Cache present with `schemaVersion: 1` and those keys → continue.
+- Cache absent, legacy, or missing a required key → run the same detection + intake as `/admin-scaffold` Step 1, limited to the keys above (detect the access model with the schema's greps; ask only for what detection cannot resolve), and write the cache. Do not require the user to run `/admin-scaffold` first.
 
 ## Step 1 (`--generate`) — Intake the resource list
 
 Ask the user:
 
-1. **Resource list** — comma-separated entity names. (Example answer: `User, Product, Order, Invoice, AuditLog, Settings`. Plugin does NOT bake any in.)
-2. **Operation set** per resource. Default operations: `read`, `create`, `update`, `delete`. Add `import`, `export`, `impersonate`, `assign`, `transition` if those exist.
-3. **For each (role × resource × operation)**: allow / deny. Use a sensible default policy as a starting point and let the user override:
-   - Highest-privilege role: allow all.
-   - Other admin roles: allow read on everything; allow update only on their scope.
-   - Non-admin roles: deny everything (they should not have an admin matrix entry).
-4. **Per-record predicate** for any cell where the answer is "depends on the record" (e.g., a manager can update a user only if `user.team_id === manager.team_id`). Capture as a predicate name.
+1. **Resource list** — comma-separated entity names. Pre-fill with the resources detected under `panelDir`; the plugin bakes none in.
+2. **Operation set** per resource. Default: `read`, `create`, `update`, `delete`. Add `import`, `export`, `impersonate`, `assign`, `transition` where they exist. For `policy-engine`, use `access.actions`.
+3. **Each cell**, in the `accessModel` shape:
+
+   | `accessModel` | A cell answers | Starting proposal (user overrides) |
+   |---|---|---|
+   | `role-enum` | for each role in `access.roles`: allow / deny / predicate | `access.superRole` (only if set) allows all; others mirror what existing guards already allow; everything else deny |
+   | `permission-strings` | the permission string for (resource, operation); then, if `access.roles` exists, which roles hold it | `<resource>:<operation>` in `access.permissionFormat`; role bundles mirror existing bundles |
+   | `module-levels` | `{ module, minLevel }` for (resource, operation) | owning module; lowest level of `access.levels` for `read`, next level for writes; `access.adminModule` (only if set) implies all |
+   | `policy-engine` | a rule for (action, subject), with conditions if any | mirror existing rules in `access.policySource` |
+
+4. **Per-record predicate** for any cell that "depends on the record" (e.g., a team lead can update a user only if `user.team_id === lead.team_id`). Capture as a predicate name.
 
 ## Step 2 (`--generate`) — Write the matrix
 
-Two outputs:
+### Output A — Markdown matrix (`<panelDir>/ACCESS_MATRIX.md`)
 
-### Output A — Markdown table (`<admin-base>/MATRIX.md`)
+Header (all models):
 
 ```markdown
-# Admin Permission Matrix
+# Admin Access Matrix
 
-Source of truth. Generated by `/admin-role-matrix --generate`. Do not edit by hand — regenerate.
+Source of truth. Generated by `/admin-role-matrix --generate`. Regenerate rather than hand-editing.
+Access model: <accessModel>   Guard: <guardHelper>   Last updated: <YYYY-MM-DD>
 
-Last updated: <YYYY-MM-DD>
-
-Role legend:
-- `admin` — full admin access
-- `manager` — scoped admin (per-team)
-- `support` — read + comment
-- `viewer` — read-only
-
-Operations:
-- `R` read
-- `C` create
-- `U` update
-- `D` delete
-- `I` import
-- `E` export
-- `T` transition (state-machine)
-
-| Resource | admin | manager | support | viewer |
-|----------|:-----:|:-------:|:-------:|:------:|
-| User     | RCUD  | RU(team)| R       | R      |
-| Product  | RCUD  | RU      | R       | R      |
-| Order    | RCUDET| RU(team)| RC(note)| R      |
-| AuditLog | R     | R(scope)| —       | —      |
-| Settings | RCU   | —       | —       | —      |
-
-Per-record predicates:
-- `RU(team)` — manager can update if `record.team_id === manager.team_id`.
-- `R(scope)` — audit-log visibility scoped to records the manager can otherwise read.
-- `RC(note)` — support can read + create notes only (not edit the order itself).
+Operations: R read · C create · U update · D delete · I import · E export · T transition
 ```
 
-### Output B — Code config (`<admin-base>/_matrix.ts`)
+Body, per `accessModel` (rows and names are illustrative):
+
+- `role-enum` — resource × role:
+
+  ```markdown
+  | Resource | owner | editor   | support |
+  |----------|:-----:|:--------:|:-------:|
+  | Order    | RCUDE | RU(team) | R       |
+  | Settings | RCU   | —        | —       |
+  ```
+
+- `permission-strings` — resource × operation → permission, then role bundles if roles exist:
+
+  ```markdown
+  | Resource | R           | C             | U             | D             |
+  |----------|-------------|---------------|---------------|---------------|
+  | Order    | orders:read | orders:create | orders:update | orders:delete |
+
+  | Role    | Permissions                      |
+  |---------|----------------------------------|
+  | editor  | orders:read, orders:update(team) |
+  ```
+
+- `module-levels` — resource × operation → module @ minLevel:
+
+  ```markdown
+  | Resource | R            | C            | U                 | D              |
+  |----------|--------------|--------------|-------------------|----------------|
+  | Order    | orders@view  | orders@edit  | orders@edit(team) | orders@manage  |
+  ```
+
+- `policy-engine` — subject × action → rule summary:
+
+  ```markdown
+  | Subject | read          | update                  | delete        |
+  |---------|---------------|-------------------------|---------------|
+  | Order   | role in staff | owner, or team(team)    | role = owner  |
+  ```
+
+Footer (all models): the list of per-record predicates with their meaning.
+
+### Output B — Code config (`<panelDir>/_access.ts`, or the model's native file)
+
+One typed export per model. The shared shape is a requirement per (resource, operation), evaluated by `guardHelper`:
 
 ```ts
-// Generated by /admin-role-matrix --generate. Do not edit by hand.
-export type Role = 'admin' | 'manager' | 'support' | 'viewer'
+// Generated by /admin-role-matrix --generate. Regenerate rather than hand-editing.
 export type Operation = 'read' | 'create' | 'update' | 'delete' | 'import' | 'export' | 'transition'
-
-export type MatrixCell =
-  | { allowed: true }
-  | { allowed: 'predicate'; predicate: string }
-  | { allowed: false }
-
-export const MATRIX: Record<string, Record<Role, Partial<Record<Operation, MatrixCell>>>> = {
-  User: {
-    admin: { read: { allowed: true }, create: { allowed: true }, update: { allowed: true }, delete: { allowed: true } },
-    manager: { read: { allowed: true }, update: { allowed: 'predicate', predicate: 'sameTeam' } },
-    support: { read: { allowed: true } },
-    viewer: { read: { allowed: true } },
-  },
-  // ...
-}
-
-export function canPerform(role: Role, resource: string, op: Operation): MatrixCell {
-  return MATRIX[resource]?.[role]?.[op] ?? { allowed: false }
-}
+export type Cell<R> = { requires: R; predicate?: string }   // predicate = per-record rule name
+export const ACCESS: Record<string, Partial<Record<Operation, Cell<Requirement>>>> = { /* ... */ }
+export const requirementFor = (resource: string, op: Operation) => ACCESS[resource]?.[op] // undefined = deny
 ```
 
-### Output C — Menu definition cross-reference (`<admin-base>/_menu.ts`)
+`Requirement` per model (illustrative):
 
-Update the menu definition so each item's `allowedRoles` derives from the matrix (any role with `read` on that resource):
+| `accessModel` | `Requirement` | Example cell |
+|---|---|---|
+| `role-enum` | `{ roles: Role[] }` with `type Role` imported from `access.roleSource` | `update: { requires: { roles: ['owner', 'editor'] }, predicate: 'sameTeam' }` |
+| `permission-strings` | `{ permission: Permission }` | `update: { requires: { permission: 'orders:update' } }` |
+| `module-levels` | `{ module: Module; minLevel: Level }` with `Level` ordered as `access.levels` | `update: { requires: { module: 'orders', minLevel: 'edit' } }` |
+| `policy-engine` | `{ action: Action; subject: Subject }` | `update: { requires: { action: 'update', subject: 'Order' } }` |
+
+For `policy-engine`, also write the rules into `access.policySource` **only** when policies live in the repo (CASL `defineAbilityFor`, Casbin `policy.csv`), and only after the user approves the diff. When policies live in an external service (OPA, Cerbos, permit), write `ACCESS_MATRIX.md` + `_access.ts` and list the rules the user must add there — never generate the remote policy as if it were applied.
+
+For `permission-strings` with `access.roles`, the role → permission bundles go to `access.rolePermissionsSource` in its existing format, after user approval.
+
+### Output C — Navigation cross-reference (`navSource`)
+
+Each nav item's `requires` derives from the matrix's `read` cell, so nav and guard cannot drift:
 
 ```ts
-export const ALL_MENU_ITEMS = [
-  { href: '/admin/users',    labelKey: 'admin.menu.users',    icon: 'users',    resource: 'User'    },
-  { href: '/admin/products', labelKey: 'admin.menu.products', icon: 'box',      resource: 'Product' },
-  // ...
-].map(item => ({
-  ...item,
-  allowedRoles: ROLES.filter(role => canPerform(role, item.resource, 'read').allowed !== false),
-}))
+export const NAV_ITEMS = [
+  { href: '/admin/orders',   labelKey: 'admin.nav.orders',   icon: 'cart', resource: 'Order'   },
+  { href: '/admin/settings', labelKey: 'admin.nav.settings', icon: 'cog',  resource: 'Settings' },
+].map(item => ({ ...item, requires: requirementFor(item.resource, 'read')?.requires }))
+// buildNavigation keeps an item only when guardHelper(user, item.requires) is true
 ```
+
+If the project's nav already uses a different field for this (e.g. `allowedRoles`, `permission`, `module`), keep its name and derive the value from the matrix.
 
 ## Step 3 (`--validate`) — Check the existing matrix
 
-Read `_matrix.ts` and `MATRIX.md`. Verify:
+Read `_access.ts` (or the model's native file) and `ACCESS_MATRIX.md`. Verify:
 
-- [ ] Every role in `roleList` (from adapter cache) appears in the matrix.
-- [ ] Every resource in `MATRIX` appears in `MATRIX.md` (and vice versa).
-- [ ] Every menu item's `resource` matches a matrix resource.
-- [ ] No menu item with `allowedRoles: []` (means nobody can see it — likely a bug).
+- [ ] The matrix's model equals `accessModel` in the cache.
+- [ ] Every value used exists in the adapter: roles in `access.roles`; permissions match `access.permissionFormat` (and `access.permissions` when it is a list); modules/levels in `access.modules`/`access.levels`; actions/subjects in `access.actions`/`access.subjects`.
+- [ ] Every resource in the code config appears in `ACCESS_MATRIX.md` (and vice versa).
+- [ ] Every nav item's `resource` matches a matrix resource, and its `requires` equals the `read` cell.
+- [ ] No nav item whose requirement nobody satisfies (no role, no bundle, no grant, no rule) — likely a bug.
 - [ ] Predicates referenced (`'sameTeam'`, etc.) are implemented somewhere in the codebase.
-- [ ] No dead role (one in the matrix but never used in code).
+- [ ] No dead value (a role, permission, module, or subject in the matrix but never checked in code).
 
 Report findings in the same table format as `/admin-audit`.
 
 ## Step 4 (`--diff`) — Compare matrix to codebase reality
 
-For each admin route handler in `<admin-base>`:
+For each admin route handler, server action, and page under `panelDir`:
 
-1. Grep for role checks: `requireRole('X')`, `if (session.role !== ...)`, `hasRole(...)`, `can(...)`, etc.
-2. Map each check to a (resource, operation) — by URL path + HTTP verb if it's a route handler.
-3. Compare to matrix:
+1. Grep for access checks: calls to `guardHelper`, plus the model's native checks from the schema's detection table (`hasRole(` / `requireRole(` / `role ===`; `hasPermission(` / permission literals; `hasModule(` / `minLevel`; `ability.can(` / `<Can I=` / `enforce(`).
+2. Map each check to a (resource, operation) — by URL path + HTTP verb for route handlers.
+3. Compare to the matrix:
    - **In code, not in matrix**: undocumented gate (should the matrix know about it?).
    - **In matrix, not in code**: claimed access not enforced (could be a leak — verify).
-   - **Both, but predicate differs**: drift; matrix says `sameTeam`, code says `manager.id === user.creator_id` — pick one.
+   - **Both, but requirement or predicate differs**: drift; pick one with the user.
+   - **Check bypasses `guardHelper`** (inline literal comparison): drift risk even if values match.
 
-Report as a 3-column table:
+Report as a table:
 
 ```
 DIFF — matrix vs code
 
-| Resource:Op | Matrix says | Code says        | Verdict     |
-|-------------|-------------|------------------|-------------|
-| User:read   | allowed all | requireAdmin only| LEAK        |
-| User:update | sameTeam    | sameCreator      | DRIFT       |
-| Product:delete | admin only | admin only       | OK          |
+| Resource:Op    | Matrix says           | Code says              | Verdict |
+|----------------|-----------------------|------------------------|---------|
+| Order:read     | <requirement>         | <requirement>          | OK      |
+| Order:update   | <req> + sameTeam      | <req> + sameCreator    | DRIFT   |
+| Order:delete   | <stricter req>        | no check               | LEAK    |
 ```
 
 ## Step 5 — What NOT to do
 
+- Do NOT convert the project to a different access model. If the user wants that, it is a separate migration task.
 - Do NOT change a permission without surfacing the change to the user.
-- Do NOT remove a role from the matrix even if "unused in code" — confirm with the user first (it might be a planned role).
-- Do NOT add an `allowedRoles: ['admin', 'manager', 'support', 'viewer']` ("everyone") cell without asking — that is rarely correct for any operation other than `read`.
+- Do NOT remove a role, permission, module, or subject even if "unused in code" — confirm with the user first (it might be planned).
+- Do NOT add an "everyone" cell (all roles / a wildcard permission / every module / an unconditional rule) without asking — that is rarely correct for any operation other than `read`.
 - Do NOT auto-fix drift in `--diff`. Report; let the user choose code-or-matrix as truth.
 - Do NOT generate predicates that the codebase does not implement (a referenced predicate that does not exist is a deferred bug).
+- Do NOT write to an external policy service or present generated external policy as applied.
 
 ## Step 6 — Report
 
-After running, report:
-
 ```
 MATRIX — <mode>
-  Roles: <count>
+  Access model: <accessModel>   Guard: <guardHelper>
   Resources: <count>
   Operations: <count>
+  Principals: <count>   (roles | permissions | module×level pairs | subjects)
   Predicates: <count> (<implemented> implemented, <missing> missing)
-  Menu items: <count> (<no-role> with empty allowedRoles)
+  Nav items: <count> (<unreachable> whose requirement nobody satisfies)
   Cells: <total> (<allow> allow, <deny> deny, <predicate> predicate)
   Drift items: <count>
   Leak items: <count>
+  External policy rules to add: <none | count>
 ```
 
 For `--validate` and `--diff`, the finding count drives the next action. The user decides what to fix.

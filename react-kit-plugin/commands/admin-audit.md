@@ -33,9 +33,11 @@ Confirm the path exists. If it does not, ask the user to recheck.
 
 ## Step 1 — Read the adapter cache
 
-Load `.react-kit.local.json` if present. This gives you the project's role list, PII fields, auth helper, and audit helper names — so the audit checks against actual identifiers, not generic ones.
+Load `.react-kit.local.json` if present. Keys are defined in `skills/admin-panel-architecture/references/admin-panel-adapter.md`; the audit uses `accessModel` + `access`, `guardHelper`, `piiFields`, `authHelper`, `auditHelper`, `panelDir`, `rtlLocales`, `cssFramework` — so it checks against actual identifiers, not generic ones. A legacy cache (no `schemaVersion`) is read through the schema's *Legacy cache keys* table.
 
-If the cache is absent, run the audit with generic checks and note in the report that role / PII / auth specifics could not be verified.
+If the cache is absent, run the audit with generic checks: detect the access model read-only with the schema's greps (do not write a cache — this command is read-only), and note in the report which specifics could not be verified.
+
+Judge access checks in the project's own `accessModel`. A role enum, permission strings, module-level grants, and a policy engine are all valid; never report the model itself as a finding.
 
 ## Step 2 — Run the audit (read-only)
 
@@ -45,9 +47,10 @@ For each file in scope, check:
 
 | Check | How |
 |---|---|
-| Paired UI/API gate | For each role-conditional render (`if (role === ...)`, `{allowedRoles.includes(...) && <X/>}`), grep the matching API path for a server-side role check. If missing → finding. |
-| Role claim source | Find role reads. If from URL params, headers under client control, or unverified context → finding. |
-| Per-action permission | For each row/bulk destructive action, check that the API endpoint re-checks the permission predicate. |
+| Paired UI/API gate | For each access-conditional render (`role === ...`, `allowedRoles.includes(...)`, `hasPermission(...)`, `ability.can(...)`, `<Can I=...>`, a `guardHelper` call), grep the matching API path for a server-side check with the same requirement. If missing → finding. |
+| Access-data source | Find reads of roles / permissions / grants / ability. If from URL params, headers under client control, or unverified context → finding. |
+| Per-action permission | For each row/bulk destructive action, check that the API endpoint re-checks the requirement via `guardHelper` (or the model's native check). |
+| One guard | Access checks that bypass `guardHelper` with inline literals (`role === 'x'`, a hand-typed permission string) while a shared guard exists → LOW (drift risk). |
 
 ### Section B — PII
 
@@ -110,7 +113,7 @@ For each file in scope, check:
 | Per-row partial-error | One row failing crashes whole list → finding. |
 | Auto-dismiss error toast | Errors should be manual-dismiss. |
 
-### Section H — RTL/LTR (only if RTL locales configured)
+### Section H — RTL/LTR (only if `rtlLocales` is non-empty)
 
 | Check | How |
 |---|---|

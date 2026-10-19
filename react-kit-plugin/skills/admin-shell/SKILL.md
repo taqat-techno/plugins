@@ -8,7 +8,7 @@ owns:
   - i18n context provider placement at shell level
   - language toggle pattern (persisted locale)
   - sidebar collapse state (persisted UI preference)
-  - shell-level route guard composition (auth → role → render)
+  - shell-level route guard composition (auth → access check → render)
   - breadcrumb derivation pattern
 defers_to:
   - project auth layer (login / session / role claim)
@@ -34,7 +34,7 @@ Activate when:
 - Adding a menu item to the sidebar.
 - Building or modifying the header (user menu, language toggle, role badge, notification bell).
 - Wiring i18n context — translation provider, locale persistence.
-- Implementing a route guard at the layout level (auth check, role check before rendering children).
+- Implementing a route guard at the layout level (auth check, access check before rendering children).
 - Adding breadcrumb support.
 - Persisting a UI preference (collapsed sidebar, theme, locale).
 
@@ -45,12 +45,15 @@ Skip when:
 
 ## Inputs (adapter)
 
-1. **Admin base path** — where admin pages live (`app/admin`, `src/admin`, `pages/admin`).
-2. **Auth helper import** — function that returns the current session + role.
-3. **i18n library** — react-i18next, next-intl, lingui, formatjs, or a hand-rolled context. The shell adapts to whichever you use.
-4. **RTL languages list** — locales that flip layout direction. Empty if the app is LTR-only.
-5. **Brand assets path** — logo, favicon (the shell renders them; this plugin does not author them).
-6. **Menu definition source** — single file that declares all menu items with their `allowedRoles`. (Owned by `admin-roles-and-permissions`.)
+Adapter keys are defined once in `admin-panel-architecture/references/admin-panel-adapter.md`. The shell uses:
+
+1. **`panelDir` / `panelBasePath`** — where admin pages live (`app/admin`, `src/admin`, `pages/admin`) and their URL prefix.
+2. **`authHelper`** — function that returns the verified current user/session.
+3. **`guardHelper`** — the shared access check (its requirement shape follows the project's `accessModel`).
+4. **`i18nLibrary`** — react-i18next, next-intl, lingui, formatjs, or a hand-rolled context. The shell adapts to whichever you use.
+5. **`rtlLocales`** — locales that flip layout direction. Empty if the app is LTR-only.
+6. **`navSource`** — the single navigation builder / menu definition; each item carries a `requires` requirement. (Requirements owned by `admin-roles-and-permissions`.)
+7. **Brand assets path** — logo, favicon (the shell renders them; this plugin does not author them).
 
 ## Read-only investigation steps
 
@@ -58,7 +61,7 @@ Before adding a feature to the shell, confirm:
 
 1. **Does this belong in the shell, or in a page?** If only one page needs it, it goes in the page. The shell is shared chrome.
 2. **Is the existing shell composing or coupling?** Composing = the shell takes children and renders them inside a layout. Coupling = the shell knows what page is rendered and changes behavior accordingly. The first is correct; the second is a smell.
-3. **Where does the role claim come from?** The shell should read role from the session helper, never from a context populated by a page (causes flicker, race, and incorrect-during-bootstrap state).
+3. **Where does the access data come from?** The shell should read the user's role / permissions / grants / ability from the session helper, never from a context populated by a page (causes flicker, race, and incorrect-during-bootstrap state).
 4. **Is the i18n provider rendered above the menu?** If not, menu translation keys break on first render.
 
 ## Decision framework
@@ -69,13 +72,13 @@ Before adding a feature to the shell, confirm:
 // layout.tsx (server component if your framework supports it)
 const session = await getSession()
 if (!session) redirect('/login')
-if (!isAdminRole(session.role)) redirect('/unauthorized')
+if (!(await guardHelper(session.user, PANEL_ACCESS))) redirect('/unauthorized')  // PANEL_ACCESS: requirement in the accessModel shape
 
 return (
   <AdminI18nProvider locale={session.locale}>
     <DirectionWrapper locale={session.locale}>
       <div className="admin-shell">
-        <AdminSidebar role={session.role} />
+        <AdminSidebar nav={buildNavigation(session.user, flags)} />
         <div className="admin-shell-main">
           <AdminHeader user={session.user} />
           <main>{children}</main>
@@ -91,14 +94,14 @@ Key choices in this shape:
 - **Auth check is server-side** (when the framework supports it). Pages never see the layout if the user is not allowed.
 - **i18n provider is highest** so menu, header, and pages all share one context.
 - **Direction wrapper is just below i18n** — direction depends on locale.
-- **Sidebar is fed `role`**, not the entire session. The sidebar's only job is to render menu items the role can see (per `admin-roles-and-permissions`).
+- **Sidebar is fed the already-filtered nav**, not the session. Filtering happens once in `buildNavigation` via `guardHelper` (per `admin-panel-architecture`); the sidebar only renders what it receives.
 - **Children render in `<main>`** — the shell does not wrap them in extra layout (extra wrappers leak into page styling).
 
 ### Sidebar pattern
 
 ```tsx
-function AdminSidebar({ role }: { role: Role }) {
-  const items = ALL_MENU_ITEMS.filter(i => i.allowedRoles.includes(role))
+function AdminSidebar({ nav }: { nav: NavConfig }) {
+  const items = nav.sections.flatMap(s => s.items)   // already filtered by buildNavigation
   const t = useT()
   return (
     <nav aria-label={t('admin.sidebar.label')}>
@@ -115,7 +118,7 @@ function AdminSidebar({ role }: { role: Role }) {
 }
 ```
 
-- Single menu source (`ALL_MENU_ITEMS`) lives next to the matrix from `admin-roles-and-permissions`.
+- Single menu source (`navSource`) lives next to the matrix from `admin-roles-and-permissions`; the sidebar never re-filters it.
 - Labels are i18n keys, not literal strings. The shell never hard-codes language.
 - Icons are imported once; the menu source picks them by name.
 - Active link state derives from current URL, not from a context the sidebar mutates.
@@ -196,7 +199,7 @@ Before committing a shell change:
 - [ ] i18n provider wraps menu + header + content.
 - [ ] No business data fetched in the layout.
 - [ ] No PII printed to console in shell components.
-- [ ] Menu items derive from the single menu source; no inline `if (role === 'admin')` in the sidebar.
+- [ ] Menu items derive from the single menu source via `buildNavigation`; no inline role/permission checks in the sidebar.
 - [ ] Locale persistence works for both first render (SSR) and language switch (CSR).
 - [ ] Sidebar collapse state restored without flicker.
 - [ ] Tested in both LTR and RTL locales if any RTL locale is configured.
@@ -221,7 +224,7 @@ ADMIN SHELL
 |---|---|---|
 | Shell fetches "current notifications" on every page load | Couples shell to a feature; one slow API stalls every page | Notification bell is a self-contained client component that fetches its own data |
 | Page sets `document.title` and the header also reads it | Two sources of truth; race-y | Page sets title via the framework's metadata API; shell does not duplicate |
-| Sidebar `if (user.role === 'admin') return adminMenu; else if ...` | Role logic scattered; one new role becomes a multi-file change | Menu source declares `allowedRoles`; sidebar filters |
+| Sidebar `if (user.role === 'admin') return adminMenu; else if ...` | Role logic scattered; one new role becomes a multi-file change | Menu source declares each item's `requires`; `buildNavigation` filters via `guardHelper`; sidebar only renders |
 | Locale stored only in client state | Lost on refresh; SSR renders the wrong language | Store in cookie + `localStorage` |
 | Hard-coded "EN / AR" toggle | Adding a third locale becomes a UI hunt | Toggle reads from configured locales list |
 | Shell renders children inside `<div className="page-wrapper">` | Page styling now fights the wrapper | Render children directly in `<main>` |

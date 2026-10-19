@@ -1,213 +1,256 @@
-# Admin panel adapter (project inputs)
+# Admin panel adapter schema (single owner)
 
-The react-kit admin-panel skills stay project-agnostic by reading a single **adapter** that each project supplies. The adapter is the only place where project-specific names, paths, roles, and library choices live. Skill logic (navigation building, route guarding, active-route detection, responsive shell) consumes the adapter and never hard-codes any of these values.
+This file is the **one** definition of the react-kit admin adapter. Every skill, command, and agent in this plugin reads adapter values by the key names defined here and nowhere else. If a skill or command needs a new project value, add the key here first, then reference it.
 
-This page is a checklist of the adapter fields a project must provide, the contract each field must satisfy, and an illustrative adapter shape. Provide every field below; defaults are noted where a field is optional.
+The adapter has two forms that share the same key names:
 
-## How the adapter is used
+1. **The adapter cache** — `.react-kit.local.json` in the project root (gitignored). Written by `/admin-scaffold` or `/admin-role-matrix` after detection + intake; read by every command and by the `admin-route-auditor` agent.
+2. **The runtime contract** — what the project's code exposes (guard helper, navigation builder, auth status). Skills describe it with the same keys so the cache and the code never use different words for the same concept.
 
-The adapter is loaded once at the panel root and passed down (via context or props) to every shell component and hook. Rules:
+Rules:
 
-- **One adapter per project.** Do not scatter project names across components. If a value is project-specific, it belongs in the adapter.
-- **Skills read, never write.** Skill code treats the adapter as immutable configuration resolved at startup.
-- **No business nouns in skill code.** Skills refer to abstract entities (Orders, Tickets, Requests, Customers, Products, Records) and to adapter fields, never to a concrete domain term.
-- **Examples are non-binding.** Every concrete example in this doc is labeled illustrative. Plugin behavior must never depend on any example value.
+- **One adapter per project.** Project-specific names, paths, roles, permissions, and library choices live in the adapter, never in skill logic.
+- **Detect first, ask second.** Every key lists how to detect it from the codebase. Ask the user only for keys detection could not resolve, and say what was detected.
+- **Adapt to the existing access model; never migrate it.** The adapter records the access model the project already uses. No skill or command proposes replacing it unless the user explicitly asks for a migration.
+- **Examples are non-binding.** Every concrete value below is illustrative. Plugin behavior must never depend on an example value.
 
-## Adapter field checklist
+## Adapter keys
 
-| Field | Type | Required | Purpose |
+| Key | Type | Required | Purpose | Detect from |
+|---|---|---|---|---|
+| `schemaVersion` | number | yes | Cache format version. Currently `1`. | — |
+| `framework` | `next-app` \| `next-pages` \| `remix` \| `vite-react` \| `other` | yes | Shapes the file layout commands generate. | `package.json` deps; `app/` vs `pages/` dirs; `remix.config.*` / `vite.config.*` |
+| `panelDir` | string | yes | Source directory that holds the panel's routes. | existing admin/staff route folder (`app/**/admin`, `src/routes/admin*`, `pages/admin`) |
+| `panelBasePath` | string | yes | URL prefix of every panel route. | route folder name, middleware matchers, nav hrefs |
+| `accessModel` | `role-enum` \| `permission-strings` \| `module-levels` \| `policy-engine` | yes | How the project expresses who may do what. Selects the per-model fields below. | see [Detecting the access model](#detecting-the-access-model) |
+| `access` | object | yes | Per-model fields for the selected `accessModel`. | see each model |
+| `authHelper` | string (import) | yes | Returns the verified current user/session on the server. | `auth()`, `getServerSession`, `getSession`, `currentUser`, `getUser` imports |
+| `guardHelper` | string (import/name) | yes | The ONE access check used by route guards, the navigation builder, and API handlers. Signature depends on `accessModel`. | the most-used check function among the detection hits |
+| `auditHelper` | string (import) \| `"none"` | yes | Writes an audit row. `"none"` means commands scaffold a minimal one. | `audit(`, `auditLog.`, `logAccess(`, an `AuditLog` model |
+| `navSource` | string (path) \| `"none"` | yes | File holding the single navigation builder or menu definition. | `buildNavigation`, `ALL_MENU_ITEMS`, `navItems`, `sidebarConfig` |
+| `piiFields` | string[] | yes | Sensitive field names, masked by default. Not reliably detectable; always confirm with the user. | hints only: `email`, `phone`, `national_id`, `dob`, `address` in schemas |
+| `rtlLocales` | string[] | no (default `[]`) | Locales rendered right-to-left. | i18n config (`ar`, `he`, `fa`, `ur` in locale lists) |
+| `i18nLibrary` | string \| `"none"` | no | Translation provider the shell wraps. | `next-intl`, `react-i18next`, `@lingui/*`, `react-intl` |
+| `dataLibrary` | string | no | Data-fetching/cache library. | `@tanstack/react-query`, `swr`, `@apollo/client`, `@reduxjs/toolkit` (RTK Query) |
+| `uiLibrary` | string \| `"none"` | no | Component primitives library. | `@radix-ui/*`, `@mui/*`, `@chakra-ui/*`, `@mantine/*`, `antd`, shadcn `components/ui` |
+| `validationLibrary` | `zod` \| `yup` \| `joi` \| `valibot` \| `none` | no | Shared client/server schema library. | `package.json` |
+| `formLibrary` | `react-hook-form` \| `formik` \| `tanstack-form` \| `plain` | no | Form state library. | `package.json` |
+| `cssFramework` | `tailwind` \| `css-modules` \| `vanilla` \| `styled-components` \| `other` | no | Decides utility vs property names in RTL checks. | `tailwind.config.*`, `*.module.css`, `styled-components` dep |
+| `importFormat` | `csv` \| `xlsx` \| `json` \| `none` | no | Only when import/export is scaffolded. | existing import handlers |
+| `flags` | object | no | Extra booleans the navigation builder reads. | — |
+
+## Access models
+
+Every model plugs into the same universal contract: one `guardHelper`, one navigation builder that calls it, and a **requirement** object attached to each nav item, route, and action. The requirement shape is the only thing that changes per model. A cross-resource section uses `{ anyOf: [requirement, ...] }` (OR logic) in every model.
+
+### `role-enum` — each user has one (or a few) named roles
+
+`access` fields:
+
+| Field | Type | Required | Meaning |
 |---|---|---|---|
-| `panelBasePath` | string | yes | Path prefix under which all admin/staff routes live. |
-| `roleModel` | object | yes | Module/grant map shape + level semantics. |
-| `buildNavigation` | function | yes | Pure factory: grants -> filtered nav sections. |
-| `auth` | object | yes | How to read current identity, grants, and auth status. |
-| `audit` | function | optional | How to record an audit event. No-op default. |
-| `dataClient` | object | yes | Data-fetching library binding (query/mutation). |
-| `ui` | object | yes | Component library + status-badge palette. |
-| `rtlLocales` | string[] | optional | Locale codes that render right-to-left. Default `[]`. |
+| `roles` | string[] | yes | The role values, as defined in code. |
+| `roleSource` | string | yes | Where the role type is defined (`prisma/schema.prisma` `enum Role`, `types/auth.ts`). |
+| `multiRole` | boolean | no (default `false`) | `true` when a user can hold several roles. |
+| `superRole` | string \| null | no (default `null`) | A role that bypasses every check. Set only if the code already does this; never invent one. |
 
-## Panel base path
+- Requirement: `{ roles: ['admin', 'editor'] }` (nav items commonly spell this `allowedRoles`).
+- Guard: `guardHelper(user, { roles })` → user's role(s) intersect `roles`.
+- Matrix cell: role × resource × operation → allow / deny / predicate.
+- Trade-offs: simplest to read and audit; every new capability means editing role lists; per-resource nuance needs record predicates.
 
-The single prefix under which every protected admin route lives. All guards, redirects, and active-route matching derive from it.
+### `permission-strings` — checks name a capability string
 
-- Provide one value, e.g. an admin/staff prefix. Skills compose all routes as `<panelBasePath>/<segment>`.
-- The "current area" is the first path segment after `panelBasePath`.
-- The default landing route for an authenticated user is computed from grants (see `auth.defaultRouteFor`), never hard-coded.
-- Use a trailing-slash-aware match for active detection: a route is active when `pathname === href` **or** `pathname.startsWith(href + "/")`. This avoids `/area` falsely matching `/area-extra`.
+`access` fields:
 
-## Role / module model and level semantics
+| Field | Type | Required | Meaning |
+|---|---|---|---|
+| `permissionFormat` | string | yes | Shape of a permission, e.g. `resource:action`, `resource.action`, `action_resource`. |
+| `permissions` | string[] \| `"derived"` | yes | Known permission set, or `"derived"` when it is generated from resources × operations. |
+| `wildcard` | string \| null | no | Wildcard token the code already supports (`*`, `orders:*`). `null` if none. |
+| `roles` | string[] | no | Present when roles bundle permissions (role → permission set). |
+| `rolePermissionsSource` | string | no | File or table that maps roles to permissions. |
 
-Access is **grant-based**, not a single role enum. A user carries a map of grant-key to level. This generalizes single-role systems and multi-area systems alike.
+- Requirement: `{ permission: 'orders:read' }`.
+- Guard: `guardHelper(user, { permission })` → user's effective permission set contains it (honouring `wildcard` only if the code does).
+- Matrix cell: resource × operation → permission string, plus role → permission set when `roles` exists.
+- Trade-offs: fine-grained and stable as roles change; the permission list grows and needs naming discipline; roles become bundles rather than checks.
 
-Level semantics (ordered, low to high):
+### `module-levels` — per-area grants at ordered levels
 
-| Level | Meaning |
+`access` fields:
+
+| Field | Type | Required | Meaning |
+|---|---|---|---|
+| `modules` | string[] | yes | The areas the project defines. |
+| `levels` | string[] | yes | The project's own level names, ordered lowest → highest (e.g. `view` < `edit` < `manage`). Names and count are project-defined. |
+| `adminModule` | string \| null | no (default `null`) | A module that implies every other module at the highest level. Set only if the code already does this. |
+
+- Requirement: `{ module: 'orders', minLevel: 'edit' }`.
+- Guard (reference pseudo-code):
+
+  ```
+  hasAccess(grants, module, minLevel):
+      if adminModule and adminModule in grants: return true   # only when adminModule is set
+      level = grants[module]
+      if not level: return false
+      return index(level) >= index(minLevel)                  # by access.levels order
+  ```
+
+- Matrix cell: resource × operation → (module, minLevel).
+- Trade-offs: expresses multi-area staff without a role explosion; levels are coarse, so per-action exceptions need predicates; the level order is a policy decision the project owns.
+
+### `policy-engine` — an ability/policy library or service decides
+
+`access` fields:
+
+| Field | Type | Required | Meaning |
+|---|---|---|---|
+| `engine` | `casl` \| `casbin` \| `opa` \| `cerbos` \| `oso` \| `permit` \| `other` | yes | The engine in use. |
+| `abilityImport` | string | yes | How code obtains a decision (`defineAbilityFor(user)`, an `enforcer`, a PDP client). |
+| `actions` | string[] | yes | Action vocabulary (`read`, `create`, `update`, `delete`, `manage`, ...). |
+| `subjects` | string[] | yes | Resource/subject types the policies cover. |
+| `policySource` | string | yes | Where policies live (`src/abilities.ts`, `policy.csv`, `policies/*.rego`, a remote PDP). |
+| `evaluatedWhere` | `client+server` \| `server-only` | yes | `server-only` means the client reads decisions from the API instead of evaluating policies. |
+
+- Requirement: `{ action: 'read', subject: 'Order' }` (optionally with a record for attribute conditions).
+- Guard: `guardHelper(user, { action, subject }, record?)` → the engine's `can` / `enforce` / decision call.
+- Matrix: rules in the engine's native format (CASL rules, Casbin `p, sub, obj, act` lines). When policies live outside the repo (OPA/Cerbos/permit service), the matrix is a review document plus checks, never a generated policy.
+- Trade-offs: expresses attribute/record conditions and central policy; adds a dependency and a decision layer to debug; client-side evaluation needs the same rules shipped to the browser or a decisions endpoint.
+
+### Mixed models
+
+Real projects often combine models: roles that bundle permission strings, or role enums plus a policy library for record rules. Record the model the **guard evaluates** as `accessModel` and the upstream source in its per-model fields (e.g. `permission-strings` with `roles` + `rolePermissionsSource`, or `policy-engine` whose rules are written per role). Note any remaining layer in the plan's open questions instead of collapsing it.
+
+## Detecting the access model
+
+Search the source tree (excluding `node_modules`, build output, and lock files). Count hits per model and identify the function the existing guards actually call.
+
+| Model | Grep for (illustrative patterns) |
 |---|---|
-| `read` | May view records in the area. |
-| `full` | May create/update/delete records in the area. |
-| `manager` | Full plus area-administration actions (assignment, approvals, configuration). |
+| `role-enum` | `type Role =`, `enum Role`, `role ===`, `role !==`, `roles.includes(`, `hasRole(`, `requireRole(`, `isAdmin(`, `session.user.role`, `allowedRoles` |
+| `permission-strings` | quoted `'<word>:<word>'` / `'<word>.<word>'` capability literals passed to checks, `hasPermission(`, `requirePermission(`, `permissions.includes(`, `can('<word>:<word>')`, `PERMISSIONS = {` |
+| `module-levels` | a map of area → level (`grants[`, `modules[`), `hasModule(`, `minLevel`, an ordered levels array used with `indexOf` |
+| `policy-engine` | imports of `@casl/ability`, `@casl/react`, `casbin`, `@open-policy-agent/*`, `@cerbos/*`, `oso`, `permitio`; `defineAbility`, `AbilityBuilder`, `<Can I=`, `enforcer.enforce(`; `*.rego`, `model.conf`, `policy.csv` |
 
-Rules the adapter must encode:
+Decision:
 
-- **Minimum-level checks.** An access check is "has grant `K` at level `>= L`". A `manager` grant satisfies a `read` or `full` requirement for the same key.
-- **Admin-implies-all.** A designated admin grant implicitly satisfies every area check. The adapter exposes which grant key is the admin key; skills do not assume a literal name.
-- **Grants are dynamic.** Never branch on a fixed role string. Read grants from auth state every render; they can change mid-session.
-- **Two-gate enforcement.** Server middleware is the first gate; client guards/hooks are the second. Both consult the same grant map (server reads a synced cookie/snapshot; client reads the live store).
-- **Cross-area resources.** Some routes require any-of several grants. Encode these as an explicit allow-set, not as a single key.
+- **One model dominates the guards** → record it; report the evidence (file:line of the guard and of the type/policy definition).
+- **Several models present** → apply [Mixed models](#mixed-models); state the layering you inferred.
+- **No access code, or hits are contradictory** → detection is inconclusive. Present the four models with their trade-offs (above) and ask the user to pick. Do not default silently.
 
-## Navigation source: `buildNavigation`
+## Runtime contract
 
-Navigation is produced by one pure function, not hard-coded per role. It takes the user's grants (and any extra flags the project needs) and returns a config of **already-filtered** sections.
+### Navigation builder
 
-Contract:
+One pure function produces the navigation; nothing else decides which links render.
 
-- **Signature:** `buildNavigation(grants, flags?) -> NavConfig`.
-- **Pure and memoizable.** Same inputs -> same output. Skills memoize on grants so the sidebar only rebuilds when grants change.
-- **Filtering happens here, only here.** The returned sections contain only items the user may reach. Shell components must not re-filter or conditionally add items at render time.
-- **Stable ordering.** Section order follows a project-defined priority. Shared sections that several grants can see are emitted once.
-- **No forbidden hrefs.** Every emitted item's href must be reachable per the same rules the server gate enforces.
+- **Signature:** `buildNavigation(user, flags?) -> NavConfig`. Each item carries a `requires` requirement in the selected model's shape.
+- **Filtering happens only here**, by calling `guardHelper(user, item.requires)`. Shell components render the result; they never re-filter.
+- **Mirrors the route guard.** The builder and the route/API guard call the same `guardHelper` with the same requirement, so nav and server never disagree.
+- **Deterministic order.** Sections follow a fixed project-defined priority; shared sections that several users can reach are emitted once.
+- **Pure and memoizable** on the user's access data.
 
 NavConfig shape (illustrative — not required):
 
 ```ts
 type NavItem = {
-  href: string;        // composed under panelBasePath
-  label: string;
+  href: string;          // composed under panelBasePath
+  label: string;         // or an i18n key
   icon?: string;
-  badgeKey?: string;   // optional live count source (e.g. "pendingRequests")
+  badgeKey?: string;     // optional live count source
+  requires: Requirement; // shape per accessModel; { anyOf: [...] } for cross-resource items
 };
-type NavSection = {
-  title?: string;      // hidden when sidebar is collapsed
-  items: NavItem[];
-};
+type NavSection = { title?: string; items: NavItem[] };
 type NavConfig = { sections: NavSection[] };
 ```
 
-## Auth helper and reading current identity
-
-The adapter exposes how skills learn who the current user is, what they are allowed to do, and whether auth is settled.
-
-Required members:
+### Auth status and access data
 
 | Member | Returns | Notes |
 |---|---|---|
 | `useIdentity()` | `{ id, displayName } \| null` | Current user, or null when unauthenticated. |
-| `useGrants()` | `Record<string, Level>` | Grant map from the auth store. |
+| `useAccess()` | the user's access data for `accessModel` | role(s), permission set, grant map, or ability. |
 | `useAuthStatus()` | `"loading" \| "authenticated" \| "anonymous"` | Skills show a spinner while `loading`. |
-| `hasAccess(grants, key, level)` | `boolean` | Min-level check; honors admin-implies-all. |
-| `defaultRouteFor(grants)` | `string` | Landing route after login, derived from grants. |
-| `loginRoute(returnTo)` | `string` | Where to redirect anonymous users; carries a return path. |
+| `defaultRouteFor(user)` | `string` | Landing route after login, derived from access, never hard-coded. |
+| `loginRoute(returnTo)` | `string` | Where anonymous users go; carries a return path. |
 
 Rules:
 
-- **Wait for `loading` to settle.** Never gate or redirect while status is `loading`; render a spinner. Auth state may rehydrate asynchronously from storage.
-- **Stale-session guard.** On rehydration, if required fields (e.g. the grant map) are absent, treat the session as stale and route to login rather than assuming empty grants.
-- **Single source of truth.** The client store is authoritative for the live session; the server gate reads a synced snapshot. Keep them in sync on login/logout.
+- **Wait for `loading` to settle.** Never gate or redirect while status is `loading`.
+- **Stale-session guard.** If required access data is absent after rehydration, treat the session as stale and route to login rather than assuming no access.
+- **Server is authoritative.** The server gate decides; the client gate exists for ergonomics and must evaluate the same requirement. UI hiding is never authorization.
+- **Access can change mid-session.** Read it from the auth source on each render; do not snapshot it into component state.
 
-## Audit helper
+### Panel base path
 
-Optional hook for recording privileged actions (sign-in, grant changes, destructive operations).
+- Every route is composed as `<panelBasePath>/<segment>`; guards, redirects, and active-route matching derive from it.
+- Active detection: `pathname === href` **or** `pathname.startsWith(href + "/")`, so `/area` never matches `/area-extra`.
 
-- **Signature:** `audit(event)` where `event = { action, targetType, targetId?, meta? }`.
-- **No-op default.** If the project omits it, skills call a default that does nothing — behavior must not depend on audit being present.
-- `targetType` uses neutral entity names (Orders, Tickets, Requests, Customers, Products, Records).
+### Audit helper
 
-## Data-fetching library binding
+- **Signature:** `audit(event)` with `event = { action, targetType, targetId?, meta? }`.
+- Sensitive actions (PII reveal, destructive operations, permission changes) await the audit write; if it fails, the action fails (see `admin-roles-and-permissions`).
 
-Skills do not import a specific data library; they call adapter-provided bindings so the project picks the client.
+### UI library and status palette
 
-| Member | Purpose |
-|---|---|
-| `useQuery(key, fetcher, opts?)` | Read with caching/dedup. |
-| `useMutation(fn, opts?)` | Write with pending/error state. |
-| `invalidate(key)` | Refresh cached reads after a write. |
+- The shell composes primitives from `uiLibrary` (`Button`, `Link`, `Spinner`, `Badge`, `Tooltip` — illustrative names).
+- Status badges map neutral tokens (`neutral`, `pending`, `active`, `warning`, `error`) to design tokens (`var(--badge-warning)`), never literal colors.
 
-Rules: keys are arrays for hierarchical caching; the binding owns retries and stale-time policy; skills never reach a network primitive directly.
+### RTL locales
 
-## UI / component library and status-badge palette
+- When the active locale is in `rtlLocales`, set `dir="rtl"` on the shell root and mirror directional affordances (see `admin-rtl-ltr`). Direction never affects access or navigation filtering.
 
-The adapter names the component library primitives the shell renders with, plus a status-to-style map for badges.
+## Example cache (illustrative — not required)
 
-Required UI members (illustrative names):
-
-- `Button`, `Link`, `Spinner`, `Badge`, `Tooltip` — primitives the shell composes.
-- `statusPalette` — maps a neutral status token to badge styling. Use design tokens (CSS custom properties), not literal colors.
-
-statusPalette shape (illustrative — not required):
-
-| Status token | Intent | Token example |
-|---|---|---|
-| `neutral` | default / informational | `var(--badge-neutral)` |
-| `pending` | awaiting action | `var(--badge-pending)` |
-| `active` | in progress / ok | `var(--badge-active)` |
-| `warning` | needs attention | `var(--badge-warning)` |
-| `error` | failed / blocked | `var(--badge-error)` |
-
-Rules: never hard-code hex values in skill output; map status tokens through `statusPalette`; collapsed-sidebar styling and active/hover states must also resolve through tokens.
-
-## RTL locale list
-
-The adapter lists locale codes that render right-to-left so the shell can flip layout direction.
-
-- **Type:** `string[]`; default `[]`.
-- When the active locale is in the list, set `dir="rtl"` on the shell root and mirror directional spacing/affordances (sidebar side, chevrons, breadcrumb order).
-- Direction is a presentation concern only; it never affects access control or navigation filtering.
-
-## Illustrative adapter object shape
-
-Labeled illustrative — not required. A project supplies one object of this shape; values shown are placeholders using neutral entities and roles.
-
-```ts
-// Example (illustrative — not required):
-const adminPanelAdapter = {
-  panelBasePath: "/workspace",
-
-  roleModel: {
-    adminKey: "platform",            // grant that implies all areas
-    levels: ["read", "full", "manager"],
-    priority: ["platform", "orders", "tickets", "records"], // section order
+```json
+{
+  "schemaVersion": 1,
+  "framework": "next-app",
+  "panelDir": "app/(admin)/admin",
+  "panelBasePath": "/admin",
+  "accessModel": "role-enum",
+  "access": {
+    "roles": ["owner", "editor", "support"],
+    "roleSource": "prisma/schema.prisma",
+    "multiRole": false,
+    "superRole": null
   },
-
-  buildNavigation(grants, flags) {
-    // returns { sections: NavSection[] }, already filtered by `hasAccess`
-    return buildNav(grants, flags);
-  },
-
-  auth: {
-    useIdentity,                     // () => { id, displayName } | null
-    useGrants,                       // () => Record<string, "read"|"full"|"manager">
-    useAuthStatus,                   // () => "loading" | "authenticated" | "anonymous"
-    hasAccess,                       // (grants, key, level) => boolean
-    defaultRouteFor,                 // (grants) => string
-    loginRoute: (returnTo) => `/sign-in?returnTo=${encodeURIComponent(returnTo)}`,
-  },
-
-  audit: (event) => recordAudit(event),  // optional; default is a no-op
-
-  dataClient: { useQuery, useMutation, invalidate },
-
-  ui: {
-    Button, Link, Spinner, Badge, Tooltip,
-    statusPalette: {
-      neutral: "var(--badge-neutral)",
-      pending: "var(--badge-pending)",
-      active:  "var(--badge-active)",
-      warning: "var(--badge-warning)",
-      error:   "var(--badge-error)",
-    },
-  },
-
-  rtlLocales: ["ar", "he", "fa", "ur"],
-};
+  "authHelper": "import { auth } from '@/auth'",
+  "guardHelper": "import { requireRole } from '@/lib/access'",
+  "auditHelper": "none",
+  "navSource": "app/(admin)/admin/_nav.ts",
+  "piiFields": ["email", "phone"],
+  "rtlLocales": [],
+  "i18nLibrary": "next-intl",
+  "dataLibrary": "swr",
+  "uiLibrary": "none",
+  "validationLibrary": "zod",
+  "formLibrary": "react-hook-form",
+  "cssFramework": "tailwind",
+  "importFormat": "none"
+}
 ```
+
+## Legacy cache keys
+
+Caches written before `schemaVersion` 1 used other names. When a command reads one, map the keys, show the user the result, and rewrite the file:
+
+| Legacy key | Current key |
+|---|---|
+| `adminBasePath` | `panelDir` (and derive `panelBasePath`) |
+| `roleList` | `accessModel: "role-enum"` + `access.roles` (re-run detection to confirm the model) |
+| `authHelperImport` | `authHelper` |
+| `auditHelperImport` | `auditHelper` |
+| `i18nProvider` | `i18nLibrary` |
 
 ## Adapter completeness checklist
 
-- [ ] `panelBasePath` set; all routes composed under it.
-- [ ] `roleModel` declares admin key, level order, and section priority.
-- [ ] `buildNavigation` is pure, memoizable, and returns pre-filtered sections.
-- [ ] `auth` exposes identity, grants, status, `hasAccess`, `defaultRouteFor`, `loginRoute`.
-- [ ] `audit` provided or intentionally defaulted to no-op.
-- [ ] `dataClient` binds query/mutation/invalidate.
-- [ ] `ui` provides primitives plus a token-based `statusPalette`.
-- [ ] `rtlLocales` listed (or empty array) and wired to shell direction.
+- [ ] `accessModel` recorded with detection evidence, or chosen by the user after an inconclusive detection.
+- [ ] Every required `access` field for that model is filled.
+- [ ] `guardHelper` is one function used by route guards, the navigation builder, and API handlers.
+- [ ] `panelDir` and `panelBasePath` set; all routes compose under `panelBasePath`.
+- [ ] `authHelper` reads a verified server-side session.
+- [ ] `auditHelper` set, or `"none"` with a scaffolded minimal helper.
+- [ ] `piiFields` confirmed by the user.
+- [ ] Optional library keys filled from `package.json` where present.

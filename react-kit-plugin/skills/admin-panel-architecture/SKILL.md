@@ -1,15 +1,15 @@
 ---
 name: admin-panel-architecture
-description: The design-before-coding skill for React / Next.js admin panels. Owns the project adapter contract, the route-group structure, the single navigation-builder function, the module/permission role model with admin-implies-all, the per-resource view registry, and the generic component inventory. Activates when starting or extending an admin panel, before scaffolding routes, navigation, or layouts; when a new staff dashboard, back-office, or operator console needs structure; or when an existing panel grows a new section and you must place it without hardcoding a per-role nav.
-version: 0.4.0
-last_reviewed: 2026-05-31
+description: Use when starting or extending a React / Next.js admin panel, staff dashboard, back-office, or operator console, before scaffolding its routes, navigation, or layouts; when an existing panel grows a new section that must be placed without a hardcoded per-role nav; or when deciding how the panel's access checks should be modelled. Detects the project's existing access model (role enum, permission strings, module-level grants, or a policy engine such as CASL, Casbin, OPA) and adapts to it rather than replacing it. Owns the adapter schema, the route-group structure, the single navigation builder that mirrors the route guard, the per-resource view registry, the generic component inventory, and the ADMIN PANEL PLAN template.
+version: 0.5.0
+last_reviewed: 2026-10-19
 owns:
-  - project-adapter contract (base path, role/module model, auth+audit helpers, data-fetch lib, UI lib)
+  - the adapter schema (references/admin-panel-adapter.md is the single owner of every adapter key)
+  - access-model detection and the decision framework (role-enum / permission-strings / module-levels / policy-engine)
   - route-group structure (panel group, overview-first, per-section folders, nested detail routes)
-  - single navigation-builder function (grants + flags in, filtered nav sections out)
-  - role/module model (module-permission map, admin-implies-all, generic read/full/manager levels)
+  - single navigation-builder function (user + flags in, filtered nav sections out, same guard as the route)
   - view-registry concept (one declared view type per resource — list/tree/kanban/form/dashboard/settings/audit)
-  - generic component inventory (AdminShell, SidebarNav, ModuleGate, AdminTable, ... — names are illustrative)
+  - generic component inventory (AdminShell, SidebarNav, AccessGate, AdminTable, ... — names are illustrative)
   - the ADMIN PANEL PLAN output template
 defers_to:
   - admin-shell (renders the layout, sidebar collapse, mobile overlay, header)
@@ -24,7 +24,7 @@ user-invocable: false
 
 ## Purpose
 
-An admin panel that is structured wrong is expensive to fix later: routes calcify, navigation forks per role, and access checks scatter across files that drift out of sync. This skill forces the structural decisions to happen ONCE, on paper, before any component is written. It produces a single plan: an adapter table, a route tree, one navigation-builder contract, a role/module model, and a view registry. Everything downstream references that plan instead of re-deciding.
+An admin panel that is structured wrong is expensive to fix later: routes calcify, navigation forks per role, and access checks scatter across files that drift out of sync. This skill forces the structural decisions to happen ONCE, on paper, before any component is written. It produces a single plan: adapter values, a route tree, one navigation-builder contract, the access model the project uses, and a view registry. Everything downstream references that plan instead of re-deciding.
 
 ## When to use
 
@@ -32,52 +32,79 @@ Activate when:
 
 - Starting a new admin panel, staff dashboard, back-office, or operator console.
 - Adding a whole new section or resource area to an existing panel.
-- Onboarding a new role/module and deciding what it sees.
+- Onboarding a new role, permission, or area and deciding what it sees.
 - A reviewer asks "where does this route live" or "why is the nav forked per role."
 
 Do NOT activate for: a single component tweak inside an already-structured panel (defer to the owning sibling skill).
 
 ## Inputs (adapter)
 
-Every project value is a NAMED adapter input. Collect these BEFORE planning; do not invent them.
+Every project value is a named key in the adapter schema, `references/admin-panel-adapter.md`. That file is the only definition of the keys; this skill uses its names and adds none of its own.
 
-| Adapter field | What it supplies | Example (illustrative — not required) |
-|---|---|---|
-| `BASE_PATH` | URL prefix for the whole panel | `/panel` |
-| `ROLE_MODEL` | shape of a user's grants: a module→level map | `{ orders: "manager", products: "full" }` |
-| `MODULE_LIST` | the set of modules the project defines | `orders`, `products`, `customers` |
-| `LEVEL_SET` | the access levels, lowest→highest | `read` < `full` < `manager` |
-| `ADMIN_MODULE` | the module that implies all others | `admin` |
-| `AUTH_HELPER` | reads the current user + grants (store/hook) | `useAuth()` |
-| `GUARD_HELPER` | the route/component access check | `useHasModule(module, minLevel)` |
-| `AUDIT_HELPER` | how a sensitive view/action is recorded | `logAccess(event)` (backend-owned) |
-| `DATA_LIB` | the data-fetching library | a query/cache lib |
-| `UI_LIB` | the component primitives library | a headless UI kit |
-| `FLAGS` | extra booleans the nav-builder reads | `{ hasExtraSection: true }` |
+The keys this skill needs for a plan: `framework`, `panelDir`, `panelBasePath`, `accessModel` + `access`, `authHelper`, `guardHelper`, `auditHelper`, `navSource`, `dataLibrary`, `uiLibrary`, `flags`.
 
-If a field is unknown, list it under **Open questions** in the output — never hardcode a guess into the plan.
+If `.react-kit.local.json` exists, read the values from it. If a key is unknown after detection, list it under **Open questions** in the output — never hardcode a guess into the plan.
 
 ## Read-only investigation steps
 
-1. **Does a panel already exist?** Find the route-group folder under `BASE_PATH`. If present, read its layout to learn the current shell + nav-builder. Extend; do not fork.
-2. **How are grants modeled today?** Confirm `ROLE_MODEL` is a module→level map, not a single role enum. A single enum is the smell this skill replaces.
-3. **Is there one navigation-builder or many?** Search for the function that returns nav sections. If you find per-role configs, that is the anti-pattern to consolidate.
+1. **Does a panel already exist?** Find the route folder (`panelDir`). If present, read its layout to learn the current shell and navigation source. Extend; do not fork.
+2. **Which access model does the code use?** Run the detection in `references/admin-panel-adapter.md` → *Detecting the access model*: grep for role-enum, permission-string, module-level, and policy-engine signatures; identify the function the existing guards call (`guardHelper`). Record `accessModel` with file:line evidence. If several models are layered, record the one the guard evaluates (see *Mixed models*). If detection is inconclusive (new project, no access code, contradictory hits), present the decision framework below and ask — do not default silently.
+3. **Is there one navigation source or many?** Search for the function or file that returns nav sections (`navSource`). Per-role nav configs are the thing to consolidate into one builder — keep the access model, change only how nav is produced.
 4. **What view types already exist?** Inventory list/table/detail/board/form pages so the new view registry stays consistent with what is there.
-5. **Where do guards live?** Note whether checks run in middleware, layouts, and components. The plan must reuse `GUARD_HELPER`, not add a new check style.
+5. **Where do guards live?** Note whether checks run in middleware, layouts, components, and API handlers. The plan must reuse `guardHelper`, not add a new check style.
 
 ## Decision framework
 
+### Access model — adapt to what exists
+
+The plan uses the project's existing access model. Choosing one is only a decision when there is nothing to detect. All four are legitimate; the field lists and requirement shapes live in the adapter schema.
+
+| `accessModel` | Shape of a check | Fits well when | Costs |
+|---|---|---|---|
+| `role-enum` | user has role ∈ `{ roles }` | few, stable staff roles; simple audits | new capabilities mean editing role lists; per-record nuance needs predicates |
+| `permission-strings` | user has `'orders:update'` | many capabilities; roles change often (roles bundle permissions) | permission list grows; needs naming discipline |
+| `module-levels` | user has `{ module, minLevel }` | staff work across several areas at different depths | coarse levels; the level order is a policy the project owns |
+| `policy-engine` | `can(action, subject, record?)` via CASL / Casbin / OPA / Cerbos / ... | attribute or record conditions; central policy shared with other services | extra dependency and decision layer; client evaluation needs the rules or a decisions endpoint |
+
+Rules that hold for every model:
+
+- **One guard.** Route guards, the navigation builder, and API handlers all call `guardHelper` with the same requirement object.
+- **Requirements, not branches.** Each nav item, route, and action declares a `requires` value in the model's shape; code never branches on a literal role/permission name inline.
+- **OR logic for cross-resource sections.** A section reachable through any of several requirements uses `{ anyOf: [...] }`, evaluated identically in builder, guard, and API.
+- **No silent migration.** Never propose moving the project to a different access model unless the user asks for that migration explicitly.
+
+#### Option detail: `module-levels`
+
+When the project uses (or chooses) per-area grants, the user carries a map `{ <module>: <level> }`, `access.levels` is the project's own ordered level list, and `access.adminModule` — only if the project has one — implies every module at the highest level:
+
+```
+hasAccess(grants, module, minLevel):
+    if adminModule and adminModule in grants: return true   # only when access.adminModule is set
+    level = grants[module]
+    if not level: return false
+    return index(level) >= index(minLevel)                  # by access.levels order
+```
+
+| Concept | Rule |
+|---|---|
+| Grant shape | `{ <module>: <level> }` read from the auth source |
+| Levels | `access.levels`, project-named and project-ordered lowest → highest |
+| Admin module | optional; if set, short-circuit before per-module checks so no check misses it |
+| Level check | "has module at ≥ minLevel" via `guardHelper`, compared by `access.levels` order |
+
+The other models are documented field-by-field in the adapter schema; their guard is the model's native check (`hasRole`, `hasPermission`, `ability.can`).
+
 ### Route structure
 
-One route-group wraps the entire panel. Overview first, one folder per section, detail nested under its list.
+One route-group wraps the entire panel. Overview first, one folder per section, detail nested under its list. Shown for the Next.js App Router; Pages Router, Remix, and Vite routers follow the same nesting with their own file conventions (`framework`).
 
 ```
 app/
-  (panel)/                     ← route group, shared shell + nav-builder
-    layout.tsx                 ← AdminShell + buildNavigation(grants, flags)
+  (admin)/                     ← route group, shared shell + nav-builder (name is the project's)
+    layout.tsx                 ← AdminShell + buildNavigation(user, flags)
     page.tsx                   ← overview / landing (first thing a user sees)
-    <section>/                 ← one folder per module/resource (Orders, Tickets, ...)
-      layout.tsx               ← optional per-section guard (cross-module OR rule)
+    <section>/                 ← one folder per resource area (Orders, Tickets, ...)
+      layout.tsx               ← optional per-section guard (anyOf rule)
       page.tsx                 ← list / board / dashboard view
       [id]/
         page.tsx               ← nested detail route for one Record
@@ -88,48 +115,28 @@ Rules:
 - The panel lives under exactly one route-group so the shell + nav-builder are declared once.
 - Overview (`page.tsx` at the group root) renders first — never land a user on a blank section.
 - A detail view is a nested route under its list (`<section>/[id]`), not a sibling top-level route.
-- A section that needs cross-module access gets its own `layout.tsx` guard expressing the OR rule.
+- A section that needs cross-resource access gets its own `layout.tsx` guard expressing the `anyOf` rule.
 
 ### Navigation model — one builder, never a nav-per-role
 
-A SINGLE function takes the user's grants + flags and RETURNS the filtered nav sections. The sidebar renders whatever it returns. There is no second code path per role.
+A SINGLE function takes the user + flags and RETURNS the filtered nav sections. The sidebar renders whatever it returns. There is no second code path per role, permission, or area.
 
 ```
-buildNavigation(grants, flags) -> NavSection[]
+buildNavigation(user, flags) -> NavSection[]
    │
-   ├─ iterate MODULE_LIST in a fixed priority order
-   ├─ for each module the user has (or ADMIN_MODULE) → push its section
-   ├─ conditionally append level-gated items (e.g. a manager-only item)
-   ├─ add cross-module/shared sections once (dedupe)
+   ├─ iterate sections in a fixed priority order
+   ├─ keep an item only if guardHelper(user, item.requires) is true
+   ├─ append conditionally-gated items inside the builder (never in the sidebar)
+   ├─ add shared sections once (dedupe)
    └─ return ordered, already-filtered NavSection[]
 ```
 
 Rules:
 
 - The builder filters items by access, so the sidebar NEVER renders a link the user cannot reach.
-- Level-gated items are appended conditionally inside the builder, not branched in the component at render time.
-- Section order is deterministic (a fixed module priority), so multi-module users see a stable layout.
-- The builder's access logic MUST mirror the route guard (`GUARD_HELPER`) so nav and middleware never disagree.
-
-### Role / menu model
-
-Grants are a module→level map. `ADMIN_MODULE` implies every module at the highest level.
-
-| Concept | Rule |
-|---|---|
-| Grant shape | `{ <module>: <level> }`, never a single role string |
-| Levels | generic `read` < `full` < `manager` (`LEVEL_SET`) — project may rename, order is fixed |
-| Admin implies all | if user has `ADMIN_MODULE`, treat every module as granted at `manager` — short-circuit before per-module checks |
-| Level check | "has module at ≥ minLevel" via `GUARD_HELPER`; compare against `LEVEL_SET` order |
-| Cross-module resource | requires ANY of N modules (OR logic) — same condition in builder, guard, and API |
-
-```
-hasAccess(grants, module, minLevel):
-    if ADMIN_MODULE in grants: return true        # admin-implies-all
-    level = grants[module]
-    if not level: return false
-    return index(level) >= index(minLevel)         # by LEVEL_SET order
-```
+- Gated items are appended inside the builder, not branched in the component at render time.
+- Section order is deterministic (a fixed priority), so users with broad access see a stable layout.
+- The builder's access logic MUST mirror the route guard (`guardHelper`) so nav and middleware never disagree.
 
 ### View registry — declare each resource's view types once
 
@@ -174,7 +181,7 @@ Plan against these generic roles. Names are illustrative; the project chooses re
 | `AdminShell` | top-level wrapper: layout, sidebar state, config context |
 | `SidebarNav` | renders `NavSection[]` from the builder, active-state, collapse |
 | `NavItem` | one nav link: icon, label, badge, active styles |
-| `ModuleGate` | wraps a route, checks access, shows fallback while redirecting |
+| `AccessGate` | wraps a route, evaluates a requirement via `guardHelper`, shows fallback while redirecting |
 | `AdminTable` | the `list` view primitive |
 | `AdminKanbanBoard` | the `kanban` view primitive |
 | `AdminDetailDrawer` | single-Record detail surface with conditional actions |
@@ -188,12 +195,13 @@ Plan against these generic roles. Names are illustrative; the project chooses re
 
 ## Safety gates
 
-- **Never** model grants as a single role enum — always a module→level map (`ROLE_MODEL`).
+- **Never** replace or restructure the project's existing access model unless the user explicitly asks for that migration.
+- **Never** pick an access model for a project silently — detect it, or ask when detection is inconclusive.
 - **Never** write more than one navigation source — one `buildNavigation` function, period.
-- **Never** branch nav items by role inside the sidebar component — all filtering happens in the builder.
-- **Never** render a nav link to a route the user cannot reach per `GUARD_HELPER`.
-- **Never** let the builder's access logic and the route guard disagree — they share one rule.
-- **Never** hardcode `MODULE_LIST`, `BASE_PATH`, or level names into the plan — they are adapter inputs.
+- **Never** branch nav items by role/permission inside the sidebar component — all filtering happens in the builder.
+- **Never** render a nav link to a route the user cannot reach per `guardHelper`.
+- **Never** let the builder's access logic and the route guard disagree — they call the same guard with the same requirement.
+- **Never** hardcode role names, permission strings, module or level names, or `panelBasePath` into the plan — they are adapter values.
 - **Never** create a one-off page layout that is not a declared view type in the registry.
 - **Never** treat UI hiding as security — the API re-validates every write (defer to `admin-roles-and-permissions`).
 - **Never** place a detail view as a top-level sibling of its list — nest it under `<section>/[id]`.
@@ -202,13 +210,14 @@ Plan against these generic roles. Names are illustrative; the project chooses re
 
 Before handing off the plan:
 
-- [ ] Every adapter field is filled or listed under Open questions — no guessed values.
+- [ ] Every adapter key the plan uses is filled or listed under Open questions — no guessed values.
+- [ ] `accessModel` is recorded with detection evidence (file:line), or was chosen by the user after inconclusive detection.
+- [ ] The plan keeps the existing access model; any migration was explicitly requested.
 - [ ] The panel uses exactly one route-group; overview renders first.
 - [ ] Detail routes are nested under their list (`<section>/[id]`).
-- [ ] There is exactly one `buildNavigation(grants, flags)` returning filtered `NavSection[]`.
-- [ ] `ADMIN_MODULE` short-circuits to all-modules-granted in the access rule.
-- [ ] Levels use the fixed `LEVEL_SET` order; level checks go through `GUARD_HELPER`.
-- [ ] Cross-module resources use identical OR logic in builder and guard.
+- [ ] There is exactly one `buildNavigation(user, flags)` returning filtered `NavSection[]`.
+- [ ] Builder, route guard, and API all evaluate the same `requires` through `guardHelper`.
+- [ ] Cross-resource sections use identical `anyOf` logic in builder, guard, and API.
 - [ ] Every resource has a view-registry entry; no page uses an undeclared view type.
 - [ ] Data/state and workflow concerns are DEFERRED, not specified here.
 - [ ] Component inventory uses generic roles; final names noted as project choice.
@@ -220,30 +229,32 @@ Produce an ADMIN PANEL PLAN:
 ```
 ADMIN PANEL PLAN
 
-ADAPTER VALUES
-  BASE_PATH      : <value | OPEN>
-  ROLE_MODEL     : module->level map
-  MODULE_LIST    : [<module>, ...]
-  LEVEL_SET      : read < full < manager
-  ADMIN_MODULE   : <value>
-  AUTH_HELPER    : <name>
-  GUARD_HELPER   : <name>
-  AUDIT_HELPER   : <name | backend-owned>
-  DATA_LIB       : <name>
-  UI_LIB         : <name>
-  FLAGS          : [<flag>, ...]
+ADAPTER VALUES  (keys per references/admin-panel-adapter.md)
+  framework      : <value | OPEN>
+  panelDir       : <value | OPEN>
+  panelBasePath  : <value | OPEN>
+  accessModel    : <role-enum | permission-strings | module-levels | policy-engine>
+                   evidence: <file:line of guard + definition>  | chosen by user
+  access         : <per-model fields, e.g. roles=[...] | permissionFormat=... | modules/levels | engine=...>
+  authHelper     : <name>
+  guardHelper    : <name + signature>
+  auditHelper    : <name | none>
+  navSource      : <path | new>
+  dataLibrary    : <name>
+  uiLibrary      : <name>
+  flags          : [<flag>, ...]
 
 ROUTE TREE
-  (panel)/
+  (<group>)/
     layout.tsx          -> AdminShell + buildNavigation
     page.tsx            -> overview
     <section>/page.tsx  -> <view type>
     <section>/[id]      -> detail
 
-NAV SECTIONS BY ROLE  (output of buildNavigation, not hardcoded)
-  admin     -> [<section>, ..., system, audit]
-  <module>  -> [<section>, ...]
-  cross-module (OR) -> [<shared section>]
+NAV SECTIONS  (output of buildNavigation, not hardcoded)
+  | Section   | requires                         |
+  | Orders    | <requirement in accessModel shape> |
+  | Reports   | anyOf [<req>, <req>]             |
 
 VIEW REGISTRY
   | Resource | View types declared        |
@@ -251,29 +262,29 @@ VIEW REGISTRY
   | Products | list, tree, form           |
 
 COMPONENT INVENTORY  (generic role -> project name)
-  AdminShell -> <?>   SidebarNav -> <?>   ModuleGate -> <?>   ...
+  AdminShell -> <?>   SidebarNav -> <?>   AccessGate -> <?>   ...
 
 OPEN QUESTIONS
-  - <unresolved adapter field or access rule>
+  - <unresolved adapter key, mixed-model layer, or access rule>
 ```
 
 ## Anti-patterns
 
 | Anti-pattern | Why it is wrong | Correct |
 |---|---|---|
-| One nav config per role | Forks drift; new role = new file to maintain | One `buildNavigation(grants, flags)` returning filtered sections |
-| Single role enum for access | Cannot express multi-module or level grants; rigid | module→level map (`ROLE_MODEL`) |
-| Conditional nav items in the sidebar component | Filtering scatters; sidebar can leak forbidden links | Append level-gated items inside the builder |
-| Hardcoded module names / base path in the plan | Not reusable; breaks for the next project | Read from adapter inputs |
+| One nav config per role | Forks drift; a new role means a new file to maintain | One `buildNavigation(user, flags)` returning filtered sections |
+| Rewriting the project's access model to fit this plan | Unrequested architecture churn in someone else's codebase | Detect the model and plan in its terms |
+| Inline literal checks (`role === 'x'`, `'orders:write'` scattered in JSX) | Checks drift from the guard; one forgotten place becomes a bypass | Declare `requires` per item/route/action; evaluate via `guardHelper` |
+| Conditional nav items in the sidebar component | Filtering scatters; sidebar can leak forbidden links | Append gated items inside the builder |
+| Hardcoded role/permission/module names or base path in the plan | Not reusable; breaks for the next project | Read from adapter values |
 | Detail page as a top-level sibling route | Breaks back-nav and breadcrumbs; duplicates list context | Nest under `<section>/[id]` |
-| Builder and route guard use different access logic | Nav shows a link middleware then blocks | Share one rule; builder mirrors `GUARD_HELPER` |
+| Builder and route guard use different access logic | Nav shows a link middleware then blocks | Share one guard; builder mirrors `guardHelper` |
 | Ad-hoc per-page layouts | Inconsistent UX; no shared primitives | Declare a view type in the registry first |
-| Admin handled as just another module | Admin must see everything; per-module checks miss it | `ADMIN_MODULE` short-circuits to all-granted |
 | Deciding query keys / mutations here | Wrong layer; duplicates `data-fetching-states` | Record the need, defer the mechanics |
 
 ## Portability rationale
 
-This skill decides STRUCTURE, not implementation. It binds to no specific framework, data library, or UI kit — every project value is a named adapter input. The patterns (one route-group, one nav-builder, module→level grants with admin-implies-all, a view registry) are reusable by any team in any domain: swap `Orders`/`Tickets`/`Requests` for your resources and `admin`/`manager`/`operator`/`viewer` for your roles, and the plan still holds. No example here is load-bearing.
+This skill decides STRUCTURE, not implementation. It binds to no framework, data library, UI kit, or access model — every project value is a key in the adapter schema, and the access section adapts to role enums, permission strings, module-level grants, and policy engines alike. The universal parts (one route-group, one nav-builder that mirrors one guard, deterministic section order, `anyOf` for cross-resource access, a view registry) hold for any team in any domain. No example here is load-bearing.
 
 ## Cross-references
 
@@ -282,6 +293,6 @@ This skill decides STRUCTURE, not implementation. It binds to no specific framew
 - `admin-roles-and-permissions` — implements the route/component/API gating, access matrix, and audit view.
 - `data-fetching-states` — query-key design, mutation invalidation, and loading/error/empty states.
 - `admin-kanban-workflow` — status-gated actions, transitions, and confirmation flows for `kanban` resources.
-- `references/admin-panel-adapter.md` — full adapter field reference.
+- `references/admin-panel-adapter.md` — the adapter schema: every key, the four access models, detection greps.
 - `references/admin-view-registry.md` — view-registry schema and examples.
 - `references/admin-state-contract.md` — the data/state hand-off contract to `data-fetching-states`.

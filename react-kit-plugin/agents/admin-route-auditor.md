@@ -30,12 +30,12 @@ The skill rules you apply are owned by the `react-kit` plugin:
 
 1. **Resolve the path.** Single file → audit one file. Folder → glob `**/*.{tsx,jsx,ts,js,vue,svelte}` and audit each.
 
-2. **Load adapter cache** if present: `roleList`, `piiFields`, `authHelperImport`, `auditHelperImport`, `adminBasePath`.
+2. **Load adapter cache** if present (keys per `skills/admin-panel-architecture/references/admin-panel-adapter.md`): `accessModel` + `access`, `guardHelper`, `piiFields`, `authHelper`, `auditHelper`, `panelDir`, `rtlLocales`. A legacy cache (no `schemaVersion`) maps through the schema's *Legacy cache keys* table. If absent, detect the access model with the schema's greps. Judge checks in the project's own access model — never report the model itself (role enum, permission strings, module levels, policy engine) as a finding.
 
 3. **Section A — Authorization**:
-   - For each role-conditional render, locate the corresponding route handler and check for a server-side role gate. Missing → HIGH.
-   - For each role-read, verify the source is the verified session helper (per cache). Reading role from URL / header / client context → HIGH.
-   - For destructive endpoints, verify `requireRole` / `requirePermission` / `canPerform` call. Missing → HIGH.
+   - For each access-conditional render, locate the corresponding route handler and check for a server-side gate with the same requirement. Missing → HIGH.
+   - For each read of roles / permissions / grants / ability, verify the source is the verified session helper (`authHelper`). Reading it from URL / header / client context → HIGH.
+   - For destructive endpoints, verify a `guardHelper` call (or the model's native check: `requireRole`, `hasPermission`, `hasAccess`, `ability.can`, `enforce`). Missing → HIGH.
 
 4. **Section B — PII**:
    - For each PII field name from the cache, grep for renders. Unmasked render in a list / detail / table cell → HIGH.
@@ -79,7 +79,7 @@ The skill rules you apply are owned by the `react-kit` plugin:
    - Empty / no-results same component without filter awareness → MEDIUM.
    - `catch (e) {}` swallowing → HIGH.
 
-10. **Section H — RTL/LTR** (skip if no RTL locale in cache):
+10. **Section H — RTL/LTR** (skip if `rtlLocales` is empty or absent):
     - Grep `ml-`, `mr-`, `pl-`, `pr-`, `text-left`, `text-right`, `left-`, `right-`, `margin-left:`, `margin-right:`, `padding-left:`, `padding-right:`, `text-align: left`, `text-align: right`. Each hit → LOW (`R-N`).
     - Directional icons (Tailwind: search for `ArrowRight`, `ChevronRight`, `ArrowLeft`, `ChevronLeft` in pagination/breadcrumb contexts) without mirror class → MEDIUM.
     - `<code>`, `<pre>`, URL display contexts inside the admin tree without `dir="ltr"` wrap → LOW.

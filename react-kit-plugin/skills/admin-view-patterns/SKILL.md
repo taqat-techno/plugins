@@ -45,7 +45,7 @@ Every project value is a named adapter input; this skill hard-codes none of them
 1. **Resource shape descriptor** — is the collection flat, parent-child hierarchical, or moving through ordered stages? Supplied by the caller or read from the data model.
 2. **Primary user task** — browse/find, edit one record, advance work through stages, read metrics, configure, act-in-context, move data in/out, or inspect change history.
 3. **Registry view list** — the set of standard/generated views the project already offers (the "registry"). The skill prefers these over bespoke screens.
-4. **Permission resolver name** — the hook/util the project uses for `canCreate / canRead / canUpdate / canDelete` and role checks. The skill names it; `admin-roles-and-permissions` owns its contract.
+4. **`guardHelper`** — the hook/util the project uses for `canCreate / canRead / canUpdate / canDelete` checks, in its own `accessModel` (adapter schema: `admin-panel-architecture/references/admin-panel-adapter.md`). The skill names it; `admin-roles-and-permissions` owns its contract.
 5. **State catalogue source** — where loading/error/empty/no-results states are defined. Owned by `admin-states`.
 
 ## Read-only investigation steps

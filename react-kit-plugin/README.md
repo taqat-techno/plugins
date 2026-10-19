@@ -27,7 +27,7 @@ Reusable patterns for building and auditing React / Next.js applications — wit
 
 | Skill | Owns |
 |---|---|
-| `admin-panel-architecture` | Design-before-coding: project adapter, route structure, navigation-builder model, role/menu model, **view registry**, data/state + action/workflow contracts, component inventory, plan template |
+| `admin-panel-architecture` | Design-before-coding: the **adapter schema**, access-model detection (role enum / permission strings / module levels / policy engine), route structure, one navigation builder mirroring the route guard, **view registry**, data/state + action/workflow contracts, component inventory, plan template |
 | `admin-view-patterns` | The **view-type chooser** — when to use list / tree / kanban / form / dashboard / settings / detail-drawer / import-export / audit; routes to the owning skill (does not re-implement) |
 
 **Build views:**
@@ -44,7 +44,7 @@ Reusable patterns for building and auditing React / Next.js applications — wit
 
 | Skill | Owns |
 |---|---|
-| `admin-roles-and-permissions` | Role/module-aware menus + actions + field editability, "UI hide is NOT authorization", PII masking, audit visibility, paired UI/API gates |
+| `admin-roles-and-permissions` | Access-aware menus + actions + field editability, "UI hide is NOT authorization", PII masking, audit visibility, paired UI/API gates |
 | `admin-dangerous-actions` | Confirmation patterns for destructive operations (friction proportional to blast radius) |
 | `admin-import-export` | Upload→preview→commit, row caps, typed per-row errors, idempotency, no auto-create |
 | `admin-states` | Loading / error / empty / no-results / partial-error **display** conventions |
@@ -83,11 +83,25 @@ Reusable patterns for building and auditing React / Next.js applications — wit
 - **Docs / SOPs** → `docs-wiki`.
 - **Environment problems** → `env-doctor`.
 
-## Adapter inputs (asked the first time you invoke a command)
+## Adapter inputs (detected first, asked only when unresolved)
 
-The first `/admin-scaffold` invocation asks for: admin base path; auth helper import; role list; PII field list; audit helper import; RTL locales; validation library; form library; CSS framework; import format (optional). Answers are written to `.react-kit.local.json` (add it to `.gitignore`), never committed.
+All commands, skills, and the agent share one adapter schema: [`skills/admin-panel-architecture/references/admin-panel-adapter.md`](./skills/admin-panel-architecture/references/admin-panel-adapter.md). Values are cached in `.react-kit.local.json` (add it to `.gitignore`), never committed.
 
-The admin-panel skills do carry one default architecture: a **module × level** permission model in which an admin module implies access to the others. Treat it as a starting proposal, not a requirement - if your project already has a different RBAC shape, say so and keep it.
+The first `/admin-scaffold` run detects what it can from the codebase and shows you the result, then asks only the questions whose answer it could not detect, in this order:
+
+1. **Access model** (only when detection is inconclusive) — `role-enum`, `permission-strings`, `module-levels`, or `policy-engine`, plus that model's fields.
+2. **Panel location** — `panelDir` and `panelBasePath`.
+3. **Auth helper** — the import that returns the verified current user on the server.
+4. **Guard helper** — the one access-check function routes, nav, and APIs share.
+5. **Audit helper** — how an audit row is written, or `none`.
+6. **PII fields** — always confirmed on first run.
+7. **RTL locales**.
+8. **Libraries** — validation, form, CSS, data-fetching, and UI libraries not found in `package.json`.
+9. **Import format** (optional).
+
+`/admin-role-matrix` runs the same detection itself when no cache exists.
+
+**Access model:** react-kit does not prescribe one. It detects whether your project uses a role enum, permission strings (`orders:write`), module-level grants, or a policy engine (CASL, Casbin, OPA, Cerbos, ...), and generates guards, navigation, and matrices in that model. It never migrates you to a different one unless you ask.
 
 ## What this plugin deliberately does NOT do
 

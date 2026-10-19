@@ -2,6 +2,13 @@
 
 All notable changes to `react-kit-plugin` are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/). Versioning follows [SemVer](https://semver.org/).
 
+## [0.7.0] - 2026-10-19
+
+### Changed
+- **The access model is detected, not prescribed.** One adapter schema (`skills/admin-panel-architecture/references/admin-panel-adapter.md`, `schemaVersion: 1`) owns all keys, and its `accessModel` is `role-enum`, `permission-strings`, `module-levels` or `policy-engine`, each with detection greps and trade-offs. Module-level grants remain fully documented as one option (audit RKT-P1-01).
+- `/admin-scaffold` and `/admin-role-matrix` generate code in the project's own access model and ask only when detection is inconclusive. All commands and skills use the same adapter keys; a legacy-key table maps old cache names (RKT-P1-02).
+- README first-run questions now match `/admin-scaffold` exactly.
+
 ## [0.6.4] - 2026-10-19
 
 ### Changed

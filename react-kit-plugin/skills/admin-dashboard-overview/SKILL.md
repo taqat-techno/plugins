@@ -47,9 +47,9 @@ Skip when:
 
 Every project value is a named adapter input — never hard-code one.
 
-1. **`ROLE_SOURCE`** — how the current role / permission set is read. The skill asks "may this role see this metric"; the project answers.
+1. **`guardHelper`** (adapter schema key, see `admin-panel-architecture/references/admin-panel-adapter.md`) — the shared access check, in the project's `accessModel`. The skill asks "may this user see this metric"; the project answers.
 2. **`METRIC_SOURCE(metricKey)`** — the endpoint or aggregate that produces each metric. Aggregation is owned by the backend; the dashboard renders, it does not compute.
-3. **`DATA_LIB`** — the data-fetching library (its loading / error / stale flags). Defer the outcome→state mapping to `data-fetching-states`.
+3. **`dataLibrary`** — the data-fetching library (its loading / error / stale flags). Defer the outcome→state mapping to `data-fetching-states`.
 4. **`DRILL_TARGET(metricKey)`** — the filtered list route a KPI links to when clicked. May be absent (some KPIs are display-only).
 5. **`FRESHNESS_SOURCE`** — where the "as-of" timestamp comes from (server response metadata, last-fetch time).
 6. **`STATE_COLORS` / `STATE_LABELS`** — centralized status→color and status→label maps. Charts and badges read these; no widget hard-codes its own palette.
@@ -97,7 +97,7 @@ A KPI card is single-purpose: it displays, it does not fetch or aggregate.
 ### Role-aware metric visibility
 
 ```
-canSee(metricKey, role) under ROLE_SOURCE ?
+canSee(metricKey, role) via guardHelper ?
         │
    ┌────┴────┐
   yes        no
@@ -107,7 +107,7 @@ canSee(metricKey, role) under ROLE_SOURCE ?
             no disabled card)
 ```
 
-- Visibility is decided per widget against `ROLE_SOURCE`. A metric the role may not see is omitted, not greyed out.
+- Visibility is decided per widget via `guardHelper`. A metric the role may not see is omitted, not greyed out.
 - A platform-wide aggregate and a self-scoped metric are different widgets feeding from different `METRIC_SOURCE`s — never relabel one as the other for a different role.
 - **UI omission is not authorization.** The backend must still refuse a metric the caller may not request. Defer the gate to `admin-roles-and-permissions`.
 
@@ -159,7 +159,7 @@ Is it a SMALL set of rows the user will read row-by-row
 
 ### Per-widget state set — NO-DATA vs FAILED-KPI vs LOADING
 
-This is the rule that matters most. Resolve each widget's fetch outcome (via `DATA_LIB`, mapped per `data-fetching-states`) into exactly one of:
+This is the rule that matters most. Resolve each widget's fetch outcome (via `dataLibrary`, mapped per `data-fetching-states`) into exactly one of:
 
 ```
                     fetch outcome
@@ -203,7 +203,7 @@ This is the rule that matters most. Resolve each widget's fetch outcome (via `DA
 
 Before committing a dashboard / overview change:
 
-- [ ] Every widget declares its role visibility against `ROLE_SOURCE`; out-of-scope widgets are omitted entirely.
+- [ ] Every widget declares its role visibility via `guardHelper`; out-of-scope widgets are omitted entirely.
 - [ ] No widget renders `0` on a failed fetch — FAILED-KPI shows `—`/"unavailable" + retry.
 - [ ] NO-DATA, FAILED-KPI, and LOADING are three visually distinct states per widget.
 - [ ] Each KPI has a label and a value; trend / description / drill-down are present only when meaningful.

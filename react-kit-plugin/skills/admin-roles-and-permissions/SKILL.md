@@ -1,12 +1,12 @@
 ---
 name: admin-roles-and-permissions
-description: Role-aware admin UI rules. Owns the "UI hide is NOT authorization" contract, the role-aware menu pattern, PII masking in admin views, audit visibility, and the paired UI-gate / API-gate rule. Activates when building any admin route, modifying a sidebar/menu, adding a role-conditional render, masking a sensitive field, or rendering an audit log. Generic and portable — role names, PII fields, and audit helpers are project-supplied adapter inputs.
+description: Use when building any admin route, modifying a sidebar or menu, adding an access-conditional render, masking a sensitive field, or rendering an audit log. Owns the "UI hide is NOT authorization" contract, the paired UI-gate / API-gate rule, the access-aware menu pattern, PII masking in admin views, and audit visibility. Generic and portable — the access model (role enum, permission strings, module levels, or policy engine), PII fields, and audit helpers are project-supplied adapter inputs.
 version: 0.2.0
 last_reviewed: 2026-05-28
 owns:
   - the paired-gate rule (every UI gate has a matching API gate)
   - the inverse direction — a visible affordance whose endpoint denies it is a false affordance; mirror the endpoint's permission on the button and park the RBAC policy question instead of widening the gate
-  - role-aware menu pattern
+  - access-aware menu pattern (one requirement per item, evaluated by the shared guard)
   - PII masking pattern in admin views (mask by default, reveal on explicit user action + audit)
   - audit-log visibility scoping
   - the "UI hide is not authorization" anti-pattern catalogue
@@ -44,15 +44,16 @@ Skip when:
 
 ## Inputs (adapter)
 
-The plugin makes no assumption about your project's roles or PII. Before applying this skill, you need:
+The plugin makes no assumption about your project's access model, roles, or PII. Adapter keys are defined once in `admin-panel-architecture/references/admin-panel-adapter.md`; this skill uses:
 
-1. **Role list** — the role enum the app uses. Example: `['admin', 'manager', 'support', 'viewer']`. The plugin does not bake in any role names.
-2. **Permission matrix** — for each (role × resource × operation) cell, allow / deny. Generated or validated by `/admin-role-matrix`.
-3. **PII field list** — which fields are sensitive. Example: `['email', 'phone', 'national_id', 'date_of_birth']`. Sourced from your project's security/privacy SOP.
-4. **Auth helper import** — how the current user + role is obtained server-side. Example: `getServerSession()` (NextAuth), `auth()` (Clerk), custom `getUser()`.
-5. **Audit helper import** — how an audit-log row is written. Example: `await auditLog.write({ actor, action, target, meta })`. If your project has none yet, the skill includes a minimal shape.
+1. **`accessModel` + `access`** — the access model the project already uses (`role-enum`, `permission-strings`, `module-levels`, or `policy-engine`) and its fields (roles, permission format, modules + levels, or engine + actions + subjects). Detected from the code; the plugin bakes in no role, permission, or module names.
+2. **`guardHelper`** — the one access check shared by routes, navigation, and APIs. Example: `requireRole(user, roles)`, `hasPermission(user, 'orders:update')`, `hasAccess(grants, module, minLevel)`, `ability.can(action, subject)`.
+3. **Access matrix** — for each (resource × operation), the requirement in the model's shape. Generated or validated by `/admin-role-matrix`.
+4. **`piiFields`** — which fields are sensitive. Example: `['email', 'phone', 'national_id', 'date_of_birth']`. Sourced from your project's security/privacy SOP.
+5. **`authHelper`** — how the verified current user is obtained server-side. Example: `getServerSession()` (NextAuth), `auth()` (Clerk), custom `getUser()`.
+6. **`auditHelper`** — how an audit-log row is written. Example: `await auditLog.write({ actor, action, target, meta })`. If your project has none yet, the skill includes a minimal shape.
 
-These are asked once by `/admin-scaffold` and cached locally so you do not re-answer.
+These are detected (or asked once) by `/admin-scaffold` and cached in `.react-kit.local.json` so you do not re-answer.
 
 ## Read-only investigation steps
 
@@ -89,20 +90,18 @@ This surfaces most often while "fixing" a broken action. A malformed request pro
 - **Do not widen the endpoint's gate to make the button work.** "Should this role be allowed to do this?" is an RBAC policy decision. Align the UI down to the backend, then PARK the policy question for a human with the two options stated (grant the role, or keep the action admin-only). Quietly loosening a gate to clear a bug report is how a permission model erodes — and it is the same act the "never weaken an existing role check" gate below forbids, just arriving through a UI bug instead of a request.
 - If the affordance must stay visible for discoverability, it is disabled with the reason shown ("Requires admin"), never enabled into a 403.
 
-### Role-aware menu pattern
+### Access-aware menu pattern
 
-```tsx
-// Provided by your project's auth layer
-const session = useSession()
-
-const menuItems = ALL_MENU_ITEMS.filter(item =>
-  item.allowedRoles.includes(session.role)
-)
+```ts
+// inside the single navigation builder (admin-panel-architecture)
+const items = NAV_ITEMS.filter(item => guardHelper(user, item.requires))
 ```
 
-- The `allowedRoles` list lives next to the menu definition, not scattered across components.
-- A user who is not in `allowedRoles` for an item does not see it AND if they navigate to the URL directly, the route handler returns 403. (Paired gate.)
-- The matrix is the source of truth: `allowedRoles` is generated from the matrix, not hand-edited per menu.
+`requires` is the item's requirement in the project's `accessModel` shape — `{ roles: [...] }` (often spelled `allowedRoles`), `{ permission: 'orders:read' }`, `{ module, minLevel }`, or `{ action: 'read', subject: 'Order' }`.
+
+- The requirement lives next to the menu definition, not scattered across components.
+- A user who fails an item's requirement does not see it AND if they navigate to the URL directly, the route handler returns 403. (Paired gate.)
+- The matrix is the source of truth: each item's requirement is derived from the matrix's `read` cell, not hand-edited per menu, and the route guard evaluates the same requirement through the same `guardHelper`.
 
 ### PII masking — mask by default
 
@@ -161,7 +160,7 @@ Before committing an admin change involving roles, permissions, or PII:
 - [ ] Every new conditional render has a documented server gate (file path + function name).
 - [ ] Every visible action's UI gate uses the SAME predicate as its endpoint (no enabled control that resolves to 403).
 - [ ] Any "should this role be allowed?" question raised while fixing an action is parked for a human, not resolved by widening the gate.
-- [ ] Every new menu item has its role list in the matrix.
+- [ ] Every new menu item has its requirement in the matrix.
 - [ ] Every new PII field renders masked by default.
 - [ ] Every reveal action writes an audit-log row before exposing the value.
 - [ ] The matrix and the code agree (run `/admin-role-matrix --validate`).
@@ -177,7 +176,7 @@ When generating a role-aware admin component, output:
 ```
 ROLE-AWARE COMPONENT
   Component: <name>
-  Allowed roles: [<role>, <role>]
+  Requires: <requirement in accessModel shape>
   Server gate: <file>:<function>   ← MUST exist before merge
   PII rendered: [<field>, <field>] (masked by default)
   Audit events: [<action-code>]
@@ -195,7 +194,7 @@ When auditing an existing route, output the Markdown table defined by `admin-rou
 | `console.log(user)` during debugging | Logs PII; survives merge; leaks to prod observability. | Use a redacting logger; never log full records. |
 | Hiding sensitive fields with `display: none` | The field is still in the DOM / Redux store / React tree / network response. | Omit on the server. |
 | `try { await audit(...) } catch {}` | Audit silently fails; you lose the forensic trail. | Let audit failure fail the action. |
-| Role list duplicated in 12 components | One forgotten place becomes a bypass. | Single matrix, single derivation. |
+| Role / permission list duplicated in 12 components | One forgotten place becomes a bypass. | Single matrix, single derivation, one `guardHelper`. |
 | Button gated by one permission, its endpoint by a stricter one | The action is advertised to roles that will get a 403 on click; "fixing" the request payload only trades a 400 for a 403. | Mirror the endpoint's requirement on the affordance in the same change; disable with a reason if it must stay visible. |
 | Relaxing the endpoint's role check so the visible button stops failing | Silently makes an RBAC policy decision through a bug fix; the permission model erodes one button at a time. | Align the UI down to the backend; park "should this role be allowed?" for a human with both options stated. |
 
