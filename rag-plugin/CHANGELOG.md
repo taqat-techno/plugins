@@ -2,6 +2,11 @@
 
 All notable changes to `rag-plugin` are documented here. Format is loosely based on [Keep a Changelog](https://keepachangelog.com/). Versioning follows [SemVer](https://semver.org/).
 
+## [0.20.1] - 2026-10-19
+
+### Fixed
+- Install-kind detection is case-insensitive on every OS. On macOS and Linux a packaged data directory (`~/.local/share/RAGTools`, `~/Library/Application Support/RAGTools`) was misreported as a source checkout, because only Windows paths were lowercased. Found by the new macOS/Linux CI.
+
 ## [0.20.0] - 2026-10-19
 
 ### Added

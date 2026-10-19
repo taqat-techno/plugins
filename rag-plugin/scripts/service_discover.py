@@ -214,7 +214,9 @@ class ServiceCandidate:
         property of where the bytes actually are, not of a string the process
         computed about itself.
         """
-        d = _norm(self.data_dir)
+        # Markers are matched case-insensitively on every OS: `_norm` lowercases only on
+        # Windows, but ~/.local/share/RAGTools on Linux is just as packaged as on Windows.
+        d = _norm(self.data_dir).lower()
         if not d:
             return "unknown"
         markers = ("/appdata/local/ragtools", "/library/application support/ragtools",
