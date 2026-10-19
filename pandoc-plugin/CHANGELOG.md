@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.2.3] - 2026-10-19
+
+### Added
+- MIT LICENSE file and `license` field in plugin.json.
+
 ## [2.2.2] - 2026-10-19
 
 **`/pandoc setup` can find its installers again** (PDC-P0-01). Since 2.2.0 moved
