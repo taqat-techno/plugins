@@ -1,5 +1,10 @@
 # Changelog
 
+## [3.2.3] - 2026-10-19
+
+### Added
+- MIT LICENSE file and `license` field in plugin.json.
+
 ## [3.2.2] - 2026-10-19
 
 ### Fixed
