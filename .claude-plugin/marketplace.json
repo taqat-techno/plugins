@@ -152,7 +152,7 @@
     },
     {
       "name": "django",
-      "description": "Reusable Django / Django REST Framework engineering toolkit — ORM & model design, migration safety (zero-downtime expand-contract), views & DRF API patterns, settings/12-factor config, security auditing, testing (pytest-django), and performance/caching. 7 auto-activating skills + 5 commands + 3 agents + version/migration-safety/destructive-command guards. Generic and adapter-driven.",
+      "description": "Reusable Django / Django REST Framework engineering toolkit — ORM & model design, migration safety (zero-downtime expand-contract), views & DRF API patterns, settings/12-factor config, security auditing, testing (pytest-django), and performance/caching. 7 auto-activating skills + 4 commands + 3 agents + version/migration-safety/destructive-command guards. Generic and adapter-driven.",
       "author": {
         "name": "TaqaTechno",
         "email": "info@taqatechno.com"

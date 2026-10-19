@@ -1,6 +1,6 @@
 # django-plugin
 
-![Version](https://img.shields.io/badge/version-0.1.0-blue.svg)
+![Version](https://img.shields.io/badge/version-0.4.1-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 ![Status](https://img.shields.io/badge/status-beta-yellow.svg)
 
@@ -60,7 +60,7 @@ From the TAQAT Techno marketplace:
 
 ## Usage
 
-The skills activate automatically as you work (review a queryset → `django-orm-models`; touch a migration → `django-migrations`; edit settings → `django-settings-config`). Each command detects the project's layout on first run (caching non-secret adapter inputs to `.django-kit.local.json`), so you can run them directly in any Django repo. Use the commands for explicit workflows and the agents for read-only sweeps:
+The skills activate automatically as you work (review a queryset → `django-orm-models`; touch a migration → `django-migrations`; edit settings → `django-settings-config`). Each command detects the project's layout on every run (and reads non-secret adapter overrides from `.django-kit.local.json` if you create one), so you can run them directly in any Django repo. Use the commands for explicit workflows and the agents for read-only sweeps:
 
 ```
 /django-migrate --check
