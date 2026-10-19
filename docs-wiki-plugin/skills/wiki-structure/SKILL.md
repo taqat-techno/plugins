@@ -1,33 +1,39 @@
 ---
 name: wiki-structure
-description: GitHub Wiki organization rules — flat-namespace, filename-uniqueness, internal-link convention without .md extension, Home and _Sidebar and _Footer ownership, sibling-clone path convention. Also owns hub-first themed IA (parents are real hub pages, never empty folders) and a validated default structure template. Activates when initialising a new wiki, adding or renaming a wiki page, restructuring sidebar / Home navigation, or auditing the wiki for filename collisions. Adapter switches behavior for GitLab / Azure DevOps / MkDocs wikis (tree namespaces allowed); on azure-devops-wiki the reliable internal link is the page-ID URL form.
+description: "Use when setting up a wiki, adding or renaming wiki pages, reorganising Home, _Sidebar or _Footer navigation, or checking a GitHub wiki for filename collisions: flat namespace, unique filenames, links without .md, hub pages instead of empty folders, the sibling .wiki clone path, and the per-flavour rules for GitLab, Azure DevOps (page-ID links) and MkDocs."
 version: 0.4.0
-last_reviewed: 2026-06-22
-owns:
-  - flat-namespace rule for GitHub Wiki (filenames become URLs)
-  - filename-uniqueness rule across the wiki repo
-  - internal-link convention (no .md extension, no folder path for GitHub Wiki)
-  - Home / _Sidebar / _Footer authorship rules
-  - sibling-clone path convention (the wiki repo lives next to the main repo)
-  - rename-on-collision pattern
-  - no-numeric-prefix-in-visible-labels rule
-  - wiki-flavour adapter (github-wiki / gitlab-wiki / azure-devops-wiki / mkdocs-tree)
-  - azure-devops-wiki specifics (.order encoded basenames, auto-built nav, human-provisioned wiki, MCP reversed insert order)
-  - hub-first themed-section IA (every parent is a real hub page, never an empty/link-only folder)
-  - reader-facing section labels (name the reader's target artifact, not internal provenance doctrine)
-  - validated default structure template for business/product wikis (adapt per project)
-  - azure-devops-wiki page-ID URL link convention (the reliable resolvable internal-link form)
-  - azure-devops-wiki pagemoves/REST mechanics (newOrder mandatory, REST-for-move/delete, tree-omits-id, childless-delete, no-auto-repoint of inbound links)
-  - azure-devops-wiki spaces-vs-hyphens slug risk (dashed relative links break on hyphen-titled pages)
-defers_to:
-  - wiki-link-validation (the audit that enforces these rules at scan time; owns the resolution-based audit that proves a page-ID link actually resolves)
-  - wiki-safe-updates (the workflow that applies any structural change; owns the approval/diff gate plus the repoint ordering for move/rename/delete)
-  - wiki-code-vs-docs-discrepancy (when structural changes contradict code-side documentation)
-  - project owner (the user picks the wiki flavour and resolves naming collisions)
 user-invocable: false
+metadata:
+  last_reviewed: 2026-06-22
+  owns:
+    - flat-namespace rule for GitHub Wiki (filenames become URLs)
+    - filename-uniqueness rule across the wiki repo
+    - internal-link convention (no .md extension, no folder path for GitHub Wiki)
+    - Home / _Sidebar / _Footer authorship rules
+    - sibling-clone path convention (the wiki repo lives next to the main repo)
+    - rename-on-collision pattern
+    - no-numeric-prefix-in-visible-labels rule
+    - wiki-flavour adapter (github-wiki / gitlab-wiki / azure-devops-wiki / mkdocs-tree)
+    - azure-devops-wiki specifics (.order encoded basenames, auto-built nav, human-provisioned wiki, MCP reversed insert order)
+    - hub-first themed-section IA (every parent is a real hub page, never an empty/link-only folder)
+    - reader-facing section labels (name the reader's target artifact, not internal provenance doctrine)
+    - validated default structure template for business/product wikis (adapt per project)
+    - azure-devops-wiki page-ID URL link convention (the reliable resolvable internal-link form)
+    - azure-devops-wiki pagemoves/REST mechanics (newOrder mandatory, REST-for-move/delete, tree-omits-id, childless-delete, no-auto-repoint of inbound links)
+    - azure-devops-wiki spaces-vs-hyphens slug risk (dashed relative links break on hyphen-titled pages)
+  defers_to:
+    - wiki-link-validation (the audit that enforces these rules at scan time; owns the resolution-based audit that proves a page-ID link actually resolves)
+    - wiki-safe-updates (the workflow that applies any structural change; owns the approval/diff gate plus the repoint ordering for move/rename/delete)
+    - wiki-code-vs-docs-discrepancy (when structural changes contradict code-side documentation)
+    - project owner (the user picks the wiki flavour and resolves naming collisions)
 ---
 
 # wiki-structure
+
+## Scope
+
+GitHub Wiki organization rules — flat-namespace, filename-uniqueness, internal-link convention without .md extension, Home and _Sidebar and _Footer ownership, sibling-clone path convention. Also owns hub-first themed IA (parents are real hub pages, never empty folders) and a validated default structure template. Activates when initialising a new wiki, adding or renaming a wiki page, restructuring sidebar / Home navigation, or auditing the wiki for filename collisions. Adapter switches behavior for GitLab / Azure DevOps / MkDocs wikis (tree namespaces allowed); on azure-devops-wiki the reliable internal link is the page-ID URL form.
+
 
 ## Purpose
 
@@ -39,7 +45,7 @@ For other wiki flavours (GitLab, Azure DevOps, MkDocs), the constraints differ. 
 
 Activate when:
 
-- Initialising a new wiki (running `/wiki-init`).
+- Initialising a new wiki (running `/docs-wiki:init`).
 - Adding a new wiki page.
 - Renaming a wiki page.
 - Restructuring the sidebar, Home page, or footer.
@@ -85,9 +91,9 @@ No two `.md` files anywhere in the wiki repo may share a basename. The rule is n
 
 Enforcement:
 
-- Initialisation (`/wiki-init`) refuses to populate a wiki repo that already has collisions.
-- Audit (`/wiki-audit`) lists collisions as a HIGH finding.
-- New page creation (`/wiki-new`) refuses a basename that already exists.
+- Initialisation (`/docs-wiki:init`) refuses to populate a wiki repo that already has collisions.
+- Audit (`/docs-wiki:audit`) lists collisions as a HIGH finding.
+- New page creation (`/docs-wiki:new`) refuses a basename that already exists.
 
 Rename strategy for collisions: append a disambiguating qualifier:
 
@@ -225,7 +231,7 @@ git clone git@github.com:<OWNER>/<REPO>.wiki.git
 
 The wiki repo has its own `git push`, its own commit history, its own branch (default: `master`). Pushes to the main repo do NOT update the wiki. Updating the wiki requires a separate `git push` from the wiki clone.
 
-`/wiki-init` checks for the sibling clone; if missing, prints the exact clone command and stops.
+`/docs-wiki:init` checks for the sibling clone; if missing, prints the exact clone command and stops.
 
 ## Safety gates
 
@@ -233,7 +239,7 @@ The wiki repo has its own `git push`, its own commit history, its own branch (de
 - **Never** restructure the wiki to use tree namespaces on GitHub Wiki (folders → URL collisions).
 - **Never** use numeric prefixes in filenames.
 - **Never** use `.md` extensions in internal links on GitHub Wiki.
-- **Never** push the wiki repo without going through `wiki-safe-updates` (approval gate).
+- **Never** push the wiki repo except under the `wiki-safe-updates` write policy (only when the user asks for that publish).
 - **Never** modify `_Sidebar.md` or `Home.md` without diff preview (per `wiki-safe-updates`).
 - **Never** leave a parent/section as a blank or link-only folder — every parent is a real hub page (and a hub never restates a child's authoritative rules).
 - **Never** emit a relative `[text](/Dashed-Path)` link to a hyphen-titled page on `azure-devops-wiki` — use the page-ID URL form and validate by resolution (defer the audit to `wiki-link-validation`).
@@ -270,7 +276,7 @@ WIKI INITIALISED — <wiki-path>
     _Sidebar.md      ← navigation
     _Footer.md       ← optional; not created unless --footer flag
   Source-of-truth assignments: <list — supplied by user or prompted>
-  Next: /wiki-new <Page-Name> to add the first content page
+  Next: /docs-wiki:new <Page-Name> to add the first content page
 ```
 
 When auditing structure, output:

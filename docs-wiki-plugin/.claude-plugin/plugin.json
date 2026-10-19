@@ -1,7 +1,7 @@
 {
   "name": "docs-wiki",
-  "version": "0.10.0",
-  "description": "Non-blocking helper toolkit for creating, organising, editing, validating, and auditing a project Wiki. Adapts to GitHub Wiki sibling repos, in-repo wiki/ folders, GitLab Wiki, and Azure DevOps Wiki. Provides flat-namespace + filename-uniqueness + internal-link conventions, Mermaid diagram authoring rules, PlantUML BPMN-swimlane authoring + render/embed pipeline, broken-link sweeps, and code-vs-wiki drift reporting. Advisory only — it does NOT gate or block git push, force-push, or Write/Edit. Does NOT handle wiki-to-memory sync — that is a separate future plugin.",
+  "version": "0.11.0",
+  "description": "Conventions, templates and read-only audits for a project wiki: GitHub Wiki sibling repos, in-repo wiki/ folders, GitLab, Azure DevOps and MkDocs. Flat-namespace and link rules, page templates, Mermaid and PlantUML swimlane authoring with a preview-first publish pipeline, link and collision audits, and code-vs-wiki drift reports that never pick a side. One write policy: publish only on request, no history rewrites, per-target deletes. No hooks.",
   "author": {
     "name": "TAQAT Techno",
     "email": "info@taqatechno.com",

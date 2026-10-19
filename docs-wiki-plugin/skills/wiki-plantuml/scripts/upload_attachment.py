@@ -9,8 +9,12 @@ Windows, macOS and Linux. Called by publish_update.py ONLY after --approve.
 
 Encapsulates the Azure attachment gotchas:
   - PAT read from the AZDO_PAT env var (scope vso.wiki_write) - NEVER echoed or logged.
-  - Body is base64-encoded for the REST path (raw octet-stream => "broken image link"
-    on the instance this was verified against), Content-Type application/octet-stream.
+  - Body encoding is a parameter (--body-encoding, WIKI-P3-11). The default is base64,
+    the form that rendered on the Azure DevOps Services instance this was verified on
+    (a raw body showed a "broken image link" there). Microsoft's REST reference shows a
+    raw octet-stream body; if an image uploaded with base64 shows broken on your
+    instance, re-upload with --body-encoding raw. Content-Type is
+    application/octet-stream either way.
   - PNG is the correct attachment format (official list: PNG/GIF/JPEG/ICO; SVG not listed).
   - VERIFY-ON-FAIL: the PUT commonly returns HTTP 500 even though the attachment WAS
     written. The 7.1 API is Create-only (no GET-by-name), so verify by RE-PUTting the
@@ -50,13 +54,15 @@ def org_url(org: str) -> str:
 
 
 def build_request(org: str, project: str, wiki_id: str, name: str, data: bytes,
-                  pat: str, api_version: str = "7.1") -> urllib.request.Request:
+                  pat: str, api_version: str = "7.1",
+                  body_encoding: str = "base64") -> urllib.request.Request:
     q = lambda s: urllib.parse.quote(s, safe="")  # noqa: E731
     url = (f"{org_url(org)}/{q(project)}/_apis/wiki/wikis/{q(wiki_id)}/attachments"
            f"?name={q(name)}&api-version={q(api_version)}")
     auth = base64.b64encode(f":{pat}".encode("utf-8")).decode("ascii")
     return urllib.request.Request(
-        url, data=base64.b64encode(data), method="PUT",
+        url, data=base64.b64encode(data) if body_encoding == "base64" else data,
+        method="PUT",
         headers={"Authorization": f"Basic {auth}",
                  "Content-Type": "application/octet-stream"})
 
@@ -114,6 +120,9 @@ def build_parser() -> argparse.ArgumentParser:
     ap.add_argument("--file", required=True)
     ap.add_argument("--name", required=True, help="attachment name (URL-encoded for you)")
     ap.add_argument("--api-version", default="7.1")
+    ap.add_argument("--body-encoding", choices=["base64", "raw"], default="base64",
+                    help="request body form (default base64; use raw if base64 renders as "
+                         "a broken image on your instance)")
     return ap
 
 
@@ -129,7 +138,7 @@ def main(argv: list[str] | None = None) -> int:
               "read from env and never echoed.", file=sys.stderr)
         return 1
     req = build_request(args.org, args.project, args.wiki_id, args.name, path.read_bytes(),
-                        pat, args.api_version)
+                        pat, args.api_version, args.body_encoding)
     print(f"Uploading {args.name} to wiki {args.wiki_id} (.attachments) ...")
     try:
         upload(req, args.wiki_id)

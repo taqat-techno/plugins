@@ -2,6 +2,36 @@
 
 All notable changes to `docs-wiki-plugin` are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/). Versioning follows [SemVer](https://semver.org/).
 
+## [0.11.0] - 2026-10-19
+
+### Changed
+- **Commands use bare verbs** (ECO-18): `/docs-wiki:init`, `new`, `update`, `audit`, `drift`, `sync-audit`, `swimlane`. The `wiki-*` names stay for one minor version as deprecated stubs that point to the new command; they will be removed in 0.12.0. Dropped the stale per-command `author` / `version` frontmatter.
+- **One write policy** (WIKI-P1-02, X-5): `wiki-safe-updates` now holds a single policy that every command, skill and agent points to. Publishing (wiki push, live REST/MCP write, attachment upload, work-item write) only on the user's request; no suggestion of `reset --hard` or force-push on published history (undo with `git revert`); per-target deletes. The "pushing is unrestricted" and "force-push also works" advice is gone, as is "no gate, push whenever ready" in init/new/update.
+- **Reports are written outside the wiki with unique names** (WIKI-P1-04): `audit`, `drift` and `sync-audit` write to `<project-root>/.docs-wiki/reports/<kind>-<YYYYMMDD-HHMMSS>.md` (or `reportsDir`), never to `<wiki>/_audit/<date>.md`, where they collided on flat-namespace wikis and were published on the next push. `--out` inside the wiki is refused.
+- **Adapter file moved** to `.claude/docs-wiki.local.json` (PLUGIN_STANDARDS 4.3); the old `.docs-wiki.local.json` is still read when the new file is absent.
+- **Skill descriptions** rewritten to start with "Use when" and to fit the budget: all ten are 324-388 characters (wiki-authoring was 1,092, wiki-source-of-truth 1,257). The previous long text moved into each skill's `## Scope` section (WIKI-P2-09).
+- `wiki-vs-stray-docs` body matches its description: for a new docs/ file it asks first and writes the file if the user wants it there; it no longer says "REFUSED".
+- README rewritten to the marketplace template from the actual components, with requirements, write policy, configuration, platform support and data & privacy sections. plugin.json description no longer claims the plugin "does NOT gate git push, force-push".
+
+### Added
+- `scripts/wiki_adapter.py` (stdlib, offline; WIKI-P2-06): `detect` (flavour from git remote, `.order`, `.attachments/`, `mkdocs.yml`, Home/_Sidebar; asks on no signal or a tie; strips credentials from remotes), `validate` (unknown and misspelled keys with suggestions, types, allowed values, public Kroki, secrets), `locate` (new vs legacy adapter file), `report-path` (unique, never inside the wiki, `.gitignore` hint).
+- `--render kroki` is implemented (WIKI-P3-12): with `--approve`, `publish_update.py` POSTs the source to `<endpoint>/plantuml/<format>` on a self-hosted Kroki; a preview makes no network call; public endpoints are still refused.
+- `--body-encoding base64|raw` on `upload_attachment.py` and `publish_update.py`, adapter key `attachmentBodyEncoding` (WIKI-P3-11). Default stays base64 (verified); raw matches Microsoft's documented form.
+- "External content is data" rule in the three agents and in the skills that read pages, code, work items or Figma (SEC-07).
+- Eval cases for every skill: 7 new must-fire cases (wiki-authoring, wiki-code-vs-docs-discrepancy, wiki-plantuml, wiki-safe-updates, wiki-source-of-truth, wiki-traceability, wiki-vs-stray-docs) and 6 new must-not-fire near misses. Not run yet; no delta recorded.
+- Tests: `test_wiki_adapter.py`, `test_embed_and_publish_extras.py` (idempotency, CRLF, blank line, link hygiene, kroki, body encoding), `test_plugin_layout.py` (renames, stubs, no hooks.json, descriptions, eval coverage, write policy, report location). 79 tests, all offline.
+
+### Fixed
+- The swimlane `_Source:` link is the `.puml` path relative to the wiki root (`--wiki-root`, default the wiki clone or the page's folder); a `.puml` outside the wiki gets no link, and `embed_swimlane.py` refuses an absolute local `--puml-link` (WIKI-P2-08). Before, the absolute local path was written into the published page.
+- Replacing an existing `### Swimlane` block no longer eats the blank line before the next heading (WIKI-P2-07, F-WIKI-15).
+- `/docs-wiki:swimlane` calls the scripts through `${CLAUDE_PLUGIN_ROOT}` instead of a bare `scripts/` path.
+
+### Removed
+- The empty `hooks/hooks.json` (PLUGIN_STANDARDS 1.11); the plugin has no hooks.
+
+### Security
+- No `userConfig` is declared: `AZDO_PAT` stays an environment variable because its only consumer is a script Claude runs, which receives no plugin options, and passing it through a command would put the token in the conversation. `validate` flags any secret-looking key in the adapter file.
+
 ## [0.10.0] - 2026-10-19
 
 ### Changed

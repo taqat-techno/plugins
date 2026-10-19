@@ -1,4 +1,0 @@
-{
-  "description": "docs-wiki has no hooks. The plugin is a non-blocking GitHub-wiki helper (skills, commands, templates, link/drift audits). It does NOT gate git push, force-push, or Write/Edit — there are no restrictions.",
-  "hooks": {}
-}

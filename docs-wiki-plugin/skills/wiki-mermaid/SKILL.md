@@ -1,32 +1,38 @@
 ---
 name: wiki-mermaid
-description: Mermaid diagram authoring rules for wiki pages — top-down direction by default, a small shape vocabulary, a four-class colour palette (ok / block / external / audit), the single-master-swimlane rule (one end-to-end swimlane, on the workflow hub, exactly once), the diagram-altitude rule (match diagram size to page role), reuse-the-project-palette, strict label hygiene (no inline code, no secrets, no file paths in business diagrams), the code-path scrub for business-process diagrams, the must-not-alter-business-meaning gate (diagrams transcribe, never author rules), per-platform rendering compatibility (Azure DevOps Wiki needs a colon-container Mermaid fence, graph not flowchart, and no subgraph links), and the diagram-vs-renderer triage order for a block that will not render. Activates when adding or editing any Mermaid block inside a wiki page, or when a Mermaid block renders as a plain code block in some viewer.
+description: "Use when adding or editing a Mermaid diagram on a wiki page, or when a Mermaid block on a wiki shows as a plain code block or fails to render (Azure DevOps wikis need the ::: mermaid fence, graph instead of flowchart, and no subgraph links). Covers direction, shapes, the four-class palette, label hygiene, one master swimlane per wiki and keeping diagrams faithful to the business rules."
 version: 0.4.0
-last_reviewed: 2026-06-22
-owns:
-  - top-down (flowchart TD) direction as default for process diagrams
-  - shape vocabulary (stadium / rectangle / diamond / cylinder / parallelogram / hexagon — meanings fixed)
-  - four-class colour palette (ok / block / external / audit) with hex values
-  - single-master-swimlane rule (one end-to-end actor-lane swimlane, on the workflow hub, exactly once)
-  - diagram-altitude rule (hub compact orientation map / journey focused diagram / spec full state machine)
-  - palette-reuse principle (reuse the project's existing house palette when one exists)
-  - label hygiene (Title Case; no code; no secrets; no paths in business diagrams)
-  - code-path scrub rule (business diagrams describe people and decisions, not modules)
-  - no-business-meaning-change-via-diagram gate (a diagram transcribes a documented flow; it never authors a rule, branch, outcome, actor, or state)
-  - sequence-diagram and ER-diagram exception scope
-  - diagram-as-source rule (the .md is the source; do NOT paste rendered PNG)
-  - platform compatibility (Azure DevOps Wiki colon-container fence, graph not flowchart, no subgraph links)
-  - render-failure triage order (parse the source with a real Mermaid engine before reformatting; then check whether the viewer renders Mermaid at all; rasterize with a headless browser, never jsdom)
-defers_to:
-  - wiki-authoring (placement within a page; when a diagram is appropriate vs prose)
-  - wiki-safe-updates (the workflow for applying the diagram change)
-  - wiki-link-validation (diagram node text that doubles as wiki link targets must follow link convention)
-  - wiki-plantuml (how a true BPMN swimlane renders; this skill owns only its exactly-once placement on the hub)
-  - wiki-source-of-truth (the owning spec page's authoritative rules and full state machine that a diagram must not restate)
 user-invocable: false
+metadata:
+  last_reviewed: 2026-06-22
+  owns:
+    - top-down (flowchart TD) direction as default for process diagrams
+    - shape vocabulary (stadium / rectangle / diamond / cylinder / parallelogram / hexagon — meanings fixed)
+    - four-class colour palette (ok / block / external / audit) with hex values
+    - single-master-swimlane rule (one end-to-end actor-lane swimlane, on the workflow hub, exactly once)
+    - diagram-altitude rule (hub compact orientation map / journey focused diagram / spec full state machine)
+    - palette-reuse principle (reuse the project's existing house palette when one exists)
+    - label hygiene (Title Case; no code; no secrets; no paths in business diagrams)
+    - code-path scrub rule (business diagrams describe people and decisions, not modules)
+    - no-business-meaning-change-via-diagram gate (a diagram transcribes a documented flow; it never authors a rule, branch, outcome, actor, or state)
+    - sequence-diagram and ER-diagram exception scope
+    - diagram-as-source rule (the .md is the source; do NOT paste rendered PNG)
+    - platform compatibility (Azure DevOps Wiki colon-container fence, graph not flowchart, no subgraph links)
+    - render-failure triage order (parse the source with a real Mermaid engine before reformatting; then check whether the viewer renders Mermaid at all; rasterize with a headless browser, never jsdom)
+  defers_to:
+    - wiki-authoring (placement within a page; when a diagram is appropriate vs prose)
+    - wiki-safe-updates (the workflow for applying the diagram change)
+    - wiki-link-validation (diagram node text that doubles as wiki link targets must follow link convention)
+    - wiki-plantuml (how a true BPMN swimlane renders; this skill owns only its exactly-once placement on the hub)
+    - wiki-source-of-truth (the owning spec page's authoritative rules and full state machine that a diagram must not restate)
 ---
 
 # wiki-mermaid
+
+## Scope
+
+Mermaid diagram authoring rules for wiki pages — top-down direction by default, a small shape vocabulary, a four-class colour palette (ok / block / external / audit), the single-master-swimlane rule (one end-to-end swimlane, on the workflow hub, exactly once), the diagram-altitude rule (match diagram size to page role), reuse-the-project-palette, strict label hygiene (no inline code, no secrets, no file paths in business diagrams), the code-path scrub for business-process diagrams, the must-not-alter-business-meaning gate (diagrams transcribe, never author rules), per-platform rendering compatibility (Azure DevOps Wiki needs a colon-container Mermaid fence, graph not flowchart, and no subgraph links), and the diagram-vs-renderer triage order for a block that will not render. Activates when adding or editing any Mermaid block inside a wiki page, or when a Mermaid block renders as a plain code block in some viewer.
+
 
 ## Purpose
 

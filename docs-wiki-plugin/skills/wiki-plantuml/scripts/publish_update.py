@@ -12,7 +12,11 @@ Governance / safety:
     stages NO image into the wiki clone, and does NOT write the page. The only write is
     a local render into a temporary directory (deleted on exit) to prove the .puml
     renders; the page diff is computed by embed_swimlane.py --dry-run.
-  - Renders locally by default (privacy-safe). renderMode=kroki REFUSES a public endpoint.
+  - Renders locally by default (privacy-safe). --render kroki POSTs the source to a
+    SELF-HOSTED Kroki endpoint, only with --approve (a preview makes no network call),
+    and REFUSES a public endpoint.
+  - The "_Source:" link in the page is the .puml path relative to the wiki root, never an
+    absolute local path; a .puml outside the wiki gets no link (WIKI-P2-08).
   - Never echoes the PAT (delegated to upload_attachment.py, which reads AZDO_PAT from env).
   - No PowerShell dependency: the render + upload helpers are Python (stdlib only) and are
     run with sys.executable. Rendering needs Java 8+ and a PlantUML jar (--plantuml-jar /
@@ -33,6 +37,8 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import urllib.parse
+import urllib.request
 from pathlib import Path
 from typing import NoReturn
 
@@ -65,8 +71,13 @@ def build_parser() -> argparse.ArgumentParser:
                          "`plantuml` on PATH)")
     # GitHub
     ap.add_argument("--wiki-clone", help="path to the OWNER/REPO.wiki.git sibling clone (github)")
+    ap.add_argument("--wiki-root", default=None,
+                    help="wiki root used to make the .puml link relative (default: the "
+                         "--wiki-clone for github, else the page's directory)")
     # Azure
     ap.add_argument("--org"); ap.add_argument("--project"); ap.add_argument("--wiki-id")
+    ap.add_argument("--body-encoding", choices=["base64", "raw"], default="base64",
+                    help="azure attachment body form, passed to upload_attachment.py")
     ap.add_argument("--approve", action="store_true",
                     help="perform the upload / image staging / page write. Without it the run "
                          "is a preview: diff + pending actions, no network, no writes.")
@@ -92,15 +103,34 @@ def validate(args: argparse.Namespace) -> None:
         die("github flavour requires --wiki-clone (the OWNER/REPO.wiki.git sibling path).")
 
 
+def kroki_render(endpoint: str, puml: Path, fmt: str, out_dir: Path) -> Path:
+    """POST the source to a self-hosted Kroki (`<endpoint>/plantuml/<fmt>`) and save the
+    output. Called only after --approve."""
+    url = endpoint.rstrip("/") + "/plantuml/" + urllib.parse.quote(fmt)
+    req = urllib.request.Request(url, data=puml.read_bytes(), method="POST",
+                                 headers={"Content-Type": "text/plain"})
+    try:
+        with urllib.request.urlopen(req, timeout=60) as resp:  # noqa: S310 (self-hosted)
+            body = resp.read()
+    except Exception as exc:  # noqa: BLE001
+        die(f"kroki render failed ({type(exc).__name__}): {exc}")
+    out = out_dir / f"{puml.stem}.{fmt}"
+    out.write_bytes(body)
+    print(f"rendered via kroki -> {out}")
+    return out
+
+
 def render(args: argparse.Namespace, fmt: str, out_dir: Path | None) -> Path | None:
-    """Local render for github/azure (gitlab/mkdocs render natively). No network."""
+    """Render for github/azure (gitlab/mkdocs render natively). Local render: no network.
+    Kroki: network, so it runs only on --approve (out_dir None means approved)."""
     if args.flavour not in ("github", "azure"):
         return None
     puml = Path(args.puml)
-    if args.render != "local":
-        die("kroki render path: POST the .puml to the self-hosted endpoint, save the "
-            f"output as {puml.stem}.{fmt}, then re-run with --render local-style staging "
-            "(kroki output still feeds commit/attach, never a live <img> src).")
+    if args.render == "kroki":
+        if out_dir is not None:
+            print("preview: the kroki render runs on --approve (no network call now).")
+            return None
+        return kroki_render(args.kroki_endpoint.strip(), puml, fmt, puml.parent)
     cmd = [sys.executable, str(HERE / "render_puml.py"), "--puml", str(puml), "--format", fmt]
     if out_dir is not None:
         cmd += ["--out", str(out_dir)]
@@ -115,11 +145,28 @@ def render(args: argparse.Namespace, fmt: str, out_dir: Path | None) -> Path | N
     return rendered
 
 
+def puml_link(args: argparse.Namespace) -> str | None:
+    """The .puml path relative to the wiki root, POSIX form, or None when the source sits
+    outside the wiki (an absolute local path would leak into the published page)."""
+    root = args.wiki_root or (args.wiki_clone if args.flavour == "github" else None) \
+        or str(Path(args.page).resolve().parent)
+    try:
+        rel = os.path.relpath(Path(args.puml).resolve(), Path(root).resolve())
+    except ValueError:  # different drive on Windows
+        return None
+    rel = Path(rel).as_posix()
+    if rel.startswith("../") or rel == "..":
+        return None
+    return rel
+
+
 def embed_command(args: argparse.Namespace, artifact_name: str, dry_run: bool) -> list[str]:
     cmd = [sys.executable, str(HERE / "embed_swimlane.py"),
            "--page", args.page, "--flavour", args.flavour,
-           "--artifact", artifact_name, "--alt", args.alt,
-           "--puml-link", str(args.puml)]
+           "--artifact", artifact_name, "--alt", args.alt]
+    link = puml_link(args)
+    if link:
+        cmd += ["--puml-link", link]
     if args.flavour in ("gitlab", "mkdocs"):
         cmd += ["--puml-source", Path(args.puml).read_text(encoding="utf-8")]
     if dry_run:
@@ -130,11 +177,11 @@ def embed_command(args: argparse.Namespace, artifact_name: str, dry_run: bool) -
 def pending_actions(args: argparse.Namespace, artifact_name: str) -> list[str]:
     actions: list[str] = []
     if args.flavour == "azure":
-        actions.append(f"render {args.puml} -> {artifact_name} (local)")
+        actions.append(f"render {args.puml} -> {artifact_name} ({args.render})")
         actions.append(f"UPLOAD {artifact_name} to Azure DevOps wiki attachments "
                        f"(org={args.org}, project={args.project}, wiki={args.wiki_id}) [network]")
     elif args.flavour == "github":
-        actions.append(f"render {args.puml} -> {artifact_name} (local)")
+        actions.append(f"render {args.puml} -> {artifact_name} ({args.render})")
         actions.append(f"copy {artifact_name} into {Path(args.wiki_clone) / 'images'}")
     actions.append(f"write the ### Swimlane block into {args.page}")
     return actions
@@ -168,7 +215,8 @@ def main(argv: list[str] | None = None) -> int:
     if args.flavour == "azure":
         cmd = [sys.executable, str(HERE / "upload_attachment.py"),
                "--org", args.org, "--project", args.project, "--wiki-id", args.wiki_id,
-               "--file", str(rendered), "--name", artifact_name]
+               "--file", str(rendered), "--name", artifact_name,
+               "--body-encoding", args.body_encoding]
         if run(cmd).returncode != 0:
             die("upload_attachment.py failed (see verify-on-fail output above).")
     elif args.flavour == "github":

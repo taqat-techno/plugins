@@ -28,6 +28,15 @@ MARKER = "### Swimlane"
 BLOCK_RE = re.compile(r"(?ms)^### Swimlane\b.*?(?=^\#\#|\Z)")
 
 
+def is_local_absolute(link: str) -> bool:
+    """True for a drive path, a UNC path, ~/..., or a /home, /Users, /tmp, /var or /mnt
+    path. False for URLs and wiki-relative links such as images/x.puml."""
+    link = link.strip()
+    if "://" in link:
+        return False
+    return bool(re.match(r"^(?:[A-Za-z]:[\\/]|\\\\|~[\\/]|/(?:home|Users|tmp|var|mnt)/)", link))
+
+
 def build_block(flavour: str, artifact: str, alt: str, puml_link: str | None,
                 puml_source: str | None) -> str:
     flavour = flavour.lower()
@@ -66,7 +75,9 @@ def main() -> int:
     ap.add_argument("--artifact", required=True,
                     help="image filename for github/azure, e.g. swimlane-orders-fulfilment.png")
     ap.add_argument("--alt", required=True, help="alt text (required — accessibility)")
-    ap.add_argument("--puml-link", default=None, help="relative path/URL to the .puml source")
+    ap.add_argument("--puml-link", default=None,
+                    help="relative path/URL to the .puml source. An absolute local path is "
+                         "refused: it would leak the local path into a published page.")
     ap.add_argument("--puml-source", default=None,
                     help="the .puml text (required for gitlab/mkdocs native fences)")
     ap.add_argument("--dry-run", action="store_true",
@@ -75,6 +86,10 @@ def main() -> int:
 
     if not args.alt.strip():
         print("error: --alt must be meaningful (accessibility).", file=sys.stderr)
+        return 2
+    if args.puml_link and is_local_absolute(args.puml_link):
+        print("error: --puml-link must be relative to the wiki (or a URL), not an absolute "
+              "local path.", file=sys.stderr)
         return 2
 
     # Read raw (newline="") to PRESERVE the page's existing line endings; writing them
@@ -90,6 +105,10 @@ def main() -> int:
     match = BLOCK_RE.search(original)
     if match:
         # Splice by span (avoids re.sub backslash processing on the .puml source).
+        # BLOCK_RE also consumes the blank line before the next heading, so put one
+        # back when a heading follows (WIKI-P2-07).
+        if match.end() < len(original):
+            block += nl
         updated = original[:match.start()] + block + original[match.end():]
     else:
         # Append a new Swimlane section at the end, separated by a blank line.
