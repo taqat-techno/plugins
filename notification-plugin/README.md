@@ -35,7 +35,7 @@ which session. The project name is the git repository the session is working in
 session id, so concurrent sessions stay distinguishable.
 
 ```
-❓ KhairGate-BMS-19 needs your answer     ✅ claude_plugins is done
+❓ acme-erp needs your answer     ✅ claude_plugins is done
 Which migration strategy should I use?   Fixed the duplicate notification.
 session a1b2c3                           All 72 tests pass.
                                          session 7f2e91

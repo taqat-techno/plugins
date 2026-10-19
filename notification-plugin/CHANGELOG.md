@@ -3,6 +3,11 @@
 All notable changes to the notification plugin are documented here.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [1.1.1] - 2026-10-19
+
+### Changed
+- README example uses a neutral project name.
+
 ## [1.1.0] - 2026-09-13
 
 ### Fixed
