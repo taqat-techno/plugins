@@ -170,9 +170,8 @@ class TestHooksConsistency:
         assert "SessionStart" in hooks_config["hooks"]
 
     def test_has_pre_tool_use_hooks(self, hooks_config):
-        # The plugin has the Azure DevOps work-item write-validation PreToolUse hook.
-        # There is intentionally NO git-push gate (removed in 6.7.0), so a single
-        # PreToolUse entry is expected.
+        # The plugin has the Azure DevOps write-validation and confirmation PreToolUse
+        # hooks, plus the Bash backstop for az CLI writes and pushes to Azure DevOps.
         assert "PreToolUse" in hooks_config["hooks"]
         pre_hooks = hooks_config["hooks"]["PreToolUse"]
         assert len(pre_hooks) >= 1, "Should have the ADO write-validation hook"

@@ -16,7 +16,7 @@ TOOLS = {ln.strip() for ln in (PLUGIN / "tests" / "fixtures" / "mcp_tools_2.8.0.
          .read_text(encoding="utf-8").splitlines() if ln.strip() and not ln.startswith("#")}
 PROMPT_FILES = sorted(p for d in ("skills", "agents", "commands", "rules")
                       for p in (PLUGIN / d).rglob("*.md"))
-READ_VERB = re.compile(r"^[a-z]+_(get|list|search|show|download)_|^search_|^wit_query_by_wiql$|^wit_my_work_items$")
+READ_VERB = re.compile(r"^[a-z]+_(get|list|search|show)_|^search_|^wit_query_by_wiql$|^wit_my_work_items$")
 
 
 def _text(path):
@@ -89,6 +89,18 @@ class TestSubagentsAreReadOnly:
     @pytest.mark.parametrize("agent", ["work-item-ops", "pr-reviewer"])
     def test_writers_return_proposals(self, agent):
         assert "PROPOSED WRITE" in _text(PLUGIN / "agents" / f"{agent}.md")
+
+    @pytest.mark.parametrize("agent", ["work-item-ops", "sprint-planner"])
+    def test_agents_without_a_shell_need_hold_no_bash(self, agent):
+        # DEV-P2-09 / RA-DEV-01: Bash could run `az ... update` or `git push`.
+        assert "Bash" not in _agent_tools(PLUGIN / "agents" / f"{agent}.md")
+
+    def test_pr_reviewer_bash_is_confined_and_backstopped(self):
+        text = _text(PLUGIN / "agents" / "pr-reviewer.md")
+        assert "Never run `git push`" in text and "pre_bash_write_gate.py" in text
+        groups = json.loads(_text(PLUGIN / "hooks" / "hooks.json"))["hooks"]["PreToolUse"]
+        bash = [g for g in groups if g["matcher"] == "Bash"]
+        assert len(bash) == 1 and "pre_bash_write_gate.py" in bash[0]["hooks"][0]["command"]
 
     def test_write_gate_says_subagents_never_write(self):
         assert "Subagents never write" in _text(PLUGIN / "rules" / "write-gate.md")
@@ -196,6 +208,10 @@ class TestConfigLocations:
     def test_token_never_requested_in_chat(self):
         assert "Never ask the user to paste a PAT" in _text(PLUGIN / "skills" / "devops" / "SKILL.md")
 
+    def test_init_never_extracts_the_token(self):
+        # DEV-P3-03: Step 2 must not tell Claude to extract a token from a global config.
+        assert "extract the token" not in _text(PLUGIN / "commands" / "init.md").lower()
+
 
 # --- DEV-P2-02/04/05/06, DEV-P3-01/02: hygiene ----------------------------------------
 
@@ -247,7 +263,8 @@ def _resolve(env, platform="linux"):
     code = ("const m=require(process.argv[1]);const env=JSON.parse(process.argv[2]);"
             "const l=m.buildLaunch(env,process.argv[3]);"
             "console.log(JSON.stringify({cfg:m.resolveConfig(env),errors:l.errors,command:l.command,"
-            "args:l.args,shell:l.shell,childToken:l.env.ADO_MCP_AUTH_TOKEN,"
+            "args:l.args,shell:l.shell,spawnCommand:l.spawnCommand,spawnArgs:l.spawnArgs,"
+            "verbatim:l.windowsVerbatimArguments,childToken:l.env.ADO_MCP_AUTH_TOKEN,"
             "leaked:Object.keys(l.env).filter(k=>k.startsWith('ADO_PLUGIN_'))}))")
     out = subprocess.run([NODE, "-e", code, str(LAUNCHER), json.dumps(env), platform],
                          capture_output=True, timeout=30, check=True)
@@ -282,7 +299,31 @@ class TestLauncher:
 
     def test_shell_metacharacters_in_org_are_refused(self):
         r = _resolve({"ADO_ORGANIZATION": "contoso&calc", "ADO_MCP_AUTH_TOKEN": "t"}, "win32")
-        assert r["errors"] and r["shell"] is True and r["command"] == "npx.cmd"
+        assert r["errors"] and r["command"] == "npx.cmd"
+
+    def test_windows_spawns_cmd_exe_without_shell_true(self):
+        # DEV-P3-05: no shell:true with an args array (DEP0190 on Node 24).
+        r = _resolve({"ADO_ORGANIZATION": "contoso", "ADO_MCP_AUTH_TOKEN": "t",
+                      "ComSpec": "C:\\Windows\\system32\\cmd.exe"}, "win32")
+        assert r["shell"] is False and r["verbatim"] is True
+        assert r["spawnCommand"].lower().endswith("cmd.exe")
+        assert r["spawnArgs"] == ["/d", "/s", "/c",
+                                  '"npx.cmd -y @azure-devops/mcp@2.8.0 contoso --authentication envvar"']
+        r = _resolve({"ADO_ORGANIZATION": "contoso", "ADO_MCP_AUTH_TOKEN": "t"}, "linux")
+        assert r["shell"] is False and r["spawnCommand"] == "npx" and r["spawnArgs"] == r["args"]
+
+    def test_launcher_spawn_emits_no_deprecation_warning(self):
+        p = subprocess.run([NODE, "--throw-deprecation", "-e",
+                            "const cp=require('child_process');const m=require(process.argv[1]);"
+                            "const l=m.buildLaunch({ADO_ORGANIZATION:'c',ADO_MCP_AUTH_TOKEN:'t'},process.platform);"
+                            "const win=process.platform==='win32';"
+                            "const c=cp.spawn(win?l.spawnCommand:'sh',win?['/d','/s','/c','\"echo ok\"']:['-c','echo ok'],"
+                            "{shell:l.shell,windowsVerbatimArguments:l.windowsVerbatimArguments});"
+                            "let o='';c.stdout.on('data',d=>o+=d);"
+                            "c.on('exit',x=>{process.stdout.write(o);process.exit(x)})", str(LAUNCHER)],
+                           capture_output=True, timeout=30)
+        assert p.returncode == 0 and b"DEP0190" not in p.stderr, p.stderr
+        assert p.stdout.strip() == b"ok"
 
     def test_plugin_vars_not_passed_to_server(self):
         r = _resolve({"ADO_PLUGIN_ORGANIZATION": "c", "ADO_PLUGIN_TOKEN": "t"})

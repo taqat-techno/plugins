@@ -8,7 +8,6 @@ color: blue
 model: haiku
 tools:
   - Read
-  - Bash
   - mcp__plugin_devops_azure-devops__wit_my_work_items
   - mcp__plugin_devops_azure-devops__wit_get_work_item
   - mcp__plugin_devops_azure-devops__wit_get_work_items_batch_by_ids

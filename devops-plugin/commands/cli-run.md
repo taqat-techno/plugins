@@ -10,7 +10,8 @@ primary_agent: none
 # /cli-run - Direct CLI Execution
 
 > Raw CLI commands do not get the plugin's MCP-side checks (state pre-flight, hierarchy,
-> mention resolution, the PreToolUse hooks). Prefer the MCP workflows for work items,
+> mention resolution, the MCP PreToolUse hooks). A Bash hook (`hooks/pre_bash_write_gate.py`)
+> applies the classification below and asks you before a WRITE runs. Prefer the MCP workflows for work items,
 > comments and PRs. Use `/cli-run` for CLI-only features (variables, extensions, service
 > connections, project creation) or when the MCP server is unavailable.
 

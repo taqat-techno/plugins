@@ -33,7 +33,7 @@ _TARGET_KEYS = (
     "project", "repositoryId", "pullRequestId", "threadId", "commentId",
     "workItemId", "id", "ids", "parentId", "pipelineId", "definitionId", "buildId",
     "stageName", "branchName", "sourceRefName", "targetRefName", "wikiIdentifier",
-    "path", "team", "planId", "suiteId", "testCaseId",
+    "path", "team", "planId", "suiteId", "testCaseId", "artifactName", "destinationPath",
 )
 # tool_input keys that describe WHAT changes (status/vote = merge/abandon/approve).
 _CHANGE_KEYS = ("status", "vote", "state", "autoComplete", "deleteSourceBranch",

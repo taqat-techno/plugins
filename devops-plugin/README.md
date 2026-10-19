@@ -6,7 +6,10 @@ Lets you work with Azure DevOps in plain language: create and update work items 
 state pre-flight and @mention resolution), review and open pull requests, produce sprint
 reports and standup notes, log time, and run `az devops` CLI commands. It talks to Azure
 DevOps through the official `@azure-devops/mcp` server (pinned at 2.8.0) and the Azure CLI,
-and asks for your confirmation before every write.
+and Claude asks for your confirmation before every write. Hooks back that up: they ask
+you directly before 26 MCP write tools, `az devops|boards|repos|pipelines` CLI writes and
+`git push` to an Azure DevOps remote; the five most-used work-item/PR write tools are
+validated instead and ask only on a rule violation.
 
 It is for developers, testers and project leads whose team tracks work in Azure DevOps
 Boards and Repos. It is Azure DevOps-only.
@@ -61,9 +64,9 @@ All three are read-only. When a task needs a write, they return a `PROPOSED WRIT
 
 | Agent | Model | Tools |
 |-------|-------|-------|
-| `work-item-ops` | haiku | Read, Bash, work-item reads, identity lookup |
-| `sprint-planner` | sonnet | Read, Bash, Glob, Grep, work-item / iteration / capacity reads, search |
-| `pr-reviewer` | sonnet | Read, Bash, Glob, Grep, repo / branch / PR / thread reads, identity lookup |
+| `work-item-ops` | haiku | Read, work-item reads, identity lookup |
+| `sprint-planner` | sonnet | Read, Glob, Grep, work-item / iteration / capacity reads, search |
+| `pr-reviewer` | sonnet | Read, Bash (local read-only git for diffs), Glob, Grep, repo / branch / PR / thread reads, identity lookup |
 
 ## Hooks
 
@@ -71,10 +74,11 @@ All three are read-only. When a task needs a write, they return a `PROPOSED WRIT
 |------|-------|--------------|-----------|
 | `session_start_check.py` | SessionStart (`startup`) | Reports missing organization/token, a missing, stale or legacy-location profile, and broken data files, as context for Claude. Prints nothing when all is well | No |
 | `pre_write_validate.py` | PreToolUse: `wit_create_work_item`, `wit_update_work_item`, `wit_add_work_item_comment`, `wit_work_items_link`, `repo_create_pull_request` | Hierarchy and state reminders; asks (`permissionDecision: "ask"`) when a target state is not in your process preset or a preset/profile role or naming rule is broken; flags a repository name passed where a GUID is needed | Yes, two cases: a comment with an unresolved `@mention` (a plain `@name` notifies nobody), and rule violations when your profile sets `enforcement: block` |
-| `pre_write_confirm.py` | PreToolUse: the 25 other write tools (pipeline runs, PR complete/vote/reviewers/threads, branches, batch and link work-item writes, wiki, iterations and capacity, test plans; list in `rules/write-gate.md`) | Asks you to confirm, naming the action and its target | It asks; you decide |
+| `pre_write_confirm.py` | PreToolUse: the 26 other write tools (pipeline runs, artifact downloads, PR complete/vote/reviewers/threads, branches, batch and link work-item writes, wiki, iterations and capacity, test plans; list in `rules/write-gate.md`) | Asks you to confirm, naming the action and its target | It asks; you decide |
+| `pre_bash_write_gate.py` | PreToolUse: `Bash` | Asks you to confirm an `az devops\|boards\|repos\|pipelines\|artifacts` command whose verb is not a read (`list`, `show`, `query`, `list-member`, `status`, GET `invoke`; same rule as `/cli-run`) and a `git push` to an Azure DevOps remote. Silent for every other command. `DEVOPS_BASH_WRITE_GATE=off` disables it | It asks; you decide |
 
 All hooks fail open: an internal error or a missing Python lets the call through to the
-normal Claude Code permission flow. There is no git-push gate.
+normal Claude Code permission flow.
 
 ## Configuration
 

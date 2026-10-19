@@ -3,7 +3,7 @@ name: devops
 description: "Use when the user works with Azure DevOps: work items (create, update state, comment with @mentions, link, log hours), pull requests, sprints, standups, builds and pipelines, wiki, test plans, the az devops CLI, or the azure-devops MCP server. Also use when an Azure DevOps call fails: TF401320 on Completed Work (set Original Estimate first, never drop it), MCP auth or unknown-tool errors, an empty work item search, or a denied branch or push."
 license: "MIT"
 metadata:
-  version: "8.0.0"
+  version: "8.0.1"
   last_reviewed: "2026-10-19"
   author: "TAQAT Techno"
   mode: "hybrid"

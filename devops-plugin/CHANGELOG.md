@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [8.0.1] - 2026-10-19
+
+### Security
+- **Subagent Bash is removed or backstopped (RA-DEV-01 / DEV-P2-09).** `work-item-ops` and
+  `sprint-planner` no longer hold `Bash` (neither used it). `pr-reviewer` keeps it for
+  local read-only git (`git fetch` / `git diff`) and is told never to push, commit or run
+  an `az` write. New PreToolUse `Bash` hook `hooks/pre_bash_write_gate.py` asks the user
+  (`permissionDecision: "ask"`) before an `az devops|boards|repos|pipelines|artifacts`
+  command whose verb is not a read, using the `/cli-run` classification (flags never
+  change the class; unknown verbs are writes), and before `git push` to an Azure DevOps
+  remote (`dev.azure.com`, `ssh.dev.azure.com`, `*.visualstudio.com`). It parses the shell
+  line (`bash -c`, `sudo`/`env`, `eval`, `powershell -Command`), ignores quoted text, and
+  is silent for every other command. Opt-out: `DEVOPS_BASH_WRITE_GATE=off`.
+- **`pipelines_download_artifact` is gated (RA-DEV-04 / DEV-P3-04).** It writes files to a
+  local path, so it now goes to the `pre_write_confirm.py` ask gate (26 tools);
+  `download` is no longer a read verb in the contract tests or `rules/write-gate.md`.
+
+### Fixed
+- **Manifest and README claim match the hooks (RA-DEV-02 / DEV-P2-10).** They now say the
+  hooks ask before 26 MCP write tools and CLI writes, and validate the other five.
+- **`/init` Step 2 no longer says "still extract the token" (RA-DEV-03 / DEV-P3-03);**
+  a contract test forbids the phrase.
+- **Launcher spawns `cmd.exe` with an explicit command line on Windows (RA-DEV-05 /
+  DEV-P3-05)** instead of `shell: true` with an args array (Node 24 DEP0190). The
+  organization is still checked against `ORG_RE` first.
+
 ## [8.0.0] - 2026-10-19
 
 ### Changed (breaking)

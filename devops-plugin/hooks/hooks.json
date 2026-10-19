@@ -1,5 +1,5 @@
 {
-  "description": "Azure DevOps hooks: a SessionStart configuration/profile health check (context only, silent when healthy), process-aware validation of five work-item/PR write tools, and a permissionDecision 'ask' gate on every other Azure DevOps MCP write tool (list: rules/write-gate.md). Matchers also accept the un-namespaced tool names of a globally configured azure-devops server. No git-push gate.",
+  "description": "Azure DevOps hooks: a SessionStart configuration/profile health check (context only, silent when healthy), process-aware validation of five work-item/PR write tools, a permissionDecision 'ask' gate on every other Azure DevOps MCP write tool (list: rules/write-gate.md), and a Bash 'ask' gate on Azure DevOps CLI write verbs (az devops|boards|repos|pipelines|artifacts) and on git push to an Azure DevOps remote. Matchers also accept the un-namespaced tool names of a globally configured azure-devops server.",
   "hooks": {
     "SessionStart": [
       {
@@ -25,11 +25,21 @@
         ]
       },
       {
-        "matcher": "^mcp__(plugin_devops_)?azure-devops__(pipelines_(run_pipeline|create_pipeline|update_build_stage)|repo_(update_pull_request|update_pull_request_reviewers|vote_pull_request|create_branch|update_pull_request_thread|create_pull_request_thread|reply_to_comment)|wit_(update_work_items_batch|add_child_work_items|work_item_unlink|add_artifact_link|link_work_item_to_pull_request|update_work_item_comment)|wiki_create_or_update_page|work_(update_team_capacity|create_iterations|assign_iterations)|testplan_(create_test_plan|create_test_suite|create_test_case|add_test_cases_to_suite|update_test_case_steps))$",
+        "matcher": "^mcp__(plugin_devops_)?azure-devops__(pipelines_(run_pipeline|create_pipeline|update_build_stage|download_artifact)|repo_(update_pull_request|update_pull_request_reviewers|vote_pull_request|create_branch|update_pull_request_thread|create_pull_request_thread|reply_to_comment)|wit_(update_work_items_batch|add_child_work_items|work_item_unlink|add_artifact_link|link_work_item_to_pull_request|update_work_item_comment)|wiki_create_or_update_page|work_(update_team_capacity|create_iterations|assign_iterations)|testplan_(create_test_plan|create_test_suite|create_test_case|add_test_cases_to_suite|update_test_case_steps))$",
         "hooks": [
           {
             "type": "command",
             "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/pre_write_confirm.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\"; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/pre_bash_write_gate.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\"; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0",
             "timeout": 10
           }
         ]

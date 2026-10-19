@@ -131,8 +131,7 @@ class TestRouting:
     def test_ask_hook_uses_same_launcher(self):
         groups = json.loads(HOOKS_JSON.read_text(encoding="utf-8"))["hooks"]["PreToolUse"]
         cmds = [g["hooks"][0]["command"] for g in groups]
-        assert len({c.replace("pre_write_confirm.py", "X").replace(
-            "pre_write_validate.py", "X") for c in cmds}) == 1
+        assert len({re.sub(r"hooks/[\w-]+\.py", "hooks/X.py", c) for c in cmds}) == 1
 
 
 class TestAskGate:

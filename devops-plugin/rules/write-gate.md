@@ -61,7 +61,7 @@ Pushing commits, creating pull requests via a git host, and merging branches on 
 
 ### READ (safe) — No Confirmation Needed
 
-MCP tools whose name starts with `get`, `list`, `search`, `show` or `download` after the
+MCP tools whose name starts with `get`, `list`, `search` or `show` after the
 domain prefix (`wit_get_work_item`, `repo_list_pull_requests_by_repo_or_project`, ...)
 and `wit_query_by_wiql` execute freely.
 
@@ -91,7 +91,7 @@ matcher and this table list exactly the same tools.
 
 | Domain | Gated write tools (`@azure-devops/mcp` 2.8.0) |
 |--------|-----------------------------------------------|
-| Pipelines | `pipelines_run_pipeline`, `pipelines_create_pipeline`, `pipelines_update_build_stage` |
+| Pipelines | `pipelines_run_pipeline`, `pipelines_create_pipeline`, `pipelines_update_build_stage`, `pipelines_download_artifact` (writes files to a local path) |
 | Repos / PRs | `repo_update_pull_request` (complete / merge / abandon / edit), `repo_update_pull_request_reviewers`, `repo_vote_pull_request`, `repo_create_branch`, `repo_create_pull_request_thread`, `repo_update_pull_request_thread`, `repo_reply_to_comment` |
 | Work items | `wit_update_work_items_batch`, `wit_add_child_work_items`, `wit_work_item_unlink`, `wit_add_artifact_link`, `wit_link_work_item_to_pull_request`, `wit_update_work_item_comment` |
 | Wiki | `wiki_create_or_update_page` |
@@ -108,6 +108,22 @@ unresolved @mentions and, when the profile sets `enforcement: "block"`, rule vio
 
 When the MCP server is upgraded, add any new write tool to this table **and** the
 hooks.json matcher in the same change; the sync test fails otherwise.
+
+### CLI and push backstop (Bash)
+
+`hooks/pre_bash_write_gate.py` runs on every Bash call and asks the human
+(`permissionDecision: "ask"`) when the command line runs:
+
+- an `az devops|boards|repos|pipelines|artifacts` command that is not a READ by the verb
+  rule in `${CLAUDE_PLUGIN_ROOT}/commands/cli-run.md` ("Classification"): flags never
+  change the class, unknown verbs are writes;
+- `git push` to an Azure DevOps remote (`dev.azure.com`, `ssh.dev.azure.com`,
+  `*.visualstudio.com`). Pushes to other hosts stay with
+  `${CLAUDE_PLUGIN_ROOT}/rules/git-remote-write-gate.md`.
+
+It parses the shell line (`bash -c`, `sudo`/`env` wrappers, `eval`, `powershell -Command`)
+and ignores text inside quotes. Every other command gets no decision. The user can switch
+it off with `DEVOPS_BASH_WRITE_GATE=off` before starting Claude Code.
 
 ---
 

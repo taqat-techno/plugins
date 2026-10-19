@@ -215,7 +215,7 @@ The plugin provides its own `azure-devops` MCP server via `.mcp.json`. If the us
       re-issued, because it has been stored in plain text
 4. **If NOT found:** report `"No duplicate azure-devops server in the global config."`
 
-**Important:** The plugin `.mcp.json` uses `@azure-devops/mcp` (the correct official package), NOT `@anthropic-ai/azure-devops-mcp`. If the global config uses the wrong package, still extract the token -- they use the same PAT format.
+**Important:** The plugin `.mcp.json` uses `@azure-devops/mcp` (the correct official package), NOT `@anthropic-ai/azure-devops-mcp`. If the global config uses the wrong package, the same PAT works: tell the user to put it in the plugin options (`/config`) themselves. Never read out, copy or move the token.
 
 ### Step 3: Verify MCP Server
 

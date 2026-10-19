@@ -8,7 +8,6 @@ color: green
 model: sonnet
 tools:
   - Read
-  - Bash
   - Glob
   - Grep
   - mcp__plugin_devops_azure-devops__wit_my_work_items

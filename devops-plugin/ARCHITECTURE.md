@@ -30,13 +30,16 @@ DATA (6)        data/state_machine.json  process presets (basic, agile, scrum, c
                 data/hierarchy_rules.json, project_defaults.json, profile_template.md,
                 example_profile.md, bug_report_template.md
      |
-HOOKS (3)       hooks/session_start_check.py  SessionStart: config + profile health,
+HOOKS (4)       hooks/session_start_check.py  SessionStart: config + profile health,
                                               additionalContext only when there is a finding
                 hooks/pre_write_validate.py   PreToolUse on 5 ADO write tools: preset state
                                               checks, optional role/naming rules (ask; block
                                               on opt-in), unresolved @mentions (exit 2)
                 hooks/pre_write_confirm.py    PreToolUse on every other ADO write tool:
                                               permissionDecision "ask"
+                hooks/pre_bash_write_gate.py  PreToolUse on Bash: "ask" on az devops/boards/
+                                              repos/pipelines/artifacts write verbs (cli-run
+                                              rule) and git push to an ADO remote
                 hooks/_vendor/hooklib.py      shared runtime (synced from shared/hooklib.py)
      |
 MCP (1)         .mcp.json -> scripts/ado-mcp-launch.js -> npx @azure-devops/mcp@2.8.0

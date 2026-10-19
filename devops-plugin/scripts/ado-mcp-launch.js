@@ -66,11 +66,22 @@ function buildLaunch(env, platform) {
   childEnv.ado_mcp_team = cfg.team;
 
   const isWin = platform === "win32";
+  const command = isWin ? "npx.cmd" : "npx";
+  const args = ["-y", PACKAGE, cfg.organization, "--authentication", "envvar"];
+  // On Windows npx is a .cmd shim, which only cmd.exe can run. Spawn cmd.exe ourselves
+  // with an explicit command line instead of `shell: true` plus an args array (Node 24
+  // deprecates that pattern, DEP0190). Every token here is a fixed string or the
+  // organization name already checked against ORG_RE, so nothing needs escaping.
+  const spawnCommand = isWin ? (clean(env.ComSpec) || "cmd.exe") : command;
+  const spawnArgs = isWin ? ["/d", "/s", "/c", "\"" + [command].concat(args).join(" ") + "\""] : args;
   return {
     errors,
-    command: isWin ? "npx.cmd" : "npx",
-    args: ["-y", PACKAGE, cfg.organization, "--authentication", "envvar"],
-    shell: isWin,
+    command,
+    args,
+    shell: false,
+    spawnCommand,
+    spawnArgs,
+    windowsVerbatimArguments: isWin,
     env: childEnv,
   };
 }
@@ -88,11 +99,15 @@ function main() {
   if (process.env.ADO_MCP_LAUNCH_DRY_RUN === "1") {
     // Test seam: report what would run, without the token, and do not start anything.
     process.stdout.write(JSON.stringify({ command: launch.command, args: launch.args, shell: launch.shell,
+      spawnCommand: launch.spawnCommand, spawnArgs: launch.spawnArgs,
       project: launch.env.ado_mcp_project, team: launch.env.ado_mcp_team,
       tokenSet: Boolean(launch.env.ADO_MCP_AUTH_TOKEN) }) + "\n");
     return;
   }
-  const child = spawn(launch.command, launch.args, { stdio: "inherit", env: launch.env, shell: launch.shell });
+  const child = spawn(launch.spawnCommand, launch.spawnArgs, {
+    stdio: "inherit", env: launch.env, shell: false,
+    windowsVerbatimArguments: launch.windowsVerbatimArguments,
+  });
   for (const sig of ["SIGINT", "SIGTERM"]) {
     process.on(sig, () => { try { child.kill(sig); } catch (e) { /* already gone */ } });
   }

@@ -82,7 +82,12 @@ For real-world workflow examples, see `${CLAUDE_PLUGIN_ROOT}/skills/devops/EXAMP
 ## Writes: propose, never execute
 
 You have no write tools on purpose. A subagent cannot pause to ask the user, so it could not
-honour the confirmation in `${CLAUDE_PLUGIN_ROOT}/rules/write-gate.md`. When the task needs a write, finish
+honour the confirmation in `${CLAUDE_PLUGIN_ROOT}/rules/write-gate.md`.
+You hold Bash only for local, read-only git (`git fetch`, `git diff`, `git log`, `git show`).
+Never run `git push`, `git commit`, `git merge`, `git reset`, or any `az` command that is not
+a read (`list`, `show`, `query`, `status`); propose those instead. A PreToolUse hook
+(`hooks/pre_bash_write_gate.py`) asks the user before an `az devops|boards|repos|pipelines`
+write or a push to an Azure DevOps remote. When the task needs a write, finish
 the read-only work and return a **proposed write** to the main conversation:
 
 ```

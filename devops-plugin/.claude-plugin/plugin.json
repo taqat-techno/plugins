@@ -1,8 +1,8 @@
 {
   "name": "devops",
-  "version": "8.0.0",
+  "version": "8.0.1",
   "license": "MIT",
-  "description": "Azure DevOps for Claude Code: work items, pull requests, sprints, standups and time logging through the pinned @azure-devops/mcp 2.8.0 server and the az CLI, with stock Basic/Agile/Scrum/CMMI process presets and a confirmation gate on every write.",
+  "description": "Azure DevOps for Claude Code: work items, pull requests, sprints, standups and time logging through the pinned @azure-devops/mcp 2.8.0 server and the az CLI, with stock Basic/Agile/Scrum/CMMI process presets, a hook that asks before 26 MCP write tools and Azure DevOps CLI writes, and process validation on the other five write tools.",
   "author": {
     "name": "TaqaTechno",
     "email": "info@taqatechno.com",
