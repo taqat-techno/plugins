@@ -23,7 +23,7 @@ ROOT = Path(__file__).resolve().parent.parent
 ALLOWED_EMAIL_DOMAINS = {
     "example.com", "example.org", "example.net", "example.test", "test.com", "company.com",
     "customer.com", "acme.com", "ex.com", "email.com", "real.com", "li.org",
-    "users.noreply.github.com",
+    "users.noreply.github.com", "github.com",  # git remotes such as user@github.com:org/repo
 }
 ALLOWED_EMAILS = {"info@taqatechno.com", "noreply@anthropic.com", "git@github.com"}
 PLACEHOLDER_USERS = {
@@ -68,7 +68,9 @@ def main() -> int:
         for n, line in enumerate(text.splitlines(), 1):
             for m in EMAIL.finditer(line):
                 addr, domain = m.group(0).lower(), m.group(1).lower()
-                if addr not in ALLOWED_EMAILS and domain not in ALLOWED_EMAIL_DOMAINS \
+                allowed_domain = domain in ALLOWED_EMAIL_DOMAINS or any(
+                    domain.endswith("." + d) for d in ALLOWED_EMAIL_DOMAINS)
+                if addr not in ALLOWED_EMAILS and not allowed_domain \
                         and not domain.endswith((".example", ".test", ".invalid", ".localhost")):
                     problems.append(f"{rel}:{n}: e-mail address {m.group(0)[0]}***@{domain}")
             for m in HOME.finditer(line):
