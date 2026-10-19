@@ -25,8 +25,14 @@ ROOT = Path(__file__).resolve().parent.parent
 SKILLS = sorted((ROOT / "skills").glob("*/SKILL.md"))
 ALLOWED_TOP_KEYS = {"name", "description", "version", "user-invocable", "metadata",
                     "allowed-tools", "license", "disable-model-invocation", "argument-hint"}
-FORBIDDEN_TOKENS = ("royal preps", "royalpreps", "railway.app", "taqatechno.com/", "C:\\",
-                    "/Users/ahmed", "medical exam")
+# Generic environment leaks. Project and client names a maintainer wants kept out go in the
+# git-ignored `.privacy-denylist` at the repository root, read below, so they are never
+# published in this file.
+_DENYLIST = ROOT.parent / ".privacy-denylist"
+FORBIDDEN_TOKENS = ("railway.app", "taqatechno.com/", "C:\\") + tuple(
+    line.strip() for line in (_DENYLIST.read_text(encoding="utf-8").splitlines()
+                              if _DENYLIST.is_file() else [])
+    if line.strip() and not line.startswith("#"))
 MANDATE_PHRASES = (r"role enum is a smell", r"replace (the|your) role enum",
                    r"must (use|adopt) module[- ]level", r"always (use|adopt) module[- ]level",
                    r"migrate (to|onto) module[- ]levels? (first|before)")

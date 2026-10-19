@@ -2,6 +2,11 @@
 
 All notable changes to `react-kit-plugin` are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/). Versioning follows [SemVer](https://semver.org/).
 
+## [0.8.1] - 2026-10-19
+
+### Changed
+- The genericity test reads project-specific forbidden names from the maintainer's git-ignored `.privacy-denylist` instead of listing them in a published file.
+
 ## [0.8.0] - 2026-10-19
 
 ### Security
