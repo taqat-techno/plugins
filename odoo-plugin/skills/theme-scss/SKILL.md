@@ -30,7 +30,24 @@ Example requests:
 
 ## Critical Load Order Rule
 
-See `rules/scss-load-order.md` for the complete load order explanation, map-merge prohibition, and prepend requirement.
+`Undefined variable $o-color-palettes` is a load-order error: your SCSS reads the variable
+before core defines it. Core defines `$o-color-palettes` (html_editor/web_editor, `!default`,
+then website `map-merge`s into it), `$o-website-values-palettes` and `$o-theme-font-configs`
+(website, `!default`) inside the `web._assets_primary_variables` bundle.
+
+- **Fix:** put palette and website-values variables in the theme's `primary_variables.scss`,
+  **appended** to `web._assets_primary_variables` (no `('prepend', ...)`), and extend the
+  palette with `$o-color-palettes: map-merge($o-color-palettes, ('my-palette': (...)));`, then
+  select it with `'color-palettes-name': 'my-palette'` in `$o-website-values-palettes`. This
+  is what Odoo's own `theme_*` modules do.
+- **Causes:** the file is prepended (so `map-merge` runs before the definition), or it is in
+  `web.assets_frontend` / an `@import` outside the primary-variables bundle.
+- **Not fixes:** adding `!default`, or redefining `$o-color-palettes` standalone (that drops
+  the stock `base-*` palettes that website itself reads).
+- A prepended file may only set `$o-theme-font-configs` / `$o-website-values-palettes`
+  standalone and must never read a core variable.
+
+Full rule with examples and manifest syntax: `rules/scss-load-order.md`.
 
 ## Version Scope
 
@@ -50,7 +67,7 @@ Configures Google Fonts with family, URL query parameter (NOT full URL), and opt
 - `o-color-4`: White (#FFFFFF)
 - `o-color-5`: Dark/Text
 
-Color combinations: `o_cc1`-`o_cc5` CSS classes for section backgrounds. In themes, use `$o-website-values-palettes` with `'color-palettes-name'` (NOT `map-merge`).
+Color combinations: `o_cc1`-`o_cc5` CSS classes for section backgrounds. Add a custom palette with `map-merge` in an appended primary-variables file, and select it (or a stock one) with `'color-palettes-name'` in `$o-website-values-palettes`.
 
 ### 3. `$o-website-values-palettes` -- Master Configuration (115+ Keys)
 Controls typography (13 keys), font sizes (13), line heights (11), margins (22), buttons (17), inputs (12), header (13), footer (3), links (1), layout (3), colors (5), Google Fonts (2).

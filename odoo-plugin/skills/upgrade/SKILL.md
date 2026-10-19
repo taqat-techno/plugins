@@ -2,7 +2,7 @@
 name: odoo-upgrade
 description: >-
   Use when migrating Odoo modules or themes between versions 14 and 19, or fixing errors
-  that appear after an upgrade: tree to list, attrs, RPC service changes, theme SCSS
+  that appear after an upgrade: tree to list, attrs, useService('rpc') no longer available, theme SCSS
   variables, manifest and security changes, portal XPath fixes and migration scripts. Also
   when a model or table rename, noupdate seed data, or moving a model to another module
   could silently lose data.
@@ -107,8 +107,13 @@ Remove templates inheriting `website.snippet_options` - system redesigned.
 
 ## JavaScript/OWL Migrations
 
-### RPC Service (Odoo 19)
-RPC service is NOT available in frontend/public components. Replace `useService("rpc")` with a `_jsonRpc` helper method using the fetch API with CSRF token handling.
+### RPC Service (Odoo 18-19)
+`rpc` is no longer a registered service, so `useService("rpc")` throws "Service rpc is not
+available" - also in public/website components for anonymous visitors. Replace it with
+either `import { rpc } from "@web/core/network/rpc"` (what Odoo 19's own website code uses)
+or the fetch-based `_jsonRpc` helper with CSRF token handling that `/upgrade` inserts. Point
+it at your own `type='jsonrpc', auth='public'` controller route; the `orm` service needs a
+logged-in session. Details: the frontend-js skill.
 
 ### OWL Lifecycle Hooks (Odoo 18+)
 
@@ -339,7 +344,7 @@ or a targeted `unlink()` in the right order) in the version's `pre-migrate.py`.
 
 | Error | Cause | Fix |
 |-------|-------|-----|
-| Service rpc not available | useService("rpc") in frontend | Replace with _jsonRpc helper |
+| Service rpc not available | useService("rpc"); rpc is no longer a service | `import { rpc } from "@web/core/network/rpc"` or the _jsonRpc helper |
 | Invalid field numbercall | Field removed | Remove from cron XML |
 | Invalid view definition (search) | `<group>` in search | Remove group tags |
 | Missing card template | kanban-box renamed | Use t-name="card" |

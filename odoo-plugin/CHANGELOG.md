@@ -2,6 +2,90 @@
 
 All notable changes to `odoo-plugin` are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/). Versioning follows [SemVer](https://semver.org/).
 
+## [3.0.2] - 2026-10-19
+
+Skill triggering, from the 2026-10-19 eval run (`claude plugin eval`, sonnet-5-5, 1 run
+per case). Must-fire fire rate: **18/23 (78%) -> 22/23 (96%)**; score pass **42/46 ->
+46/46**; must-not-fire quiet **23/23 -> 23/23** (all 23 `ignores-*` re-run once). Mean
+Delta over the 7 repaired cases **-0.14 -> +0.14**; plugin mean Delta **+0.02 -> about
++0.07**. Only the 7 affected cases and the 23 `ignores-*` cases were re-run; the other 16
+must-fire cases keep their earlier result.
+
+| Case | Before (fired / score / without) | After |
+|---|---|---|
+| fires-on-odoo-container-restart-loop | no / 1 / 1 | yes / 1 / 1 |
+| fires-on-record-rule-visibility-test | no / 1 / 1 | yes / 1 / 1 |
+| fires-on-start-and-stop-local-server | no / 1 / 1 | yes / 1 / 1 |
+| fires-on-public-widget-rpc-unavailable | no / 0 / 0 | yes / 1 / 1 |
+| fires-on-switch-staging-connection-to-write | no / 0 / 0 | yes / 1 / 0 |
+| fires-on-undefined-color-palettes-variable | yes / 0 / 1 | yes / 1 / 1 |
+| fires-on-hr-extension-release-audit | yes / 0 / 0 | no (yes in round 1) / 1 / 1 |
+
+### Fixed
+- **`/docker`, `/test` and `/service` commands shadow the same-named skills** in the skill
+  listing (only `odoo:docker`, `odoo:test`, `odoo:service` appear, with the command's
+  description). Their descriptions now name the symptoms: an Odoo container that keeps
+  restarting, record-rule tests with `with_user()`, starting and stopping one project's
+  server with its own config and database. The `docker`, `test`, `service` and `mcp`
+  (odoo-live-instance) skill descriptions lead with the same symptoms.
+- **SCSS load order was wrong (theme-scss, theme-create, `rules/scss-load-order.md`).** The
+  rule said themes must prepend `primary_variables.scss` and never `map-merge`
+  `$o-color-palettes`. In the Odoo 19 source, html_editor defines `$o-color-palettes` with
+  `!default`, website `map-merge`s into it, and every bundled `theme_*` module appends its
+  `primary_variables.scss` to `web._assets_primary_variables` and extends the palette with
+  `map-merge`. The rule now says that; a prepended file may only set `!default` variables
+  (`$o-theme-font-configs`, `$o-website-values-palettes`). The theme-scss body carries the
+  fix inline, since an eval run cannot read `rules/`.
+- **`rpc` guidance (upgrade, frontend-js).** `rpc` has not been a service since Odoo 18, so
+  `useService("rpc")` fails in every component. The skills now give
+  `import { rpc } from "@web/core/network/rpc"` (used by 77 frontend files in Odoo 19,
+  e.g. `website/static/src/interactions/listing_layout.js`) alongside the `_jsonRpc` fetch
+  helper, against a `type='jsonrpc', auth='public'` route, and say why the `orm` service
+  does not work for anonymous visitors. frontend-js's description names the symptom.
+- **security:** with no module in reach, the skill gives the Odoo-specific checklist
+  instead of stopping at "I can't run the audit".
+
+### Evals
+- `fires-on-public-widget-rpc-unavailable`: the criteria grader failed a correct answer
+  (the `rpc` import that Odoo 19 itself uses) because it required the fetch helper only;
+  it now accepts either. `skill-fired` also accepts `frontend-js`, the skill that owns
+  website components (the prompt is about building a widget, not upgrading).
+- `fires-on-hr-extension-release-audit`: the prompt says the module is not on the machine.
+  The eval sandbox has no module and allows only the Skill tool, so the audit guidance
+  was not observable.
+
+## [3.0.1] - 2026-10-19
+
+### Security
+- **Nested x2many commands are gated (RA-ODOO-01 / ODOO-P2-09).** `odoo_create`,
+  `odoo_write` and every non-read `odoo_call` now walk the command tuples in their
+  values (`Command.create/update/delete/unlink/link/clear/set`, and a plain id list as
+  `set`), recursing into nested vals. Each field's comodel is resolved with `fields_get`
+  (cached per call). A command on a field whose comodel is in `HARD_DENY_WRITE_MODELS`
+  is refused unless `allow_write_models` lists it; `[2, id]` (and unlink/clear/set on an
+  existing record's one2many, which Odoo turns into a delete on cascade inverses) needs
+  `write+unlink`; commands on a field whose comodel cannot be resolved are refused.
+  `res.partner {"user_ids": [[1, uid, {"groups_id": [[4, gid]]}]]}` and
+  `{"child_ids": [[2, id]]}` in write mode are now refused.
+- **More hard-denied models.** `website.page` (`_inherits` `ir.ui.view`),
+  `base.module.upgrade`, `base.module.uninstall`, `res.config.settings`,
+  `change.password.wizard|user|own`, `res.users.apikeys` and
+  `res.users.apikeys.description`.
+- **Destructive guard parser bypasses closed (RA-ODOO-02 / ODOO-P2-10).**
+  `_odoo_shell.commands()` skips wrapper option values (`sudo -u postgres`,
+  `sudo --user postgres`, `doas -u`, `env -u/-C`, `nice -n`, `timeout -s/-k DURATION`,
+  `xargs -n/-I`, ...), unwraps `bash -lc` / `sh -e -c`, `eval`, `powershell|pwsh
+  -Command`, `cmd /c`, and the command run by `docker|podman exec <container>` and
+  `docker compose exec|run <service>` (including compose global options). `command -v`
+  is a lookup and no longer counts as running the program. The guard also asks on
+  `psql ... DROP DATABASE` in an Odoo project.
+
+### Fixed
+- The Write/Edit guards also match `MultiEdit` (ODOO-P3-05); `pre_write_check.py` reads
+  MultiEdit's `edits[].new_string`.
+- Removed the two skip-only tests for hooks deleted in 3.0.0; the suite reports 0
+  skipped.
+
 ## [3.0.0] - 2026-10-19
 
 ### Security

@@ -58,7 +58,21 @@ You are an expert Odoo security auditor. You analyze Odoo module codebases syste
 
 ## How to Audit
 
-When triggered, follow this methodology:
+**No module in reach** (none in the workspace, or reads or scripts are blocked)? Do not stop
+at "I can't run the audit". Give the Odoo-specific checklist the user can apply now, then
+ask for the module path:
+
+- every model (TransientModel too on 14+) has an `ir.model.access.csv` row per group, with
+  no unintended group-less row;
+- `ir.rule` record rules for multi-user, multi-company or per-employee data (HR: an employee
+  sees only their own records, a manager their team);
+- every `@http.route` with `auth='public'` or `auth='none'` is listed and justified, and
+  `type='http'` POST routes with `csrf=False` are flagged;
+- each `sudo()` has a written reason, a narrow domain and no user-controlled ids;
+- every `cr.execute` built with `%`, `.format()` or an f-string instead of query parameters;
+- the bundled checkers (steps 2-5) to run once the module is available.
+
+With a module, follow this methodology:
 
 0. **Know the version.** Read `version` in `__manifest__.py`. On **20.0+**:
    - Access lives in `security/ir.access.csv`. `ir.access` replaces `ir.model.access` and

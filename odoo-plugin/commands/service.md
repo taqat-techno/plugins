@@ -2,7 +2,7 @@
 title: 'Odoo Service Manager'
 read_only: false
 type: 'command'
-description: 'Odoo server lifecycle — start, stop, init, database, Docker, and IDE configuration'
+description: 'Local Odoo server lifecycle — start and stop one project''s server with its own config file and database (odoo-bin -c/-d, clean stop), init, database, Docker, and IDE configuration'
 argument-hint: '[start|stop|init|db|docker|ide|scaffold] [args...]'
 ---
 

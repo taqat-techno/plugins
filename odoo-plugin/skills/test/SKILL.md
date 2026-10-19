@@ -1,9 +1,11 @@
 ---
 name: odoo-test
 description: >-
-  Use when planning, writing, reviewing, running or debugging Odoo 14-19 tests: test
-  skeletons for a model, mock data, coverage gaps, running a module's tests or a tag,
-  failing tests, access-right and record-rule tests, wizard, controller and report tests, a
+  Use when planning, writing, reviewing, running or debugging Odoo 14-19 tests, including an
+  automated test proving an ir.rule or access right hides records from a user in another
+  team, group or company (with_user, TransactionCase, post_install tags): test skeletons
+  for a model, mock data, coverage gaps, running a module's tests or a tag, failing
+  tests, wizard, controller and report tests, a
   regression test for a bugfix, turning acceptance criteria into tests, Playwright E2E
   tests, or CI for Odoo tests. Also covers why HttpCase is a false signal for /web/image and
   host-gated access.

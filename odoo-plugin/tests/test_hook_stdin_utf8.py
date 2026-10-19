@@ -20,8 +20,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-import pytest
-
 PLUGIN_ROOT = Path(__file__).resolve().parent.parent
 HOOKS = PLUGIN_ROOT / "hooks"
 
@@ -99,35 +97,26 @@ def test_pre_write_check_blocks_inline_script_with_arabic_payload(tmp_path):
     assert d["permissionDecision"] == "deny" and "Inline JavaScript" in d["permissionDecisionReason"]
 
 
-@pytest.mark.skipif(not (HOOKS / "frontend" / "post_write_check.py").exists(),
-                    reason="unregistered hook removed")
-def test_post_write_check_reports_with_arabic_payload():
-    code, out, err = _run("frontend/post_write_check.py", {
-        "tool_name": "Write",
+def test_pre_write_check_covers_multiedit_edits(tmp_path):
+    module = tmp_path / ARABIC
+    (module / "views").mkdir(parents=True)
+    (module / "__manifest__.py").write_text("{'name': 'x'}\n", encoding="utf-8")
+    code, out, err = _run("frontend/pre_write_check.py", {
+        "tool_name": "MultiEdit",
         "tool_input": {
-            "file_path": "theme_x/static/%s.scss" % ARABIC,
-            "content": "/* %s */ .a { @extend .ml-2; }" % ARABIC,
+            "file_path": str(module / "views" / "v.xml"),
+            "edits": [{"old_string": "a", "new_string": "<p>%s</p>" % ARABIC},
+                      {"old_string": "b", "new_string": "<script>alert(1)</script>"}],
         },
     })
     assert code == 0, err
-    ctx = json.loads(out)["hookSpecificOutput"]["additionalContext"]
-    assert "SCSS modified" in ctx
+    assert _decision(out)["permissionDecision"] == "deny"
 
 
-@pytest.mark.skipif(not (HOOKS / "upgrade" / "check_odoo19_compat.py").exists(),
-                    reason="unregistered hook removed")
-def test_check_odoo19_compat_reports_with_arabic_payload(tmp_path):
-    target = tmp_path / "odoo19" / ARABIC / "views.xml"
-    target.parent.mkdir(parents=True)
-    target.write_bytes(("<odoo><tree string=\"%s\"/></odoo>\n" % ARABIC).encode("utf-8"))
-    code, out, err = _run("upgrade/check_odoo19_compat.py", {
-        "tool_name": "Write",
-        "tool_input": {"file_path": str(target), "content": ARABIC},
-    })
-    assert code == 0, err
-    assert out.strip(), "compat check produced no output (payload not parsed?)"
-    ctx = json.loads(out)["hookSpecificOutput"]["additionalContext"]
-    assert "<tree>" in ctx
+def test_registered_write_guards_match_multiedit():
+    data = json.loads((HOOKS / "hooks.json").read_text(encoding="utf-8"))
+    matchers = [g["matcher"] for g in data["hooks"]["PreToolUse"] if "Write" in g["matcher"]]
+    assert matchers and all("MultiEdit" in m.split("|") for m in matchers), matchers
 
 
 def test_session_start_survives_arabic_payload(tmp_path):

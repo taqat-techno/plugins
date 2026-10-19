@@ -45,6 +45,17 @@ HARD_DENY_WRITE_MODELS = frozenset({
     "ir.mail_server",
     # view + QWeb arch can embed executable expressions
     "ir.ui.view",
+    # _inherits ir.ui.view: a website.page write/create sets the view's arch
+    "website.page",
+    # wizards that reach the models above on the server side
+    "base.module.upgrade",
+    "base.module.uninstall",
+    "res.config.settings",  # set_values writes ir.config_parameter / groups
+    "change.password.wizard",
+    "change.password.user",
+    "change.password.own",
+    "res.users.apikeys",
+    "res.users.apikeys.description",
 })
 
 # Never callable through odoo_call, on any model. These either execute code,
@@ -229,6 +240,133 @@ def check_call_allowed(profile: Any, model: str, method: str) -> None:
         )
     op = CALL_METHOD_OPS.get(method, "%s()" % method)
     check_write_allowed(profile, model, op)
+
+
+# --------------------------------------------------------------------------
+# Nested x2many commands inside create/write values
+# --------------------------------------------------------------------------
+#
+# A write on an ordinary model can still reach other models through x2many
+# command tuples (odoo.fields.Command): res.partner {"user_ids": [[1, uid,
+# {"groups_id": [[4, gid]]}]]} updates res.users, and {"child_ids": [[2, id]]}
+# deletes records. The gates below apply HARD_DENY_WRITE_MODELS and the
+# write+unlink rule to every command, at every nesting level, by resolving the
+# field's comodel from fields_get metadata. A command on a field whose comodel
+# cannot be resolved is refused - fail closed.
+
+X2MANY_TYPES = frozenset({"one2many", "many2many"})
+
+CMD_CREATE, CMD_UPDATE, CMD_DELETE, CMD_UNLINK, CMD_LINK, CMD_CLEAR, CMD_SET = range(7)
+
+# Commands that can delete comodel records. DELETE always does. On a one2many,
+# UNLINK / CLEAR / SET also delete when the inverse many2one is
+# ondelete="cascade" (Odoo's One2many write path unlinks instead of nulling) -
+# only relevant when the parent record already exists (op == "write").
+_O2M_MAY_DELETE = frozenset({CMD_UNLINK, CMD_CLEAR, CMD_SET})
+
+MAX_NESTING = 8
+
+
+def _is_command(item: Any) -> bool:
+    return (
+        isinstance(item, (list, tuple)) and len(item) >= 1
+        and isinstance(item[0], int) and not isinstance(item[0], bool)
+        and CMD_CREATE <= item[0] <= CMD_SET
+    )
+
+
+def _relational_value(value: Any):
+    """Return the list of commands a value expresses, or None if it is not one.
+
+    A plain list of ids is Odoo's shorthand for SET."""
+    if not isinstance(value, (list, tuple)) or not value:
+        return None
+    if all(_is_command(v) for v in value):
+        return [list(v) for v in value]
+    if all(isinstance(v, int) and not isinstance(v, bool) for v in value):
+        return [[CMD_SET, 0, list(value)]]
+    return None
+
+
+def _deny_unlink_msg(profile: Any, model: str, field: str, comodel: str, code: int) -> str:
+    return (
+        "%s.%s command %d can delete %s records, which needs mode write+unlink; "
+        "profile %r is at %s.\n%s"
+        % (model, field, code, comodel, profile.name, getattr(profile, "mode", "read"),
+           _raise_hint(profile, "write+unlink"))
+    )
+
+
+def check_nested_values(profile: Any, model: str, values: Any, op: str, fields_of,
+                        _depth: int = 0) -> None:
+    """Refuse x2many commands in `values` that reach a hard-denied model or delete
+    records without write+unlink. `values` is one vals dict or a list of them;
+    `op` is create|write for the record these values belong to; `fields_of(model)`
+    returns fields_get-style metadata ({field: {"type", "relation"}}) or raises.
+    """
+    if isinstance(values, (list, tuple)):
+        for v in values:
+            check_nested_values(profile, model, v, op, fields_of, _depth)
+        return
+    if not isinstance(values, dict):
+        return
+    if _depth > MAX_NESTING:
+        raise GuardError("x2many commands nested deeper than %d levels are refused" % MAX_NESTING)
+
+    meta = None
+    resolved = False
+    allow =getattr(profile, "allow_write_models", frozenset())
+    unlink_ok = _RANK.get(getattr(profile, "mode", "read"), 0) >= _RANK["write+unlink"]
+
+    for field, value in values.items():
+        commands = _relational_value(value)
+        if commands is None:
+            continue
+        if meta is None:
+            try:
+                meta = fields_of(model)
+            except Exception:  # noqa: BLE001 - unresolvable means refuse below
+                meta = None
+            resolved = isinstance(meta, dict) and bool(meta)
+            if not resolved:
+                meta = {}
+        spec = meta.get(field) if isinstance(meta.get(field), dict) else None
+        if spec is None:
+            if not resolved or all(_is_command(v) for v in value):
+                raise GuardError(
+                    "%s.%s carries x2many commands, but its comodel could not be resolved "
+                    "(fields_get gave no metadata for it), so the nested write was refused. "
+                    "Write the related records with their own odoo_write / odoo_create call."
+                    % (model, field)
+                )
+            continue  # a list of ints on an unknown/non-relational field
+        ftype = spec.get("type")
+        if ftype not in X2MANY_TYPES:
+            continue  # e.g. a json/properties field holding a list
+        comodel = spec.get("relation")
+        if not isinstance(comodel, str) or not comodel:
+            raise GuardError(
+                "%s.%s is %s but fields_get reported no comodel, so its commands were refused."
+                % (model, field, ftype)
+            )
+        if comodel in HARD_DENY_WRITE_MODELS and comodel not in allow:
+            raise GuardError(
+                "%s.%s reaches %s, which is blocked: this model can escalate privilege, "
+                "execute code, or alter schema/secrets. Nested x2many commands get the same "
+                "hard-deny as a direct write.\nIf you genuinely need it, the developer adds "
+                "%s to \"allow_write_models\" in the profile." % (model, field, comodel, comodel)
+            )
+        for cmd in commands:
+            code = cmd[0]
+            if not unlink_ok and (
+                code == CMD_DELETE
+                or (ftype == "one2many" and op == "write" and code in _O2M_MAY_DELETE)
+            ):
+                raise GuardError(_deny_unlink_msg(profile, model, field, comodel, code))
+            if code in (CMD_CREATE, CMD_UPDATE) and len(cmd) >= 3:
+                check_nested_values(profile, comodel, cmd[2],
+                                    "create" if code == CMD_CREATE else "write",
+                                    fields_of, _depth + 1)
 
 
 def check_context(context: Any) -> dict:

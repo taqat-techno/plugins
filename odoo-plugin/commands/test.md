@@ -2,7 +2,7 @@
 title: 'Odoo Testing Workflow'
 read_only: false
 type: 'command'
-description: 'Odoo testing - runs the tests for what changed by default; --all, generate, data, run, coverage, e2e'
+description: 'Odoo testing - write, run and debug tests, including record-rule and access tests run with with_user(); runs the tests for what changed by default; --all, generate, data, run, coverage, e2e'
 argument-hint: '[--all | generate|data|run|coverage|e2e] [<model|module>] [args...]'
 ---
 

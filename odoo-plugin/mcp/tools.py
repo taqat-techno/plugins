@@ -685,6 +685,19 @@ def _read_group(sess: Session, args: dict) -> str:
     return _dump({"model": model, "groups": rows}, sess.secrets())
 
 
+def _fields_resolver(c):
+    """fields_of(model) for guards.check_nested_values, cached per tool call."""
+    cache: dict = {}
+
+    def fields_of(model):
+        if model not in cache:
+            guards.check_model_name(model)
+            cache[model] = c.fields_get(model, attributes=["type", "relation"])
+        return cache[model]
+
+    return fields_of
+
+
 def _call(sess: Session, args: dict) -> str:
     c = sess.client()
     prof, _ = sess.load()
@@ -708,6 +721,13 @@ def _call(sess: Session, args: dict) -> str:
         raise GuardError("context must be an object/dict")
     merged.update(top or {})
     ctx = guards.check_context(merged)
+    if method not in guards.READ_ONLY_METHODS:
+        # vals / vals_list / default (or any dict argument of a business method)
+        # can carry x2many commands that reach other models.
+        op = "create" if guards.CALL_METHOD_OPS.get(method) == "create" else "write"
+        fields_of = _fields_resolver(c)
+        for value in kwargs.values():
+            guards.check_nested_values(prof, model, value, op, fields_of)
     result = c.call(model, method, ids=ids, kwargs=kwargs, context=ctx)
     if method not in guards.READ_ONLY_METHODS:
         _write_audit(prof, method, model, len(ids))
@@ -725,6 +745,7 @@ def _create(sess: Session, args: dict) -> str:
         values = [values]
     if not isinstance(values, list) or not values or not all(isinstance(v, dict) for v in values):
         raise GuardError("values must be a non-empty list of objects")
+    guards.check_nested_values(prof, model, values, "create", _fields_resolver(c))
     ids = c.create(model, values, context=ctx)
     _write_audit(prof, "create", model, len(values))
     return _dump({"model": model, "created_ids": ids, "count": len(values)}, sess.secrets())
@@ -742,6 +763,7 @@ def _write(sess: Session, args: dict) -> str:
     values = args.get("values")
     if not isinstance(values, dict) or not values:
         raise GuardError("values must be a non-empty object of field -> value")
+    guards.check_nested_values(prof, model, values, "write", _fields_resolver(c))
     ok = c.write(model, ids, values, context=ctx)
     _write_audit(prof, "write", model, len(ids))
     return _dump(

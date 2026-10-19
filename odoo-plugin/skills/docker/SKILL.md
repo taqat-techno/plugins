@@ -1,12 +1,14 @@
 ---
 name: odoo-docker
 description: >-
-  Use when building, deploying or debugging an Odoo 14-19 stack on Docker: writing a
-  Dockerfile or docker-compose.yml for Odoo and PostgreSQL, putting nginx in front (SSL,
-  websocket/longpolling, static caching), wiring CI/CD image builds, tuning workers and
-  PostgreSQL in containers, managing several Odoo versions in one workspace, or a container
-  that crashes or keeps restarting. Not for a stack that starts cleanly but holds the wrong
-  data, renders a blank theme or whose Postgres will not boot (use stack-doctor).
+  Use when an Odoo 14-19 container keeps restarting, exits right after start or crashes in a
+  loop under docker compose while Postgres looks fine (finding the cause from its logs, the
+  DB connection settings, the mounted odoo.conf and addons paths, the restart policy), or
+  when building, deploying or debugging an Odoo stack on Docker: a Dockerfile or
+  docker-compose.yml for Odoo and PostgreSQL, nginx in front (SSL, websocket/longpolling,
+  static caching), CI/CD image builds, tuning workers and PostgreSQL in containers, or
+  several Odoo versions in one workspace. Not for a stack that starts cleanly but holds the
+  wrong data, renders a blank theme or whose Postgres will not boot (use stack-doctor).
 license: "MIT"
 metadata:
   version: "2.1.0"

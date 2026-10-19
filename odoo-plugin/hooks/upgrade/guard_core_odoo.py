@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""PreToolUse hook (Write|Edit): refuse writes to core Odoo framework files and to the
+"""PreToolUse hook (Write|Edit|MultiEdit): refuse writes to core Odoo framework files and to the
 MCP server's approval files.
 
 1. Core framework files (odoo/addons/, odoo/*.py, a pip-installed site-packages/odoo,

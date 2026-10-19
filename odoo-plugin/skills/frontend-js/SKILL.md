@@ -2,8 +2,9 @@
 name: frontend-js
 description: >-
   Use when writing or fixing JavaScript for an Odoo 14-19 website or theme: a publicWidget
-  (selector, events, editableMode, destroy), an Owl v1/v2 component on the website, booting
-  a standalone Owl app with mountComponent or MinimalWebClient, translating JS strings with
+  (selector, events, editableMode, destroy), an Owl v1/v2 component on the website, a
+  public-page component calling the backend where useService('rpc') says the service is not
+  available, booting a standalone Owl app with mountComponent or MinimalWebClient, translating JS strings with
   _t(), or moving Bootstrap 4 classes to Bootstrap 5. Not for backend client actions or full
   OWL application architecture (use the owl-* skills).
 license: "MIT"
@@ -168,6 +169,24 @@ class MyComponent extends Component {
     }
 }
 ```
+
+### Calling the server from a public/website component (Odoo 18-19)
+
+`rpc` is no longer a service, so `useService("rpc")` throws "Service rpc is not available"
+in any component, including one on a public page for anonymous visitors. Two replacements:
+
+- **Import the `rpc` function** - what Odoo 19's own website code does
+  (`website/static/src/interactions/listing_layout.js`):
+  `import { rpc } from "@web/core/network/rpc";` then `await rpc("/my_module/items", {limit: 10})`.
+- **A fetch-based JSON-RPC helper** that posts `{jsonrpc: "2.0", method: "call", params}`
+  and sends the page's CSRF token (`meta[name="csrf-token"]`) as `X-Csrf-Token`, when the
+  code must not depend on `@web` imports. This is the `_jsonRpc` helper `/upgrade` inserts.
+
+Either way the endpoint is your own controller, `@http.route(..., type="jsonrpc",
+auth="public", website=True)` (`type="json"` on 17 and older). Do not use the `orm`
+service for anonymous visitors: `/web/dataset/call_kw` needs a logged-in session. On an
+`auth="public"` route return only the fields you mean to expose and keep any `sudo()` on a
+narrow, filtered domain.
 
 ### XML Template
 

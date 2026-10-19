@@ -1,11 +1,12 @@
 ---
 name: odoo-live-instance
 description: >-
-  Use when a question is about what is actually in a running Odoo database rather than in
-  the source: counting or reading live records, checking a field's real stored value or
-  metadata, verifying that a migration or fix landed, checking effective access rights,
-  aggregating live data, or choosing or switching the Odoo MCP connection profile and its
-  read/write mode. Covers the bundled odoo MCP server (Odoo 14-19; JSON-2 on 19+, XML-RPC on
+  Use when switching the Odoo MCP connection from read-only to write mode or to another
+  profile (local, staging, production) and doing it safely, or when a question is about what
+  is actually in a running Odoo database rather than in the source: counting or reading live
+  records, fixing records directly on an instance, checking a field's real stored value or
+  metadata, verifying that a migration or fix landed, checking effective access rights, or
+  aggregating live data. Covers the bundled odoo MCP server (Odoo 14-19; JSON-2 on 19+, XML-RPC on
   18 and older).
 ---
 

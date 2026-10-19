@@ -1,8 +1,10 @@
 ---
 name: odoo-service
 description: >-
-  Use when running or setting up a local Odoo 14-19 project: starting or stopping the
-  server, initializing a new environment (venv, config file, database), creating, backing
+  Use when starting, stopping or restarting a local Odoo 14-19 server for one project with
+  its own config file and database (odoo-bin -c and -d from the project's venv, stopping it
+  cleanly without killing other Python processes), or setting up a local Odoo project:
+  initializing a new environment (venv, config file, database), creating, backing
   up, restoring or dropping a database, scaffolding a new module, configuring VS Code or
   PyCharm for Odoo debugging, or choosing between a local venv and Docker.
 license: "MIT"

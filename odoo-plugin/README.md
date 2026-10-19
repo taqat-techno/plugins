@@ -1,5 +1,7 @@
 # odoo
 
+![Version](https://img.shields.io/badge/version-3.0.2-blue.svg)
+
 ## What it does
 
 An Odoo development toolkit for Claude Code, covering Odoo 14-19: module upgrades, code
@@ -139,8 +141,15 @@ Gating, in short:
   by default).
 - Privilege-escalation and code-execution models (for example `res.users`,
   `ir.config_parameter`, `ir.ui.view`, `ir.cron`) are refused for writes unless the
-  profile lists them in `allow_write_models`. Private methods, install methods, string
+  profile lists them in `allow_write_models`. The same list covers `website.page`
+  (it `_inherits` `ir.ui.view`) and wizards that reach those models (`base.module.upgrade`,
+  `res.config.settings`, `change.password.*`). Private methods, install methods, string
   domains and unsafe context keys are refused.
+- x2many command tuples nested in create/write values (`[0, 0, vals]`, `[1, id, vals]`,
+  `[2, id]`, `[4, id]`, `[6, 0, ids]`, ...) get the same checks at every level: the
+  comodel is resolved with `fields_get`, a command reaching a refused model is refused,
+  a delete (`[2, id]`, or unlink/clear/set on an existing record's one2many) needs
+  `write+unlink`, and commands on a field whose comodel cannot be resolved are refused.
 - The ceiling is the only hard limit. Odoo's own access rights still apply, so use an API
   key for a user with only the rights you want Claude to have.
 
@@ -157,9 +166,9 @@ proceed.
 | Hook | Event / matcher | What it does | Can it block? |
 |---|---|---|---|
 | `hooks/frontend/session_start.py` | SessionStart (`startup`) | When the workspace holds an Odoo source tree (`odooNN/`), tells Claude the Odoo, Bootstrap and Owl versions. Silent in any other project | No |
-| `hooks/upgrade/guard_core_odoo.py` | PreToolUse `Write\|Edit` | Refuses edits to core Odoo framework files (patterns in `config/odoo-upgrade.config.json`, overridable per project) and to the MCP server's approval files under `~/.odoo-mcp/` | Yes: denies the write with the reason |
-| `hooks/frontend/pre_write_check.py` | PreToolUse `Write\|Edit` | Refuses inline executable `<script>` code in an Odoo module's XML; JSON-LD, templates and `src`-only tags pass; XML outside a module passes | Yes: denies the write (`ODOO_INLINE_SCRIPT_CHECK=warn` makes it a note, `off` disables it) |
-| `hooks/pre_odoo_volume_guard.py` | PreToolUse `Bash` | On an Odoo stack, asks you before commands that destroy data: `docker compose down -v`, `docker volume rm`/`prune`, `docker system prune --volumes`, `db_manager.py drop`/`reset-admin`/`restore --no-create`, `dropdb`, `server_manager.py stop --all --yes` | Yes: asks you to approve (`ODOO_DESTRUCTIVE_GUARD=off` disables it) |
+| `hooks/upgrade/guard_core_odoo.py` | PreToolUse `Write\|Edit\|MultiEdit` | Refuses edits to core Odoo framework files (patterns in `config/odoo-upgrade.config.json`, overridable per project) and to the MCP server's approval files under `~/.odoo-mcp/` | Yes: denies the write with the reason |
+| `hooks/frontend/pre_write_check.py` | PreToolUse `Write\|Edit\|MultiEdit` | Refuses inline executable `<script>` code in an Odoo module's XML; JSON-LD, templates and `src`-only tags pass; XML outside a module passes | Yes: denies the write (`ODOO_INLINE_SCRIPT_CHECK=warn` makes it a note, `off` disables it) |
+| `hooks/pre_odoo_volume_guard.py` | PreToolUse `Bash` | On an Odoo stack, asks you before commands that destroy data: `docker compose down -v`, `docker volume rm`/`prune`, `docker system prune --volumes`, `db_manager.py drop`/`reset-admin`/`restore --no-create`, `dropdb`, `psql -c "DROP DATABASE ..."`, `server_manager.py stop --all --yes`, also when run through `sudo -u`, `env`, `timeout`, `nohup`, `xargs`, `eval`, `bash -lc`, `powershell -Command` or inside a container (`docker exec`, `docker compose exec\|run`) | Yes: asks you to approve (`ODOO_DESTRUCTIVE_GUARD=off` disables it) |
 | `hooks/pre_odoo_restart_guard.py` | PreToolUse `Bash` | Advisory note on an unbounded `curl --retry-connrefused` readiness poll, a `pkill ... && ... odoo-bin` chain (self-kill, exit 144), and a `psql ... TEMPLATE` clone (no filestore) | No: advisory only |
 
 The guards match the command that will run, not text inside quotes, comments, `echo` or

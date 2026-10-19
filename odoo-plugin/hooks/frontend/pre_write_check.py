@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""PreToolUse hook (Write|Edit): refuse inline JavaScript in an Odoo module's XML.
+"""PreToolUse hook (Write|Edit|MultiEdit): refuse inline JavaScript in an Odoo module's XML.
 
 Odoo loads JavaScript through asset bundles (`static/src/js/` + the manifest
 `assets`). An inline `<script>` with code in a QWeb/XML view bypasses the bundler,
@@ -77,6 +77,10 @@ def main() -> int:
     ti = hooklib.tool_input(payload)
     file_path = ti.get("file_path", "")
     content = ti.get("content", "") or ti.get("new_string", "")
+    edits = ti.get("edits")
+    if not content and isinstance(edits, list):  # MultiEdit
+        content = "\n".join(e.get("new_string", "") for e in edits
+                            if isinstance(e, dict) and isinstance(e.get("new_string"), str))
     if not isinstance(file_path, str) or not isinstance(content, str):
         return 0
     if not file_path.lower().endswith(".xml") or "<script" not in content.lower():

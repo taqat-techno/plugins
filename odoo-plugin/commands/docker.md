@@ -2,7 +2,7 @@
 title: 'Odoo Docker'
 read_only: false
 type: 'command'
-description: 'Docker infrastructure and container management for Odoo 14-19'
+description: 'Odoo 14-19 on Docker - set up, deploy and run stacks, and diagnose an Odoo container that keeps restarting or exits on start (logs, DB settings, mounts, restart policy)'
 argument-hint: '[init|compose|deploy|build|up|down|logs|shell|status|update] [args...]'
 ---
 

@@ -10,7 +10,10 @@ and decides - for:
      stack, or naming a volume whose name contains "odoo".
   3. This plugin's destructive database scripts: `db_manager.py drop`,
      `db_manager.py reset-admin`, `db_manager.py restore --no-create` (restore over an
-     existing database), and `dropdb` inside an Odoo project.
+     existing database), and `dropdb` / `psql -c "DROP DATABASE ..."` inside an Odoo
+     project - also when wrapped in `sudo -u postgres`, `docker exec <container>`,
+     `docker compose exec|run <service>`, `bash -lc`, `eval`, `timeout`, `nohup`,
+     `xargs` or `powershell -Command` (see _odoo_shell.commands).
   4. `server_manager.py stop --all --yes`: stops every Odoo server on the machine.
 
 Scope: only on an Odoo stack (see _odoo_shell.is_odoo_project) or when the command
@@ -26,6 +29,7 @@ Fails open: bad input, an exception or the 3 s watchdog all end in exit 0.
 from __future__ import annotations
 
 import os
+import re
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -39,7 +43,8 @@ try:  # hooklib writes JSON with non-ASCII text; a cp1252 console stdout would c
 except Exception:
     pass
 
-_TRIGGERS = ("docker", "podman", "db_manager", "server_manager", "dropdb")
+_TRIGGERS = ("docker", "podman", "db_manager", "server_manager", "dropdb", "psql")
+_DROP_DB_RE = re.compile(r"\bdrop\s+database\b", re.IGNORECASE)
 _ADVICE = (" This cannot be undone. Back up first (db_manager.py backup, plus the "
            "filestore). Approve only if you mean to delete this data.")
 
@@ -108,6 +113,8 @@ def _script_reason(argv, odoo_project):
     if sh.prog(argv) == "dropdb" and odoo_project:
         target = [a for a in argv[1:] if not a.startswith("-")]
         return "`dropdb %s` drops an Odoo database." % (target[-1] if target else "")
+    if sh.prog(argv) == "psql" and odoo_project and _DROP_DB_RE.search(" ".join(argv[1:])):
+        return "`psql ... DROP DATABASE` drops an Odoo database."
     script = sh.python_script(argv)
     if not script:
         return None
@@ -159,8 +166,8 @@ def main() -> int:
         name = sh.prog(argv)
         if name in ("docker", "podman", "docker-compose", "podman-compose"):
             r = _docker_reason(argv, cwd, odoo_project())
-        elif name == "dropdb" or sh.python_script(argv):
-            r = _script_reason(argv, odoo_project() if name == "dropdb" else True)
+        elif name in ("dropdb", "psql") or sh.python_script(argv):
+            r = _script_reason(argv, odoo_project() if name in ("dropdb", "psql") else True)
         else:
             r = None
         if r:

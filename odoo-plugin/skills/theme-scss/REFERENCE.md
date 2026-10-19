@@ -128,7 +128,7 @@ $o-color-palettes: map-merge($o-color-palettes, (
 ));
 ```
 
-**NOTE**: `map-merge` with `$o-color-palettes` works ONLY in non-theme modules. In themes (which use prepend), use `$o-website-values-palettes` with `'color-palettes-name'` instead.
+**NOTE**: `map-merge` with `$o-color-palettes` works only in a file appended to `web._assets_primary_variables` (after core defines it), which is how Odoo's own themes add palettes. In a prepended file it raises `Undefined variable $o-color-palettes`; there, only set `$o-website-values-palettes` with `'color-palettes-name'`. See `rules/scss-load-order.md`.
 
 ### HTML Usage
 

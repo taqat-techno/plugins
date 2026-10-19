@@ -76,6 +76,42 @@ def test_commands_strip_env_and_sudo_and_recurse_into_bash_c():
     assert cmds[2][:3] == ["docker", "compose", "down"]
 
 
+@pytest.mark.parametrize("command,expected", [
+    # RA-ODOO-02: wrapper option VALUES are not the program
+    ("sudo -u postgres dropdb mydb", ["dropdb", "mydb"]),
+    ("sudo -E -u postgres -H dropdb mydb", ["dropdb", "mydb"]),
+    ("sudo --user postgres dropdb mydb", ["dropdb", "mydb"]),
+    ("sudo --user=postgres dropdb mydb", ["dropdb", "mydb"]),
+    ("doas -u postgres dropdb mydb", ["dropdb", "mydb"]),
+    ("env -u HOME -C /tmp dropdb mydb", ["dropdb", "mydb"]),
+    ("nice -n 10 dropdb mydb", ["dropdb", "mydb"]),
+    ("timeout 30 dropdb mydb", ["dropdb", "mydb"]),
+    ("timeout -s KILL -k 5 30s dropdb mydb", ["dropdb", "mydb"]),
+    ("nohup dropdb mydb", ["dropdb", "mydb"]),
+    ("xargs -n 1 dropdb", ["dropdb"]),
+    ("bash -lc 'dropdb mydb'", ["dropdb", "mydb"]),
+    ("sh -e -c 'dropdb mydb'", ["dropdb", "mydb"]),
+    ('eval "docker compose down -v"', ["docker", "compose", "down", "-v"]),
+    ('powershell -Command "docker compose down -v"', ["docker", "compose", "down", "-v"]),
+    ('pwsh.exe -NoProfile -c "docker volume rm x"', ["docker", "volume", "rm", "x"]),
+    ("cmd /c dropdb mydb", ["dropdb", "mydb"]),
+    # containers: the command that runs inside
+    ("docker exec db dropdb mydb", ["dropdb", "mydb"]),
+    ("docker exec -it -u postgres -e PGPASSWORD=x db dropdb mydb", ["dropdb", "mydb"]),
+    ("podman exec --user postgres db dropdb mydb", ["dropdb", "mydb"]),
+    ("docker compose exec db dropdb mydb", ["dropdb", "mydb"]),
+    ("docker compose -f odoo.yml exec -T -u postgres db dropdb mydb", ["dropdb", "mydb"]),
+    ("docker-compose run --rm -e X=1 db dropdb mydb", ["dropdb", "mydb"]),
+    ("sudo docker exec db bash -lc 'dropdb mydb'", ["dropdb", "mydb"]),
+])
+def test_commands_unwrap_wrappers_and_containers(command, expected):
+    assert sh.commands(command)[-1] == expected, sh.commands(command)
+
+
+def test_command_v_is_a_lookup_not_an_execution():
+    assert sh.commands("command -v dropdb") == []
+
+
 def test_python_script_detection():
     assert sh.python_script(["python3", "-u", "/x/db_manager.py", "drop"]) == ("db_manager.py", ["drop"])
     assert sh.python_script(["python", "-m", "odoo"]) is None
@@ -105,6 +141,19 @@ def test_is_odoo_project(tmp_path, odoo_stack):
     "docker volume prune -f",
     "docker system prune -a --volumes",
     "cd . && sudo docker compose down -v",
+    # RA-ODOO-02 bypasses
+    "sudo -u postgres dropdb mydb",
+    "sudo -E dropdb mydb",
+    "docker exec db dropdb mydb",
+    'docker exec -i db psql -U odoo -c "DROP DATABASE mydb"',
+    "docker compose exec db dropdb -U odoo mydb",
+    'docker compose exec -T db psql -c "drop database mydb"',
+    'eval "docker compose down -v"',
+    "echo stack_db | xargs docker volume rm",
+    'powershell -Command "docker compose down -v"',
+    "bash -lc 'docker compose down -v'",
+    "timeout 60 dropdb mydb",
+    "nohup docker volume prune -f",
 ])
 def test_volume_guard_asks_on_an_odoo_stack(odoo_stack, command):
     code, out = run_hook("pre_odoo_volume_guard.py", bash(command, odoo_stack), cwd=odoo_stack)
@@ -124,6 +173,9 @@ def test_volume_guard_asks_on_an_odoo_stack(odoo_stack, command):
     'echo "docker volume rm odoo_db"',
     "grep -rn 'docker compose down -v' docs/",
     'git commit -m "guard docker volume rm odoo_db"',
+    "sudo -u postgres dropdb mydb",    # not an Odoo project
+    "docker exec db psql -c 'SELECT 1'",
+    "command -v dropdb",
 ])
 def test_volume_guard_is_silent_elsewhere(other_stack, command):
     code, out = run_hook("pre_odoo_volume_guard.py", bash(command, other_stack), cwd=other_stack)
