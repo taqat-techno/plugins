@@ -149,8 +149,10 @@ def _scalar(token: str):
         if rest.strip():
             raise YamlSubsetError(f"trailing characters after flow value: {rest!r}")
         return value
-    if len(token) >= 2 and token[0] == token[-1] and token[0] in "\"'":
-        return token[1:-1]
+    if len(token) >= 2 and token[0] == token[-1] == '"':
+        return _unescape_double(token[1:-1])
+    if len(token) >= 2 and token[0] == token[-1] == "'":
+        return token[1:-1].replace("''", "'")
     low = token.lower()
     if low in ("true", "yes"):
         return True
@@ -167,6 +169,43 @@ def _scalar(token: str):
     except ValueError:
         pass
     return token
+
+
+_SIMPLE_ESCAPES = {"\\": "\\", '"': '"', "/": "/", "n": "\n", "t": "\t",
+                   "r": "\r", "0": "\0", " ": " "}
+_HEX_ESCAPES = {"x": 2, "u": 4, "U": 8}
+
+
+def _unescape_double(body: str) -> str:
+    """Apply YAML double-quoted escapes, rejecting the ones YAML rejects.
+
+    PyYAML refuses an unknown escape such as backslash-S (a Windows path written
+    inside double quotes); the subset parser must refuse it too, or the two
+    parsers would disagree on the same file.
+    """
+    out, i = [], 0
+    while i < len(body):
+        ch = body[i]
+        if ch != "\\":
+            out.append(ch)
+            i += 1
+            continue
+        nxt = body[i + 1: i + 2]
+        if nxt in _SIMPLE_ESCAPES:
+            out.append(_SIMPLE_ESCAPES[nxt])
+            i += 2
+        elif nxt in _HEX_ESCAPES:
+            width = _HEX_ESCAPES[nxt]
+            digits = body[i + 2: i + 2 + width]
+            if len(digits) != width or not re.fullmatch(r"[0-9A-Fa-f]+", digits):
+                raise YamlSubsetError("bad \\" + nxt + " escape in a double-quoted string")
+            out.append(chr(int(digits, 16)))
+            i += 2 + width
+        else:
+            raise YamlSubsetError(
+                "unknown escape \\" + (nxt or "") + " in a double-quoted string; "
+                "use single quotes for Windows paths, e.g. 'Project\\Sprint 24'")
+    return "".join(out)
 
 
 def _parse_flow(token: str):

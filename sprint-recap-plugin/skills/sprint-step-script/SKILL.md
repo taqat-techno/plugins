@@ -1,17 +1,18 @@
 ---
 name: sprint-step-script
-description: Authoring rules for steps.yaml, the sprint-recap contract. Owns the step-script schema, the "caption written once, used three times" rule, the step-is-a-narration-unit granularity rule, and the requirement that every step declare a start URL. Use when drafting or reviewing a sprint step script, or when the video and the written guide disagree.
-version: 0.2.0
-last_reviewed: 2026-09-22
-owns:
-  - steps.yaml schema and validation rules
-  - caption authoring (one caption, three consumers)
-  - step granularity (narration unit, not single click)
-  - the start-URL requirement that makes a step self-contained
-  - show_login as the only way a step may involve credentials
-defers_to:
-  - sprint-capture-clips (how a step is executed and recorded)
-  - sprint-repro-guide (how a step renders as written instructions)
+description: "Use when drafting or reviewing a sprint-recap steps.yaml, or when a sprint demo video and its written guide disagree. Explains the step-script schema: one caption written once and used for the video, the guide and the narration; a step as a unit of narration; and the start URL every step needs."
+metadata:
+  version: 0.2.0
+  last_reviewed: 2026-10-19
+  owns:
+    - steps.yaml schema and validation rules
+    - caption authoring (one caption, three consumers)
+    - step granularity (narration unit, not single click)
+    - the start-URL requirement that makes a step self-contained
+    - show_login as the only way a step may involve credentials
+  defers_to:
+    - sprint-capture-clips (how a step is executed and recorded)
+    - sprint-repro-guide (how a step renders as written instructions)
 ---
 
 # The step script is the contract
@@ -29,7 +30,7 @@ that contradicts the video they just watched.
 
 ## Rule 2 — a step is a unit of narration, not a click
 
-One caption covers one thing a viewer should understand. "Search for Cairo,
+One caption covers one thing a viewer should understand. "Search for London,
 export to CSV, confirm the toast" is ONE step with four actions, not three steps.
 
 Over-splitting produces a video that flashes a new caption every 1.5 seconds and
@@ -55,17 +56,17 @@ intro:
   title: "Sprint 24 - what we shipped"
   subtitle: "Project name"
 items:
-  - work_item: 23923
-    title: "Add donor export to the admin list"
-    parent_pbi: 23900
+  - work_item: 4512
+    title: "Add customer export to the admin list"
+    parent_pbi: 4500
     role: qa_admin                     # key into the target's roles map
     steps:
       - id: s1
-        caption: "Export the filtered donors to CSV"
-        start: "/admin/donors"
+        caption: "Export the filtered customers to CSV"
+        start: "/admin/customers"
         hold_ms: 1500                  # dwell at the end so the eye can land
         actions:
-          - { do: fill, selector: "input[name='search']", value: "Cairo" }
+          - { do: fill, selector: "input[name='search']", value: "London" }
           - { do: click, selector: "role=button[name='Export']" }
           - { do: expect, selector: "text=Export started" }
 ```
@@ -86,7 +87,7 @@ literal thing to click.
 ## Validate before capturing
 
 ```
-python scripts/capture_steps.py --steps steps.yaml --dry-run
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/capture_steps.py" --steps steps.yaml --dry-run
 ```
 
 Checks every step for a caption, a start URL, a unique id and known actions, and

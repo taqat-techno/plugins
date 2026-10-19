@@ -1,15 +1,16 @@
 ---
 name: sprint-video-overlays
-description: Conventions for the Remotion layer that draws step text over captured footage. Owns the scene model (title, item card, step, outro), caption composition, RTL handling for Arabic captions, and the sequencing rule that a caption lasts exactly as long as its clip. Use when editing the generated Remotion project or changing how step text appears on screen.
-version: 0.1.0
-last_reviewed: 2026-09-21
-owns:
-  - scene model and timeline assembly
-  - caption overlay composition and legibility
-  - RTL caption handling
-defers_to:
-  - sprint-capture-clips (where clips and durations come from)
-  - sprint-step-script (where caption text comes from)
+description: "Use when editing or debugging the Remotion project sprint-recap generates: how step text, work-item badges and step counters are drawn over captured clips, captions that run too long or too short for their clip, or right-to-left captions (Arabic, Hebrew) shown in the wrong direction."
+metadata:
+  version: 0.1.0
+  last_reviewed: 2026-10-19
+  owns:
+    - scene model and timeline assembly
+    - caption overlay composition and legibility
+    - RTL caption handling
+  defers_to:
+    - sprint-capture-clips (where clips and durations come from)
+    - sprint-step-script (where caption text comes from)
 ---
 
 # The overlay layer
@@ -45,12 +46,11 @@ its scenes.
 ## RTL
 
 Captions containing Arabic characters are rendered with `dir="rtl"` and the badge
-row reversed. Do not assume left-to-right layout — these videos are produced for
-projects with Arabic interfaces, and a mirrored caption over a mirrored app is
-the correct result.
+row reversed. Do not assume left-to-right layout: for an app with a right-to-left
+interface, a mirrored caption over a mirrored app is the correct result.
 
 ## Narration
 
 `--narrate` generates edge-tts audio from the same caption text. Narration is
-optional and degrades to silence when edge-tts is absent; the build says so
+optional and degrades to silence when edge-tts is absent (edge-tts sends each caption to Microsoft's online read-aloud service, so do not narrate confidential text); the build says so
 rather than failing.

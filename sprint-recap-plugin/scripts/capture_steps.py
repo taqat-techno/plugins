@@ -11,25 +11,36 @@ timing problem and becomes structurally impossible.
 The cost is that each step must be able to start on its own, which is why every
 step declares `start` (a URL). Authentication is carried across steps by
 storage state captured once per role, so the login flow is not re-recorded.
+That storage state (live session cookies) lives in a private temporary
+directory for the length of one run and is deleted afterwards; it is never
+written into the repository or reused by a later run or another target.
 
 Safety, inherited from qa-browser's discipline:
   * production-looking base URLs are refused unless --allow-production
+  * a non-local target must opt in with "allow_capture": true
+  * a `goto` may not leave the target's host
   * destructive-looking selectors are skipped unless the step opts in
   * credentials are redacted out of every artifact this stage writes
+
+SSO / MFA: a role may give `storage_state` (a path to a Playwright storage
+state the user saved after signing in by hand) instead of username/password.
 """
 from __future__ import annotations
 
 import argparse
 import json
 import re
+import shutil
 import sys
+import tempfile
 import time
 from datetime import datetime, timezone
 from pathlib import Path
+from urllib.parse import urlsplit
 
 from _common import (
-    DESTRUCTIVE_PATTERN, die, info, is_production, load_config, mask, redact,
-    resolve_role, resolve_target, run_dir, slugify, warn, write_json,
+    DESTRUCTIVE_PATTERN, capture_refusal, die, info, load_config, mask, redact,
+    resolve_role, resolve_target, run_dir, same_host, slugify, warn, write_json,
 )
 from _yaml import load as yaml_load
 
@@ -67,6 +78,28 @@ def load_steps(path: Path) -> dict:
     if not isinstance(data, dict) or not data.get("items"):
         die("Step script has no `items`.")
     return data
+
+
+def goto_url(target: str, base_url: str) -> str:
+    """Absolute URL for a goto target; relative paths join the base URL."""
+    target = str(target or "")
+    if urlsplit(target).scheme:
+        return target
+    return base_url.rstrip("/") + "/" + target.lstrip("/")
+
+
+def off_host_gotos(script: dict, base_url: str) -> list[str]:
+    """Every goto that would leave the target's host, as 'item-step: url'."""
+    out = []
+    for item in script.get("items", []):
+        for step in item.get("steps") or []:
+            for action in step.get("actions") or []:
+                if (action or {}).get("do") == "goto":
+                    url = goto_url(action.get("target"), base_url)
+                    if not same_host(url, base_url):
+                        out.append(str(item.get("work_item")) + "-" + str(step.get("id"))
+                                   + ": " + url)
+    return out
 
 
 def validate(script: dict) -> list[str]:
@@ -165,11 +198,23 @@ def login(context, target_cfg: dict, creds: dict, timeout: int) -> None:
 
 def storage_for_role(playwright, browser, target_cfg, config, target, role,
                      state_dir: Path, timeout: int) -> Path:
-    """Log in once per role and cache the storage state on disk."""
+    """Log in once per role and keep the storage state in this run's temp dir.
+
+    state_dir is created fresh for every run, so a cached state can never leak
+    from one target or sprint into another.
+    """
     state_path = state_dir / (slugify(role) + ".json")
     if state_path.exists():
         return state_path
     creds = resolve_role(config, target, role)
+    provided = creds.get("storage_state")
+    if provided:
+        source = Path(provided).expanduser()
+        if not source.is_file():
+            die("Role '" + role + "' storage_state not found: " + str(source))
+        shutil.copyfile(source, state_path)
+        info("using the saved storage state for " + role)
+        return state_path
     context = browser.new_context(ignore_https_errors=True)
     context.set_default_timeout(timeout)
     try:
@@ -181,11 +226,14 @@ def storage_for_role(playwright, browser, target_cfg, config, target, role,
     return state_path
 
 
-def run_actions(page, step: dict, timeout: int) -> None:
+def run_actions(page, step: dict, timeout: int, base_url: str = "") -> None:
     for action in step.get("actions") or []:
         verb = action.get("do")
         if verb == "goto":
-            page.goto(action["target"])
+            url = goto_url(action["target"], base_url) if base_url else action["target"]
+            if base_url and not same_host(url, base_url):
+                raise RuntimeError("goto leaves the target host: " + url)
+            page.goto(url)
         elif verb == "click":
             page.click(action["selector"])
         elif verb == "fill":
@@ -249,8 +297,13 @@ def capture_step(browser, item, step, target_cfg, state_path, out_dir, args,
                 raise RuntimeError(
                     "show_login needs the role's credentials; none were resolved"
                 )
+            if not creds.get("password"):
+                raise RuntimeError(
+                    "show_login needs a username and password; this role only "
+                    "has a storage_state"
+                )
             perform_login(page, target_cfg, creds, args.timeout, navigate=False)
-        run_actions(page, step, args.timeout)
+        run_actions(page, step, args.timeout, target_cfg["base_url"])
         page.wait_for_timeout(int(step.get("hold_ms", 1200)))
         page.screenshot(path=str(screenshot), full_page=False)
     except Exception as exc:  # noqa: BLE001 - one bad step must not kill the run
@@ -309,12 +362,15 @@ def main() -> int:
     target_cfg = resolve_target(config, target)
     base_url = target_cfg["base_url"]
 
-    if is_production(base_url, config) and not args.allow_production:
-        die(
-            "Refusing to capture against a production-looking URL: " + base_url
-            + "\nPoint `target` at staging, or pass --allow-production if you "
-            "are certain this data is disposable."
-        )
+    refusal = capture_refusal(base_url, target_cfg, config, args.allow_production, target)
+    if refusal:
+        die(refusal)
+    leaving = off_host_gotos(script, base_url)
+    if leaving:
+        for entry in leaving:
+            print("  - " + entry, file=sys.stderr)
+        die(str(len(leaving)) + " goto action(s) leave " + base_url + "; a step may "
+            "only navigate within the target. Use a path or a URL on the same host.")
 
     out_dir = Path(args.out) if args.out else run_dir(
         script.get("sprint", "sprint")) / "03-capture"
@@ -349,9 +405,24 @@ def main() -> int:
         creds.get("password", "")
         for creds in (target_cfg.get("roles") or {}).values()
     ]
-    state_dir = out_dir / ".auth"
-    state_dir.mkdir(parents=True, exist_ok=True)
+    # Session cookies: a private temp dir, deleted when the run ends.
+    state_dir = Path(tempfile.mkdtemp(prefix="sprint-recap-auth-"))
+    legacy = out_dir / ".auth"
+    if legacy.is_dir():
+        shutil.rmtree(legacy, ignore_errors=True)
+        info("removed cached session state left by an earlier version: " + str(legacy))
 
+    rows = []
+    try:
+        rows = _capture_all(sync_playwright, items, config, target, target_cfg,
+                            state_dir, out_dir, args, secrets)
+    finally:
+        shutil.rmtree(state_dir, ignore_errors=True)
+    return _write_log(rows, script, target, base_url, out_dir, args)
+
+
+def _capture_all(sync_playwright, items, config, target, target_cfg, state_dir,
+                 out_dir, args, secrets) -> list:
     rows = []
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch(
@@ -391,7 +462,10 @@ def main() -> int:
                     ))
         finally:
             browser.close()
+    return rows
 
+
+def _write_log(rows, script, target, base_url, out_dir, args) -> int:
     log = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "sprint": script.get("sprint"),

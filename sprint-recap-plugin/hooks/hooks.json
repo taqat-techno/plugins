@@ -1,5 +1,5 @@
 {
-  "description": "sprint-recap hooks - SessionStart credential-hygiene check (advisory) + PreToolUse gate that blocks git from staging the plaintext credential artifacts this plugin generates. Only the commit gate BLOCKS.",
+  "description": "sprint-recap hooks: a SessionStart hygiene check (context only, silent unless the project uses sprint-recap) and a PreToolUse Bash gate that blocks git from staging the plugin's credential artifacts and asks before `git add --force` in a sprint-recap project.",
   "hooks": {
     "SessionStart": [
       {

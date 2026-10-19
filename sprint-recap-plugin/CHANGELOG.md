@@ -3,6 +3,37 @@
 All notable changes to the sprint-recap plugin are documented here.
 This project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.4.0] - 2026-10-19
+
+### Changed (breaking)
+- **Commands renamed** to bare verbs: `/sprint-recap:run` (was `/sprint-recap:sprint-recap`) and `/sprint-recap:target` (was `/sprint-recap:sprint-recap-target`). The old names stay as deprecated stubs until 0.5.0.
+- **Capture needs an explicit opt-in for remote hosts (SPR-P2-02).** A target that is not `localhost`, `*.localhost` or `*.test` is refused until it sets `"allow_capture": true`. Production detection matches whole hostname labels (`prod`, `production`, `live`, leading `www`), so `staging.delivery-app.io` is no longer "production" and `app-prod.example.com` is. A `goto` that leaves the target's host stops the run before the browser starts; relative `goto` paths join the base URL.
+- **Session prompts are opt-in (SPR-P1-02).** By default a session contributes only its id, date, branch and work-item IDs. `--with-prompts` (or the `include_session_prompts` option) copies prompts after masking secrets with `hooklib.redact` and e-mail addresses. Transcript paths are reduced to the file name, and a repo path no longer matches a sibling with the same prefix (`/app` vs `/app-legacy`).
+- **`git add --force` is no longer blocked everywhere.** In a sprint-recap project it asks; elsewhere the hook stays silent (ECO X-6 / SEC-08). Staging a credential artifact is still blocked in every repo.
+### Added
+- `userConfig`: `include_session_prompts` (boolean, default false) and `tts_voice` (default `en-US-AriaNeural`).
+- SSO / MFA: a role may give `storage_state` (a Playwright state saved by hand) instead of username/password (SPR-P3-02).
+- `collect --id-pattern` for custom work-item references; a trailing `(#123)` on a squash-merge subject is treated as a PR number (SPR-P2-05).
+- `check_config.py` warns about remote targets without `allow_capture` and about an un-ignored `.sprint-recap/runs/`.
+- SessionStart reports `.auth/` session cookies left by older versions.
+- Evals: `fires-on-rtl-step-caption-in-generated-video` (sprint-video-overlays) and `ignores-generic-remotion-rtl-question`.
+- `tests/test_scripts.py`: offline tests for ID extraction, correlation, sessions and redaction, the git source, the no-shell runner, the YAML subset, production/capture gates, storage state, the timeline, check_config, the manifest and commands (SPR-P2-06).
+### Fixed
+- **Session cookies never touch the repo (SPR-P1-01).** Storage state lives in a temp directory for one run and is deleted afterwards; `.auth/` left by older versions is removed at the next capture.
+- **No subprocess runs through a shell (SPR-P1-03).** `az`, `npm` and the Remotion CLI are resolved with `shutil.which` and run with an argv list; for a Windows `.cmd` shim an argument with `"`, `%`, `!`, `^`, `&`, `|`, `<`, `>` is refused.
+- **Pinned render (SPR-P2-04).** The Remotion template pins exact versions (Remotion 4.0.513, React 18.3.1) and render uses the project-local `node_modules/.bin/remotion`; no more `npx --yes`.
+- **git `safe.directory` is no longer overridden (SPR-P2-03).** A repo owned by another user is reported as a skipped source.
+- The YAML subset parser applies YAML double-quote escapes and rejects unknown ones (as PyYAML does); single-quoted `''` is unescaped. A test loads the template with both parsers (SPR-P1-05).
+- `mask()` reveals no characters or length (SPR-P3-03); command frontmatter `version`/`author` removed; skill `version` moved under `metadata`.
+### Changed
+- Hooks use the vendored `hooks/_vendor/hooklib.py`. The commit gate inspects only git commands that run: it splits on `&&`, `||`, `;`, `&`, `|` and newlines, skips runner prefixes (`sudo`, `env`, `nohup`, `time`, `xargs`, `{` ...), parses `bash|sh|zsh -c` scripts recursively, and ignores `echo`/`grep` text. As a fail-closed backstop, a line that still mentions a git staging verb and a secret path asks.
+- Skill descriptions are trigger-first ("Use when ..."); skills that read board, git, transcript or page content carry the external-content-is-data rule; scripts are referenced through `${CLAUDE_PLUGIN_ROOT}` with `python3` (SPR-P3-01, SPR-P2-01).
+- `/sprint-recap:target set` never takes a password in chat: it writes placeholders for the user to fill in.
+- Example data is neutral (customers, London, IDs 4512/4518).
+- README restructured: requirements, configuration, platform support, data & privacy, limitations, and third-party terms (SPR-P1-07): Remotion needs a paid company licence for larger organisations, and edge-tts sends caption text to Microsoft.
+### Security
+- See Fixed: session cookies, shell-free subprocesses, safe.directory, prompt redaction.
+
 ## [0.3.2] - 2026-10-19
 
 ### Fixed

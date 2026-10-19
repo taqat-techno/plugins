@@ -41,38 +41,38 @@ items:
         show_login: true
         hold_ms: 2000
 
-  - work_item: 23923
-    title: "Add donor export to the admin list"
-    parent_pbi: 23900
+  - work_item: 4512
+    title: "Add customer export to the admin list"
+    parent_pbi: 4500
     role: qa_admin
     steps:
       - id: s1
-        caption: "Open the Donors admin list"
-        start: "/admin/donors"
+        caption: "Open the Customers admin list"
+        start: "/admin/customers"
         hold_ms: 1200
         actions:
-          - { do: expect, selector: "text=Donors" }
+          - { do: expect, selector: "text=Customers" }
 
       - id: s2
-        caption: "Export the filtered donors to CSV"
-        start: "/admin/donors"
+        caption: "Export the filtered customers to CSV"
+        start: "/admin/customers"
         hold_ms: 1500
         actions:
-          - { do: fill, selector: "input[name='search']", value: "Cairo" }
+          - { do: fill, selector: "input[name='search']", value: "London" }
           - { do: press, key: "Enter" }
           - { do: click, selector: "role=button[name='Export']" }
           - { do: click, selector: "text=CSV" }
           - { do: expect, selector: "text=Export started" }
 
-  - work_item: 23940
-    title: "Beneficiary profile shows KYC status"
+  - work_item: 4518
+    title: "Customer profile shows verification status"
     parent_pbi: 23901
     role: qa_reviewer
     steps:
       - id: s1
-        caption: "Open a beneficiary profile and read the KYC badge"
-        start: "/beneficiaries/1042"
+        caption: "Open a customer profile and read the verification badge"
+        start: "/customers/1042"
         hold_ms: 2000
         actions:
-          - { do: expect, selector: "[data-testid='kyc-badge']" }
-          - { do: scroll, to: "[data-testid='kyc-history']" }
+          - { do: expect, selector: "[data-testid='verification-badge']" }
+          - { do: scroll, to: "[data-testid='verification-history']" }

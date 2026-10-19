@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """Inspect the sprint-recap local config without ever printing a secret.
 
-Used by /sprint-recap-target check. Verifies the four things that matter:
+Used by /sprint-recap:target check. Verifies the things that matter:
   1. the config parses
   2. git is not tracking it
-  3. .gitignore covers it, the credentials directory and the cached .auth/
-     session state
-  4. no target points at something that looks like production
+  3. .gitignore covers it, the credentials directory, run data (evidence,
+     screenshots, clips) and any .auth/ session state left by versions < 0.4
+  4. no target points at something that looks like production, and each
+     non-local target has opted in to capture with "allow_capture": true
 """
 from __future__ import annotations
 
@@ -17,8 +18,8 @@ import sys
 from pathlib import Path
 
 from _common import (
-    CONFIG_FILENAME, RECAP_DIRNAME, config_path, is_production, mask,
-    project_root, recap_dir,
+    CONFIG_FILENAME, RECAP_DIRNAME, config_path, is_local_host, is_production, mask,
+    project_root,
 )
 
 
@@ -42,7 +43,7 @@ def main() -> int:
 
     if not path.exists():
         report["problems"].append(
-            CONFIG_FILENAME + " does not exist. Run /sprint-recap-target set."
+            CONFIG_FILENAME + " does not exist. Run /sprint-recap:target set."
         )
         return emit(report, args.json)
 
@@ -57,9 +58,10 @@ def main() -> int:
     in_git = git_flag(["git", "rev-parse", "--is-inside-work-tree"], root)
     report["git_repo"] = in_git
     creds_rel = RECAP_DIRNAME + "/credentials/"
-    # Representative path: capture_steps.py writes <run>/<capture>/.auth/<role>.json.
-    # check-ignore matches patterns, so the path need not exist yet.
+    # Representative paths; check-ignore matches patterns, so they need not exist.
+    # Versions before 0.4 cached session cookies at <run>/<capture>/.auth/<role>.json.
     auth_probe = RECAP_DIRNAME + "/runs/example/capture/.auth/role.json"
+    runs_probe = RECAP_DIRNAME + "/runs/example/01-collect/evidence.json"
 
     if not in_git:
         report["warnings"].append(
@@ -83,9 +85,15 @@ def main() -> int:
             )
         if not git_flag(["git", "check-ignore", "-q", auth_probe], root):
             report["warnings"].append(
-                RECAP_DIRNAME + "/**/.auth/ is not gitignored; capture caches each "
-                "role's session cookies there. Add `" + RECAP_DIRNAME
-                + "/**/.auth/` to .gitignore."
+                RECAP_DIRNAME + "/**/.auth/ is not gitignored; versions before 0.4 "
+                "cached each role's session cookies there. Add `" + RECAP_DIRNAME
+                + "/` (or at least `" + RECAP_DIRNAME + "/**/.auth/`) to .gitignore."
+            )
+        if not git_flag(["git", "check-ignore", "-q", runs_probe], root):
+            report["warnings"].append(
+                RECAP_DIRNAME + "/runs/ is not gitignored; it holds evidence, "
+                "screenshots and clips of the app. Ignore the whole `" + RECAP_DIRNAME
+                + "/` folder and commit only the guide you mean to share."
             )
 
     for name, target in (config.get("targets") or {}).items():
@@ -96,7 +104,8 @@ def main() -> int:
             "roles": {
                 role: {
                     "username": creds.get("username", ""),
-                    "password": mask(creds.get("password", "")),
+                    "password": mask(creds.get("password", "")) or (
+                        "(storage_state)" if creds.get("storage_state") else ""),
                 }
                 for role, creds in roles.items()
             },
@@ -108,9 +117,17 @@ def main() -> int:
                 "Target '" + name + "' (" + base + ") looks like production; "
                 "capture will refuse it unless --allow-production is passed."
             )
+        elif base and not is_local_host(base) and target.get("allow_capture") is not True:
+            report["warnings"].append(
+                "Target '" + name + "' (" + base + ") is not local and does not set "
+                "\"allow_capture\": true; capture will refuse it until you confirm "
+                "it is a disposable test environment."
+            )
         if not roles:
             report["warnings"].append("Target '" + name + "' defines no roles.")
         for role, creds in roles.items():
+            if creds.get("storage_state") and not creds.get("password"):
+                continue
             missing = [k for k in ("username", "password") if not creds.get(k)]
             if missing:
                 report["problems"].append(

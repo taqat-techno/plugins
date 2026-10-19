@@ -11,25 +11,38 @@ Every source degrades independently: a missing `az` CLI or an unreadable repo
 downgrades that source and is reported in `sources`, it never aborts the run.
 
 Read-only. Writes one artifact: 01-collect/evidence.json
+
+Privacy: by default a session contributes only its id, date, branch and the
+work-item IDs found in it. Prompt text is copied ONLY with --with-prompts, and
+then passes through a secret / e-mail redactor first; transcript paths are
+reduced to the file name, so the OS user name never lands in the repo.
 """
 from __future__ import annotations
 
 import argparse
 import json
-import os
 import re
 import subprocess
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-from _common import git, info, run_dir, which, write_json
+from _common import UnsafeArgument, git_run, info, run_dir, tool_argv, which, write_json
 
-# Explicit reference: "#23923", "AB#23923". Always trusted.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "hooks" / "_vendor"))
+import hooklib  # noqa: E402  (vendored copy of shared/hooklib.py; redact())
+
+# Explicit reference: "#4512", "AB#4512". Always trusted.
 EXPLICIT_ID_RE = re.compile(r"(?:AB#|#)(\d{3,7})(?!\d)")
-# Branch-style reference: "feature/23923-donor-export", "bugfix_23923".
+# Branch-style reference: "feature/4512-customer-export", "bugfix_4512".
 BRANCH_ID_RE = re.compile(r"(?:^|[/_-])(\d{3,7})(?=[-_/]|$)")
 # A bare 4-digit number that looks like a year is almost never a work item.
 YEAR_RE = re.compile(r"^(?:19|20)\d{2}$")
+# GitHub-style squash merge: "Fix export (#412)" at the END of a subject is a PR
+# number, not a work item.
+PR_SUFFIX_RE = re.compile(r"\s*\(#\d+\)\s*$")
+EMAIL_RE = re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+")
+MAX_PROMPTS, PROMPT_CHARS = 12, 400
 SYSTEM_NOISE = ("<system-reminder>", "<command-name>", "[Artifact comment sent")
 
 
@@ -44,6 +57,11 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--project", help="Azure DevOps project")
     p.add_argument("--author", help="Filter git commits to this author substring")
     p.add_argument("--no-sessions", action="store_true")
+    p.add_argument("--with-prompts", action="store_true",
+                   help="Also copy (redacted) prompt text from matching sessions")
+    p.add_argument("--id-pattern",
+                   help="Regex with one group that captures a work-item ID, "
+                        "e.g. 'PROJ-(\\d+)'. Replaces the built-in rules.")
     p.add_argument("--no-azure", action="store_true")
     p.add_argument("--out", help="Override output path")
     return p.parse_args()
@@ -74,9 +92,11 @@ def collect_azure(args):
 
     try:
         out = subprocess.run(
-            cmd, capture_output=True, text=True, timeout=120,
-            encoding="utf-8", errors="replace", shell=(os.name == "nt"),
+            tool_argv(cmd), capture_output=True, text=True, timeout=120,
+            encoding="utf-8", errors="replace",
         )
+    except UnsafeArgument as exc:
+        return {}, "skipped (" + str(exc) + ")"
     except (OSError, subprocess.SubprocessError) as exc:
         return {}, "unavailable (" + str(exc) + ")"
     if out.returncode != 0:
@@ -120,13 +140,13 @@ def attach_parents(items, args) -> None:
             cmd += ["--org", args.organization]
         try:
             out = subprocess.run(
-                cmd, capture_output=True, text=True, timeout=60,
-                encoding="utf-8", errors="replace", shell=(os.name == "nt"),
+                tool_argv(cmd), capture_output=True, text=True, timeout=60,
+                encoding="utf-8", errors="replace",
             )
             if out.returncode != 0:
                 continue
             data = json.loads(out.stdout or "{}")
-        except (OSError, subprocess.SubprocessError, json.JSONDecodeError):
+        except (OSError, ValueError, subprocess.SubprocessError):
             continue
         for rel in data.get("relations") or []:
             if rel.get("rel") == "System.LinkTypes.Hierarchy-Reverse":
@@ -157,7 +177,15 @@ def collect_git(repos, args):
         ]
         if args.author:
             log_args.append("--author=" + args.author)
-        raw = git(log_args, repo, timeout=120)
+        code, raw, err = git_run(log_args, repo, timeout=120)
+        if code != 0:
+            if "dubious ownership" in err or "safe.directory" in err:
+                notes.append(str(repo) + ": skipped - git refuses this repository "
+                             "(owned by another user). Add it to git's safe.directory "
+                             "yourself if you trust it.")
+            else:
+                notes.append(str(repo) + ": git log failed, skipped")
+            continue
         if not raw.strip():
             notes.append(repo.name + ": 0 commits in window")
             continue
@@ -184,7 +212,8 @@ def collect_git(repos, args):
                 "refs": refs,
                 "files": files[:50],
                 "file_count": len(files),
-                "work_items": extract_ids(subject + " " + refs),
+                "work_items": extract_ids(PR_SUFFIX_RE.sub("", subject) + " " + refs,
+                                          args.id_pattern),
             })
             count += 1
         notes.append(repo.name + ": " + str(count) + " commits")
@@ -202,7 +231,7 @@ def collect_sessions(repos, args):
         return [], "unavailable (no " + str(base) + ")"
 
     since, until = args.since, args.until
-    repo_names = {r.resolve().as_posix().lower() for r in repos}
+    repo_names = {r.resolve().as_posix().lower().rstrip("/") for r in repos}
     sessions = {}
 
     for transcript in base.glob("*/*.jsonl"):
@@ -221,8 +250,8 @@ def collect_sessions(repos, args):
                 stamp = (rec.get("timestamp") or "")[:10]
                 if not stamp or stamp < since or stamp > until:
                     continue
-                cwd = (rec.get("cwd") or "").replace("\\", "/").lower()
-                if repo_names and not any(cwd.startswith(n) for n in repo_names):
+                cwd = (rec.get("cwd") or "").replace("\\", "/").lower().rstrip("/")
+                if repo_names and not any(in_repo(cwd, n) for n in repo_names):
                     continue
                 text = message_text(rec.get("message"))
                 if not text or any(n in text for n in SYSTEM_NOISE):
@@ -230,21 +259,33 @@ def collect_sessions(repos, args):
                 sid = rec.get("sessionId") or transcript.stem
                 entry = sessions.setdefault(sid, {
                     "session_id": sid,
-                    "transcript": str(transcript),
-                    "cwd": rec.get("cwd"),
+                    "transcript": transcript.name,
                     "git_branch": rec.get("gitBranch"),
                     "date": rec.get("timestamp"),
-                    "prompts": [],
                     "work_items": [],
                 })
-                if len(entry["prompts"]) < 12:
-                    entry["prompts"].append(text[:400])
+                if args.with_prompts:
+                    prompts = entry.setdefault("prompts", [])
+                    if len(prompts) < MAX_PROMPTS:
+                        prompts.append(redact_prompt(text)[:PROMPT_CHARS])
                 entry["work_items"] = sorted(set(
                     entry["work_items"]
-                    + extract_ids(text)
-                    + extract_ids(rec.get("gitBranch") or "")
+                    + extract_ids(text, args.id_pattern)
+                    + extract_ids(rec.get("gitBranch") or "", args.id_pattern)
                 ))
-    return list(sessions.values()), "ok (" + str(len(sessions)) + " sessions)"
+    mode = "with redacted prompts" if args.with_prompts else "ids only, no prompt text"
+    return list(sessions.values()), ("ok (" + str(len(sessions)) + " sessions, "
+                                     + mode + ")")
+
+
+def in_repo(cwd: str, repo: str) -> bool:
+    """cwd is the repo or inside it; /repo/app must not match /repo/app-legacy."""
+    return cwd == repo or cwd.startswith(repo + "/")
+
+
+def redact_prompt(text: str) -> str:
+    """Mask secret-shaped strings and e-mail addresses in a prompt."""
+    return EMAIL_RE.sub("[EMAIL]", hooklib.redact(text))
 
 
 def message_text(message) -> str:
@@ -268,15 +309,19 @@ def message_text(message) -> str:
 # --------------------------------------------------------------------------- #
 # correlation
 # --------------------------------------------------------------------------- #
-def extract_ids(text: str):
+def extract_ids(text: str, pattern: str | None = None):
     """Pull work-item IDs out of a commit subject, branch ref or prompt.
 
-    An explicit "#23923" is always taken. A bare branch-style number is taken
+    An explicit "#4512" is always taken. A bare branch-style number is taken
     too, except when it looks like a year -- "release/2026-planning" should not
     invent work item 2026 and silently attach half the sprint's commits to it.
+    A custom `pattern` (one capture group) replaces both rules.
     """
     if not text:
         return []
+    if pattern:
+        return sorted({m if isinstance(m, str) else m[0]
+                       for m in re.findall(pattern, text) if m})
     found = set(EXPLICIT_ID_RE.findall(text))
     for token in re.split(r"[\s,;()\[\]]+", text):
         for candidate in BRANCH_ID_RE.findall(token):
@@ -321,6 +366,13 @@ def blank_item(wid: str) -> dict:
 
 def main() -> int:
     args = parse_args()
+    if args.id_pattern:
+        try:
+            if re.compile(args.id_pattern).groups != 1:
+                raise re.error("needs exactly one capture group")
+        except re.error as exc:
+            info("ERROR: --id-pattern is not usable: " + str(exc))
+            return 1
     repos = [Path(p.strip()).resolve() for p in args.repos.split(",") if p.strip()]
     if not repos:
         repos = [Path.cwd().resolve()]

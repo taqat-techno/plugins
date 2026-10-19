@@ -1,15 +1,16 @@
 ---
 name: sprint-repro-guide
-description: How the HTML reproduction guide is produced and why credentials live in a separate file. Owns the two-file credential policy, the action-to-instruction rendering, honest status badges for uncaptured steps, and the gitignore requirements that keep the plaintext page out of git. Use when publishing the guide or when deciding how to hand credentials to a reviewer.
-version: 0.1.0
-last_reviewed: 2026-09-21
-owns:
-  - the shareable-guide / local-credentials split
-  - rendering Playwright actions as human instructions
-  - status badges for steps that were not verified
-defers_to:
-  - sprint-step-script (source of the instruction text)
-  - sprint-capture-clips (source of screenshots and statuses)
+description: "Use when publishing sprint-recap's HTML reproduction guide or deciding how to hand logins to a reviewer: a shared walkthrough page that would contain passwords, a credentials file that might be committed or attached, or a step that was not verified but could look like it was. Explains the two-file credential policy, status badges and the gitignore rules."
+metadata:
+  version: 0.1.0
+  last_reviewed: 2026-10-19
+  owns:
+    - the shareable-guide / local-credentials split
+    - rendering Playwright actions as human instructions
+    - status badges for steps that were not verified
+  defers_to:
+    - sprint-step-script (source of the instruction text)
+    - sprint-capture-clips (source of screenshots and statuses)
 ---
 
 # Two files, on purpose
@@ -35,7 +36,7 @@ side effect of sharing a document.
 ## Rendering actions as instructions
 
 Each Playwright action becomes a sentence a human can follow — `click` becomes
-"Click `role=button[name='Export']`", `fill` becomes "Type **Cairo** into
+"Click `role=button[name='Export']`", `fill` becomes "Type **London** into
 `input[name='search']`". The selector is printed literally so a reader can find
 the control even if the UI has since shifted.
 
@@ -53,8 +54,9 @@ text in place.
 
 ## Before publishing
 
-Confirm `.sprint-recap.local.json`, `.sprint-recap/credentials/` and
-`.sprint-recap/**/.auth/` (the capture stage's cached session cookies) are
-gitignored (`python scripts/check_config.py`). The plugin's PreToolUse hook
+Confirm `.sprint-recap.local.json` and the whole `.sprint-recap/` folder (credential
+pages, run evidence, and any `.sprint-recap/**/.auth/` session cookies left by
+versions before 0.4) are gitignored
+(`python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_config.py"`). The plugin's PreToolUse hook
 blocks git from staging these paths, but a check costs nothing and the hook is
 the last line of defence, not the first.

@@ -62,5 +62,15 @@ class SessionStartOutputContract(unittest.TestCase):
         self.assertIn("is not gitignored", ctx)
 
 
+    def test_leftover_auth_dir_from_old_versions_is_reported(self):
+        (self.tmp / ".sprint-recap.local.json").write_text("{}", encoding="utf-8")
+        (self.tmp / ".sprint-recap" / "runs" / "s3" / "03-capture" / ".auth").mkdir(parents=True)
+        code, out, _ = run_in(self.tmp)
+        self.assertEqual(code, 0)
+        ctx = json.loads(out)["hookSpecificOutput"]["additionalContext"]
+        self.assertIn("Cached session cookies", ctx)
+        self.assertIn(".sprint-recap/runs/s3/03-capture/.auth", ctx)
+
+
 if __name__ == "__main__":
     unittest.main()

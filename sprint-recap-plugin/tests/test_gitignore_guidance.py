@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
-"""The cached .auth/ session state must be covered by the gitignore guidance.
+"""Session state must stay out of the repository, and the guidance must say so.
 
-capture_steps.py writes each role's Playwright storage state (live session
-cookies) to <run>/<capture>/.auth/<role>.json. Every place that tells the user
-what to gitignore must name `.sprint-recap/**/.auth/`, and check_config.py must
-warn when it is not ignored.
+Since 0.4 capture_steps.py keeps each role's Playwright storage state (live
+session cookies) in a temporary directory that is deleted after the run.
+Versions before 0.4 wrote it to <run>/<capture>/.auth/<role>.json, so every
+place that tells the user what to gitignore still names `.sprint-recap/**/.auth/`
+(or the whole `.sprint-recap/` folder), and check_config.py warns when it is not
+ignored.
 
     python tests/test_gitignore_guidance.py
 """
@@ -26,15 +28,21 @@ AUTH = ".sprint-recap/**/.auth/"
 
 class GuidanceNamesAuthDir(unittest.TestCase):
     def test_docs(self):
-        for rel in ("README.md", "commands/sprint-recap-target.md",
+        for rel in ("README.md", "commands/target.md",
                     "skills/sprint-repro-guide/SKILL.md"):
             with self.subTest(rel=rel):
                 self.assertIn(AUTH, (ROOT / rel).read_text(encoding="utf-8"))
 
-    def test_capture_still_writes_auth_dir(self):
-        # Pins the path the guidance and the gate are written against.
+    def test_capture_keeps_session_state_in_a_temp_dir(self):
         src = (ROOT / "scripts" / "capture_steps.py").read_text(encoding="utf-8")
-        self.assertIn('out_dir / ".auth"', src)
+        self.assertIn('tempfile.mkdtemp(prefix="sprint-recap-auth-")', src)
+        self.assertIn("shutil.rmtree(state_dir, ignore_errors=True)", src)
+        # The only remaining use of the old path is deleting what old versions left.
+        self.assertIn("shutil.rmtree(legacy, ignore_errors=True)", src)
+
+    def test_docs_recommend_ignoring_the_whole_folder(self):
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+        self.assertIn(".sprint-recap.local.json\n.sprint-recap/\n", readme)
 
 
 @unittest.skipUnless(GIT, "git not on PATH")

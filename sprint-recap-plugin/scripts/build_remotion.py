@@ -6,10 +6,17 @@ duration, so its caption is on screen for exactly as long as the clip and not a
 frame longer. Clip length is measured, never assumed:
 
   1. ffprobe, when it is on PATH                      (frame-accurate)
-  2. `npx remotion ffprobe`, using Remotion's bundled ffmpeg
+  2. the project's own Remotion CLI (`remotion ffprobe`), once npm install ran
   3. the wall-clock time the capture stage recorded   (approximate, warned)
 
-Writes a self-contained Remotion project and optionally renders it.
+Writes a self-contained Remotion project and optionally renders it. The project
+pins exact Remotion and React versions (templates/remotion/package.json), and
+the CLI is always the project-local node_modules/.bin/remotion: nothing is
+fetched with `npx --yes`. No subprocess runs through a shell.
+
+Remotion is not MIT for everyone: companies above a small-team size need a
+Remotion company licence (https://www.remotion.dev/license). edge-tts sends
+each caption to a Microsoft online service. See the README.
 """
 from __future__ import annotations
 
@@ -21,7 +28,10 @@ import shutil
 import subprocess
 from pathlib import Path
 
-from _common import die, info, read_json, run_dir, slugify, warn, which, write_json
+from _common import (
+    CMD_UNSAFE, UnsafeArgument, die, info, read_json, run_dir, slugify, tool_argv, warn, which,
+    write_json,
+)
 
 FPS = 30
 TITLE_SECONDS = 3.0
@@ -39,7 +49,9 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--render", action="store_true", help="Run the render after building")
     p.add_argument("--narrate", action="store_true",
                    help="Generate edge-tts narration from each caption")
-    p.add_argument("--voice", default="en-US-AriaNeural")
+    p.add_argument("--voice", default="en-US-AriaNeural",
+                   help="edge-tts voice (the /sprint-recap:run command passes the "
+                        "tts_voice plugin option)")
     p.add_argument("--install", action="store_true", help="Run npm install first")
     return p.parse_args()
 
@@ -47,7 +59,33 @@ def parse_args() -> argparse.Namespace:
 # --------------------------------------------------------------------------- #
 # duration measurement
 # --------------------------------------------------------------------------- #
-def probe_duration(path: Path) -> tuple[float | None, str]:
+def local_remotion(project: Path | None) -> str | None:
+    """The project's own Remotion CLI, or None before `npm install`."""
+    if project is None:
+        return None
+    bin_dir = project / "node_modules" / ".bin"
+    for name in ("remotion.cmd", "remotion") if os.name == "nt" else ("remotion",):
+        candidate = bin_dir / name
+        if candidate.is_file():
+            return str(candidate)
+    return None
+
+
+def run_local(argv: list[str], **kwargs):
+    """Run a project-local CLI (a .cmd shim on Windows) without a shell.
+
+    Arguments are file paths and fixed words; tool_argv-style checking still
+    refuses anything cmd.exe would interpret, in case a path contains `&` or `%`.
+    """
+    exe = argv[0]
+    if exe.lower().endswith((".cmd", ".bat")):
+        for arg in argv[1:]:
+            if CMD_UNSAFE.search(str(arg)):
+                raise UnsafeArgument("refusing to pass " + repr(arg)[:80] + " to " + exe)
+    return subprocess.run(argv, **kwargs)
+
+
+def probe_duration(path: Path, project: Path | None = None) -> tuple[float | None, str]:
     if which("ffprobe"):
         try:
             out = subprocess.run(
@@ -62,12 +100,12 @@ def probe_duration(path: Path) -> tuple[float | None, str]:
         except (OSError, subprocess.SubprocessError, ValueError, KeyError):
             pass
 
-    if which("npx"):
+    remotion = local_remotion(project)
+    if remotion:
         try:
-            out = subprocess.run(
-                ["npx", "--yes", "remotion", "ffprobe", str(path)],
+            out = run_local(
+                [remotion, "ffprobe", str(path)],
                 capture_output=True, text=True, timeout=180,
-                shell=(os.name == "nt"),
             )
             blob = (out.stdout or "") + (out.stderr or "")
             match = re.search(r"durationInSeconds[\"']?\s*[:=]\s*([0-9.]+)", blob)
@@ -141,7 +179,7 @@ def build_timeline(log: dict, project: Path, fps: int, script: dict | None):
             target = public / source.name
             shutil.copyfile(source, target)
 
-            seconds, how = probe_duration(source)
+            seconds, how = probe_duration(source, project)
             if seconds is None:
                 seconds = max(1.0, (row.get("wall_ms") or 3000) / 1000.0)
                 approximate += 1
@@ -181,7 +219,7 @@ def resolve_edge_tts() -> str | None:
     """Absolute path of a directly executable edge-tts, or None.
 
     The caption text is passed as an argument, so edge-tts must run WITHOUT a
-    shell: through cmd.exe (shell=True, or a .bat/.cmd shim that Windows hands
+    shell: through cmd.exe (a shell, or a .bat/.cmd shim that Windows hands
     to cmd.exe) a caption containing `&`, `|` or `%VAR%` becomes a command.
     """
     exe = shutil.which("edge-tts")
@@ -279,24 +317,31 @@ def main() -> int:
     info("built timeline: " + str(len(scenes)) + " scenes, " + str(total_frames)
          + " frames (" + str(round(total_frames / args.fps, 1)) + "s)")
 
-    if args.install or args.render:
+    if args.install:
         if not which("npm"):
             die("npm is not on PATH; Node 18+ is required to render.")
-        if args.install:
-            info("running npm install ...")
-            subprocess.run(["npm", "install", "--silent"], cwd=project,
-                           check=False, shell=(os.name == "nt"))
+        info("running npm install (exact versions from package.json) ...")
+        try:
+            subprocess.run(tool_argv(["npm", "install", "--silent", "--no-fund",
+                                      "--no-audit"]), cwd=project, check=False)
+        except (OSError, UnsafeArgument) as exc:
+            die("npm install could not run: " + str(exc))
 
     if args.render:
+        remotion = local_remotion(project)
+        if not remotion:
+            die("Remotion is not installed in " + str(project) + ". Re-run with "
+                "--install (runs npm install with the pinned versions).")
         video_out = Path(args.video_out) if args.video_out else (
             project / ("sprint-" + slugify(str(log.get("sprint", "recap"))) + ".mp4")
         )
         video_out.parent.mkdir(parents=True, exist_ok=True)
         info("rendering -> " + str(video_out))
-        result = subprocess.run(
-            ["npx", "--yes", "remotion", "render", "SprintRecap", str(video_out)],
-            cwd=project, check=False, shell=(os.name == "nt"),
-        )
+        try:
+            result = run_local([remotion, "render", "SprintRecap", str(video_out)],
+                               cwd=project, check=False)
+        except (OSError, UnsafeArgument) as exc:
+            die("Remotion render could not start: " + str(exc))
         if result.returncode != 0:
             die("Remotion render failed. Run `npx remotion studio` in "
                 + str(project) + " to debug the composition.")
