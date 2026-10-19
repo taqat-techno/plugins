@@ -1,108 +1,116 @@
 # env-doctor
 
-Diagnose your local Claude Code and development environment — read-only, no mutation. It tells you what is wrong and how to fix it; it never changes your system for you.
-
 ## What it does
 
-`env-doctor` inspects the local machine where Claude Code runs and reports problems in plain language, ranked by likelihood. It **diagnoses, it does not mutate**: every probe is read-only, and any fix is presented as a suggestion you choose to apply yourself.
+Diagnoses your local Claude Code and development environment, read-only. When an MCP
+server will not load, a tool fails to spawn, login loops on a 401, a language server or
+browser is missing, a hook never fires, WSL networking or PowerShell arguments misbehave,
+or Syncthing gets in the way, it routes the symptom to one diagnostic branch, runs
+inspection-only probes, classifies the failure and proposes one safe fix for you to apply.
+It never changes your system and never prints secret values. A second skill covers the
+authoring side: writing Windows scripts and Scheduled Tasks so those failures do not happen.
 
-It covers the environment failure modes that block day-to-day work:
+It is for anyone whose Claude Code tooling misbehaves on their own machine. It is not a
+server-operations, deployment or CI tool.
 
-- **MCP wiring** — MCP servers that fail to start, are misconfigured, point at a dead command, or never connect; stdio/SSE/HTTP transport mismatches; `${CLAUDE_PLUGIN_ROOT}` and path resolution issues.
-- **Windows / WSL networking** — loopback and `localhost` resolution across the Windows/WSL boundary, port-forwarding gaps, firewall-blocked local ports, and services bound to the wrong interface.
-- **Login / 401 / auth** — expired or missing credentials, repeated 401 responses, token-refresh loops, and proxy/TLS interception that breaks authenticated calls.
-- **LSP / Node spawn** — language servers or Node-based tooling that fail to spawn, crash on launch, or exit with non-zero codes; missing runtimes and `PATH` gaps.
-- **Python encoding** — `UnicodeDecodeError`/`UnicodeEncodeError`, mismatched locale/`PYTHONIOENCODING`, and console code-page problems (common on Windows) that corrupt tool output.
-- **Playwright / browser MCP** — missing browser binaries, headless-launch failures, sandbox/permission blocks, and browser-MCP connections that never become ready.
+## Install
 
-The output is a triage report: symptom, most likely cause, and a suggested next step. Nothing is executed against your machine without your say-so.
+```
+/plugin marketplace add taqat-techno/plugins
+/plugin install env-doctor@taqat-techno-plugins
+```
+
+On Claude Code 2.1.275 or later, one step also works:
+`/plugin install env-doctor --marketplace taqat-techno/plugins`.
+
+This plugin was called `claude-env-doctor` before 0.7.0; the marketplace migrates old installs.
+
+## Requirements
+
+| Requirement | Why | Check |
+|---|---|---|
+| Python 3.8 or later as `python3`, `python` or `py -3` | runs the SessionStart check | `python3 --version` |
+| A POSIX shell for hook commands (Git Bash on Windows) | the hook launcher is POSIX sh | `sh --version` |
+
+The command, skills and agent need nothing beyond Claude Code. The probes use whatever
+tools are on the machine and report a missing tool as a finding.
 
 ## Commands
 
-### `/env-doctor`
-
-Runs the full local environment diagnosis. **Works with no arguments** — a bare `/env-doctor` performs a complete read-only sweep and prints a ranked report.
-
-An optional free-text symptom (`/env-doctor [symptom]`, for example `/env-doctor MCP server not loading`) routes straight to the matching branch when you already know roughly where the problem is. It is a shortcut, never required; there are no other flags.
+| Command | What it does |
+|---|---|
+| `/env-doctor:diagnose [symptom]` | Loads the `env-doctor-router` skill. With a free-text symptom (for example `MCP server not loading`) it goes straight to the matching branch; with no argument it runs a general read-only triage across all branches. There are no flags. |
+| `/env-doctor:env-doctor [symptom]` | Deprecated alias for `/env-doctor:diagnose`, kept for one minor version. |
 
 ## Skills
 
-### `env-doctor-router`
+| Skill | Use when |
+|---|---|
+| `env-doctor-router` (folder `skills/env-doctor/`) | the local environment is already broken: MCP, spawn/ENOENT, encoding, 401 login loops, LSP, browser, hooks, WSL, PowerShell, Syncthing, running-app config |
+| `windows-script-and-task-authoring` | about to write a `.ps1`/`.cmd`/script for Windows, register a Scheduled Task, or compose a command across the Git Bash or WSL boundary |
 
-The routing skill that owns the diagnostic workflow. It decides which probes to run, interprets their output, and assembles the report. It pulls detailed, OS-specific guidance from eleven bundled reference documents:
+`env-doctor-router` references (one per branch): `mcp-not-loading.md`, `windows-wsl.md`,
+`login-auth.md`, `lsp-node-spawn.md`, `python-encoding.md`, `playwright-browser.md`,
+`ide-remote-dev.md`, `doctor-command-ambiguity.md`, `syncthing.md`,
+`windows-powershell.md`, `ide-mermaid-rendering.md`.
+`windows-script-and-task-authoring` references: `scheduled-task-authoring.md`,
+`shell-boundary-hazards.md`.
 
-1. **`references/mcp-not-loading.md`** — MCP server start-up, wiring, config-shadowing, concurrent-clobber, and `-32000` spawn diagnosis.
-2. **`references/windows-wsl.md`** — distro discovery, DNS-vs-TCP isolation, VPN/DNS conflicts, mirrored/nat networking quirks, `/tmp` path mapping, and content-search confirmation across the Windows/WSL boundary.
-3. **`references/login-auth.md`** — credential-shape vs. org-billing diagnosis, `forceLoginMethod` pinning, `settings.json` env override, single-tenant routing, and the per-project env trap.
-4. **`references/lsp-node-spawn.md`** — language-server and Node process spawn failures, the Windows npm-shim / `shell: false` trap, runtime and `PATH` checks.
-5. **`references/python-encoding.md`** — code-page and `PYTHONIOENCODING` issues that crash non-ASCII/emoji output on Windows.
-6. **`references/playwright-browser.md`** — browser-binary, headless-launch, and persistent-profile-lock diagnosis.
-7. **`references/ide-remote-dev.md`** — IDE remote-dev backend heap-OOM diagnosis (the "connection" symptom that is really a JVM OOM).
-8. **`references/doctor-command-ambiguity.md`** — `/doctor` routing ambiguity, non-interactive CLI health checks vs. the hanging TUI, managed-connector auth, and permissions-allowlist hygiene.
-9. **`references/syncthing.md`** — Syncthing dev-folder sync operations: conflict resolution, the venv/`node_modules` delete-deadlock, `.stignore` locality, cached error lists, the encryption-mismatch device drop, and REST-API diagnosis.
-10. **`references/windows-powershell.md`** — Windows shell and native-exe argument traps: PowerShell 5.1 quote-strip / pipe BOM, `Copy-Item -Exclude`, `kubectl exec`/`port-forward`, `head`/`tail` SIGPIPE, Git-Bash path mangling, and `--parallel` test pickling.
-11. **`references/ide-mermaid-rendering.md`** — a missing Mermaid renderer in an IDE/editor (JetBrains plugin / VS Code extension / native web) and jsdom's missing SVG layout (`getBBox`) → headless Chrome.
+## Agents
 
-Reference docs hold the heavy, platform-specific detail so the skill body stays a thin router. Add new failure modes by extending a reference doc first, then wiring it into the skill.
+| Agent | Tools | What it does |
+|---|---|---|
+| `env-probe-reporter` | `Read, Bash, Glob, Grep` | Runs a bounded read-only sweep (OS/shell/WSL, configured MCP servers, tool versions, PATH resolution, login state by shape only) and returns a structured ENVIRONMENT REPORT. Its prompt forbids writes, installs, service control and logins, and forbids revealing any character of a secret. Bash is not technically sandboxed: read-only is a prompt rule, so its commands do run on your machine. |
 
-### `windows-script-and-task-authoring`
+## Hooks
 
-The upstream half of the same boundary. Where `env-doctor-router` fires on a **symptom** that already happened, this skill fires **before the artifact exists** — before a `.ps1`/`.cmd`/`.vbs` is written, before a Scheduled Task is registered, before a process-inventory sweep, and before a Windows-native tool is invoked from Git Bash. It owns the authoring reflexes that stop the symptom being created: the ASCII-or-BOM rule for Windows PowerShell 5.1, encoding on both sides of a read-modify-write, case-insensitive variable collisions, the Scheduled Task `Execute`-is-the-whole-path rule and UTF-16 task XML, the deliberate registration choices (RunLevel, hidden-window wrapper, `ExecutionTimeLimit`, argv-over-environment), the 32-bit-host blind spot in a process audit, the MSYS path-translation hazards, and the vary-one-dimension-at-a-time discipline on a refusal.
+| Hook | Event | What it does | Can block? |
+|---|---|---|---|
+| `hooks/session_start_env_advisory.py` | `SessionStart` | Runs cheap read-only checks on the project and speaks only when one fails: a project `.mcp.json` that is invalid JSON, or that uses `${NAME}` without a default while `NAME` is unset (in the environment and in the `env` block of `.claude/settings*.json` and `~/.claude/settings.json`); or a project inside a Syncthing folder whose `node_modules`, `.venv` or `venv` is not in `.stignore`. The note goes to Claude as `additionalContext` and names variables, never values. A healthy project gets nothing. | No |
 
-It ships two reference documents:
+## Configuration
 
-1. **`references/scheduled-task-authoring.md`** — registration recipes, the hidden-window VBS wrapper, the elevation escape hatch, and the export/rollback contract.
-2. **`references/shell-boundary-hazards.md`** — command-level MSYS/WSL translation workarounds and the bitness-safe process query.
+| Setting | Where | Values | Default |
+|---|---|---|---|
+| `session_checks` | plugin option (`/config`; reaches the hook as `CLAUDE_PLUGIN_OPTION_SESSION_CHECKS`) | `true`, `false` | `true` |
+| `ENV_DOCTOR_HINT` | environment variable; `off` silences the SessionStart check | `off` | unset |
 
-The two skills do not overlap: recovery for a command that has **already** misbehaved stays in `env-doctor-router`'s `references/windows-powershell.md`; this skill owns only the choice made before the command is written.
+No per-project files.
 
-## Agent
+## Platform support
 
-### `env-probe-reporter` (read-only)
+| Platform | Status |
+|---|---|
+| Windows | Deepest coverage: PowerShell 5.1, Git Bash/MSYS, Scheduled Tasks, WSL boundary. The hook needs Git Bash; without it Claude Code runs hook commands in PowerShell, where the launcher does not parse, and the hook does nothing. |
+| macOS, Linux | MCP, login, LSP/Node, browser, IDE remote-dev, Syncthing and Mermaid branches apply; the skill skips Windows-only branches and uses POSIX probes. |
+| WSL | Supported, including Windows/WSL networking across the boundary. |
 
-A focused subagent that gathers environment signals and produces the diagnostic report without making any changes. It is constrained to inspection — reading config, checking process and port state, inspecting versions and logs — and returns findings as structured text. It never writes files, never restarts services, and never edits configuration. Use it to keep probe-and-report work off the main context window.
+The `env-doctor-router` skill has a table of which branches apply on which OS.
 
-## Hook
+## Data & privacy
 
-A **non-blocking `SessionStart` advisory** hook. When a session begins, it prints one fixed reminder line pointing you at `/env-doctor`. It performs **no** environment check: the line is the same in every session, whether or not anything is wrong. It is advisory only: it never blocks the session, never prompts, and never mutates anything.
+- The SessionStart hook reads `.mcp.json`, `.claude/settings.json`,
+  `.claude/settings.local.json`, `~/.claude/settings.json` and Syncthing's `.stfolder` /
+  `.stignore` markers. It writes nothing, runs no subprocesses and makes no network calls.
+  Its message names MCP servers, variable names and folder names only.
+- Diagnosis runs read-only commands on your machine (version checks, config reads, port and
+  process listings). Results stay in the session. Secrets are reported by name and shape
+  only (for example "set, 40 chars, base64-like").
+- The plugin sends nothing anywhere. A probe you approve that contacts a service (for
+  example a connectivity check) talks to that service directly.
 
-## Scope / non-goals
+## Limitations
 
-This plugin diagnoses the **local development environment** and nothing else.
+- It proposes fixes; it never applies them.
+- The SessionStart check is deliberately small. It does not start MCP servers or test
+  connectivity; run `/env-doctor:diagnose` for that.
+- Hook event names, settings keys and manifest fields change between Claude Code releases.
+  The skill checks them against the official documentation for your installed version
+  instead of a list of its own.
+- Related plugins are optional: if `git-safety`, `agent-safety-guards` or `docs-wiki` is
+  installed, the skills point to them for staging discipline, test evidence, permission
+  rules and Mermaid authoring.
 
-It is **not**:
+## License
 
-- a server-operations or production-incident tool,
-- a deployment runbook or release-automation tool,
-- a DevOps, CI/CD, or GitHub-workflow tool.
-
-Server ops, deployment, and workflow logic belong to other, purpose-built plugins. `env-doctor` stays in its lane: figuring out why the tooling on *this* machine is misbehaving.
-
-## Canonical home
-
-This plugin is the **canonical home for generic local-environment diagnosis**. Other plugins that hit a generic environment problem — an MCP server that will not connect, a 401 they cannot explain, a Node or Python tool that will not spawn — should reference `env-doctor` rather than re-implementing their own ad-hoc checks. Keeping the diagnostic logic in one place means every plugin benefits from the same probes and the same reference docs.
-
-## Portability
-
-`env-doctor` is built to run for **any user, in any workspace, on any major OS** (Windows, macOS, Linux, and WSL). Its behavior never depends on a specific user, project, company, path, repo, or credential.
-
-- Cross-OS by default: the skill and agent detect the platform at run time and select the appropriate probes.
-- OS-specific detail lives in the reference docs (notably the Windows/WSL networking and Python-encoding guides), so the core routing stays platform-neutral.
-- No absolute user paths, no hard-coded hosts, no project assumptions are baked into behavior.
-
-### Adapter inputs
-
-The diagnosis adapts to the environment it finds, using inputs such as:
-
-- **OS and shell** — Windows / macOS / Linux / WSL, and the active shell.
-- **Runtime presence and versions** — Node, Python, and other interpreters/tools discoverable on `PATH`.
-- **MCP configuration** — declared MCP servers, their transports, and connection state.
-- **Network context** — relevant local ports and loopback reachability for services under test.
-- **Locale / encoding** — active locale, code page, and encoding-related environment variables.
-- **Browser tooling state** — presence and readiness of Playwright/browser-MCP components.
-
-All inputs are read for diagnosis only. The plugin never prints secrets, tokens, or environment-variable values, and never writes to your configuration.
-
----
-
-> Example (illustrative — not required): an MCP server fails to connect, you run `/env-doctor MCP not loading`, and it reports the likely cause (a stdio command not found on `PATH`) and the suggested fix, which you apply yourself.
+MIT. See `LICENSE`.

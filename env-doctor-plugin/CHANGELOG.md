@@ -2,6 +2,30 @@
 
 All notable changes to this plugin are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0] - 2026-10-19
+
+### Added
+- **The SessionStart hook runs real checks and is silent otherwise (CED-P1-01, default behaviour change).** It used to print the same reminder in every session. It now speaks only when a cheap read-only check fails: the project `.mcp.json` is invalid JSON, or uses `${NAME}` with no default while `NAME` is unset (environment and settings `env` blocks), or the project sits in a Syncthing folder with `node_modules` / `.venv` / `venv` missing from `.stignore`. Output is SessionStart `additionalContext` JSON and names variables, never values. Silence it with the new `session_checks` option or `ENV_DOCTOR_HINT=off`.
+- `/env-doctor:diagnose`, the same entry point under a name that does not repeat the plugin name.
+- `env-doctor-router` gained a "Which branches apply on which OS" table, so macOS and Linux users are not walked through Windows-only probes, with POSIX equivalents for Windows probe commands.
+- `tests/test_session_start_env_advisory.py` (CED-P2-06): healthy project silent, each finding, settings `env` counted, Syncthing ignore forms, opt-outs, garbage stdin.
+- Evals: `fires-on-mcp-server-not-loading-after-edit` (targets `env-doctor-router`) and `ignores-explain-environment-variables-concept`.
+
+### Changed
+- **No closed list of hook events (CED-P1-03).** The gotcha row claiming `PostToolUseFailure` is not a valid event was wrong (the current hooks reference lists it, with `TaskCompleted`, `StopFailure` and others). The row now tells the reader to compare an event name with the official hooks reference for the installed version.
+- `/env-doctor:env-doctor` is a deprecated stub that forwards to `/env-doctor:diagnose`; it will be removed in a later minor version.
+- The hook uses the vendored `hooks/_vendor/hooklib.py`.
+- Skill descriptions rewritten to start with "Use when"; `windows-script-and-task-authoring` trimmed from 1,640 to 820 characters. Cross-references to `git-safety`, `agent-safety-guards`, `docs-wiki` and consuming plugins are conditional.
+- README restructured to the marketplace template, generated from the actual command, skills, agent and hook.
+- CHANGELOG sections put back in version order (CED-P3-08).
+
+### Security
+- **The probe agent reveals no characters of a secret (CED-P2-04).** The "first 2 / last 2 characters" fingerprint allowance is gone; secrets are reported by name, length and character class only.
+- The agent, the router skill and the command treat config files, logs, error messages and tool output as data: instructions found there are quoted, never followed.
+- Removed `evals/results/`, which held an empty run with absolute machine paths.
+
+Not done: running the evals (CED-P2-06's Δ measurement) costs money and is left to the maintainer. Moving tables out of the two 33 KB skill bodies into references (CED-P3-07, effort M) was not done in this pass: it is a large content move with a recall risk that should be measured with the evals first.
+
 ## [0.7.0] - 2026-10-19
 
 ### Changed
@@ -41,12 +65,6 @@ that demands a fact this plugin uniquely teaches, so a no-plugin run fails it.
 Pilot with `claude plugin eval . --case <case> --runs 1 --ablation none`,
 then measure with `claude plugin eval .`. No runtime behaviour changed.
 
-## [0.5.0] - 2026-08-18
-
-Marketplace-wide architecture upgrade. Skill discovery, invocation-mode metadata, and identity consistency were corrected across the marketplace; no skill, command, agent, hook, or MCP behaviour was removed.
-
-Resolved a name collision: `commands/env-doctor.md` and `skills/env-doctor/SKILL.md` both resolved to `claude-env-doctor:env-doctor`, so one shadowed the other even though the command explicitly delegates to the skill. The skill is now `env-doctor-router` and the command's delegation target was updated; the `/env-doctor` entry point is unchanged. Also fixed `user_invocable` -> `user-invocable` on 2 skills.
-
 ## [0.6.0] - 2026-08-22
 
 Three rules promoted from recorded session lessons via `/lessons-to-plugins`. All land in existing
@@ -79,7 +97,13 @@ reference files; no skill `description` changed and nothing was removed.
   target, with a success status either way. The guidance was not wrong about path translation; it was
   silent about cwd drift.
 
-## [Unreleased]
+## [0.5.0] - 2026-08-18
+
+Marketplace-wide architecture upgrade. Skill discovery, invocation-mode metadata, and identity consistency were corrected across the marketplace; no skill, command, agent, hook, or MCP behaviour was removed.
+
+Resolved a name collision: `commands/env-doctor.md` and `skills/env-doctor/SKILL.md` both resolved to `claude-env-doctor:env-doctor`, so one shadowed the other even though the command explicitly delegates to the skill. The skill is now `env-doctor-router` and the command's delegation target was updated; the `/env-doctor` entry point is unchanged. Also fixed `user_invocable` -> `user-invocable` on 2 skills.
+
+## Undated notes between 0.4.0 and 0.5.0
 
 ### Changed
 

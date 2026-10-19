@@ -1,7 +1,7 @@
 {
   "name": "env-doctor",
-  "version": "0.7.0",
-  "description": "Generic local-environment doctor for Claude Code. Diagnoses (never blindly mutates) MCP wiring, Windows/WSL networking, Claude Code login/auth, LSP / Node-CLI spawn, Python output encoding, and Playwright browser-MCP setup. Produces a symptom -> environment -> probes -> classification -> safe-next-action report with no secrets. The canonical environment-troubleshooting home other plugins reference.",
+  "version": "0.8.0",
+  "description": "Read-only doctor for your local Claude Code environment: MCP servers that will not load, spawn and encoding failures, 401 login loops, missing language servers or browsers, hooks that never fire, WSL networking, PowerShell argument traps and Syncthing conflicts. Routes a symptom to one branch, probes without changing anything, and proposes one safe fix with no secrets printed. Also teaches Windows script and Scheduled Task authoring. A SessionStart check speaks only when it finds a real problem.",
   "author": {
     "name": "TAQAT Techno",
     "email": "info@taqatechno.com",
@@ -21,5 +21,13 @@
     "lsp",
     "playwright",
     "troubleshooting"
-  ]
+  ],
+  "userConfig": {
+    "session_checks": {
+      "type": "boolean",
+      "title": "Session start checks",
+      "description": "Run cheap read-only checks at session start (project .mcp.json, Syncthing ignores) and report only problems.",
+      "default": true
+    }
+  }
 }

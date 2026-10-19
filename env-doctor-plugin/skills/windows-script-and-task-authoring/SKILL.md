@@ -1,47 +1,31 @@
 ---
 name: windows-script-and-task-authoring
-description: >-
-  Authoring-time rules for any file or registration a Windows interpreter will later re-parse. Owns the
-  ASCII-or-BOM rule for Windows PowerShell 5.1 (a BOM-less UTF-8 .ps1 containing one em-dash is re-decoded
-  as Windows-1252 and dies in the parser before line 1, exiting 1 with no output), the
-  encoding-on-both-sides rule for read-modify-write (Get-Content without -Encoding plus -Encoding utf8 on
-  the way back silently double-encodes a long-lived file), the case-insensitive variable-name collision,
-  the Scheduled Task Execute field is the whole program path rule, task XML being UTF-16 only and best
-  captured by round-tripping what the OS itself emitted, the RunLevel/elevation and hidden-window and
-  execution-time-limit choices a task registration must make deliberately, the 32-bit-host blind spot that
-  makes a process audit silently under-report, the MSYS path-translation hazards that fabricate empty glob
-  results and a repo-breaking reserved-device file, and the vary-one-dimension-at-a-time discipline when a
-  capability is refused. Activates BEFORE the artifact exists - before writing or editing a
-  .ps1/.psm1/.cmd/.bat/.vbs, before calling Register-ScheduledTask or schtasks or hand-writing task XML,
-  before a script that appends to or rewrites an existing file, before a process or scheduled-task
-  inventory sweep, before running a Windows-native tool from Git Bash or invoking wsl from the Bash tool,
-  and when a permission error is about to be reported as an external blocker. Does NOT activate on a
-  symptom that already happened (exit 1 with no output, mojibake, a spawn failure, a mangled argument) -
-  that is the env-doctor skill.
+description: "Use when about to write or edit a file that a Windows interpreter will later parse (a .ps1/.psm1, .cmd/.bat, a script that writes files other tools read), or to register or change a Windows Scheduled Task, or when composing a command that crosses the Git Bash/MSYS or WSL boundary. Covers keeping Windows PowerShell 5.1 scripts ASCII or BOM-prefixed, pinning encoding on both sides of read-modify-write, case-insensitive variable collisions, the Scheduled Task Execute field being the whole program path, UTF-16 task XML, RunLevel and hidden-window choices, 32-bit versus 64-bit process audits, MSYS path translation, writing files with newline=\"\\n\", pipeline exit status, and varying one dimension at a time after a refusal. Authoring-time only: diagnosing an environment that is already broken is the env-doctor skill."
 version: 0.2.0
-last_reviewed: 2026-08-10
-owns:
-  - the ASCII-only-or-emit-a-BOM rule for any .ps1/.psm1 that Windows PowerShell 5.1 will run
-  - the encoding-on-both-sides rule for read-modify-write of an existing file (silent double-encoding)
-  - the PowerShell case-insensitive variable-name collision (and the scalar .Count trap)
-  - the Scheduled Task Execute-is-the-whole-path rule, and task XML being UTF-16 with an OS-owned shape
-  - the deliberate task-registration choices (RunLevel, hidden-window wrapper, ExecutionTimeLimit, argv-over-environment)
-  - the bitness rule for any process/module audit (a 32-bit host silently under-reports 64-bit processes)
-  - the MSYS/WSL path-translation hazards at authoring time (empty glob, mangled rev:path, reserved-device file)
-  - the newline="\n" rule for any script writing a file another tool will read (text-mode CRLF, the trailing-CR membership/argument failure, the n-1 tell)
-  - the pipeline-exit-status rule at authoring time (a pipe reports its LAST stage, so do not wrap a status-bearing command in one, and verify the side effect of anything irreversible)
-  - the vary-one-dimension-at-a-time discipline on a refusal, and the privileged-environment blind spot
-  - the pre-flight checklist run BEFORE a Windows script is written or a task is registered
-defers_to:
-  - the env-doctor skill for diagnosing an already-broken environment; it triggers on a SYMPTOM (exit 1 with no output, mojibake, a spawn failure) and therefore can never fire while a script is being composed - this skill is what prevents the symptom existing
-  - env-doctor references/windows-powershell.md, which owns the RECOVERY side of the same shell boundary (MSYS_NO_PATHCONV, the stop-parsing token, BOM-on-pipe, Copy-Item -Exclude) - this skill owns only the authoring-time reflex that avoids reaching it
-  - the git-safety skill (git-safety plugin) for staging discipline and the pre-commit status re-check; rule 8 supplies only the Windows-specific reason a reserved-device file appears in the tree
-  - the test-result-evidence skill (agent-safety-guards plugin) for why a zero-collected run is not a pass; rule 8 supplies only the path-translation cause of one
-  - the agent-safety skill (agent-safety-guards plugin) for the don't-route-around-a-permission-denial rule that bounds rule 9's probing
-  - references/scheduled-task-authoring.md for the registration recipe, hidden-window wrapper, and backup/rollback contract
-  - references/shell-boundary-hazards.md for command-level MSYS/WSL workarounds and the bitness-safe process query
-  - the user for every elevation prompt, task deletion, and any change to a task they did not create
 user-invocable: false
+metadata:
+  last_reviewed: 2026-08-10
+  owns:
+    - the ASCII-only-or-emit-a-BOM rule for any .ps1/.psm1 that Windows PowerShell 5.1 will run
+    - the encoding-on-both-sides rule for read-modify-write of an existing file (silent double-encoding)
+    - the PowerShell case-insensitive variable-name collision (and the scalar .Count trap)
+    - the Scheduled Task Execute-is-the-whole-path rule, and task XML being UTF-16 with an OS-owned shape
+    - the deliberate task-registration choices (RunLevel, hidden-window wrapper, ExecutionTimeLimit, argv-over-environment)
+    - the bitness rule for any process/module audit (a 32-bit host silently under-reports 64-bit processes)
+    - the MSYS/WSL path-translation hazards at authoring time (empty glob, mangled rev:path, reserved-device file)
+    - the newline="\n" rule for any script writing a file another tool will read (text-mode CRLF, the trailing-CR membership/argument failure, the n-1 tell)
+    - the pipeline-exit-status rule at authoring time (a pipe reports its LAST stage, so do not wrap a status-bearing command in one, and verify the side effect of anything irreversible)
+    - the vary-one-dimension-at-a-time discipline on a refusal, and the privileged-environment blind spot
+    - the pre-flight checklist run BEFORE a Windows script is written or a task is registered
+  defers_to:
+    - the env-doctor skill for diagnosing an already-broken environment; it triggers on a SYMPTOM (exit 1 with no output, mojibake, a spawn failure) and therefore can never fire while a script is being composed - this skill is what prevents the symptom existing
+    - env-doctor references/windows-powershell.md, which owns the RECOVERY side of the same shell boundary (MSYS_NO_PATHCONV, the stop-parsing token, BOM-on-pipe, Copy-Item -Exclude) - this skill owns only the authoring-time reflex that avoids reaching it
+    - the git-safety skill (git-safety plugin, if installed) for staging discipline and the pre-commit status re-check; rule 8 supplies only the Windows-specific reason a reserved-device file appears in the tree
+    - the test-result-evidence skill (agent-safety-guards plugin, if installed) for why a zero-collected run is not a pass; rule 8 supplies only the path-translation cause of one
+    - the agent-safety skill (agent-safety-guards plugin, if installed) for the don't-route-around-a-permission-denial rule that bounds rule 9's probing
+    - references/scheduled-task-authoring.md for the registration recipe, hidden-window wrapper, and backup/rollback contract
+    - references/shell-boundary-hazards.md for command-level MSYS/WSL workarounds and the bitness-safe process query
+    - the user for every elevation prompt, task deletion, and any change to a task they did not create
 ---
 
 # windows-script-and-task-authoring
@@ -144,7 +128,7 @@ Translation rewrites arguments before the native tool ever sees them, and none o
 
 - **A script that writes a file for another tool must pin `newline="\n"`.** Python's text-mode `open(p, "w")` translates `\n` to CRLF on Windows, so every value a shell later reads back from that file carries a trailing `\r`. Nothing errors — a CR is a legal argument character — and the symptoms are silent: a `case "$x" in` / `[[ "$x" == ... ]]` membership test that should obviously match does not, and a CLI called with the value rejects it as unknown. The tell is an **n-1 failure count**: every line fails except the last, which has no trailing newline and therefore no CR. Pipe through `tr -d '\r'` and re-test before theorising about quoting, stdin, or the tool itself.
 
-**General rule: on Windows a "file not found" or empty result from a cross-boundary tool is a path-translation suspect FIRST** — confirm with a second, differently-shaped command before concluding anything about the repo or the disk. Once a command has already misbehaved, the workaround catalogue (`MSYS_NO_PATHCONV=1`, the `--%` stop-parsing token, stdin feeding, BOM-on-pipe) belongs to env-doctor's `references/windows-powershell.md`; what this rule buys is not composing the argument that needs it.
+**General rule: on Windows a "file not found" or empty result from a cross-boundary tool is a path-translation suspect FIRST** — confirm with a second, differently-shaped command before concluding anything about the repo or the disk. Once a command has already misbehaved, the workaround catalogue (`MSYS_NO_PATHCONV=1`, the `--%` stop-parsing token, stdin feeding, BOM-on-pipe) belongs to env-doctor's `../env-doctor/references/windows-powershell.md`; what this rule buys is not composing the argument that needs it.
 
 ### 9. When a capability is refused, vary ONE dimension at a time
 
@@ -222,7 +206,7 @@ Translation rewrites arguments before the native tool ever sees them, and none o
 - `references/scheduled-task-authoring.md` — registration recipes, the hidden-window VBS wrapper, the elevation escape hatch, and the export/rollback contract.
 - `references/shell-boundary-hazards.md` — command-level MSYS/WSL translation workarounds and the bitness-safe process query.
 - `env-doctor` (skill, same plugin) — owns diagnosis of an environment that is **already** broken; it triggers on symptoms and cannot fire while a script is being written. This skill is the upstream half.
-- `env-doctor` → `references/windows-powershell.md` — owns the **recovery** catalogue for the same boundary this skill's rules 1, 2, and 8 avoid: the `--%` stop-parsing token, BOM-on-pipe, `Copy-Item -Exclude`, and the `MSYS_NO_PATHCONV=1` workarounds. Read it when a command has already misbehaved; read this skill before writing one.
-- `git-safety` (skill, git-safety plugin) — owns staging discipline (`never git add .`) and the pre-commit full-status re-check. Rule 8 supplies only the Windows-specific way a reserved-device file arrives in the tree unbidden.
-- `test-result-evidence` (skill, agent-safety-guards plugin) — owns why a zero-collected run is not a pass. Rule 8 supplies only the path-translation cause of one.
-- `agent-safety` (skill, agent-safety-guards plugin) — owns the don't-route-around-a-permission-denial rule that **bounds** rule 9: probing locates which dimension is privileged, it never authorizes reaching the denied operation by another surface.
+- `env-doctor` → `../env-doctor/references/windows-powershell.md` — owns the **recovery** catalogue for the same boundary this skill's rules 1, 2, and 8 avoid: the `--%` stop-parsing token, BOM-on-pipe, `Copy-Item -Exclude`, and the `MSYS_NO_PATHCONV=1` workarounds. Read it when a command has already misbehaved; read this skill before writing one.
+- If the `git-safety` plugin is installed, its `git-safety` skill owns staging discipline (`never git add .`) and the pre-commit full-status re-check. Rule 8 supplies only the Windows-specific way a reserved-device file arrives in the tree unbidden.
+- If the `agent-safety-guards` plugin is installed, its `test-result-evidence` skill owns why a zero-collected run is not a pass. Rule 8 supplies only the path-translation cause of one.
+- If the `agent-safety-guards` plugin is installed, its `agent-safety` skill owns the don't-route-around-a-permission-denial rule that **bounds** rule 9: probing locates which dimension is privileged, it never authorizes reaching the denied operation by another surface.

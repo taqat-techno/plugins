@@ -1,5 +1,5 @@
 {
-  "description": "env-doctor advisory hooks",
+  "description": "env-doctor: one SessionStart hook that runs cheap read-only checks (project .mcp.json, Syncthing ignores) and gives Claude a note only when a check finds a problem. Never blocks.",
   "hooks": {
     "SessionStart": [
       {
