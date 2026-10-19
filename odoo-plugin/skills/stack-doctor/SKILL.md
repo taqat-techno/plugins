@@ -32,7 +32,7 @@ defers_to:
   - skills/docker/SKILL.md (compose generation, deployment, container debugging)
   - hooks/pre_odoo_volume_guard.py (hard-blocks blind volume destruction at the Bash layer)
   - hooks/pre_odoo_restart_guard.py (advisory nudges: unbounded readiness poll, pkill&&odoo-bin chain, psql TEMPLATE clone)
-  - claude-env-doctor-plugin (generic Windows/WSL/Git-Bash environment troubleshooting)
+  - env-doctor-plugin (generic Windows/WSL/Git-Bash environment troubleshooting)
 ---
 <!-- Last updated: 2026-06-13 -->
 
@@ -71,7 +71,7 @@ Activate when any of these appears:
 
 For generic Windows / WSL / Git-Bash environment problems (PATH, line endings,
 Docker Desktop integration, MSYS path translation in general), defer to the
-**claude-env-doctor** plugin — do not re-diagnose those here.
+**env-doctor** plugin — do not re-diagnose those here.
 
 ## The four diagnoses
 
@@ -225,7 +225,7 @@ down**. Commands in `references/db-safety.md`.
   itself and **exits 144 before the start runs**. Stop in **one** call, start in a
   **separate** call.
 - Confirm the HTTP `<port>` (and the gevent/longpolling port) are actually free before
-  starting — a Windows-side listener can hold a WSL port (defer to claude-env-doctor).
+  starting — a Windows-side listener can hold a WSL port (defer to env-doctor).
 - A config defines its **own** logfile; a launch redirected elsewhere looks "silent" —
   tail the config's logfile, not the redirect.
 
@@ -412,5 +412,5 @@ from the live volume rather than trusting the template default.
   `odoo shell` that the running server keeps denying, because `ir.model.access` memoises on
   uid and the shell never calls `signal_changes()`. Restart (or grant over RPC) rather than
   re-editing a correct ACL.
-- `claude-env-doctor-plugin` — generic Windows/WSL/Git-Bash environment issues
+- `env-doctor-plugin` — generic Windows/WSL/Git-Bash environment issues
   (e.g. a Windows-side listener holding a WSL port).

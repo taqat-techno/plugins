@@ -64,4 +64,4 @@ gettext-discipline and stack-safety rules:
 
 ## License
 
-LGPL-3.0-or-later (see LICENSES.md for component provenance)
+MIT (see [LICENSE](LICENSE); component provenance in [LICENSES.md](LICENSES.md))

@@ -2,6 +2,13 @@
 
 All notable changes to `odoo-plugin` are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/). Versioning follows [SemVer](https://semver.org/).
 
+## [2.13.3] - 2026-10-19
+
+### Changed
+- **License is now MIT** throughout (LICENSE file shipped in the plugin, `license` in plugin.json, README and LICENSES.md agree). The report component, first published by the same authors under LGPL-3.0, has been relicensed by its copyright holders. Earlier releases keep their original terms.
+- Mock data uses `example.com` instead of a real-looking company domain.
+- Cross-references renamed from `claude-env-doctor` to `env-doctor`.
+
 ## [2.13.2] - 2026-10-19
 
 Public-readiness audit fixes (ODOO-P0-01, ODOO-P1-03, ECO-14, ECO-19/SEC-12).

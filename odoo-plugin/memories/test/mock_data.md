@@ -243,9 +243,9 @@ def setUpClass(cls):
     cls.company_partner = cls.env['res.partner'].create({
         'name': 'Saudi Tech Solutions',
         'is_company': True,
-        'email': 'info@saudi-tech.com',
+        'email': 'info@example.com',
         'phone': '+966-11-555-0000',
-        'website': 'https://www.saudi-tech.com',
+        'website': 'https://www.example.com',
         'vat': 'SA300000000000003',
         'customer_rank': 5,
         'supplier_rank': 2,
