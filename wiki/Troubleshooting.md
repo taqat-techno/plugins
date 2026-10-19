@@ -39,7 +39,7 @@ cd ~/.claude/plugins/marketplaces/taqat-techno-plugins
 git pull
 ```
 
-Then restart Claude Code. This is the #1 "my fix isn't working" cause during development — documented in [`HOOK_STABILIZATION_REPORT.md`](../../HOOK_STABILIZATION_REPORT.md).
+Then restart Claude Code. This is the #1 "my fix isn't working" cause during development — documented in `HOOK_STABILIZATION_REPORT.md` (internal report, not published).
 
 ### `EBUSY: resource busy or locked` on plugin install/upgrade
 
@@ -103,7 +103,7 @@ For the rag-plugin specifically, see [`mcp-wiring.md` § After `.mcp.json` edits
 
 **Symptoms:** Claude Code reports "hook error" on session start, or startup takes > 5 seconds.
 
-**Common causes from [`HOOK_STABILIZATION_REPORT.md`](../../HOOK_STABILIZATION_REPORT.md):**
+**Common causes from `HOOK_STABILIZATION_REPORT.md` (internal report, not published):**
 
 1. **Source/cache desync** — hooks in source use `${CLAUDE_PLUGIN_ROOT}/../_infrastructure/hook-runner.sh` (relative path traversal). That path cannot resolve inside the cache. Fix: hooks should use `${CLAUDE_PLUGIN_ROOT}/hooks/<script>` directly.
 2. **Non-standard JSON output.** Official SessionStart hooks output `{hookSpecificOutput: {additionalContext: "..."}}`. Plain text stdout causes "hook error".
@@ -127,7 +127,7 @@ For the rag-plugin specifically, see [`mcp-wiring.md` § After `.mcp.json` edits
 
 ### Odoo upgrade leaves `attrs={}` residues
 
-**Reason:** `attrs` removal is a known gap in the `odoo-plugin` upgrade pattern library (documented in [`PLUGIN_ENHANCEMENT_REPORT_FEB_2026.md`](../../PLUGIN_ENHANCEMENT_REPORT_FEB_2026.md) §3). The pattern library knows about it but the auto-fix coverage is partial.
+**Reason:** `attrs` removal is a known gap in the `odoo-plugin` upgrade pattern library (documented in `PLUGIN_ENHANCEMENT_REPORT_FEB_2026.md` (internal report, not published) §3). The pattern library knows about it but the auto-fix coverage is partial.
 
 **Fix:** run `/quickfix` and manually review the reported residues. Full fix coming in a future version of the upgrade pattern library.
 
@@ -174,9 +174,9 @@ Run `/notification:doctor` first — it names the cause.
 1. **Check the plugin's CHANGELOG.** Recent commits often document known issues and workarounds.
 2. **Check the plugin's `ARCHITECTURE.md` or `docs/decisions.md`** if present. The binding decisions frequently document why something is the way it is.
 3. **Check the workspace-level reports**:
-   - [`HOOK_STABILIZATION_REPORT.md`](../../HOOK_STABILIZATION_REPORT.md) — hook ecosystem issues.
-   - [`HOOK_AUDIT_REPORT.md`](../../HOOK_AUDIT_REPORT.md) — audit findings.
-   - [`PLUGIN_ENHANCEMENT_REPORT_FEB_2026.md`](../../PLUGIN_ENHANCEMENT_REPORT_FEB_2026.md) — plugin-by-plugin gap analysis.
+   - `HOOK_STABILIZATION_REPORT.md` (internal report, not published) — hook ecosystem issues.
+   - `HOOK_AUDIT_REPORT.md` (internal report, not published) — audit findings.
+   - `PLUGIN_ENHANCEMENT_REPORT_FEB_2026.md` (internal report, not published) — plugin-by-plugin gap analysis.
 4. **Open an issue** at [github.com/taqat-techno/plugins/issues](https://github.com/taqat-techno/plugins/issues) with:
    - Claude Code version
    - OS and shell

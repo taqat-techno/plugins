@@ -161,7 +161,7 @@ model: haiku | sonnet | opus
 
 Hooks are JSON registrations in `hooks/hooks.json` + sibling scripts in `hooks/`.
 
-**Hook conventions (from [`HOOK_STABILIZATION_REPORT.md`](../../HOOK_STABILIZATION_REPORT.md)):**
+**Hook conventions (from `HOOK_STABILIZATION_REPORT.md` (internal report, not published)):**
 
 1. **Never use prompt-type hooks.** They trigger Claude Code's prompt-injection detection. All 31 prompt-type hooks from earlier plugin versions have been removed.
 2. **Output JSON, not plain text.** Use `hookSpecificOutput.additionalContext` for SessionStart / UserPromptSubmit.

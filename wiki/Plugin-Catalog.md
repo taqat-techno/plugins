@@ -18,7 +18,7 @@ Listed in marketplace order. Component counts are the real contents of each plug
 | 8 | **react-kit** | `0.6.2` | development | 3 | 1 | 16 | 0 | — | 3 + 1 | [README](../../react-kit-plugin/README.md) |
 | 9 | **qa-browser** | `0.5.1` | productivity | 5 | 2 | 13 | 2 | — | 3 + 1 | [README](../../qa-browser-plugin/README.md) |
 | 10 | **docs-wiki** | `0.8.1` | productivity | 7 | 3 | 10 | 0 | — | 3 + 1 | [README](../../docs-wiki-plugin/README.md) |
-| 11 | **claude-env-doctor** | `0.6.2` | productivity | 1 | 1 | 2 | 1 | — | 1 + 1 | [README](../../claude-env-doctor-plugin/README.md) |
+| 11 | **env-doctor** | `0.6.2` | productivity | 1 | 1 | 2 | 1 | — | 1 + 1 | [README](../../env-doctor-plugin/README.md) |
 | 12 | **agent-safety-guards** | `0.4.0` | productivity | 0 | 0 | 7 | 3 | — | 3 + 2 | [README](../../agent-safety-guards-plugin/README.md) |
 | 13 | **release-safety** | `0.4.1` | productivity | 1 | 0 | 3 | 1 | — | 1 + 1 | [README](../../release-safety-plugin/README.md) |
 | 14 | **django** | `0.3.0` | development | 4 | 3 | 7 | 3 | — | 2 + 1 | [README](../../django-plugin/README.md) |
@@ -45,7 +45,7 @@ Plugins without a dedicated wiki page are documented in their own `README.md`; t
 - **react-kit** — "Reusable React/Next.js patterns, from app architecture to admin panels to React-19 migration."
 - **qa-browser** — "Prove the app actually works for each role, with evidence, without touching production."
 - **docs-wiki** — "Create, organise, validate, and audit a project wiki — and catch it drifting from the code."
-- **claude-env-doctor** — "Diagnose the local Claude Code environment. Never blindly mutate it."
+- **env-doctor** — "Diagnose the local Claude Code environment. Never blindly mutate it."
 - **agent-safety-guards** — "Keep agent sessions honest and multi-agent fan-out reliable."
 - **release-safety** — "Prove the fix is deployed, not just merged."
 - **django** — "Django and DRF done the safe way — ORM, migrations, config, security, tests, performance."
@@ -59,7 +59,7 @@ Plugins without a dedicated wiki page are documented in their own `README.md`; t
 | Category | Plugins |
 |---|---|
 | **development** | `odoo`, `remotion`, `react-kit`, `django`, `fastapi`, `worktree` |
-| **productivity** | `devops`, `notification`, `pandoc`, `rag`, `qa-browser`, `docs-wiki`, `claude-env-doctor`, `agent-safety-guards`, `release-safety`, `git-safety`, `sprint-recap` |
+| **productivity** | `devops`, `notification`, `pandoc`, `rag`, `qa-browser`, `docs-wiki`, `env-doctor`, `agent-safety-guards`, `release-safety`, `git-safety`, `sprint-recap` |
 | **design** | `ui-ux-mechanics` |
 
 ## Components at a glance
@@ -85,7 +85,7 @@ The `ui-ux-mechanics` plugin's Figma integration uses an external Figma MCP that
 | `django`, `fastapi` | 3 each | SessionStart detection + advisory write/bash guards |
 | `devops`, `rag`, `qa-browser`, `git-safety` | 2 each | Advisory; `qa-browser`'s production-URL gate is the only blocker among these four |
 | `agent-safety-guards` | 3 | Credential advisory (never blocks) + test-scope: an async edit tracker and a PreToolUse guard that **denies** whole-suite test runs by default (`TEST_SCOPE_GUARD=advise` lets them run with guidance attached; `off` disables; `FULL_SUITE=1` overrides) |
-| `claude-env-doctor`, `release-safety` | 1 each | Advisory only, exit 0 always |
+| `env-doctor`, `release-safety` | 1 each | Advisory only, exit 0 always |
 | `sprint-recap` | 2 | SessionStart credential-hygiene advisory + a `PreToolUse` Bash gate that **blocks** (exit 2) any `git add` of the plaintext credential artifacts it generates |
 | `pandoc`, `remotion`, `ui-ux-mechanics`, `react-kit`, `docs-wiki`, `worktree` | 0 | No hooks registered |
 
@@ -124,7 +124,7 @@ Running the behavioral gate (`claude plugin eval`) needs **Claude Code ≥ 2.1.2
 | react-kit | current | React 18/19, Next.js 14+ |
 | qa-browser | current | chrome-devtools-mcp or playwright MCP |
 | docs-wiki | current | GitHub Wiki, GitLab Wiki, Azure DevOps Wiki, MkDocs, in-repo `wiki/` |
-| claude-env-doctor | current | Windows, WSL, macOS, Linux |
+| env-doctor | current | Windows, WSL, macOS, Linux |
 | agent-safety-guards | current | Any |
 | release-safety | current | Provider-neutral (GitHub Actions patterns included) |
 | django | current | Django 4.2 / 5.x + DRF |

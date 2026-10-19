@@ -76,3 +76,6 @@ devops.local.md
 # Eval run output (transcripts, reports, absolute machine paths) - HR-20
 */evals/results/
 */evals/**/mock-recordings/
+
+# Internal working docs (kept locally, never published)
+.claude/docs/

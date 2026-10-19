@@ -62,10 +62,10 @@ A refactor migrated all 13 plugins to a **skill-first architecture**, cutting **
 
 Major audit reports produced in this era:
 
-- [`HOOK_AUDIT_REPORT.md`](../../HOOK_AUDIT_REPORT.md)
-- [`HOOK_STABILIZATION_REPORT.md`](../../HOOK_STABILIZATION_REPORT.md)
-- [`ENHANCEMENT_REPORT_JAN_2026.md`](../../ENHANCEMENT_REPORT_JAN_2026.md)
-- [`PLUGIN_ENHANCEMENT_REPORT_FEB_2026.md`](../../PLUGIN_ENHANCEMENT_REPORT_FEB_2026.md)
+- `HOOK_AUDIT_REPORT.md` (internal report, not published)
+- `HOOK_STABILIZATION_REPORT.md` (internal report, not published)
+- `ENHANCEMENT_REPORT_JAN_2026.md` (internal report, not published)
+- `PLUGIN_ENHANCEMENT_REPORT_FEB_2026.md` (internal report, not published)
 
 **Marketplace schema rewrite** — aligned `marketplace.json` to the official Anthropic schema (commit `81af8b6`).
 
@@ -184,4 +184,4 @@ Based on open follow-ups in the plugin CHANGELOGs and enhancement reports:
 
 - [[Plugin Catalog|Plugin-Catalog]] — what exists today
 - Individual plugin CHANGELOGs (linked at the top)
-- Workspace-level reports — [`HOOK_AUDIT_REPORT.md`](../../HOOK_AUDIT_REPORT.md), [`HOOK_STABILIZATION_REPORT.md`](../../HOOK_STABILIZATION_REPORT.md), [`ENHANCEMENT_REPORT_JAN_2026.md`](../../ENHANCEMENT_REPORT_JAN_2026.md), [`PLUGIN_ENHANCEMENT_REPORT_FEB_2026.md`](../../PLUGIN_ENHANCEMENT_REPORT_FEB_2026.md)
+- Workspace-level reports — `HOOK_AUDIT_REPORT.md` (internal report, not published), `HOOK_STABILIZATION_REPORT.md` (internal report, not published), `ENHANCEMENT_REPORT_JAN_2026.md` (internal report, not published), `PLUGIN_ENHANCEMENT_REPORT_FEB_2026.md` (internal report, not published)

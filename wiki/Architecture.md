@@ -192,5 +192,5 @@ Never `yes/no` for destructive ops. Never auto-accept. Never bypass.
 - [`devops-plugin/ARCHITECTURE.md`](../../devops-plugin/ARCHITECTURE.md) — original layer-ownership codification
 - [`rag-plugin/ARCHITECTURE.md`](../../rag-plugin/ARCHITECTURE.md) — current exemplar including state-detection + MCP envelope layers
 - [`rag-plugin/docs/decisions.md`](../../rag-plugin/docs/decisions.md) — D-001..D-022 binding decisions (largest example in the repo)
-- [`HOOK_STABILIZATION_REPORT.md`](../../HOOK_STABILIZATION_REPORT.md) — hook patterns learned from incidents
+- `HOOK_STABILIZATION_REPORT.md` (internal report, not published) — hook patterns learned from incidents
 - [[Plugin Development Guide|Plugin-Development-Guide]] — how to apply these patterns when authoring

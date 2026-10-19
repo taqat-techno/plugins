@@ -45,7 +45,7 @@ The marketplace targets a single power-user workflow: real client projects at TA
 | **react-kit** | Reusable React / Next.js patterns - architecture, admin panels, states, React-19 migration | [README](../../react-kit-plugin/README.md) |
 | **qa-browser** | Role-based browser QA with evidence - UI-vs-API permission proof, UAT signoff | [README](../../qa-browser-plugin/README.md) |
 | **docs-wiki** | Project wiki toolkit - authoring, link validation, code-vs-wiki drift | [README](../../docs-wiki-plugin/README.md) |
-| **claude-env-doctor** | Local Claude Code / dev environment diagnosis - MCP, WSL, login, LSP, encoding | [README](../../claude-env-doctor-plugin/README.md) |
+| **env-doctor** | Local Claude Code / dev environment diagnosis - MCP, WSL, login, LSP, encoding | [README](../../env-doctor-plugin/README.md) |
 | **agent-safety-guards** | Agent-session safety and multi-agent workflow reliability | [README](../../agent-safety-guards-plugin/README.md) |
 | **release-safety** | Prove a fix is deployed, not just merged; migration and CI-signal safety | [README](../../release-safety-plugin/README.md) |
 | **django** | Django / DRF toolkit - ORM, migrations, DRF, config, security, tests, performance | [README](../../django-plugin/README.md) |

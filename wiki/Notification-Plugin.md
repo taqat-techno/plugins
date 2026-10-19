@@ -24,7 +24,7 @@ Every notification carries an identity line — `project · a1b2c3` — so sever
 
 ```
 ❓ Claude Needs Your Answer          ❌ Claude Failed
-KhairGate-BMS-19 · a1b2c3            claude_plugins · 7f2e91
+acme-erp · a1b2c3            claude_plugins · 7f2e91
 Which migration strategy             rate_limit — API Error: Rate
 should I use?                        limit reached
 ```
