@@ -1,12 +1,25 @@
 {
-  "description": "release-safety advisory hooks",
+  "description": "release-safety: a SessionStart reminder that appears once per project and only where CI or deploy configuration exists, and a PreToolUse hook on tag pushes, branch-plus-tag pushes, gh release create and remote tag deletes (reminder by default; opt-in ask mode asks you first).",
   "hooks": {
     "SessionStart": [
       {
         "hooks": [
           {
             "type": "command",
-            "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/session_start_release_advisory.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\"; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0"
+            "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/session_start_release_advisory.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\"; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash|PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/release_push_guard.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\"; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0",
+            "timeout": 10
           }
         ]
       }

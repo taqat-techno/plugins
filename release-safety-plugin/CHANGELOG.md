@@ -2,6 +2,29 @@
 
 All notable changes to this plugin are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2026-10-19
+
+### Added
+- **`scripts/check_release.py` (REL-P2-04).** Read-only tag / version check: the tag matches the manifest version (package.json, pyproject.toml, Cargo.toml, .claude-plugin/plugin.json, VERSION), the CHANGELOG has an entry, and the version is greater than every earlier tag in its series (`v*` or `<pkg>-v*`). Exit 0 / 1 / 2, `--json`. Only runs `git tag --list` and `git describe --tags --exact-match`.
+- **`references/tag-version-correctness.md`**: the four tag checks, tag-on-the-green-commit, and rollback readiness (previous build and the action that redeploys it). Wired into `github-actions-release-safety` rule 4, the `release-verification` safety gates and checklist, and `/release-verify` checklist items 8 and 9.
+- **`references/action-pinning-and-protection.md`**: SHA-pinning actions and images, "an approval-looking YAML block is not the gate", and the renamed-required-check trap, now in this plugin instead of deferring to the devops plugin's `CI_HARDENING.md`.
+- **`hooks/release_push_guard.py` (REL-P2-03)**, PreToolUse on `Bash|PowerShell`: branch and tag pushed together, `--tags`/`--follow-tags`, release-tag pushes, `gh release create`, and remote tag / release deletion. Default `advise` (reminder, which arrives with the tool result); opt-in `ask` via the new `guard_mode` option or `RELEASE_SAFETY_MODE`. `--self-test` runs its table.
+- Plugin options `guard_mode` and `session_hint`.
+- Offline tests (REL-P2-06): `tests/test_check_release.py`, `tests/test_hooks.py`.
+- Evals: `fires-on-merged-fix-not-live-on-staging` (release-verification), `fires-on-drop-column-in-same-migration` (migration-safety), `ignores-explain-semver-meaning`, `ignores-write-sql-join-query`.
+
+### Changed
+- **SessionStart reminder is conditional (REL-P2-05, default behaviour change).** It speaks only in a project with CI, deploy or release-tool configuration, at most once per project (marker under `${CLAUDE_PLUGIN_DATA}/session-hint/`), as SessionStart `additionalContext` JSON, and names the namespaced `/release-safety:release-verify`. Silence it with `session_hint` = false or `RELEASE_SAFETY_HINT=off`.
+- Hooks use the vendored `hooks/_vendor/hooklib.py`.
+- Skill descriptions trimmed to under 1,024 characters, starting with "Use when" (REL-P3-07). Cross-references to `agent-safety-guards` and `django` are conditional on those plugins being installed.
+- README restructured to the marketplace template, with requirements, the "nothing here blocks" statement and how to silence the hooks (REL-P1-02).
+
+### Security
+- The three skills and the command treat deploy logs, CI logs, platform API responses, migration output and release notes as data: instructions found there are quoted to the user, never acted on.
+- Removed `evals/results/`, which held an empty run with absolute machine paths.
+
+Not done: running the evals (REL-P2-06) costs money and is left to the maintainer. The skill rename suggested in REL-P3-07 (`ci-release-safety`) was not made: renaming a skill breaks existing eval targets and references for no behaviour gain.
+
 ## [0.4.2] - 2026-10-19
 
 ### Fixed
