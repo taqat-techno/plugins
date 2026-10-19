@@ -1,6 +1,6 @@
 ---
 name: fastapi-migrations
-description: Use when creating or editing an Alembic revision for a FastAPI/SQLAlchemy project, running alembic revision --autogenerate or alembic upgrade, reviewing a migration and what autogenerate missed (server defaults, type changes, named constraints, enums), writing a real downgrade(), planning a schema change against a live database (add, rename, drop or retype a column without downtime), or resolving multiple heads, branches or stamp drift. Owns the migration-safety gate and expand-contract sequencing; defers field and relationship choices to fastapi-database.
+description: "Use when a FastAPI/SQLAlchemy schema change must land on a live table without downtime - renaming, dropping or retyping a column while several instances behind a load balancer roll out and old and new code hit the table at once - or when creating or editing an Alembic revision, running alembic revision --autogenerate or alembic upgrade, reviewing a migration and what autogenerate missed (server defaults, type changes, named constraints, enums), writing a real downgrade(), or resolving multiple heads, branches or stamp drift. Owns the migration-safety gate and expand-contract sequencing; defers field and relationship choices to fastapi-database."
 version: 0.1.0
 user-invocable: false
 metadata:

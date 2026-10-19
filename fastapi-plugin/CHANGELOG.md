@@ -3,6 +3,27 @@
 All notable changes to the `fastapi` plugin are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/); this plugin uses [Semantic Versioning](https://semver.org/).
 
+## [0.5.2] - 2026-10-19
+
+Skill triggering tuned against real eval results. Measured with `claude plugin eval --runs 1 --model claude-sonnet-5-5`; the no-plugin baseline is the 2026-10-19 run, and Δ counts the criteria grader only.
+
+### Changed
+- Skill descriptions now open with the reported symptom: `AttributeError: 'State' object has no attribute` under `ASGITransport` (lifespan not run); a blocking `requests` call in an `async def` route that stalls unrelated endpoints; `jwt.decode` without an algorithms allowlist, or with expiry checks off; `MissingGreenlet` on a lazy load; `@app.on_event('startup')` skipped once `lifespan=` is set; a response leaking `hashed_password`; a column rename across rolling instances. All stay under 1,024 characters.
+
+### Eval results
+- Must-fire skill invocation: 2/8 -> 8/8. Must-not-fire: 9/9 quiet before and after. Mean Δ: +0.00 -> +0.00. The model already answers these well without the plugin, so the gain is routing, not score.
+
+## [0.5.1] - 2026-10-19
+
+### Fixed
+- Bash guard no longer misses common wrappers (RA-FAPI-01): `docker`/`podman`/`docker compose` `run` as well as `exec` (their options, option values and the image/service name are skipped), `bash`/`sh`/`zsh` with combined flags (`-lc`, `-ec`, `-xc`, `-l -c`), runner options with values (`uv run --env-file .env`, `uv run --with x`, `poetry run -C dir`), `timeout`, `watch`, `eval`, `ssh host '...'`, `heroku run` and `kubectl exec ... --`.
+- Asks on `DROP SCHEMA ... CASCADE` and `TRUNCATE` sent to a SQL client, including through a `<<<` here-string.
+- The prefilter applies quote removal first, so quote-split words (`down''grade`, `"down"grade`) reach the parser (RA-FAPI-02).
+- `'drop database'` inside a SQL string literal no longer asks; `command -v dropdb` is treated as a lookup.
+
+### Changed
+- The shell tokenizer section is shared verbatim with django-plugin; a test fails if the two copies drift.
+
 ## [0.5.0] - 2026-10-19
 
 ### Added

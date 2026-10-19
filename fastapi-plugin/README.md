@@ -1,6 +1,6 @@
 # fastapi-plugin
 
-![Version](https://img.shields.io/badge/version-0.5.0-blue.svg)
+![Version](https://img.shields.io/badge/version-0.5.2-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 ![Status](https://img.shields.io/badge/status-beta-yellow.svg)
 
@@ -69,7 +69,7 @@ Read-only analyzers that return findings tables. Each has `tools: Read, Glob, Gr
 |---|---|---|---|
 | `session_start.py` | SessionStart (`startup`) | Finds a FastAPI project (a `fastapi` dependency, or an entrypoint such as `app/main.py` or `src/<pkg>/main.py` that constructs `FastAPI(...)`) in the session directory or up to two levels below, then adds one context line: FastAPI and Pydantic versions, ORM, async driver, Alembic. Prints nothing elsewhere. | No |
 | `pre_write_guard.py` | PreToolUse (`Write\|Edit\|MultiEdit`) | Advisory: a blocking call (`time.sleep`, `requests.*`, `urlopen`) inside an `async def` body (checked with `ast`, so a sync `def` is not flagged), a hardcoded secret literal in a config file (any case, with or without a type annotation, e.g. `secret_key: str = "..."`), `allow_origins=['*']` with `allow_credentials=True`, and an empty Alembic `downgrade()`. | No |
-| `pre_bash_guard.py` | PreToolUse (`Bash`) | In a FastAPI project only, asks you to confirm `alembic downgrade base`, `dropdb`, `mysqladmin drop` and `DROP DATABASE` sent to a SQL client. It parses the command, so quoted text, comments, `echo`, `grep` patterns, commit messages, `--help` and offline `--sql` runs never trigger it. Advisory on `alembic stamp`. | Asks you (`permissionDecision: "ask"`); it never denies |
+| `pre_bash_guard.py` | PreToolUse (`Bash`) | In a FastAPI project only, asks you to confirm `alembic downgrade base`, `dropdb`, `mysqladmin drop`, and `DROP DATABASE`, `DROP SCHEMA ... CASCADE` or `TRUNCATE` sent to a SQL client (argument, pipe, heredoc or `<<<` here-string). It sees through `sudo`, `env`, `nice`, `nohup`, `timeout`, `watch`, `eval`, `poetry`/`uv`/`pipenv`/`pdm run` (with their options), `docker`/`podman`/`docker compose` `run` and `exec`, `kubectl exec --`, `bash`/`sh`/`zsh -c` (also `-lc`, `-ec`), `ssh host '...'` and `heroku run`, and applies shell quote removal first (`down''grade` is `downgrade`). It parses the command, so quoted text, comments, `echo`, `grep` patterns, commit messages, `--help` and offline `--sql` runs never trigger it. Advisory on `alembic stamp`. | Asks you (`permissionDecision: "ask"`); it never denies |
 
 A FastAPI project, for the bash guard, is a `fastapi` dependency in `pyproject.toml`, `requirements*.txt`, `requirements/*.txt`, `Pipfile`, `setup.cfg` or `setup.py`, found walking up from the working directory (or a `cd` target in the command), or up to two levels below `CLAUDE_PROJECT_DIR`. Hooks fail open: bad input, a missing Python or an internal error lets the tool call through.
 
@@ -101,7 +101,7 @@ A FastAPI project, for the bash guard, is a `fastapi` dependency in `pyproject.t
 
 ## Limitations
 
-- The bash guard sees only the command text. It cannot see SQL inside a file passed with `psql -f`, a script, or an alias, and it does not stop `alembic downgrade <rev>` chains, `DROP SCHEMA` or `TRUNCATE`.
+- The bash guard sees only the command text. It cannot see SQL inside a file passed with `psql -f`, a script, an alias, a shell variable or arguments fed through `xargs`, and it does not stop `alembic downgrade <rev>` chains or `metadata.drop_all()` run from Python.
 - The async check runs on the text being written; an Edit hunk that does not contain its enclosing `async def` cannot be judged, and one that does not parse falls back to a file-level check.
 - The CORS check sees literal lists only; origins held in a variable are not checked.
 - The plugin never runs `alembic upgrade` or a destructive command on its own; the commands stop for review by design.

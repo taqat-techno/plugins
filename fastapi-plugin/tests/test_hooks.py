@@ -153,6 +153,56 @@ SILENT = [
     "dropdb --help",
 ]
 
+# Wrappers, quote removal and extra SQL forms (re-audit RA-FAPI-01/02).
+ALEMBIC = f"alembic {DOWN_BASE}"
+ASKED_WRAPPED = [
+    f"docker compose run --rm api {ALEMBIC}",
+    f"docker compose -f compose.prod.yml run --rm -e ENV=prod api {ALEMBIC}",
+    f"docker-compose run api {ALEMBIC}",
+    f"docker compose exec -T api {ALEMBIC}",
+    f"docker run --rm --env-file .env img {ALEMBIC}",
+    f"docker exec -it -w /app api {ALEMBIC}",
+    f"bash -lc '{ALEMBIC}'",
+    f"sh -ec '{ALEMBIC}'",
+    f"zsh -xc '{ALEMBIC}'",
+    f"docker compose exec api bash -lc 'cd /app && {ALEMBIC}'",
+    f"uv run --env-file .env {ALEMBIC}",
+    f"uv run --with psycopg {ALEMBIC}",
+    f"poetry run -C api {ALEMBIC}",
+    f"timeout 60 {ALEMBIC}",
+    f"nice -n 10 {ALEMBIC}",
+    f"nohup {ALEMBIC} &",
+    f"watch -n 5 {ALEMBIC}",
+    f"eval '{ALEMBIC}'",
+    f"ssh prod 'cd api && {ALEMBIC}'",
+    f"heroku run -a api {ALEMBIC}",
+    f"kubectl exec -it pod -- {ALEMBIC}",
+    "alembic down''grade base",
+    'alembic "down"grade base',
+    "alembic downgrade ba\\se",
+    f"psql <<< '{DROP_DB} mydb'",
+    "psql -c 'DROP SCHEMA public CASCADE'",
+    "psql -c 'TRUNCATE TABLE items'",
+    "echo 'truncate items cascade;' | psql",
+]
+SILENT_WRAPPED = [
+    "docker compose run --rm api alembic upgrade head",
+    "docker compose build api",
+    "bash -lc 'alembic upgrade head'",
+    "bash scripts/migrate.sh",
+    "uv run --env-file .env alembic downgrade -1",
+    "timeout 60 pytest",
+    "ssh prod 'tail -n 100 /var/log/api.log'",
+    "command -v dropdb",
+    f"git commit -m 'fix: docker compose run api {ALEMBIC} docs'",
+    f"grep -rn \"bash -lc '{ALEMBIC}'\" docs/",
+    f"echo \"ssh prod '{ALEMBIC}'\"",
+    "psql -c \"select 'drop schema x cascade' as note\"",
+    "psql -f truncate_old_rows.sql",
+    "truncate -s 0 logs/api.log",
+    "psql <<< 'SELECT 1'",
+]
+
 
 class TestBashGuard:
     @pytest.mark.parametrize("cmd", ASKED)
@@ -181,6 +231,37 @@ class TestBashGuard:
         code, out, err = run_hook("pre_bash_guard.py", bash(cmd, fastapi_project))
         assert code == 0
         assert out.strip() == "" and err.strip() == "", f"expected silence for: {cmd!r}"
+
+    @pytest.mark.parametrize("cmd", ASKED_WRAPPED)
+    def test_wrapped_and_quote_split_forms_ask(self, cmd, fastapi_project):
+        code, out, err = run_hook("pre_bash_guard.py", bash(cmd, fastapi_project))
+        assert code == 0 and err.strip() == ""
+        assert hso(out).get("permissionDecision") == "ask", f"expected ask for: {cmd!r}"
+
+    @pytest.mark.parametrize("cmd", SILENT_WRAPPED)
+    def test_wrapped_harmless_forms_are_silent(self, cmd, fastapi_project):
+        code, out, err = run_hook("pre_bash_guard.py", bash(cmd, fastapi_project))
+        assert code == 0
+        assert out.strip() == "" and err.strip() == "", f"expected silence for: {cmd!r}"
+
+    @pytest.mark.parametrize("cmd", [f"docker compose run --rm api {ALEMBIC}",
+                                     f"bash -lc '{ALEMBIC}'", "psql -c 'DROP SCHEMA public CASCADE'"])
+    def test_wrapped_forms_stay_project_scoped(self, cmd, plain_dir):
+        code, out, _ = run_hook("pre_bash_guard.py", bash(cmd, plain_dir), cwd=plain_dir)
+        assert code == 0 and out.strip() == ""
+
+    def test_shared_shell_section_matches_django_copy(self):
+        other = HOOKS_DIR.parent.parent / "django-plugin" / "hooks" / "pre_bash_guard.py"
+        if not other.is_file():
+            pytest.skip("django-plugin is not checked out next to this plugin")
+
+        def shared(path):
+            text = path.read_text(encoding="utf-8")
+            start = text.index("# " + "-" * 75 + " shell")
+            body = text[start:text.index("\n# " + "-" * 75 + " ", start + 10)]
+            return body.replace("fastapi-plugin/", "PEER/").replace("django-plugin/", "PEER/")
+
+        assert shared(HOOKS_DIR / "pre_bash_guard.py") == shared(other)
 
     @pytest.mark.parametrize("cmd", ["dropdb mydb", f"alembic {DOWN_BASE}"])
     def test_silent_outside_a_fastapi_project(self, cmd, plain_dir):

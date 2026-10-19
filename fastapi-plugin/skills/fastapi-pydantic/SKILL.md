@@ -1,6 +1,6 @@
 ---
 name: fastapi-pydantic
-description: Use when defining or editing a Pydantic model or schema for FastAPI, separating request (Create/Update) and response (Read) models, adding field_validator / model_validator / Field constraints, serializing ORM objects (from_attributes), aliasing fields, migrating Pydantic v1 code to v2, or diagnosing why an endpoint leaks a field, accepts a privileged field (mass-assignment) or mis-validates input. Defers routing wiring to fastapi-routing and the ORM model to fastapi-database.
+description: "Use when a FastAPI response leaks fields such as hashed_password or is_admin because the route returns the ORM object, or one model serves as both the request body and the response (mass-assignment of privileged fields), or when defining or editing a Pydantic model or schema for FastAPI, separating request (Create/Update) and response (Read) models, adding field_validator / model_validator / Field constraints, serializing ORM objects (from_attributes), aliasing fields, migrating Pydantic v1 code to v2, or diagnosing why an endpoint mis-validates input. Defers routing wiring to fastapi-routing and the ORM model to fastapi-database."
 version: 0.1.0
 user-invocable: false
 metadata:

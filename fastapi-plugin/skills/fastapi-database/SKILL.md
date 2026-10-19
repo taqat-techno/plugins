@@ -1,6 +1,6 @@
 ---
 name: fastapi-database
-description: Use when defining a SQLAlchemy or SQLModel model or relationship for FastAPI, writing or reviewing a query, managing the session (request-scoped dependency, sync vs AsyncSession, expire_on_commit), creating and disposing the engine in the app lifespan, choosing selectinload vs joinedload, placing commit/rollback/begin, doing bulk operations, or diagnosing duplicated or slow queries, a MissingGreenlet error or an implicit lazy load under asyncio. Defers migrations to fastapi-migrations and caching or async offload to fastapi-async-performance.
+description: "Use when SQLAlchemy under FastAPI raises sqlalchemy.exc.MissingGreenlet (greenlet_spawn has not been called; can't call await_only() here) on attribute access such as order.customer.name - an implicit lazy load under AsyncSession that worked with a sync Session - or when defining a SQLAlchemy or SQLModel model or relationship, writing or reviewing a query, managing the session (request-scoped dependency, sync vs AsyncSession, expire_on_commit), creating and disposing the engine in the app lifespan, choosing selectinload vs joinedload, placing commit/rollback/begin, doing bulk operations, or diagnosing duplicated or slow queries. Defers migrations to fastapi-migrations and caching or async offload to fastapi-async-performance."
 version: 0.1.0
 user-invocable: false
 metadata:

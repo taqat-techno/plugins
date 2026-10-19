@@ -1,6 +1,6 @@
 ---
 name: fastapi-security-audit
-description: Use when reviewing FastAPI code or configuration for security, hardening before a release, running a dependency CVE scan, or responding to a suspected vulnerability or leaked secret - OAuth2/JWT handling (signature, algorithms allowlist, expiry), a route missing its auth dependency, IDOR and object ownership, mass-assignment of privileged fields, SQL injection through text() or string SQL, shell or eval on request data, wildcard CORS with credentials, secrets or /docs exposed in prod, unsafe uploads or deserialization. Renders the severity-rated security pass/fail verdict; defensive review only.
+description: "Use when someone asks to sanity-check or review FastAPI auth or security before shipping - jwt.decode without an algorithms allowlist or with expiry verification turned off (python-jose, PyJWT), tokens carried in the URL query string, a route missing its auth dependency, IDOR and object ownership, mass-assignment of privileged fields, SQL injection through text() or string SQL, shell or eval on request data, wildcard CORS with credentials, secrets or /docs exposed in prod, unsafe uploads or deserialization - or when hardening before a release, running a dependency CVE scan, or responding to a suspected vulnerability or leaked secret. Renders the severity-rated security pass/fail verdict; defensive review only."
 version: 0.1.0
 user-invocable: false
 metadata:

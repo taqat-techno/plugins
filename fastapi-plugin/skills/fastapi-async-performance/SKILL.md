@@ -1,6 +1,6 @@
 ---
 name: fastapi-async-performance
-description: Use when a FastAPI endpoint or task is slow, when throughput collapses or a route blocks under load, when deciding def vs async def for a path operation, when a blocking call (requests, time.sleep, a sync DB driver) sits inside async code, when adding caching or background work (BackgroundTasks vs a real queue), sizing the database connection pool, choosing cursor vs offset pagination at scale, or measuring the real bottleneck before optimizing. Defers per-query loader rules to fastapi-database.
+description: "Use when one FastAPI endpoint drags every other endpoint down under load - a blocking call (requests, time.sleep, a sync DB driver or SDK) inside an async def route stalls the event loop, so unrelated routes time out while a single local request looks fine - or when an endpoint or task is slow, throughput collapses, deciding def vs async def for a path operation, adding caching or background work (BackgroundTasks vs a real queue), sizing the database connection pool, choosing cursor vs offset pagination at scale, or measuring the real bottleneck before optimizing. Defers per-query loader rules to fastapi-database."
 version: 0.1.0
 user-invocable: false
 metadata:

@@ -1,6 +1,6 @@
 ---
 name: fastapi-routing
-description: Use when writing or reviewing a FastAPI path operation, an APIRouter, a Depends() dependency (including yield dependencies that open and close a resource), the app lifespan (startup/shutdown, replacing @app.on_event), a response_model or status_code declaration, HTTPException and error shaping, or pagination - or when errors come back in inconsistent shapes, a list endpoint is unbounded, a status code is wrong, or a resource leaks because its dependency never closes it. Defers schema fields to fastapi-pydantic, auth hardening to fastapi-security-audit, and query shaping to fastapi-database.
+description: "Use when a FastAPI startup or shutdown handler stops running - @app.on_event('startup') is skipped once a lifespan= is passed to the app, so what it created (app.state.db) is missing - or when writing or reviewing a path operation, an APIRouter, a Depends() dependency (including yield dependencies that open and close a resource), the app lifespan, a response_model or status_code declaration, HTTPException and error shaping, or pagination; or when errors come back in inconsistent shapes, a list endpoint is unbounded, a status code is wrong, or a resource leaks because its dependency never closes it. Defers schema fields to fastapi-pydantic, auth hardening to fastapi-security-audit, and query shaping to fastapi-database."
 version: 0.1.0
 user-invocable: false
 metadata:
