@@ -123,12 +123,13 @@ SUMMARY
 
 - `--include-implicit-methods` — probe PATCH / PUT / DELETE / POST in addition to GET. Probes use non-mutating payloads.
 - `--only role1,role2` — limit to a subset of roles.
-- `--allow-production` — explicit opt-in for production URL.
+
+Production override: there is no flag. Claude Code must be launched with `QA_BROWSER_ALLOW_PRODUCTION=1` (README, "Production host gate").
 
 ## Safety
 
 - Read-only navigation only.
 - Implicit-method probes use non-mutating payloads (malformed body / non-existent id / no-op header).
-- Refuses production URL without explicit opt-in.
+- Refuses production hosts (same gate as `/qa-smoke`).
 - Never propagates session cookies between role contexts.
 - Auth tokens redacted in captured network excerpts.

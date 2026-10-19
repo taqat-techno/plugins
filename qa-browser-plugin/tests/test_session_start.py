@@ -84,6 +84,17 @@ class SessionStartHook(unittest.TestCase):
             code, out, err = run(cwd)
         self.assertEqual((code, out, err), (0, "", ""))
 
+    @unittest.skipIf(GIT is None, "git not on PATH")
+    def test_products_path_is_not_a_production_marker(self):
+        with tempfile.TemporaryDirectory() as cwd:
+            git(cwd, "init", "-q")
+            Path(cwd, ".gitignore").write_text(CONFIG + "\n", encoding="utf-8")
+            Path(cwd, CONFIG).write_text(
+                json.dumps({"targetUrl": "https://shop.example.com/products"}),
+                encoding="utf-8")
+            code, out, err = run(cwd)
+        self.assertEqual((code, out, err), (0, "", ""))
+
 
 if __name__ == "__main__":
     unittest.main()

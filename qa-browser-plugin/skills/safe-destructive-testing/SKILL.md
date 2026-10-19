@@ -67,24 +67,13 @@ A record is **NOT disposable** if:
 
 ## The production-URL refusal
 
-`qa-browser` ships a PreToolUse hook (`hooks/hooks.json`) that intercepts browser navigation calls. If the URL contains a production marker — by default `prod` or `production` as substrings — the hook refuses the navigation unless the user has explicitly enabled production mode for this session.
+`qa-browser` ships a PreToolUse hook that gates browser navigation (navigate / new page / new tab tools, and evaluate tools whose script navigates). It decides on the URL's **hostname**, not its path: production hosts and markers block, the QA target and `allowedHosts` pass, other hosts prompt the user once a target is configured. The rules, config keys (`targetUrl`, `allowedHosts`, `productionHosts`, `productionMarkers`) and override are owned by `hooks/pre_navigate_prod_gate.py` and summarised in the README section "Production host gate"; do not restate them here.
 
-Defaults:
+What this skill adds on top of the hook:
 
-- Substring patterns: `prod`, `production` (case-insensitive). Configurable in `.qa-browser.local.json` under `productionMarkers`.
-- Behavior: refuse the navigation; print a clear message; wait for the user to either confirm (override the gate for this session) or change the URL.
-
-The override is **per-session, not persistent**. Even if the user confirms once, restarting the QA pass requires re-confirmation. This is intentional friction.
-
-If the project's production URL does NOT contain `prod` (e.g., a vanity domain like `app.example.com`), add the production marker to the local config:
-
-```json
-{
-  "productionMarkers": ["prod", "production", "app.example.com", "checkout.example.com"]
-}
-```
-
-Anything the gate matches refuses. False positives are better than a leaked production action.
+- The hook does not see link clicks or form submits that navigate. Before clicking something that leaves the target host, apply the same rule yourself.
+- There is no in-session override. If a block is wrong, fix the config (`productionHosts` / `productionMarkers`); if production testing is truly intended, the user relaunches Claude Code with the override variable. Never suggest a flag.
+- If the project's production host has no marker in its name (e.g. `app.example.com`), add it to `productionHosts`. A false positive is better than a leaked production action.
 
 ## The selector skiplist
 
@@ -195,7 +184,7 @@ When safe-destructive-testing blocks an action:
 [BLOCKED] action="<verb> on <target>" route=<url>
   Reason: <production-marker | selector-skiplist | not-disposable | tracked-credentials | irreversible>
   Detail: <what specifically matched>
-  Unblock: <what the operator needs to do> (e.g., "explicit per-session override; rerun with --allow-production")
+  Unblock: <what the operator needs to do> (e.g., "relaunch Claude Code with QA_BROWSER_ALLOW_PRODUCTION=1")
 ```
 
 When the gate allows but escalates an irreversible action:

@@ -1,5 +1,5 @@
 ---
-description: Set or inspect the QA target — base URL, credential map per role, do-not-click selector skiplist, production markers. Required before /qa-smoke, /qa-roles, /qa-route, /qa-report. Credentials are written to .qa-browser.local.json (gitignored); plugin refuses to operate if the file is tracked by git.
+description: Set or inspect the QA target — base URL, credential map per role, do-not-click selector skiplist, allowed / production hosts. Required before /qa-smoke, /qa-roles, /qa-route, /qa-report. Credentials are written to .qa-browser.local.json (gitignored); plugin refuses to operate if the file is tracked by git.
 argument-hint: "[set | show | clear | check]"
 author: TAQAT Techno
 version: 0.2.0
@@ -49,7 +49,7 @@ File: <path>/.qa-browser.local.json
   File permissions: <readable by user only | broader — review>
 
 Target URL: <url | not configured>
-  Matches production markers: <no | YES — refusal active>
+  Production host: <no | YES — the gate blocks it>
   Reachable (HEAD): <reachable | unreachable — check VPN / DNS / service>
 
 Configured roles: <count>
@@ -57,6 +57,8 @@ Configured roles: <count>
   <role-2>: ...
 
 Do-not-click skiplist: <count entries>
+Allowed hosts: <list>
+Production hosts: <list>
 Production markers: <list>
 Console allowlist: <count entries>
 
@@ -88,7 +90,7 @@ Target base URL? (staging / UAT / sandbox; never production by default)
   Example: https://staging.example.com
 ```
 
-Reject if the URL matches any production marker without explicit override.
+Reject the URL if its host is production under the gate's rules (README, "Production host gate"). Do not offer a way around it in-session.
 
 After accepting: send a HEAD request to confirm reachability. Capture the response status. Warn (but allow) if non-2xx.
 
@@ -118,13 +120,17 @@ Store in the file as:
 }
 ```
 
-### Section 3 — Production markers
+### Section 3 — Allowed and production hosts
+
+These keys drive the navigation gate; the rules live in `hooks/pre_navigate_prod_gate.py` and the README section "Production host gate".
 
 ```
-Production markers (substrings that trigger refusal; case-insensitive):
-  Default: ["prod", "production"]
-  Add custom? (e.g., a vanity production domain like "app.example.com"): _
+Other non-production hosts the QA pass visits (allowedHosts; e.g. an SSO or CDN host): _
+Production hosts to always block (productionHosts; e.g. "www.example.com"): _
+Production markers (productionMarkers; whole hostname labels, default ["prod", "production"]): _
 ```
+
+The `targetUrl` host is allowed automatically. With a target set, navigation to any other unlisted host prompts the user.
 
 ### Section 4 — Do-not-click skiplist
 
@@ -180,7 +186,7 @@ Only delete if the user types the exact confirmation string.
 
 ## Safety
 
-- Refuse to set a URL matching production markers (unless `--allow-production` is passed AND the user types the override confirmation).
+- Refuse to set a production target URL. The only override is launching Claude Code with `QA_BROWSER_ALLOW_PRODUCTION=1`; there is no flag.
 - Refuse to read/write the file if it is tracked by git.
 - Never echo passwords, OTPs, or tokens in any output.
 - Never log credentials to the conversation; the file is the only persistence.

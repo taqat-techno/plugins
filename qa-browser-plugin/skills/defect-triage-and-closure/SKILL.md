@@ -28,7 +28,7 @@ defers_to:
   - runtime-reality-check for confirming the target is on the expected build before any reproduction attempt counts
   - safe-destructive-testing for what a reproduction attempt is allowed to mutate
   - uat-readiness-report for how closed and open defects roll up into a sign-off
-  - windows-script-and-task-authoring (claude-env-doctor) for the vary-one-dimension-at-a-time decomposition method and the privileged-environment blind spot; this skill only requires that the decomposition happened before BLOCKED is written
+  - windows-script-and-task-authoring (env-doctor) for the vary-one-dimension-at-a-time decomposition method and the privileged-environment blind spot; this skill only requires that the decomposition happened before BLOCKED is written
   - the host's write-approval gate (devops-plugin rules/write-gate.md, agent-safety) for how approval to create a tracked issue is obtained; this skill only fixes the ordering relative to the fix
   - systematic-debugging (superpowers) for root-cause method once a reproduction from real failure output exists
 user-invocable: false
@@ -151,7 +151,7 @@ The closure consequence, which is what this skill owns:
 - **Decomposition is a precondition for the BLOCKED verdict, not an optimization.** Until each dimension has been varied separately, "external blocker" is a guess wearing a measurement's clothes.
 - Once decomposed, the close must **name the specific privileged dimension**. "Access denied, needs admin" is not a close; "registering this trigger shape without an explicit user id requires administrator, all other operations succeed unelevated" is.
 - **If the check only passes with rights real users do not have, the passing run is the finding, not the fix.** Elevating (or re-running on a CI runner that is already administrator/root) turns the row green by removing the exact condition the defect lives in, so the green row is evidence of nothing and the defect ships.
-- The decomposition **method** — varying operation / mode / scope / identity / API surface one at a time, and the rule that a CLI is not the service's API — is owned by `windows-script-and-task-authoring` (`claude-env-doctor`). Apply it there; do not re-derive it here.
+- The decomposition **method** — varying operation / mode / scope / identity / API surface one at a time, and the rule that a CLI is not the service's API — is owned by `windows-script-and-task-authoring` (`env-doctor`). Apply it there; do not re-derive it here.
 
 ### 8. Re-probe an environment blocker before you repeat it
 
@@ -270,7 +270,7 @@ The skill does not assume a tracker, a status taxonomy beyond `browser-qa-discip
 ## Cross-references
 
 - `browser-qa-discipline` — owns the PASS / BLOCKED / NOT-TESTABLE / FAIL vocabulary, the per-check evidence requirement, and the code-read-is-not-runtime-evidence rule. Use its words; this skill decides the *closure*, not the status names.
-- `windows-script-and-task-authoring` (`claude-env-doctor`) — owns the vary-one-dimension-at-a-time decomposition method and the privileged-environment blind spot. Gate 7 requires that decomposition to have happened; it does not re-teach it.
+- `windows-script-and-task-authoring` (`env-doctor`) — owns the vary-one-dimension-at-a-time decomposition method and the privileged-environment blind spot. Gate 7 requires that decomposition to have happened; it does not re-teach it.
 - `agent-safety` / `devops-plugin` `rules/write-gate.md` — own how approval for a tracked write (creating the issue in gate 5) is obtained. Gate 5 owns only the ordering: file before fix.
 - `runtime-reality-check` — confirms the target is actually running the expected build; a reproduction against the wrong build is not a reproduction.
 - `safe-destructive-testing` — bounds what a reproduction attempt may mutate while chasing the reporter's exact gesture.

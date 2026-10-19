@@ -2,6 +2,17 @@
 
 All notable changes to `qa-browser-plugin` are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/). Versioning follows [SemVer](https://semver.org/).
 
+## [0.8.0] - 2026-10-19
+
+### Security
+- The production gate now decides by **hostname**, not by URL substring. It checks configured `productionHosts`, production markers matched against host labels only, an allow-list (`targetUrl` host, `allowedHosts`, localhost/loopback/`*.localhost`/`*.test`), and asks for confirmation on any other host when a target is configured. `/products` pages are no longer blocked, and production hosts without "prod" in the name can be configured (audit QAB-P0-02).
+- The gate now also covers `new_page`, Claude-in-Chrome `navigate`, `browser_tabs`, and script tools whose code navigates (`location=`, `window.open`, `.goto(`).
+### Fixed
+- Removed the documented `--allow-production` flag, which never existed. The only override is relaunching Claude Code with `QA_BROWSER_ALLOW_PRODUCTION=1`.
+
+### Changed
+- Cross-references renamed from `claude-env-doctor` to `env-doctor`.
+
 ## [0.7.0] - 2026-10-19
 
 ### Fixed

@@ -20,7 +20,7 @@ You are running a role smoke test for one role. Apply the patterns from the `qa-
 
 1. Verify `/qa-target check` passes (file exists, gitignored, not tracked, target URL set).
 2. Verify the requested role is configured. If not, fail with: "Role `<name>` not in credentials. Configure via /qa-target set."
-3. Verify the target URL does NOT match a production marker (unless `--allow-production` AND explicit override).
+3. Verify the target host is not production under the gate's rules (README, "Production host gate"). If it is, stop unless Claude Code was launched with `QA_BROWSER_ALLOW_PRODUCTION=1`.
 4. Verify at least one browser MCP is loaded.
 
 If any gate fails, surface clearly and stop.
@@ -155,11 +155,12 @@ If the user has run smokes for multiple roles, suggest `/qa-roles` next to conso
 
 - `--wait-seconds N` — override the post-navigate wait window. Default 5.
 - `--include-perf` — capture TTFB / DCL / last-paint timing per route.
-- `--allow-production` — explicit opt-in to run against a production URL. Requires user confirmation phrase: "yes, run qa-smoke against production".
+
+Production override: there is no flag. Claude Code must be launched with `QA_BROWSER_ALLOW_PRODUCTION=1` (README, "Production host gate").
 
 ## Safety
 
 - Read-only. No clicks on action buttons. No form submits.
-- Refuses production URLs without `--allow-production` + confirmation.
+- Refuses production hosts unless Claude Code was launched with `QA_BROWSER_ALLOW_PRODUCTION=1`; the PreToolUse gate enforces this.
 - Refuses to operate if `.qa-browser.local.json` is tracked by git.
 - Credentials never appear in output / evidence / report.

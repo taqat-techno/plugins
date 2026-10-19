@@ -119,10 +119,11 @@ NEXT
 - `--only role1,role2` — only run smoke for these roles. Useful when iterating on one role's issue.
 - `--wait-seconds N` — override post-navigate wait window. Default 5.
 - `--include-perf` — capture TTFB / DCL / last paint per route.
-- `--allow-production` — explicit opt-in for production URL.
+
+Production override: there is no flag. Claude Code must be launched with `QA_BROWSER_ALLOW_PRODUCTION=1` (README, "Production host gate").
 
 ## Safety
 
 - Same safety gates as `/qa-smoke`.
 - Fresh browser context per role is mandatory. The command refuses to share state across roles even if asked.
-- Refuses production URL without explicit opt-in.
+- Refuses production hosts (same gate as `/qa-smoke`).

@@ -60,10 +60,10 @@ def main() -> int:
     try:
         data = json.loads(config_path.read_text(encoding="utf-8"))
         target_url = data.get("targetUrl", "")
-        markers = data.get("productionMarkers") or ["prod", "production"]
-        if target_url and _matches_any(target_url.lower(), [m.lower() for m in markers]):
+        hit = _production_hit(target_url, data) if isinstance(target_url, str) else None
+        if hit:
             issues.append(
-                f"WARNING: targetUrl ({target_url}) matches a production marker. "
+                f"WARNING: targetUrl ({target_url}) matches {hit}. "
                 f"The production gate will block navigation to it unless Claude Code "
                 f"was launched with QA_BROWSER_ALLOW_PRODUCTION=1."
             )
@@ -145,8 +145,16 @@ def _is_in_gitignore(path: Path, filename: str) -> bool:
         return False
 
 
-def _matches_any(haystack: str, needles: list[str]) -> bool:
-    return any(n in haystack for n in needles if n)
+def _production_hit(url: str, config: dict) -> str | None:
+    """Ask the navigation gate (single owner of the host rules) about `url`."""
+    sys.dont_write_bytecode = True
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    try:
+        import pre_navigate_prod_gate as gate
+    finally:
+        sys.path.pop(0)
+    host = gate.hostname_of(url)
+    return gate.production_match(host, config) if host else None
 
 
 if __name__ == "__main__":

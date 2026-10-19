@@ -1,5 +1,5 @@
 {
-  "description": "qa-browser hooks — SessionStart target reminder + PreToolUse production URL gate. Both hooks are advisory unless they detect a clear safety violation; the production gate is the only one that BLOCKS.",
+  "description": "qa-browser hooks — SessionStart config-safety check + PreToolUse production host gate. SessionStart is advisory; the gate BLOCKS production hosts and asks for unknown hosts when a QA target is configured.",
   "hooks": {
     "SessionStart": [
       {
@@ -15,7 +15,7 @@
     ],
     "PreToolUse": [
       {
-        "matcher": "mcp__.*__navigate_page|mcp__.*__browser_navigate",
+        "matcher": "^mcp__.+__(navigate|navigate_page|new_page|browser_navigate|browser_tabs|browser_evaluate|browser_run_code|browser_run_code_unsafe|evaluate_script|javascript_tool)$",
         "hooks": [
           {
             "type": "command",

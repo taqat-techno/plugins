@@ -50,7 +50,7 @@ This plugin drives the [`chrome-devtools-mcp`](https://github.com/ChromeDevTools
 | Hook | Trigger | Purpose |
 |---|---|---|
 | `SessionStart` | startup | If `.qa-browser.local.json` exists in the working directory: warns (as hook context Claude sees, plus a user-visible message) when it is tracked by git, missing from `.gitignore`, unparseable, or its `targetUrl` matches a production marker. Silent when no config exists. Advisory only — never blocks |
-| `PreToolUse` | `navigate_page` / `browser_navigate` tool calls | Blocks (exit 2) navigation to a URL containing a production marker substring (`prod`, `production`, or `productionMarkers` from the config). There is no in-session approval: the only override is launching Claude Code with `QA_BROWSER_ALLOW_PRODUCTION=1`. Other navigation paths (new pages, link clicks, other browser MCPs) are not gated |
+| `PreToolUse` | Browser navigation: `navigate_page`, `new_page`, `browser_navigate`, `browser_tabs`, Claude in Chrome / Claude Browser `navigate`, and script tools (`browser_evaluate`, `browser_run_code_unsafe`, `evaluate_script`, `javascript_tool`) when the script navigates | Host-based production gate (rules below). Link clicks and form submits that navigate are not gated |
 
 ## Framework scope
 
@@ -96,10 +96,34 @@ This plugin drives one of:
 
 ## Safety rules baked in
 
-1. Production URL gate (hook) — a navigate call to any URL containing `prod` or `production` (configurable substrings) is blocked unless Claude Code was launched with `QA_BROWSER_ALLOW_PRODUCTION=1`. Substring match only: a production host without a marker in its URL is not caught unless you add it to `productionMarkers`.
+1. Production host gate (hook) — see below.
 2. Destructive-action discipline (skill guidance, not a hook) — `delete`, `purge`, `truncate`, `drop` actions require explicit per-action approval AND a disposable-data signal.
 3. Credential redaction (skill/agent guidance, not a script) — Claude is instructed to redact passwords, JWTs and OTP codes from console / network captures before writing them.
 4. Tracked-credentials warning (hook) — the SessionStart hook warns when `.qa-browser.local.json` is tracked by git; the refusal to continue is an instruction to Claude, not a code-level block.
+
+### Production host gate
+
+`hooks/pre_navigate_prod_gate.py` owns the rules (its docstring is the reference). It looks at the URL's **hostname only**, never the path, so `https://shop.example.com/products` is not "prod". Config is read from `.qa-browser.local.json` in `$CLAUDE_PROJECT_DIR`, else the working directory or a parent.
+
+| Host | Result |
+|---|---|
+| In `productionHosts` (exact or subdomain), or a hostname label / `-`-separated part equals a `productionMarkers` entry (default `prod`, `production`; an entry with a dot is matched as a host) | **Blocked** (exit 2) |
+| localhost, 127.0.0.1, ::1, `*.localhost`, `*.test`, the `targetUrl` host, or in `allowedHosts` | Allowed |
+| Anything else, when `targetUrl` or `allowedHosts` is configured | You are **asked** to approve |
+| Anything else, no target configured | Allowed |
+
+For script tools, URLs are taken from the script only when it contains `location =`, `location.href =`, `location.assign/replace(`, `window.open(` or `.goto(`.
+
+```json
+{
+  "targetUrl": "https://staging.example.com",
+  "allowedHosts": ["auth.staging.example.com", "*.cdn.example.net"],
+  "productionHosts": ["www.example.com", "app.example.com"],
+  "productionMarkers": ["prod", "production"]
+}
+```
+
+**Override:** there is no flag and no in-session approval. To test production on purpose, quit and relaunch Claude Code with `QA_BROWSER_ALLOW_PRODUCTION=1` in its environment; blocks then become allows with an audit note to Claude. Exporting the variable from a Bash tool call or another shell does not reach the hook.
 
 ## Installation
 
