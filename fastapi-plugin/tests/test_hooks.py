@@ -1,14 +1,18 @@
 """
 Behavioral tests for the FastAPI plugin hooks.
 
-Each hook is invoked as a subprocess with a PreToolUse/SessionStart JSON payload
-on stdin (exactly as Claude Code calls it), and we assert on exit code, the
-stderr block reason, and the advisory JSON on stdout.
+Each hook is invoked as a subprocess with a PreToolUse/SessionStart JSON payload on
+stdin (exactly as Claude Code calls it). We assert on the exit code and the JSON on
+stdout: `permissionDecision: "ask"` for destructive commands, `additionalContext`
+for advisories, and nothing at all when the hook has nothing to say.
 
-Run:  pytest fastapi-plugin/tests/test_hooks.py
+Environment variables that change the guard's mode are pinned in every run.
+
+Run:  python -m pytest -q -p no:cacheprovider
 """
 
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -16,191 +20,312 @@ from pathlib import Path
 import pytest
 
 HOOKS_DIR = Path(__file__).resolve().parent.parent / "hooks"
+_MODE_VARS = ("CLAUDE_PROJECT_DIR", "CLAUDE_PLUGIN_OPTION_DESTRUCTIVE_GUARD",
+              "ALLOW_FASTAPI_DESTRUCTIVE", "HOOKLIB_DEBUG")
+# Built from parts so that this file's own text never trips a live guard.
+DOWN_BASE = "downgrade " + "base"
+DROP_DB = "DROP " + "DATABASE"
 
 
-def run_hook(script: str, payload: dict):
-    """Invoke a hook with `payload` as JSON stdin; return (exit_code, stdout, stderr)."""
+def run_hook(script, payload, cwd=None, env_extra=None, raw=None):
+    env = {k: v for k, v in os.environ.items() if k not in _MODE_VARS}
+    env.update(env_extra or {})
     proc = subprocess.run(
         [sys.executable, str(HOOKS_DIR / script)],
-        input=json.dumps(payload),
-        capture_output=True,
-        text=True,
-        timeout=15,
+        input=raw if raw is not None else json.dumps(payload),
+        capture_output=True, text=True, timeout=30, cwd=cwd, env=env,
     )
     return proc.returncode, proc.stdout, proc.stderr
 
 
-def advice(out: str) -> str:
-    """additionalContext from a PreToolUse advisory ("" when the hook stayed silent).
+def hso(out):
+    return json.loads(out)["hookSpecificOutput"] if out.strip() else {}
 
-    Enforces the channel contract: exit-0 stderr/plain stdout never reach Claude,
-    so an advisory must be hookSpecificOutput JSON with hookEventName set and no
-    permissionDecision (the normal permission flow stays untouched).
-    """
-    if not out.strip():
+
+def advice(out):
+    """additionalContext of an advisory; enforces that advisories never decide."""
+    h = hso(out)
+    if not h:
         return ""
-    hso = json.loads(out)["hookSpecificOutput"]
-    assert hso["hookEventName"] == "PreToolUse"
-    assert "permissionDecision" not in hso
-    return hso["additionalContext"]
+    assert h["hookEventName"] == "PreToolUse"
+    assert "permissionDecision" not in h
+    return h["additionalContext"]
 
 
-def write_payload(file_path: str, content: str) -> dict:
+@pytest.fixture
+def fastapi_project(tmp_path):
+    (tmp_path / "pyproject.toml").write_text(
+        '[project]\nname = "acme-api"\ndependencies = ["fastapi>=0.115", "sqlalchemy>=2"]\n',
+        encoding="utf-8")
+    return tmp_path
+
+
+@pytest.fixture
+def plain_dir(tmp_path):
+    d = tmp_path / "not-fastapi"
+    d.mkdir()
+    (d / "requirements.txt").write_text("fastapi-users-helper==1.0\nrequests\n", encoding="utf-8")
+    return d
+
+
+def bash(command, cwd):
+    return {"cwd": str(cwd), "tool_input": {"command": command}}
+
+
+def write_payload(file_path, content):
     return {"tool_input": {"file_path": file_path, "content": content}}
-
-
-def bash_payload(command: str) -> dict:
-    return {"tool_input": {"command": command}}
 
 
 # ─── session_start.py ─────────────────────────────────────────────
 
 class TestSessionStart:
-    def test_emits_valid_json_and_exits_zero(self):
-        code, out, _ = run_hook("session_start.py", {})
+    def test_silent_outside_a_fastapi_project(self, plain_dir):
+        code, out, err = run_hook("session_start.py", {"cwd": str(plain_dir)}, cwd=plain_dir)
         assert code == 0
-        doc = json.loads(out)
-        assert doc["hookSpecificOutput"]["hookEventName"] == "SessionStart"
+        assert out.strip() == "" and err.strip() == ""
 
-    def test_additional_context_present(self):
-        code, out, _ = run_hook("session_start.py", {})
+    def test_context_json_in_a_fastapi_project(self, fastapi_project):
+        code, out, _ = run_hook("session_start.py", {"cwd": str(fastapi_project)}, cwd=fastapi_project)
         assert code == 0
-        assert "additionalContext" in out
+        h = hso(out)
+        assert h["hookEventName"] == "SessionStart"
+        assert "FastAPI ~0.115" in h["additionalContext"]
+        assert "SQLAlchemy" in h["additionalContext"]
+        assert "/fastapi:migrate" in h["additionalContext"]
 
-    def test_handles_garbage_stdin(self):
-        proc = subprocess.run(
-            [sys.executable, str(HOOKS_DIR / "session_start.py")],
-            input="not json at all",
-            capture_output=True, text=True, timeout=15,
-        )
-        assert proc.returncode == 0  # fail-open
+    def test_detects_src_package_entrypoint(self, tmp_path):
+        pkg = tmp_path / "src" / "acme"
+        pkg.mkdir(parents=True)
+        (pkg / "main.py").write_text("from fastapi import FastAPI\napp = FastAPI()\n")
+        _, out, _ = run_hook("session_start.py", {"cwd": str(tmp_path)}, cwd=tmp_path)
+        assert "src/acme/main.py" in hso(out)["additionalContext"]
+
+    def test_detects_monorepo_service(self, tmp_path):
+        svc = tmp_path / "services" / "api"
+        svc.mkdir(parents=True)
+        (svc / "requirements.txt").write_text("fastapi==0.110.0\n")
+        _, out, _ = run_hook("session_start.py", {"cwd": str(tmp_path)}, cwd=tmp_path)
+        assert "services/api" in hso(out)["additionalContext"]
+
+    def test_databases_must_be_the_package(self, tmp_path):
+        (tmp_path / "requirements.txt").write_text("fastapi\n# talks to two databases\n")
+        _, out, _ = run_hook("session_start.py", {"cwd": str(tmp_path)}, cwd=tmp_path)
+        assert "Async DB driver" not in hso(out)["additionalContext"]
+        (tmp_path / "requirements.txt").write_text("fastapi\ndatabases[postgresql]\n")
+        _, out, _ = run_hook("session_start.py", {"cwd": str(tmp_path)}, cwd=tmp_path)
+        assert "Async DB driver" in hso(out)["additionalContext"]
+
+    def test_handles_garbage_stdin(self, plain_dir):
+        code, out, _ = run_hook("session_start.py", None, cwd=plain_dir, raw="not json at all")
+        assert code == 0 and out.strip() == ""
 
 
 # ─── pre_bash_guard.py ────────────────────────────────────────────
 
+ASKED = [
+    f"alembic {DOWN_BASE}",
+    f"python -m alembic {DOWN_BASE}",
+    f"poetry run alembic {DOWN_BASE}",
+    f"uv run alembic -c alembic.ini {DOWN_BASE}",
+    f"alembic -x tenant=acme {DOWN_BASE}",
+    "alembic downgrade heads:base",
+    "dropdb mydb",
+    "sudo -u postgres dropdb mydb",
+    f'psql -h db.example.com -c "{DROP_DB} mydb"',
+    f'echo "{DROP_DB} mydb;" | psql',
+    f"psql <<'SQL'\n{DROP_DB} mydb;\nSQL",
+    f"bash -c 'alembic {DOWN_BASE}'",
+    f"docker compose exec api alembic {DOWN_BASE}",
+    f"cd services/api && alembic {DOWN_BASE}",
+]
+SILENT = [
+    "alembic upgrade head",
+    "alembic revision --autogenerate -m 'add item'",
+    "alembic downgrade -1",
+    f"alembic {DOWN_BASE} --sql",
+    "alembic downgrade --help",
+    "uvicorn app.main:app --reload",
+    "pytest tests/",
+    "grep -rn dropdb scripts/",
+    "git log --grep dropdb",
+    f'git commit -m "docs: never {DROP_DB} or alembic {DOWN_BASE} in prod"',
+    f'echo "alembic {DOWN_BASE} is dangerous"',
+    "dropdb --help",
+]
+
+
 class TestBashGuard:
-    BLOCKED = [
-        "alembic downgrade base",
-        "python -m alembic downgrade base",
-        "poetry run alembic downgrade base",
-        "dropdb mydb",
-        'psql -c "DROP DATABASE mydb"',
-    ]
-    ALLOWED = [
-        "alembic upgrade head",
-        "alembic revision --autogenerate -m 'add item'",
-        "alembic downgrade -1",
-        "uvicorn app.main:app --reload",
-        "pytest tests/",
-    ]
+    @pytest.mark.parametrize("cmd", ASKED)
+    def test_destructive_asks_the_user(self, cmd, fastapi_project):
+        code, out, err = run_hook("pre_bash_guard.py", bash(cmd, fastapi_project))
+        assert code == 0, f"the guard asks, it never exits 2: {cmd}"
+        h = hso(out)
+        assert h.get("permissionDecision") == "ask", f"expected ask for: {cmd!r}"
+        assert err.strip() == ""
 
-    @pytest.mark.parametrize("cmd", BLOCKED)
-    def test_destructive_blocked(self, cmd):
-        code, out, err = run_hook("pre_bash_guard.py", bash_payload(cmd))
-        assert code == 2, f"expected block for: {cmd}"
-        assert "BLOCKED" in err
+    @pytest.mark.parametrize("cmd", ASKED)
+    def test_no_override_token_is_shown_to_the_model(self, cmd, fastapi_project):
+        _, out, err = run_hook("pre_bash_guard.py", bash(cmd, fastapi_project))
+        text = out + err
+        assert "ALLOW_FASTAPI_DESTRUCTIVE" not in text
+        assert "override" not in text.lower()
 
-    @pytest.mark.parametrize("cmd", BLOCKED)
-    def test_override_token_allows(self, cmd):
-        code, _, _ = run_hook("pre_bash_guard.py", bash_payload(cmd + " # ALLOW_FASTAPI_DESTRUCTIVE"))
-        assert code == 0, f"override should allow: {cmd}"
+    @pytest.mark.parametrize("cmd", ASKED[:5])
+    def test_in_command_token_no_longer_bypasses(self, cmd, fastapi_project):
+        for variant in (cmd + " # ALLOW_FASTAPI_DESTRUCTIVE", "ALLOW_FASTAPI_DESTRUCTIVE=1 " + cmd):
+            _, out, _ = run_hook("pre_bash_guard.py", bash(variant, fastapi_project))
+            assert hso(out).get("permissionDecision") == "ask", variant
 
-    @pytest.mark.parametrize("cmd", ALLOWED)
-    def test_safe_commands_allowed(self, cmd):
-        code, _, _ = run_hook("pre_bash_guard.py", bash_payload(cmd))
-        assert code == 0, f"expected allow for: {cmd}"
-
-    def test_alembic_stamp_is_advisory_not_blocking(self):
-        code, out, err = run_hook("pre_bash_guard.py", bash_payload("alembic stamp head"))
-        assert code == 0  # advisory, never blocks
-        assert "advisory" in advice(out) and "stamp" in advice(out)
-
-    def test_plain_downgrade_one_is_silent(self):
-        code, out, err = run_hook("pre_bash_guard.py", bash_payload("alembic downgrade -1"))
+    @pytest.mark.parametrize("cmd", SILENT)
+    def test_harmless_commands_are_silent(self, cmd, fastapi_project):
+        code, out, err = run_hook("pre_bash_guard.py", bash(cmd, fastapi_project))
         assert code == 0
-        assert out.strip() == "" and err.strip() == ""
+        assert out.strip() == "" and err.strip() == "", f"expected silence for: {cmd!r}"
+
+    @pytest.mark.parametrize("cmd", ["dropdb mydb", f"alembic {DOWN_BASE}"])
+    def test_silent_outside_a_fastapi_project(self, cmd, plain_dir):
+        code, out, _ = run_hook("pre_bash_guard.py", bash(cmd, plain_dir), cwd=plain_dir)
+        assert code == 0 and out.strip() == ""
+
+    def test_requirements_directory_counts(self, tmp_path):
+        (tmp_path / "requirements").mkdir()
+        (tmp_path / "requirements" / "base.txt").write_text("FastAPI[standard]==0.115\n")
+        _, out, _ = run_hook("pre_bash_guard.py", bash("dropdb mydb", tmp_path), cwd=tmp_path)
+        assert hso(out).get("permissionDecision") == "ask"
+
+    def test_project_dir_with_nested_service_counts(self, tmp_path):
+        (tmp_path / "api").mkdir()
+        (tmp_path / "api" / "requirements.txt").write_text("fastapi\n")
+        other = tmp_path / "docs"
+        other.mkdir()
+        _, out, _ = run_hook("pre_bash_guard.py", bash("dropdb mydb", other), cwd=other,
+                             env_extra={"CLAUDE_PROJECT_DIR": str(tmp_path)})
+        assert hso(out).get("permissionDecision") == "ask"
+
+    @pytest.mark.parametrize("env", [{"CLAUDE_PLUGIN_OPTION_DESTRUCTIVE_GUARD": "false"},
+                                     {"ALLOW_FASTAPI_DESTRUCTIVE": "1"}])
+    def test_user_opt_out_from_the_hook_environment(self, env, fastapi_project):
+        code, out, _ = run_hook("pre_bash_guard.py", bash("dropdb mydb", fastapi_project),
+                                env_extra=env)
+        assert code == 0 and out.strip() == ""
+
+    def test_alembic_stamp_is_advisory(self, fastapi_project):
+        code, out, _ = run_hook("pre_bash_guard.py", bash("alembic stamp head", fastapi_project))
+        assert code == 0
+        assert "stamp" in advice(out)
+
+    @pytest.mark.parametrize("raw", ["not json", "", "[]", '{"tool_input": {"command": 7}}'])
+    def test_fails_open_on_bad_input(self, raw, fastapi_project):
+        code, out, _ = run_hook("pre_bash_guard.py", None, cwd=fastapi_project, raw=raw)
+        assert code == 0 and out.strip() == ""
 
 
 # ─── pre_write_guard.py (advisory only — always exit 0) ───────────
 
 class TestWriteGuard:
     def test_blocking_calls_in_async_warn(self):
-        content = (
-            "import requests, time\n"
-            "async def handler():\n"
-            "    time.sleep(1)\n"
-            "    requests.get('http://x')\n"
-        )
-        code, out, err = run_hook("pre_write_guard.py", write_payload("app/routers/x.py", content))
-        assert code == 0  # advisory never blocks
-        assert "time.sleep" in advice(out)
-        assert "requests" in advice(out)
+        content = ("import requests, time\n"
+                   "async def handler():\n"
+                   "    time.sleep(1)\n"
+                   "    requests.get('https://api.example.com')\n")
+        code, out, _ = run_hook("pre_write_guard.py", write_payload("app/routers/x.py", content))
+        assert code == 0
+        assert "time.sleep" in advice(out) and "requests" in advice(out)
 
     def test_sync_route_is_silent(self):
-        content = (
-            "import requests, time\n"
-            "def handler():\n"          # sync def -> threadpool, blocking is fine
-            "    time.sleep(1)\n"
-            "    requests.get('http://x')\n"
-        )
-        code, out, err = run_hook("pre_write_guard.py", write_payload("app/routers/x.py", content))
-        assert code == 0
-        assert out.strip() == "" and err.strip() == ""
+        content = ("import requests, time\n"
+                   "def handler():\n"
+                   "    time.sleep(1)\n"
+                   "    requests.get('https://api.example.com')\n")
+        code, out, _ = run_hook("pre_write_guard.py", write_payload("app/routers/x.py", content))
+        assert code == 0 and out.strip() == ""
 
-    def test_hardcoded_secret_in_config_warns(self):
-        content = 'SECRET_KEY = "supersecretliteralvalue123"\n'
-        code, out, err = run_hook("pre_write_guard.py", write_payload("app/core/config.py", content))
-        assert code == 0
-        assert "SECRET_KEY" in advice(out)
+    def test_sync_def_next_to_async_def_is_silent(self):
+        content = ("import time\n"
+                   "async def handler():\n"
+                   "    return {'ok': True}\n\n"
+                   "def sync_worker():\n"
+                   "    time.sleep(1)\n")
+        code, out, _ = run_hook("pre_write_guard.py", write_payload("app/routers/x.py", content))
+        assert code == 0 and out.strip() == ""
 
-    def test_env_driven_settings_are_silent(self):
-        content = (
-            "from pydantic_settings import BaseSettings\n"
-            "class Settings(BaseSettings):\n"
-            "    secret_key: str\n"
-            "    database_url: str\n"
-        )
-        code, out, err = run_hook("pre_write_guard.py", write_payload("app/core/config.py", content))
+    def test_nested_sync_helper_inside_async_is_silent(self):
+        content = ("import time\n"
+                   "async def handler():\n"
+                   "    def work():\n"
+                   "        time.sleep(1)\n"
+                   "    return await run_in_threadpool(work)\n")
+        _, out, _ = run_hook("pre_write_guard.py", write_payload("app/routers/x.py", content))
+        assert out.strip() == ""
+
+    def test_from_time_import_sleep_is_caught(self):
+        content = "from time import sleep\nasync def handler():\n    sleep(2)\n"
+        _, out, _ = run_hook("pre_write_guard.py", write_payload("app/routers/x.py", content))
+        assert "time.sleep" in advice(out)
+
+    def test_unparseable_hunk_falls_back_to_regex(self):
+        content = "    async def handler(:\n        time.sleep(1)\n"
+        _, out, _ = run_hook("pre_write_guard.py", write_payload("app/routers/x.py", content))
+        assert "time.sleep" in advice(out)
+
+    @pytest.mark.parametrize("content", [
+        'SECRET_KEY = "supersecretliteralvalue123"\n',
+        'class Settings(BaseSettings):\n    secret_key: str = "changeme-literal"\n',
+        'class Settings(BaseSettings):\n    db_password: SecretStr = "hunter2-literal"\n',
+        'class Settings(BaseSettings):\n    jwt_secret: str = r"raw-literal"\n',
+    ])
+    def test_hardcoded_secret_in_config_warns(self, content):
+        code, out, _ = run_hook("pre_write_guard.py", write_payload("app/core/config.py", content))
         assert code == 0
-        assert out.strip() == "" and err.strip() == ""
+        assert "hardcoded secret" in advice(out)
+
+    @pytest.mark.parametrize("content", [
+        "from pydantic_settings import BaseSettings\nclass Settings(BaseSettings):\n"
+        "    secret_key: str\n    database_url: str\n",
+        'class Settings(BaseSettings):\n    secret_key: str = os.getenv("SECRET_KEY", "dev")\n',
+        'class Settings(BaseSettings):\n    token_url: str = "/auth/token"\n',
+        'class Settings(BaseSettings):\n    max_tokens: int = 512\n',
+    ])
+    def test_env_driven_or_non_secret_settings_are_silent(self, content):
+        code, out, _ = run_hook("pre_write_guard.py", write_payload("app/core/config.py", content))
+        assert code == 0 and out.strip() == ""
 
     def test_wildcard_cors_with_credentials_warns(self):
-        content = (
-            "from fastapi.middleware.cors import CORSMiddleware\n"
-            "app.add_middleware(CORSMiddleware, allow_origins=['*'], allow_credentials=True)\n"
-        )
-        code, out, err = run_hook("pre_write_guard.py", write_payload("app/main.py", content))
-        assert code == 0
-        assert "CORS" in advice(out) or "allow_origins" in advice(out)
+        content = ("from fastapi.middleware.cors import CORSMiddleware\n"
+                   "app.add_middleware(CORSMiddleware, allow_origins=['*'], allow_credentials=True)\n")
+        _, out, _ = run_hook("pre_write_guard.py", write_payload("app/main.py", content))
+        assert "allow_origins" in advice(out)
 
     def test_scoped_cors_is_silent(self):
-        content = (
-            "from fastapi.middleware.cors import CORSMiddleware\n"
-            "app.add_middleware(CORSMiddleware, allow_origins=['https://app.example.com'], allow_credentials=True)\n"
-        )
-        code, out, err = run_hook("pre_write_guard.py", write_payload("app/main.py", content))
-        assert code == 0
-        assert out.strip() == "" and err.strip() == ""
+        content = ("from fastapi.middleware.cors import CORSMiddleware\n"
+                   "app.add_middleware(CORSMiddleware, allow_origins=['https://app.example.com'], "
+                   "allow_credentials=True)\n")
+        _, out, _ = run_hook("pre_write_guard.py", write_payload("app/main.py", content))
+        assert out.strip() == ""
 
     def test_empty_downgrade_warns(self):
-        content = (
-            "def upgrade():\n    op.add_column('t', sa.Column('c', sa.String()))\n\n"
-            "def downgrade():\n    pass\n"
-        )
-        code, out, err = run_hook("pre_write_guard.py", write_payload("alembic/versions/ab12_x.py", content))
-        assert code == 0
+        content = ("def upgrade():\n    op.add_column('t', sa.Column('c', sa.String()))\n\n"
+                   "def downgrade():\n    pass\n")
+        _, out, _ = run_hook("pre_write_guard.py", write_payload("alembic/versions/ab12_x.py", content))
         assert "downgrade" in advice(out)
 
     def test_real_downgrade_is_silent(self):
-        content = (
-            "def upgrade():\n    op.add_column('t', sa.Column('c', sa.String()))\n\n"
-            "def downgrade():\n    op.drop_column('t', 'c')\n"
-        )
-        code, out, err = run_hook("pre_write_guard.py", write_payload("alembic/versions/ab12_x.py", content))
-        assert code == 0
-        assert out.strip() == "" and err.strip() == ""
+        content = ("def upgrade():\n    op.add_column('t', sa.Column('c', sa.String()))\n\n"
+                   "def downgrade():\n    op.drop_column('t', 'c')\n")
+        _, out, _ = run_hook("pre_write_guard.py", write_payload("alembic/versions/ab12_x.py", content))
+        assert out.strip() == ""
+
+    def test_multiedit_edits_are_checked(self):
+        payload = {"tool_input": {"file_path": "app/routers/x.py", "edits": [
+            {"old_string": "a", "new_string": "async def h():\n    time.sleep(1)\n"}]}}
+        _, out, _ = run_hook("pre_write_guard.py", payload)
+        assert "time.sleep" in advice(out)
 
     def test_non_python_file_ignored(self):
-        code, out, err = run_hook("pre_write_guard.py", write_payload("README.md", "SECRET_KEY = \"x\""))
-        assert code == 0
-        assert out.strip() == "" and err.strip() == ""
+        code, out, _ = run_hook("pre_write_guard.py", write_payload("README.md", 'SECRET_KEY = "x"'))
+        assert code == 0 and out.strip() == ""
+
+    @pytest.mark.parametrize("raw", ["not json", "", '{"tool_input": []}'])
+    def test_fails_open_on_bad_input(self, raw):
+        code, out, _ = run_hook("pre_write_guard.py", None, raw=raw)
+        assert code == 0 and out.strip() == ""

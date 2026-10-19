@@ -1,20 +1,21 @@
 ---
 name: fastapi-migrations
-description: Safe Alembic migration workflow for FastAPI/SQLAlchemy projects and zero-downtime schema-change sequencing — autogenerate review discipline, reversibility (a real downgrade), splitting schema vs data, and the multi-deploy expand-contract patterns for adding/renaming/dropping columns without breaking a running app. Activates when creating/editing an Alembic revision, running autogenerate/upgrade, reviewing a migration, planning a schema change against a live database, or resolving a migration conflict/branch. Owns the migration-safety gate; defers field/relationship choices to fastapi-database.
+description: Use when creating or editing an Alembic revision for a FastAPI/SQLAlchemy project, running alembic revision --autogenerate or alembic upgrade, reviewing a migration and what autogenerate missed (server defaults, type changes, named constraints, enums), writing a real downgrade(), planning a schema change against a live database (add, rename, drop or retype a column without downtime), or resolving multiple heads, branches or stamp drift. Owns the migration-safety gate and expand-contract sequencing; defers field and relationship choices to fastapi-database.
 version: 0.1.0
-last_reviewed: 2026-06-23
-owns:
-  - the autogenerate -> review -> upgrade gate (never auto-trust a generated revision)
-  - reversibility rule (every revision must have a real downgrade(); data migrations reverse too)
-  - schema-vs-data split rule (one concern per revision; data backfills are separate)
-  - zero-downtime / expand-contract sequencing for add / rename / drop / type-change
-  - migration-branch & multi-head resolution (merge revisions, down_revision integrity)
-  - locking-risk rules (operations that take ACCESS EXCLUSIVE / rewrite a table)
-defers_to:
-  - fastapi-database (what the column/constraint/index/relationship should be)
-  - fastapi-async-performance (whether a backfill needs batching/throttling)
-  - project deploy pipeline (how/when `alembic upgrade` runs relative to code rollout — adapter input)
 user-invocable: false
+metadata:
+  last_reviewed: 2026-06-23
+  owns:
+    - the autogenerate -> review -> upgrade gate (never auto-trust a generated revision)
+    - reversibility rule (every revision must have a real downgrade(); data migrations reverse too)
+    - schema-vs-data split rule (one concern per revision; data backfills are separate)
+    - zero-downtime / expand-contract sequencing for add / rename / drop / type-change
+    - migration-branch & multi-head resolution (merge revisions, down_revision integrity)
+    - locking-risk rules (operations that take ACCESS EXCLUSIVE / rewrite a table)
+  defers_to:
+    - fastapi-database (what the column/constraint/index/relationship should be)
+    - fastapi-async-performance (whether a backfill needs batching/throttling)
+    - project deploy pipeline (how/when `alembic upgrade` runs relative to code rollout — adapter input)
 ---
 
 # fastapi-migrations

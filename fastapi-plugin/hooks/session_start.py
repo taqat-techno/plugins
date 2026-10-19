@@ -1,107 +1,119 @@
 #!/usr/bin/env python3
-"""
-SessionStart hook: Detect FastAPI presence, version, ORM, migration tool, and
-async-vs-sync posture, and inject a short context line.
+"""SessionStart hook: detect a FastAPI project and hand Claude one context line.
 
-Outputs JSON in the official hookSpecificOutput format. Exit 0 always.
-Read-only and fail-open: never blocks a session.
-"""
+A FastAPI project is a `fastapi` dependency declaration, or an entrypoint that
+constructs `FastAPI(...)` (main.py, app.py, app/main.py, api/main.py, src/main.py,
+src/<pkg>/main.py), in the session directory or up to two levels below it
+(monorepos keep the service in `backend/` or `services/api/`). When found, it
+reports FastAPI / Pydantic versions, the ORM, an async driver and Alembic.
 
-import json
+Outputs SessionStart additionalContext JSON only when a FastAPI project is found;
+otherwise it prints nothing. Read-only, no imports of the project, no subprocess.
+Fails open: any error ends in exit 0 with no output.
+"""
+import glob
 import os
 import re
 import sys
-import threading
 
-# Internal timeout guard — fail-open after 8 seconds.
-_timer = threading.Timer(8.0, lambda: os._exit(0))
-_timer.daemon = True
-_timer.start()
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "_vendor"))
+import hooklib  # noqa: E402
 
-# Read stdin (required by hook protocol).
-try:
-    sys.stdin.buffer.read()
-except Exception:
-    pass
+_SKIP = {".git", "node_modules", "venv", ".venv", "env", "__pycache__", "site-packages",
+         "dist", "build", ".tox"}
+_DEP_FILES = ("requirements.txt", "requirements/base.txt", "pyproject.toml", "Pipfile", "setup.cfg")
+_ENTRIES = ("main.py", "app/main.py", "app.py", "src/main.py", "api/main.py", "src/*/main.py")
+_DEP_RE = re.compile(r"(?<![\w.-])fastapi(?![\w-])", re.IGNORECASE)
 
 
 def _read(path):
     try:
         with open(path, "r", encoding="utf-8", errors="ignore") as fh:
-            return fh.read()
+            return fh.read(500_000)
     except (OSError, UnicodeError):
         return ""
 
 
-_DEP_FILES = ("requirements.txt", "requirements/base.txt", "pyproject.toml", "Pipfile", "setup.cfg")
-
-
-def detect():
-    cwd = os.getcwd()
-
-    blob = " ".join(_read(os.path.join(cwd, f)) for f in _DEP_FILES)
-
-    # A FastAPI project is identified by a fastapi dependency declaration OR an
-    # importable app entrypoint that constructs FastAPI(...).
-    has_dep = bool(re.search(r"(?<![\w-])fastapi(?![\w-])", blob, re.IGNORECASE))
+def _probe(d):
+    """(dependency blob, entrypoint relative path or '') when `d` is a FastAPI project."""
+    blob = " ".join(_read(os.path.join(d, f)) for f in _DEP_FILES)
     entry = ""
-    for cand in ("main.py", "app/main.py", "app.py", "src/main.py", "api/main.py"):
-        text = _read(os.path.join(cwd, cand))
-        if text and re.search(r"\bFastAPI\s*\(", text):
-            entry = cand
+    for pattern in _ENTRIES:
+        for cand in sorted(glob.glob(os.path.join(d, pattern))):
+            if re.search(r"\bFastAPI\s*\(", _read(cand)):
+                entry = os.path.relpath(cand, d).replace("\\", "/")
+                break
+        if entry:
             break
-    if not has_dep and not entry:
+    if _DEP_RE.search(blob) or entry:
+        return blob, entry
+    return None
+
+
+def find_project(root, depth=2):
+    level = [root]
+    for _ in range(depth + 1):
+        nxt = []
+        for d in level:
+            hit = _probe(d)
+            if hit:
+                return d, hit[0], hit[1]
+            try:
+                nxt += sorted(e.path for e in os.scandir(d) if e.is_dir()
+                              and e.name not in _SKIP and not e.name.startswith("."))
+            except OSError:
+                continue
+        level = nxt
+    return None
+
+
+def detect(cwd):
+    found = find_project(cwd)
+    if not found:
         return ""
+    proj, blob, entry = found
+    rel = os.path.relpath(proj, cwd).replace("\\", "/")
+    where = entry if entry else "dependency"
+    if rel != ".":
+        where = f"{rel}/{entry}" if entry else f"{rel}, dependency"
+    parts = [f"FastAPI project detected ({where})."]
 
-    parts = ["FastAPI project detected" + (f" ({entry})" if entry else " (dependency).") + "."]
-
-    # FastAPI version from dependency declarations (no imports / no subprocess).
-    m = re.search(r"fastapi[>=~ \"']+(\d+\.\d+(?:\.\d+)?)", blob, re.IGNORECASE)
+    m = re.search(r"fastapi(?:\[[^\]]*\])?[>=~ \"']+(\d+\.\d+(?:\.\d+)?)", blob, re.IGNORECASE)
     if m:
         parts.append(f"FastAPI ~{m.group(1)}.")
-
-    # Pydantic major (v1 vs v2 changes the entire model API surface).
-    pm = re.search(r"pydantic[>=~ \"']+(\d+)", blob, re.IGNORECASE)
+    pm = re.search(r"(?<![\w-])pydantic[>=~ \"']+(\d+)", blob, re.IGNORECASE)
     if pm:
         parts.append(f"Pydantic v{pm.group(1)}.")
-
-    # ORM / data layer.
-    if re.search(r"sqlmodel", blob, re.IGNORECASE):
+    if re.search(r"\bsqlmodel\b", blob, re.IGNORECASE):
         parts.append("SQLModel.")
-    elif re.search(r"sqlalchemy", blob, re.IGNORECASE):
+    elif re.search(r"\bsqlalchemy\b", blob, re.IGNORECASE):
         parts.append("SQLAlchemy.")
-    elif re.search(r"tortoise", blob, re.IGNORECASE):
+    elif re.search(r"\btortoise", blob, re.IGNORECASE):
         parts.append("Tortoise ORM.")
-
-    # Async driver hint — asyncpg/aiomysql/aiosqlite imply an async stack.
-    if re.search(r"asyncpg|aiomysql|aiosqlite|databases", blob, re.IGNORECASE):
+    # A dependency entry, not a word: "databases" must start a requirement line or a
+    # quoted dependency string, and be followed by extras, a version spec or the end.
+    if re.search(r"(?im)(?:^\s*|[\"'])(asyncpg|aiomysql|aiosqlite|databases)"
+                 r"(?:\[[^\]]*\])?\s*(?:[<>=~!;\"']|$)", blob):
         parts.append("Async DB driver.")
-
-    # Migration tool.
-    if os.path.isfile(os.path.join(cwd, "alembic.ini")) or re.search(r"alembic", blob, re.IGNORECASE):
+    if os.path.isfile(os.path.join(proj, "alembic.ini")) or re.search(r"\balembic\b", blob, re.IGNORECASE):
         parts.append("Alembic.")
-
-    # Settings library.
     if re.search(r"pydantic[-_]settings", blob, re.IGNORECASE):
         parts.append("pydantic-settings.")
 
     parts.append("Skills: routing/pydantic/database/migrations/config/security/testing/async-performance. "
-                 "Commands: /fastapi-scaffold, /fastapi-migrate, /fastapi-test, /fastapi-security.")
-
+                 "Commands: /fastapi:scaffold, /fastapi:migrate, /fastapi:test, /fastapi:security.")
     return "[FastAPI] " + " ".join(parts)
 
 
-try:
-    ctx = detect()
-    output = {
-        "hookSpecificOutput": {
-            "hookEventName": "SessionStart",
-            "additionalContext": ctx,
-        }
-    }
-    print(json.dumps(output))
-except Exception:
-    print('{"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":""}}')
+def main():
+    hooklib.watchdog(8.0)
+    payload = hooklib.read_payload() or {}
+    cwd = payload.get("cwd") if isinstance(payload.get("cwd"), str) else ""
+    text = detect(cwd if cwd and os.path.isdir(cwd) else os.getcwd())
+    if text:
+        hooklib.context("SessionStart", text)
+    return 0
 
-_timer.cancel()
-sys.exit(0)
+
+if __name__ == "__main__":
+    hooklib.run(main)

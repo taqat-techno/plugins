@@ -1,21 +1,22 @@
 ---
 name: fastapi-pydantic
-description: Pydantic v2 model design for FastAPI — request vs response model separation, field validation (field_validator/model_validator), constraints (Field, EmailStr, conint), read/write field discipline, the input/output split that stops field leaks and mass-assignment, ORM serialization (from_attributes), and aliasing. Activates when defining or editing a Pydantic model/schema, validating request input, shaping a response body, or diagnosing why an endpoint leaks/over-accepts fields or mis-validates. Defers routing wiring to fastapi-routing and the ORM model to fastapi-database.
+description: Use when defining or editing a Pydantic model or schema for FastAPI, separating request (Create/Update) and response (Read) models, adding field_validator / model_validator / Field constraints, serializing ORM objects (from_attributes), aliasing fields, migrating Pydantic v1 code to v2, or diagnosing why an endpoint leaks a field, accepts a privileged field (mass-assignment) or mis-validates input. Defers routing wiring to fastapi-routing and the ORM model to fastapi-database.
 version: 0.1.0
-last_reviewed: 2026-06-23
-owns:
-  - request-vs-response model separation (distinct schemas per direction; never one model both ways)
-  - field discipline (explicit fields; never echo the ORM/DB model directly as a response)
-  - validation layering (field_validator for single-field, model_validator for cross-field)
-  - read/write split (response-only computed fields, write-only/never-echoed inputs, mass-assignment prevention)
-  - constraint rules (Field(gt/le/min_length/max_length/pattern), EmailStr, typed fields over str)
-  - ORM serialization config (from_attributes / model_config) and field aliasing (alias, serialization_alias)
-defers_to:
-  - fastapi-routing (response_model wiring, status codes, dependency injection)
-  - fastapi-database (the SQLAlchemy/SQLModel ORM model the schema maps to)
-  - fastapi-security-audit (the security verdict on a field leak / mass-assignment)
-  - project schema conventions (base schema, naming, error envelope — adapter input)
 user-invocable: false
+metadata:
+  last_reviewed: 2026-06-23
+  owns:
+    - request-vs-response model separation (distinct schemas per direction; never one model both ways)
+    - field discipline (explicit fields; never echo the ORM/DB model directly as a response)
+    - validation layering (field_validator for single-field, model_validator for cross-field)
+    - read/write split (response-only computed fields, write-only/never-echoed inputs, mass-assignment prevention)
+    - constraint rules (Field(gt/le/min_length/max_length/pattern), EmailStr, typed fields over str)
+    - ORM serialization config (from_attributes / model_config) and field aliasing (alias, serialization_alias)
+  defers_to:
+    - fastapi-routing (response_model wiring, status codes, dependency injection)
+    - fastapi-database (the SQLAlchemy/SQLModel ORM model the schema maps to)
+    - fastapi-security-audit (the security verdict on a field leak / mass-assignment)
+    - project schema conventions (base schema, naming, error envelope — adapter input)
 ---
 
 # fastapi-pydantic

@@ -16,7 +16,8 @@ TEXT_STDIN = re.compile(r"sys\.stdin\.read\(|json\.load\(sys\.stdin\)")
 
 class StdinUtf8Tests(unittest.TestCase):
     def test_no_hook_reads_text_stdin(self):
-        scripts = [p for p in HOOKS.rglob("*.py") if not p.name.startswith("test_")]
+        scripts = [p for p in HOOKS.rglob("*.py")
+                   if not p.name.startswith("test_") and "_vendor" not in p.parts]
         self.assertTrue(scripts)
         for script in scripts:
             with self.subTest(script=script.name):
@@ -27,6 +28,21 @@ class StdinUtf8Tests(unittest.TestCase):
         stream = io.TextIOWrapper(io.BytesIO(arabic.encode("utf-8")),
                                   encoding="cp1252", errors="surrogateescape")
         self.assertEqual(stream.buffer.read().decode("utf-8", "replace"), arabic)
+
+    def test_vendored_hooklib_reads_payload_as_utf8(self):
+        import json
+        import sys
+        sys.path.insert(0, str(HOOKS / "_vendor"))
+        import hooklib
+        arabic = "\u0641\u0627\u062a\u0648\u0631\u0629"
+        raw = json.dumps({"tool_input": {"command": arabic}}, ensure_ascii=False).encode("utf-8")
+        stream = io.TextIOWrapper(io.BytesIO(raw), encoding="cp1252", errors="surrogateescape")
+        self.assertEqual(hooklib.tool_input(hooklib.read_payload(stream))["command"], arabic)
+
+    def test_every_hook_reads_through_hooklib(self):
+        for script in HOOKS.glob("*.py"):
+            with self.subTest(script=script.name):
+                self.assertIn("hooklib.read_payload()", script.read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":

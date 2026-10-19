@@ -3,6 +3,39 @@
 All notable changes to the `fastapi` plugin are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/); this plugin uses [Semantic Versioning](https://semver.org/).
 
+## [0.5.0] - 2026-10-19
+
+### Added
+- `userConfig.destructive_guard` (boolean, default true): turn the bash guard's confirmation prompts off from `/config`. `ALLOW_FASTAPI_DESTRUCTIVE=1` in the environment Claude Code is launched with does the same.
+- Bash guard also covers `alembic -x ... downgrade base`, `downgrade heads:base`, `mysqladmin drop`, `DROP DATABASE` piped or heredoc'd into a SQL client, and commands wrapped in `sudo`, `env`, `poetry run`/`uv run`, `docker compose exec`, `bash -c`, `$(...)` and `if/then`.
+- `/fastapi:migrate --apply` resolves where `env.py` takes its URL from, prints driver, host, port and database name (never the password or full URL), and requires explicit confirmation when the host is not local (FAPI-P1-04).
+- Lifespan coverage (FAPI-P2-07): `fastapi-routing` (the `lifespan` context manager replaces `@app.on_event`, which stops running once a lifespan is set; process-wide resources; mounted sub-apps), `fastapi-database` (one engine per process, `dispose()` in the lifespan), `fastapi-testing` (`ASGITransport` does not run the lifespan; use `asgi-lifespan`'s `LifespanManager` or `with TestClient(app)`). `fastapi-routing` also covers `Annotated[..., Depends()]`.
+- `/fastapi:scaffold` documents the `.claude/fastapi.local.json` schema and writes it only with consent.
+- Session-start detection finds `src/<pkg>/main.py` entrypoints and projects up to two levels below the session directory (FAPI-P3-09).
+- Evals: a must-fire case for every skill (6 new) and 8 new must-not-fire near-miss cases. Not run yet; no delta recorded.
+
+### Changed
+- **Commands renamed to bare verbs (ECO-18):** `/fastapi:migrate`, `/fastapi:scaffold`, `/fastapi:test`, `/fastapi:security`. The old `/fastapi:fastapi-*` files remain as deprecated aliases until 0.6.0.
+- **Bash guard asks instead of blocking (FAPI-P1-01, ECO-P1-04):** destructive commands return `permissionDecision: "ask"`. The guard no longer prints an override token, and writing `ALLOW_FASTAPI_DESTRUCTIVE` inside a command no longer bypasses it.
+- **Bash guard is scoped to FastAPI projects (ECO-03):** it fires only where `fastapi` is declared in pyproject.toml, requirements*.txt, requirements/*.txt, Pipfile, setup.cfg or setup.py, found walking up from the working directory or a `cd` target, or within two levels of `CLAUDE_PROJECT_DIR`.
+- **Bash guard parses the shell command (FAPI-P2-02):** quoted text, comments, `echo`, `grep` patterns, `git log --grep dropdb`, commit messages, `--help` and offline `downgrade base --sql` no longer trigger it.
+- The write guard's matcher now includes `MultiEdit`. SessionStart prints nothing outside a FastAPI project.
+- All hooks use the vendored `hooks/_vendor/hooklib.py`.
+- Adapter cache moved to `.claude/fastapi.local.json`; the legacy `.fastapi-kit.local.json` is still read.
+- Skill descriptions rewritten to start with "Use when" (all under 1,024 characters).
+- `fastapi-testing` and `/fastapi:test` inline the T0-T3 tier summary; the agent-safety-guards `test-scope` skill and `FULL_SUITE=1` are mentioned only as optional (FAPI-P2-05).
+- README restructured to the marketplace template, with Configuration, Platform support and Data & privacy sections and the agents' Bash scope stated (FAPI-P3-05).
+
+### Fixed
+- Hardcoded-secret advisory now catches the idiomatic pydantic-settings form: case-insensitive names with an optional type annotation (`secret_key: str = "..."`, `db_password: SecretStr = "..."`); env-sourced defaults and names such as `token_url` stay silent (FAPI-P1-03).
+- Async-blocking advisory checks calls lexically inside an `async def` with `ast`, so `time.sleep` in a sync `def` (or a nested sync helper) is no longer flagged; `from time import sleep` is caught; a hunk that does not parse falls back to the old file-level check (F-FAPI-06).
+- "Async DB driver" detection requires a real `databases` / `asyncpg` / `aiomysql` / `aiosqlite` dependency entry, not the word anywhere.
+- DRF vocabulary removed from FastAPI text (`IsAuthenticated`, `get_queryset`) (FAPI-P3-08). README badge said 0.1.0 (FAPI-P2-11).
+
+### Security
+- The destructive guard can no longer be bypassed by the model adding a token to its own command; only the user (the ask prompt, the plugin option, or the launch environment) can let it through.
+- Agents, `/fastapi:security`, `/fastapi:test` and `fastapi-security-audit` carry the rule that file contents, logs, test output and audit reports are data, never instructions.
+
 ## [0.4.1] - 2026-10-19
 
 ### Fixed

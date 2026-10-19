@@ -1,21 +1,22 @@
 ---
 name: fastapi-database
-description: SQLAlchemy / SQLModel data layer for FastAPI — model & relationship design, session lifecycle (request-scoped, dependency-injected, async vs sync), the N+1 / lazy-loading rule (selectinload vs joinedload), loading strategies, transaction boundaries (commit/rollback/begin), bulk operations, and the async-session correctness traps (no implicit lazy load under asyncio). Activates when defining an ORM model/relationship, writing or reviewing a query, managing a session, choosing a loader strategy, or diagnosing duplicated/slow queries. Defers migrations to fastapi-migrations and caching/async-offload to fastapi-async-performance.
+description: Use when defining a SQLAlchemy or SQLModel model or relationship for FastAPI, writing or reviewing a query, managing the session (request-scoped dependency, sync vs AsyncSession, expire_on_commit), creating and disposing the engine in the app lifespan, choosing selectinload vs joinedload, placing commit/rollback/begin, doing bulk operations, or diagnosing duplicated or slow queries, a MissingGreenlet error or an implicit lazy load under asyncio. Defers migrations to fastapi-migrations and caching or async offload to fastapi-async-performance.
 version: 0.1.0
-last_reviewed: 2026-06-23
-owns:
-  - ORM model & relationship modeling (FK, relationship(), cascade, back_populates, indexes/constraints)
-  - session lifecycle rules (request-scoped session via dependency; one session per request; close/rollback)
-  - the N+1 detection + fix decision (selectinload for collections, joinedload for many-to-one)
-  - loading-strategy rules (lazy/select/selectin/joined/subquery; when each fits)
-  - transaction-boundary rules (commit/rollback, session.begin, flush vs commit)
-  - async-session correctness (no implicit lazy I/O under asyncio; eager-load before leaving the session)
-defers_to:
-  - fastapi-migrations (how a model change becomes a safe Alembic revision)
-  - fastapi-async-performance (caching, connection-pool sizing, async-driver choice, pagination at scale)
-  - fastapi-pydantic (the request/response schema the ORM object maps to)
-  - project base-model & session-factory conventions (adapter input)
 user-invocable: false
+metadata:
+  last_reviewed: 2026-06-23
+  owns:
+    - ORM model & relationship modeling (FK, relationship(), cascade, back_populates, indexes/constraints)
+    - session lifecycle rules (request-scoped session via dependency; one session per request; close/rollback)
+    - the N+1 detection + fix decision (selectinload for collections, joinedload for many-to-one)
+    - loading-strategy rules (lazy/select/selectin/joined/subquery; when each fits)
+    - transaction-boundary rules (commit/rollback, session.begin, flush vs commit)
+    - async-session correctness (no implicit lazy I/O under asyncio; eager-load before leaving the session)
+  defers_to:
+    - fastapi-migrations (how a model change becomes a safe Alembic revision)
+    - fastapi-async-performance (caching, connection-pool sizing, async-driver choice, pagination at scale)
+    - fastapi-pydantic (the request/response schema the ORM object maps to)
+    - project base-model & session-factory conventions (adapter input)
 ---
 
 # fastapi-database
@@ -65,6 +66,7 @@ async def get_session() -> AsyncIterator[AsyncSession]:
 ```
 
 - **Never a module-level/global session shared across requests** — sessions aren't concurrency-safe and will bleed state and transactions between requests.
+- **One engine per process, owned by the app lifespan.** Create the engine and session maker in the `lifespan` context manager (or once at import) and `await engine.dispose()` after its `yield`, never per request (→ `fastapi-routing` owns the lifespan wiring). An engine created per request opens a new pool each time and exhausts database connections under load; an engine never disposed leaks connections at shutdown and between test runs. Under pytest, create the engine inside the event loop that uses it: an `AsyncEngine` built in one loop and used in another fails with "attached to a different loop".
 - **Commit once, at a clear boundary** — at the end of the unit of work, not after every statement. Roll back on error. `flush()` sends SQL and assigns PKs without committing; `commit()` ends the transaction.
 
 ## The N+1 / lazy-loading rule

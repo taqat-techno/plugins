@@ -1,20 +1,21 @@
 ---
 name: fastapi-config
-description: FastAPI settings architecture and 12-factor configuration with pydantic-settings — a typed BaseSettings object, driving config from the environment, keeping secrets out of source, per-environment correctness (debug, docs exposure, CORS, database URL, secret key), and injecting settings via a cached dependency. Activates when creating or editing a settings module, adding a config value, wiring an environment variable or .env, standing up an environment, or reviewing config for environment-correctness. Defers the security verdict on settings to fastapi-security-audit.
+description: Use when creating or editing a FastAPI settings module with pydantic-settings (a typed BaseSettings object), adding a configuration value, wiring an environment variable or .env file, keeping a secret out of source, injecting settings through a cached dependency, standing up a new environment, or checking per-environment debug, /docs exposure, CORS origins, the database URL or the secret key. Defers the security verdict on settings to fastapi-security-audit.
 version: 0.1.0
-last_reviewed: 2026-06-23
-owns:
-  - settings-object rule (one typed pydantic-settings BaseSettings; no scattered os.getenv)
-  - environment-driven config rule (read from env; typed/validated; safe dev-only defaults)
-  - secret-handling rule (secrets never in source/VCS; SECRET_KEY/DB creds/API keys from env or a secret store)
-  - per-environment correctness (debug, /docs & /openapi.json exposure, CORS, DATABASE_URL, logging)
-  - settings-injection rule (provide settings via a cached dependency / lru_cache, not import-time globals)
-defers_to:
-  - fastapi-security-audit (the pass/fail security verdict on a settings/config file)
-  - fastapi-async-performance (connection-pool sizing, cache-backend tuning values)
-  - fastapi-database (the DATABASE_URL consumer / engine construction)
-  - project secret-store choice (Vault / SSM / Doppler / .env — adapter input)
 user-invocable: false
+metadata:
+  last_reviewed: 2026-06-23
+  owns:
+    - settings-object rule (one typed pydantic-settings BaseSettings; no scattered os.getenv)
+    - environment-driven config rule (read from env; typed/validated; safe dev-only defaults)
+    - secret-handling rule (secrets never in source/VCS; SECRET_KEY/DB creds/API keys from env or a secret store)
+    - per-environment correctness (debug, /docs & /openapi.json exposure, CORS, DATABASE_URL, logging)
+    - settings-injection rule (provide settings via a cached dependency / lru_cache, not import-time globals)
+  defers_to:
+    - fastapi-security-audit (the pass/fail security verdict on a settings/config file)
+    - fastapi-async-performance (connection-pool sizing, cache-backend tuning values)
+    - fastapi-database (the DATABASE_URL consumer / engine construction)
+    - project secret-store choice (Vault / SSM / Doppler / .env — adapter input)
 ---
 
 # fastapi-config

@@ -1,7 +1,7 @@
 {
   "name": "fastapi",
-  "version": "0.4.1",
-  "description": "Reusable FastAPI engineering toolkit — Pydantic v2 schema design, async routing & dependency injection, SQLAlchemy/SQLModel ORM (sync & async sessions, N+1), Alembic migration safety (zero-downtime expand-contract), pydantic-settings/12-factor config, security auditing (OAuth2/JWT, CORS, injection), pytest + httpx testing, and async-correctness/performance. 8 auto-activating skills + 4 commands + 3 agents + session/event-loop/destructive-command guards. Generic and adapter-driven — app layout, ORM, async-vs-sync, and test runner are project-supplied inputs.",
+  "version": "0.5.0",
+  "description": "Reusable FastAPI engineering toolkit — Pydantic v2 schema design, async routing & dependency injection, SQLAlchemy/SQLModel ORM (sync & async sessions, N+1), Alembic migration safety (zero-downtime expand-contract), pydantic-settings/12-factor config, security auditing (OAuth2/JWT, CORS, injection), pytest + httpx testing, and async-correctness/performance. 8 auto-activating skills + 4 commands + 3 agents + session/event-loop/destructive-command guards (ask before wiping data). Generic and adapter-driven — app layout, ORM, async-vs-sync, and test runner are project-supplied inputs.",
   "author": {
     "name": "TaqaTechno",
     "email": "info@taqatechno.com",
@@ -38,5 +38,13 @@
     "backend",
     "api",
     "scaffold"
-  ]
+  ],
+  "userConfig": {
+    "destructive_guard": {
+      "type": "boolean",
+      "title": "Ask before destructive database commands",
+      "description": "In a FastAPI project, ask you to confirm alembic downgrade base, dropdb and DROP DATABASE before they run. Turn off only if another guard already covers them.",
+      "default": true
+    }
+  }
 }

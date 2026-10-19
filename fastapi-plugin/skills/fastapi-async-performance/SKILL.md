@@ -1,21 +1,22 @@
 ---
 name: fastapi-async-performance
-description: FastAPI async correctness and performance at scale — the sync-def-vs-async-def path-operation decision, never blocking the event loop (run_in_threadpool for blocking I/O, async drivers, no sync requests/time.sleep/sync-DB in async routes), background tasks vs a real task queue, caching layers + invalidation, database connection-pool sizing, pagination at scale (cursor vs offset), and measuring the real bottleneck before changing anything. Activates when an endpoint/task is slow, when a route blocks under load, when adding caching or background work, or when planning for scale. Defers per-query loader rules to fastapi-database.
+description: Use when a FastAPI endpoint or task is slow, when throughput collapses or a route blocks under load, when deciding def vs async def for a path operation, when a blocking call (requests, time.sleep, a sync DB driver) sits inside async code, when adding caching or background work (BackgroundTasks vs a real queue), sizing the database connection pool, choosing cursor vs offset pagination at scale, or measuring the real bottleneck before optimizing. Defers per-query loader rules to fastapi-database.
 version: 0.1.0
-last_reviewed: 2026-06-23
-owns:
-  - the sync-def vs async-def path-operation rule (and why a sync def runs in the threadpool)
-  - event-loop-safety rule (no blocking I/O in async; run_in_threadpool; async drivers/clients)
-  - background-work rule (BackgroundTasks for light, Celery/RQ/arq for heavy/durable/retryable)
-  - caching-layer selection + invalidation rules
-  - connection-pool sizing (pool_size/max_overflow vs worker/concurrency count) and pagination at scale
-  - measure-first rule (find the real bottleneck before optimizing)
-defers_to:
-  - fastapi-database (selectinload/joinedload per-query rules; N+1 mechanics; session semantics)
-  - fastapi-migrations (how an index/backfill becomes a safe revision)
-  - fastapi-config (where pool sizes / cache backend URLs are configured)
-  - project infra (cache server, broker, worker topology — adapter input)
 user-invocable: false
+metadata:
+  last_reviewed: 2026-06-23
+  owns:
+    - the sync-def vs async-def path-operation rule (and why a sync def runs in the threadpool)
+    - event-loop-safety rule (no blocking I/O in async; run_in_threadpool; async drivers/clients)
+    - background-work rule (BackgroundTasks for light, Celery/RQ/arq for heavy/durable/retryable)
+    - caching-layer selection + invalidation rules
+    - connection-pool sizing (pool_size/max_overflow vs worker/concurrency count) and pagination at scale
+    - measure-first rule (find the real bottleneck before optimizing)
+  defers_to:
+    - fastapi-database (selectinload/joinedload per-query rules; N+1 mechanics; session semantics)
+    - fastapi-migrations (how an index/backfill becomes a safe revision)
+    - fastapi-config (where pool sizes / cache backend URLs are configured)
+    - project infra (cache server, broker, worker topology — adapter input)
 ---
 
 # fastapi-async-performance

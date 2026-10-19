@@ -1,21 +1,22 @@
 ---
 name: fastapi-testing
-description: FastAPI testing strategy — TestClient (sync) vs httpx.AsyncClient + ASGITransport (async), dependency_overrides for swapping the DB session and auth, transactional test-DB fixtures with rollback isolation, mocking external calls and time at the boundary, query-count regression coverage, and asserting the endpoint contract (status, body, permissions). Activates when writing or reviewing FastAPI tests, choosing the test client, setting up the test DB/fixtures, overriding a dependency, running the constraint-sensitive suite against Postgres instead of SQLite (varchar length, partial/deferrable constraints are Postgres-only and invisible on SQLite), or diagnosing flaky/slow/leaky tests. Defers production query design to fastapi-database.
+description: Use when writing or reviewing FastAPI tests, choosing TestClient (sync) vs httpx.AsyncClient + ASGITransport (async), running lifespan startup in tests (ASGITransport does not; use asgi-lifespan's LifespanManager or a TestClient context), overriding a dependency with dependency_overrides, building a transactional test-DB fixture with rollback, mocking external calls or time, adding query-count or endpoint-contract assertions, scoping a run to what changed, running the constraint-sensitive suite on Postgres instead of SQLite, or diagnosing flaky, slow, leaky or silently skipped async tests. Defers production query design to fastapi-database.
 version: 0.1.0
-last_reviewed: 2026-07-23
-owns:
-  - test-client choice (TestClient sync vs httpx.AsyncClient+ASGITransport for async apps) and config
-  - dependency_overrides strategy (swap get_session / get_current_user / get_settings under test)
-  - test-DB lifecycle rules (transactional rollback per test; isolated, not shared, state)
-  - external-dependency & time mocking rules (mock at boundary; freeze time; no real network)
-  - regression-coverage rules (query-count assertions for N+1; contract tests for status/body/authz)
-  - async-test correctness (pytest-asyncio/anyio; awaiting the async client; async fixtures)
-defers_to:
-  - fastapi-database (what the production query/loader should be; this skill locks it with a count test)
-  - fastapi-routing (the endpoint contract being asserted)
-  - fastapi-config (the test settings/overrides)
-  - project test conventions & coverage targets (adapter input)
 user-invocable: false
+metadata:
+  last_reviewed: 2026-07-23
+  owns:
+    - test-client choice (TestClient sync vs httpx.AsyncClient+ASGITransport for async apps) and config
+    - dependency_overrides strategy (swap get_session / get_current_user / get_settings under test)
+    - test-DB lifecycle rules (transactional rollback per test; isolated, not shared, state)
+    - external-dependency & time mocking rules (mock at boundary; freeze time; no real network)
+    - regression-coverage rules (query-count assertions for N+1; contract tests for status/body/authz)
+    - async-test correctness (pytest-asyncio/anyio; awaiting the async client; async fixtures)
+  defers_to:
+    - fastapi-database (what the production query/loader should be; this skill locks it with a count test)
+    - fastapi-routing (the endpoint contract being asserted)
+    - fastapi-config (the test settings/overrides)
+    - project test conventions & coverage targets (adapter input)
 ---
 
 # fastapi-testing
@@ -59,6 +60,20 @@ async def test_list_items():
 - **Async app → `httpx.AsyncClient` + `ASGITransport`.** The sync `TestClient` runs the app in a worker thread with its own loop; for genuinely async DB sessions and dependencies, the async client keeps everything on one loop and surfaces event-loop bugs the sync client hides.
 - **Sync app → `TestClient`** is fine and simplest.
 - Configure `pytest-asyncio` (`asyncio_mode = auto`) or `anyio` so `async def` tests run.
+- **`ASGITransport` does not run the app's lifespan.** Startup never happens, so whatever the `lifespan` creates (engine, session maker, HTTP client, `app.state.*`) is missing, and tests fail with `AttributeError` on `app.state` or, worse, silently fall back to a module-level default that points at the wrong database. Wrap the app in `asgi_lifespan.LifespanManager` (package `asgi-lifespan`) and pass the manager's app to the transport:
+
+```python
+from asgi_lifespan import LifespanManager
+
+@pytest.fixture
+async def client():
+    async with LifespanManager(app) as manager:
+        transport = ASGITransport(app=manager.app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://t") as c:
+            yield c
+```
+
+  The sync `TestClient` runs the lifespan only when used as a context manager (`with TestClient(app) as client:`); a bare `TestClient(app)` skips startup and shutdown too. Override the lifespan's resources (point the engine at the test DB) before entering it.
 
 ## Dependency overrides (the key lever)
 
@@ -82,15 +97,18 @@ app.dependency_overrides.clear()   # reset between tests, or via a fixture
 
 ## Scoped runs during development
 
-Test the change, not the project. The tier policy is owned by the `test-scope` skill
-(agent-safety-guards plugin). These are the pytest selectors for each tier:
+Test the change, not the project. Run the narrowest tier that proves the change, stop
+at the first red tier and fix it before widening, and report which tiers ran (with
+counts) and that the full suite did not. If the `agent-safety-guards` plugin is
+installed, its `test-scope` skill owns this tier policy in more detail. These are the
+pytest selectors for each tier:
 
 | Tier | Run |
 |---|---|
 | T0 | `python -m py_compile` on changed files; a schema/migration check when models changed |
 | T1 | `pytest tests/api/test_orders.py::test_create_rejects_negative` or `-k "orders and create"` |
 | T2 | the test package of each changed area (`pytest tests/api/orders/`), widened to the packages that import a changed model, dependency, settings or `conftest.py` |
-| T3 | Everything: **only when the user asks, or in CI**, with `FULL_SUITE=1`. Postgres-parity runs belong in CI (see Backend parity) |
+| T3 | Everything: **only when the user asks, or in CI** (with agent-safety-guards installed, its hook may want `FULL_SUITE=1` in the command). Postgres-parity runs belong in CI (see Backend parity) |
 
 - After a red run: `pytest --lf --lfnf=none -x`, then the whole T1 set.
 - A path or `-k` that collects nothing reports "no tests ran" (exit 5). That is a failed

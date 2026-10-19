@@ -1,21 +1,22 @@
 ---
 name: fastapi-routing
-description: FastAPI routing and dependency-injection patterns — path operations, APIRouter organization, the Depends() injection system (including yield-dependencies for resource lifecycle), response_model and status_code declaration, HTTPException/error shaping, and pagination. Activates when writing or reviewing a path operation, an APIRouter, a dependency, a response/status declaration, or diagnosing inconsistent errors, missing pagination, or a wrong status code. Defers schema fields to fastapi-pydantic, auth hardening to fastapi-security-audit, and query shaping to fastapi-database.
+description: Use when writing or reviewing a FastAPI path operation, an APIRouter, a Depends() dependency (including yield dependencies that open and close a resource), the app lifespan (startup/shutdown, replacing @app.on_event), a response_model or status_code declaration, HTTPException and error shaping, or pagination - or when errors come back in inconsistent shapes, a list endpoint is unbounded, a status code is wrong, or a resource leaks because its dependency never closes it. Defers schema fields to fastapi-pydantic, auth hardening to fastapi-security-audit, and query shaping to fastapi-database.
 version: 0.1.0
-last_reviewed: 2026-06-23
-owns:
-  - route organization (APIRouter per resource, prefix/tags, route ordering, path vs query params)
-  - dependency-injection rules (Depends, shared deps, yield-deps for session/resource lifecycle, sub-dependencies)
-  - response declaration (response_model, status_code, response_model_exclude_none, 201/204 correctness)
-  - error shaping (HTTPException with correct status, consistent error envelope, exception handlers)
-  - pagination / filtering parameter rules (default-bounded limit, offset/cursor params)
-defers_to:
-  - fastapi-pydantic (the request/response model fields and validation)
-  - fastapi-database (get_queryset/session shaping, select/loader strategy for the endpoint)
-  - fastapi-security-audit (auth model hardening, permission-bypass review, rate-limit policy)
-  - fastapi-async-performance (sync-vs-async def choice, response caching, scale)
-  - project API conventions (base router, error envelope, auth scheme — adapter input)
 user-invocable: false
+metadata:
+  last_reviewed: 2026-06-23
+  owns:
+    - route organization (APIRouter per resource, prefix/tags, route ordering, path vs query params)
+    - dependency-injection rules (Depends, shared deps, yield-deps for session/resource lifecycle, sub-dependencies)
+    - response declaration (response_model, status_code, response_model_exclude_none, 201/204 correctness)
+    - error shaping (HTTPException with correct status, consistent error envelope, exception handlers)
+    - pagination / filtering parameter rules (default-bounded limit, offset/cursor params)
+  defers_to:
+    - fastapi-pydantic (the request/response model fields and validation)
+    - fastapi-database (query/session shaping, select/loader strategy for the endpoint)
+    - fastapi-security-audit (auth model hardening, permission-bypass review, rate-limit policy)
+    - fastapi-async-performance (sync-vs-async def choice, response caching, scale)
+    - project API conventions (base router, error envelope, auth scheme — adapter input)
 ---
 
 # fastapi-routing
@@ -60,8 +61,31 @@ async def get_session() -> AsyncIterator[AsyncSession]:
 ```
 
   The cleanup after `yield` runs even if the path operation raises — this is how sessions/files/locks are guaranteed to close (→ `fastapi-database` owns the session semantics).
+- **Declare dependencies with `Annotated`** (FastAPI 0.95+): `SessionDep = Annotated[AsyncSession, Depends(get_session)]`, then `async def list_items(session: SessionDep)`. One alias keeps the dependency identical across routes and keeps the parameter's default slot free.
 - **Sub-dependencies compose** — `get_current_active_user` depends on `get_current_user` depends on `oauth2_scheme`. Build authz as a chain of small dependencies, not one big function.
 - **Dependencies are cached per-request** by default — the same `Depends(get_session)` resolves once per request. Rely on that rather than re-creating resources.
+
+## App lifespan (startup and shutdown)
+
+- **Use the `lifespan` context manager, not `@app.on_event("startup"/"shutdown")`.** The event decorators are deprecated, and when a `lifespan` is passed they are not run at all. Everything before `yield` runs once at startup, everything after it once at shutdown:
+
+```python
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    engine = create_async_engine(settings.database_url)
+    app.state.session_maker = async_sessionmaker(engine, expire_on_commit=False)
+    app.state.http = httpx.AsyncClient(timeout=10)
+    yield
+    await app.state.http.aclose()
+    await engine.dispose()
+
+app = FastAPI(lifespan=lifespan)
+```
+
+- **Process-wide resources live in the lifespan, per-request ones in `yield`-dependencies.** The engine/pool, a shared HTTP client, ML models and caches are created once in `lifespan` and read from `request.app.state` (or a dependency that returns them). A session or a transaction is per request. Creating an engine per request exhausts connections; creating a session at import time shares one across requests.
+- **Dispose what the lifespan opened** (`await engine.dispose()`, `await client.aclose()`), or shutdown leaks connections and tests emit "unclosed" warnings.
+- **Sub-applications mounted with `app.mount()` do not run their own lifespan**; start their resources from the parent's lifespan.
+- Tests must run the lifespan explicitly with an async client (→ `fastapi-testing`).
 
 ## Response & status declaration
 
