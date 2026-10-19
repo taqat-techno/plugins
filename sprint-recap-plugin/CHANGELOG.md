@@ -3,6 +3,11 @@
 All notable changes to the sprint-recap plugin are documented here.
 This project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.4.1] - 2026-10-19
+
+### Changed
+- The example-data test reads private names from the git-ignored `.privacy-denylist` instead of listing them in a published file.
+
 ## [0.4.0] - 2026-10-19
 
 ### Changed (breaking)

@@ -20,6 +20,15 @@ import pytest
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "scripts"))
 
+
+def _private_names() -> tuple:
+    """Client/project names from the git-ignored repo-root `.privacy-denylist` (never published)."""
+    path = ROOT.parent / ".privacy-denylist"
+    if not path.is_file():
+        return ()
+    return tuple(line.strip().lower() for line in path.read_text(encoding="utf-8").splitlines()
+                 if line.strip() and not line.startswith("#"))
+
 import _common  # noqa: E402
 import _yaml  # noqa: E402
 import build_remotion  # noqa: E402
@@ -408,5 +417,5 @@ class TestManifestAndCommands:
             if path.name == "CHANGELOG.md" or "tests" in path.parts:
                 continue
             text = path.read_text(encoding="utf-8").lower()
-            for word in ("khairgate", "donor", "beneficiar", "cairo"):
+            for word in ("donor", "beneficiar", "cairo") + _private_names():
                 assert word not in text, (path.name, word)
