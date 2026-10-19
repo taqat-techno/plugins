@@ -63,18 +63,35 @@ def run_hook(plugin: Path, event: str, hook: dict, tmp: Path) -> tuple[int, str]
     return proc.returncode, tail[0][:200]
 
 
+def group_key(event: str, matcher: str, hook: dict) -> tuple:
+    """Exec-form registrations of the same script under different interpreter names
+    (python3 / python / py -3) are one logical hook: Claude Code launches each, a missing
+    interpreter simply never starts, and one sibling handles the event."""
+    if hook.get("args") is None:
+        return (event, matcher, hook.get("command", ""), id(hook))
+    return (event, matcher, tuple(a for a in hook["args"] if a != "-3"))
+
+
 def main(argv: list[str]) -> int:
     plugins = [ROOT / a for a in argv] if argv else sorted(ROOT.glob("*-plugin"))
     failures = 0
     with tempfile.TemporaryDirectory(prefix="hook-smoke-") as t:
         tmp = Path(t)
         for plugin in plugins:
+            groups: dict[tuple, list] = {}
             for event, matcher, hook in hooks_of(plugin):
-                code, note = run_hook(plugin, event, hook, tmp)
-                ok = code == 0
+                groups.setdefault(group_key(event, matcher, hook), []).append((event, matcher, hook))
+            for members in groups.values():
+                event, matcher = members[0][0], members[0][1]
+                results = [run_hook(plugin, event, hook, tmp) for _, _, hook in members]
+                ran = [(c, n) for c, n in results if not (c == 127 and "not found on PATH" in n)]
+                ok = bool(ran) and all(c == 0 for c, _ in ran)
                 failures += not ok
                 label = f"{plugin.name} {event}{'/' + matcher if matcher else ''}"
-                print(f"{'ok  ' if ok else 'FAIL'} {label}" + (f"  (exit {code}: {note})" if not ok else ""))
+                skipped = len(results) - len(ran)
+                note = "" if ok else "  (" + "; ".join(f"exit {c}: {n}" for c, n in (ran or results)) + ")"
+                extra = f"  [{skipped} alternate interpreter(s) absent]" if ok and skipped else ""
+                print(f"{'ok  ' if ok else 'FAIL'} {label}{extra}{note}")
     print(f"hook smoke: {'ok' if not failures else f'{failures} failure(s)'}")
     return 1 if failures else 0
 
