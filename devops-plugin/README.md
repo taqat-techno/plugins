@@ -227,7 +227,8 @@ for layer ownership):
 | Hook | Event | Behavior |
 |------|-------|----------|
 | `session_start_check.py` | SessionStart | Advisory profile / data-file health check; always exits 0, never blocks. |
-| `pre_write_validate.py` | PreToolUse (ADO MCP writes) | Injects state/hierarchy context; hard-blocks bug-creation authority, close/remove restriction, unresolved @mentions |
+| `pre_write_validate.py` | PreToolUse (5 work-item/PR writes: `wit_create_work_item`, `wit_update_work_item`, `wit_add_work_item_comment`, `wit_work_items_link`, `repo_create_pull_request`) | Injects state/hierarchy context; hard-blocks bug-creation authority, close/remove restriction, unresolved @mentions |
+| `pre_write_confirm.py` | PreToolUse (every other ADO MCP write tool - pipelines, PR complete/merge/abandon/vote/reviewers/threads, branches, batch/child/link work-item writes, wiki, iterations/capacity, test plans) | Returns `permissionDecision: "ask"` with the action and its target, so **you** confirm each write even if the model skipped its confirmation summary. Fails open. The gated tool set is listed in `rules/write-gate.md` ("Hook-Enforced Confirmation"). |
 
 There is **no git-push gate** — git pushes (including force-push) are **not** gated by this plugin.
 `rules/git-remote-write-gate.md` remains as advisory guidance only (permission-first +

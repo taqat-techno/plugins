@@ -1,6 +1,6 @@
 # Official Bug Report Template
 
-**Source**: TaqaTech QA Team — Bug Reporting Framework v1.0
+**Source**: QA Team — Bug Reporting Framework v1.0
 
 This template is used for:
 - **Bugs** (created by QA/QC)
@@ -17,7 +17,7 @@ Both types use the same structured body format to ensure consistency and traceab
 ```
 
 **Examples**:
-- `Beneficiary Report - Country Column Missing from Export - Admin Panel`
+- `Sales Report - Region Column Missing from Export - Admin Panel`
 - `Login Module - Timeout Error on Mobile - Login Page`
 - `Payment API - Wrong Currency Conversion - Checkout Flow`
 
@@ -64,7 +64,7 @@ ACCEPTANCE CRITERIA:
 ## Good Example
 
 ```
-TITLE: Beneficiary Report - Country Column Missing from Export - Admin Panel
+TITLE: Sales Report - Region Column Missing from Export - Admin Panel
 
 SEVERITY: 3 - Medium
 
@@ -110,7 +110,7 @@ ACCEPTANCE CRITERIA:
 
 | Field | Rewritten |
 |-------|-----------|
-| Title | Beneficiary Report - Country Column Missing from Export - Admin Panel |
+| Title | Sales Report - Region Column Missing from Export - Admin Panel |
 | Repro Steps | Full structured format with environment, steps, expected/actual |
 | Acceptance Criteria | Checkboxes with specific, testable conditions |
 
@@ -135,5 +135,5 @@ If creating a `[Dev-Internal-fix]` Task, use the same template for the Task desc
 
 ---
 
-*TaqaTech QA Team — Bug Reporting Framework v1.0*
+*QA Team — Bug Reporting Framework v1.0*
 *Referenced by: commands/create.md, data/state_machine.json*

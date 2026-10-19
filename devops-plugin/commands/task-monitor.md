@@ -49,7 +49,7 @@ Output:
 ### New Assignments (1)
 | ID | Type | Title | State | Assigned By |
 |----|------|-------|-------|-------------|
-| #1410 | Bug | Map crash on large datasets | Approved | Omar Khalil |
+| #1410 | Bug | Map crash on large datasets | Approved | Jane Doe |
 
 ### State Changes (1)
 | ID | Title | Change |

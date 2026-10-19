@@ -57,6 +57,42 @@ All `list`, `show`, `get`, `search`, `query` operations execute freely.
 
 ---
 
+## Hook-Enforced Confirmation (ask gate)
+
+This section is the **single source of truth** for which ADO MCP write tools are
+hook-gated. Do not copy this list elsewhere; reference this section.
+
+The prose gate above is advisory to the model. As a backstop, every MCP write tool
+in the table below is routed by `hooks/hooks.json` (PreToolUse) to
+`hooks/pre_write_confirm.py`, which returns `permissionDecision: "ask"` with a
+reason naming the action and its target (project, repo, PR, work item, pipeline,
+wiki path, ...). Claude Code then asks the **human** to confirm the call, even if
+the model skipped the confirmation summary. The hook fails open (no decision, normal
+permission flow) on internal errors.
+
+Tool names match both `mcp__plugin_devops_azure-devops__<tool>` and the legacy
+`mcp__azure-devops__<tool>`. `tests/test_write_confirm.py` asserts the hooks.json
+matcher and this table list exactly the same tools.
+
+| Domain | Gated write tools (`@azure-devops/mcp` 2.8.0) |
+|--------|-----------------------------------------------|
+| Pipelines | `pipelines_run_pipeline`, `pipelines_create_pipeline`, `pipelines_update_build_stage` |
+| Repos / PRs | `repo_update_pull_request` (complete / merge / abandon / edit), `repo_update_pull_request_reviewers`, `repo_vote_pull_request`, `repo_create_branch`, `repo_create_pull_request_thread`, `repo_update_pull_request_thread`, `repo_reply_to_comment` |
+| Work items | `wit_update_work_items_batch`, `wit_add_child_work_items`, `wit_work_item_unlink`, `wit_add_artifact_link`, `wit_link_work_item_to_pull_request`, `wit_update_work_item_comment` |
+| Wiki | `wiki_create_or_update_page` |
+| Work / iterations | `work_update_team_capacity`, `work_create_iterations`, `work_assign_iterations` |
+| Test plans | `testplan_create_test_plan`, `testplan_create_test_suite`, `testplan_create_test_case`, `testplan_add_test_cases_to_suite`, `testplan_update_test_case_steps` |
+
+The five tools in the CREATE/UPDATE tables above (`wit_create_work_item`,
+`wit_update_work_item`, `wit_add_work_item_comment`, `wit_work_items_link`,
+`repo_create_pull_request`) are instead routed to `hooks/pre_write_validate.py`
+(role / state / mention / repo-GUID validation) and are not in the ask gate.
+
+When the MCP server is upgraded, add any new write tool to this table **and** the
+hooks.json matcher in the same change; the sync test fails otherwise.
+
+---
+
 ## Confirmation Summary Templates
 
 ### Work Item Creation

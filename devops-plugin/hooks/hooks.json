@@ -1,5 +1,5 @@
 {
-  "description": "Azure DevOps integration hooks - lightweight SessionStart profile/data health check and role-based Azure DevOps work-item write validation. Matchers are namespace-agnostic: they match both the legacy 'mcp__azure-devops__*' and the current plugin-namespaced 'mcp__plugin_devops_azure-devops__*' tool names. No git-push gate — git pushes are unrestricted. (MCP error-recovery guidance is in devops/MCP_FAILURE_MODES.md; Claude Code has no per-tool-failure hook event.)",
+  "description": "Azure DevOps integration hooks - lightweight SessionStart profile/data health check and role-based Azure DevOps work-item write validation, plus a permissionDecision 'ask' confirmation gate on every other ADO MCP write tool (tool set: rules/write-gate.md). Matchers are namespace-agnostic: they match both the legacy 'mcp__azure-devops__*' and the current plugin-namespaced 'mcp__plugin_devops_azure-devops__*' tool names. No git-push gate — git pushes are unrestricted. (MCP error-recovery guidance is in devops/MCP_FAILURE_MODES.md; Claude Code has no per-tool-failure hook event.)",
   "hooks": {
     "SessionStart": [
       {
@@ -15,11 +15,21 @@
     ],
     "PreToolUse": [
       {
-        "matcher": "mcp__(plugin_devops_)?azure-devops__wit_create_work_item|mcp__(plugin_devops_)?azure-devops__wit_update_work_item|mcp__(plugin_devops_)?azure-devops__wit_add_work_item_comment|mcp__(plugin_devops_)?azure-devops__wit_work_items_link|mcp__(plugin_devops_)?azure-devops__repo_create_pull_request",
+        "matcher": "^mcp__(plugin_devops_)?azure-devops__(wit_create_work_item|wit_update_work_item|wit_add_work_item_comment|wit_work_items_link|repo_create_pull_request)$",
         "hooks": [
           {
             "type": "command",
             "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/pre_write_validate.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\"; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "^mcp__(plugin_devops_)?azure-devops__(pipelines_(run_pipeline|create_pipeline|update_build_stage)|repo_(update_pull_request|update_pull_request_reviewers|vote_pull_request|create_branch|update_pull_request_thread|create_pull_request_thread|reply_to_comment)|wit_(update_work_items_batch|add_child_work_items|work_item_unlink|add_artifact_link|link_work_item_to_pull_request|update_work_item_comment)|wiki_create_or_update_page|work_(update_team_capacity|create_iterations|assign_iterations)|testplan_(create_test_plan|create_test_suite|create_test_case|add_test_cases_to_suite|update_test_case_steps))$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/pre_write_confirm.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\"; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0",
             "timeout": 10
           }
         ]

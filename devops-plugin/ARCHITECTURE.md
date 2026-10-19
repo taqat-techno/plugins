@@ -57,6 +57,8 @@ Each concern has exactly ONE owner. Other layers reference but never re-implemen
 │                         Enforce: bug creation block (exit 2)     │
 │                         Enforce: close/remove restriction (exit 2)│
 │                         Enforce: unresolved @mentions (exit 2)   │
+│  pre_write_confirm.py   Enforce: permissionDecision "ask" on   │
+│                         all other ADO writes (list: write-gate) │
 │  pre-bash-check.sh      Context: commit message tips            │
 │  post-bash-suggest.sh   Context: git operation suggestions      │
 │  error-recovery.sh      Context: API error guidance             │

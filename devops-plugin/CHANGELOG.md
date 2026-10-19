@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [6.11.0] - 2026-10-19
+
+### Security
+- Every write-capable Azure DevOps MCP tool that the validator does not already cover now asks for confirmation through `permissionDecision: "ask"`. That covers 25 tools, including `pipelines_run_pipeline`, `repo_update_pull_request` (complete/merge), `wit_update_work_items_batch`, `wit_work_item_unlink` and `wiki_create_or_update_page`. The new hook is `hooks/pre_write_confirm.py`; `rules/write-gate.md` owns the tool list (audit DEV-P0-01).
+- The existing validator matcher is now anchored, so `wit_update_work_item` no longer also matches `wit_update_work_items_batch`.
+### Changed
+- Added `"license": "MIT"` to plugin.json.
+- Example data uses neutral names (no real people or client reports).
+
 ## [6.10.1] - 2026-10-19
 
 ### Security
