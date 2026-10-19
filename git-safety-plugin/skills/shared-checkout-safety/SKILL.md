@@ -16,7 +16,7 @@ owns:
   - the coordination file when two agents share a tree by design (scope, owned files, contract for the sibling)
 defers_to:
   - git-safety skill for single-writer local hygiene (add -A, dirty-tree switch, rm --cached, author/push identity)
-  - claude-env-doctor for the file-syncer itself (Syncthing conflict/deadlock/ignore mechanics)
+  - env-doctor for the file-syncer itself (Syncthing conflict/deadlock/ignore mechanics)
   - the user for every commit, discard, and recovery decision on a shared tree
 user-invocable: false
 ---
@@ -200,5 +200,5 @@ two agents here by design?           --> coordination file: scope, owned files, 
 ## Cross-references
 
 - `git-safety` (skill) — single-writer local hygiene: `git add -A`, dirty-tree branch switch, `git rm --cached`, author/push identity, re-check status before push. This skill covers the multi-writer hazards; that one the solo footguns.
-- `claude-env-doctor` — the file **syncer** itself (Syncthing conflict resolution, venv/`node_modules` delete-deadlock, `.stignore` not syncing). When a syncer is the second writer, its own operational quirks live there.
+- `env-doctor` — the file **syncer** itself (Syncthing conflict resolution, venv/`node_modules` delete-deadlock, `.stignore` not syncing). When a syncer is the second writer, its own operational quirks live there.
 - The user — owns every commit, discard, and recovery decision on a shared tree. This skill never decides on their behalf.

@@ -4,6 +4,11 @@ All notable changes to the `git-safety` plugin are documented here. The format i
 based on [Keep a Changelog](https://keepachangelog.com/), and the project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [0.4.2] - 2026-10-19
+
+### Changed
+- Cross-references renamed from `claude-env-doctor` to `env-doctor`.
+
 ## [0.4.1] - 2026-10-19
 
 ### Fixed

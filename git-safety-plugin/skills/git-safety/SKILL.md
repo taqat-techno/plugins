@@ -16,7 +16,7 @@ defers_to:
   - shared-checkout-safety skill when more than one agent/session/syncer shares the SAME working tree
   - devops (git-remote-write-gate) for the Azure DevOps / provider-specific remote push-identity gate
   - agent-safety skill for the general "don't route around a permission denial / MCP is not a bypass" principle
-  - claude-env-doctor for a Windows git "dubious ownership" (BUILTIN\\Administrators) block on running git at all
+  - env-doctor for a Windows git "dubious ownership" (BUILTIN\\Administrators) block on running git at all
   - the user for every commit, push, branch, and destructive-op decision
 user-invocable: false
 ---
@@ -164,5 +164,5 @@ shared working tree?         --> STOP: use shared-checkout-safety (discarding-op
 - `devops` (git-remote-write-gate) — the provider-specific remote push permission + push-identity gate (e.g. Azure DevOps). This skill owns the generic push-identity reflex; that owns the provider gate.
 - `agent-safety` (skill) — the general "don't route around a permission denial; an MCP tool is not a bypass" principle. This skill applies it to git/`gh`/repo-MCP writes.
 - `qa-browser` (runtime-reality-check) — what evidence class licenses a claim (an item read statically is not runtime-verified). This skill owns *how* a remote write is gated; that one owns whether the claim being written was earned.
-- `claude-env-doctor` — if git itself refuses to run with a Windows "dubious ownership" error (`BUILTIN\Administrators`-owned dir), that is an environment block, not a workflow issue; a scoped `git -c safe.directory=<dir> …` avoids mutating global config.
+- `env-doctor` — if git itself refuses to run with a Windows "dubious ownership" error (`BUILTIN\Administrators`-owned dir), that is an environment block, not a workflow issue; a scoped `git -c safe.directory=<dir> …` avoids mutating global config.
 - The user — owns every commit, push, branch, and destructive-op decision. This skill never decides on their behalf.

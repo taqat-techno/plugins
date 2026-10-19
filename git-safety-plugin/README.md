@@ -35,7 +35,7 @@ One non-blocking `PreToolUse` hook (`hooks/risky_git_advisory.py`) inspects a sh
 - **Making commits / pushing / opening PRs** → use a commit-workflow plugin.
 - **Reviewing code or PRs** → use a code-review plugin.
 - **Provider-specific remote push gates** (e.g. Azure DevOps push identity / account policy) → the `devops` plugin's `git-remote-write-gate`.
-- **The file syncer itself** (Syncthing conflict/deadlock/ignore mechanics) → the `claude-env-doctor` plugin.
+- **The file syncer itself** (Syncthing conflict/deadlock/ignore mechanics) → the `env-doctor` plugin.
 - **General "an MCP tool is not a permission bypass"** principle → the `agent-safety-guards` plugin (this plugin applies it specifically to git/repo writes).
 - **Whether a claim being written to a remote was actually earned** (an item read statically is not runtime-verified) → the `qa-browser` plugin's `runtime-reality-check`. This plugin owns *how* a remote write is gated, not what licenses it.
 
