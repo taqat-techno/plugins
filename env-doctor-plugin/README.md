@@ -46,7 +46,7 @@ tools are on the machine and report a missing tool as a finding.
 
 | Skill | Use when |
 |---|---|
-| `env-doctor-router` (folder `skills/env-doctor/`) | the local environment is already broken: MCP, spawn/ENOENT, encoding, 401 login loops, LSP, browser, hooks, WSL, PowerShell, Syncthing, running-app config |
+| `env-doctor-router` | the local environment is already broken: MCP, spawn/ENOENT, encoding, 401 login loops, LSP, browser, hooks, WSL, PowerShell, Syncthing, running-app config |
 | `windows-script-and-task-authoring` | about to write a `.ps1`/`.cmd`/script for Windows, register a Scheduled Task, or compose a command across the Git Bash or WSL boundary |
 
 `env-doctor-router` references (one per branch): `mcp-not-loading.md`, `windows-wsl.md`,

@@ -1,6 +1,16 @@
 ---
 name: env-doctor-router
-description: "Use when the local environment is broken: an MCP server will not load or every tool from one server vanishes; a tool fails with spawn, ENOENT or encoding errors; Claude Code login loops on a 401; a language server or LSP is missing; Playwright or a browser tool cannot find a browser; a plugin hook never fires or force-ends the turn; an agent starts without its MCP tools; a long-running process vanishes with no crash artifact; a hand-edit to a running app's config is rejected or reverted; WSL networking, PowerShell argument mangling or Syncthing conflicts get in the way; or the user says \"my environment is broken\". Routes the symptom to one diagnostic branch, runs read-only probes, classifies the failure, and proposes one safe next action without changing config or printing secrets. Works on Windows, macOS, Linux and WSL."
+description: >-
+  Use when the local environment is broken: an MCP server that was just added or edited never shows
+  up in the Claude Code session and its tools are missing while other servers work, or every tool
+  from one server vanishes; a tool fails with spawn, ENOENT or encoding errors; Claude Code login
+  loops on a 401; a language server or LSP is missing; Playwright or a browser tool cannot find a
+  browser; a plugin hook never fires or force-ends the turn; an agent starts without its MCP tools;
+  a long-running process vanishes with no crash artifact; a hand-edit to a running app's config is
+  rejected or reverted; WSL networking, PowerShell argument mangling or Syncthing conflicts get in
+  the way; or the user says "my environment is broken". Routes the symptom to one diagnostic branch,
+  runs read-only probes, classifies the failure, and proposes one safe next action without changing
+  config or printing secrets. Works on Windows, macOS, Linux and WSL.
 version: 0.4.0
 user-invocable: false
 metadata:

@@ -1,6 +1,6 @@
 {
   "name": "env-doctor",
-  "version": "0.8.0",
+  "version": "0.8.2",
   "description": "Read-only doctor for your local Claude Code environment: MCP servers that will not load, spawn and encoding failures, 401 login loops, missing language servers or browsers, hooks that never fire, WSL networking, PowerShell argument traps and Syncthing conflicts. Routes a symptom to one branch, probes without changing anything, and proposes one safe fix with no secrets printed. Also teaches Windows script and Scheduled Task authoring. A SessionStart check speaks only when it finds a real problem.",
   "author": {
     "name": "TAQAT Techno",

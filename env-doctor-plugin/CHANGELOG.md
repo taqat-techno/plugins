@@ -2,6 +2,21 @@
 
 All notable changes to this plugin are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.2] - 2026-10-19
+
+Skill triggering tuned against real eval results. Measured with `claude plugin eval --runs 1 --model claude-sonnet-5-5`; the no-plugin baseline is the 2026-10-19 run, and Δ counts the criteria grader only.
+
+### Changed
+- `env-doctor-router` description names the most common MCP case first: a server that was just added or edited never shows up in the session while other servers work. Builds on the 0.8.1 folder rename.
+
+### Eval results
+- Must-fire: 1/2 -> 2/2. Must-not-fire: 2/2 quiet before and after. Mean Δ: +0.25 -> +0.25.
+
+## [0.8.1] - 2026-10-19
+
+### Fixed
+- The skill folder is renamed `skills/env-doctor/` → `skills/env-doctor-router/` to match its frontmatter name. Claude Code identifies plugin skills by folder, so `/env-doctor:diagnose`'s "load `env-doctor-router`" step now resolves by its primary name (re-audit RA-CED-01).
+
 ## [0.8.0] - 2026-10-19
 
 ### Added
