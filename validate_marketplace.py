@@ -315,6 +315,72 @@ def check_mcp(dirs: list[Path], idents: dict[Path, str]) -> None:
                      f"mcp__plugin_<plugin>_<server>__")
 
 
+# Claude Code truncates a skill's combined description + when_to_use at DESC_CAP
+# characters. The marketplace keeps every description within DESC_BUDGET.
+DESC_CAP = 1536
+DESC_BUDGET = 1024
+TRIGGER = re.compile(r"(?i)\b(use (this skill )?when|use for|activates? (when|on|for)|invoke when|when the user)")
+
+
+def _skill_text(path: Path, key: str) -> str:
+    """A frontmatter value as Claude Code sees it (YAML-folded when PyYAML is available)."""
+    try:
+        import yaml  # type: ignore
+        m = re.match(r"(?s)\A---\s*\n(.*?)\n---", path.read_text(encoding="utf-8", errors="replace"))
+        value = (yaml.safe_load(m.group(1)) or {}).get(key) if m else None
+        return " ".join(str(value).split()) if value else ""
+    except Exception:
+        raw = (frontmatter(path) or {}).get(key, "")
+        return " ".join(re.sub(r"^[|>][-+]?", "", raw.strip()).split())
+
+
+def check_descriptions(dirs: list[Path]) -> int:
+    """Per-skill description budget and trigger clause. Returns the total listing size."""
+    total = 0
+    for d in dirs:
+        for f in sorted((d / "skills").glob("*/SKILL.md")) if (d / "skills").is_dir() else []:
+            rel = f.relative_to(ROOT).as_posix()
+            desc = _skill_text(f, "description")
+            size = len(desc) + len(_skill_text(f, "when_to_use"))
+            total += size
+            if size > DESC_CAP:
+                err("budget", f"{rel}: description is {size} chars; Claude Code truncates at {DESC_CAP}")
+            elif size > DESC_BUDGET:
+                err("budget", f"{rel}: description is {size} chars (marketplace budget {DESC_BUDGET})")
+            if desc and not TRIGGER.search(desc[:300]):
+                warn("budget", f"{rel}: no 'Use when ...' trigger clause in the first 300 chars")
+    return total
+
+
+def check_license(dirs: list[Path]) -> None:
+    """Every plugin ships its own LICENSE (the cache copies each plugin on its own)
+    and declares the matching SPDX id in plugin.json."""
+    for d in dirs:
+        manifest = load_json(d / ".claude-plugin" / "plugin.json") or {}
+        lic = manifest.get("license")
+        if not lic:
+            err("license", f"{d.name}: plugin.json has no 'license' field")
+        files = [p for p in d.iterdir() if p.is_file() and p.name.upper().startswith(("LICENSE", "LICENCE"))]
+        if not files:
+            err("license", f"{d.name}: no LICENSE file in the plugin directory")
+        elif lic == "MIT" and "MIT License" not in files[0].read_text(encoding="utf-8", errors="replace"):
+            err("license", f"{d.name}: plugin.json says MIT but {files[0].name} is not the MIT text")
+
+
+def check_vendor(dirs: list[Path]) -> None:
+    """Vendored hooklib copies must match shared/hooklib.py (line endings normalised)."""
+    canonical = ROOT / "shared" / "hooklib.py"
+    if not canonical.is_file():
+        return
+    want = canonical.read_bytes().replace(b"\r\n", b"\n")
+    for d in dirs:
+        vendor = d / "hooks" / "_vendor"
+        copy = vendor / "hooklib.py"
+        if vendor.is_dir() and (not copy.is_file() or copy.read_bytes().replace(b"\r\n", b"\n") != want):
+            err("vendor", f"{d.name}: hooks/_vendor/hooklib.py differs from shared/hooklib.py "
+                          "(run python tools/sync_vendor.py)")
+
+
 CHECKS = [
     ("identity",    "marketplace <-> plugin.json identity, duplicates, orphans"),
     ("discovery",   "SKILL.md is at the discoverable path skills/<name>/SKILL.md"),
@@ -324,6 +390,9 @@ CHECKS = [
     ("eol",         "shell scripts are LF"),
     ("persistence", "no plugin writes state into its own install root"),
     ("mcp",         "MCP env-var config and tool namespacing"),
+    ("budget",      f"skill description <= {DESC_BUDGET} chars, trigger clause first"),
+    ("license",     "LICENSE file and matching license field in every plugin"),
+    ("vendor",      "vendored hooklib copies match shared/hooklib.py"),
 ]
 
 
@@ -355,16 +424,20 @@ def main() -> int:
     check_line_endings(dirs)
     check_state_in_plugin_root(dirs)
     check_mcp(dirs, idents)
+    listing = check_descriptions(dirs)
+    check_license(dirs)
+    check_vendor(dirs)
 
     skills = sum(len(list((d / "skills").glob("*/SKILL.md"))) for d in dirs if (d / "skills").is_dir())
 
     if args.json:
         print(json.dumps({"plugins": len(dirs), "discoverable_skills": skills,
+                          "skill_listing_chars": listing,
                           "errors": errors, "warnings": warns}, indent=2))
         return 1 if errors else 0
 
     print(f"Marketplace architecture check - {len(dirs)} plugins, "
-          f"{skills} discoverable skills\n")
+          f"{skills} discoverable skills, {listing} chars of skill descriptions\n")
     if errors:
         print(f"ERRORS ({len(errors)}):")
         for e in errors:
