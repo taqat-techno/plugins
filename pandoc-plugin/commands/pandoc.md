@@ -15,6 +15,15 @@ Parse `$ARGUMENTS` and dispatch:
 | `convert <file> <format> [opts]` | Convert document to target format |
 | `formats` | List all supported input/output formats |
 
+## setup
+
+Run the platform installer shipped with this plugin (tell the user what it installs first — Pandoc plus a LaTeX distribution — and get a go-ahead):
+
+- **Windows**: `powershell -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/skills/pandoc/scripts/setup.ps1"`
+- **Linux/macOS**: `bash "${CLAUDE_PLUGIN_ROOT}/skills/pandoc/scripts/setup.sh"`
+
+Then verify with `pandoc --version` and report the result.
+
 Use the pandoc skill for:
 - Format-specific conversion patterns (PDF, DOCX, HTML, EPUB, slides)
 - LaTeX template configuration and academic presets

@@ -131,8 +131,8 @@ Show the output file path, size, and the exact command used.
 
 When the user needs to install Pandoc, use the `/pandoc setup` command or run the platform-specific installer:
 
-- **Windows**: `powershell -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/pandoc/scripts/setup.ps1"`
-- **Linux/macOS**: `bash "${CLAUDE_PLUGIN_ROOT}/pandoc/scripts/setup.sh"`
+- **Windows**: `powershell -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/skills/pandoc/scripts/setup.ps1"`
+- **Linux/macOS**: `bash "${CLAUDE_PLUGIN_ROOT}/skills/pandoc/scripts/setup.sh"`
 
 The setup scripts handle:
 1. Installing Pandoc (winget/apt/brew)

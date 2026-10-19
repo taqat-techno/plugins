@@ -49,38 +49,35 @@ The skill detects the input format, chooses the right output engine, and applies
 - **eBook Publishing** -- EPUB with covers, metadata, and custom styling
 - **Smart Defaults** -- Automatic format detection and best-practice options
 - **Batch Processing** -- Convert multiple files in one go
-- **Auto-detection Hooks** -- Session startup checks and format-aware tips
 
 ## Hooks
 
-The plugin includes two hooks that run automatically:
-
-| Hook | Event | Purpose |
-|------|-------|---------|
-| `session-check.sh` | SessionStart | Checks if Pandoc and LaTeX are installed, warns if missing |
-| `pandoc-context.sh` | PreToolUse (Bash) | Injects format-specific tips when running pandoc commands |
+No hooks are registered: `hooks/hooks.json` is empty, so nothing runs automatically at session start or before Bash commands. The two scripts in `hooks/` (`session-check.sh`, `pandoc-context.sh`) are not wired up and do not run. Use `/pandoc status` to check the installation.
 
 ## Plugin Structure
 
 ```
 pandoc-plugin/
 ├── .claude-plugin/
-│   └── plugin.json              # Plugin manifest with hooks
+│   └── plugin.json              # Plugin manifest
 ├── commands/
 │   └── pandoc.md                # Unified /pandoc command
 ├── hooks/
-│   ├── hooks.json               # Hook registry
-│   ├── session-check.sh         # Check pandoc/latex on startup
-│   └── pandoc-context.sh        # Inject tips for pandoc commands
-├── pandoc/
-│   ├── SKILL.md                 # Skill definition
-│   └── scripts/
-│       ├── setup.ps1            # Windows installer
-│       └── setup.sh             # Linux/macOS installer
+│   ├── hooks.json               # Empty: no hooks registered
+│   ├── session-check.sh         # Not registered (does not run)
+│   └── pandoc-context.sh        # Not registered (does not run)
+├── skills/
+│   └── pandoc/
+│       ├── SKILL.md             # pandoc-conversion skill
+│       └── scripts/
+│           ├── setup.ps1        # Windows installer (used by /pandoc setup)
+│           └── setup.sh         # Linux/macOS installer (used by /pandoc setup)
 ├── reference/
 │   └── format_guide.md          # Format-specific best practices
-├── test/
-│   └── sample.md                # Test input file
+├── test/                        # Sample inputs (md, rst, tex)
+├── tests/
+│   └── test_paths.py            # Offline check: referenced plugin paths exist
+├── CHANGELOG.md
 └── README.md
 ```
 
@@ -88,9 +85,6 @@ pandoc-plugin/
 
 ### Adding a custom template
 Place template files (LaTeX, HTML, DOCX reference docs) in a `templates/` directory and reference them in your pandoc commands with `--template` or `--reference-doc`.
-
-### Customizing hooks
-Edit `hooks/pandoc-context.sh` to add your own format-specific tips or warnings. The hook reads the Bash command from stdin JSON and outputs tips to stdout.
 
 ### Adding format-specific guidance
 Extend `reference/format_guide.md` with best practices for your specific use cases (corporate templates, language-specific PDF settings, etc.).
@@ -116,4 +110,4 @@ MIT License
 
 ---
 
-*Pandoc Plugin v2.1.0 -- Universal Document Conversion for Claude Code*
+*Pandoc Plugin v2.2.2 -- Universal Document Conversion for Claude Code*
