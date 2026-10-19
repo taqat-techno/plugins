@@ -49,7 +49,7 @@ const frames = Math.ceil(durationMs * FPS / 1000);
 durationInFrames={900}
 
 // CORRECT - calculate from actual audio duration
-// Run: python "${CLAUDE_PLUGIN_ROOT}/scripts/measure_audio.py" narration.mp3 --fps 30
+// Run: python3 "${CLAUDE_PLUGIN_ROOT}/scripts/measure_audio.py" narration.mp3 --fps 30
 // Use: duration_frames_with_padding from output
 ```
 

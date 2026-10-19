@@ -60,6 +60,16 @@ class PluginRootPaths(unittest.TestCase):
         for name in ("init", "status", "render", "voice"):
             self.assertTrue((ROOT / "commands" / f"{name}.md").is_file())
 
+    def test_script_invocations_use_python3_consistently(self):
+        # Stock macOS and Debian/Ubuntu ship only `python3`; the fallback to
+        # `python` / `py -3` is documented once in the skill and README.
+        bare = [f"{md.relative_to(ROOT)}: {m}" for md in md_files()
+                for m in re.findall(r"\bpython \"?\$\{CLAUDE_PLUGIN_ROOT\}\S*",
+                                    md.read_text(encoding="utf-8"))]
+        self.assertEqual(bare, [])
+        for doc in (SKILL, ROOT / "README.md"):
+            self.assertIn("py -3", doc.read_text(encoding="utf-8"), doc.name)
+
 
 if __name__ == "__main__":
     unittest.main()

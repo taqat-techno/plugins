@@ -1,5 +1,30 @@
 # Changelog
 
+## [3.0.2] - 2026-10-19
+
+Skill triggering tuned against real eval results. Measured with `claude plugin eval --runs 1 --model claude-sonnet-5-5`; the no-plugin baseline is the 2026-10-19 run, and Δ counts the criteria grader only.
+
+### Changed
+- `remotion` description opens with narration cutting or restarting at scene transitions in a video built from `Sequence` and `Audio` components. That is how users describe the problem without naming Remotion.
+
+### Eval results
+- Must-fire: 0/1 -> 0/1. Two description rounds did not get `fires-on-narration-audio-cuts-between-scenes` to load the skill, though the answer passes its criteria anyway. Must-not-fire: quiet before and after. Mean Δ: +0.50 -> +0.50.
+
+## [3.0.1] - 2026-10-19
+
+### Fixed
+- `scripts/setup_check.py` reported npm as missing on Windows, which made
+  `/remotion:init` stop (RA-RMT-01, RMT-P1-06). Commands are now resolved with
+  `shutil.which` (honours PATHEXT, so `npm` finds `npm.cmd`) and the resolved path
+  is run directly, without `shell=True`. New tests simulate the Windows lookup and
+  run one unmocked check.
+- Script invocations in commands, skill, memories and README use `python3`, with
+  one documented fallback to `python` / `py -3` (RA-RMT-02, RMT-P2-07);
+  `setup_check.py` prints the interpreter it ran under so the other scripts use the
+  same one. A test keeps the docs consistent.
+- `/remotion:voice` notes that listing voices also contacts Microsoft's service
+  (RA-RMT-04).
+
 ## [3.0.0] - 2026-10-19
 
 Major: the `/remotion` command is split into verb commands, and concat output

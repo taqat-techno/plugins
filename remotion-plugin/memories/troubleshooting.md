@@ -20,7 +20,7 @@
 2. Does `narration.mp3` exist in `public/audio/`?
 3. Does the total `durationInFrames` of the composition >= audio duration in frames?
 4. Are scene boundaries using `Math.ceil()` for frame calculations?
-5. Run `python "${CLAUDE_PLUGIN_ROOT}/scripts/measure_audio.py" public/audio/narration.mp3` to verify actual duration
+5. Run `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/measure_audio.py" public/audio/narration.mp3` to verify actual duration
 6. Check Remotion Studio audio waveform - is there a continuous line?
 
 ## Performance Tips

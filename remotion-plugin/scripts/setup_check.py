@@ -5,7 +5,7 @@ Checks that all required tools are installed and reports missing dependencies
 with platform-specific install commands.
 
 Usage:
-    python setup_check.py
+    python3 setup_check.py      (or `python` / `py -3` where there is no python3)
 """
 
 import os
@@ -25,19 +25,36 @@ def get_platform():
     return "linux"
 
 
+def resolve_command(cmd):
+    """Full path of `cmd` on PATH, or None.
+
+    shutil.which honours PATHEXT on Windows, so `npm` / `npx` resolve to `npm.cmd` /
+    `npx.cmd`. Running the bare name instead fails there with FileNotFoundError,
+    because CreateProcess does not try PATHEXT extensions.
+    """
+    return shutil.which(cmd)
+
+
 def check_command(cmd, version_flag="--version"):
-    """Check if a command is available and return its version."""
+    """Check if a command is available and return its version.
+
+    The resolved path is executed directly (never through shell=True); Windows runs
+    a resolved `.cmd` / `.bat` path through cmd.exe on its own.
+    """
+    path = resolve_command(cmd)
+    if not path:
+        return False, None
     try:
         result = subprocess.run(
-            [cmd, version_flag],
+            [path, version_flag],
             capture_output=True,
             text=True,
             timeout=10,
         )
-        output = result.stdout.strip() or result.stderr.strip()
-        return True, output.split("\n")[0]
-    except (FileNotFoundError, subprocess.TimeoutExpired):
+    except (OSError, subprocess.TimeoutExpired):
         return False, None
+    output = result.stdout.strip() or result.stderr.strip()
+    return True, output.split("\n")[0] if output else ""
 
 
 def check_python_package(package_name):
@@ -75,6 +92,9 @@ def main():
     print("Remotion Plugin - Prerequisites Check")
     print(f"Platform: {platform.system()} {platform.release()}")
     print(f"Python: {sys.version.split()[0]}")
+    print(f"Interpreter for the plugin scripts: {sys.executable}")
+    print("  (run generate_voice.py, concat_audio.py and measure_audio.py with this same")
+    print("   interpreter, so the edge-tts / mutagen checks below apply to them)")
     print("=" * 60)
 
     # ── Node.js ──────────────────────────────────────────────────

@@ -25,9 +25,9 @@ at the root of the composition and times the scenes from measured MP3 durations.
 | Requirement | Needed for | Check |
 |---|---|---|
 | Node.js 18+ and npm | Remotion itself, `/remotion:init`, rendering | `node --version` |
-| Python 3.8+ | the pipeline scripts | `python --version` |
-| `edge-tts` (pip) | narration | `python -m pip show edge-tts` |
-| `mutagen` (pip) | measuring MP3 durations | `python -m pip show mutagen` |
+| Python 3.8+ | the pipeline scripts | `python3 --version` |
+| `edge-tts` (pip) | narration | `python3 -m pip show edge-tts` |
+| `mutagen` (pip) | measuring MP3 durations | `python3 -m pip show mutagen` |
 | `pydub` (pip) or `ffmpeg` | optional: silence gaps between segments | `ffmpeg -version` |
 | Network access | `npx create-video`, edge-tts, the first render's Chrome Headless Shell download | |
 
@@ -63,8 +63,10 @@ None. The plugin ships no hooks.
 
 ## Scripts
 
-All run in place as `python "${CLAUDE_PLUGIN_ROOT}/scripts/<name>.py"` from the
-video project's root; outputs are relative to the current directory.
+All run in place as `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/<name>.py"` from the
+video project's root; outputs are relative to the current directory. Where there is
+no `python3` (common on Windows), use `python` or `py -3`; `setup_check.py` prints
+the interpreter it ran under, and the other scripts should use the same one.
 
 | Script | Does |
 |---|---|

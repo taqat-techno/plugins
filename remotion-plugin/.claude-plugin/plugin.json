@@ -1,6 +1,6 @@
 {
   "name": "remotion",
-  "version": "3.0.0",
+  "version": "3.0.2",
   "license": "MIT",
   "description": "Narrated Remotion videos whose voice never cuts between scenes: project init with continuous-audio templates, edge-tts narration (text is sent to Microsoft's online TTS), MP3 concatenation with frame-exact scene timestamps, and render presets. Remotion itself needs a company licence for larger for-profit organisations.",
   "author": {

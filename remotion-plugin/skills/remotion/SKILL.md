@@ -1,14 +1,13 @@
 ---
 name: remotion-video
 description: >-
-  Use when the user is building or fixing a narrated video in Remotion (React):
-  voice-over that cuts, stops or restarts between scenes or slides, an Audio
-  element inside a Sequence, scene timing that drifts from the narration,
-  generating narration with edge-tts, concatenating per-scene MP3s into one
-  track, converting audio milliseconds to frames, creating a new Remotion
-  project, or rendering a composition to MP4, WebM or GIF. Not for general
-  ffmpeg video editing, non-Remotion video tools, or audio work unrelated to a
-  Remotion composition.
+  Use when a video built from React Sequence and Audio components (Remotion) has narration or
+  voice-over that stops, cuts or restarts at every scene transition because each scene's Sequence
+  carries its own Audio element, or when building or fixing a narrated Remotion video: scene timing
+  that drifts from the narration, generating narration with edge-tts, concatenating per-scene MP3s
+  into one track, converting audio milliseconds to frames, creating a new Remotion project, or
+  rendering a composition to MP4, WebM or GIF. Not for general ffmpeg video editing, non-Remotion
+  video tools, or audio work unrelated to a Remotion composition.
 user-invocable: false
 metadata:
   mode: "cli-tool"
@@ -55,13 +54,20 @@ Say each of these once per session, before the step it applies to:
 | Tool | Min version | Check |
 |---|---|---|
 | Node.js + npm | 18.0.0 | `node --version` |
-| Python | 3.8 | `python --version` |
-| edge-tts | latest | `python -m pip show edge-tts` |
-| mutagen | latest | `python -m pip show mutagen` |
+| Python | 3.8 | `python3 --version` |
+| edge-tts | latest | `python3 -m pip show edge-tts` |
+| mutagen | latest | `python3 -m pip show mutagen` |
 | pydub or ffmpeg | optional | needed for gaps between segments |
 
-`python "${CLAUDE_PLUGIN_ROOT}/scripts/setup_check.py"` checks all of them and
-prints install commands. It installs nothing; show the user the commands rather
+`python3 "${CLAUDE_PLUGIN_ROOT}/scripts/setup_check.py"` checks all of them and
+prints install commands.
+
+**Interpreter.** Every script command in this plugin is written with `python3`.
+Where `python3` is missing or is the Windows Store stub (it prints nothing or opens
+the Store), use `python`, then `py -3`, the same order the other TAQAT plugins'
+hooks use. `setup_check.py` prints the interpreter it ran under ("Interpreter for
+the plugin scripts"); run the other scripts with that same one so the package
+checks apply to them. It installs nothing; show the user the commands rather
 than running package installs yourself.
 
 ## The Continuous Audio Pattern (critical)
@@ -88,13 +94,13 @@ root; output paths are relative to the current directory.
 
 ```bash
 # 1. One MP3 per scene (or --scenes scenes.json --output-dir public/audio/scenes)
-python "${CLAUDE_PLUGIN_ROOT}/scripts/generate_voice.py" --text "Scene text..." --voice en-US-AriaNeural --output public/audio/scenes/01_intro.mp3 --fps 30
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/generate_voice.py" --text "Scene text..." --voice en-US-AriaNeural --output public/audio/scenes/01_intro.mp3 --fps 30
 
 # 2. Concatenate into ONE track; stdout is JSON with per-segment start/end ms and frames
-python "${CLAUDE_PLUGIN_ROOT}/scripts/concat_audio.py" --dir public/audio/scenes --output public/audio/narration.mp3 --gap 200 --fps 30
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/concat_audio.py" --dir public/audio/scenes --output public/audio/narration.mp3 --gap 200 --fps 30
 
 # 3. Validate the final track
-python "${CLAUDE_PLUGIN_ROOT}/scripts/measure_audio.py" public/audio/narration.mp3 --fps 30
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/measure_audio.py" public/audio/narration.mp3 --fps 30
 ```
 
 - Use the concat JSON `segments[].start_frame` / `duration_frames` for the

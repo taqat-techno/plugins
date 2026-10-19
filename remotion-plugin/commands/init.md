@@ -12,7 +12,8 @@ to confirm or give another name before creating anything.
 Follow these steps in order. Stop and report if any step fails.
 
 1. **Check prerequisites.** Run
-   `python "${CLAUDE_PLUGIN_ROOT}/scripts/setup_check.py"`. Node.js 18+ and npm
+   `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/setup_check.py"` (no `python3`: use
+   `python`, then `py -3`). Node.js 18+ and npm
    are required for this command; the Python packages are only needed later for
    narration. If Node or npm is missing, show the install line the script printed
    and stop. Do not install system packages yourself.

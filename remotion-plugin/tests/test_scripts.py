@@ -222,3 +222,55 @@ def test_setup_check_reports_missing_node(monkeypatch, capsys):
     assert setup_check.main() == 1
     out = capsys.readouterr().out
     assert "Not installed" in out and "Install:" in out
+
+
+def _windows_like_path(monkeypatch, calls):
+    """Simulate Windows: `npm`/`npx` exist only as `.cmd` shims that shutil.which finds
+    via PATHEXT, and CreateProcess cannot start the bare name."""
+    shims = {"node": r"C:\Program Files\nodejs\node.exe",
+             "npm": r"C:\Program Files\nodejs\npm.cmd",
+             "npx": r"C:\Program Files\nodejs\npx.cmd"}
+    monkeypatch.setattr(setup_check.shutil, "which", lambda cmd: shims.get(cmd))
+    versions = {"node.exe": "v20.11.1", "npm.cmd": "10.2.4", "npx.cmd": "10.2.4"}
+
+    def fake_run(argv, **kwargs):
+        calls.append((argv, kwargs))
+        assert not kwargs.get("shell"), "must not go through shell=True"
+        name = argv[0].replace("\\", "/").rsplit("/", 1)[-1]
+        if name not in versions:  # a bare `npm` is what CreateProcess cannot find
+            raise FileNotFoundError(argv[0])
+        return SimpleNamespace(stdout=versions[name] + "\n", stderr="", returncode=0)
+
+    monkeypatch.setattr(setup_check.subprocess, "run", fake_run)
+
+
+def test_check_command_runs_the_resolved_cmd_shim_on_windows(monkeypatch):
+    calls = []
+    _windows_like_path(monkeypatch, calls)
+    assert setup_check.check_command("npm") == (True, "10.2.4")
+    assert setup_check.check_command("npx") == (True, "10.2.4")
+    assert calls[0][0] == [r"C:\Program Files\nodejs\npm.cmd", "--version"]
+    assert all(not kw.get("shell") for _, kw in calls)
+
+
+def test_check_command_reports_missing_without_running_anything(monkeypatch):
+    calls = []
+    _windows_like_path(monkeypatch, calls)
+    assert setup_check.check_command("ffmpeg", "-version") == (False, None)
+    assert calls == []
+
+
+def test_setup_check_passes_npm_on_windows(monkeypatch, capsys):
+    calls = []
+    _windows_like_path(monkeypatch, calls)
+    monkeypatch.setattr(setup_check, "check_python_package", lambda name: (True, "1.0"))
+    assert setup_check.main() == 0
+    out = capsys.readouterr().out
+    npm_block = out.split("[2/6] npm", 1)[1].split("[3/6]", 1)[0]
+    assert "PASS  10.2.4" in npm_block
+    assert "Interpreter for the plugin scripts" in out
+
+
+def test_check_command_unmocked_finds_the_running_python():
+    found, version = setup_check.check_command(sys.executable)
+    assert found and "Python" in version
