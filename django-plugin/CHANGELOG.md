@@ -3,6 +3,29 @@
 All notable changes to the `django` plugin are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/); this plugin uses [Semantic Versioning](https://semver.org/).
 
+## [0.5.2] - 2026-10-19
+
+Skill triggering tuned against real eval results. Measured with `claude plugin eval --runs 1 --model claude-sonnet-5-5`; the no-plugin baseline is the 2026-10-19 run, and Δ counts the criteria grader only.
+
+### Changed
+- Skill descriptions now open with the symptom a user actually reports, ahead of the generic "writing or reviewing" triggers. Examples: a pre-launch "what should I check, is there a built-in command" question (`check --deploy`); `?page=N` slowing down on a table with millions of rows; DRF `filterset_fields` ignored with no error; `values().annotate()` counts inflated by `Meta.ordering`; `on_commit` never running inside `TestCase`; a column rename under rolling deploys; a dev settings edit leaking into prod through `from .base import *`. All seven stay under 1,024 characters.
+- Eval `fires-on-rename-column-live-postgres-table`: the prompt now says it is a Django app. Before, it never named a framework, while its grader expects `RenameField`-level Django advice. A description that fired on a framework-free rename question would also fire for every other ORM.
+
+### Eval results
+- Must-fire skill invocation: 0/7 -> 6/7. Must-not-fire: 8/8 quiet before and after. Mean Δ: +0.13 -> +0.13.
+- `fires-on-on-commit-never-fires-in-test` still answers correctly without loading `django-testing` (0 of 2 runs fired).
+
+## [0.5.1] - 2026-10-19
+
+### Fixed
+- Bash guard no longer misses common wrappers (RA-DJG-01): `docker`/`podman`/`docker compose` `run` as well as `exec` (their options, option values and the image/service name are skipped), `bash`/`sh`/`zsh` with combined flags (`-lc`, `-ec`, `-xc`, `-l -c`), runner options with values (`uv run --env-file .env`, `uv run --with x`, `poetry run -C dir`), `timeout`, `watch`, `eval`, `ssh host '...'`, `heroku run` and `kubectl exec ... --`.
+- Asks on `DROP SCHEMA ... CASCADE`, `TRUNCATE` and `call_command('flush'|'reset_db')` in `manage.py shell` (RA-DJG-02), and on SQL sent through a `<<<` here-string (RA-DJG-03).
+- The prefilter applies quote removal first, so quote-split words (`fl''ush`, `"fl"ush`, `fl\ush`, `$'flush'`) reach the parser (RA-DJG-04).
+- `'drop database'` inside a SQL string literal no longer asks (RA-DJG-05); `command -v dropdb` is treated as a lookup.
+
+### Changed
+- The shell tokenizer section is shared verbatim with fastapi-plugin; a test fails if the two copies drift.
+
 ## [0.5.0] - 2026-10-19
 
 ### Added

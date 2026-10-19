@@ -146,6 +146,72 @@ SILENT = [
     f"pytest -k {FLUSH}",
 ]
 
+# Wrappers, quote removal and extra SQL forms (re-audit RA-DJG-01..05).
+MGMT = f"python manage.py {FLUSH}"
+ASKED_WRAPPED = [
+    f"docker compose run --rm web {MGMT}",
+    f"docker compose -f docker-compose.prod.yml run --rm -e DEBUG=0 web {MGMT}",
+    f"docker-compose run web {MGMT}",
+    f"docker compose exec -T web {MGMT}",
+    f"docker run --rm -v $(pwd):/app -w /app img {MGMT}",
+    f"docker exec -it -u app web {MGMT}",
+    f"podman run --rm img {MGMT}",
+    f"bash -lc '{MGMT}'",
+    f"sh -ec '{MGMT}'",
+    f"zsh -xc '{MGMT}'",
+    f"bash -l -c '{MGMT}'",
+    f"docker compose exec web bash -lc 'cd /app && {MGMT}'",
+    f"uv run --env-file .env {MGMT}",
+    f"uv run --with ipython {MGMT}",
+    f"uv run -- {MGMT}",
+    f"poetry run -C backend {MGMT}",
+    f"timeout 60 {MGMT}",
+    f"timeout -s KILL 5m {MGMT}",
+    f"nice -n 10 {MGMT}",
+    f"nohup {MGMT} &",
+    f"watch -n 5 {MGMT}",
+    f"eval '{MGMT}'",
+    f"ssh prod 'cd app && {MGMT}'",
+    f"ssh -i key.pem -p 2222 deploy@prod {MGMT}",
+    f"heroku run {MGMT}",
+    f"heroku run -a my-app {MGMT}",
+    f"kubectl exec -it pod -n prod -- {MGMT}",
+    "python manage.py fl''ush",
+    'python manage.py "fl"ush',
+    "python manage.py fl\\ush",
+    "python manage.py $'fl'ush",
+    f"psql <<< '{DROP_DB} mydb'",
+    f'mysql -u root <<< "{DROP_DB} mydb"',
+    "psql -c 'DROP SCHEMA public CASCADE'",
+    "psql -c 'drop schema app cascade; create schema app;'",
+    "psql -c 'TRUNCATE TABLE orders_order'",
+    "psql <<EOF\nTRUNCATE orders_order, orders_item CASCADE;\nEOF",
+    "echo 'TRUNCATE orders_order;' | python manage.py dbshell",
+    f"python manage.py shell -c \"from django.core.management import call_command; "
+    f"call_command('{FLUSH}', interactive=False)\"",
+]
+SILENT_WRAPPED = [
+    "docker compose run --rm web python manage.py migrate",
+    "docker compose build web",
+    f"docker compose logs web | grep {FLUSH}",
+    "bash -lc 'python manage.py test'",
+    "bash scripts/deploy.sh",
+    "uv run --env-file .env python manage.py check",
+    "timeout 60 python manage.py test",
+    "ssh prod 'tail -n 100 /var/log/app.log'",
+    "heroku run python manage.py showmigrations",
+    "command -v dropdb",
+    f"git commit -m 'fix: docker compose run web python manage.py {FLUSH} docs'",
+    f"grep -rn \"bash -lc '{MGMT}'\" docs/",
+    f"echo \"ssh prod '{MGMT}'\"",
+    "psql -c \"select 'drop schema x cascade' as note\"",
+    f"psql -c \"select '{DROP_DB}' as x\"",
+    "psql -f truncate_old_rows.sql",
+    "truncate -s 0 logs/app.log",
+    "psql <<< 'SELECT 1'",
+    "python manage.py shell -c \"print('hello')\"",
+]
+
 
 class TestBashGuard:
     @pytest.mark.parametrize("cmd", ASKED)
@@ -175,6 +241,37 @@ class TestBashGuard:
         code, out, err = run_hook("pre_bash_guard.py", bash(cmd, django_project))
         assert code == 0
         assert out.strip() == "" and err.strip() == "", f"expected silence for: {cmd!r}"
+
+    @pytest.mark.parametrize("cmd", ASKED_WRAPPED)
+    def test_wrapped_and_quote_split_forms_ask(self, cmd, django_project):
+        code, out, err = run_hook("pre_bash_guard.py", bash(cmd, django_project))
+        assert code == 0 and err.strip() == ""
+        assert hso(out).get("permissionDecision") == "ask", f"expected ask for: {cmd!r}"
+
+    @pytest.mark.parametrize("cmd", SILENT_WRAPPED)
+    def test_wrapped_harmless_forms_are_silent(self, cmd, django_project):
+        code, out, err = run_hook("pre_bash_guard.py", bash(cmd, django_project))
+        assert code == 0
+        assert out.strip() == "" and err.strip() == "", f"expected silence for: {cmd!r}"
+
+    @pytest.mark.parametrize("cmd", [f"docker compose run --rm web {MGMT}",
+                                     f"bash -lc '{MGMT}'", "psql -c 'DROP SCHEMA public CASCADE'"])
+    def test_wrapped_forms_stay_project_scoped(self, cmd, plain_dir):
+        code, out, _ = run_hook("pre_bash_guard.py", bash(cmd, plain_dir), cwd=plain_dir)
+        assert code == 0 and out.strip() == ""
+
+    def test_shared_shell_section_matches_fastapi_copy(self):
+        other = HOOKS_DIR.parent.parent / "fastapi-plugin" / "hooks" / "pre_bash_guard.py"
+        if not other.is_file():
+            pytest.skip("fastapi-plugin is not checked out next to this plugin")
+
+        def shared(path):
+            text = path.read_text(encoding="utf-8")
+            start = text.index("# " + "-" * 75 + " shell")
+            body = text[start:text.index("\n# " + "-" * 75 + " ", start + 10)]
+            return body.replace("fastapi-plugin/", "PEER/").replace("django-plugin/", "PEER/")
+
+        assert shared(HOOKS_DIR / "pre_bash_guard.py") == shared(other)
 
     @pytest.mark.parametrize("cmd", ["dropdb mydb", f"python manage.py {FLUSH}",
                                      f'psql -c "{DROP_DB} x"'])

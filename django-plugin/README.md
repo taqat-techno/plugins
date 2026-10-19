@@ -1,6 +1,6 @@
 # django-plugin
 
-![Version](https://img.shields.io/badge/version-0.5.0-blue.svg)
+![Version](https://img.shields.io/badge/version-0.5.2-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 ![Status](https://img.shields.io/badge/status-beta-yellow.svg)
 
@@ -69,7 +69,7 @@ Read-only analyzers that return findings tables. Each has `tools: Read, Glob, Gr
 |---|---|---|---|
 | `session_start.py` | SessionStart (`startup`) | Finds `manage.py` in the session directory or up to two levels below it, then adds one context line: Django version, DRF, settings layout. Prints nothing outside a Django project. | No |
 | `pre_write_guard.py` | PreToolUse (`Write\|Edit\|MultiEdit`) | Advisory: hardcoded `DEBUG = True` or `ALLOWED_HOSTS = ['*']` in prod-bound settings (not `test_settings.py`, `settings/dev.py`, `settings/local.py`), hardcoded secret literals, `RunPython` without a reverse, data migrations importing real models, `fields = "__all__"` in serializers. | No |
-| `pre_bash_guard.py` | PreToolUse (`Bash`) | In a Django project only, asks you to confirm `flush`, `sqlflush`, `reset_db`, `migrate <app> zero`, `dropdb`, `mysqladmin drop` and `DROP DATABASE` sent to a SQL client or `dbshell`. It parses the command, so quoted text, comments, `echo`, `grep` patterns, commit messages and `--help` never trigger it. Advisory on `migrate --fake`. | Asks you (`permissionDecision: "ask"`); it never denies |
+| `pre_bash_guard.py` | PreToolUse (`Bash`) | In a Django project only, asks you to confirm `flush`, `sqlflush`, `reset_db` (also via `call_command` in `manage.py shell`), `migrate <app> zero`, `dropdb`, `mysqladmin drop`, and `DROP DATABASE`, `DROP SCHEMA ... CASCADE` or `TRUNCATE` sent to a SQL client or `dbshell` (argument, pipe, heredoc or `<<<` here-string). It sees through `sudo`, `env`, `nice`, `nohup`, `timeout`, `watch`, `eval`, `poetry`/`uv`/`pipenv`/`pdm run` (with their options), `docker`/`podman`/`docker compose` `run` and `exec`, `kubectl exec --`, `bash`/`sh`/`zsh -c` (also `-lc`, `-ec`), `ssh host '...'` and `heroku run`, and applies shell quote removal first (`fl''ush` is `flush`). It parses the command, so quoted text, comments, `echo`, `grep` patterns, commit messages and `--help` never trigger it. Advisory on `migrate --fake`. | Asks you (`permissionDecision: "ask"`); it never denies |
 
 A Django project, for the bash guard, is a `manage.py` found walking up from the working directory (or a `cd` target in the command), or up to two levels below `CLAUDE_PROJECT_DIR`. Hooks fail open: bad input, a missing Python or an internal error lets the tool call through.
 
@@ -101,7 +101,7 @@ A Django project, for the bash guard, is a `manage.py` found walking up from the
 
 ## Limitations
 
-- The bash guard sees only the command text. It cannot see SQL inside a file passed with `psql -f`, a script, or an alias, and it does not stop `DROP SCHEMA` or `TRUNCATE`.
+- The bash guard sees only the command text. It cannot see SQL inside a file passed with `psql -f`, a script, an alias, a shell variable (`C=flush; ... $C`) or arguments fed through `xargs`, and it does not see `call_command` run from `python -c` or ORM deletes in your own code.
 - The write guard sees only the new text of an Edit, so a `RunPython` whose reverse sits outside the hunk can be misjudged.
 - The plugin never runs `migrate` or a destructive command on its own; the commands stop for review by design.
 - Security review is defensive: it describes vulnerabilities and fixes, never working exploits.

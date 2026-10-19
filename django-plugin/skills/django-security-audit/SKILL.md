@@ -1,6 +1,6 @@
 ---
 name: django-security-audit
-description: Use when reviewing Django code or settings for security, hardening before a release, running manage.py check --deploy or a dependency CVE scan, or responding to a suspected vulnerability or leaked secret - DEBUG, SECRET_KEY, ALLOWED_HOSTS, HTTPS/HSTS/secure cookies, SQL injection via raw()/extra()/RawSQL, mark_safe/|safe, shell or eval on request data, csrf_exempt, permission bypass, IDOR and object ownership, mass-assignment of privileged fields, unsafe uploads or deserialization. Renders the severity-rated security pass/fail verdict; defensive review only.
+description: "Use when a Django app is about to launch, go public or ship a release and someone asks what to check on the security side or which built-in check helps (manage.py check --deploy against the production settings module), or when reviewing Django settings or code for security: DEBUG left on, SECRET_KEY in source, ALLOWED_HOSTS, HTTPS redirect / HSTS / secure cookies, SQL injection via raw()/extra()/RawSQL or string-formatted cursor.execute, mark_safe/|safe, shell or eval on request data, csrf_exempt views, permission bypass, IDOR and object ownership, mass-assignment of privileged fields, unsafe uploads or deserialization, a dependency CVE scan, or a suspected vulnerability or leaked secret. Renders the severity-rated security pass/fail verdict; defensive review only."
 version: 0.1.0
 user-invocable: false
 metadata:

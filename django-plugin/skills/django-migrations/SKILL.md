@@ -1,6 +1,6 @@
 ---
 name: django-migrations
-description: Use when creating or editing a Django migration, running makemigrations or migrate, reviewing a migration diff or its sqlmigrate SQL, writing a data migration (RunPython with a reverse), planning a schema change against a live database (add, rename, drop or retype a column without downtime), or resolving a migration conflict, drift, squash or --fake problem. Owns the makemigrations -> review -> migrate gate, reversibility, the schema-vs-data split, expand-contract sequencing and table-locking risk. Defers field and constraint choices to django-orm-models.
+description: "Use when a Django schema change has to land on a busy production table without downtime - renaming, dropping or retyping a column on a Postgres table with millions of rows under rolling deploys, where old and new code hit the table side by side mid-deploy - or when creating or editing a migration, running makemigrations or migrate, reviewing a migration diff or its sqlmigrate SQL, writing a data migration (RunPython with a reverse), or resolving a migration conflict, drift, squash or --fake problem. Owns the makemigrations -> review -> migrate gate, reversibility, the schema-vs-data split, expand-contract sequencing and table-locking risk. Defers field and constraint choices to django-orm-models."
 version: 0.1.0
 user-invocable: false
 metadata:

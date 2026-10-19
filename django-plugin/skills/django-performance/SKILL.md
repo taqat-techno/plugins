@@ -1,6 +1,6 @@
 ---
 name: django-performance
-description: Use when a Django endpoint, page or job is slow beyond a plain N+1, when adding caching (per-view, template fragment, low-level cache API) or cache invalidation, when planning for scale or load, when choosing keyset vs offset pagination for large tables, tuning CONN_MAX_AGE, moving slow work to Celery or async, or batching a large backfill. Owns measure-first, DB-side annotate/aggregate/F() over Python loops, and indexing for the real query shape. Defers per-query select_related rules to django-orm-models.
+description: "Use when a Django list page, admin or API gets slower the deeper you paginate - page 1 is instant but ?page=20000 on a table of millions of rows takes seconds and the COUNT(*) behind Paginator is slow - and offset pagination has to become keyset/cursor pagination; when an endpoint, page or job is slow beyond a plain N+1; when adding caching (per-view, template fragment, low-level cache API) or cache invalidation; when planning for scale or load, tuning CONN_MAX_AGE, moving slow work to Celery or async, or batching a large backfill. Owns measure-first, DB-side annotate/aggregate/F() over Python loops, and indexing for the real query shape. Defers per-query select_related rules to django-orm-models."
 version: 0.1.0
 user-invocable: false
 metadata:
