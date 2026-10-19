@@ -3,6 +3,11 @@
 All notable changes to the sprint-recap plugin are documented here.
 This project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.3.2] - 2026-10-19
+
+### Fixed
+- `templates/steps.example.yaml` now parses with PyYAML. `iteration_path` is single-quoted, so the backslash stays literal (it was an invalid `\S` escape inside double quotes). The example also uses a neutral project name.
+
 ## [0.3.1] - 2026-10-19
 
 ### Security

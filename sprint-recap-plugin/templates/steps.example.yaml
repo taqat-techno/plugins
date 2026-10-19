@@ -10,7 +10,7 @@
 # (`start`), which is what makes its clip self-contained and re-runnable.
 
 sprint: "Sprint 24"
-iteration_path: "KhairGate (HUB)\Sprint 24"
+iteration_path: 'Acme (Web)\Sprint 24'
 target: staging          # base_url + roles resolved from .sprint-recap.local.json
 window:
   since: "2026-09-01"
@@ -18,7 +18,7 @@ window:
 
 intro:
   title: "Sprint 24 — What we shipped"
-  subtitle: "KhairGate (HUB)"
+  subtitle: "Acme (Web)"
 
 items:
   # Optional opening item: record the sign-in itself.
