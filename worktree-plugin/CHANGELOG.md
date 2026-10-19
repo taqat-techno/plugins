@@ -5,6 +5,14 @@ All notable changes to the Git Worktree Workspaces plugin.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.1.3] - 2026-10-19
+
+### Fixed
+- **Hook stdin is decoded as UTF-8 (ECO-14, QW #18).** `pdle_session_start.py` read `sys.stdin` as text, which on Windows is cp1252 with surrogateescape, so an Arabic or other non-ASCII payload arrived as mojibake. It now read `sys.stdin.buffer` and decode UTF-8. A non-ASCII `cwd` in the payload therefore resolved to the wrong directory.
+
+### Tests
+- `tests/test_stdin_utf8.py`: structural gate against text-mode stdin in `hooks/`.
+
 ## [2.1.2] - 2026-09-27
 
 ### Changed

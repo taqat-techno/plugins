@@ -151,7 +151,7 @@ def build_notice(cwd):
 def main():
     cwd = os.getcwd()
     try:
-        raw = sys.stdin.read()
+        raw = sys.stdin.buffer.read().decode("utf-8", "replace")
         if raw:
             payload = json.loads(raw)
             cwd = payload.get("cwd") or payload.get("workingDirectory") or cwd
