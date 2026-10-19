@@ -1,26 +1,27 @@
 # lessons-to-plugins — recommendations
 
-Regenerated 2026-09-27. Supersedes the 2026-09-12 edition.
+Regenerated 2026-10-19. Supersedes the 2026-09-27 edition.
 
-This run took the newest batch: the 48 lessons `/lessons` added on 2026-09-27.
-The batch was 31 lessons: 24 Odoo-routed or framework-neutral, plus 7
-project-specific. 9 lessons were absorbed into 5 skills across 2
-plugins. Everything below is what could **not** or should **not** be absorbed,
-with the reason. The 17 remaining 2026-09-27 lessons (Django/DRF, React/CSS,
-release, user preferences) were not analyzed this run and stay candidates.
+This run took the newest batch: lessons `/lessons` added on 2026-10-17 to 2026-10-19.
+25 of them were analyzed: 22 Odoo-routed, plus 3 framework-neutral. 8 were absorbed
+into one skill's references (`odoo/reviewer`). Everything below is what could
+**not** or should **not** be absorbed, with the reason. Six lessons from the same
+dates (`e2c30a0ae9bc`, `7267fac29f2c`, `a80eee2784b1`, `aeeff69aff29`,
+`ec20ab3f35d1`, `069df40d60a8`: React auth sync, research fan-out, review alerts,
+user preferences) were not analyzed this run and stay candidates.
 
-> **Status: complete.** Committed as `e302c75`; P9 recorded in the ledger (9 absorbed,
-> 15 deferred, 7 rejected; `ledger_write.py verify` clean).
+> **Status:** odoo 2.13.1. The ledger is written after the commit (P9).
+
 ---
 
 ## Corpus state after this run
 
 | | |
 |---|---|
-| Lessons in corpus | 503 (h2 = 139, h3 = 325) |
-| Ledger entries | 193 (162 + 9 absorbed + 15 deferred + 7 rejected) |
-| Candidates remaining | 332 (348 - 31 resolved + 15 deferred that stay live) |
-| Analyzed this run | 31 |
+| Lessons in corpus | 568 (h2 = 146, h3 = 383) |
+| Ledger entries | 218 (193 + 8 absorbed + 13 deferred + 4 rejected) |
+| Candidates remaining | 385 (397 - 12 resolved; the 13 deferred stay live) |
+| Analyzed this run | 25 |
 
 ---
 
@@ -28,96 +29,87 @@ release, user preferences) were not analyzed this run and stay candidates.
 
 ### Visual-parity measurement — carried over, owner APPROVED, **not implemented**
 
-This is unchanged from 2026-09-12. Six lessons (`120cd969880a`, `b32c36cb624f`,
-`836d0b726568`, `fe6001629221`, `c71dee5fe6bd`, `96f6a39b6852`) are approved for
-a new `react-kit` skill that owns visual-reference comparison. It has not been
-built yet and still needs a dedicated run. This run's `13da2cc4aafe` (CSS `zoom`
-subtree coordinates) and `74e9f3e0fb2c` (unlayered CSS beats Tailwind utilities)
-are unanalyzed candidates in the same neighbourhood. Consider them when that
-skill is built.
+Unchanged since 2026-09-12. Six lessons (`120cd969880a`, `b32c36cb624f`,
+`836d0b726568`, `fe6001629221`, `c71dee5fe6bd`, `96f6a39b6852`) are approved for a
+new `react-kit` skill that owns visual-reference comparison. It still needs a
+dedicated run. `13da2cc4aafe` and `74e9f3e0fb2c` sit in the same neighbourhood.
 
-### Odoo stock / import mechanics — watch, below threshold
+### Odoo stock / import / inventory mechanics — watch, now two dates
 
-Five deferred lessons from one investigation share a domain that no shipped
-Odoo skill owns: product/stock data import. They are `e9c3012df980` (variant
-barcodes), `35bab7c43af8` (nomenclature prefixes), `b8e054d57f02`
-(`stock.quant` import whitelist), `2215dc931a16` (`complete_name` at view
-locations) and `a27d1f2d754e` (website availability per warehouse).
-
-Together they meet the lesson count for a new skill (≥ 4), but they span only
-**one date and one project**, so they fail the ≥ 2-dates rule. Re-score them
-once a second, independent stock-import incident is recorded. A candidate home
-would be an `odoo` data-migration/import skill.
+The 2026-09-27 stock-import cluster (`e9c3012df980`, `35bab7c43af8`, `b8e054d57f02`,
+`2215dc931a16`, `a27d1f2d754e`) gained two related lessons on 2026-10-17:
+`f40fb543b813` (17.0 products default to Consumable; type locks after the first done
+move) and `b8074a3d5fc7` (reservation follows `child_of`, hand-typed MO quantities do
+not). The cluster is now 7 lessons over 2 dates, which meets the new-skill count and
+date rules, but every incident is still from **one client's databases**. Recommended:
+an `odoo` stock/inventory-data skill once one incident from another project lands.
+Needs a human decision on whether one project is enough.
 
 ---
 
 ## Human decisions outstanding
 
-### `25e279e68077` — carried over, coverage PARTIAL
+### `974976b81547` — Needs Review upstream
 
-The linter-validation lesson is still unresolved, for the same reason as on
-2026-09-12. Rule 9 of `test-result-evidence` ships only one of its four claims,
-and no skill owns authoring a scan rule set. The recommended next step is
-unchanged: seed a scan-rule-authoring rule set, either in `structural-assertions`
-or as its own skill.
+`db_name` set together with a non-empty `dbfilter` reportedly makes every request do a
+DB lookup ("Connection Pool Is Full"). It extends the shipped `dbfilter` rule in
+`odoo/stack-doctor/references/db-safety.md`, but it was observed once, from a
+generated conf. Confirm against `odoo/http.py` before shipping.
 
-### Framework defect — carried over, not fixed
+### `850b4ed0adad` — Needs Review upstream
 
-The `lessons_index.py` section-attribution defect is still open. The trailing
-`h2` regime still inherits the `## Processing Log` label. See
-`claude_plugins/.claude/docs/2026-09-12_lessons-index-section-attribution-defect.md`.
+A command and a skill with the same name in one plugin may shadow each other (10 of
+20 skill invocations failed with "Unknown skill"). The root cause (name collision vs
+plugin not enabled) was not confirmed. If confirmed, the owner is
+`claude-plugin-builder` (a house rule plus a validator check).
+
+### `25e279e68077` and the `lessons_index.py` section-attribution defect
+
+Both carried over unchanged from 2026-09-27.
 
 ---
 
 ## Absorbed this run
 
-| id(s) | Owner | Rule (short) |
+| id | Owner | Rule (short) |
 |---|---|---|
-| `124f23b1fd71` | `odoo/stack-doctor` (`references/db-safety.md`) | The conf key is `dbfilter`. `db_filter` is ignored silently. This corrected a shipped table that used the wrong key |
-| `a9cde60abdb3` `9ca81e803bf1` `a198a6fab615` | `odoo/upgrade` | `-u` reconciles module-owned data. Three cases: hand-deleted shipped records are re-created and fail; hotfix records given a module xmlid are deleted; UI edits to code-defined records are reverted, and a Portal ↔ Internal role switch cannot be done in place |
-| `a7f4f363e6f0` | `odoo/security` | Widen portal/public visibility with a narrow rule on the user's own group, or sudo one search term. Never grant public ACLs on internal models |
-| `d3367a8e5936` `c9312ccf0ab7` `167c39093edb` | `odoo/mcp` | A domain on a non-stored field is dropped on 17/18 (verified in source). The shared profile file needs a DB re-check before each write. `cannot marshal None` fires after the commit |
-| `3a359a0a120b` | `agent-safety-guards/defensive-failure-design` rule 7 | An idempotent skip must not skip a side effect that later steps depend on. A missing lookup is a hard error, not a default |
+| `a48542b816f7` | `odoo/reviewer` `security_pitfalls.md` | Elevation needs a trigger RPC cannot send (private method, identity-compared sentinel); `context.get()` guarding `sudo()` is a finding |
+| `b4d35115c51c` | `odoo/reviewer` `security_pitfalls.md` | An app's Administrator group can bypass agreed scoping (rule exemptions, `implied_ids`); grant a narrow manager group instead |
+| `e50f8dd60ba5` | `odoo/reviewer` `orm_patterns.md` (partial: mechanism already shipped) | Tests that assign a stored compute go through `write()` and hide the dead hook; test through the business flow |
+| `c4235ecfb04c` | `odoo/reviewer` `orm_patterns.md` | Custom per-line `stock.move` fields must be in `_prepare_merge_moves_distinct_fields` |
+| `4f970f76392b` | `odoo/reviewer` `orm_patterns.md` | On 17.0 a filter on `display_name` is dropped and matches everything; tied search-view priorities resolve by name |
+| `b8117d9913dd` | `odoo/reviewer` `orm_patterns.md` | A "missing" method lives on another module declaring the same `_name`; check which one is installed (two incidents) |
+| `14224c8530b7` | `odoo/reviewer` `v20_deltas.md` | `ir.access` permissions are OR-ed, so a narrowing must be on every granting row; child rows chain off the parent's grant |
+| `332d2b33b7fd` | `odoo/reviewer` `v20_deltas.md` | Verified table of models and fields removed or renamed in 20 |
+
+All 20.0 facts were re-verified against the local 20.0 source before shipping.
 
 ## Deferred (stay live, re-scored next run)
 
 | id | lesson | Score | Why |
 |---|---|---|---|
-| `59a4e62c57ee` | Odoo menu missing after a group change → cached `load_menus` hash | 4 | Singleton, < 14 days old, no severity |
-| `e9c3012df980` | Odoo 17 product barcode lives on the variant; uniqueness goes global | 4 | Stock-import cluster, see above |
-| `35bab7c43af8` | Barcode nomenclature matches on prefix; label print never rejects a bad EAN-13 | 4 | Stock-import cluster |
-| `b8e054d57f02` | `stock.quant` import: lots first, column whitelist, auto-apply skips wizards | 4 | Stock-import cluster |
-| `2215dc931a16` | `stock.location.complete_name` restarts at view locations | 4 | Stock-import cluster |
-| `a27d1f2d754e` | Website stock availability is per warehouse | 4 | Stock-import cluster |
-| `7046ab28b34d` | Odoo 19 API provisioning: chart install resets currency; `group_ids` ≠ effective groups | 4 | Three unrelated facts; no single owner (mcp vs security) |
-| `af6fd9219442` | Odoo.sh "unknown" dependency → refresh the Apps list first | 3 | Singleton, new; no hosting-platform skill |
-| `e717d59dee0f` | Missing manifest `depends` hidden locally; fresh-DB install before promotion | 4 | Singleton, new. `reviewer/references/module_manifest.md` is the likely home once it recurs |
-| `2234f3eb4543` | Warehouse install hooks: blanking a `*_pull_id` pointer twice orphans rules | 5 | Severity is real (silent wrong operation type), but ownership is ambiguous: no stock skill, and `upgrade` owns migrations, not install hooks |
-| `4ca7a638cb25` | Portal QWeb: render datetimes with the widget | 3 | Singleton, no severity |
-| `401cd2d9e660` | Don't gate controls on quantity truthiness; HTML `max` is a hint | 4 | Framework-neutral and QWeb-shaped at once; ambiguous owner |
-| `294df522757c` | Backend buttons need `groups` matching the method's ACL | 4 | Singleton, no security severity (the failure is an AccessError, not exposure) |
-| `a01e339760ed` | Browser-pane UAT stalls when the Claude window is hidden | 4 | Specific to one host app; `qa-browser` would own it if it recurs |
-| `9976b08273f3` | Global group toggles through the UI; production writes scoped to exactly what was authorized | 3 | The "don't route around a guard" half is already shipped in `odoo/mcp`; the production-scope half is a working convention |
+| `6431bb56193c` | Fast WSL Odoo testing: core on WSL's disk, template-DB clones | 6 | Score qualifies, but the owner `odoo/test` `SKILL.md` is 1,940 lines; it needs a `references/` extraction first. Do it as a dedicated edit |
+| `243cdaf0d237` | Per-website view copies survive upgrades and call removed templates | 5 | Severity real (500s), owner ambiguous: website/theme skills vs reviewer |
+| `e67ac3873aad` | `gh issue create` drops labels/assignee without triage access | 5 | Two incidents, but no plugin owns GitHub issue filing |
+| `fa6df3c04113` | Outbound sync: `ir.cron._trigger()` after validate, not a push inside it | 4 | Singleton, < 14 days |
+| `d23f81eaf976` | Wizards driven over RPC/MCP get no onchange | 4 | Singleton, < 14 days; `odoo/mcp` is the likely home |
+| `99add7ca8cfb` | Triage access complaints by dialog title and field `groups` | 4 | Singleton, no severity |
+| `f5962377f9b3` | `pos_sale` cancels the delivery as the cashier; restrictive picking rules break payment | 4 | Generic part ("trace which core steps run without sudo") is close to shipped guidance; re-score on recurrence |
+| `e8b05d620210` | Extend a code-defined role with a second UI role | 3 | The upgrade-revert half is already shipped in `odoo/upgrade`; the remainder is OCA-module specific |
+| `f40fb543b813` | Products default to Consumable; type locks after done moves | 3 | Stock cluster, see above |
+| `b8074a3d5fc7` | Reservation follows `child_of`; typed quantities do not | 3 | Stock cluster, see above |
+| `ec36277219ed` | Don't edit a bash script while a run of it executes | 3 | Singleton, < 14 days, no incident (prevented) |
+| `974976b81547` | `db_name` + `dbfilter` → pool exhaustion | — | Needs Review upstream |
+| `850b4ed0adad` | Same-name command and skill shadow each other | — | Needs Review upstream |
 
 ## Rejected — project-specific, never crosses into a plugin
 
-These stay in `LESSONS.md` → Project-Specific Lessons, where they are already
-recorded. They were not migrated to project memory in this run.
-
 | id | lesson |
 |---|---|
-| `d611390d4e89` | Medline Odoo 19 stock spike findings (the generic "spike on a scratch DB first" habit is not new) |
-| `c62f492c12ef` | Medline operation milestones move only on `_signal` |
-| `a9f5463e8b65` | Medline portal mobile-stack class placement |
-| `cabc5b8169cd` | Cluster2 Settings blocked by Webkul marketplace required fields |
-| `ce729edf314e` | Cluster2 submodule re-pin bot |
-| `d4c6d3219097` | ApiaryAndHoney Odoo.sh staging rebuild wiped UAT setup |
-| `24f35bf6a98d` | Company Odoo repo standard (addons-only root, vendored OCA, branch flow) |
-
-Also excluded from this batch because they are not generic: `22b4477d76d0` (check
-the manifest author before saying "vendor"), `2fb162c55c55` (Excel Data
-Validation) and `e87b922af7a2` (Azure DevOps default branch). They were not
-analyzed this run and remain candidates.
+| `1a2148e9732b` | Reviewing a teammate's code-in-issue handovers for one project board |
+| `13e80ce50a4a` | One client's access-change loop (staging test, prod command, reference page) |
+| `fc1672892891` | One client's "sell from one location" decision; no OCA module exists |
+| `9125c38f4684` | One client's stale pickings from editing settled orders (config, not code) |
 
 ---
 
@@ -125,11 +117,10 @@ analyzed this run and remain candidates.
 
 | | |
 |---|---|
-| Candidates in | 348 |
-| Analyzed | 31 |
-| **Absorbed** | **9** → 5 skills (+1 reference), 2 plugins, 12 files, +108 / −9 lines |
-| Deferred | 15 |
-| Rejected (project-specific) | 7 |
-| Already covered | 0 |
-| Gates passed | `validate_plugin.py` exit 0 on both touched plugins · `validate_marketplace.py` exit 0 (no architecture errors) · `validate_evals.py` 0 FAIL/0 WARN · 0 deletions · no frontmatter touched, all descriptions byte-unchanged · noun sweep clean on every added line |
-| Size | `mcp` +13.2% (129→146), `upgrade` +7.9% (354→382), `security` +4.6% (393→411), `defensive-failure-design` +4.7% (172→180). None over 15%, all under the 500-line cap |
+| Candidates in | 397 |
+| Analyzed | 25 |
+| **Absorbed** | **8** → 1 skill (3 references), 1 plugin |
+| Deferred | 13 |
+| Rejected (project-specific) | 4 |
+| Gates passed | `validate_plugin.py odoo-plugin` exit 0 · `validate_marketplace.py` exit 0 · 0 deletions · no `SKILL.md` or description touched · noun sweep clean on every added line |
+| Size | `v20_deltas.md` +42% (66→94, **flagged**: new removed-names table), `orm_patterns.md` +5.1% (661→695), `security_pitfalls.md` +3.3% (365→377) |

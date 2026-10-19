@@ -34,9 +34,19 @@ Review rules:
 - Flag `c`/`u`/`d` granted to `base.group_portal`, `base.group_public` or
   `base.group_everyone`. Scrutinise even `r` on personal or business-sensitive models.
 - Multi-company models need a company restriction row, not only group permissions.
+- Permission rows are OR-ed. A 19 group rule narrowed every member of the group,
+  whichever group granted access. On 20 a permission's domain narrows only that
+  permission, so a narrowing holds only if **every** row granting the operation
+  carries it. Express company scoping as one no-group restriction, the way core
+  does (`[('company_id', 'in', company_ids)]`).
+- Child rows chain off the parent: core's portal row on `sale.order.line` is
+  `[('order_id', 'access', 'read')]`. Granting a persona read on a parent therefore
+  exposes the children too (order lines with prices). Native portal routes such as
+  `/my/orders/<id>`, its PDF and accept also check only read access. Test that a
+  persona is refused there, not only that the routes exist.
 - Migrating a 19 module: every `ir.model.access.csv` row plus every `ir.rule` becomes
   `ir.access` rows. A dropped rule is a silent widening, so diff the effective access
-  before and after.
+  per persona and operation before and after.
 
 ## ORM
 
@@ -53,6 +63,24 @@ Review rules:
 - `t-raw` and `t-esc` are gone from server QWeb and OWL. `t-out` is the only output
   directive. A leftover server-side `t-esc` renders nothing, so it is a functional bug.
   The raw-HTML vector is a `Markup` / `markup()` value reaching `t-out`.
+
+## Removed or renamed names that 19-era code still uses
+
+Verified against the 20.0 source. An override of a method or field that no longer
+exists is dead code that fails silently, so grep custom code for every row.
+
+| 19 | 20 |
+|---|---|
+| `stock.scrap` model | a `stock.move` with `is_scrap=True` |
+| `stock.return.picking` wizard | editable draft return pickings (`action_return`, `_create_return`) |
+| `location_final_id` on `stock.move` | `forecasted_location_id` |
+| `product_uom` / `product_uom_id` on stock lines | `uom_id` |
+| `tracking = 'none'` | no value (`False`); `store_by` drives storability |
+| `industry_fsm*` (Enterprise) | `planning_field_service*` |
+| `hr_work_entry_attendance` | folded into `hr_attendance` |
+
+Also: `mail` now defines `res.users.role_ids` (comodel `res.role`), which clashes
+with OCA `base_user_role`'s field of the same name.
 
 ## Unchanged, still load-bearing
 

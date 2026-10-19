@@ -549,6 +549,12 @@ correctly on every change — the counters are right, the thing derived from
 them is frozen. A write hook cannot observe a stored compute; hook the compute
 (or add the derived value to its `@api.depends` chain) instead.
 
+Tests hide this: `record.payment_state = 'paid'` in a test **does** go
+through `write()`, so the hook fires and the test passes while production
+never triggers it. Test such hooks through the business flow that changes
+the dependency (post and reconcile a real payment), never by assigning the
+computed field.
+
 The same asymmetry cuts the other way for security: because recompute goes
 through `_write()`, dropping a key in `create()`/`write()` overrides blocks
 direct writes without blocking legitimate recomputation.
@@ -588,6 +594,34 @@ membership in `create()` has nothing to read in superuser mode. Seeding through
 `odoo-bin shell` therefore **stamps nothing and refuses nothing** — the records
 are created successfully and silently orphaned. Pass the anchor explicitly on
 every owned model when seeding as superuser.
+
+### `stock.move` merging drops a custom per-line field
+
+Confirming a picking merges moves of the same product, and only the fields
+listed by `_prepare_merge_moves_distinct_fields()` keep lines apart. A custom
+per-line field outside that list is merged away: two lines with different
+values become one line with the summed quantity and one value. Append the
+field in an override (no `@api.model`, matching core) and test two
+same-product lines with different values.
+
+### A filter on a non-searchable field matches everything (17.0)
+
+On 17.0 `display_name` has no search method (it gains one in 18.0). A
+`filter_domain` or domain leaf on it logs `Non-stored field ... cannot be
+searched` and the leaf is **dropped**, so the filter returns every record. On
+`res.partner` filter on `complete_name`. Related trap: primary search views of
+equal `priority` are chosen by name, so a module's specialised search view can
+become the default for every "Search More..." popup on that model; give it a
+higher `priority` and bind it on its own action via `search_view_id`.
+
+### A method that is "missing" at runtime lives on another module's model
+
+If a method you added is on disk and its module is installed at the new
+version, but calls still raise `AttributeError`, another addon may declare
+the same `_name` (a versioned sibling such as `foo` next to `foo_v17` is the
+usual case). Grep every addons path for `_name = '<model>'`, check which
+declaring module the database has installed, and put the method there or
+change the dependency.
 
 ## Modeling traps
 

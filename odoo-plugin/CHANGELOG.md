@@ -2,6 +2,23 @@
 
 All notable changes to `odoo-plugin` are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/). Versioning follows [SemVer](https://semver.org/).
 
+## [2.13.1] - 2026-10-19
+
+Reviewer references absorb eight lessons (lessons-to-plugins run). Content only;
+no behaviour or command changes.
+
+### Changed
+- `reviewer/references/security_pitfalls.md`: an unforgeable in-process trigger for
+  elevation instead of a context key, and an audit rule for `context.get()` guarding
+  `sudo()`; an app's Administrator group can bypass agreed record-rule scoping.
+- `reviewer/references/orm_patterns.md`: tests that assign a stored compute hide a
+  `write()` hook that never fires; `stock.move` merging drops custom per-line fields;
+  a 17.0 filter on `display_name` matches everything, and tied search-view priorities
+  resolve by name; a "missing" method lives on another module's model.
+- `reviewer/references/v20_deltas.md`: `ir.access` permissions are OR-ed, so a narrowing
+  holds only on every granting row; child rows chain off the parent's grant; a verified
+  table of models and fields removed or renamed in 20.
+
 ## [2.13.0] - 2026-09-28
 
 Integrates Odoo's official agent skills (`odoo-guidelines`, `odoo-web-guidelines`,

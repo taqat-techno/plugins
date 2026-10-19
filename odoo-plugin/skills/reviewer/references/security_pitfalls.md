@@ -44,6 +44,13 @@ a global ruleset will restrict access.
 rule applies *for* these operations" — if unselected, the rule is not
 evaluated for that op. All ops are selected by default.
 
+**An app's Administrator group can undo agreed scoping.** Custom restricting
+rules often exempt the module's admin group on purpose, its `implied_ids`
+pull in further groups, and it adds unlink/configuration rights. Before
+granting it to a scoped role, grep the custom rules for its xmlid and list
+its `implied_ids`; if it bypasses the scoping, build a narrow manager group
+that carries only the needed ACLs and stays under the same rules.
+
 Domain variables available:
 
 - `user` — current user (singleton recordset)
@@ -288,7 +295,12 @@ if self.env.context.get('bypass_check'):
 ```
 
 Use ACL groups, record rules, or `with_user(internal_admin)` for real
-elevation.
+elevation. When in-process code must signal "elevate here", use something
+RPC cannot send: a private `_method`, or a module-level `object()` sentinel
+passed as the context value and compared with `is`. Keep the elevated write
+scoped to exactly the records it exists for. At review time, treat every
+`context.get(...)` that guards a `sudo()`, `SUPERUSER_ID` or `with_user()` as
+a finding unless its trigger is unforgeable from RPC.
 
 ## `sudo()` — when is it justified?
 
