@@ -83,7 +83,7 @@
     "contextIndicator": " Project: {projectName}",
     "tempOverride": " Querying: {tempProject} (one-time)\n Default: {defaultProject}",
     "multiProject": " Querying all projects...",
-    "switchConfirm": "? Switched to {newProject}\n\nPrevious: {oldProject}\nCurrent: {newProject}"
+    "switchConfirm": "Switched to {newProject}\n\nPrevious: {oldProject}\nCurrent: {newProject}"
   },
 
   "urlTemplates": {
@@ -112,6 +112,7 @@
     "stalenessThresholdHours": 4,
     "settings": {
       "minHoursPerDay": 6,
+      "minHoursPerDayNote": "Fallback only. The daily_hours_target plugin option (/config) wins.",
       "workingDaysPerWeek": 5,
       "workingDays": ["Mon", "Tue", "Wed", "Thu", "Fri"],
       "hourTypes": ["task", "meeting", "research", "learning", "review", "admin"],

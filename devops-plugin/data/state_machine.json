@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "description": "Single source of truth for work item processes (states, transitions, optional role and naming rules), required fields, and API error patterns. Process models are named presets under processPresets; the active one is the profile's 'process' field (~/.claude/devops.md), set by /init's process-detection step.",
+    "description": "Single source of truth for work item processes (states, transitions, optional role and naming rules), required fields, and API error patterns. Process models are named presets under processPresets; the active one is the profile's 'process' field (${CLAUDE_PLUGIN_DATA}/profile.md, legacy ~/.claude/devops.md), set by /init's process-detection step.",
     "version": "7.0.0",
     "lastUpdated": "2026-10-19",
     "processModelNote": "Four presets (basic, agile, scrum, cmmi) encode Microsoft's stock templates and carry NO role or naming rules. 'custom-scrum-qc' is an opt-in customized-Scrum preset with role rules and Task prefixes. Role/naming rules apply only when the active preset or the profile defines them; violations ask for confirmation by default."
@@ -470,7 +470,7 @@
       "displayName": "Customized Scrum with QC gates (opt-in)",
       "source": "custom",
       "basedOn": "scrum",
-      "note": "An opt-in preset for organizations running a CUSTOMIZED Scrum process: PBIs and Bugs move through 'In Progress' (and 'Ready For QC'), an Enhancement type, QC Return loops, fixed Task-title prefixes, and role rules (QA-only Bug creation, PM/Lead-only Close/Remove). It is NOT stock Scrum. Select it with 'process: custom-scrum-qc' in ~/.claude/devops.md; /init proposes it only when the live project has the Enhancement type or a 'Ready For QC' PBI state.",
+      "note": "An opt-in preset for organizations running a CUSTOMIZED Scrum process: PBIs and Bugs move through 'In Progress' (and 'Ready For QC'), an Enhancement type, QC Return loops, fixed Task-title prefixes, and role rules (QA-only Bug creation, PM/Lead-only Close/Remove). It is NOT stock Scrum. Select it with 'process: custom-scrum-qc' in the profile; /init proposes it only when the live project has the Enhancement type or a 'Ready For QC' PBI state.",
       "transitionModel": "explicit",
       "requirementType": "Product Backlog Item",
       "workItemTypes": {
@@ -1380,7 +1380,7 @@
           "steps": [
             "Identify which scope is needed (vso.work_write, vso.code_write, etc.)",
             "Direct user to regenerate PAT at https://dev.azure.com/{org}/_usersSettings/tokens",
-            "Suggest checking ~/.claude/devops.md for organization name"
+            "Suggest checking the ado_organization plugin option (/config) or ADO_ORGANIZATION"
           ]
         }
       },

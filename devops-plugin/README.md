@@ -1,268 +1,168 @@
-# DevOps Plugin for Claude Code
+# devops — Azure DevOps for Claude Code
 
-A comprehensive Azure DevOps integration plugin for Claude Code, enabling natural language interaction with your DevOps workflows through **HYBRID** CLI + MCP architecture.
+## What it does
 
-**Version**: 6.5.0 | **Mode**: Hybrid (CLI + MCP)
+Lets you work with Azure DevOps in plain language: create and update work items (with
+state pre-flight and @mention resolution), review and open pull requests, produce sprint
+reports and standup notes, log time, and run `az devops` CLI commands. It talks to Azure
+DevOps through the official `@azure-devops/mcp` server (pinned at 2.8.0) and the Azure CLI,
+and asks for your confirmation before every write.
 
----
+It is for developers, testers and project leads whose team tracks work in Azure DevOps
+Boards and Repos. It is Azure DevOps-only.
 
-## Process Presets
+## Install
 
-Azure DevOps projects run different processes, so the plugin does not assume one. The
-process model lives in `data/state_machine.json` `processPresets`, and your profile's
-`process` field picks the active preset. `/init` detects it (Step 3.5 in
-`commands/init.md`): it reads the project's work item types with `wit_list_backlogs` and
-`wit_get_work_item_type`, maps them to a preset (`presetDetection`), and asks you to
-confirm. If detection fails, it asks you, and falls back to `agile`.
+```
+/plugin marketplace add taqat-techno/plugins
+/plugin install devops@taqat-techno-plugins
+```
 
-| Preset | Source | Work item types | Role / naming rules |
-|--------|--------|-----------------|---------------------|
-| `basic` | Microsoft default | Epic, Issue, Task (To Do / Doing / Done) | none |
-| `agile` | Microsoft default | Epic, Feature, User Story, Task, Bug, Issue | none |
-| `scrum` | Microsoft default | Epic, Feature, Product Backlog Item, Bug, Task, Impediment | none |
-| `cmmi` | Microsoft default | Epic, Feature, Requirement, Task, Bug, Change Request, Issue, Risk, Review | none |
-| `custom-scrum-qc` | Custom, opt-in | Scrum + Enhancement, In Progress / Ready For QC / Return states on PBIs and Bugs | QA-only Bug creation, PM/Lead-only Close/Remove, required Task prefixes (`[Dev]`, `[Front]`, `[QC Bug Fixing]`, `[QC Test Execution]`, `[IMP]`, `[Dev-Internal-fix]`) |
+When the plugin is enabled, Claude Code asks for its options (organization and Personal
+Access Token among them). You can change them later in `/config`. Then run `/init`.
 
-The stock presets encode Microsoft's documented default states. Inherited processes allow
-a transition between any two states of a type, so these presets list the states and the
-usual forward flow (`happyPath`). If your project customized its process, the hook asks
-before any state the preset does not define.
+## Requirements
 
-### How the write hook applies them
+| Requirement | Used for | Check |
+|-------------|----------|-------|
+| Node.js with `npx` (current LTS, 20 or later) | Runs the MCP server launcher and `@azure-devops/mcp@2.8.0` (downloaded from npm on first start) | `node --version`, `npx --version` |
+| Python 3.8+ as `python3`, `python` or `py -3` | The three hooks | `python3 --version` |
+| An Azure DevOps organization and a Personal Access Token | Every MCP call | `/init status` |
+| Azure CLI 2.30+ with the `azure-devops` extension (optional) | `/cli-run`, team members during `/init profile`, CLI fallbacks | `az --version`, `az extension show --name azure-devops` |
 
-`hooks/pre_write_validate.py` reads the active preset on every work item create/update:
+**PAT scopes:** grant the narrowest set you need, typically Work Items (Read & Write),
+Code (Read & Write) and Build (Read). Add Build (Read & Execute) only to run pipelines.
+Use a short expiry.
 
-| Situation | Result |
-|-----------|--------|
-| Stock preset, no profile, a profile without `process`, or an unknown preset | No role or naming rules. You get reminders only |
-| A role or naming rule is broken (only when the preset or profile defines one) | `permissionDecision: "ask"` with the reason. You decide |
-| Same, with `enforcement: "block"` in the profile | Hard block (exit 2) |
-| Same, with `enforcement: "advise"` | Reminder only |
-| Target state not defined by the active preset | Always `ask`, never a hard block |
-| Comment with unresolved `@mentions` | Hard block (correctness guard, any process) |
+## Commands
 
-### Profile fields (`~/.claude/devops.md` frontmatter)
+| Command | What it does |
+|---------|--------------|
+| `/devops:init` | Setup: checks configuration, the MCP server and the CLI, detects the project's process, generates your profile. `/init status`, `/init profile`, `/init profile --refresh` |
+| `/devops:create` | Create a work item (task, bug, enhancement, user story) with the parent and sprint resolved. Asks for a title when run bare |
+| `/devops:workday` | Daily dashboard: your active work items and today's hours against the target |
+| `/devops:log-time` | Log hours against a work item (updates Completed Work after confirmation) or a category (local timesheet) |
+| `/devops:timesheet` | Local time views (`--week`, `--month`, `--date`) and time off (`--off`, `--off-list`, `--off-remove`) |
+| `/devops:standup` | Yesterday / Today / Blockers notes from your work items. `--copy` copies to the clipboard |
+| `/devops:sprint` | Sprint progress report; `--full` adds builds, tests, PRs and security alerts |
+| `/devops:task-monitor` | Reports new assignments and state changes since the last run; use with `/loop 15m /devops:task-monitor` |
+| `/devops:cli-run` | Run an `az devops` / `boards` / `repos` / `pipelines` / `artifacts` command. Reads run directly, anything else needs your yes |
+
+## Skills
+
+| Skill | Loads when |
+|-------|-----------|
+| `devops` (model-invoked only) | You work with Azure DevOps work items, PRs, sprints, pipelines, wiki or the `az devops` CLI, or an Azure DevOps call fails (TF401320, MCP auth, unknown tool). Routes between MCP and CLI and carries the workflows behind the commands |
+
+## Agents
+
+All three are read-only. When a task needs a write, they return a `PROPOSED WRITE`
+(tool, arguments, summary) and the main conversation asks you before making the call.
+
+| Agent | Model | Tools |
+|-------|-------|-------|
+| `work-item-ops` | haiku | Read, Bash, work-item reads, identity lookup |
+| `sprint-planner` | sonnet | Read, Bash, Glob, Grep, work-item / iteration / capacity reads, search |
+| `pr-reviewer` | sonnet | Read, Bash, Glob, Grep, repo / branch / PR / thread reads, identity lookup |
+
+## Hooks
+
+| Hook | Event | What it does | Can block? |
+|------|-------|--------------|-----------|
+| `session_start_check.py` | SessionStart (`startup`) | Reports missing organization/token, a missing, stale or legacy-location profile, and broken data files, as context for Claude. Prints nothing when all is well | No |
+| `pre_write_validate.py` | PreToolUse: `wit_create_work_item`, `wit_update_work_item`, `wit_add_work_item_comment`, `wit_work_items_link`, `repo_create_pull_request` | Hierarchy and state reminders; asks (`permissionDecision: "ask"`) when a target state is not in your process preset or a preset/profile role or naming rule is broken; flags a repository name passed where a GUID is needed | Yes, two cases: a comment with an unresolved `@mention` (a plain `@name` notifies nobody), and rule violations when your profile sets `enforcement: block` |
+| `pre_write_confirm.py` | PreToolUse: the 25 other write tools (pipeline runs, PR complete/vote/reviewers/threads, branches, batch and link work-item writes, wiki, iterations and capacity, test plans; list in `rules/write-gate.md`) | Asks you to confirm, naming the action and its target | It asks; you decide |
+
+All hooks fail open: an internal error or a missing Python lets the call through to the
+normal Claude Code permission flow. There is no git-push gate.
+
+## Configuration
+
+**Plugin options** (`/config`, or the dialog shown when the plugin is enabled):
+
+| Option | Meaning | Fallback environment variable |
+|--------|---------|-------------------------------|
+| `ado_organization` | Organization name (e.g. `contoso` for `https://dev.azure.com/contoso`) | `ADO_ORGANIZATION` |
+| `ado_token` | Personal Access Token. Sensitive: kept in the OS credential store, never in `settings.json` | `ADO_MCP_AUTH_TOKEN` |
+| `ado_project` | Default project, so the server never stops to ask which project | `ADO_MCP_PROJECT` |
+| `ado_team` | Default team | `ADO_MCP_TEAM` |
+| `daily_hours_target` | Hours per working day for `/workday` and `/timesheet` (default 6) | — |
+| `profile_stale_days` | Days before the SessionStart check suggests `/init profile --refresh` (default 14) | — |
+
+How the fallback works: `.mcp.json` cannot say "use this option, else that variable", so it
+starts `scripts/ado-mcp-launch.js`, which takes each value from the plugin option when it is
+set and from the environment variable otherwise, then runs `npx -y @azure-devops/mcp@2.8.0
+<org> --authentication envvar`. If neither is set the server does not start and `/mcp`
+shows which value is missing. Existing setups that use only the environment variables keep
+working unchanged.
+
+Other environment variables: `AZURE_DEVOPS_EXT_PAT` (the Azure CLI's own PAT variable).
+
+**Process presets.** Your profile's `process` field picks a preset in
+`data/state_machine.json`; `/init` detects it from the project's work item types and asks
+you to confirm.
+
+| Preset | Work item types | Role / naming rules |
+|--------|-----------------|---------------------|
+| `basic` | Epic, Issue, Task | none |
+| `agile` (default) | Epic, Feature, User Story, Task, Bug, Issue | none |
+| `scrum` | Epic, Feature, Product Backlog Item, Bug, Task, Impediment | none |
+| `cmmi` | Epic, Feature, Requirement, Task, Bug, Change Request, Issue, Risk, Review | none |
+| `custom-scrum-qc` (opt-in) | Scrum + Enhancement, In Progress / Ready For QC / Return states | QA-only Bug creation, PM/Lead-only Close/Remove, required Task prefixes |
+
+Profile fields that change hook behaviour:
 
 ```yaml
 process: "scrum"          # basic | agile | scrum | cmmi | custom-scrum-qc
 enforcement: "ask"        # ask (default) | block | advise
-# Optional overrides. Each one replaces the preset's rules. Write it as inline JSON, or as off:
-roleRules: {"restrictedStates": {"Closed": {"allowedRoles": ["pm", "lead"]}}, "createRestrictions": {"Bug": {"deniedRoles": ["developer"]}}}
-taskNaming: {"appliesTo": ["Task"], "prefixes": ["[BE]", "[FE]"]}
+roleRules: off            # or inline JSON replacing the preset's role rules
+taskNaming: off           # or inline JSON, e.g. {"appliesTo": ["Task"], "prefixes": ["[BE]", "[FE]"]}
 ```
 
-To keep the earlier hard-enforced customized-Scrum behavior, set
-`process: "custom-scrum-qc"` and `enforcement: "block"`. Profiles created before
-process presets have no `process` field, so they get generic rules until you run
-`/init profile --refresh` or add the field yourself.
+**Per-project files:** none.
 
-### Other rules
+## Platform support
 
-| Rule | Description |
-|------|-------------|
-| **Hierarchy** | Epic > Feature > requirement (User Story / PBI / Requirement / Issue) > Task or Bug (parent required), `data/hierarchy_rules.json` |
-| **Auto-Sprint** | Tasks are auto-assigned to the current sprint by date |
-| **Required fields** | Per-transition `requiredFields` in the preset (e.g. hours on Task Done in `custom-scrum-qc`). Azure DevOps errors are mapped in `errorPatterns` |
+| Platform | Status |
+|----------|--------|
+| Windows | Supported. Hooks run through Git Bash (`py -3` fallback); `/init` shows PowerShell commands for the environment-variable route; `--copy` uses `clip` |
+| macOS | Supported (`python3`, `pbcopy`) |
+| Linux | Supported (`python3`; `wl-copy` or `xclip` for `--copy`) |
+| WSL | Works inside WSL with Node and Python installed there. The Windows registry advice in `/init` does not apply; use the plugin options or your shell profile |
 
----
+## Data & privacy
 
-## Quick Start
+| Data | Where | Leaves the machine? |
+|------|-------|---------------------|
+| PAT | OS credential store (plugin option) or your environment | Sent only to `dev.azure.com` by the MCP server and the Azure CLI |
+| Organization, project, team, hours target | `settings.json` `pluginConfigs` | No |
+| Profile: your name, e-mail, identity GUID, role, process, and **your teammates' display names, e-mail addresses and GUIDs**, project and repository names | `${CLAUDE_PLUGIN_DATA}/profile.md` (older versions: `~/.claude/devops.md`, still read as a fallback) | No. `/init profile` can store teammates without e-mail |
+| Local time entries | `${CLAUDE_PLUGIN_DATA}/timesheet.json` | No |
 
-```
-/init setup
-```
+The plugin data directory survives updates and is deleted when you uninstall the plugin.
+Work item, PR, wiki and build content that Claude reads is shown in your session and sent
+to the model like any other tool output. The plugin treats that content as data: an
+instruction written inside a work item or PR is never followed without asking you
+(`rules/guards.md` Guard 4). `npx` downloads `@azure-devops/mcp@2.8.0` from the npm
+registry on first start. Nothing is sent anywhere else.
 
-This installs both CLI and MCP, configures authentication, and validates connectivity.
+## Limitations
 
-Then generate your user profile:
-```
-/init profile
-```
+- Azure DevOps only (Services; Server/TFS is untested).
+- Pinned to `@azure-devops/mcp` 2.8.0 on purpose: 2.9.0 renames every tool and would break
+  the hooks, agents and rules. The pin covers the package version, not an integrity hash.
+- The server has no team-members or "who am I" tool; `/init profile` uses the Azure CLI or
+  asks for your sign-in e-mail.
+- Presets encode Microsoft's default processes. A customized inherited process may define
+  states the preset does not; the hook then asks instead of assuming.
+- Raw `/cli-run` commands do not pass through the PreToolUse hooks; the command classifies
+  them by verb and asks before any write.
+- Evals exist under `evals/` but no trigger-rate result has been recorded yet.
 
-This creates `~/.claude/devops.md` with your identity, role, team members, and project defaults.
+## License
 
----
+MIT (`LICENSE`). `@azure-devops/mcp` (Microsoft, MIT) is fetched at runtime by `npx` and is
+not bundled. The Azure CLI is installed separately under its own licence.
 
-## Commands Reference (9 commands)
-
-### Daily Use
-
-| Command | Description |
-|---------|-------------|
-| `/workday` | Daily dashboard: tasks, time log, compliance |
-| `/log-time` | Log hours: `/log-time 3h #1828 "description"` |
-| `/standup` | Generate daily standup notes |
-| `/create` | Create work item with auto-type detection |
-
-### Sprint & Monitoring
-
-| Command | Description |
-|---------|-------------|
-| `/sprint` | Sprint progress. Use `--full` for comprehensive report |
-| `/task-monitor` | Periodic alerts. Use with `/loop 15m /task-monitor` |
-
-### Setup & Admin
-
-| Command | Description |
-|---------|-------------|
-| `/init` | Setup, status, profile generation |
-| `/timesheet` | Time views + time-off management |
-| `/cli-run` | Execute raw CLI commands |
-
-### Skill-Handled (Natural Language)
-
-| Say this | What happens |
-|----------|-------------|
-| "mark #1234 as done" | Updates work item with pre-flight validation |
-| "comment on #1234 @teammate" | Adds comment with validated @mentions |
-| "switch to billing service" | Changes project context |
-| "any failing builds?" | Shows pipeline status |
-| "create PR from feature to main" | Creates pull request |
-| "set up CI/CD" | Generates GitHub Actions workflows |
-
----
-
-## User Profile System
-
-The plugin stores a persistent user profile at `~/.claude/devops.md`.
-
-| Section | Data |
-|---------|------|
-| **Identity** | Display name, email, Azure DevOps GUID |
-| **Process** | Active process preset (`process`) and optional `enforcement` / rule overrides |
-| **Role** | Developer, QA/QC, PM/Lead (used only by presets with role rules) |
-| **Default Project** | Auto-selected for all commands |
-| **Team Members** | Names, GUIDs, and aliases for fast @mention resolution |
-| **Task Templates** | Role-specific prefixes from Azure DevOps |
-| **State Permissions** | Which transitions the user's role can perform (custom presets only) |
-
-Profile generation workflow is in `commands/init.md`.
-
----
-
-## Role-Based State Transitions
-
-Role-based transitions exist only in presets that define them. Of the shipped presets,
-only `custom-scrum-qc` does (`processPresets["custom-scrum-qc"].rolePermissions`). Its
-matrix: developers start and complete work, QA/QC verifies and initiates Return (a
-comment is required), and PM/Lead approves, closes and removes. Under a stock preset,
-your role does not restrict transitions.
-
----
-
-## Work Item Hierarchy
-
-```
-Epic
-  > Feature
-      > User Story / PBI
-          > Task
-          > Bug          (sibling of Task)
-          > Enhancement  (sibling of Task)
-```
-
-Hierarchy rules are defined in `data/hierarchy_rules.json`.
-
----
-
-## Plugin Structure
-
-```
-devops-plugin/
-+-- .claude-plugin/
-|   +-- plugin.json                    # Plugin metadata (v6.0.0)
-+-- commands/                          # 9 slash commands
-|   +-- init.md, create.md, workday.md, log-time.md,
-|   +-- timesheet.md, standup.md, sprint.md,
-|   +-- task-monitor.md, cli-run.md
-+-- data/                              # Source of truth (5 files)
-|   +-- state_machine.json             # Process presets, detection, error patterns
-|   +-- hierarchy_rules.json           # Parent-child validation
-|   +-- project_defaults.json          # Project aliases, work tracking config
-|   +-- profile_template.md            # DevOps.md template
-|   +-- bug_report_template.md         # QA bug report format
-+-- devops/                            # Core skill (3 files)
-|   +-- SKILL.md                       # Main skill definition (9 workflows + WIQL appendix)
-|   +-- EXAMPLES.md                    # Usage examples
-|   +-- MCP_FAILURE_MODES.md           # MCP server recovery + CLI fallback matrix
-+-- rules/                             # Behavioral rules (3 files)
-|   +-- write-gate.md                  # Confirmation protocol for all writes
-|   +-- guards.md                      # Tool selection, mentions, repo resolution
-|   +-- profile-loader.md             # Profile loading + project context
-+-- hooks/                             # Lifecycle hooks (3 files)
-|   +-- hooks.json                     # Hook configuration
-|   +-- session_start_check.py         # Lightweight profile/data health check (advisory)
-|   +-- pre_write_validate.py          # Azure DevOps work-item write validation (role-based)
-|                                      #   (no git-push gate — git pushes are unrestricted)
-+-- agents/                            # Specialized subagents (3)
-|   +-- work-item-ops.md              # Haiku — CRUD, queries
-|   +-- sprint-planner.md             # Sonnet — reports, capacity
-|   +-- pr-reviewer.md                # Sonnet — PR review, diffs
-+-- tests/                             # Test suite (4 files, 260+ tests)
-|   +-- test_state_machine.py          # State machine schema validation
-|   +-- test_consistency.py            # Cross-file reference checks
-|   +-- test_integration_flows.py      # End-to-end flow contracts
-|   +-- consistency_check.py           # Cross-file drift detection
-+-- .mcp.json                          # MCP server declaration
-+-- ARCHITECTURE.md                    # Layer ownership + anti-patterns
-+-- CHANGELOG.md, LICENSE, README.md
-```
-
-**Totals**: 9 commands | 5 data files | 4 rule files | 3 agents | 7 hooks | 4 test files | ~40 files
-
----
-
-## Testing
-
-Run the full test suite:
-
-```bash
-cd devops-plugin
-pytest tests/ -v
-```
-
-Run individual test groups:
-
-```bash
-# State machine schema validation (states, transitions, roles, required fields)
-pytest tests/test_state_machine.py -v
-
-# Cross-file consistency (references, naming, deleted files)
-pytest tests/test_consistency.py -v
-
-# Integration flows (write gate wiring, guard ownership, hook targeting)
-pytest tests/test_integration_flows.py -v
-
-# Script unit tests (sprint reports, standup, release notes formatting)
-pytest tests/test_scripts.py -v
-```
-
-Tests validate plugin structure and contracts — they do **not** require Azure DevOps API access.
-
----
-
-## Safety hooks
-
-The plugin layers conservative, false-positive-averse safety hooks (see `ARCHITECTURE.md`
-for layer ownership):
-
-| Hook | Event | Behavior |
-|------|-------|----------|
-| `session_start_check.py` | SessionStart | Advisory profile / data-file health check; always exits 0, never blocks. |
-| `pre_write_validate.py` | PreToolUse (5 work-item/PR writes: `wit_create_work_item`, `wit_update_work_item`, `wit_add_work_item_comment`, `wit_work_items_link`, `repo_create_pull_request`) | Injects state/hierarchy context; asks on process-preset role/naming violations and on states the preset does not define (hard-blocks them only with `enforcement: block`); hard-blocks unresolved @mentions |
-| `pre_write_confirm.py` | PreToolUse (every other ADO MCP write tool - pipelines, PR complete/merge/abandon/vote/reviewers/threads, branches, batch/child/link work-item writes, wiki, iterations/capacity, test plans) | Returns `permissionDecision: "ask"` with the action and its target, so **you** confirm each write even if the model skipped its confirmation summary. Fails open. The gated tool set is listed in `rules/write-gate.md` ("Hook-Enforced Confirmation"). |
-
-There is **no git-push gate** — git pushes (including force-push) are **not** gated by this plugin.
-`rules/git-remote-write-gate.md` remains as advisory guidance only (permission-first +
-identity-correctness) and is not enforced by any hook; the assistant applies it judgmentally
-(and your global `CLAUDE.md` permission/auto-switch policy still governs pushes).
-
-Release-safety review guidance — deployed-SHA-to-environment reconciliation and pre-promotion
-secret-key diffing — lives in `devops/CI_HARDENING.md` (items 6 and 6a).
-
----
-
-## Support
-
-- **Author**: TaqaTechno
-- **License**: MIT — see [LICENSE](LICENSE)
+Development notes: `ARCHITECTURE.md` (layer ownership), `CHANGELOG.md`. Tests run offline:
+`python -m pytest -q -p no:cacheprovider` from this directory.

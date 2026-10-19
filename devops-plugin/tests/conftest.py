@@ -1,17 +1,10 @@
 """
-Pytest configuration and fixtures for state machine validation tests.
-
-Loads JSON data files and provides validator instances to tests.
+Pytest configuration and shared fixtures: the plugin's JSON data files.
 """
 
 import json
-import sys
 import pytest
 from pathlib import Path
-
-# Add tests directory to path to import middleware_validator
-sys.path.insert(0, str(Path(__file__).parent))
-from state_validator import MiddlewareValidator
 
 
 # Determine the data directory
@@ -42,13 +35,3 @@ def required_fields_data(state_machine_data):
 def state_permissions_data(state_machine_data):
     """Extract state permissions view from state_machine.json for backward compatibility."""
     return state_machine_data
-
-
-@pytest.fixture
-def validator(state_machine_data, hierarchy_rules_data):
-    """Create a MiddlewareValidator instance with loaded data."""
-    return MiddlewareValidator(
-        required_fields_data=state_machine_data,
-        hierarchy_data=hierarchy_rules_data,
-        state_permissions_data=state_machine_data
-    )

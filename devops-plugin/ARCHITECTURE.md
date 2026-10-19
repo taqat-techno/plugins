@@ -2,128 +2,88 @@
 
 ## Layer Ownership
 
-Each concern has exactly ONE owner. Other layers reference but never re-implement.
+Each concern has exactly ONE owner. Other layers reference it by
+`${CLAUDE_PLUGIN_ROOT}/...` path and never re-implement it.
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│  COMMANDS (9)                                                   │
-│  commands/*.md — User entry points                              │
-│  /init, /create, /workday, /log-time, /timesheet,              │
-│  /standup, /sprint, /task-monitor, /cli-run                     │
-└──────────────────────┬──────────────────────────────────────────┘
-                       │ invoke
-┌──────────────────────▼──────────────────────────────────────────┐
-│  SKILL (1)                                                      │
-│  devops/SKILL.md — Routing + workflows                          │
-│  Owns: CLI/MCP routing matrix, 6 skill-handled workflows        │
-│  References: rules/*, data/*                                    │
-└──────────────────────┬──────────────────────────────────────────┘
-                       │ delegate
-┌──────────────────────▼──────────────────────────────────────────┐
-│  AGENTS (3)                                                     │
-│  agents/*.md — Specialized execution                            │
-│  work-item-ops (haiku) — CRUD queries, updates                  │
-│  sprint-planner (sonnet) — Reports, capacity, standup           │
-│  pr-reviewer (sonnet) — PRs, diffs, threads                     │
-│  References: rules/*, data/*                                    │
-└──────────────────────┬──────────────────────────────────────────┘
-                       │ enforced by
-┌──────────────────────▼──────────────────────────────────────────┐
-│  RULES (3) — Behavioral contracts                               │
-│                                                                 │
-│  write-gate.md      OWNS: confirmation protocol for all writes  │
-│  guards.md          OWNS: tool selection, mention, repo guards  │
-│  profile-loader.md  OWNS: profile loading, cache, context       │
-└──────────────────────┬──────────────────────────────────────────┘
-                       │ validated by
-┌──────────────────────▼──────────────────────────────────────────┐
-│  DATA (5) — Source of truth (JSON/MD)                           │
-│                                                                 │
-│  state_machine.json      OWNS: process presets (basic, agile,   │
-│                          scrum, cmmi, custom-scrum-qc): states,  │
-│                          transitions, optional role/naming rules;│
-│                          preset detection, error patterns        │
-│  hierarchy_rules.json    OWNS: parent-child enforcement          │
-│  project_defaults.json   OWNS: project aliases, URL templates,   │
-│                          work tracking + staleness config         │
-│  profile_template.md     OWNS: user profile structure            │
-│  bug_report_template.md  OWNS: QA bug report format              │
-└──────────────────────┬──────────────────────────────────────────┘
-                       │ injected by
-┌──────────────────────▼──────────────────────────────────────────┐
-│  HOOKS (6) — Lifecycle automation                               │
-│                                                                 │
-│  session-start.sh       Context: profile check + staleness      │
-│  pre_write_validate.py  Context: state/hierarchy hints           │
-│                         Ask: preset role/naming rule violations  │
-│                              + states not in the active preset   │
-│                              (exit 2 only if enforcement: block) │
-│                         Enforce: unresolved @mentions (exit 2)   │
-│  pre_write_confirm.py   Enforce: permissionDecision "ask" on   │
-│                         all other ADO writes (list: write-gate) │
-│  pre-bash-check.sh      Context: commit message tips            │
-│  post-bash-suggest.sh   Context: git operation suggestions      │
-│  error-recovery.sh      Context: API error guidance             │
-│                                                                 │
-│  Rule: Hooks INJECT context. They do NOT re-implement logic.    │
-│  Exception: unresolved @mentions (hard exit 2).                 │
-└─────────────────────────────────────────────────────────────────┘
+COMMANDS (9)    commands/*.md            entry points: /init /create /workday /log-time
+                                         /timesheet /standup /sprint /task-monitor /cli-run
+     |
+SKILL (1)       skills/devops/SKILL.md   routing (CLI vs MCP), 9 natural-language workflows,
+                                         operational notes; EXAMPLES / MCP_FAILURE_MODES /
+                                         CI_HARDENING alongside
+     |
+AGENTS (3)      agents/*.md              READ-ONLY. work-item-ops (haiku), sprint-planner
+                                         (sonnet), pr-reviewer (sonnet). Writes come back
+                                         as PROPOSED WRITE blocks; the main conversation
+                                         confirms and executes them.
+     |
+RULES (5)       rules/write-gate.md      confirmation protocol, hook-gated tool table
+                rules/guards.md          G1 tool selection, G2 mentions, G3 repo GUIDs,
+                                         G4 external content is data
+                rules/profile-loader.md  profile location, loading, project context
+                rules/timesheet-store.md local time-entry file, schema, retention
+                rules/git-remote-write-gate.md  advisory gate for git-remote writes
+     |
+DATA (6)        data/state_machine.json  process presets (basic, agile, scrum, cmmi,
+                                         custom-scrum-qc), detection, error patterns
+                data/hierarchy_rules.json, project_defaults.json, profile_template.md,
+                example_profile.md, bug_report_template.md
+     |
+HOOKS (3)       hooks/session_start_check.py  SessionStart: config + profile health,
+                                              additionalContext only when there is a finding
+                hooks/pre_write_validate.py   PreToolUse on 5 ADO write tools: preset state
+                                              checks, optional role/naming rules (ask; block
+                                              on opt-in), unresolved @mentions (exit 2)
+                hooks/pre_write_confirm.py    PreToolUse on every other ADO write tool:
+                                              permissionDecision "ask"
+                hooks/_vendor/hooklib.py      shared runtime (synced from shared/hooklib.py)
+     |
+MCP (1)         .mcp.json -> scripts/ado-mcp-launch.js -> npx @azure-devops/mcp@2.8.0
+                launcher resolves userConfig first, then ADO_* env vars
 ```
+
+## State and configuration
+
+| What | Where | Owner |
+|------|-------|-------|
+| Organization, PAT, default project/team | plugin `userConfig` (`ado_organization`, `ado_token` [sensitive], `ado_project`, `ado_team`); env fallbacks `ADO_ORGANIZATION`, `ADO_MCP_AUTH_TOKEN`, `ADO_MCP_PROJECT`, `ADO_MCP_TEAM` | `scripts/ado-mcp-launch.js` |
+| Daily hours target, profile staleness days | `userConfig` `daily_hours_target`, `profile_stale_days` | commands, SessionStart hook |
+| Profile (identity, role, process, teammates, repos) | `${CLAUDE_PLUGIN_DATA}/profile.md`, legacy `~/.claude/devops.md` read as fallback | `rules/profile-loader.md` |
+| Local time entries | `${CLAUDE_PLUGIN_DATA}/timesheet.json` | `rules/timesheet-store.md` |
+| /init resume marker | `${CLAUDE_PLUGIN_DATA}/init-pending.json` | `commands/init.md` |
 
 ## Ownership Matrix
 
-| Concern | Owner | Type | Consumers |
-|---------|-------|------|-----------|
-| Write confirmation | `rules/write-gate.md` | Rule | SKILL, agents, commands |
-| Tool selection | `rules/guards.md` G1 | Rule | SKILL, work-item-ops |
-| Mention resolution | `rules/guards.md` G2 | Rule | SKILL, work-item-ops, hooks |
-| Repo GUID resolution | `rules/guards.md` G3 | Rule | SKILL, pr-reviewer, hooks |
-| Process presets + detection | `data/state_machine.json` (`processPresets`, `presetDetection`) | Data | /init, SKILL, work-item-ops, hooks |
-| Active preset selection | profile `process` field (`rules/profile-loader.md`) | Rule | SKILL, hooks |
-| State transitions | `data/state_machine.json` `processPresets[*]` | Data | SKILL, work-item-ops, hooks |
-| Hierarchy enforcement | `data/hierarchy_rules.json` | Data | SKILL, hooks |
-| Business rules | `data/state_machine.json` preset `businessRules` / `genericRules` | Data | SKILL, hooks |
-| Role + naming rules (optional) | preset `roleRules` / `taskNaming`, profile overrides | Data | hooks (ask; block on opt-in) |
-| Error recovery | `data/state_machine.json` (`errorPatterns`) | Data | hooks (single source of truth for all error codes) |
-| Profile management | `rules/profile-loader.md` | Rule | SKILL, all agents |
-| CLI/MCP routing | `devops/SKILL.md` | Skill | commands |
-| WIQL/fields/limits | `devops/SKILL.md` appendix | Skill | all |
-
-## Model Assignment
-
-| Agent | Model | Rationale |
-|-------|-------|-----------|
-| work-item-ops | **Haiku** | Fast CRUD, structured queries, low reasoning |
-| sprint-planner | **Sonnet** | Multi-item analysis, narrative reports |
-| pr-reviewer | **Sonnet** | Code diff reasoning, risk assessment |
-| Main skill | **Default** | Routing decisions, workflow orchestration |
+| Concern | Owner | Consumers |
+|---------|-------|-----------|
+| Write confirmation | `rules/write-gate.md` | SKILL, agents, commands, `pre_write_confirm.py` (tool list) |
+| Tool selection | `rules/guards.md` G1 | SKILL, work-item-ops |
+| Mention resolution | `rules/guards.md` G2 | SKILL, work-item-ops, `pre_write_validate.py` |
+| Repo GUID resolution | `rules/guards.md` G3 | SKILL, pr-reviewer, `pre_write_validate.py` |
+| External content is data | `rules/guards.md` G4 | SKILL, all agents, /cli-run |
+| Process presets + detection | `data/state_machine.json` | /init, SKILL, `pre_write_validate.py` |
+| Hierarchy | `data/hierarchy_rules.json` | SKILL, /create |
+| Error recovery | `data/state_machine.json` `errorPatterns` | SKILL |
+| CLI read/write classification | `commands/cli-run.md` | `rules/write-gate.md` |
+| MCP tool surface (tests) | `tests/fixtures/mcp_tools_2.8.0.txt` | `tests/test_contracts.py` |
 
 ## Anti-Patterns (Do NOT)
 
-1. **Do NOT re-explain rules in SKILL.md or agents** — reference with file path only
-2. **Do NOT add validation logic to hooks** — hooks inject reminders, rules define logic
-3. **Do NOT hardcode thresholds** — put them in `data/project_defaults.json` (workTracking section)
-4. **Do NOT duplicate the tool selection table** — it lives in `rules/guards.md` Guard 1 only
+1. Re-explain a rule in SKILL.md or an agent: reference it by `${CLAUDE_PLUGIN_ROOT}` path.
+2. Give a subagent a write tool: it cannot wait for the user's yes.
+3. Use a bare `rules/x.md` path in a prompt file: it does not resolve from the user's cwd.
+4. Bump `@azure-devops/mcp` past 2.8.0 without renaming every tool reference (2.9.0 renames all of them).
+5. Write state under `${CLAUDE_PLUGIN_ROOT}` or a new `~/.claude/<name>` folder.
 
-## Adding New Components
+## Adding Components
 
-### New work item type
-1. Add to the relevant preset in `data/state_machine.json` → `processPresets.<preset>.workItemTypes` (+ `rolePermissions` if that preset has role rules)
-2. Add hierarchy rule to `data/hierarchy_rules.json` if needed
-3. Run `pytest tests/` — state machine tests will catch missing fields
-
-### New guard
-1. Add to `rules/guards.md` as a new numbered guard
-2. Reference from SKILL.md rules table
-3. Reference from relevant agents
-4. Add context injection to `hooks/pre_write_validate.py` if detectable
-
-### New agent
-1. Create `agents/new-agent.md` with frontmatter (model, tools)
-2. Add mandatory guards table referencing `rules/`
-3. Add to `tests/test_consistency.py` parametrized lists
-
-### New command
-1. Create `commands/new-command.md`
-2. Add to SKILL.md commands table
-3. Add to `tests/test_consistency.py` EXPECTED_COMMANDS list
+- **New MCP write tool** (server upgrade): add it to the `rules/write-gate.md` table and the
+  `pre_write_confirm.py` matcher in `hooks/hooks.json`, and to `tests/fixtures/mcp_tools_*.txt`.
+  `tests/test_write_confirm.py` and `tests/test_contracts.py` fail otherwise.
+- **New work item type**: add it to the preset in `data/state_machine.json`, and to
+  `data/hierarchy_rules.json` if it needs a parent.
+- **New guard**: add it to `rules/guards.md`, reference it from SKILL.md and the agents.
+- **New agent**: `agents/<name>.md` with `model`, `color` and an explicit read-only `tools:` list.
+- **New command**: `commands/<verb>.md` (no plugin-name prefix), add it to the SKILL commands
+  table and `tests/test_consistency.py`.

@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [8.0.0] - 2026-10-19
+
+### Changed (breaking)
+- **Configuration moved to plugin options (ECO-16).** New `userConfig`: `ado_organization`, `ado_token` (sensitive, OS credential store), `ado_project`, `ado_team`, `daily_hours_target`, `profile_stale_days`. `.mcp.json` now starts `scripts/ado-mcp-launch.js`, which takes each value from the plugin option and falls back to `ADO_ORGANIZATION` / `ADO_MCP_AUTH_TOKEN` / `ADO_MCP_PROJECT` / `ADO_MCP_TEAM`, then runs `npx -y @azure-devops/mcp@2.8.0` (pin unchanged). `.mcp.json` has no "option, else env var" syntax, hence the launcher. The server now needs `node` on PATH (it already needed `npx`). Env-only setups keep working.
+- **Profile moved to `${CLAUDE_PLUGIN_DATA}/profile.md`.** The legacy `~/.claude/devops.md` is still read when the new file is missing; `/init profile --refresh` writes the new location. The `/init` resume marker moved to `${CLAUDE_PLUGIN_DATA}/init-pending.json`.
+- **Subagents are read-only (DEV-P1-02).** `work-item-ops` and `pr-reviewer` lost their write tools and return a `PROPOSED WRITE` block; the main conversation confirms and executes it. `sprint-planner` lost `Write`.
+- **`/cli-run --force` removed (DEV-P1-03).** Commands are classified by their verb (read allowlist: `list`, `show`, `query`, `list-member`, `status`, GET `invoke`); flags such as `--query` never make a command a read; unknown verbs are writes and need confirmation. Bare `/cli-run` runs nothing.
+### Added
+- **Local timesheet store (DEV-P1-08):** `rules/timesheet-store.md` defines `${CLAUDE_PLUGIN_DATA}/timesheet.json` (schema, write rules, retention); `/log-time`, `/timesheet` and `/workday` use it.
+- **External content is data (SEC-07):** `rules/guards.md` Guard 4, referenced from the skill, all three agents and `/cli-run`.
+- `tests/fixtures/mcp_tools_2.8.0.txt` (the 90-tool surface) and `tests/test_contracts.py`: every referenced tool exists, every write tool reaches a hook, agents hold no write tools, every `${CLAUDE_PLUGIN_ROOT}` path resolves, the launcher's option-then-env resolution, version sync, hygiene.
+- Agents carry a `color`; README restructured (requirements, PAT scopes, configuration, platform support, data & privacy including teammate PII, limitations).
+### Fixed
+- **Test suite green (DEV-P1-05):** consistency/integration tests and `tests/consistency_check.py` point at `skills/devops/`. The retired, all-skipped `tests/test_legacy_validator.py` and its `tests/state_validator.py` engine are deleted (nothing at runtime used them).
+- **Non-existent MCP tools (DEV-P1-06):** `/init` used `core_get_connection_data`, `work_get_team_members` and `repo_list_repos`, `/sprint` used `work_get_team_iterations`, the failure guide `repo_get_commits`. Replaced with `core_get_identity_ids`, `core_list_project_teams` (`mine: true`), `az devops team list-member`, `repo_list_repos_by_project`, `work_list_team_iterations`, `repo_search_commits`.
+- **Unresolvable paths (DEV-P1-09):** rule, data and skill-document references in the skill, agents, commands and rules use `${CLAUDE_PLUGIN_ROOT}/...`.
+- Staleness threshold is one value (14 days, `profile_stale_days`); `/init` no longer says 30 (DEV-P2-05). Mojibake in `hierarchy_rules.json` and `project_defaults.json` fixed; SKILL `metadata.version` tracks plugin.json (DEV-P2-06).
+- `/standup --copy` documents macOS and Linux clipboards.
+### Changed
+- Hooks use the vendored `hooks/_vendor/hooklib.py` (UTF-8 stdin, watchdog, fail-open `run`, `ask`/`context` output). `pre_write_validate.py` reads every field from the parsed `tool_input` instead of regexes over the raw payload. The SessionStart hook prints nothing when there is nothing to report, and recognises the plugin options.
+- Skill description rewritten trigger-first ("Use when ...", 446 chars, no `<example>` blocks) (DEV-P3-01). The CI/CD workflow is provider-neutral (Odoo.sh branch removed); the `notification` and `agent-safety-guards` references are conditional (DEV-P2-02). Example data is synthetic (DEV-P2-04). `MCP_FAILURE_MODES.md` no longer suggests `@latest` or 2.7.0 (DEV-P3-02).
+- `.local.md.template` deleted: nothing read it. Overridable settings now live in plugin options and the profile (DEV-P2-03).
+### Security
+- `/init` never prints a token, not even partly masked, and only reports whether one is set; it recommends the sensitive `ado_token` option over environment variables.
+
 ## [7.0.0] - 2026-10-19
 
 ### Changed (breaking)

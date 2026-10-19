@@ -25,9 +25,9 @@ Parse `$ARGUMENTS` for flags:
 
 ## Workflow
 
-1. **Load profile** per `rules/profile-loader.md`
+1. **Load profile** per `${CLAUDE_PLUGIN_ROOT}/rules/profile-loader.md`
 2. **Query work items** via `wit_my_work_items` for current project
-3. **Calculate hours** — compare logged CompletedWork against expected (from `data/project_defaults.json` workTracking)
+3. **Calculate hours** — today's entries in `${CLAUDE_PLUGIN_DATA}/timesheet.json` (format: `${CLAUDE_PLUGIN_ROOT}/rules/timesheet-store.md`) against the daily target of ${user_config.daily_hours_target} hours
 4. **Generate dashboard** with sections:
    - Active tasks (sorted by priority)
    - Hours logged today vs target
@@ -46,9 +46,9 @@ Project: My Project | Sprint: Sprint 15
 ### My Active Work (5 items)
 | ID | Type | Title | State | Hours |
 |----|------|-------|-------|-------|
-| #1401 | Task | [Dev] Fix geocoding timeout | In Progress | 3h/8h |
-| #1398 | Bug | Map marker offset on zoom | Approved | 0h/4h |
-| #1395 | Task | [Dev] Add disaster category filter | To Do | 0h/6h |
+| #1401 | Task | Fix login timeout | In Progress | 3h/8h |
+| #1398 | Bug | Report export drops last row | Approved | 0h/4h |
+| #1395 | Task | Add status filter to search | To Do | 0h/6h |
 
 ### Hours Today
 Logged: 3h | Target: 6h | Status: Behind

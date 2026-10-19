@@ -4,7 +4,7 @@
 Reads the PreToolUse JSON payload on stdin (tool_name + tool_input).
 
 Process-aware: the active process preset comes from the profile's `process:` field
-(~/.claude/devops.md) and is looked up in data/state_machine.json `processPresets`.
+(${CLAUDE_PLUGIN_DATA}/profile.md, legacy ~/.claude/devops.md) and is looked up in data/state_machine.json `processPresets`.
 Role rules (`roleRules`) and Task naming rules (`taskNaming`) apply ONLY when the
 active preset - or a profile override - defines them. The stock presets (basic,
 agile, scrum, cmmi) define none. No profile, no `process:` field, or an unknown
@@ -24,17 +24,19 @@ Design: hooks inject REMINDERS and surface clear violations. The LLM + rules/ +
 data/ do the full validation (the hook cannot see an item's current state or type
 on an update, so from -> to validity is checked by the model against the preset).
 
-Ported from the former bash hook (pre-write-validate.sh). The target state is
-read from the parsed JSON-Patch update whose path is /fields/System.State; the
-other fields keep the bash regexes over the raw payload text. Stdlib-only.
-Fail-OPEN on any error or after 8 seconds.
+Every field is read from the parsed tool_input (the target state from the
+JSON-Patch update whose path is /fields/System.State). Profile:
+${CLAUDE_PLUGIN_DATA}/profile.md, else the legacy ~/.claude/devops.md.
+Stdlib-only plus the vendored hooklib. Fail-OPEN on any error or after 8 seconds.
 """
 import json
 import os
 import re
 import sys
-import threading
 from pathlib import Path
+
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "_vendor"))
+import hooklib  # noqa: E402
 
 try:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[attr-defined]
@@ -42,23 +44,24 @@ try:
 except Exception:
     pass
 
-# Fail-OPEN after 8s: a hang must not freeze every ADO write.
-_timer = threading.Timer(8.0, lambda: os._exit(0))
-_timer.daemon = True
-_timer.start()
-
 _GUID_RE = re.compile(
     r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.IGNORECASE
 )
 
 
-def _first_string_field(raw, key):
-    """First `"key": "value"` in the raw payload, or "" (the bash grep|head -1)."""
-    m = re.search(r'"' + re.escape(key) + r'"\s*:\s*"([^"]*)"', raw)
-    return m.group(1) if m else ""
+def _str_field(tool_input, key):
+    """A top-level string field of tool_input, or ""."""
+    value = tool_input.get(key)
+    return value.strip() if isinstance(value, str) else ""
 
 
 def _profile_path():
+    """The profile: ${CLAUDE_PLUGIN_DATA}/profile.md, else the legacy ~/.claude/devops.md."""
+    data = os.environ.get("CLAUDE_PLUGIN_DATA", "").strip()
+    if data:
+        current = Path(data) / "profile.md"
+        if current.is_file():
+            return current
     return Path.home() / ".claude" / "devops.md"
 
 
@@ -209,23 +212,14 @@ def _normalize_role(role):
 _MENTION_RE = re.compile(r"(?<![\w.])@[A-Za-z]")
 
 
-def _comment_text(raw):
-    """The comment body from tool_input.comment; falls back to the raw payload."""
-    try:
-        tool_input = json.loads(raw).get("tool_input") or {}
-    except (ValueError, AttributeError):
-        return raw
-    if not isinstance(tool_input, dict):
-        return raw
+def _comment_text(tool_input):
+    """The comment body from tool_input.comment; falls back to the whole tool_input."""
     comment = tool_input.get("comment")
-    return comment if isinstance(comment, str) else raw
+    return comment if isinstance(comment, str) else json.dumps(tool_input, ensure_ascii=False)
 
 
 def _advise(text):
-    print(json.dumps({"hookSpecificOutput": {
-        "hookEventName": "PreToolUse",
-        "additionalContext": text,
-    }}))
+    hooklib.context("PreToolUse", text)
 
 
 def _ask(reason, context=""):
@@ -234,7 +228,7 @@ def _ask(reason, context=""):
            "permissionDecisionReason": reason}
     if context:
         out["additionalContext"] = context
-    print(json.dumps({"hookSpecificOutput": out}))
+    print(json.dumps({"hookSpecificOutput": out}, ensure_ascii=False))
 
 
 def _decide(ctx, violations, unknown, reminder):
@@ -261,11 +255,10 @@ def _roles(values):
 
 def _block(text):
     print(text, file=sys.stderr)
-    _timer.cancel()
     sys.exit(2)
 
 
-def _target_state(raw):
+def _target_state(tool_input):
     """Value of the update whose JSON-Patch path is System.State, or "".
 
     wit_update_work_item sends updates=[{op, path: "/fields/System.State", value}].
@@ -273,10 +266,7 @@ def _target_state(raw):
     first "value" in the payload, so it never matched the real path and would
     have read the wrong value whenever another field was updated first.
     """
-    try:
-        updates = (json.loads(raw).get("tool_input") or {}).get("updates") or []
-    except (ValueError, AttributeError):
-        return ""
+    updates = tool_input.get("updates") or []
     if not isinstance(updates, list):
         return ""
     for upd in updates:
@@ -289,8 +279,8 @@ def _target_state(raw):
     return ""
 
 
-def _update_work_item(raw, ctx):
-    target_state = _target_state(raw)
+def _update_work_item(tool_input, ctx):
+    target_state = _target_state(tool_input)
     if not target_state:
         return
 
@@ -323,12 +313,9 @@ def _update_work_item(raw, ctx):
     _decide(ctx, violations, unknown, reminder)
 
 
-def _create_title(raw):
+def _create_title(tool_input):
     """System.Title from wit_create_work_item tool_input.fields, or ""."""
-    try:
-        fields = (json.loads(raw).get("tool_input") or {}).get("fields")
-    except (ValueError, AttributeError):
-        return ""
+    fields = tool_input.get("fields")
     if isinstance(fields, dict):
         value = fields.get("System.Title") or fields.get("Title")
         return value.strip() if isinstance(value, str) else ""
@@ -349,8 +336,8 @@ def _prefixes(naming):
     return out
 
 
-def _create_work_item(raw, ctx):
-    wi_type = _first_string_field(raw, "workItemType")
+def _create_work_item(tool_input, ctx):
+    wi_type = _str_field(tool_input, "workItemType")
     violations = []
 
     # Policy: create restrictions, only when the preset/profile defines roleRules.
@@ -368,7 +355,7 @@ def _create_work_item(raw, ctx):
     # Policy: title prefixes, only when the preset/profile defines taskNaming.
     applies = ctx.task_naming.get("appliesTo") or ["Task"]
     prefixes = _prefixes(ctx.task_naming)
-    title = _create_title(raw)
+    title = _create_title(tool_input)
     if prefixes and wi_type in applies and title and not any(
             title.startswith(p) for p in prefixes):
         violations.append(
@@ -391,10 +378,11 @@ def _create_work_item(raw, ctx):
     _decide(ctx, violations, [], reminder)
 
 
-def _add_comment(raw):
+def _add_comment(tool_input):
     # HARD BLOCK: unresolved @mentions. Only the comment body is inspected, and an
-    # e-mail address is not a mention.
-    text = _comment_text(raw)
+    # e-mail address is not a mention. This is a correctness guard (a plain "@name"
+    # notifies nobody), so there is no override: resolve the mention and retry.
+    text = _comment_text(tool_input)
     if _MENTION_RE.search(text) and "data-vss-mention" not in text:
         _block(
             "[DevOps] BLOCKED: Unresolved @mentions detected. Resolve to GUIDs and use HTML "
@@ -402,8 +390,8 @@ def _add_comment(raw):
         )
 
 
-def _create_pull_request(raw):
-    repo_id = _first_string_field(raw, "repositoryId")
+def _create_pull_request(tool_input):
+    repo_id = _str_field(tool_input, "repositoryId")
     if repo_id and not _GUID_RE.match(repo_id):
         _advise(
             f"[DevOps] repositoryId '{repo_id}' is not a GUID. Resolve per "
@@ -412,29 +400,24 @@ def _create_pull_request(raw):
 
 
 def main():
-    try:
-        raw = sys.stdin.buffer.read().decode("utf-8", errors="replace")
-    except OSError:
-        return
+    hooklib.watchdog(8.0)  # fail open: a hang must not freeze every ADO write
+    payload = hooklib.read_payload()
+    if payload is None:
+        return 0
     # Namespace-agnostic: plugin tools are "mcp__plugin_devops_azure-devops__<tool>",
     # legacy ones "mcp__azure-devops__<tool>". Keep only the bare tool segment.
-    tool = _first_string_field(raw, "tool_name").rsplit("azure-devops__", 1)[-1]
+    tool = str(payload.get("tool_name") or "").rsplit("azure-devops__", 1)[-1]
+    tool_input = hooklib.tool_input(payload)
     if tool == "wit_update_work_item":
-        _update_work_item(raw, _Context(_profile_path()))
+        _update_work_item(tool_input, _Context(_profile_path()))
     elif tool == "wit_create_work_item":
-        _create_work_item(raw, _Context(_profile_path()))
+        _create_work_item(tool_input, _Context(_profile_path()))
     elif tool == "wit_add_work_item_comment":
-        _add_comment(raw)
+        _add_comment(tool_input)
     elif tool == "repo_create_pull_request":
-        _create_pull_request(raw)
+        _create_pull_request(tool_input)
+    return 0
 
 
 if __name__ == "__main__":
-    try:
-        main()
-    except SystemExit:
-        raise
-    except Exception:
-        pass  # fail-open: our bug must never block an ADO write
-    _timer.cancel()
-    sys.exit(0)
+    hooklib.run(main)

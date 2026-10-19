@@ -10,6 +10,8 @@ primary_agent: work-item-ops
 
 Parse `$ARGUMENTS` for hours, work item ID, and optional category.
 
+With no arguments, show today's entries and total from the local timesheet (below) against the daily target of ${user_config.daily_hours_target} hours, then ask what to log.
+
 ## Input Format
 
 ```
@@ -31,23 +33,27 @@ Parse `$ARGUMENTS` for hours, work item ID, and optional category.
    - Fetch current CompletedWork via `wit_get_work_item`
    - Calculate new CompletedWork (existing + logged hours)
    - Update RemainingWork if applicable
-   - Present confirmation per `rules/write-gate.md`
+   - Present confirmation per `${CLAUDE_PLUGIN_ROOT}/rules/write-gate.md`
    - Execute via `wit_update_work_item`
+   - On success, append an entry with `source: "ado"` to the local timesheet
 3. If category given:
-   - Store locally in timesheet tracker
-4. **Report** updated totals
+   - Append an entry with `source: "local"` to the local timesheet
+4. **Report** today's total against the daily target (${user_config.daily_hours_target} hours)
+
+The local timesheet is `${CLAUDE_PLUGIN_DATA}/timesheet.json`. Its schema, write rules and
+retention are owned by `${CLAUDE_PLUGIN_ROOT}/rules/timesheet-store.md`; follow it exactly.
 
 ## Example
 
 ```
-User: /log-time 3h #1401 "Fixed geocoding timeout and added retry logic"
+User: /log-time 3h #1401 "Fixed login timeout and added retry logic"
 
 Output:
-READY TO UPDATE: #1401 [Dev] Fix geocoding timeout
+READY TO UPDATE: #1401 Fix login timeout
 ----------------------------------
 CompletedWork:  5h -> 8h (+3h)
 RemainingWork:  3h -> 0h
-Description:    Fixed geocoding timeout and added retry logic
+Description:    Fixed login timeout and added retry logic
 
 Proceed? (yes/no)
 
@@ -55,7 +61,7 @@ User: yes
 
 Output:
 Updated #1401: CompletedWork = 8h, RemainingWork = 0h
-Today's total: 6h / 6h target ✓
+Today's total: 6h / 6h target
 ```
 
 ## Estimating time from session transcripts
@@ -64,4 +70,4 @@ When the user asks to reconstruct hours from Claude session logs (e.g. "how long
 
 - **Count agent/workflow runtime.** A background agent, a `/loop`, or a long tool run can occupy a **20–90 minute** gap in which real work happened even though no human message was sent. Treat a gap that brackets active tool/agent activity as worked time, not idle time — only trim gaps with no activity on either side.
 - **De-overlap parallel sessions.** Two concurrent sessions (or an agent running while you work elsewhere) cover the **same wall-clock minutes**. Summing each session's span double-counts. Merge overlapping intervals across sessions and count the union once.
-- **Present the estimate as an estimate.** Show the derived total and the assumption (which gaps were counted as worked) and confirm per `rules/write-gate.md` before writing it to any work item — a reconstructed number is an input to review, not a fact to log silently.
+- **Present the estimate as an estimate.** Show the derived total and the assumption (which gaps were counted as worked) and confirm per `${CLAUDE_PLUGIN_ROOT}/rules/write-gate.md` before writing it to any work item — a reconstructed number is an input to review, not a fact to log silently.

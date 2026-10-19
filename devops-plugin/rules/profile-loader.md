@@ -1,11 +1,24 @@
 # Profile Loader & Project Context
 
+## Profile Location
+
+The profile is `${CLAUDE_PLUGIN_DATA}/profile.md`: the plugin's data directory, which
+survives plugin updates and is deleted when the plugin is uninstalled.
+
+Profiles written before v8.0.0 live at `~/.claude/devops.md`. Read that legacy file when
+`${CLAUDE_PLUGIN_DATA}/profile.md` does not exist (the hooks do the same). `/init profile`
+and `/init profile --refresh` always write the new location; after a refresh moves the
+profile, tell the user the legacy file can be deleted. Never write the legacy path.
+
+The profile holds personal data about the user and their teammates (display names, e-mail
+addresses, identity GUIDs). It stays on this machine and is never committed or posted.
+
 ## Profile Loading (Every Session)
 
 At session start or first DevOps operation:
 
 ```
-1. Read ~/.claude/devops.md
+1. Read the profile (location above)
 2. If found:
    a. Parse YAML frontmatter
    b. Build lookup tables:
@@ -15,7 +28,7 @@ At session start or first DevOps operation:
       - teamByEmail = Map(email -> {name, guid, role})
       - projectsByName = Map(name -> {role, team, repos})
       - statePerms = from profile statePermissions section (custom presets only)
-   c. Resolve the process preset: profile `process` -> data/state_machine.json
+   c. Resolve the process preset: profile `process` -> ${CLAUDE_PLUGIN_ROOT}/data/state_machine.json
       `processPresets[process]`. Missing or unknown -> generic rules (no role or
       naming rules) and suggest `/init profile` to detect the process.
       Profile `roleRules` / `taskNaming` (inline JSON or `off`) replace the preset's.

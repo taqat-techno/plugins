@@ -29,13 +29,14 @@ Run these checks silently and build a status table:
 
 | Component | How to Check | Expected |
 |-----------|-------------|----------|
-| **ADO_MCP_AUTH_TOKEN** | Read `$ADO_MCP_AUTH_TOKEN` env var. If empty on Windows, also check registry: `powershell.exe -Command "[Environment]::GetEnvironmentVariable('ADO_MCP_AUTH_TOKEN','User')"` | Non-empty string |
-| **ADO_ORGANIZATION** | Read `$ADO_ORGANIZATION` env var. If empty on Windows, also check registry: `powershell.exe -Command "[Environment]::GetEnvironmentVariable('ADO_ORGANIZATION','User')"` | Org name only (no URL) |
-| **Profile** | Check if `~/.claude/devops.md` exists. If yes, read `lastRefresh` date. | Exists, <30 days old |
+| **Plugin options** | Organization option: `${user_config.ado_organization}` (empty = not set). The token option is sensitive and is never shown; the MCP Server row tells you whether it works. | Organization set here or in the env var below |
+| **ADO_MCP_AUTH_TOKEN** (fallback) | Check only whether `$ADO_MCP_AUTH_TOKEN` is non-empty (`[ -n "$ADO_MCP_AUTH_TOKEN" ] && echo set`); never print it. On Windows also check the user registry with PowerShell `[bool][Environment]::GetEnvironmentVariable('ADO_MCP_AUTH_TOKEN','User')`. | Set, unless the token option is used |
+| **ADO_ORGANIZATION** (fallback) | Read `$ADO_ORGANIZATION` env var (Windows registry check as above). | Org name only (no URL), unless the organization option is used |
+| **Profile** | `${CLAUDE_PLUGIN_DATA}/profile.md`, else the legacy `~/.claude/devops.md` (see `${CLAUDE_PLUGIN_ROOT}/rules/profile-loader.md`). If found, read `lastRefresh`. | Exists, at most ${user_config.profile_stale_days} days old |
 | **MCP Server** | Try `mcp__plugin_devops_azure-devops__core_list_projects({})`. If it works, MCP is live. | Returns project list |
 | **Azure CLI** | Run `az --version 2>/dev/null` | Installed |
 | **CLI Extension** | Run `az extension show --name azure-devops 2>/dev/null` | Installed |
-| **Pending Init** | Check if `~/.claude/devops-init-pending.json` exists | Usually absent |
+| **Pending Init** | Check if `${CLAUDE_PLUGIN_DATA}/init-pending.json` exists | Usually absent |
 
 ### Show Status Table
 
@@ -44,8 +45,8 @@ Present the results clearly:
 ```
 Azure DevOps Configuration Status
 ----------------------------------
-ADO_MCP_AUTH_TOKEN  : [Set / Not Set / Set in registry but not in current shell]
-ADO_ORGANIZATION    : [Set / Not Set / Set but contains URL (needs fix)]
+Organization        : [plugin option / ADO_ORGANIZATION / not set / contains a URL (needs fix)]
+Token env var       : [set / not set (the plugin option may be set; see MCP Server)]
 Profile             : [Exists (X days old) / Not found]
 MCP Server          : [Connected / Not responding / Not configured]
 Azure CLI           : [Installed / Not installed]
@@ -59,11 +60,11 @@ Based on the pre-flight results:
 | State | Action |
 |-------|--------|
 | Everything configured and working | "All good. Use `/init profile --refresh` to update profile data." |
-| Env vars in registry but not in shell | "Env vars are set but your shell hasn't picked them up. Restart your terminal/IDE/computer." |
+| Env vars in registry but not in shell | "Env vars are set but your shell hasn't picked them up. Restart your terminal/IDE/computer, or use the plugin options in /config instead." |
 | Env vars missing entirely | Jump to "Environment Variable Setup" below |
 | MCP not responding but env vars set | "MCP server not responding. Try restarting Claude Code. If still failing, check your PAT token." |
 | Profile missing but MCP works | Jump to "Profile Generation" below |
-| Profile exists but stale (>30 days) | "Profile is X days old. Run `/init profile --refresh` to update." |
+| Profile exists but stale (older than ${user_config.profile_stale_days} days) | "Profile is X days old. Run `/init profile --refresh` to update." |
 | Fresh install (nothing configured) | Run full setup flow below |
 | Pending init exists | Resume from where previous setup stopped |
 
@@ -76,9 +77,11 @@ When the user runs `/init status`, run ONLY the pre-flight checks above and show
 **Windows registry fallback**: If env vars appear empty in the bash shell, always also check the Windows registry:
 
 ```bash
-powershell.exe -Command "[Environment]::GetEnvironmentVariable('ADO_MCP_AUTH_TOKEN','User')"
+powershell.exe -Command "[bool][Environment]::GetEnvironmentVariable('ADO_MCP_AUTH_TOKEN','User')"
 powershell.exe -Command "[Environment]::GetEnvironmentVariable('ADO_ORGANIZATION','User')"
 ```
+
+Never print the token value itself; `[bool]` reports only whether it is set.
 
 If registry has values but shell doesn't, tell the user: "Environment variables are set in the Windows registry but not available in your current shell. You need to restart your computer (or close and reopen all terminals and VS Code) for the changes to take effect."
 
@@ -86,15 +89,32 @@ If registry has values but shell doesn't, tell the user: "Environment variables 
 
 ## Full Setup Workflow (`/init` or `/init setup`)
 
-### Step 1: Environment Variable Setup
+### Step 1: Organization and Token
+
+The MCP server reads its organization and PAT from the plugin options first, then from
+environment variables (`${CLAUDE_PLUGIN_ROOT}/scripts/ado-mcp-launch.js`):
+
+| Setting | Plugin option (preferred) | Fallback environment variable |
+|---------|---------------------------|-------------------------------|
+| Organization | `ado_organization` | `ADO_ORGANIZATION` |
+| Personal Access Token | `ado_token` (sensitive: kept in the OS credential store) | `ADO_MCP_AUTH_TOKEN` |
+| Default project (optional) | `ado_project` | `ADO_MCP_PROJECT` |
+| Default team (optional) | `ado_team` | `ADO_MCP_TEAM` |
+
+If the MCP server already responds (pre-flight), skip to Step 2.
+
+#### Recommended: plugin options
+
+Tell the user to open `/config`, find the **devops** plugin options, and fill in the
+organization and the token there (Claude Code also asks for them when the plugin is first
+enabled). Then run `/reload-plugins` or restart Claude Code and run `/init` again. The
+token typed into that dialog never enters the conversation.
+
+#### Alternative: environment variables
+
+Use this for CI, shared machines, or when the token comes from another secret manager.
 
 **CRITICAL LESSON: On Windows, `setx` sets registry values but the current process does NOT inherit them. You MUST NOT try to verify MCP connectivity immediately after setting env vars.**
-
-#### Check existing env vars first
-
-If both `ADO_MCP_AUTH_TOKEN` and `ADO_ORGANIZATION` are already set and non-empty, skip to Step 2.
-
-#### If env vars are missing: the user sets them
 
 **NEVER ask the user to paste their Personal Access Token (PAT) into the chat, and never
 set it on their behalf.** Anything typed in the conversation is stored in the session
@@ -158,7 +178,7 @@ After restarting:
 Write a marker file so the next `/init` knows to resume:
 
 ```json
-// ~/.claude/devops-init-pending.json
+// ${CLAUDE_PLUGIN_DATA}/init-pending.json
 {
   "envVarsSet": true,
   "timestamp": "2026-04-04T10:30:00Z",
@@ -169,7 +189,7 @@ Write a marker file so the next `/init` knows to resume:
 
 ### Step 1.5: Resume After Restart
 
-If `~/.claude/devops-init-pending.json` exists when `/init` runs:
+If `${CLAUDE_PLUGIN_DATA}/init-pending.json` exists when `/init` runs:
 
 1. Read the pending state
 2. Verify env vars are now available (check both shell env AND registry)
@@ -186,16 +206,14 @@ The plugin provides its own `azure-devops` MCP server via `.mcp.json`. If the us
 1. Read `~/.claude/.mcp.json` (the global MCP config)
 2. Check if `azure-devops` exists at root level OR inside `mcpServers`
 3. **If found:**
-   a. Extract the token -- look in `env.ADO_MCP_AUTH_TOKEN` (may be a hardcoded string or `${ENV_VAR}`)
-   b. Extract the org -- look in `args` array for the element after `@azure-devops/mcp`
-   c. Show the user what was found: `"Found azure-devops in global config. Org: {org}, Token: {masked first 8 chars}..."`
-   d. Ask the user: `"Migrate to plugin and remove from global? (This sets ADO_MCP_AUTH_TOKEN and ADO_ORGANIZATION as environment variables)"`
-   e. If yes: set env vars (same flow as Step 1), remove entry from global config
-   f. Show restart notice if env vars were newly set
-4. **If NOT found:**
-   a. Check if `ADO_MCP_AUTH_TOKEN` and `ADO_ORGANIZATION` env vars are already set
-   b. If both set: report `"MCP config OK -- env vars found."`
-   c. If missing: go back to Step 1 (env var setup)
+   a. Note the org -- the element after `@azure-devops/mcp` in `args`
+   b. Note only whether a token is present (hardcoded string or `${ENV_VAR}`). Never
+      display, copy or move a token value, not even partly masked
+   c. Tell the user: `"Found azure-devops in your global MCP config (org: {org}). It runs a second copy of the server. Put the org and token in the devops plugin options (/config), then remove that entry."`
+   d. Offer to remove the entry. Only on an explicit yes, show the exact JSON you will
+      delete, then edit the file. A hardcoded token in that file should be revoked and
+      re-issued, because it has been stored in plain text
+4. **If NOT found:** report `"No duplicate azure-devops server in the global config."`
 
 **Important:** The plugin `.mcp.json` uses `@azure-devops/mcp` (the correct official package), NOT `@anthropic-ai/azure-devops-mcp`. If the global config uses the wrong package, still extract the token -- they use the same PAT format.
 
@@ -210,9 +228,10 @@ mcp__plugin_devops_azure-devops__core_list_projects({})
 ```
 
 If this fails:
-- Check that `ADO_MCP_AUTH_TOKEN` and `ADO_ORGANIZATION` environment variables are set
-- Check that Claude Code was restarted after setting them
-- Try the registry check: `powershell.exe -Command "[Environment]::GetEnvironmentVariable('ADO_MCP_AUTH_TOKEN','User')"`
+- Check the plugin options in `/config`, or the `ADO_MCP_AUTH_TOKEN` / `ADO_ORGANIZATION` fallbacks
+- Check that Claude Code was restarted (or `/reload-plugins` run) after setting them
+- `/mcp` shows the server's start-up error; the launcher names what is missing
+- Try the registry check: `powershell.exe -Command "[bool][Environment]::GetEnvironmentVariable('ADO_MCP_AUTH_TOKEN','User')"`
 
 ### Step 4: Generate User Profile
 
@@ -228,7 +247,7 @@ Test both CLI and MCP connectivity. Report status.
 
 ### PROTECT EXISTING PROFILE
 
-Before generating a profile, ALWAYS check if `~/.claude/devops.md` already exists:
+Before generating a profile, ALWAYS check if a profile already exists (`${CLAUDE_PLUGIN_DATA}/profile.md`, or the legacy `~/.claude/devops.md`):
 
 **If profile exists:**
 ```
@@ -252,28 +271,29 @@ If the user picks option 1, run the "Profile Refresh" workflow instead.
 ### Profile Location
 
 ```
-~/.claude/devops.md
-  Windows: C:\Users\{USERNAME}\.claude\devops.md
+${CLAUDE_PLUGIN_DATA}/profile.md
 ```
+
+The plugin data directory survives plugin updates and is removed on uninstall. Older
+versions used `~/.claude/devops.md`; read it as a fallback, but always write the new path.
+
+**Privacy:** the profile stores the user's and their teammates' display names, e-mail
+addresses and identity GUIDs. Tell the user this before Step 3, and offer to store
+teammates with `name` + `guid` + `aliases` only (no e-mail).
 
 ### Step 1: Resolve Current User Identity
 
-**Method A (MCP — only if available in your server version)**:
+`@azure-devops/mcp` 2.8.0 has no "who am I" tool. Ask the user for the e-mail address
+they sign in to Azure DevOps with (an address, not a secret), then:
+
+**Method A (MCP)**:
 ```javascript
-// NOTE: @azure-devops/mcp 2.7.0 does NOT expose a connection-data/whoami tool.
-// If this tool is unavailable, use Method B (CLI) or Method C below.
-mcp__plugin_devops_azure-devops__core_get_connection_data({})
-// Returns: { authenticatedUser: { id, displayName, uniqueName } }
+mcp__plugin_devops_azure-devops__core_get_identity_ids({ "searchFilter": "<sign-in e-mail>" })
 ```
 
-**Method B (CLI fallback — reliable)**:
+**Method B (CLI fallback)**:
 ```bash
-az devops user show --user "me" --output json
-```
-
-**Method C (Identity search)**:
-```javascript
-mcp__plugin_devops_azure-devops__core_get_identity_ids({ "searchFilter": authenticatedUser.uniqueName })
+az devops user show --user "<sign-in e-mail>" --output json
 ```
 
 Extract: `displayName`, `email`/`uniqueName`, `guid`/`id`
@@ -282,15 +302,18 @@ Extract: `displayName`, `email`/`uniqueName`, `guid`/`id`
 
 ```javascript
 const projects = await core_list_projects({})
-// For each project, check team membership via work_get_team_members
-// Record projects where current user is a member
+// For each project: core_list_project_teams({ project, mine: true })
+// Record projects where the current user is in at least one team
 ```
 
 ### Step 3: Fetch Team Members with GUIDs
 
-For each project the user belongs to:
-1. Get all team members via `work_get_team_members`
-2. Resolve each member's GUID via `core_get_identity_ids`
+`@azure-devops/mcp` 2.8.0 has no team-members tool, so use the CLI. For each project the
+user belongs to:
+1. Get the team's members (read-only):
+   `az devops team list-member --team "<team>" --project "<project>" --output json`
+   Each entry's `identity` carries `id` (the GUID), `displayName` and `uniqueName`.
+2. If the CLI is unavailable, resolve the names the user gives you via `core_get_identity_ids`
 3. Generate aliases from display names:
    ```
    "Jane Smith" -> aliases: ["jane", "smith", "js"]
@@ -300,7 +323,7 @@ For each project the user belongs to:
 ### Step 3.5: Detect the Project's Process (sets `process`)
 
 The plugin's state/role/naming behavior depends on which process the project uses.
-The process models are presets in `data/state_machine.json` `processPresets`
+The process models are presets in `${CLAUDE_PLUGIN_ROOT}/data/state_machine.json` `processPresets`
 (`basic`, `agile`, `scrum`, `cmmi` = Microsoft stock templates; `custom-scrum-qc` =
 an opt-in customized Scrum). Detect it for the default project (read-only calls only):
 
@@ -311,7 +334,7 @@ an opt-in customized Scrum). Detect it for the default project (read-only calls 
    found in step 1 (`Product Backlog Item`, `User Story`, `Requirement` or `Issue`), and
    for `Enhancement` if present. The result includes the type's `states`. A "not found"
    error simply means the type does not exist in this project.
-3. **Map to a preset** using `data/state_machine.json` `presetDetection.order` — first
+3. **Map to a preset** using `${CLAUDE_PLUGIN_ROOT}/data/state_machine.json` `presetDetection.order` — first
    match wins (the custom signature is checked before plain Scrum).
 4. **Confirm with the user**, showing the evidence:
    ```
@@ -365,14 +388,14 @@ If templates were found in Step 4, show them alongside so the user can pick a de
 
 ```javascript
 for (const project of userProjects) {
-  const repos = await repo_list_repos({ "project": project.name })
+  const repos = await repo_list_repos_by_project({ "project": project.name })
   project.repos = repos.map(r => r.name)
 }
 ```
 
 ### Step 8: Generate DevOps.md
 
-Use template from `data/profile_template.md`, fill with collected data. **Always set `lastRefresh` to today's ISO date** so the session-start hook can detect staleness (>30 days triggers refresh reminder).
+Use template from `${CLAUDE_PLUGIN_ROOT}/data/profile_template.md`, fill with collected data. **Always set `lastRefresh` to today's ISO date** so the session-start hook can detect staleness (older than the `profile_stale_days` option, currently ${user_config.profile_stale_days} days, triggers a refresh reminder).
 
 Profile structure:
 
@@ -385,7 +408,7 @@ identity:
   email: "user@company.com"
   guid: "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
 role: "developer"
-process: "scrum"            # preset from Step 3.5 (data/state_machine.json processPresets)
+process: "scrum"            # preset from Step 3.5 (${CLAUDE_PLUGIN_ROOT}/data/state_machine.json processPresets)
 # enforcement: "ask"        # ask (default) | block | advise
 # roleRules: off            # optional override; inline JSON or off (see README "Process presets")
 # taskNaming: off           # optional override; inline JSON or off
@@ -410,19 +433,22 @@ projects:
 
 ### Step 9: Write to Disk
 
-Write generated content to `~/.claude/devops.md`.
+Write generated content to `${CLAUDE_PLUGIN_DATA}/profile.md` (create the directory if
+needed). Never write it into the project or the plugin directory.
 
 ---
 
 ## Profile Refresh (`/init profile --refresh`)
 
-1. Read existing `~/.claude/devops.md` -- preserve role, `process`, `enforcement`,
+1. Read the existing profile (`${CLAUDE_PLUGIN_DATA}/profile.md`, else the legacy
+   `~/.claude/devops.md`) -- preserve role, `process`, `enforcement`,
    `roleRules`/`taskNaming` overrides, custom aliases, preferences
 2. Re-fetch from API: identity, projects, team members, repositories. If the profile has
    no `process` field (profiles from before process presets), run Step 3.5 and add it --
    without it the hook applies generic rules only (no role or naming rules)
 3. Merge: keep user customizations, update API-sourced data
-4. Write updated file
+4. Write the updated file to `${CLAUDE_PLUGIN_DATA}/profile.md`. If it came from the
+   legacy path, tell the user the old `~/.claude/devops.md` can now be deleted
 5. Report changes:
    ```
    Profile refreshed. Changes:

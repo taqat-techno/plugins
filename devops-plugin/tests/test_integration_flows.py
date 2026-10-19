@@ -20,7 +20,7 @@ from pathlib import Path
 PLUGIN_ROOT = Path(__file__).parent.parent
 DATA_DIR = PLUGIN_ROOT / "data"
 RULES_DIR = PLUGIN_ROOT / "rules"
-DEVOPS_DIR = PLUGIN_ROOT / "devops"
+DEVOPS_DIR = PLUGIN_ROOT / "skills" / "devops"
 AGENTS_DIR = PLUGIN_ROOT / "agents"
 HOOKS_DIR = PLUGIN_ROOT / "hooks"
 COMMANDS_DIR = PLUGIN_ROOT / "commands"
@@ -32,7 +32,7 @@ class TestWriteGateFlow:
     """Verify write-gate.md is referenced by every component that can write."""
 
     WRITE_COMPONENTS = [
-        ("devops/SKILL.md", "rules/write-gate.md"),
+        ("skills/devops/SKILL.md", "rules/write-gate.md"),
         ("agents/work-item-ops.md", "rules/write-gate.md"),
         ("agents/pr-reviewer.md", "rules/write-gate.md"),
     ]
@@ -216,13 +216,16 @@ class TestMcpServerDeclared:
         servers = config.get("mcpServers", config)
         assert "azure-devops" in servers, ".mcp.json must declare azure-devops server"
 
-    def test_mcp_json_uses_env_vars(self):
+    def test_mcp_json_reads_user_config_then_env(self):
         with open(PLUGIN_ROOT / ".mcp.json") as f:
-            content = f.read()
-        # @azure-devops/mcp with "--authentication envvar" reads the PAT from ADO_MCP_AUTH_TOKEN.
-        # ${VAR:-} so an unset variable expands to empty, never to the literal "${VAR}".
-        assert "${ADO_MCP_AUTH_TOKEN:-}" in content, ".mcp.json should use ADO_MCP_AUTH_TOKEN env var"
-        assert "${ADO_ORGANIZATION:-}" in content, ".mcp.json should use ADO_ORGANIZATION env var"
+            server = json.load(f)["azure-devops"]
+        env = server["env"]
+        # userConfig first (the launcher prefers it), legacy env vars as the fallback.
+        assert env["ADO_PLUGIN_ORGANIZATION"] == "${user_config.ado_organization}"
+        assert env["ADO_PLUGIN_TOKEN"] == "${user_config.ado_token}"
+        assert env["ADO_MCP_AUTH_TOKEN"] == "${ADO_MCP_AUTH_TOKEN:-}"
+        assert env["ADO_ORGANIZATION"] == "${ADO_ORGANIZATION:-}"
+        assert server["args"] == ["${CLAUDE_PLUGIN_ROOT}/scripts/ado-mcp-launch.js"]
 
 
 # ─── Flow: Staleness threshold is configurable ───────────────────

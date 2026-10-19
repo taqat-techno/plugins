@@ -1,11 +1,56 @@
 {
   "name": "devops",
-  "version": "7.0.0",
+  "version": "8.0.0",
   "license": "MIT",
-  "description": "Azure DevOps HYBRID integration with Work Tracking System. Features: persistent user profile, unified /create command, /workday dashboard, time logging, /init setup with CLI + MCP, intelligent routing with specialized subagents, and 100+ MCP tools.",
+  "description": "Azure DevOps for Claude Code: work items, pull requests, sprints, standups and time logging through the pinned @azure-devops/mcp 2.8.0 server and the az CLI, with stock Basic/Agile/Scrum/CMMI process presets and a confirmation gate on every write.",
   "author": {
     "name": "TaqaTechno",
     "email": "info@taqatechno.com",
     "url": "https://github.com/taqat-techno"
+  },
+  "homepage": "https://github.com/taqat-techno/plugins/tree/main/devops-plugin",
+  "repository": "https://github.com/taqat-techno/plugins",
+  "keywords": ["azure-devops", "work-items", "pull-requests", "sprint", "mcp"],
+  "userConfig": {
+    "ado_organization": {
+      "type": "string",
+      "title": "Azure DevOps organization",
+      "description": "Organization name only, e.g. contoso for https://dev.azure.com/contoso. Leave empty to use the ADO_ORGANIZATION environment variable.",
+      "default": ""
+    },
+    "ado_token": {
+      "type": "string",
+      "title": "Azure DevOps Personal Access Token",
+      "description": "PAT used by the Azure DevOps MCP server. Stored in the OS credential store. Leave empty to use the ADO_MCP_AUTH_TOKEN environment variable.",
+      "sensitive": true
+    },
+    "ado_project": {
+      "type": "string",
+      "title": "Default project (optional)",
+      "description": "Project the MCP server uses when a tool call names none, so it never stops to ask. Leave empty to use ADO_MCP_PROJECT.",
+      "default": ""
+    },
+    "ado_team": {
+      "type": "string",
+      "title": "Default team (optional)",
+      "description": "Team the MCP server uses when a tool call names none. Leave empty to use ADO_MCP_TEAM.",
+      "default": ""
+    },
+    "daily_hours_target": {
+      "type": "number",
+      "title": "Daily hours target",
+      "description": "Hours per working day that /workday and /timesheet compare logged time against.",
+      "default": 6,
+      "min": 0,
+      "max": 24
+    },
+    "profile_stale_days": {
+      "type": "number",
+      "title": "Profile refresh reminder (days)",
+      "description": "The session-start check suggests /init profile --refresh when the profile is older than this.",
+      "default": 14,
+      "min": 1,
+      "max": 365
+    }
   }
 }

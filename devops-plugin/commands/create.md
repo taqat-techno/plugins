@@ -11,6 +11,9 @@ primary_agent: work-item-ops
 
 Parse `$ARGUMENTS` for type flag, title, and optional parent (`under #ID`).
 
+With no arguments, ask for the title (and parent, if the type needs one) before doing
+anything else; never create an item with a placeholder title.
+
 ## Input Format
 
 ```
@@ -35,13 +38,13 @@ If no type flag is given, detect from title keywords:
 ## Workflow
 
 1. **Parse** arguments for type, title, parent reference
-2. **Load profile** per `rules/profile-loader.md` (get role, project, process preset, task prefix)
+2. **Load profile** per `${CLAUDE_PLUGIN_ROOT}/rules/profile-loader.md` (get role, project, process preset, task prefix)
 3. **Apply naming** — prepend `preferences.taskPrefix` if set; a prefix is **required** only when the preset/profile defines `taskNaming` (e.g., `[Dev] Fix login API` under `custom-scrum-qc`)
-4. **Check hierarchy** per `data/hierarchy_rules.json`:
+4. **Check hierarchy** per `${CLAUDE_PLUGIN_ROOT}/data/hierarchy_rules.json`:
    - Tasks/Bugs/Enhancements MUST have a parent at the preset's requirement level (User Story, PBI, Requirement or Issue)
    - If no `under #ID`, search for matching parent and ask user to select
 5. **Detect sprint** — auto-assign to current iteration
-6. **Present confirmation** per `rules/write-gate.md`:
+6. **Present confirmation** per `${CLAUDE_PLUGIN_ROOT}/rules/write-gate.md`:
    ```
    READY TO CREATE: Task
    ----------------------------------

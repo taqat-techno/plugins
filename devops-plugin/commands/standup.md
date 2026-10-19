@@ -19,12 +19,12 @@ Generate standup notes from Azure DevOps work items in Yesterday/Today/Blockers 
 | Flag | Action |
 |------|--------|
 | `--format` | Output format: `markdown` (default) or `text` |
-| `--copy` | Copy output to clipboard (Windows) |
+| `--copy` | Copy output to the clipboard: `clip` on Windows, `pbcopy` on macOS, `wl-copy` or `xclip -selection clipboard` on Linux; skip with a note if none exists |
 | *(no flags)* | Generate markdown standup for current project |
 
 ## Workflow
 
-1. **Load profile** per `rules/profile-loader.md`
+1. **Load profile** per `${CLAUDE_PLUGIN_ROOT}/rules/profile-loader.md`
 2. **Query yesterday's completed items** — items that moved to Done/Closed since yesterday
 3. **Query today's active items** — items currently In Progress or Active
 4. **Detect blockers** — items tagged "Blocked" or in stalled states
@@ -40,12 +40,12 @@ Output:
 **Project:** My Project
 
 ### Yesterday
-- [#1401] [Dev] Fix geocoding timeout ✅
-- [#1399] [Dev] Add error handling to map API ✅
+- [#1401] Fix login timeout (done)
+- [#1399] Add error handling to the export API (done)
 
 ### Today
-- [#1398] Map marker offset on zoom 🔄
-- [#1395] [Dev] Add disaster category filter 📋
+- [#1398] Report export drops last row (in progress)
+- [#1395] Add status filter to search (to do)
 
 ### Blockers
 - None

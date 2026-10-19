@@ -70,25 +70,25 @@ SEVERITY: 3 - Medium
 
 REPRO STEPS:
 Environment: Production | Chrome 120 | 2026-01-13
-Endpoint/Page: Admin Panel > Reports > Beneficiary List
+Endpoint/Page: Admin Panel > Reports > Customer List
 
 Steps:
 1. Login as Admin
-2. Navigate to Reports > Beneficiary List
+2. Navigate to Reports > Customer List
 3. Click "Export to Excel"
 4. Open the exported file
 5. Observe: Country column is not present in the export
 
 Expected: Exported file includes a "Country" column as defined in the
-          requirements document (Section 3.2 - Beneficiary Data Fields)
+          requirements document (Section 3.2 - Customer Data Fields)
 Actual: Export contains all columns except "Country" - the column is
         completely missing from the output
 
 Evidence: [Screenshot of exported file showing missing column]
 
 ACCEPTANCE CRITERIA:
-- [ ] Country column appears in the Beneficiary List export
-- [ ] Column displays correct country data for all beneficiary records
+- [ ] Country column appears in the Customer List export
+- [ ] Column displays correct country data for all customer records
 - [ ] Existing exports are not affected by the fix
 ```
 

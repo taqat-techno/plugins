@@ -23,7 +23,7 @@ from typing import List, Tuple
 PLUGIN_ROOT = Path(__file__).parent.parent
 DATA_DIR = PLUGIN_ROOT / "data"
 RULES_DIR = PLUGIN_ROOT / "rules"
-DEVOPS_DIR = PLUGIN_ROOT / "devops"
+DEVOPS_DIR = PLUGIN_ROOT / "skills" / "devops"
 AGENTS_DIR = PLUGIN_ROOT / "agents"
 
 VERBOSE = "--verbose" in sys.argv or "-v" in sys.argv
@@ -208,30 +208,30 @@ def check_skill_references() -> List[str]:
     skill_path = DEVOPS_DIR / "SKILL.md"
 
     if not skill_path.exists():
-        errors.append("devops/SKILL.md not found")
+        errors.append("skills/devops/SKILL.md not found")
         return errors
 
     content = skill_path.read_text(encoding="utf-8")
 
     # Check for stale references
     if "middleware/" in content:
-        errors.append("devops/SKILL.md still references middleware/ (deleted)")
+        errors.append("skills/devops/SKILL.md still references middleware/ (deleted)")
     if "references/" in content:
-        errors.append("devops/SKILL.md still references references/ (deleted)")
+        errors.append("skills/devops/SKILL.md still references references/ (deleted)")
     if "workflows.md" in content:
-        errors.append("devops/SKILL.md still references workflows.md (deleted)")
+        errors.append("skills/devops/SKILL.md still references workflows.md (deleted)")
     if "profile_generator.md" in content:
-        errors.append("devops/SKILL.md still references profile_generator.md (deleted)")
+        errors.append("skills/devops/SKILL.md still references profile_generator.md (deleted)")
 
     # Check rules/ references
     for match in re.findall(r'rules/(\S+\.md)', content):
         if not (RULES_DIR / match).exists():
-            errors.append(f"devops/SKILL.md references non-existent rules/{match}")
+            errors.append(f"skills/devops/SKILL.md references non-existent rules/{match}")
 
     # Check data/ references
     for match in re.findall(r'data/(\S+\.json)', content):
         if not (DATA_DIR / match).exists():
-            errors.append(f"devops/SKILL.md references non-existent data/{match}")
+            errors.append(f"skills/devops/SKILL.md references non-existent data/{match}")
 
     log_verbose("SKILL.md: references validated")
     return errors

@@ -1,5 +1,5 @@
 {
-  "description": "Azure DevOps integration hooks - lightweight SessionStart profile/data health check and role-based Azure DevOps work-item write validation, plus a permissionDecision 'ask' confirmation gate on every other ADO MCP write tool (tool set: rules/write-gate.md). Matchers are namespace-agnostic: they match both the legacy 'mcp__azure-devops__*' and the current plugin-namespaced 'mcp__plugin_devops_azure-devops__*' tool names. No git-push gate — git pushes are unrestricted. (MCP error-recovery guidance is in devops/MCP_FAILURE_MODES.md; Claude Code has no per-tool-failure hook event.)",
+  "description": "Azure DevOps hooks: a SessionStart configuration/profile health check (context only, silent when healthy), process-aware validation of five work-item/PR write tools, and a permissionDecision 'ask' gate on every other Azure DevOps MCP write tool (list: rules/write-gate.md). Matchers also accept the un-namespaced tool names of a globally configured azure-devops server. No git-push gate.",
   "hooks": {
     "SessionStart": [
       {

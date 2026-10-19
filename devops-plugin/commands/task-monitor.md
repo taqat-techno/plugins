@@ -49,12 +49,12 @@ Output:
 ### New Assignments (1)
 | ID | Type | Title | State | Assigned By |
 |----|------|-------|-------|-------------|
-| #1410 | Bug | Map crash on large datasets | Approved | Jane Doe |
+| #1410 | Bug | Export fails on large datasets | Approved | Jane Doe |
 
 ### State Changes (1)
 | ID | Title | Change |
 |----|-------|--------|
-| #1398 | Map marker offset | Approved -> In Progress |
+| #1398 | Report export drops last row | Approved -> In Progress |
 
 Next check in 15 minutes.
 ```

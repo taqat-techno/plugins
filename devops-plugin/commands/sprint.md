@@ -24,8 +24,8 @@ Parse `$ARGUMENTS` for flags.
 
 ## Workflow
 
-1. **Load profile** per `rules/profile-loader.md`
-2. **Get iteration** via `work_get_team_iterations` (current or named)
+1. **Load profile** per `${CLAUDE_PLUGIN_ROOT}/rules/profile-loader.md`
+2. **Get iteration** via `work_list_team_iterations` (current or named)
 3. **Fetch work items** via `wit_get_work_items_for_iteration`
 4. **Aggregate** by state, type, assignee
 5. **Calculate** velocity, completion percentage, at-risk items
@@ -52,7 +52,7 @@ Output:
 ### At Risk Items
 | ID | Type | Title | Priority |
 |----|------|-------|----------|
-| #1395 | Task | Add disaster category filter | P2 |
+| #1395 | Task | Add status filter to search | P2 |
 ```
 
 ## Example (Full)
@@ -67,7 +67,7 @@ Output:
 - CI-Main: 12 succeeded, 1 failed (last failure: 2026-03-25)
 
 ### Open PRs
-- PR #67: Fix map rendering (2 approvals, ready to merge)
+- PR #67: Fix report export (2 approvals, ready to merge)
 
 ### Test Results
 - Last run: 142 passed, 0 failed, 3 skipped

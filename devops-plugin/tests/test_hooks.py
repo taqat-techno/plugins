@@ -20,8 +20,10 @@ Run: pytest tests/test_hooks.py -v
 
 import json
 import os
+import re
 import subprocess
 import sys
+from datetime import date
 from pathlib import Path
 
 import pytest
@@ -30,12 +32,19 @@ HOOK = Path(__file__).resolve().parent.parent / "hooks" / "pre_write_validate.py
 PREFIX = "mcp__plugin_devops_azure-devops__"
 
 
-def run_hook(payload, tmp_path, profile=None):
+def run_hook(payload, tmp_path, profile=None, data_profile=None):
+    """profile -> legacy ~/.claude/devops.md; data_profile -> ${CLAUDE_PLUGIN_DATA}/profile.md."""
     home = tmp_path / "home"
     (home / ".claude").mkdir(parents=True, exist_ok=True)
     if profile is not None:
         (home / ".claude" / "devops.md").write_text(profile, encoding="utf-8")
-    env = dict(os.environ, HOME=str(home), USERPROFILE=str(home))
+    env = {k: v for k, v in os.environ.items() if k != "CLAUDE_PLUGIN_DATA"}
+    env.update(HOME=str(home), USERPROFILE=str(home))
+    if data_profile is not None:
+        data = tmp_path / "plugin-data"
+        data.mkdir(exist_ok=True)
+        (data / "profile.md").write_text(data_profile, encoding="utf-8")
+        env["CLAUDE_PLUGIN_DATA"] = str(data)
     raw = payload if isinstance(payload, str) else json.dumps(payload)
     proc = subprocess.run(
         [sys.executable, str(HOOK)],
@@ -388,43 +397,140 @@ class TestFailOpen:
         assert (code, out.strip()) == (0, "")
 
 
+class TestProfileLocation:
+    """${CLAUDE_PLUGIN_DATA}/profile.md is the profile; ~/.claude/devops.md is the fallback."""
+
+    def test_data_dir_profile_wins_over_legacy(self, tmp_path):
+        code, out, _ = run_hook(update("Closed"), tmp_path, profile=QC_PM, data_profile=QC_DEV)
+        assert code == 0 and "'Closed'" in ask_of(out)   # developer rules from the data dir
+
+    def test_legacy_profile_used_when_data_dir_has_none(self, tmp_path):
+        data = tmp_path / "empty-data"
+        data.mkdir()
+        home = tmp_path / "home"
+        (home / ".claude").mkdir(parents=True)
+        (home / ".claude" / "devops.md").write_text(QC_DEV, encoding="utf-8")
+        env = dict(os.environ, HOME=str(home), USERPROFILE=str(home), CLAUDE_PLUGIN_DATA=str(data))
+        proc = subprocess.run([sys.executable, str(HOOK)], input=json.dumps(update("Closed")).encode(),
+                              capture_output=True, env=env, timeout=15)
+        assert proc.returncode == 0 and "'Closed'" in ask_of(proc.stdout.decode("utf-8"))
+
+
+class TestNonAscii:
+    def test_arabic_title_survives(self, tmp_path):
+        title = "\u0625\u0635\u0644\u0627\u062d \u062a\u0633\u062c\u064a\u0644"
+        code, out, _ = run_hook(create_titled("Task", title), tmp_path,
+                                profile("developer", "agile", 'taskNaming: {"prefixes": ["[BE]"]}'))
+        assert code == 0 and title in ask_of(out)
+
+
 SESSION_HOOK = HOOK.parent / "session_start_check.py"
 MCP_JSON = HOOK.parent.parent / ".mcp.json"
+_CONFIG_VARS = ("ADO_ORGANIZATION", "ADO_MCP_AUTH_TOKEN", "ADO_MCP_PROJECT", "ADO_MCP_TEAM",
+                "CLAUDE_PLUGIN_DATA", "CLAUDE_PLUGIN_OPTION_ADO_ORGANIZATION",
+                "CLAUDE_PLUGIN_OPTION_ADO_TOKEN", "CLAUDE_PLUGIN_OPTION_PROFILE_STALE_DAYS")
 
 
-def run_session_hook(tmp_path, **env_overrides):
+def run_session_raw(tmp_path, legacy_profile=None, data_profile=None, **env_overrides):
     home = tmp_path / "home"
     (home / ".claude").mkdir(parents=True, exist_ok=True)
-    env = {k: v for k, v in os.environ.items()
-           if k not in ("ADO_ORGANIZATION", "ADO_MCP_AUTH_TOKEN", "ADO_MCP_PROJECT")}
+    if legacy_profile is not None:
+        (home / ".claude" / "devops.md").write_text(legacy_profile, encoding="utf-8")
+    env = {k: v for k, v in os.environ.items() if k not in _CONFIG_VARS}
     env.update(HOME=str(home), USERPROFILE=str(home), **env_overrides)
+    if data_profile is not None:
+        data = tmp_path / "plugin-data"
+        data.mkdir(exist_ok=True)
+        (data / "profile.md").write_text(data_profile, encoding="utf-8")
+        env["CLAUDE_PLUGIN_DATA"] = str(data)
     proc = subprocess.run([sys.executable, str(SESSION_HOOK)], input=b"{}",
                           capture_output=True, env=env, timeout=15)
     assert proc.returncode == 0
-    hso = json.loads(proc.stdout.decode("utf-8"))["hookSpecificOutput"]
+    assert proc.stderr.decode("utf-8").strip() == ""
+    return proc.stdout.decode("utf-8")
+
+
+def run_session_hook(tmp_path, **kw):
+    hso = json.loads(run_session_raw(tmp_path, **kw))["hookSpecificOutput"]
     assert hso["hookEventName"] == "SessionStart"
     return hso["additionalContext"]
 
 
-class TestMcpEnvDefaults:
-    def test_required_vars_use_empty_default(self):
-        # An unset bare ${VAR} is forwarded literally; ${VAR:-} expands to empty.
+FRESH_PROFILE = (f'---\nschemaVersion: "8.0.0"\nlastRefresh: "{date.today().isoformat()}"\n'
+                 "role: developer\ndefaultProject: P\nteamMembers: []\n---\n")
+CONFIGURED = dict(ADO_ORGANIZATION="contoso", ADO_MCP_AUTH_TOKEN="x")
+
+
+class TestMcpConfig:
+    def test_mcp_json_launches_the_pinned_server_through_the_launcher(self):
         server = json.loads(MCP_JSON.read_text(encoding="utf-8"))["azure-devops"]
-        assert "${ADO_ORGANIZATION:-}" in server["args"]
-        assert server["env"]["ADO_MCP_AUTH_TOKEN"] == "${ADO_MCP_AUTH_TOKEN:-}"
-        assert "@azure-devops/mcp@2.8.0" in server["args"]  # pin is deliberate
+        assert server["command"] == "node"
+        assert server["args"] == ["${CLAUDE_PLUGIN_ROOT}/scripts/ado-mcp-launch.js"]
+        launcher = (HOOK.parent.parent / "scripts" / "ado-mcp-launch.js").read_text(encoding="utf-8")
+        assert '"@azure-devops/mcp@2.8.0"' in launcher  # pin is deliberate
         blob = json.dumps(server)
-        assert "${ADO_ORGANIZATION}" not in blob and "${ADO_MCP_AUTH_TOKEN}" not in blob
+        # Optional env fallbacks use ${VAR:-}: a bare ${VAR} leaks the literal text.
+        for var in ("ADO_ORGANIZATION", "ADO_MCP_AUTH_TOKEN", "ADO_MCP_PROJECT", "ADO_MCP_TEAM"):
+            assert "${%s:-}" % var in blob and "${%s}" % var not in blob
 
-    def test_unset_vars_get_clear_session_warning(self, tmp_path):
+    def test_user_config_keys_are_declared(self):
+        manifest = json.loads((HOOK.parent.parent / ".claude-plugin" / "plugin.json").read_text(encoding="utf-8"))
+        options = manifest["userConfig"]
+        for key in re.findall(r"\$\{user_config\.(\w+)\}", MCP_JSON.read_text(encoding="utf-8")):
+            assert key in options, key
+        assert options["ado_token"]["sensitive"] is True
+        allowed = {"type", "title", "description", "required", "default", "sensitive", "min", "max"}
+        for key, opt in options.items():
+            assert set(opt) <= allowed, (key, set(opt) - allowed)  # no `options` (newer CC only)
+
+    def test_unset_config_gets_clear_session_warning(self, tmp_path):
         ctx = run_session_hook(tmp_path)
-        assert "ADO_ORGANIZATION, ADO_MCP_AUTH_TOKEN is unset or empty" in ctx
-        assert "/init" in ctx
+        assert "no organization or token is set" in ctx
+        assert "/config" in ctx and "ADO_MCP_AUTH_TOKEN" in ctx
 
-    def test_empty_vars_get_clear_session_warning(self, tmp_path):
-        ctx = run_session_hook(tmp_path, ADO_ORGANIZATION="", ADO_MCP_AUTH_TOKEN="  ")
-        assert "ADO_ORGANIZATION, ADO_MCP_AUTH_TOKEN is unset or empty" in ctx
+    def test_empty_and_placeholder_values_count_as_unset(self, tmp_path):
+        ctx = run_session_hook(tmp_path, ADO_ORGANIZATION="", ADO_MCP_AUTH_TOKEN="  ",
+                               CLAUDE_PLUGIN_OPTION_ADO_TOKEN="${user_config.ado_token}")
+        assert "no organization or token is set" in ctx
 
-    def test_configured_vars_no_env_warning(self, tmp_path):
-        ctx = run_session_hook(tmp_path, ADO_ORGANIZATION="Org", ADO_MCP_AUTH_TOKEN="x")
+    def test_env_fallback_counts_as_configured(self, tmp_path):
+        ctx = run_session_hook(tmp_path, **CONFIGURED)
         assert "MCP is not configured" not in ctx
+
+    def test_user_config_counts_as_configured(self, tmp_path):
+        ctx = run_session_hook(tmp_path, CLAUDE_PLUGIN_OPTION_ADO_ORGANIZATION="contoso",
+                               CLAUDE_PLUGIN_OPTION_ADO_TOKEN="x")
+        assert "MCP is not configured" not in ctx
+
+    def test_only_token_missing_names_the_token(self, tmp_path):
+        ctx = run_session_hook(tmp_path, CLAUDE_PLUGIN_OPTION_ADO_ORGANIZATION="contoso")
+        assert "no token is set" in ctx
+
+    def test_placeholder_text_is_never_echoed(self, tmp_path):
+        out = run_session_raw(tmp_path, ADO_ORGANIZATION="contoso",
+                              ADO_MCP_AUTH_TOKEN="${UNDEFINED_SECRET_NAME}")
+        assert "UNDEFINED_SECRET_NAME" not in out
+
+
+class TestSessionStartQuiet:
+    def test_silent_when_configured_and_profile_fresh(self, tmp_path):
+        assert run_session_raw(tmp_path, data_profile=FRESH_PROFILE, **CONFIGURED).strip() == ""
+
+    def test_legacy_profile_gets_move_hint(self, tmp_path):
+        data = tmp_path / "empty-data"
+        data.mkdir()
+        ctx = run_session_hook(tmp_path, legacy_profile=FRESH_PROFILE,
+                               CLAUDE_PLUGIN_DATA=str(data), **CONFIGURED)
+        assert "legacy profile" in ctx and "--refresh" in ctx
+
+    def test_legacy_profile_without_plugin_data_is_quiet(self, tmp_path):
+        assert run_session_raw(tmp_path, legacy_profile=FRESH_PROFILE, **CONFIGURED).strip() == ""
+
+    def test_stale_threshold_comes_from_user_config(self, tmp_path):
+        old = FRESH_PROFILE.replace(date.today().isoformat(), "2020-01-01")
+        ctx = run_session_hook(tmp_path, data_profile=old,
+                               CLAUDE_PLUGIN_OPTION_PROFILE_STALE_DAYS="5", **CONFIGURED)
+        assert "threshold 5d" in ctx
+
+    def test_missing_profile_is_reported(self, tmp_path):
+        assert "Profile not configured" in run_session_hook(tmp_path, **CONFIGURED)

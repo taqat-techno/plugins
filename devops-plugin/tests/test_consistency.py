@@ -14,7 +14,7 @@ from pathlib import Path
 PLUGIN_ROOT = Path(__file__).parent.parent
 DATA_DIR = PLUGIN_ROOT / "data"
 RULES_DIR = PLUGIN_ROOT / "rules"
-DEVOPS_DIR = PLUGIN_ROOT / "devops"
+DEVOPS_DIR = PLUGIN_ROOT / "skills" / "devops"
 AGENTS_DIR = PLUGIN_ROOT / "agents"
 HOOKS_DIR = PLUGIN_ROOT / "hooks"
 COMMANDS_DIR = PLUGIN_ROOT / "commands"
@@ -32,9 +32,14 @@ class TestFileExistence:
         "data/project_defaults.json",
         "data/profile_template.md",
         "data/bug_report_template.md",
-        "devops/SKILL.md",
-        "devops/EXAMPLES.md",
-        "devops/MCP_FAILURE_MODES.md",
+        "skills/devops/SKILL.md",
+        "skills/devops/EXAMPLES.md",
+        "skills/devops/MCP_FAILURE_MODES.md",
+        "skills/devops/CI_HARDENING.md",
+        "rules/timesheet-store.md",
+        "hooks/pre_write_confirm.py",
+        "hooks/_vendor/hooklib.py",
+        "scripts/ado-mcp-launch.js",
         "rules/write-gate.md",
         "rules/guards.md",
         "rules/profile-loader.md",
@@ -66,6 +71,8 @@ class TestDeletedFilesGone:
         "MIGRATION.md",
         "data/work_tracker_defaults.json",
         "data/error_patterns.json",
+        "devops/SKILL.md",          # moved to skills/devops/ in 6.9.0
+        ".local.md.template",       # read by nothing; removed in 8.0.0
     ])
     def test_deleted_file_absent(self, path):
         full = PLUGIN_ROOT / path
@@ -386,3 +393,15 @@ class TestExampleProfile:
     def test_example_profile_has_team_members(self):
         content = (DATA_DIR / "example_profile.md").read_text(encoding="utf-8")
         assert "teamMembers:" in content
+
+
+# ─── Standalone drift script ────────────────────────────────────
+
+
+def test_consistency_check_script_passes():
+    """tests/consistency_check.py is a shipped script; it must run clean."""
+    import subprocess
+    import sys
+    proc = subprocess.run([sys.executable, str(PLUGIN_ROOT / "tests" / "consistency_check.py")],
+                          capture_output=True, timeout=60)
+    assert proc.returncode == 0, proc.stdout.decode("utf-8", "replace")
