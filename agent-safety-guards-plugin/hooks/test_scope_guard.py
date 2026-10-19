@@ -13,7 +13,18 @@ One script, two modes:
                                steers the NEXT run, not this one.
             enforce            deny, with the same reason. The run does not happen.
             off                do nothing.
-          A command carrying FULL_SUITE=1 passes untouched in every mode.
+          FULL_SUITE=1 as an environment prefix of the test command (`FULL_SUITE=1 pytest`,
+          `env FULL_SUITE=1 npm test`, `export FULL_SUITE=1; pytest`, PowerShell
+          `$env:FULL_SUITE=1; npm test`) passes untouched in every mode. The same text in a
+          comment, an echo or a quoted string does not.
+          Mode comes from the TEST_SCOPE_GUARD environment variable, else the plugin option
+          `test_scope_guard` (CLAUDE_PLUGIN_OPTION_TEST_SCOPE_GUARD), else advise.
+
+Not a security control: it is a productivity speed bump, and the model can read the
+override in the deny reason. Info-only invocations (--help, --version, --collect-only,
+--list, --listTests, --showConfig) and test scripts other than the configured
+whole-suite names (default: test, test:run, test:all, test:ci; extend with
+TEST_SCOPE_FULL_SCRIPTS=a,b or the `full_suite_scripts` option) are never classified.
 
 Both outputs reach the model: a permissionDecision "deny" reason, and
 hookSpecificOutput.additionalContext with hookEventName "PreToolUse" (verified on Claude
@@ -30,10 +41,11 @@ from __future__ import annotations
 import json
 import os
 import re
-import shlex
 import sys
-import threading
 import time
+
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "_vendor"))
+import hooklib  # noqa: E402
 
 OVERRIDE = "FULL_SUITE=1"
 MAX_LISTED = 8
@@ -41,11 +53,9 @@ MAX_TRACKED = 200
 STATE_TTL_SECONDS = 7 * 24 * 3600
 LOG_CAP_BYTES = 1_000_000
 
-for _stream in (sys.stdout, sys.stderr):
-    try:
-        _stream.reconfigure(encoding="utf-8", errors="replace")
-    except Exception:
-        pass
+DEFAULT_FULL_SCRIPTS = ("test", "test:run", "test:all", "test:ci")
+INFO_FLAGS = {"--help", "-h", "--version", "-V", "--co", "--collect-only", "--list", "--listTests",
+              "--list-tests", "--showConfig", "--show-config", "--fixtures", "--markers"}
 
 
 # --------------------------------------------------------------------------- state
@@ -106,7 +116,7 @@ def _log(runner: str, decision: str) -> None:
 
 
 def track(data: dict) -> None:
-    tool_input = data.get("tool_input") or {}
+    tool_input = hooklib.tool_input(data)
     path = tool_input.get("file_path") or tool_input.get("notebook_path")
     if not isinstance(path, str) or not path:
         return
@@ -144,10 +154,45 @@ VITEST_SUBCOMMANDS = {"run", "watch", "dev", "bench"}
 
 
 def _tokens(segment: str) -> list[str]:
-    try:
-        return shlex.split(segment, comments=True, posix=True)
-    except ValueError:
-        return segment.split()
+    """Whitespace split with quotes removed and unquoted # comments dropped. Backslashes
+    are kept, so Windows paths such as C:\\venv\\Scripts\\python.exe survive."""
+    tokens, buf, quote, has = [], [], "", False
+    for i, ch in enumerate(segment):
+        if quote:
+            if ch == quote:
+                quote = ""
+            else:
+                buf.append(ch)
+            continue
+        if ch in ("'", '"'):
+            quote, has = ch, True
+            continue
+        if ch == "#" and not buf and not has:
+            break
+        if ch.isspace():
+            if buf or has:
+                tokens.append("".join(buf))
+            buf, has = [], False
+            continue
+        buf.append(ch)
+    if buf or has:
+        tokens.append("".join(buf))
+    return tokens
+
+
+def _quote(token: str) -> str:
+    return "'" + token.replace("'", "") + "'" if (not token or re.search(r"\s", token)) else token
+
+
+def full_scripts() -> set[str]:
+    names = set(DEFAULT_FULL_SCRIPTS)
+    for key in ("TEST_SCOPE_FULL_SCRIPTS", "CLAUDE_PLUGIN_OPTION_FULL_SUITE_SCRIPTS"):
+        names |= {n.strip() for n in os.environ.get(key, "").split(",") if n.strip()}
+    return names
+
+
+def _info_only(args: list[str]) -> bool:
+    return any(a.split("=", 1)[0] in INFO_FLAGS for a in args)
 
 
 def _base(token: str) -> str:
@@ -266,9 +311,31 @@ def _command_start(tokens: list[str]) -> int:
             i += 1
         elif low in ("pnpm", "yarn", "bun") and i + 1 < len(tokens) and tokens[i + 1] in ("exec", "dlx", "x"):
             i += 2
+        elif low in ("npx", "bunx", "pnpx") or tok in ("-y", "--yes"):
+            i += 1
         else:
             break
     return i
+
+
+PM_VALUE_FLAGS = {"--prefix", "-w", "--workspace", "--filter", "-F", "-C", "--dir", "--cwd"}
+
+
+def _pm_args(tokens: list[str], i: int) -> int:
+    """Skip package-manager options that sit before the subcommand (npm --prefix web test,
+    pnpm --filter web test, yarn workspace web test)."""
+    j = i + 1
+    while j < len(tokens):
+        tok = tokens[j]
+        if tok in PM_VALUE_FLAGS:
+            j += 2
+        elif tok.split("=", 1)[0] in PM_VALUE_FLAGS or tok in ("-r", "--recursive", "-s", "--silent"):
+            j += 1
+        elif _base(tokens[i]) == "yarn" and tok == "workspace" and j + 1 < len(tokens):
+            j += 2
+        else:
+            break
+    return j
 
 
 def _split_segments(command: str) -> list[str]:
@@ -302,6 +369,8 @@ def _classify_segment(segment: str) -> tuple[str | None, str | None]:
     i = _command_start(tokens)
     if i >= len(tokens):
         return None, None
+    if _base(tokens[i]).removesuffix(".exe") not in ("bash", "sh", "zsh") and _info_only(tokens[i + 1:]):
+        return None, None
     tok = tokens[i]
     low = _base(tok).removesuffix(".exe")
     nxt = tokens[i + 1] if i + 1 < len(tokens) else ""
@@ -315,12 +384,18 @@ def _classify_segment(segment: str) -> tuple[str | None, str | None]:
             t.startswith(("--test-enable", "--test-tags")) for t in tokens):
         return "odoo", _odoo(tokens)
     if low in ("npm", "pnpm", "yarn", "bun"):
+        j = _pm_args(tokens, i)
+        nxt = tokens[j] if j < len(tokens) else ""
         if nxt in ("test", "t"):
-            return "js", _js_generic(tokens[i + 2:])
-        if nxt == "run" and i + 2 < len(tokens) and tokens[i + 2].startswith("test"):
-            return "js", _js_generic(tokens[i + 3:])
+            return "js", _js_generic(tokens[j + 1:])
+        if nxt in ("run", "run-script") and j + 1 < len(tokens):
+            if tokens[j + 1] in full_scripts():
+                return "js", _js_generic(tokens[j + 2:])
+            return None, None
+        if low in ("yarn", "pnpm", "bun") and nxt in full_scripts():
+            return "js", _js_generic(tokens[j + 1:])
         if low in ("yarn", "bun") and nxt and not nxt.startswith("-"):
-            return _classify_segment(" ".join(shlex.quote(t) for t in tokens[i + 1:]))
+            return _classify_segment(" ".join(_quote(t) for t in tokens[j:]))
         return None, None
     if low == "vitest":
         return "vitest", _vitest(tokens[i + 1:])
@@ -331,16 +406,42 @@ def _classify_segment(segment: str) -> tuple[str | None, str | None]:
     return None, None
 
 
+_OVERRIDE_TOKEN = re.compile(r"^(?:\$env:)?FULL_SUITE=1$", re.I)
+_OVERRIDE_STMT = re.compile(r"^\s*(?:export\s+|set\s+|\$env:)?FULL_SUITE\s*=\s*['\"]?1['\"]?\s*$", re.I)
+
+
+def _prefix_override(segment: str) -> bool:
+    """True when FULL_SUITE=1 is an environment assignment in front of the command."""
+    for tok in _tokens(segment):
+        if _OVERRIDE_TOKEN.match(tok):
+            return True
+        if _ENV_ASSIGN.match(tok) or _base(tok) in ("env", "sudo", "time", "nohup"):
+            continue
+        return False
+    return False
+
+
+def scan(command: str) -> tuple[str | None, str | None, bool]:
+    """Return (runner, kind, overridden) for the first whole-suite run, else the first run."""
+    found: tuple[str | None, str | None, bool] = (None, None, False)
+    exported = False
+    for segment in _split_segments(command or ""):
+        if _OVERRIDE_STMT.match(segment):
+            exported = True
+            continue
+        runner, kind = _classify_segment(segment)
+        overridden = exported or _prefix_override(segment)
+        if kind == "full":
+            return runner, kind, overridden
+        if runner and found[0] is None:
+            found = (runner, kind, overridden)
+    return found
+
+
 def classify(command: str) -> tuple[str | None, str | None]:
     """Return (runner, 'full' | 'scoped') for the first test run found, else (None, None)."""
-    found: tuple[str | None, str | None] = (None, None)
-    for segment in _split_segments(command or ""):
-        runner, kind = _classify_segment(segment)
-        if kind == "full":
-            return runner, kind
-        if runner and found == (None, None):
-            found = (runner, kind)
-    return found
+    runner, kind, _ = scan(command)
+    return runner, kind
 
 
 # ------------------------------------------------------------------------ hints
@@ -402,7 +503,8 @@ def guard_mode() -> str:
 
     Unset means advise. A value that is set but not recognised means enforce: someone
     tried to change the default, and the stricter reading is the safe one."""
-    value = os.environ.get("TEST_SCOPE_GUARD", "").strip().lower()
+    value = (os.environ.get("TEST_SCOPE_GUARD", "").strip()
+             or os.environ.get("CLAUDE_PLUGIN_OPTION_TEST_SCOPE_GUARD", "").strip()).lower()
     if not value or value in ("advise", "advice", "warn", "soft"):
         return "advise"
     if value in ("off", "0", "false", "disabled"):
@@ -441,17 +543,15 @@ def deny_reason(runner: str, files: list[str]) -> str:
 
 
 def check(data: dict) -> dict | None:
-    tool_input = data.get("tool_input") or {}
+    tool_input = hooklib.tool_input(data)
     command = tool_input.get("command") or tool_input.get("script") or ""
     if not isinstance(command, str) or not command:
         return None
-    if OVERRIDE in command.replace(" ", "") or re.search(r"FULL_SUITE\s*=\s*['\"]?1", command):
-        runner, kind = classify(command)
-        if runner:
-            _log(runner, "override")
-        return None
-    runner, kind = classify(command)
+    runner, kind, overridden = scan(command)
     if kind != "full":
+        return None
+    if overridden:
+        _log(runner or "unknown", "override")
         return None
     files = _load_files(str(data.get("session_id") or "unknown"))
     if guard_mode() == "advise":
@@ -510,7 +610,25 @@ SELF_TEST = [
     ("yarn vitest run", "vitest", "full"),
     ("pnpm exec vitest related src/a.ts --run", "vitest", "scoped"),
     ("$env:CI='1'; npm test", "js", "full"),
-    ("npm run test:e2e -- --grep checkout", "js", "scoped"),
+    ("npm run test:e2e -- --grep checkout", None, None),
+    ("npm run test:unit", None, None),
+    ("npm run testing-docs", None, None),
+    ("npm run test:all", "js", "full"),
+    ("pytest --help", None, None),
+    ("pytest --co -q", None, None),
+    ("python -m pytest --collect-only -q", None, None),
+    ("npx jest --version", None, None),
+    ("npx playwright test --list", None, None),
+    ("npx jest --listTests", None, None),
+    ("C:\\venv\\Scripts\\python.exe -m pytest", "pytest", "full"),
+    ("C:\\venv\\Scripts\\python.exe -m pytest tests\\test_a.py", "pytest", "scoped"),
+    ("npx -y vitest run", "vitest", "full"),
+    ("npx --yes jest", "jest", "full"),
+    ("npm --prefix web test", "js", "full"),
+    ("npm -w web run test", "js", "full"),
+    ("pnpm --filter web test", "js", "full"),
+    ("yarn workspace web test", "js", "full"),
+    ("pnpm --filter web run test:unit", None, None),
     ("pytest tests/unit | tail -5", "pytest", "scoped"),
     ("pytest  # run everything", "pytest", "full"),
     ("git status", None, None),
@@ -527,9 +645,15 @@ def self_test() -> int:
         if got != (runner, kind):
             failures += 1
             print("FAIL %-60s expected %s got %s" % (command, (runner, kind), got))
-    if check({"tool_input": {"command": "FULL_SUITE=1 pytest"}}) is not None:
-        failures += 1
-        print("FAIL override was not honoured")
+    for command in ("FULL_SUITE=1 pytest", "env FULL_SUITE=1 npm test", "export FULL_SUITE=1; pytest",
+                    "$env:FULL_SUITE=1; npm test"):
+        if not scan(command)[2]:
+            failures += 1
+            print("FAIL override was not honoured: %s" % command)
+    for command in ("pytest # FULL_SUITE=1", "echo FULL_SUITE=1; pytest", "pytest -k 'FULL_SUITE=1' ."):
+        if scan(command)[1] == "full" and scan(command)[2]:
+            failures += 1
+            print("FAIL override honoured outside an env prefix: %s" % command)
     print("%d/%d classification cases passed" % (len(SELF_TEST) - failures, len(SELF_TEST)))
     return 1 if failures else 0
 
@@ -541,26 +665,24 @@ def main(argv: list[str]) -> int:
         return self_test()
     if guard_mode() == "off":
         return 0
-    watchdog = threading.Timer(3.0, lambda: os._exit(0))
-    watchdog.daemon = True
-    watchdog.start()
-    try:
-        raw = sys.stdin.buffer.read().decode("utf-8", "replace")
-        data = json.loads(raw) if raw.strip() else {}
-        if not isinstance(data, dict):
-            return 0
-        mode = argv[1] if len(argv) > 1 else "check"
-        if mode == "track":
-            track(data)
-            return 0
-        result = check(data)
-        if result:
-            sys.stdout.write(json.dumps(result))
-            sys.stdout.flush()
-    except Exception:
+    hooklib.watchdog(3)
+    data = hooklib.read_payload()
+    if data is None:
         return 0
+    if (argv[1] if len(argv) > 1 else "check") == "track":
+        track(data)
+        return 0
+    result = check(data)
+    if result:
+        out = result["hookSpecificOutput"]
+        if out.get("permissionDecision") == "deny":
+            hooklib.deny(out["permissionDecisionReason"])
+        else:
+            hooklib.context("PreToolUse", out["additionalContext"])
     return 0
 
 
 if __name__ == "__main__":
-    sys.exit(main(sys.argv))
+    if "--self-test" in sys.argv[1:]:
+        sys.exit(self_test())
+    hooklib.run(lambda: main(sys.argv))

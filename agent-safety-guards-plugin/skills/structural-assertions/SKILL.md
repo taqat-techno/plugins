@@ -1,22 +1,23 @@
 ---
 name: structural-assertions
-description: The discipline for asserting facts about the SHAPE of source code — this symbol is gone, this call precedes that one, this component is wired into that entry point, no path reaches this primitive. Owns the rule that such a claim goes through the language's own parser (`ast`, tree-sitter, a TS compiler pass), never string containment — because `assert "sys.platform" not in source` matches the comment you wrote explaining why the module no longer does platform dispatch, so it goes red for the wrong reason, and it goes green for the wrong reason the moment the real violation is spelled `getattr(sys, "platform")`. Also owns the `ast.walk` ordering trap (walk is breadth-first, so `called.index("a") < called.index("b")` compares traversal positions rather than source order — sort by `node.lineno` first), the AST FORM of the side-by-side wiring probe (parse the old file and the new file in one script, print one boolean each), the negative-universal rule for functions with several exit branches (assert that NO path does the unsafe thing, never that the obvious path is right), the sweep-the-class rule (one hit is a sample, not the population), and reading a red PRE-EXISTING architecture test as evidence about your design rather than as a test to edit. Activates when an assertion or check uses `in source`, `assertIn` over file text, `grep`, or a regex over a file's CONTENTS to establish something about code; when the evidence offered for "the pattern is gone" or "the new component is wired in" is a search over source text; when asserting call order or that a symbol is or is not used; when an existing lint / architecture / structural test goes red on a change; or immediately after finding one instance of a bad code shape. NOT a test-authoring skill — framework and unit-test mechanics belong to the stack's own testing skill, and whether a test RUN counts as evidence belongs to test-result-evidence; this governs only the FORM of a claim about code shape.
+description: Use when a test or check asserts something about the SHAPE of source code (a symbol is gone, a call precedes another, a component is wired into an entry point, no path reaches an unsafe call) using string containment, assertIn over file text, grep or a regex over file contents; when the evidence that "the pattern is gone" is a text search; when an existing lint, architecture or structural test goes red on your change; or right after finding one instance of a bad code shape. Covers using the language's parser (ast, tree-sitter, a compiler pass) instead of text, the ast.walk breadth-first ordering trap, the side-by-side old/new AST probe, asserting that no exit path does the unsafe thing, and sweeping the whole repository for the same shape. Not for writing tests in general or judging whether a test run counts as evidence.
 version: 0.1.0
-last_reviewed: 2026-08-10
-owns:
-  - structural claims go through a parser (`ast`), never string containment — comments and docstrings are indistinguishable from code to a grep
-  - the `ast.walk` breadth-first ordering trap (sort by `node.lineno` before asserting source order)
-  - the AST FORM of the side-by-side wiring probe (how to write it; test-result-evidence owns WHY a harness-free control is preferred)
-  - the multi-exit-path rule — assert that NO path does the unsafe thing, not that the obvious path is correct
-  - the sweep-the-class rule — after one instance of a code-shape defect, AST-sweep the whole repository
-  - reading a failing EXISTING structural test as evidence about your design, before reaching for the test file
-defers_to:
-  - test-result-evidence skill for everything about a test RUN as evidence — which artifact a control actually imported (editable-install sys.path pinning), a collection-time ImportError meaning zero tests ran, the named discriminator, and why the harness-free control is preferred at all
-  - test-double-seams skill for hand-built fixtures and the at-the-seam vs across-the-seam distinction
-  - agent-safety skill for the structured-output contract and for refuting a green verdict before it mutates state
-  - workflow-reliability skill for fan-out sweeps across many files and for treating a subagent's "clean" as a claim
-  - runtime/behavioural tests for anything about what the code DOES; this skill only governs claims about its SHAPE
 user-invocable: false
+metadata:
+  last_reviewed: 2026-08-10
+  owns:
+    - structural claims go through a parser (`ast`), never string containment — comments and docstrings are indistinguishable from code to a grep
+    - the `ast.walk` breadth-first ordering trap (sort by `node.lineno` before asserting source order)
+    - the AST FORM of the side-by-side wiring probe (how to write it; test-result-evidence owns WHY a harness-free control is preferred)
+    - the multi-exit-path rule — assert that NO path does the unsafe thing, not that the obvious path is correct
+    - the sweep-the-class rule — after one instance of a code-shape defect, AST-sweep the whole repository
+    - reading a failing EXISTING structural test as evidence about your design, before reaching for the test file
+  defers_to:
+    - test-result-evidence skill for everything about a test RUN as evidence — which artifact a control actually imported (editable-install sys.path pinning), a collection-time ImportError meaning zero tests ran, the named discriminator, and why the harness-free control is preferred at all
+    - test-double-seams skill for hand-built fixtures and the at-the-seam vs across-the-seam distinction
+    - agent-safety skill for the structured-output contract and for refuting a green verdict before it mutates state
+    - workflow-reliability skill for fan-out sweeps across many files and for treating a subagent's "clean" as a claim
+    - runtime/behavioural tests for anything about what the code DOES; this skill only governs claims about its SHAPE
 ---
 
 # structural-assertions

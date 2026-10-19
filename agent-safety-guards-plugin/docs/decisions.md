@@ -145,3 +145,32 @@ Consequence for existing installs:
 Anyone who relied on the old default (including the author) gets advise behaviour after
 updating until they set `TEST_SCOPE_GUARD=enforce`.
 
+
+## D-004 - the classifier ignores info commands; the override must be an env prefix
+
+Date: 2026-10-19 · Status: accepted · Amends: D-001 (override parsing, classification only)
+
+Context:
+
+The 2026-10-19 audit (ASG-P1-02, F-ASG-02, F-ASG-05) found two defects. Commands that run no
+tests (`pytest --help`, `pytest --collect-only`, `jest --version`, `playwright test --list`)
+and scripts that are not the whole suite (`npm run test:unit`, `npm run testing-docs`) were
+classified as whole-suite runs. And any `FULL_SUITE=1` substring passed the guard, including
+one inside a shell comment or an `echo`.
+
+Decision:
+
+1. Info-only invocations (`--help`, `-h`, `--version`, `-V`, `--co`, `--collect-only`, `--list`,
+   `--listTests`, `--showConfig`, `--fixtures`, `--markers`) are never classified.
+2. `npm|pnpm|yarn|bun run <script>` counts as a whole-suite run only for the script names
+   `test`, `test:run`, `test:all`, `test:ci`, plus names listed in `TEST_SCOPE_FULL_SCRIPTS`
+   or the `full_suite_scripts` plugin option.
+3. `FULL_SUITE=1` is honoured only as an environment assignment in front of the test command
+   (`FULL_SUITE=1 pytest`, `env FULL_SUITE=1 ...`), or as a preceding `export FULL_SUITE=1` /
+   PowerShell `$env:FULL_SUITE=1` statement in the same command line.
+4. The tokenizer keeps backslashes, so `C:\venv\Scripts\python.exe -m pytest` is classified,
+   and `npx -y`, `npm --prefix/-w`, `pnpm --filter`, `yarn workspace` are recognised.
+5. The mode can also come from the `test_scope_guard` plugin option; `TEST_SCOPE_GUARD` wins.
+
+The guard stays a productivity speed bump, not a security control: the deny reason still
+names the override, because the model is expected to use it when the user asked for a full run.

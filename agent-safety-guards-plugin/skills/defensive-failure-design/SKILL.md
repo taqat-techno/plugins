@@ -1,23 +1,24 @@
 ---
 name: defensive-failure-design
-description: How code must behave when something goes wrong — language- and framework-neutral. Owns the normalisation-is-not-authorisation rule (if a system declares a difference insignificant for MATCHING, that same collapsed comparison must not be what decides an automatic BIND or grant; collapse it for the blocking/duplicate decision, keep the exact value only for presentation and ordering, and check the clamp formula itself because `min(tier, NORMALIZED)` maps an archived match onto the live class where `max` is correct). Owns the scope-hint degradation rule (a hint that exists only to narrow a search degrades to "ignored" when it cannot be resolved, never to fatal — otherwise a derived, export-only, documented-as-ignored column hard-fails whole rows that used to import; if the narrowed search is then genuinely ambiguous THAT is the error to raise, and its message must name the column or scope that failed to resolve plus how to opt out). Owns the wrong-step diagnosis (when a shipped fix does not recover the machine, "is the fix present?" is the useless question — enumerate the branches at the entry point and determine which one production is actually on, because a correct fix on an unexecuted branch is indistinguishable from no fix). Owns the crash-context capture rule (snapshot diagnostics in the `except`, before cleanup — a `finally` that nulls state runs before the post-mortem reads it, so the record describes a machine that had nothing). Owns the silence-assertion rule (a test asserting that nothing happened passes identically against code with no handler at all, so pair it with a positive assertion and prove it by reverting the fix). Activates when writing or reviewing a failure path, an error branch, a retry or fallback, a normalisation/matching/dedup rule that also feeds an automatic bind, a scoping hint on a lookup, a crash recorder or post-mortem log, a teardown beside a diagnostic, or a test whose expected outcome is that nothing happens — and when a shipped fix did not change production behaviour.
+description: Use when writing or reviewing a failure path, error branch, retry or fallback; a normalisation, matching or dedup rule that also feeds an automatic bind or grant; an optional scoping hint on a lookup; a restriction or policy resolver; a crash recorder or post-mortem log next to teardown code; or a test whose expected outcome is that nothing happens. Also use when a shipped fix did not change production behaviour. Covers why a comparison collapsed for matching must not decide a bind, why an unresolvable narrowing hint is ignored rather than fatal (and what the ambiguity error must name), finding which entry-point branch production actually takes, capturing crash context before cleanup, failing closed on a restriction lookup, and pairing every silence assertion with a positive one.
 version: 0.1.0
-last_reviewed: 2026-08-10
-owns:
-  - normalisation is not authorisation (a difference collapsed for matching must not decide a bind, a grant, or an identity — and the tie-break clamp's direction is part of the rule)
-  - scope-hint degradation (an unresolvable narrowing hint is ignored, never fatal; the ambiguity it was meant to prevent is the error worth raising, named by the scope that failed)
-  - error-message content for a failed narrowing (name the column/scope that created the scope and how to opt out, so the operator can tell which of the two lookups failed)
-  - the wrong-step diagnosis for a shipped fix that did not recover the machine (enumerate entry-point branches; ask which one production takes)
-  - crash-context capture in the `except`, before teardown (re-check every consumer that reads state after a failure once cleanup is added)
-  - the silence-assertion rule (pair every "nothing happened" assertion with a positive one, and prove it by reverting the fix)
-  - the fail-closed rule for a RESTRICTION resolver (a nullable policy lookup is fail-open; assert the resolved object, not the config key) and its boundary against the fail-quiet rule for a narrowing hint
-defers_to:
-  - test-result-evidence skill (this plugin) for the general rule that a passing run is not proof until you have shown it could have failed — the named discriminator, the control on the control, and the collection-error reading
-  - test-double-seams skill (this plugin) for the per-branch coverage ledger form of a branch enumeration (which side of the seam each branch's tests called)
-  - structural-assertions skill (this plugin) for proving by parser that no path reaches an unsafe primitive
-  - agent-safety skill (this plugin) for what a green verdict is allowed to authorize
-  - the user for every policy call about what an ambiguous match should do
 user-invocable: false
+metadata:
+  last_reviewed: 2026-08-10
+  owns:
+    - normalisation is not authorisation (a difference collapsed for matching must not decide a bind, a grant, or an identity — and the tie-break clamp's direction is part of the rule)
+    - scope-hint degradation (an unresolvable narrowing hint is ignored, never fatal; the ambiguity it was meant to prevent is the error worth raising, named by the scope that failed)
+    - error-message content for a failed narrowing (name the column/scope that created the scope and how to opt out, so the operator can tell which of the two lookups failed)
+    - the wrong-step diagnosis for a shipped fix that did not recover the machine (enumerate entry-point branches; ask which one production takes)
+    - crash-context capture in the `except`, before teardown (re-check every consumer that reads state after a failure once cleanup is added)
+    - the silence-assertion rule (pair every "nothing happened" assertion with a positive one, and prove it by reverting the fix)
+    - the fail-closed rule for a RESTRICTION resolver (a nullable policy lookup is fail-open; assert the resolved object, not the config key) and its boundary against the fail-quiet rule for a narrowing hint
+  defers_to:
+    - test-result-evidence skill (this plugin) for the general rule that a passing run is not proof until you have shown it could have failed — the named discriminator, the control on the control, and the collection-error reading
+    - test-double-seams skill (this plugin) for the per-branch coverage ledger form of a branch enumeration (which side of the seam each branch's tests called)
+    - structural-assertions skill (this plugin) for proving by parser that no path reaches an unsafe primitive
+    - agent-safety skill (this plugin) for what a green verdict is allowed to authorize
+    - the user for every policy call about what an ambiguous match should do
 ---
 
 # defensive-failure-design

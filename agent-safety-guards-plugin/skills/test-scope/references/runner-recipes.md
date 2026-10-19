@@ -1,7 +1,7 @@
 # Runner recipes - selecting the tests for a change
 
 Generic runners only. Odoo (`odoo-bin`), Django (`manage.py test`) and FastAPI-specific
-selection live in their framework skills. Every recipe here maps to a tier of the
+selection live in their framework skills, when those plugins are installed. Every recipe here maps to a tier of the
 ladder in `../SKILL.md`.
 
 ## pytest

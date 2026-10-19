@@ -1,13 +1,13 @@
 {
-  "description": "agent-safety-guards hooks. (1) credential_paste_advisory: non-fatal UserPromptSubmit reminder when a prompt contains a token-shaped string; never blocks, never echoes the value. (2) test_scope_guard: PostToolUse(Write|Edit) records edited files per session (async); PreToolUse(Bash|PowerShell) reacts to a command that runs a WHOLE test suite per TEST_SCOPE_GUARD: advise (default) lets it run and attaches guidance as additionalContext, enforce denies it, off disables. FULL_SUITE=1 in the command always passes. Fails open. See docs/decisions.md D-001, D-002, D-003.",
+  "description": "agent-safety-guards hooks. (1) credential_paste_advisory (UserPromptSubmit): when a prompt contains a credential-shaped string, gives Claude a fixed reminder as additionalContext; never blocks, never echoes the value. (2) test_scope_guard: PostToolUse(Write|Edit|MultiEdit|NotebookEdit) records edited file paths per session (async); PreToolUse(Bash|PowerShell) reacts to a command that runs a WHOLE test suite per TEST_SCOPE_GUARD or the test_scope_guard option: advise (default) attaches guidance, enforce denies, off disables. FULL_SUITE=1 as an env prefix of the test command passes. Fails open. See docs/decisions.md D-001 to D-004.",
   "hooks": {
     "UserPromptSubmit": [
       {
-        "matcher": "*",
         "hooks": [
           {
             "type": "command",
-            "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/credential_paste_advisory.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\"; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0"
+            "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/credential_paste_advisory.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\"; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0",
+            "timeout": 5
           }
         ]
       }

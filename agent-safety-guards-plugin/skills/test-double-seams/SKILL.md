@@ -1,23 +1,24 @@
 ---
 name: test-double-seams
-description: The two-sided contract at the boundary between production code and a test double. TEST side (extends the across-the-seam rule owned by test-result-evidence, never restates it) — owns the per-branch ledger that makes that rule checkable, namely enumerate the branches from the PRODUCTION entry point rather than from the test file, mark for each which side of the seam its tests called, and read an at-the-seam-only branch as untested for construction defects, since a double is authored from the consumer's expectations and so always supplies the field the real producer forgot to pass. Carries the detection question "which side of this seam did the test call?" and a catalog of seam shapes (constructor parameter, DI dependency override, stub client, fake supervisor, lambda/factory starter, monkeypatched module attribute) naming what each double silently supplies. PRODUCTION side (owned outright) — a double is a legitimate implementation of the seam, so a newly added read on an injected collaborator uses getattr(obj, "name", default) unless the value is genuinely load-bearing; a diagnostic log line or optional hook must never acquire veto power over a startup path, and shipping a feature must never require existing doubles to grow new methods. Activates when a new attribute or method is read on an object that was passed in rather than constructed locally; when a suite goes red with "double lacks attribute" right after a field was added to an injected class; when a review comment says "add the attribute to the fixtures"; when a branch (reattach, fallback, resume, retry, degraded mode) is called covered although its production entry point is never called; and when judging whether a passing unit test is evidence that a code path runs in production. NOT the framework mechanics — django-testing, fastapi-testing and odoo-test own how to write the mock, the fixture, or the dependency_overrides.
+description: Use when code starts reading a new attribute or method on an object that was passed in rather than built locally; when a suite goes red with "double lacks attribute" right after a field was added to an injected class; when a review says "add the attribute to the fixtures"; when a branch such as reattach, fallback, resume, retry or degraded mode is called covered although its production entry point is never called; or when judging whether a passing unit test proves a path runs in production. Covers enumerating branches from the production entry point and marking which side of the seam each test called, the seam-shape catalog and what each double silently supplies, getattr with a default for non-load-bearing reads, and never making production require doubles to grow new methods. Not for how to write mocks or fixtures in a given framework.
 version: 0.1.0
-last_reviewed: 2026-08-10
-owns:
-  - per-branch seam bookkeeping — enumerate the production dispatch at the entry point and mark, per branch, which side of the seam its tests called
-  - the detection question "which side of this seam did the test call?" and the proven/unproven table it resolves to
-  - the seam-shape catalog (constructor param, DI override, stub client, fake supervisor, lambda starter, monkeypatched attribute) and what each double silently supplies
-  - the getattr(obj, "name", default) rule for newly read attributes on injected collaborators
-  - the load-bearing vs diagnostic classification that decides whether a missing attribute may fail a path
-  - the "production code must not require test doubles to grow new methods" constraint
-  - the reuse-the-existing-tolerance-pattern rule (one tolerance mechanism per codebase, never a second shape)
-defers_to:
-  - test-result-evidence skill (this plugin) for the across-the-seam rule itself — that a hand-built fixture tests the component against itself, that "handles X" and "production produces X" are different claims, that every branch that matters needs one test calling the real producer, and the name "implemented and tested at the seam, never across it". This skill extends that rule per branch and adds the production side; it must not restate it.
-  - django-testing / fastapi-testing / odoo-test / any project testing skill for framework mechanics — how to write the mock, fixture scope, dependency_overrides syntax, patching helpers, test-DB lifecycle
-  - agent-safety skill for the "a green verdict is a claim to refute" reflex that a passing seam test invites
-  - workflow-reliability skill for treating a producer's self-reported completion as an unverified claim
-  - the project's own tolerance pattern (an existing broad-except / narrower-signature shim) when one already exists — apply it rather than inventing a second one
 user-invocable: false
+metadata:
+  last_reviewed: 2026-08-10
+  owns:
+    - per-branch seam bookkeeping — enumerate the production dispatch at the entry point and mark, per branch, which side of the seam its tests called
+    - the detection question "which side of this seam did the test call?" and the proven/unproven table it resolves to
+    - the seam-shape catalog (constructor param, DI override, stub client, fake supervisor, lambda starter, monkeypatched attribute) and what each double silently supplies
+    - the getattr(obj, "name", default) rule for newly read attributes on injected collaborators
+    - the load-bearing vs diagnostic classification that decides whether a missing attribute may fail a path
+    - the "production code must not require test doubles to grow new methods" constraint
+    - the reuse-the-existing-tolerance-pattern rule (one tolerance mechanism per codebase, never a second shape)
+  defers_to:
+    - test-result-evidence skill (this plugin) for the across-the-seam rule itself — that a hand-built fixture tests the component against itself, that "handles X" and "production produces X" are different claims, that every branch that matters needs one test calling the real producer, and the name "implemented and tested at the seam, never across it". This skill extends that rule per branch and adds the production side; it must not restate it.
+    - the framework testing skill of whichever framework plugin is installed (for example django-testing, fastapi-testing, odoo test), or the project's own conventions, for framework mechanics — how to write the mock, fixture scope, dependency_overrides syntax, patching helpers, test-DB lifecycle
+    - agent-safety skill for the "a green verdict is a claim to refute" reflex that a passing seam test invites
+    - workflow-reliability skill for treating a producer's self-reported completion as an unverified claim
+    - the project's own tolerance pattern (an existing broad-except / narrower-signature shim) when one already exists — apply it rather than inventing a second one
 ---
 
 # test-double-seams
@@ -171,4 +172,4 @@ the suite went red after adding a field / method?
 - `structural-assertions` (skill, this plugin) — owns the negative-universal assertion over all exit paths, which is the cheapest way to enforce A2's ledger for a branch that keeps growing new exits.
 - `agent-safety` (skill, this plugin) — the refute-a-green-verdict reflex. A passing seam test is exactly the kind of green claim that deserves an attempt at disproof before it authorises a merge or deploy.
 - `workflow-reliability` (skill, this plugin) — treats a producer's self-reported completion as an unverified claim; the same posture applied to workflows that this skill applies to fixtures.
-- `django-testing`, `fastapi-testing`, `odoo-test`, or the project's own testing conventions — own the framework mechanics (mock library, fixture scope, `dependency_overrides` syntax, patching helpers, test-DB lifecycle). This skill owns only *which side of the seam* a test must reach and *how tolerantly* production may read a collaborator; it never dictates how the double is written.
+- The framework testing skills, if their plugins are installed (`django-testing`, `fastapi-testing`, the odoo plugin's test skill), or the project's own testing conventions — own the framework mechanics (mock library, fixture scope, `dependency_overrides` syntax, patching helpers, test-DB lifecycle). This skill owns only *which side of the seam* a test must reach and *how tolerantly* production may read a collaborator; it never dictates how the double is written.

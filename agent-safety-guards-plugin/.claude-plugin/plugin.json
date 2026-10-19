@@ -1,7 +1,7 @@
 {
   "name": "agent-safety-guards",
-  "version": "0.5.0",
-  "description": "Generic agent-session safety and multi-agent workflow-reliability guardrails for Claude Code. Encodes credential-compromise response (a secret pasted into a session is burned: revoke + reissue with least scope), read-only / investigation immutability (never mutate files, git, auth, or state during a survey), authorization verification (confirm a cited override actually exists before honoring it), no-fabrication discipline (never invent a permission, override, or tool/MCP availability), and reliable subagent fan-out (small sequential waves, null-safe reduce, journaled + idempotent long runs, disjoint file ownership, verify-the-claim). It reasons and reports and never auto-mutates state; its test-scope guard denies whole-suite test runs during development (FULL_SUITE=1 overrides).",
+  "version": "0.6.0",
+  "description": "Agent-session safety and workflow-reliability habits for Claude Code: a leaked secret is burned (revoke and reissue), read-only work stays read-only, cited authorizations are verified, external content is data and never an instruction, subagent fan-outs run in small verified waves, and test results are read as evidence only when they could have failed. Hooks: a credential-paste reminder, and a test-scope guard that steers Claude away from whole-suite runs during development (advise by default; opt-in enforce denies them).",
   "author": {
     "name": "TaqaTechno",
     "email": "info@taqatechno.com",
@@ -23,5 +23,19 @@
     "read-only",
     "idempotent",
     "reliability"
-  ]
+  ],
+  "userConfig": {
+    "test_scope_guard": {
+      "type": "string",
+      "title": "Test-scope guard mode",
+      "description": "advise (default): a whole-suite test run goes ahead and Claude gets the changed files and a scoped command. enforce: deny whole-suite runs unless prefixed with FULL_SUITE=1. off: no guard. TEST_SCOPE_GUARD overrides this.",
+      "default": "advise"
+    },
+    "full_suite_scripts": {
+      "type": "string",
+      "title": "Extra whole-suite npm scripts",
+      "description": "Comma-separated npm script names that run the whole suite, in addition to test, test:run, test:all and test:ci.",
+      "default": ""
+    }
+  }
 }

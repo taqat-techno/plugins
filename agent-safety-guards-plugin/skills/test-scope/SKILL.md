@@ -2,21 +2,22 @@
 name: test-scope
 description: Use when about to run tests during development, choosing which tests prove a change, or about to create a test file. Picks the smallest test set that still proves the change; the full suite runs only when the user asks or in CI.
 version: 0.1.0
-last_reviewed: 2026-09-27
-owns:
-  - the test-scope ladder (T0 static, T1 targeted, T2 affected, T3 full) and which tier each moment of development gets
-  - batching (one test run per coherent change, never per edit)
-  - the escalation triggers that widen a run, and the rule that widening stops at T2 unless the user asks
-  - the FULL_SUITE=1 override semantics (who may use it and when)
-  - test-file hygiene (extend before creating, scratch probes outside the repo, every new file justified)
-  - the test-scope report block (what ran, what did not, what to run before merge)
-  - the change-to-test mapping for generic runners (references/runner-recipes.md)
-defers_to:
-  - test-result-evidence skill (this plugin) for reading any result - 0 collected is a failure, summary line plus exit code, narrow-green vs wide-red, the pre-fix failing run
-  - test-double-seams skill (this plugin) for why a seam change needs its consumers' tests, not just its own
-  - the framework testing skills (odoo-plugin test, django-testing, fastapi-testing) for framework selectors, warm-database loops and fixture mechanics
-  - worktree plugin for lane / integration / release test ownership across parallel agents
 user-invocable: false
+metadata:
+  last_reviewed: 2026-09-27
+  owns:
+    - the test-scope ladder (T0 static, T1 targeted, T2 affected, T3 full) and which tier each moment of development gets
+    - batching (one test run per coherent change, never per edit)
+    - the escalation triggers that widen a run, and the rule that widening stops at T2 unless the user asks
+    - the FULL_SUITE=1 override semantics (who may use it and when)
+    - test-file hygiene (extend before creating, scratch probes outside the repo, every new file justified)
+    - the test-scope report block (what ran, what did not, what to run before merge)
+    - the change-to-test mapping for generic runners (references/runner-recipes.md)
+  defers_to:
+    - test-result-evidence skill (this plugin) for reading any result - 0 collected is a failure, summary line plus exit code, narrow-green vs wide-red, the pre-fix failing run
+    - test-double-seams skill (this plugin) for why a seam change needs its consumers' tests, not just its own
+    - the framework testing skills, if their plugins are installed (odoo test, django-testing, fastapi-testing), for framework selectors, warm-database loops and fixture mechanics
+    - worktree plugin, if installed, for lane / integration / release test ownership across parallel agents
 ---
 
 # test-scope
@@ -95,7 +96,8 @@ record in the report that T3 was not run and why it is recommended.
    - a template, view or UI file maps to the tests that render it.
 3. Select them with the runner's narrowest selector. Generic runners (pytest, vitest,
    jest, playwright, npm scripts) are in `references/runner-recipes.md`. Framework
-   runners are in their own skills: Odoo `test`, `django-testing`, `fastapi-testing`.
+   runners are in their own skills when those plugins are installed (Odoo `test`,
+   `django-testing`, `fastapi-testing`); without them, use the framework's own docs.
 4. If nothing maps, say so. A change with no covering test gets a new test (below), not a
    full-suite run.
 
@@ -147,7 +149,7 @@ whole suite. The user chooses the mode with the environment variable `TEST_SCOPE
 
 `FULL_SUITE=1` in the command passes in every mode. Treat an advise-mode note exactly like a
 denial: the next run is scoped. Detection is best-effort; a runner the hook does not
-recognise is simply allowed. See `docs/decisions.md` D-001, D-002 and D-003.
+recognise is simply allowed. See `${CLAUDE_PLUGIN_ROOT}/docs/decisions.md` D-001, D-002 and D-003.
 
 ## Anti-patterns
 

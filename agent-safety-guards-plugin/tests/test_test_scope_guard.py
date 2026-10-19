@@ -119,5 +119,52 @@ class TestScopeGuard(unittest.TestCase):
         self.assertEqual(self.decision(proc)["permissionDecision"], "deny")
 
 
+class TestScopeGuardV06(unittest.TestCase):
+    """ASG-P1-02 allowlist, env-prefix-only override, plugin options."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.data = self.tmp.name
+        self.enforce = {"TEST_SCOPE_GUARD": "enforce"}
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def out(self, command, extra=None):
+        env = {"CLAUDE_PLUGIN_OPTION_TEST_SCOPE_GUARD": "", "TEST_SCOPE_FULL_SCRIPTS": "",
+               "CLAUDE_PLUGIN_OPTION_FULL_SUITE_SCRIPTS": ""}
+        env.update(extra if extra is not None else self.enforce)
+        proc = run_hook("check", bash(command), self.data, env)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        text = proc.stdout.decode("utf-8").strip()
+        return json.loads(text)["hookSpecificOutput"] if text else None
+
+    def test_info_commands_are_never_denied(self):
+        for command in ("pytest --help", "pytest --collect-only -q", "pytest --co", "npx jest --version",
+                        "npx playwright test --list", "npm run test:unit", "npm run testing-docs"):
+            self.assertIsNone(self.out(command), command)
+
+    def test_override_only_counts_as_env_prefix(self):
+        for command in ("FULL_SUITE=1 pytest", "env FULL_SUITE=1 npm test", "export FULL_SUITE=1; pytest"):
+            self.assertIsNone(self.out(command), command)
+        for command in ("pytest # FULL_SUITE=1", "echo FULL_SUITE=1; pytest", "echo 'FULL_SUITE=1' && npm test"):
+            self.assertEqual(self.out(command)["permissionDecision"], "deny", command)
+
+    def test_plugin_option_sets_mode_and_env_wins(self):
+        self.assertEqual(self.out("pytest", {"CLAUDE_PLUGIN_OPTION_TEST_SCOPE_GUARD": "enforce"})
+                         ["permissionDecision"], "deny")
+        self.assertIsNone(self.out("pytest", {"CLAUDE_PLUGIN_OPTION_TEST_SCOPE_GUARD": "enforce",
+                                              "TEST_SCOPE_GUARD": "off"}))
+
+    def test_extra_full_suite_scripts(self):
+        self.assertIsNone(self.out("npm run test:unit"))
+        out = self.out("npm run test:unit", {"TEST_SCOPE_GUARD": "enforce", "TEST_SCOPE_FULL_SCRIPTS": "test:unit"})
+        self.assertEqual(out["permissionDecision"], "deny")
+
+    def test_windows_backslash_interpreter_is_classified(self):
+        out = self.out("C:\\venv\\Scripts\\python.exe -m pytest")
+        self.assertEqual(out["permissionDecision"], "deny")
+
+
 if __name__ == "__main__":
     unittest.main()
