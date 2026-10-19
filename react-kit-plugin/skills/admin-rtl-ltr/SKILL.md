@@ -1,22 +1,27 @@
 ---
 name: admin-rtl-ltr
-description: Direction-aware admin UI for mixed RTL/LTR locales. Owns the "use logical CSS properties, not physical" rule, the html dir-attribute placement, the icon-mirroring catalogue (which mirror, which don't), and the LTR-locked content rule (code, charts, numeric tables). Activates when adding any spacing, alignment, icon, modal, drawer, or any UI that could read incorrectly in an RTL locale. Generic and portable — locale list is project-supplied.
+description: >-
+  Use when adding spacing, alignment, icons, modals, drawers or any admin UI that must read correctly
+  in a right-to-left locale such as Arabic or Hebrew. Covers logical instead of physical CSS
+  properties, where the dir attribute goes, which icons mirror and which do not, and content that
+  stays left-to-right (code, charts, numeric tables).
 version: 0.2.0
-last_reviewed: 2026-05-28
-owns:
-  - dir attribute placement (html level)
-  - logical CSS properties usage (`margin-inline-start` over `margin-left`)
-  - Tailwind logical-utility convention (`ms-`/`me-`/`ps-`/`pe-`/`start-`/`end-`)
-  - icon-mirroring catalogue (which icons flip, which stay)
-  - LTR-locked content (code, charts, numeric tables, dates in technical contexts)
-  - "text-align: start/end vs left/right"
-  - keyboard focus order in RTL
-defers_to:
-  - admin-shell (where the direction wrapper is mounted)
-  - admin-crud (table column alignment per content type)
-  - admin-states (toast position in RTL)
-  - project locale config (which locales are RTL)
 user-invocable: false
+metadata:
+  last_reviewed: 2026-05-28
+  owns:
+    - dir attribute placement (html level)
+    - logical CSS properties usage (`margin-inline-start` over `margin-left`)
+    - Tailwind logical-utility convention (`ms-`/`me-`/`ps-`/`pe-`/`start-`/`end-`)
+    - icon-mirroring catalogue (which icons flip, which stay)
+    - LTR-locked content (code, charts, numeric tables, dates in technical contexts)
+    - "text-align: start/end vs left/right"
+    - keyboard focus order in RTL
+  defers_to:
+    - admin-shell (where the direction wrapper is mounted)
+    - admin-crud (table column alignment per content type)
+    - admin-states (toast position in RTL)
+    - project locale config (which locales are RTL)
 ---
 
 # admin-rtl-ltr

@@ -1,21 +1,26 @@
 ---
 name: admin-states
-description: Loading / error / empty / no-results / partial-error display patterns for admin UI. Owns the "skeleton matches final layout" rule, the "error message + actionable next step + support hint" contract, the empty-vs-no-results distinction, and the per-row partial-error rule. Activates when adding or modifying any loading state, error display, empty state, or partial-error indicator anywhere in the admin UI.
+description: >-
+  Use when adding or changing a loading state, error message, empty state, no-results state or
+  partial-error indicator in an admin UI. Covers skeletons that match the final layout, errors with an
+  actionable next step and support hint, empty versus no-results, and per-row partial errors. Display
+  only; the data-layer mapping lives in data-fetching-states.
 version: 0.2.0
-last_reviewed: 2026-05-28
-owns:
-  - loading-skeleton-matches-final-layout rule
-  - error-display contract (message + next step + support hint; never raw stack)
-  - empty-state vs no-results-state distinction
-  - per-row partial-error indicator pattern
-  - in-flight feedback during pagination / refetch
-  - non-blocking toasts vs blocking modals
-defers_to:
-  - admin-shell (the shell renders a bootstrap loading state)
-  - admin-crud (loading state inside a list)
-  - admin-forms (in-flight feedback during submit)
-  - project observability layer (where unexpected errors should be reported, with what fields)
 user-invocable: false
+metadata:
+  last_reviewed: 2026-05-28
+  owns:
+    - loading-skeleton-matches-final-layout rule
+    - error-display contract (message + next step + support hint; never raw stack)
+    - empty-state vs no-results-state distinction
+    - per-row partial-error indicator pattern
+    - in-flight feedback during pagination / refetch
+    - non-blocking toasts vs blocking modals
+  defers_to:
+    - admin-shell (the shell renders a bootstrap loading state)
+    - admin-crud (loading state inside a list)
+    - admin-forms (in-flight feedback during submit)
+    - project observability layer (where unexpected errors should be reported, with what fields)
 ---
 
 # admin-states

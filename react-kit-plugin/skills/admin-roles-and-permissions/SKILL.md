@@ -1,22 +1,27 @@
 ---
 name: admin-roles-and-permissions
-description: Use when building any admin route, modifying a sidebar or menu, adding an access-conditional render, masking a sensitive field, or rendering an audit log. Owns the "UI hide is NOT authorization" contract, the paired UI-gate / API-gate rule, the access-aware menu pattern, PII masking in admin views, and audit visibility. Generic and portable — the access model (role enum, permission strings, module levels, or policy engine), PII fields, and audit helpers are project-supplied adapter inputs.
+description: >-
+  Use when building an admin route, changing a sidebar or menu, adding an access-conditional render,
+  masking a sensitive field or rendering an audit log. Covers 'hiding UI is not authorization',
+  pairing every UI gate with an API gate, access-aware menus, PII masking in admin views and audit
+  visibility, in whatever access model the project already uses.
 version: 0.2.0
-last_reviewed: 2026-05-28
-owns:
-  - the paired-gate rule (every UI gate has a matching API gate)
-  - the inverse direction — a visible affordance whose endpoint denies it is a false affordance; mirror the endpoint's permission on the button and park the RBAC policy question instead of widening the gate
-  - access-aware menu pattern (one requirement per item, evaluated by the shared guard)
-  - PII masking pattern in admin views (mask by default, reveal on explicit user action + audit)
-  - audit-log visibility scoping
-  - the "UI hide is not authorization" anti-pattern catalogue
-defers_to:
-  - project security/privacy SOP (canonical PII list, redaction rules, secret handling)
-  - project auth layer (how sessions / tokens / role claims are produced)
-  - admin-shell (where the role-aware menu is rendered)
-  - admin-dangerous-actions (confirmation flow for destructive actions)
-  - admin-import-export (import is itself a high-privilege admin action)
 user-invocable: false
+metadata:
+  last_reviewed: 2026-05-28
+  owns:
+    - the paired-gate rule (every UI gate has a matching API gate)
+    - the inverse direction — a visible affordance whose endpoint denies it is a false affordance; mirror the endpoint's permission on the button and park the RBAC policy question instead of widening the gate
+    - access-aware menu pattern (one requirement per item, evaluated by the shared guard)
+    - PII masking pattern in admin views (mask by default, reveal on explicit user action + audit)
+    - audit-log visibility scoping
+    - the "UI hide is not authorization" anti-pattern catalogue
+  defers_to:
+    - project security/privacy SOP (canonical PII list, redaction rules, secret handling)
+    - project auth layer (how sessions / tokens / role claims are produced)
+    - admin-shell (where the role-aware menu is rendered)
+    - admin-dangerous-actions (confirmation flow for destructive actions)
+    - admin-import-export (import is itself a high-privilege admin action)
 ---
 
 # admin-roles-and-permissions
@@ -44,7 +49,7 @@ Skip when:
 
 ## Inputs (adapter)
 
-The plugin makes no assumption about your project's access model, roles, or PII. Adapter keys are defined once in `admin-panel-architecture/references/admin-panel-adapter.md`; this skill uses:
+The plugin makes no assumption about your project's access model, roles, or PII. Adapter keys are defined once in `${CLAUDE_PLUGIN_ROOT}/skills/admin-panel-architecture/references/admin-panel-adapter.md`; this skill uses:
 
 1. **`accessModel` + `access`** — the access model the project already uses (`role-enum`, `permission-strings`, `module-levels`, or `policy-engine`) and its fields (roles, permission format, modules + levels, or engine + actions + subjects). Detected from the code; the plugin bakes in no role, permission, or module names.
 2. **`guardHelper`** — the one access check shared by routes, navigation, and APIs. Example: `requireRole(user, roles)`, `hasPermission(user, 'orders:update')`, `hasAccess(grants, module, minLevel)`, `ability.can(action, subject)`.

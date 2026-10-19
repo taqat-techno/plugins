@@ -1,22 +1,27 @@
 ---
 name: admin-kanban-workflow
-description: Kanban/board views and status-driven workflow state machines for admin UI. Owns the rule that board columns are workflow stages from a project-supplied state set (never hardcoded), the full-height horizontal-scroll board layout with collapsible columns and per-column scroll, compact cards that open a detail drawer, and action-based transitions where each move is a typed action with allowed-from-states, a role gate, pre-move validation, destructive-move confirmation, an optimistic-vs-confirmed update rule, and a success audit entry. Activates when building any board or kanban view, or any status-driven workflow with transition actions surfaced on a board or as action buttons in a form or drawer, including assignment, approve/reject, cancel/expire, and reopen.
+description: >-
+  Use when building a kanban or board view, or a status-driven workflow with transition actions such
+  as assign, approve or reject, cancel, expire or reopen. Covers columns taken from the project's
+  state set, board layout and scrolling, compact cards with a detail drawer, and typed transitions
+  with allowed-from states, role gates, validation, confirmation, optimistic updates and audit.
 version: 0.4.0
-last_reviewed: 2026-05-31
-owns:
-  - board-columns-are-workflow-stages-from-a-supplied-state-set rule (never hardcode states)
-  - full-height board layout (horizontal scroll, collapsible columns, per-column scroll/pagination)
-  - column header with live count + empty-column affordance
-  - compact card -> detail drawer pattern
-  - typed transition contract (allowed-from-states, role gate, validation, confirmation, update rule, audit entry)
-  - generic workflow actions (assignment/ownership, approve/reject, cancel/expire, reopen)
-  - the project-adapter state-machine shape (states + transitions + guards)
-defers_to:
-  - admin-roles-and-permissions (who may perform a transition)
-  - admin-dangerous-actions (confirmation for destructive / irreversible moves)
-  - data-fetching-states (loading / error / empty / refetch affordances on the board)
-  - admin-view-patterns (the detail drawer surface itself)
 user-invocable: false
+metadata:
+  last_reviewed: 2026-05-31
+  owns:
+    - board-columns-are-workflow-stages-from-a-supplied-state-set rule (never hardcode states)
+    - full-height board layout (horizontal scroll, collapsible columns, per-column scroll/pagination)
+    - column header with live count + empty-column affordance
+    - compact card -> detail drawer pattern
+    - typed transition contract (allowed-from-states, role gate, validation, confirmation, update rule, audit entry)
+    - generic workflow actions (assignment/ownership, approve/reject, cancel/expire, reopen)
+    - the project-adapter state-machine shape (states + transitions + guards)
+  defers_to:
+    - admin-roles-and-permissions (who may perform a transition)
+    - admin-dangerous-actions (confirmation for destructive / irreversible moves)
+    - data-fetching-states (loading / error / empty / refetch affordances on the board)
+    - admin-view-patterns (the detail drawer surface itself)
 ---
 
 # admin-kanban-workflow
@@ -43,7 +48,7 @@ Every project-specific value is a NAMED adapter input. The skill hardcodes none 
 
 1. **`STATE_SET`** — the ordered list of workflow stages (e.g. the columns). Source of truth for both column order and the state machine. The board renders this order regardless of API response order.
 2. **`TRANSITIONS`** — list of typed transitions, each `{ action, from[], to, roleGate, guard, destructive, updateRule, auditEvent }`. See the state-machine shape below.
-3. **`guardHelper(user, requirement)`** — the shared access check (adapter schema key, see `admin-panel-architecture/references/admin-panel-adapter.md`); each transition's `roleGate` is a requirement in the project's `accessModel` shape. Owned by `admin-roles-and-permissions`; this skill only calls it.
+3. **`guardHelper(user, requirement)`** — the shared access check (adapter schema key, see `${CLAUDE_PLUGIN_ROOT}/skills/admin-panel-architecture/references/admin-panel-adapter.md`); each transition's `roleGate` is a requirement in the project's `accessModel` shape. Owned by `admin-roles-and-permissions`; this skill only calls it.
 4. **`boardQuery(stages)`** — data adapter returning records grouped (or groupable) by stage, plus `{ isLoading, isError, refetch, isFetching }`. Loading/error/empty affordances are owned by `data-fetching-states`.
 5. **`transitionMutation(action)`** — server call that performs one transition; returns `{ isPending, mutateAsync, error }`. The server enforces authorization + validation; the UI never decides the outcome.
 6. **`recordSummary(record)`** — adapter mapping a record to the compact card fields (title/id, status badge, owner badge).

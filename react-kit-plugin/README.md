@@ -1,130 +1,102 @@
 # react-kit
 
-![Version](https://img.shields.io/badge/version-0.6.3-blue.svg)
-![Status](https://img.shields.io/badge/status-functional-green.svg)
+![Version](https://img.shields.io/badge/version-0.8.0-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 
-Reusable patterns for building and auditing React / Next.js applications — with a flexible, Odoo-inspired admin-panel toolkit.
+## What it does
 
-`react-kit` packages the recurring engineering decisions of React / Next.js work — data-fetching and async UI states, lint/diagnostic triage, React 19 migration — plus a **flexible admin-panel methodology** that guides an agent to plan and build list, tree, kanban, form, and dashboard views from one consistent architecture. It is generic: entity names, roles, APIs, and libraries are project-supplied adapter inputs, never baked in. Admin panels are a major capability here, not the whole plugin.
+react-kit packages recurring React / Next.js engineering decisions as skills: async UI states and data-fetching error handling, lint and analyzer triage, React 19 migration, build-and-tooling trap recovery, and a methodology for admin panels (list, tree, kanban, form and dashboard views from one architecture). Three commands scaffold, audit and map access for admin routes in the project's own access model.
 
-> **Inspiration, not implementation:** the admin-view model draws on Odoo's "one resource, many views" idea (list / tree / kanban / form / dashboard) but targets idiomatic React / Next.js — it does not rebuild Odoo.
+It is for developers building or reviewing React / Next.js apps, especially back offices and staff dashboards. Entity names, roles, APIs and libraries are detected from your codebase or asked once; nothing project-specific is baked in. The admin-view idea of "one resource, many views" is inspired by Odoo but targets idiomatic React.
 
-## What this plugin owns
+## Install
 
-### General React / Next.js skills
+```
+/plugin marketplace add taqat-techno/plugins
+/plugin install react-kit@taqat-techno-plugins
+```
 
-| Skill | Owns |
+## Requirements
+
+| Requirement | Why | How to check |
+|---|---|---|
+| A React 18+ / Next.js 13+ project (Remix, Vite + React and the Pages Router also work) | All skills and commands target it | `package.json` lists `react` |
+| Node.js and the project's package manager | Commands that build, type-check or test | `node --version` |
+
+No services, hooks or scripts.
+
+## Commands
+
+| Command | What it does | Bare invocation |
+|---|---|---|
+| `/react-kit:admin-scaffold [entity]` | Scaffold an admin list + detail + form for an entity in the project's access model; detects adapter values first, asks only for the rest | asks for the entity after detection |
+| `/react-kit:admin-audit [path]` | Read-only audit of an admin route or tree against the skill rules; findings table with file:line | audits the detected `panelDir` |
+| `/react-kit:admin-role-matrix` | Generate (`--generate`), validate (`--validate`) or diff (`--diff`) the access matrix | generate when none exists, else validate; runs its own detection when no cache exists |
+
+The commands are named for the admin domain, not the plugin, so they keep their names.
+
+## Skills
+
+All skills are model-invoked (`user-invocable: false`).
+
+| Skill | Use when |
 |---|---|
-| `react-lint-triage` | Treat analyzer findings as hypotheses; classify safe-mechanical / needs-judgment / false-positive / forbidden-zone; never chase the score; false-positive catalog (incl. admin-panel triage); lint the new file by path before push |
-| `frontend-build-traps` | Deterministic recovery for build/dev-server/test/CI traps where the symptom layer ≠ cause layer — Turbopack HMR stale-module 500 full reset, vitest/rolldown-vite jsx-preserve (oxc not esbuild), lockfile CI-PM-major mismatch, TipTap `addAttributes` casing + `renderHTML` serialization scope, ORM client/schema drift via mtime, lint-the-new-file-before-push |
-| `data-fetching-states` | The status→state contract (loading / empty / no-results / access-required / forbidden / not-found / business-rule / error / partial / stale); never a silent empty shell; admin-panel examples |
-| `react19-migration` | forwardRef→ref-prop, `useContext`→`use`, server/client metadata split; behavior-preserving, type-check-gated |
+| `admin-crud` | Building admin lists, tables, trees, filters, paginators, detail views |
+| `admin-dangerous-actions` | Adding delete / suspend / impersonate / mass-update actions |
+| `admin-dashboard-overview` | Building a module overview or KPI dashboard |
+| `admin-forms` | Building admin forms, rich-text fields, unsaved-changes guards, bulk actions |
+| `admin-import-export` | Adding CSV / Excel / JSON import or export |
+| `admin-kanban-workflow` | Building boards and status-driven workflows |
+| `admin-panel-architecture` | Starting or extending an admin panel; owns the adapter schema and access-model detection |
+| `admin-roles-and-permissions` | Gating routes, menus, renders and fields; PII masking; audit visibility |
+| `admin-rtl-ltr` | Making admin UI correct in RTL locales |
+| `admin-shell` | Building the layout shell, sidebar, header, locale switch |
+| `admin-states` | Displaying loading, error, empty, no-results and partial-error states |
+| `admin-view-patterns` | Choosing which view type a resource needs |
+| `data-fetching-states` | Writing data hooks; debugging blank screens and silent empty lists |
+| `frontend-build-traps` | Build / dev-server / test-runner / lockfile failures whose symptom points at the wrong layer (Next.js-version-aware) |
+| `react-lint-triage` | Triaging lint, analyzer and IDE findings before auto-fixing |
+| `react19-migration` | Upgrading to React 19 |
 
-### Admin-panel skills
+Reference documents live under each skill's `references/` (adapter schema, view registry, state contract, list/tree, kanban, action workflow, form and dashboard patterns).
 
-**Plan & choose:**
+## Agents
 
-| Skill | Owns |
+| Agent | Tools | Purpose |
+|---|---|---|
+| `admin-route-auditor` | Read, Glob, Grep | Read-only scan of one admin route or folder; findings by section with severity and file:line |
+
+## Hooks
+
+None.
+
+## Configuration
+
+**Per-project file** `.react-kit.local.json` at the project root, written by `/react-kit:admin-scaffold` or `/react-kit:admin-role-matrix` after detection and your answers. Keys are defined once in `skills/admin-panel-architecture/references/admin-panel-adapter.md` (`schemaVersion: 1`). Add the file to `.gitignore`.
+
+First-run questions, asked only when detection cannot answer them, in this order: access model (`role-enum`, `permission-strings`, `module-levels` or `policy-engine`, plus that model's fields), panel location, auth helper, guard helper, audit helper, PII fields (always confirmed), RTL locales, libraries not found in `package.json`, and an optional import format. react-kit never migrates a project to a different access model unless asked.
+
+No environment variables or plugin options.
+
+## Platform support
+
+| Platform | Status |
 |---|---|
-| `admin-panel-architecture` | Design-before-coding: the **adapter schema**, access-model detection (role enum / permission strings / module levels / policy engine), route structure, one navigation builder mirroring the route guard, **view registry**, data/state + action/workflow contracts, component inventory, plan template |
-| `admin-view-patterns` | The **view-type chooser** — when to use list / tree / kanban / form / dashboard / settings / detail-drawer / import-export / audit; routes to the owning skill (does not re-implement) |
+| Windows / macOS / Linux / WSL | Supported (markdown only). `frontend-build-traps` gives both POSIX and PowerShell commands for finding the process that owns a port. |
 
-**Build views:**
+## Data & privacy
 
-| Skill | Owns |
-|---|---|
-| `admin-shell` | Sidebar + header + layout shell, responsive collapse + mobile overlay, longest-prefix active-route, i18n context, route-guard composition |
-| `admin-crud` | List / table / detail / filter / pagination **and** tree / nested-list / parent-child hierarchy (expandable rows, lazy children, nested-route detail) |
-| `admin-kanban-workflow` | Kanban / board view **and** the workflow state machine — columns from a project state set, collapsible columns, role-gated + validated transitions, audit-on-move (states never hardcoded) |
-| `admin-forms` | Fields, inline + server validation, grouped sections + tabs, relation pickers, file attachments, dirty-state, save / cancel / reset / archive / delete, read-only-vs-editable, audit metadata |
-| `admin-dashboard-overview` | KPI / overview cards, role-aware metrics, quick actions, recent-activity feed, data-freshness, no-data-vs-failed-KPI states, chart-vs-table balance |
+- **Stored:** `.react-kit.local.json` in your project (adapter values such as directory names, helper imports and PII field names; no secrets), and the files you ask the commands to generate.
+- **Leaves the machine:** nothing. The plugin makes no network calls.
+- **On screen / in context:** your source files, lint and build output. Tool output and code comments are treated as data, never instructions.
 
-**Cross-cutting rules:**
+## Limitations
 
-| Skill | Owns |
-|---|---|
-| `admin-roles-and-permissions` | Access-aware menus + actions + field editability, "UI hide is NOT authorization", PII masking, audit visibility, paired UI/API gates |
-| `admin-dangerous-actions` | Confirmation patterns for destructive operations (friction proportional to blast radius) |
-| `admin-import-export` | Upload→preview→commit, row caps, typed per-row errors, idempotency, no auto-create |
-| `admin-states` | Loading / error / empty / no-results / partial-error **display** conventions |
-| `admin-rtl-ltr` | Direction-aware utilities, locale-driven layout direction |
-
-### References (progressive disclosure, under the owning skill)
-
-`admin-panel-architecture/references/`: `admin-panel-adapter.md`, `admin-view-registry.md`, `admin-state-contract.md` · `admin-crud/references/admin-list-tree-pattern.md` · `admin-kanban-workflow/references/`: `admin-kanban-pattern.md`, `admin-action-workflow-pattern.md` · `admin-forms/references/admin-form-pattern.md` · `admin-dashboard-overview/references/admin-dashboard-pattern.md`.
-
-### Commands
-
-| Command | Purpose |
-|---|---|
-| `/admin-scaffold` | Generate a CRUD page skeleton from a model description |
-| `/admin-audit` | Audit an existing admin route against the plugin's skill rules |
-| `/admin-role-matrix` | Generate or validate a role/permission matrix |
-
-### Agents
-
-| Agent | Purpose |
-|---|---|
-| `admin-route-auditor` | Read-only scan of one admin route for missing role gates, missing audit-log, unmasked PII, missing confirmation on destructive actions |
-
-## Framework scope
-
-| Tier | Frameworks |
-|---|---|
-| Primary | React 18+, Next.js 13+ App Router |
-| Secondary | Remix, Vite + React, Pages Router |
-| Out of scope | Django admin, Laravel Nova, Odoo backend, Vue/Svelte/Angular (use [`qa-browser`](../qa-browser-plugin/README.md) to TEST those, not to author them) |
-
-## How react-kit fits with other plugins
-
-- **Aesthetics / visual design** → the official `frontend-design` plugin owns net-new visual style. react-kit owns **structure, state, CRUD, views, and workflow methodology**, not the look.
-- **Testing the running UI** → `qa-browser` (layered over the official Playwright MCP) verifies roles, RBAC, and that the API enforces what the UI hides.
-- **Docs / SOPs** → `docs-wiki`.
-- **Environment problems** → `env-doctor`.
-
-## Adapter inputs (detected first, asked only when unresolved)
-
-All commands, skills, and the agent share one adapter schema: [`skills/admin-panel-architecture/references/admin-panel-adapter.md`](./skills/admin-panel-architecture/references/admin-panel-adapter.md). Values are cached in `.react-kit.local.json` (add it to `.gitignore`), never committed.
-
-The first `/admin-scaffold` run detects what it can from the codebase and shows you the result, then asks only the questions whose answer it could not detect, in this order:
-
-1. **Access model** (only when detection is inconclusive) — `role-enum`, `permission-strings`, `module-levels`, or `policy-engine`, plus that model's fields.
-2. **Panel location** — `panelDir` and `panelBasePath`.
-3. **Auth helper** — the import that returns the verified current user on the server.
-4. **Guard helper** — the one access-check function routes, nav, and APIs share.
-5. **Audit helper** — how an audit row is written, or `none`.
-6. **PII fields** — always confirmed on first run.
-7. **RTL locales**.
-8. **Libraries** — validation, form, CSS, data-fetching, and UI libraries not found in `package.json`.
-9. **Import format** (optional).
-
-`/admin-role-matrix` runs the same detection itself when no cache exists.
-
-**Access model:** react-kit does not prescribe one. It detects whether your project uses a role enum, permission strings (`orders:write`), module-level grants, or a policy engine (CASL, Casbin, OPA, Cerbos, ...), and generates guards, navigation, and matrices in that model. It never migrates you to a different one unless you ask.
-
-## What this plugin deliberately does NOT do
-
-- Define your business domain models, role names, or PII fields.
-- Replace your auth / authorization. UI hide is **not** authorization — backend re-checks always required.
-- Replace API-level access control (see `qa-browser`).
-- Hardcode any workflow states — your state set is an adapter input.
-
-## Roadmap
-
-| Version | Scope |
-|---|---|
-| `0.1.0` | Scaffold, manifest, marketplace registration |
-| `0.2.0` | 8 admin skills + 3 commands + 1 agent |
-| `0.3.0` | Renamed `react-admin-kit`→`react-kit`; added `react-lint-triage`, `data-fetching-states`, `react19-migration` |
-| `0.4.0` | Flexible admin **view patterns** — `admin-panel-architecture`, `admin-view-patterns`, `admin-kanban-workflow`, `admin-dashboard-overview`; tree/nested + form-tabs/relations/attachments enhancements; 8 reference docs |
-| `0.5.0` | `frontend-build-traps` skill — deterministic recovery for HMR stale-module 500s, vitest/rolldown-vite jsx-preserve, lockfile PM-major mismatch, TipTap attributes, ORM client/schema drift; `react-lint-triage` gains the lint-the-new-file-before-push rule |
-| `1.0.0` | First stable release after real-project shakedown |
+- Patterns are guidance, not a component library; generated code still needs review and tests.
+- Out of scope: Django admin, Laravel Nova, Odoo backend, Vue / Svelte / Angular. To test those UIs in a browser, the separate `qa-browser` plugin (https://github.com/taqat-techno/plugins/tree/main/qa-browser-plugin) can help.
+- Visual style is not covered; Anthropic's `frontend-design` plugin owns that if installed. Optional companions: `qa-browser` (runtime RBAC checks), `docs-wiki` (SOPs), `env-doctor` (environment problems).
+- Evals exist for every skill but have not been run with a recorded Delta.
 
 ## License
 
-MIT. See [`LICENSE`](./LICENSE).
-
-## Author
-
-TAQAT Techno · [github.com/taqat-techno](https://github.com/taqat-techno) · `info@taqatechno.com`
+MIT (see `LICENSE`).

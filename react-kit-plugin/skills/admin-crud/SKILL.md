@@ -1,29 +1,34 @@
 ---
 name: admin-crud
-description: List / table / tree / detail / filter / pagination patterns for admin CRUD pages. Owns the "URL is the source of truth for filters/page/sort" rule, server-side pagination as default (including hiding the paginator / result-count while the list is in an error state, so a failed request that resolves to `[]` never renders "Showing 0–0 of 0 · Page 1 / 1" under the error), the filter chip pattern, the detail-page tab convention, and how a parent-child tree behaves (expand/collapse, lazy-load, depth/breadcrumb, nested-route detail, cascade-aware bulk actions). Activates when building any admin list page, table, tree, filter bar, search input, paginator, or detail view. Generic and portable — entity names, columns, and APIs are project-supplied.
+description: >-
+  Use when building or reviewing an admin list page, data table, tree, filter bar, search input,
+  paginator or detail view. Covers URL-as-source-of-truth for filters, page and sort, server-side
+  pagination (and hiding the paginator while the list is in an error state), filter chips, detail-page
+  tabs, and parent-child trees with lazy loading and cascade-aware bulk actions.
 version: 0.4.1
-last_reviewed: 2026-07-23
-owns:
-  - URL-as-source-of-truth for filters, page, sort
-  - query-string construction via URLSearchParams (never a hand-built `?k=${v}`, which double-decodes on a literal `%`)
-  - filter options derived from the API's canonical catalog when they mirror a backend registry
-  - server-side pagination contract (default)
-  - paginator / result-count hidden while the list is in an error state
-  - filter chip pattern (visible active filters + clear individual / clear all)
-  - sortable column convention
-  - detail-page tab convention (overview / edit / related / audit)
-  - row-action affordance (where actions live in the row)
-  - tree / grouped-row behavior (expand/collapse, lazy-load children, depth + breadcrumb, nested-route detail)
-  - tree bulk-action cascade semantics (selected nodes vs nodes + descendants)
-  - server-side virtualization note for very large lists
-defers_to:
-  - admin-view-patterns (flat-list-vs-tree and inline-expand-vs-nested-route presentation choice)
-  - admin-roles-and-permissions (per-row visibility, action authorization)
-  - admin-forms (the form rendered on the edit tab)
-  - admin-states (loading skeleton, error, empty patterns)
-  - admin-dangerous-actions (destructive row actions)
-  - project data layer (how list/detail APIs are structured)
 user-invocable: false
+metadata:
+  last_reviewed: 2026-07-23
+  owns:
+    - URL-as-source-of-truth for filters, page, sort
+    - query-string construction via URLSearchParams (never a hand-built `?k=${v}`, which double-decodes on a literal `%`)
+    - filter options derived from the API's canonical catalog when they mirror a backend registry
+    - server-side pagination contract (default)
+    - paginator / result-count hidden while the list is in an error state
+    - filter chip pattern (visible active filters + clear individual / clear all)
+    - sortable column convention
+    - detail-page tab convention (overview / edit / related / audit)
+    - row-action affordance (where actions live in the row)
+    - tree / grouped-row behavior (expand/collapse, lazy-load children, depth + breadcrumb, nested-route detail)
+    - tree bulk-action cascade semantics (selected nodes vs nodes + descendants)
+    - server-side virtualization note for very large lists
+  defers_to:
+    - admin-view-patterns (flat-list-vs-tree and inline-expand-vs-nested-route presentation choice)
+    - admin-roles-and-permissions (per-row visibility, action authorization)
+    - admin-forms (the form rendered on the edit tab)
+    - admin-states (loading skeleton, error, empty patterns)
+    - admin-dangerous-actions (destructive row actions)
+    - project data layer (how list/detail APIs are structured)
 ---
 
 # admin-crud

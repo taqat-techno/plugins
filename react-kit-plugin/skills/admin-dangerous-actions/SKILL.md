@@ -1,22 +1,27 @@
 ---
 name: admin-dangerous-actions
-description: Confirmation patterns for destructive admin operations — delete, suspend, impersonate, force-logout, mass-update, irreversible state transitions. Owns the type-to-confirm pattern, the two-step button pattern, the consequence-summary requirement, the audit-on-action rule, and the "the more destructive, the more friction" rule. Activates when adding any destructive action button, link, modal, row action, or bulk action.
+description: >-
+  Use when adding a destructive admin action - delete, suspend, impersonate, force-logout, mass update
+  or an irreversible state change - as a button, row action, bulk action or modal. Covers type-to-
+  confirm, two-step buttons, a consequence summary, audit on action, and more friction for more
+  destructive operations.
 version: 0.2.0
-last_reviewed: 2026-05-28
-owns:
-  - friction-proportional-to-blast-radius rule
-  - the "it should ask me first" triage rule (a missing-confirmation request also demands checking what the action does when it succeeds, plus the lying-form check)
-  - confirmation modal contract (consequence summary, type-to-confirm, audit-on-action)
-  - two-step button pattern
-  - destructive-action affordance (color, position, label, never the default focus)
-  - undo-window pattern (where reversible)
-  - bulk-destructive confirmation requirements
-defers_to:
-  - admin-roles-and-permissions (who can perform the action; audit-log shape)
-  - admin-forms (the form a destructive submit lives in)
-  - admin-crud (where the action appears in a row / bulk bar)
-  - project audit-log helper
 user-invocable: false
+metadata:
+  last_reviewed: 2026-05-28
+  owns:
+    - friction-proportional-to-blast-radius rule
+    - the "it should ask me first" triage rule (a missing-confirmation request also demands checking what the action does when it succeeds, plus the lying-form check)
+    - confirmation modal contract (consequence summary, type-to-confirm, audit-on-action)
+    - two-step button pattern
+    - destructive-action affordance (color, position, label, never the default focus)
+    - undo-window pattern (where reversible)
+    - bulk-destructive confirmation requirements
+  defers_to:
+    - admin-roles-and-permissions (who can perform the action; audit-log shape)
+    - admin-forms (the form a destructive submit lives in)
+    - admin-crud (where the action appears in a row / bulk bar)
+    - project audit-log helper
 ---
 
 # admin-dangerous-actions

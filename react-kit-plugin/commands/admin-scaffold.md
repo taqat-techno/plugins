@@ -20,7 +20,7 @@ You are scaffolding an admin CRUD surface for one entity. Apply the patterns fro
 - `admin-states` — loading skeleton matches final layout; empty vs no-results distinct.
 - `admin-rtl-ltr` — logical CSS only; no physical `ml-`/`mr-`/`text-left`/`text-right`.
 
-Every adapter key named below is defined in `skills/admin-panel-architecture/references/admin-panel-adapter.md` (the adapter schema). Use those key names exactly; do not invent others.
+Every adapter key named below is defined in `${CLAUDE_PLUGIN_ROOT}/skills/admin-panel-architecture/references/admin-panel-adapter.md` (the adapter schema). Use those key names exactly; do not invent others.
 
 ## Step 0 — Read the adapter cache
 

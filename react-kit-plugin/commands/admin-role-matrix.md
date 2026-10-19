@@ -17,7 +17,7 @@ You are building or checking the **access matrix** — the single source of trut
 
 Without a single matrix, access logic scatters across components and APIs, drifts, and produces "I can see X but cannot edit X" bugs.
 
-Every adapter key named below is defined in `skills/admin-panel-architecture/references/admin-panel-adapter.md`. The matrix is always written in the project's existing `accessModel`; this command never converts a project to a different model.
+Every adapter key named below is defined in `${CLAUDE_PLUGIN_ROOT}/skills/admin-panel-architecture/references/admin-panel-adapter.md`. The matrix is always written in the project's existing `accessModel`; this command never converts a project to a different model.
 
 ## Modes
 

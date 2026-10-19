@@ -1,24 +1,29 @@
 ---
 name: admin-view-patterns
-description: The view-type chooser for admin screens — maps a resource's data shape plus the user's task to exactly one view type (list, tree/nested, kanban, form, dashboard, settings, detail drawer, import/export, audit/history) and routes to the sibling skill that owns the implementation. Activates when deciding which admin view to build for a resource, when an agent is unsure whether a screen should be a list versus a tree versus a kanban versus a form versus a dashboard, when a new resource needs an admin screen, or when an existing screen feels like the wrong shape for its data.
+description: >-
+  Use when deciding which admin view a resource needs - list, tree, kanban, form, dashboard, settings,
+  detail drawer, import/export or audit history - or when an existing screen feels like the wrong
+  shape for its data. Maps the data shape and the user's task to one view type and points to the skill
+  that implements it.
 version: 0.4.0
-last_reviewed: 2026-05-31
-owns:
-  - the data-shape + user-task -> view-type decision table
-  - per-view-type routing to the owning sibling skill
-  - the "wrong view for data shape" anti-pattern catalogue
-  - the "use the registry view before a custom view" rule
-  - the view-selection validation checklist
-defers_to:
-  - admin-crud (implements list and tree/nested views)
-  - admin-kanban-workflow (implements kanban + stage transitions)
-  - admin-forms (implements create/edit forms)
-  - admin-dashboard-overview (implements metrics/at-a-glance views)
-  - admin-states (loading / error / empty / no-results states for every view)
-  - admin-dangerous-actions (destructive-confirm flows triggered from any view)
-  - admin-import-export (bulk data in/out)
-  - admin-roles-and-permissions (permission checks every view defers to)
 user-invocable: false
+metadata:
+  last_reviewed: 2026-05-31
+  owns:
+    - the data-shape + user-task -> view-type decision table
+    - per-view-type routing to the owning sibling skill
+    - the "wrong view for data shape" anti-pattern catalogue
+    - the "use the registry view before a custom view" rule
+    - the view-selection validation checklist
+  defers_to:
+    - admin-crud (implements list and tree/nested views)
+    - admin-kanban-workflow (implements kanban + stage transitions)
+    - admin-forms (implements create/edit forms)
+    - admin-dashboard-overview (implements metrics/at-a-glance views)
+    - admin-states (loading / error / empty / no-results states for every view)
+    - admin-dangerous-actions (destructive-confirm flows triggered from any view)
+    - admin-import-export (bulk data in/out)
+    - admin-roles-and-permissions (permission checks every view defers to)
 ---
 
 # admin-view-patterns
@@ -45,7 +50,7 @@ Every project value is a named adapter input; this skill hard-codes none of them
 1. **Resource shape descriptor** — is the collection flat, parent-child hierarchical, or moving through ordered stages? Supplied by the caller or read from the data model.
 2. **Primary user task** — browse/find, edit one record, advance work through stages, read metrics, configure, act-in-context, move data in/out, or inspect change history.
 3. **Registry view list** — the set of standard/generated views the project already offers (the "registry"). The skill prefers these over bespoke screens.
-4. **`guardHelper`** — the hook/util the project uses for `canCreate / canRead / canUpdate / canDelete` checks, in its own `accessModel` (adapter schema: `admin-panel-architecture/references/admin-panel-adapter.md`). The skill names it; `admin-roles-and-permissions` owns its contract.
+4. **`guardHelper`** — the hook/util the project uses for `canCreate / canRead / canUpdate / canDelete` checks, in its own `accessModel` (adapter schema: `${CLAUDE_PLUGIN_ROOT}/skills/admin-panel-architecture/references/admin-panel-adapter.md`). The skill names it; `admin-roles-and-permissions` owns its contract.
 5. **State catalogue source** — where loading/error/empty/no-results states are defined. Owned by `admin-states`.
 
 ## Read-only investigation steps

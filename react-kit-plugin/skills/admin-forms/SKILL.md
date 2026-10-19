@@ -1,30 +1,36 @@
 ---
 name: admin-forms
-description: Admin form patterns — field components, validation, save / cancel / dirty handling, rich-text (ProseMirror / Tiptap) fields, row actions, bulk actions, optimistic vs pessimistic update, prop-derived-state hardening. Owns the "client validation mirrors server, server is authoritative" rule, the dirty-state warn-on-leave pattern (derive dirty from the form's OWN change handlers — never by DOM-sniffing a wrapper's onInput/onChange, never from an on-mount onValuesChange; guard the browser Back button with a popstate sentinel-history entry; portal editor dialogs out of a sticky/stacking-context toolbar via createPortal(dialog, document.body)), the "state initialized from a prop does not re-init when the prop changes" pitfall (sync via effect or keyed remount), and the bulk-action batching contract. Activates when building or reviewing any admin form, edit page, rich-text / ProseMirror / Tiptap field, unsaved-changes / beforeunload / popstate guard, row action, or bulk action, or when unsaved edits are silently lost. Generic and portable — form library and field types are project-supplied.
+description: >-
+  Use when building or reviewing an admin form or edit page, a rich-text (ProseMirror / Tiptap) field,
+  an unsaved-changes guard, a row or bulk action, or when unsaved edits are silently lost. Covers
+  client validation mirroring an authoritative server, deriving dirty state from the form's own
+  handlers, Back-button and beforeunload guards, state initialised from props, and bulk-action
+  batching.
 version: 0.5.0
-last_reviewed: 2026-07-23
-owns:
-  - field-component-per-type pattern
-  - client-side validation mirrors server-side
-  - submit / dirty / cancel flow
-  - row-action and bulk-action contract
-  - optimistic-update reconciliation rule
-  - sections / tabs split for long forms (one form, one save)
-  - read-only vs editable field resolution (permission + state)
-  - relation-picker behavior (async search, cascade clear, create-related guardrails)
-  - file / attachment staging (no auto-commit before save)
-  - archive / delete / reset flow distinct from save / cancel
-  - audit-metadata read-only display
-  - dirty derived from the form's own change signal (not DOM-sniffing a wrapper, not an on-mount onValuesChange)
-  - unsaved-changes guard across beforeunload AND the browser Back button (popstate sentinel-history entry)
-  - editor dialogs portaled out of a sticky / stacking-context toolbar (createPortal to document.body)
-  - prop-initialized state re-sync (effect sync or keyed remount)
-defers_to:
-  - admin-roles-and-permissions (which fields the actor can edit; per-action authorization)
-  - admin-dangerous-actions (confirmation flow for destructive submits)
-  - admin-states (loading / error / success affordances during submit)
-  - project validation library (zod, yup, joi, valibot, hand-rolled — all work)
 user-invocable: false
+metadata:
+  last_reviewed: 2026-07-23
+  owns:
+    - field-component-per-type pattern
+    - client-side validation mirrors server-side
+    - submit / dirty / cancel flow
+    - row-action and bulk-action contract
+    - optimistic-update reconciliation rule
+    - sections / tabs split for long forms (one form, one save)
+    - read-only vs editable field resolution (permission + state)
+    - relation-picker behavior (async search, cascade clear, create-related guardrails)
+    - file / attachment staging (no auto-commit before save)
+    - archive / delete / reset flow distinct from save / cancel
+    - audit-metadata read-only display
+    - dirty derived from the form's own change signal (not DOM-sniffing a wrapper, not an on-mount onValuesChange)
+    - unsaved-changes guard across beforeunload AND the browser Back button (popstate sentinel-history entry)
+    - editor dialogs portaled out of a sticky / stacking-context toolbar (createPortal to document.body)
+    - prop-initialized state re-sync (effect sync or keyed remount)
+  defers_to:
+    - admin-roles-and-permissions (which fields the actor can edit; per-action authorization)
+    - admin-dangerous-actions (confirmation flow for destructive submits)
+    - admin-states (loading / error / success affordances during submit)
+    - project validation library (zod, yup, joi, valibot, hand-rolled — all work)
 ---
 
 # admin-forms

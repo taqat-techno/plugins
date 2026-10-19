@@ -1,20 +1,25 @@
 ---
 name: react19-migration
-description: Safe, behavior-preserving React 19 migration moves — forwardRef to ref-as-prop, useContext to use(Ctx), and the server/client split for attaching server-only metadata to a 'use client' layout. Owns the gate that each move is verified with a type-check then a build, and that no runtime behavior change is bundled into a migration commit. Activates when upgrading a React or Next codebase to React 19, when a linter flags a deprecated React API such as forwardRef, or when a metadata-export rule fires on a client component.
+description: >-
+  Use when upgrading a React or Next.js codebase to React 19, when a linter flags forwardRef or
+  another deprecated React API, or when a metadata-export rule fires on a 'use client' component.
+  Covers forwardRef to ref-as-prop, useContext to use(), the server/client split for metadata, and
+  verifying each move with a type-check and build without bundling behaviour changes.
 version: 0.1.0
-last_reviewed: 2026-05-31
-owns:
-  - forwardRef to ref-as-prop conversion rule (use component-props type, destructure ref, drop redundant displayName)
-  - useContext(Ctx) to use(Ctx) drop-in rule
-  - server/client split pattern for server-only metadata on a 'use client' file
-  - the behavior-preserving gate (type-check then build; no behavior change in a migration commit)
-  - the "verify the codemod, never assume it is complete" rule
-defers_to:
-  - react-lint-triage (which deprecated-API findings exist and their severity)
-  - admin-shell (layout / shell structure where the metadata split lands)
-  - admin-forms (form components where forwardRef and ref-as-prop commonly appear)
-  - project type-check + build tooling (the exact commands are adapter inputs)
 user-invocable: false
+metadata:
+  last_reviewed: 2026-05-31
+  owns:
+    - forwardRef to ref-as-prop conversion rule (use component-props type, destructure ref, drop redundant displayName)
+    - useContext(Ctx) to use(Ctx) drop-in rule
+    - server/client split pattern for server-only metadata on a 'use client' file
+    - the behavior-preserving gate (type-check then build; no behavior change in a migration commit)
+    - the "verify the codemod, never assume it is complete" rule
+  defers_to:
+    - react-lint-triage (which deprecated-API findings exist and their severity)
+    - admin-shell (layout / shell structure where the metadata split lands)
+    - admin-forms (form components where forwardRef and ref-as-prop commonly appear)
+    - project type-check + build tooling (the exact commands are adapter inputs)
 ---
 
 # react19-migration
@@ -129,7 +134,7 @@ One move per commit. Never batch unrelated moves; a failed gate must point at ex
 
 ## Safety gates
 
-- **Never** migrate without a passing type-check (TS) — in JS, never migrate without a passing build and green tests for the touched files (`vitest related --run <files>` / `jest --findRelatedTests <files>`); the whole suite runs once at the end of the migration only if the user asks, or in CI (see `test-scope`, agent-safety-guards).
+- **Never** migrate without a passing type-check (TS) — in JS, never migrate without a passing build and green tests for the touched files (`vitest related --run <files>` / `jest --findRelatedTests <files>`); the whole suite runs once at the end of the migration only if the user asks, or in CI (the `agent-safety-guards` plugin's `test-scope` skill covers this, if installed).
 - **Never** change runtime behavior inside a migration step (no new conditionals, no reordered effects, no "while I'm here" tweaks).
 - **Never** assume a codemod finished the job — re-read each touched file and run the gate.
 - **Never** apply ref-as-prop or `use(Ctx)` while the lockfile still resolves React 18.

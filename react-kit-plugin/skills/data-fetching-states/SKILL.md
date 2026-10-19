@@ -1,25 +1,30 @@
 ---
 name: data-fetching-states
-description: Data-layer contract that maps a fetch result to exactly one UI state, sitting beneath admin-states which owns display. Owns the rule that a data hook MUST surface the error and never swallow it into a nullish or empty value, the UI state enum (loading, empty, no-results, access-required, error, partial-error), and the HTTP-status-to-state mapping where 401 or 403 means access-required, 404 means not-found, 400 or 409 means business-rule-error, and 5xx or network means retryable error. Also owns error-before-empty (a failed request also yields `[]`) and the corollary that a list's paginator / result-count is part of the 0/0 shell — suppress it while the state is error. Activates when writing or reviewing any data-fetching hook, query, or loader, and when debugging a blank screen, an empty shell that appears for only some users, or a "Showing 0–0 of 0 · 1 / 1" paginator under an error. Generic and portable — the data-fetching library and the auth status convention are project-supplied adapter inputs.
+description: >-
+  Use when writing or reviewing a data-fetching hook, query or loader, or debugging a blank screen, an
+  empty list that appears only for some users, or a 'Showing 0-0 of 0' paginator under an error.
+  Covers surfacing errors instead of swallowing them into empty values, one UI state per result,
+  mapping 401/403, 404, 400/409 and 5xx to states, and checking error before empty.
 version: 0.4.1
-last_reviewed: 2026-07-23
-owns:
-  - surface-the-error rule (a data hook never collapses an error into null/[]/{})
-  - the UI state enum — loading | empty | no-results | access-required | error | partial-error
-  - HTTP-status-to-state mapping (401/403, 404, 400/409, 5xx/network)
-  - the empty-data vs inaccessible-data distinction
-  - the "no 0/0 shell on a 403" rule (extends to the list paginator / count chrome — suppressed on a non-successful resolve; paginator owned by admin-crud)
-  - the 2xx-but-empty envelope-mismatch diagnosis (shape before access) and the additive response-transform fix
-  - the reserved non-field error keys rule (`detail` / `non_field_errors` / `__all__` are messages, not a field map)
-  - retry / stale policy per outcome class (retry 5xx/network, never retry 4xx)
-  - the DATA STATE MAP emitted per resource
-defers_to:
-  - admin-states (renders each state; owns the visual/display contract)
-  - admin-roles-and-permissions (UI hide is NOT authorization; gate at the API)
-  - admin-crud (list-level wiring of the resolved state)
-  - project data-fetching layer (which library; how a response/error is shaped)
-  - project auth layer (how 401 vs 403 is signalled)
 user-invocable: false
+metadata:
+  last_reviewed: 2026-07-23
+  owns:
+    - surface-the-error rule (a data hook never collapses an error into null/[]/{})
+    - the UI state enum — loading | empty | no-results | access-required | error | partial-error
+    - HTTP-status-to-state mapping (401/403, 404, 400/409, 5xx/network)
+    - the empty-data vs inaccessible-data distinction
+    - the "no 0/0 shell on a 403" rule (extends to the list paginator / count chrome — suppressed on a non-successful resolve; paginator owned by admin-crud)
+    - the 2xx-but-empty envelope-mismatch diagnosis (shape before access) and the additive response-transform fix
+    - the reserved non-field error keys rule (`detail` / `non_field_errors` / `__all__` are messages, not a field map)
+    - retry / stale policy per outcome class (retry 5xx/network, never retry 4xx)
+    - the DATA STATE MAP emitted per resource
+  defers_to:
+    - admin-states (renders each state; owns the visual/display contract)
+    - admin-roles-and-permissions (UI hide is NOT authorization; gate at the API)
+    - admin-crud (list-level wiring of the resolved state)
+    - project data-fetching layer (which library; how a response/error is shaped)
+    - project auth layer (how 401 vs 403 is signalled)
 ---
 
 # data-fetching-states
@@ -252,4 +257,4 @@ Only the status extractor and the auth-status convention are project-specific, a
 - `admin-forms` — owns the field-level error contract a form renders; this skill owns the upstream decision of whether an error body IS a field map at all (reserved non-field keys).
 - `admin-dashboard-overview` — KPI/metric tiles must apply the `no-data` (200 + 0) vs `error` (request failed) split; never render `0` for an errored KPI.
 - `admin-kanban-workflow` — per-column `empty` vs board-level `access-required`; a denied board is never an empty board.
-- `qa-browser` (agent) verify-identity-and-rbac — live proof that 401/403/404 produce `access-required`/not-found and never a silent empty shell.
+- if the `qa-browser` plugin is installed, its `verify-identity-and-rbac` skill gives — live proof that 401/403/404 produce `access-required`/not-found and never a silent empty shell.

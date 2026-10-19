@@ -1,6 +1,6 @@
 ---
 description: Audit an existing admin route against the react-kit skill rules. Read-only — produces a Markdown table of findings with file:line citations. Optionally suggests a fix per finding.
-argument-hint: "<path-to-admin-route> [--suggest-fixes]"
+argument-hint: "[path-to-admin-route] [--suggest-fixes]"
 author: TAQAT Techno
 version: 0.2.0
 allowed-tools: Read, Glob, Grep
@@ -27,13 +27,13 @@ Argument `path-to-admin-route` resolves to:
 
 - A single file: audit that file in detail.
 - A folder: glob `**/*.{tsx,jsx,ts,js,vue,svelte}` and audit each.
-- Empty argument: ask for the path.
+- Empty argument: use the cached or detected `panelDir` (the admin tree) and say so; ask for a path only when no admin tree can be found.
 
 Confirm the path exists. If it does not, ask the user to recheck.
 
 ## Step 1 — Read the adapter cache
 
-Load `.react-kit.local.json` if present. Keys are defined in `skills/admin-panel-architecture/references/admin-panel-adapter.md`; the audit uses `accessModel` + `access`, `guardHelper`, `piiFields`, `authHelper`, `auditHelper`, `panelDir`, `rtlLocales`, `cssFramework` — so it checks against actual identifiers, not generic ones. A legacy cache (no `schemaVersion`) is read through the schema's *Legacy cache keys* table.
+Load `.react-kit.local.json` if present. Keys are defined in `${CLAUDE_PLUGIN_ROOT}/skills/admin-panel-architecture/references/admin-panel-adapter.md`; the audit uses `accessModel` + `access`, `guardHelper`, `piiFields`, `authHelper`, `auditHelper`, `panelDir`, `rtlLocales`, `cssFramework` — so it checks against actual identifiers, not generic ones. A legacy cache (no `schemaVersion`) is read through the schema's *Legacy cache keys* table.
 
 If the cache is absent, run the audit with generic checks: detect the access model read-only with the schema's greps (do not write a cache — this command is read-only), and note in the report which specifics could not be verified.
 

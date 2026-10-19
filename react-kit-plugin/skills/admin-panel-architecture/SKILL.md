@@ -1,23 +1,29 @@
 ---
 name: admin-panel-architecture
-description: Use when starting or extending a React / Next.js admin panel, staff dashboard, back-office, or operator console, before scaffolding its routes, navigation, or layouts; when an existing panel grows a new section that must be placed without a hardcoded per-role nav; or when deciding how the panel's access checks should be modelled. Detects the project's existing access model (role enum, permission strings, module-level grants, or a policy engine such as CASL, Casbin, OPA) and adapts to it rather than replacing it. Owns the adapter schema, the route-group structure, the single navigation builder that mirrors the route guard, the per-resource view registry, the generic component inventory, and the ADMIN PANEL PLAN template.
+description: >-
+  Use when starting or extending a React / Next.js admin panel, back office or operator console,
+  placing a new section, or deciding how access checks are modelled. Detects the existing access model
+  (role enum, permission strings, module grants, or a policy engine) and adapts to it. Owns the
+  adapter schema, route groups, one navigation builder that mirrors the route guard, and the view
+  registry.
 version: 0.5.0
-last_reviewed: 2026-10-19
-owns:
-  - the adapter schema (references/admin-panel-adapter.md is the single owner of every adapter key)
-  - access-model detection and the decision framework (role-enum / permission-strings / module-levels / policy-engine)
-  - route-group structure (panel group, overview-first, per-section folders, nested detail routes)
-  - single navigation-builder function (user + flags in, filtered nav sections out, same guard as the route)
-  - view-registry concept (one declared view type per resource — list/tree/kanban/form/dashboard/settings/audit)
-  - generic component inventory (AdminShell, SidebarNav, AccessGate, AdminTable, ... — names are illustrative)
-  - the ADMIN PANEL PLAN output template
-defers_to:
-  - admin-shell (renders the layout, sidebar collapse, mobile overlay, header)
-  - admin-view-patterns (what each declared view type looks like)
-  - admin-roles-and-permissions (route/component/API gating mechanics, access matrix)
-  - data-fetching-states (query keys, mutation invalidation, loading/error/empty)
-  - admin-kanban-workflow (status-gated actions, transitions, confirmation flows)
 user-invocable: false
+metadata:
+  last_reviewed: 2026-10-19
+  owns:
+    - the adapter schema (references/admin-panel-adapter.md is the single owner of every adapter key)
+    - access-model detection and the decision framework (role-enum / permission-strings / module-levels / policy-engine)
+    - route-group structure (panel group, overview-first, per-section folders, nested detail routes)
+    - single navigation-builder function (user + flags in, filtered nav sections out, same guard as the route)
+    - view-registry concept (one declared view type per resource — list/tree/kanban/form/dashboard/settings/audit)
+    - generic component inventory (AdminShell, SidebarNav, AccessGate, AdminTable, ... — names are illustrative)
+    - the ADMIN PANEL PLAN output template
+  defers_to:
+    - admin-shell (renders the layout, sidebar collapse, mobile overlay, header)
+    - admin-view-patterns (what each declared view type looks like)
+    - admin-roles-and-permissions (route/component/API gating mechanics, access matrix)
+    - data-fetching-states (query keys, mutation invalidation, loading/error/empty)
+    - admin-kanban-workflow (status-gated actions, transitions, confirmation flows)
 ---
 
 # admin-panel-architecture

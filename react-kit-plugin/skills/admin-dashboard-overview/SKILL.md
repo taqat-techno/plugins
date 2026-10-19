@@ -1,22 +1,27 @@
 ---
 name: admin-dashboard-overview
-description: Design rules for an admin module overview / landing page or a metrics dashboard. Owns KPI card design (label + value + optional trend/delta + drill-down link), role-aware metric visibility, a quick-actions block, a recent-activity / workflow-summary feed, a data-freshness indicator, the chart-vs-table-vs-number affordance choice, and the per-widget state set that distinguishes NO-DATA (zero is legitimate) from FAILED-KPI (the metric API errored) from LOADING (skeleton). Activates when building an overview or landing page for an admin module, assembling a metrics dashboard, adding or arranging KPI cards, choosing between a number, a trend chart, or a small table, or wiring per-widget loading and error affordances. Generic and portable — role names, metric sources, the data-fetching library, and the auth convention are project-supplied adapter inputs.
+description: >-
+  Use when building an admin module overview or landing page or a metrics dashboard: KPI cards (label,
+  value, trend, drill-down), role-aware metric visibility, quick actions, recent activity, data
+  freshness, choosing a number versus a chart versus a small table, and per-widget states that keep
+  no-data, failed-metric and loading apart.
 version: 0.4.0
-last_reviewed: 2026-05-31
-owns:
-  - KPI card anatomy (label + value + optional trend/delta + optional drill-down link)
-  - role-aware metric visibility (only render metrics the role may see)
-  - the quick-actions block (the role's common create/act entry points)
-  - the recent-activity / workflow-summary feed
-  - the data-freshness indicator (as-of timestamp / refresh affordance)
-  - the chart-vs-table-vs-number affordance decision
-  - the per-widget state set — distinguish NO-DATA from FAILED-KPI from LOADING
-  - the "never render 0 when the KPI fetch failed" rule
-defers_to:
-  - data-fetching-states (maps each fetch outcome to one state; owns the no-0-on-failure data contract)
-  - admin-roles-and-permissions (authorization; UI hide is not a security boundary)
-  - admin-states (the visual rendering of loading / error / empty affordances)
 user-invocable: false
+metadata:
+  last_reviewed: 2026-05-31
+  owns:
+    - KPI card anatomy (label + value + optional trend/delta + optional drill-down link)
+    - role-aware metric visibility (only render metrics the role may see)
+    - the quick-actions block (the role's common create/act entry points)
+    - the recent-activity / workflow-summary feed
+    - the data-freshness indicator (as-of timestamp / refresh affordance)
+    - the chart-vs-table-vs-number affordance decision
+    - the per-widget state set — distinguish NO-DATA from FAILED-KPI from LOADING
+    - the "never render 0 when the KPI fetch failed" rule
+  defers_to:
+    - data-fetching-states (maps each fetch outcome to one state; owns the no-0-on-failure data contract)
+    - admin-roles-and-permissions (authorization; UI hide is not a security boundary)
+    - admin-states (the visual rendering of loading / error / empty affordances)
 ---
 
 # admin-dashboard-overview
@@ -47,7 +52,7 @@ Skip when:
 
 Every project value is a named adapter input — never hard-code one.
 
-1. **`guardHelper`** (adapter schema key, see `admin-panel-architecture/references/admin-panel-adapter.md`) — the shared access check, in the project's `accessModel`. The skill asks "may this user see this metric"; the project answers.
+1. **`guardHelper`** (adapter schema key, see `${CLAUDE_PLUGIN_ROOT}/skills/admin-panel-architecture/references/admin-panel-adapter.md`) — the shared access check, in the project's `accessModel`. The skill asks "may this user see this metric"; the project answers.
 2. **`METRIC_SOURCE(metricKey)`** — the endpoint or aggregate that produces each metric. Aggregation is owned by the backend; the dashboard renders, it does not compute.
 3. **`dataLibrary`** — the data-fetching library (its loading / error / stale flags). Defer the outcome→state mapping to `data-fetching-states`.
 4. **`DRILL_TARGET(metricKey)`** — the filtered list route a KPI links to when clicked. May be absent (some KPIs are display-only).

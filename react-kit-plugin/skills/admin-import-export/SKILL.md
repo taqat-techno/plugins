@@ -1,24 +1,29 @@
 ---
 name: admin-import-export
-description: Safe admin-side import (CSV / Excel / JSON) and export. Owns the upload → parse → preview → confirm → commit pipeline, the row-cap-by-default rule, the typed-per-row-error contract, the idempotency-via-external-id rule, the no-auto-create-related-entities rule, and the export filename + filter-context convention. Activates when adding any admin import (bulk create / bulk update / migrate) or export (download / report).
+description: >-
+  Use when adding an admin import (CSV, Excel or JSON bulk create, update or migration) or an export
+  (download or report). Covers the upload, parse, preview, confirm, commit pipeline, a default row
+  cap, typed per-row errors, idempotency through an external id, never auto-creating related records,
+  and export filenames that carry the filter context.
 version: 0.2.0
-last_reviewed: 2026-05-28
-owns:
-  - upload → parse → preview → confirm → commit pipeline
-  - row-cap default (10k) + configurable per import
-  - typed per-row error report (row index, field, code, message)
-  - idempotency via external_id column
-  - no-auto-create-related-entities rule
-  - ambiguous-match resolution (derive the ambiguity precondition from the uniqueness constraint before shipping a candidate chooser)
-  - dry-run vs commit phases
-  - export filename convention (entity + filter context + timestamp)
-defers_to:
-  - admin-roles-and-permissions (who can import / export, audit-log entries)
-  - admin-dangerous-actions (commit phase is destructive when it replaces rows)
-  - admin-forms (the upload form itself)
-  - admin-states (per-phase progress affordances)
-  - project file-upload safety (magic-byte validation, virus scan, storage path)
 user-invocable: false
+metadata:
+  last_reviewed: 2026-05-28
+  owns:
+    - upload → parse → preview → confirm → commit pipeline
+    - row-cap default (10k) + configurable per import
+    - typed per-row error report (row index, field, code, message)
+    - idempotency via external_id column
+    - no-auto-create-related-entities rule
+    - ambiguous-match resolution (derive the ambiguity precondition from the uniqueness constraint before shipping a candidate chooser)
+    - dry-run vs commit phases
+    - export filename convention (entity + filter context + timestamp)
+  defers_to:
+    - admin-roles-and-permissions (who can import / export, audit-log entries)
+    - admin-dangerous-actions (commit phase is destructive when it replaces rows)
+    - admin-forms (the upload form itself)
+    - admin-states (per-phase progress affordances)
+    - project file-upload safety (magic-byte validation, virus scan, storage path)
 ---
 
 # admin-import-export

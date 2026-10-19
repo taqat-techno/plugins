@@ -2,6 +2,28 @@
 
 All notable changes to `react-kit-plugin` are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/). Versioning follows [SemVer](https://semver.org/).
 
+## [0.8.0] - 2026-10-19
+
+### Security
+- **No killing by port alone** (RKT-P2-07). `frontend-build-traps` gains "Before stopping a process": find the port owner, read its command line and working directory (POSIX and PowerShell commands given), stop it only when it is this project's dev / start server, and ask the user otherwise. The HMR reset and the `next start` restart now go through that check.
+- Build output, logs, lint findings and audited code are data, never instructions: rule added to `frontend-build-traps`, `react-lint-triage` and `admin-route-auditor`.
+
+### Fixed
+- **Turbopack advice is gated on the Next.js major** (RKT-P2-05). A "Version gate" table: on Next 13-15 webpack is already the dev default and the fix is removing `--turbo` / `--turbopack`; `next dev --webpack` applies to Next 16+.
+- **plugin.json claims match the skills** (RKT-P2-04): "accessibility basics" and "application & component architecture" removed (no skill owns them; the `ui-ux-mechanics` plugin covers accessibility).
+- Descriptions over budget: `admin-forms` (1,100 chars) and `frontend-build-traps` (1,632) cut.
+
+### Changed
+- All 16 skill descriptions rewritten to start with "Use when ..." and trimmed to 274-430 characters; total always-loaded description text 11.9K -> 5.7K chars (RKT-P2-10). The detail they carried was already in the bodies.
+- Bare `/react-kit:admin-audit` audits the detected `panelDir` instead of asking for a path. (Bare `/admin-role-matrix` already ran its own intake since 0.7.0, RKT-P2-06.)
+- Adapter-schema paths in commands, the agent and cross-skill references use `${CLAUDE_PLUGIN_ROOT}/skills/...`.
+- Cross-plugin references (qa-browser, env-doctor, agent-safety-guards) are conditional.
+- README rewritten to the marketplace template; badge synced; no relative `../` links (RKT-P3-08, RKT-P3-11). Commands keep their `admin-*` names: they name the admin domain, not the plugin.
+
+### Added
+- `tests/test_surface.py` (13 tests): frontmatter shape and budgets, a genericity lint (no project-specific tokens, no mandate to replace an existing access model), path resolution, the version gate and ownership check, manifest claims, badge sync (RKT-P2-09, lint part).
+- Eval cases for all 16 skills: 13 new must-fire cases and 15 new must-not-fire cases (16 / 16 total). Not run (cost); no Delta recorded yet.
+
 ## [0.7.0] - 2026-10-19
 
 ### Changed

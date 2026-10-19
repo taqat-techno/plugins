@@ -1,21 +1,25 @@
 ---
 name: admin-shell
-description: Admin layout shell — sidebar, header, content slot, i18n context provider, language toggle, locale persistence, and route-guard composition. Activates when building or modifying the admin layout, sidebar, header, locale switcher, breadcrumb, or any shared chrome. Generic and portable — menu items, role-aware filtering, brand, and i18n keys are project-supplied.
+description: >-
+  Use when building or changing the admin layout shell: sidebar, header, content slot, breadcrumb,
+  i18n provider, language toggle, locale persistence, or how route guards compose with the layout.
+  Menu items, role filtering, branding and translation keys come from the project.
 version: 0.2.0
-last_reviewed: 2026-05-28
-owns:
-  - admin shell composition (sidebar + header + content slot)
-  - i18n context provider placement at shell level
-  - language toggle pattern (persisted locale)
-  - sidebar collapse state (persisted UI preference)
-  - shell-level route guard composition (auth → access check → render)
-  - breadcrumb derivation pattern
-defers_to:
-  - project auth layer (login / session / role claim)
-  - admin-roles-and-permissions (which menu items each role sees)
-  - admin-rtl-ltr (direction-aware utilities applied at shell level)
-  - admin-states (loading / error states the shell itself shows during auth bootstrap)
 user-invocable: false
+metadata:
+  last_reviewed: 2026-05-28
+  owns:
+    - admin shell composition (sidebar + header + content slot)
+    - i18n context provider placement at shell level
+    - language toggle pattern (persisted locale)
+    - sidebar collapse state (persisted UI preference)
+    - shell-level route guard composition (auth → access check → render)
+    - breadcrumb derivation pattern
+  defers_to:
+    - project auth layer (login / session / role claim)
+    - admin-roles-and-permissions (which menu items each role sees)
+    - admin-rtl-ltr (direction-aware utilities applied at shell level)
+    - admin-states (loading / error states the shell itself shows during auth bootstrap)
 ---
 
 # admin-shell
@@ -45,7 +49,7 @@ Skip when:
 
 ## Inputs (adapter)
 
-Adapter keys are defined once in `admin-panel-architecture/references/admin-panel-adapter.md`. The shell uses:
+Adapter keys are defined once in `${CLAUDE_PLUGIN_ROOT}/skills/admin-panel-architecture/references/admin-panel-adapter.md`. The shell uses:
 
 1. **`panelDir` / `panelBasePath`** — where admin pages live (`app/admin`, `src/admin`, `pages/admin`) and their URL prefix.
 2. **`authHelper`** — function that returns the verified current user/session.
