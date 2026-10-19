@@ -6,6 +6,9 @@
     "name": "TAQAT Techno",
     "email": "info@taqatechno.com"
   },
+  "renames": {
+    "claude-env-doctor": "env-doctor"
+  },
   "plugins": [
     {
       "name": "odoo",
@@ -118,15 +121,15 @@
       "homepage": "https://github.com/taqat-techno/plugins/tree/main/docs-wiki-plugin"
     },
     {
-      "name": "claude-env-doctor",
+      "name": "env-doctor",
       "description": "Diagnose and repair the local Claude Code dev environment — MCP wiring, Windows/WSL networking (DNS/VPN/HCS), login/401 loops, LSP / Node-CLI spawn, Python output encoding, and Playwright browser-MCP setup. Read-only diagnosis first; safe, explicit fixes only, never blind mutation. The canonical environment-troubleshooting home other plugins reference. No secrets in reports.",
       "author": {
         "name": "TaqaTechno",
         "email": "info@taqatechno.com"
       },
-      "source": "./claude-env-doctor-plugin",
+      "source": "./env-doctor-plugin",
       "category": "productivity",
-      "homepage": "https://github.com/taqat-techno/plugins/tree/main/claude-env-doctor-plugin"
+      "homepage": "https://github.com/taqat-techno/plugins/tree/main/env-doctor-plugin"
     },
     {
       "name": "agent-safety-guards",

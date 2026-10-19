@@ -1,5 +1,5 @@
 {
-  "description": "claude-env-doctor advisory hooks",
+  "description": "env-doctor advisory hooks",
   "hooks": {
     "SessionStart": [
       {

@@ -2,6 +2,11 @@
 
 All notable changes to this plugin are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] - 2026-10-19
+
+### Changed
+- **Renamed from `claude-env-doctor` to `env-doctor`.** Names starting with `claude-` are reserved for Anthropic, and `claude plugin validate` rejected the marketplace. The marketplace `renames` map migrates existing installs automatically. The plugin directory is now `env-doctor-plugin/`, and the command is `/env-doctor:env-doctor`.
+
 ## [0.6.3] - 2026-10-19
 
 ### Fixed

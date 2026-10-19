@@ -1,10 +1,10 @@
-# claude-env-doctor
+# env-doctor
 
 Diagnose your local Claude Code and development environment — read-only, no mutation. It tells you what is wrong and how to fix it; it never changes your system for you.
 
 ## What it does
 
-`claude-env-doctor` inspects the local machine where Claude Code runs and reports problems in plain language, ranked by likelihood. It **diagnoses, it does not mutate**: every probe is read-only, and any fix is presented as a suggestion you choose to apply yourself.
+`env-doctor` inspects the local machine where Claude Code runs and reports problems in plain language, ranked by likelihood. It **diagnoses, it does not mutate**: every probe is read-only, and any fix is presented as a suggestion you choose to apply yourself.
 
 It covers the environment failure modes that block day-to-day work:
 
@@ -76,15 +76,15 @@ It is **not**:
 - a deployment runbook or release-automation tool,
 - a DevOps, CI/CD, or GitHub-workflow tool.
 
-Server ops, deployment, and workflow logic belong to other, purpose-built plugins. `claude-env-doctor` stays in its lane: figuring out why the tooling on *this* machine is misbehaving.
+Server ops, deployment, and workflow logic belong to other, purpose-built plugins. `env-doctor` stays in its lane: figuring out why the tooling on *this* machine is misbehaving.
 
 ## Canonical home
 
-This plugin is the **canonical home for generic local-environment diagnosis**. Other plugins that hit a generic environment problem — an MCP server that will not connect, a 401 they cannot explain, a Node or Python tool that will not spawn — should reference `claude-env-doctor` rather than re-implementing their own ad-hoc checks. Keeping the diagnostic logic in one place means every plugin benefits from the same probes and the same reference docs.
+This plugin is the **canonical home for generic local-environment diagnosis**. Other plugins that hit a generic environment problem — an MCP server that will not connect, a 401 they cannot explain, a Node or Python tool that will not spawn — should reference `env-doctor` rather than re-implementing their own ad-hoc checks. Keeping the diagnostic logic in one place means every plugin benefits from the same probes and the same reference docs.
 
 ## Portability
 
-`claude-env-doctor` is built to run for **any user, in any workspace, on any major OS** (Windows, macOS, Linux, and WSL). Its behavior never depends on a specific user, project, company, path, repo, or credential.
+`env-doctor` is built to run for **any user, in any workspace, on any major OS** (Windows, macOS, Linux, and WSL). Its behavior never depends on a specific user, project, company, path, repo, or credential.
 
 - Cross-OS by default: the skill and agent detect the platform at run time and select the appropriate probes.
 - OS-specific detail lives in the reference docs (notably the Windows/WSL networking and Python-encoding guides), so the core routing stays platform-neutral.
