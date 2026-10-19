@@ -7,7 +7,11 @@
 The argument is the NAME of an environment variable that holds the base32 seed
 (set it before launching Claude Code). The seed itself is never printed and
 never passes through the conversation; only the short-lived code does.
-RFC 6238, stdlib only. Exit 2 when the variable is unset or not valid base32.
+RFC 6238, stdlib only. Exit 2 when the variable is unset or not valid base32,
+or when its name is outside the credential allow-list (it must start with QA_ or
+be listed in the plugin option credential_env_allowlist; the rule is owned by
+hooks/pre_navigate_prod_gate.py:credential_env_allowed). The allow-list stops a
+shared config from naming an unrelated secret (GITHUB_TOKEN, ...) as a "seed".
 """
 from __future__ import annotations
 
@@ -18,6 +22,17 @@ import os
 import struct
 import sys
 import time
+from pathlib import Path
+
+sys.dont_write_bytecode = True
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "hooks"))
+try:
+    from pre_navigate_prod_gate import credential_env_allowed
+except Exception:  # pragma: no cover - plugin tree incomplete: fail closed
+    def credential_env_allowed(name) -> bool:
+        return False
+finally:
+    sys.path.pop(0)
 
 
 def totp(seed_b32: str, at: float | None = None, digits: int = 6, period: int = 30) -> str:
@@ -41,6 +56,11 @@ def main(argv: list[str]) -> int:
              if not a.startswith("--") and (i == 0 or not argv[i - 1].startswith("--"))]
     if not names:
         print("usage: totp.py <ENV_VAR_NAME> [--digits N] [--period S]", file=sys.stderr)
+        return 2
+    if not credential_env_allowed(names[0]):
+        print(f"{names[0]} is not an allowed credential variable: names must start with "
+              f"QA_ or be listed in the qa-browser credential_env_allowlist option.",
+              file=sys.stderr)
         return 2
     seed = os.environ.get(names[0], "")
     if not seed.strip():

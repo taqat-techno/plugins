@@ -1,7 +1,9 @@
 ---
 name: route-access-matrix
 description: >-
-  Use when verifying that roles are denied routes they should not reach: navigate directly to each
+  Use when deciding whether a role is really blocked from a page or feature, for example a hidden
+  menu link or a 403 page offered as proof, or when verifying that roles are denied routes they
+  should not reach: navigate directly to each
   restricted route as each role and check that the UI and the API both deny. Covers the dual-gate
   check, Shape-A (UI hides, API allows) and Shape-B (UI shows, API denies) detection, the direct-URL
   probe, and the implicit-method check (OPTIONS by default; write-verb probes only on a disposable

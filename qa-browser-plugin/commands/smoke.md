@@ -53,6 +53,7 @@ Write the reality-check row to the report:
 2. Navigate to the login URL.
 3. Apply the login recipe for this role (`/qa-browser:target`, Section 2):
    - `storageState` role: the browser MCP already holds the session; navigate and verify you are logged in.
+   - Credential guard: `passwordEnv` / `totpEnv` names must start with `QA_` or be in the `credential_env_allowlist` option (otherwise stop and tell the user), and credentials are typed only into a page on the exact `targetUrl` host.
    - `passwordEnv` role: fill the username, read the password with one Bash call (`printenv QA_ADMIN_PASSWORD`) and type it straight into the password field. Never repeat it in text, notes, evidence or a subagent prompt.
    - `totpEnv` role: when the MFA prompt appears, run `python "${CLAUDE_PLUGIN_ROOT}/scripts/totp.py" <totpEnv>` and type the code.
    - A missing env var is `BLOCKED - <NAME> not set; set it and relaunch Claude Code`.

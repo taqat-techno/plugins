@@ -2,6 +2,28 @@
 
 All notable changes to `qa-browser-plugin` are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/). Versioning follows [SemVer](https://semver.org/).
 
+## [0.9.2] - 2026-10-19
+
+### Changed
+- **Skill triggering, from real eval results.** Four skills were never loaded on their must-fire prompts. Each description now opens with the situation the user describes:
+  - `role-smoke-tests`: planning or running a smoke test as several roles in a real browser, and what loop and evidence each page needs.
+  - `browser-qa-discipline`: marking a check as passed without running it, because the code looks right.
+  - `safe-destructive-testing`: before clicking Refund, Delete, Cancel or Send in QA, including on shared staging where the records only look like test data.
+  - `route-access-matrix`: deciding whether a role is really blocked when the evidence is a hidden menu link or a 403 page.
+- Eval (`claude plugin eval`, claude-sonnet-5-5, 1 run per case after the change): must-fire fire rate **9/13 -> 13/13**. `fires-on-four-role-staging-smoke` went from score 0 (skill not loaded, judges split 1-2) to 1 (skill loaded, 3-0). The grader was left unchanged, because the reply with the skill loaded meets it. Δ on the four re-run cases went from -0.25 to +0.25; plugin-wide Δ was +0.15 before. All 13 `ignores-*` cases stayed quiet (0 fires).
+
+## [0.9.1] - 2026-10-19
+
+### Security
+- **URLs are normalised like a browser before the host is read** (RA-QAB-01). Whitespace and tab/CR/LF are stripped, backslashes count as `/`, `https:/host`, `https:\host`, `https:host` and `//host` all reach `host`, `user@` and the port are dropped, and the host is percent-decoded, lower-cased, IDN-encoded to punycode and stripped of trailing dots; numeric IPv4 forms are canonicalised; `view-source:` / `blob:` are unwrapped and `javascript:` URLs are decided by the URLs inside them. Config entries are normalised the same way. A navigation URL whose host cannot be determined now asks instead of being allowed.
+- **Batched and preview navigations are gated** (RA-QAB-02). The matcher adds `browser_batch` (Claude in Chrome / Claude Browser) and `preview_start`; each nested batch action is inspected as if called alone, and `preview_start` by `name` is resolved through `.claude/launch.json`.
+- **Page-script requests are gated** (RA-QAB-03). `fetch(`, `XMLHttpRequest .open(method, url`, `navigator.sendBeacon(`, `new WebSocket|EventSource|Request(` and Playwright `request.*(` are gated like navigation; literal `'a' + 'b'` concatenation is folded. A request or navigation URL built at run time asks when production hosts are configured. New PreToolUse `Bash` / `PowerShell` check, active only when a `.qa-browser.local.json` exists: `curl`, `wget`, httpie, `xh`, `aria2c`, `Invoke-WebRequest` / `Invoke-RestMethod` aimed at a production host are blocked (same override).
+- **Credential env names are allow-listed** (RA-QAB-04). `passwordEnv` / `totpEnv` must match `QA_[A-Z0-9_]+` or be listed in the new `credential_env_allowlist` option. The Bash gate denies commands that read a non-allow-listed name the config references, `totp.py` exits 2 on one, the SessionStart hook warns, and the evidence agent and `/smoke` type credentials only into the exact `targetUrl` host.
+
+### Changed
+- `fetch()` to a production host from a page script is now blocked (it was allowed and asserted as allowed in 0.9.0).
+- Tests: `tests/test_gate_v091.py` (26 cases, positive and negative); 96 tests total.
+
 ## [0.9.0] - 2026-10-19
 
 ### Security

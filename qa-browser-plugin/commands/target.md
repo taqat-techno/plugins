@@ -110,6 +110,8 @@ Ask for: role names; per role the login mode, the username (not secret; may be s
 
 **TOTP / MFA:** prefer test accounts without MFA. If MFA is required, the seed lives only in an env var (`"totpEnv": "QA_ADMIN_TOTP"`) and the current code is produced by `python "${CLAUDE_PLUGIN_ROOT}/scripts/totp.py" QA_ADMIN_TOTP`, which prints the 6-digit code and never the seed. Warn the user that anyone holding the seed holds the second factor: never store it in the config file, a ticket, or the chat.
 
+**Credential variable names:** `passwordEnv` / `totpEnv` must start with `QA_` (for example `QA_ADMIN_PASSWORD`) or be listed in the plugin option `credential_env_allowlist`. When `set` is given another name, refuse it and suggest a `QA_` name. The gate refuses to read other names, `totp.py` exits 2 on them, and credentials are typed only into the exact `targetUrl` host.
+
 Legacy files with inline `password` / `totp` values still work but `check` and the SessionStart hook warn until they are moved to env vars.
 
 ### Section 3 - Allowed and production hosts

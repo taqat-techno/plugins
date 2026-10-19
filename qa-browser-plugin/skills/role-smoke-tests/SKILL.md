@@ -1,8 +1,10 @@
 ---
 name: role-smoke-tests
 description: >-
-  Use when smoke-testing a web app as one or more roles: log in per role, visit every visible menu
-  item, capture screenshot, console and network, and produce one row per role and route. Covers the
+  Use when planning or running a smoke test of a web app as several roles (admin, manager, support,
+  viewer) in a real browser, or asked what loop to follow per role and what evidence each page should
+  produce: log in per role, visit every visible menu item, capture screenshot, console and network,
+  and produce one row per role and route. Covers the
   per-role login recipe (storage state or env-var credentials, never stored passwords), the menu walk,
   fresh browser state per role, post-navigate waits (networkidle never settles on a hot-reloading dev
   server), and the cross-role consistency check.

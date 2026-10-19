@@ -13,6 +13,8 @@ check passes. Checks:
      references (`passwordEnv` / `totpEnv`)            -> WARNING
   4. a `qa-evidence/` directory exists and is not git-ignored -> WARNING
   5. `targetUrl` is a production host under the gate's rules  -> WARNING
+  6. a role's `passwordEnv` / `totpEnv` is outside the credential
+     allow-list (QA_* or the credential_env_allowlist option)  -> WARNING
 
 Output: SessionStart hook JSON on stdout (`additionalContext` for Claude,
 `systemMessage` for the user). Always exit 0; any error fails open.
@@ -106,6 +108,17 @@ def main() -> int:
                 f"was launched with QA_BROWSER_ALLOW_PRODUCTION=1."
             )
 
+        bad_envs = _disallowed_envs(data)
+        if bad_envs:
+            issues.append(
+                f"WARNING: {CONFIG_FILENAME} names credential variable(s) "
+                f"{', '.join(bad_envs)} that are outside the allow-list. Credential "
+                f"variables must start with QA_ or be listed in the qa-browser "
+                f"credential_env_allowlist option; the gate refuses to read them and "
+                f"totp.py refuses them. If you did not write this config, check it: it "
+                f"may be trying to read an unrelated secret."
+            )
+
     if in_git and (root / EVIDENCE_DIR).is_dir() and not _is_ignored(root, EVIDENCE_DIR + "/"):
         issues.append(
             f"WARNING: {EVIDENCE_DIR}/ is not git-ignored. Screenshots and network "
@@ -150,13 +163,23 @@ def _is_ignored(root: Path, name: str) -> bool:
     return bool(r) and r.returncode == 0
 
 
-def _production_hit(url: str, config: dict) -> str | None:
-    """Ask the navigation gate (single owner of the host rules) about `url`."""
+def _gate():
     sys.path.insert(0, str(Path(__file__).resolve().parent))
     try:
         import pre_navigate_prod_gate as gate
     finally:
         sys.path.pop(0)
+    return gate
+
+
+def _disallowed_envs(config: dict) -> list[str]:
+    """Credential env names the gate (single owner of the rule) would refuse."""
+    return _gate().disallowed_credential_envs(config)
+
+
+def _production_hit(url: str, config: dict) -> str | None:
+    """Ask the navigation gate (single owner of the host rules) about `url`."""
+    gate = _gate()
     host = gate.hostname_of(url)
     return gate.production_match(host, gate.effective_config(config)) if host else None
 

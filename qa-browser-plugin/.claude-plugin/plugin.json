@@ -1,6 +1,6 @@
 {
   "name": "qa-browser",
-  "version": "0.9.0",
+  "version": "0.9.2",
   "description": "Framework-agnostic browser QA and role-based smoke testing. Drives chrome-devtools or playwright MCP servers to log in as each role, walk menus, modals and table actions, compare UI and API permissions, capture redacted console, network and screenshot evidence, and produce PASS / BLOCKED / NOT-TESTABLE reports for UAT sign-off. Hooks block production hosts and prompt before skiplisted clicks.",
   "author": {
     "name": "TAQAT Techno",
@@ -25,6 +25,13 @@
       "type": "string",
       "title": "Production hosts (all projects)",
       "description": "Comma-separated hostnames the navigation gate always blocks, in every project, on top of each project's productionHosts. Example: www.example.com, app.example.com",
+      "required": false,
+      "default": ""
+    },
+    "credential_env_allowlist": {
+      "type": "string",
+      "title": "Extra credential variable names",
+      "description": "Comma-separated env var names that roles may use as passwordEnv / totpEnv in addition to names starting with QA_. Example: STAGING_ADMIN_PASSWORD",
       "required": false,
       "default": ""
     }

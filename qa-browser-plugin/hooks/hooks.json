@@ -1,5 +1,5 @@
 {
-  "description": "qa-browser hooks: SessionStart config/evidence safety check (advisory); PreToolUse production host gate (blocks production hosts, asks for unknown hosts when a QA target is configured); PreToolUse do-not-click skiplist (asks when a click matches the project's skiplist).",
+  "description": "qa-browser hooks: SessionStart config/evidence safety check (advisory); PreToolUse production host gate on browser navigation, batched actions, preview servers and page scripts that navigate or send requests (blocks production hosts, asks for unknown hosts when a QA target is configured); PreToolUse Bash/PowerShell gate in projects with a qa-browser config (blocks curl/wget/httpie to production hosts, denies reading non-allow-listed credential variables); PreToolUse do-not-click skiplist (asks when a click matches the project's skiplist).",
   "hooks": {
     "SessionStart": [
       {
@@ -15,7 +15,17 @@
     ],
     "PreToolUse": [
       {
-        "matcher": "^mcp__.+__(navigate|navigate_page|new_page|browser_navigate|browser_tabs|browser_evaluate|browser_run_code|browser_run_code_unsafe|evaluate_script|javascript_tool)$",
+        "matcher": "^mcp__.+__(navigate|navigate_page|new_page|browser_navigate|browser_tabs|browser_batch|preview_start|browser_evaluate|browser_run_code|browser_run_code_unsafe|evaluate_script|javascript_tool)$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/pre_navigate_prod_gate.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\"; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "^(Bash|PowerShell)$",
         "hooks": [
           {
             "type": "command",

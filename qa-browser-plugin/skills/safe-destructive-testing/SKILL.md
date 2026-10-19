@@ -1,8 +1,9 @@
 ---
 name: safe-destructive-testing
 description: >-
-  Use when about to take any QA action that could change data, and when starting any QA pass, to gate
-  the environment. Covers what counts as disposable data, the production-host refusal (backed by the
+  Use when about to click Refund, Delete, Cancel, Send or any button that changes data during QA,
+  including on a shared staging environment where existing records only look like test data, and
+  when starting any QA pass, to gate the environment. Covers what counts as disposable data, the production-host refusal (backed by the
   plugin's navigation hook), the do-not-click skiplist (backed by a click hook for Playwright),
   keeping credentials out of the config file and git, and escalating irreversible actions such as
   payments, real email or SMS, and third-party webhooks to the user.

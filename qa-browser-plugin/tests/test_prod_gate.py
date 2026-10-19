@@ -168,8 +168,11 @@ class ProdGate(unittest.TestCase):
                                       tool=PW + "browser_evaluate", config=TARGET)[1]), "ask")
 
     def test_evaluate_without_navigation_allowed(self):
+        # 0.9.1 (RA-QAB-03): fetch() is a gated network construct now.
         js = "() => fetch('https://prod.example.com/api').then(r => r.status)"
-        self.assertEqual(run({"function": js}, tool=PW + "browser_evaluate"), (0, "", ""))
+        self.assertEqual(run({"function": js}, tool=PW + "browser_evaluate")[0], 2)
+        self.assertEqual(run({"function": "() => document.title"}, tool=PW + "browser_evaluate"),
+                         (0, "", ""))
         self.assertEqual(run({"function": "() => location.href === 'https://prod.example.com'"},
                              tool=PW + "browser_evaluate"), (0, "", ""))
 

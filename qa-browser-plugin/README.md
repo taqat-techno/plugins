@@ -1,6 +1,6 @@
 # qa-browser
 
-![Version](https://img.shields.io/badge/version-0.9.0-blue.svg)
+![Version](https://img.shields.io/badge/version-0.9.2-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 
 ## What it does
@@ -90,7 +90,8 @@ All skills are model-invoked (`user-invocable: false`).
 | Script | Event / matcher | What it does | Can block |
 |---|---|---|---|
 | `hooks/session_start_target_check.py` | SessionStart `startup` | When `.qa-browser.local.json` exists: warns if it is tracked by git, not git-ignored, unparseable, holds inline credential values, or targets a production host; warns if `qa-evidence/` exists and is not git-ignored. Silent otherwise. | No (advisory) |
-| `hooks/pre_navigate_prod_gate.py` | PreToolUse: `navigate`, `navigate_page`, `new_page`, `browser_navigate`, `browser_tabs`, and script tools (`browser_evaluate`, `browser_run_code(_unsafe)`, `evaluate_script`, `javascript_tool`) when the script navigates | Host-based production gate, table below. Also denies all gated navigation while a git-tracked config holds inline credentials. | Yes |
+| `hooks/pre_navigate_prod_gate.py` | PreToolUse: `navigate`, `navigate_page`, `new_page`, `browser_navigate`, `browser_tabs`, `preview_start`, `browser_batch` (each nested action), and script tools (`browser_evaluate`, `browser_run_code(_unsafe)`, `evaluate_script`, `javascript_tool`) when the script navigates or sends a request (`fetch`, `XMLHttpRequest.open`, `navigator.sendBeacon`, `WebSocket`/`EventSource`/`Request`, Playwright `request.*`) | Host-based production gate, table below. Also denies all gated navigation while a git-tracked config holds inline credentials. | Yes |
+| `hooks/pre_navigate_prod_gate.py` (shell) | PreToolUse `Bash` / `PowerShell`, only when a `.qa-browser.local.json` exists | Blocks `curl` / `wget` / httpie (`http`, `https`) / `xh` / `aria2c` / `Invoke-WebRequest` / `Invoke-RestMethod` aimed at a production host (other hosts pass silently). Denies a command that names a role credential variable outside the allow-list. | Yes |
 | `hooks/pre_click_skiplist.py` | PreToolUse: `browser_click`, `click` | Asks the user when a click's `target` equals a `doNotClick` selector or its element description contains a `doNotClickText` entry | Asks |
 
 All hooks use the portable launcher (`python3`, `python`, `py -3`), share `hooks/_vendor/hooklib.py`, and fail open on bad input.
@@ -103,6 +104,10 @@ All hooks use the portable launcher (`python3`, `python`, `py -3`), share `hooks
 | localhost, 127.0.0.1, ::1, `*.localhost`, `*.test`, the `targetUrl` host, `allowedHosts` | Allowed |
 | Any other host while `targetUrl` or `allowedHosts` is set | You are asked |
 | Any other host, no target configured | Allowed |
+| A URL whose host cannot be determined (`https://`, `http://[bad`) | You are asked (fails closed) |
+| A page script whose request or navigation URL is built at run time (a variable, `${host}`) | You are asked when production hosts are configured; allowed otherwise |
+
+URLs are normalised the way browsers do before the host is read: whitespace trimmed, backslashes treated as `/`, `https:/host`, `https:\host` and `https:host` read as `https://host`, `//host` scheme-relative, `user@` and the port dropped, the host percent-decoded, lower-cased, IDN-encoded to punycode and stripped of trailing dots, and numeric IPv4 forms canonicalised. `view-source:` and `blob:` are unwrapped; a `javascript:` URL is decided by the URLs inside it.
 
 Link clicks and form submits that navigate are not gated; the `safe-destructive-testing` skill covers them. **Override:** none in-session. To test production on purpose, quit and relaunch Claude Code with `QA_BROWSER_ALLOW_PRODUCTION=1`; blocks become allows with an audit note to Claude.
 
@@ -113,6 +118,7 @@ Link clicks and form submits that navigate are not gated; the `safe-destructive-
 | Key | Type | Default | Meaning |
 |---|---|---|---|
 | `production_hosts` | string | empty | Comma-separated hosts blocked in every project |
+| `credential_env_allowlist` | string | empty | Comma-separated env var names roles may use as `passwordEnv` / `totpEnv` besides `QA_*` names |
 
 **Environment variables:**
 
@@ -140,6 +146,8 @@ Link clicks and form submits that navigate are not gated; the `safe-destructive-
 }
 ```
 
+**Credential variables are allow-listed.** `passwordEnv` / `totpEnv` must start with `QA_` or be listed in `credential_env_allowlist`. A shared or cloned config that names `GITHUB_TOKEN` (or any other secret) is refused: the Bash gate denies reading it, `totp.py` exits 2, and the SessionStart hook warns. Credentials are typed only into a page on the exact `targetUrl` host, never into an `allowedHosts` host or a redirect target.
+
 The file holds no credential values. Each role either reuses a session the user logged in by hand (`storageState`, preferred) or names env vars set before launch. `"disposable": true` is required for write-verb probes and confirm-and-commit walkthroughs. Files from 0.8 and earlier with inline `password` / `totp` values still load, with a warning.
 
 ## Scripts
@@ -166,7 +174,8 @@ The file holds no credential values. Each role either reuses a session the user 
 
 ## Limitations
 
-- The production gate sees navigation tools only; a link click or form submit that leaves the target host is guarded by skill guidance, not code.
+- The production gate sees navigation, batch, preview and script tools plus shell HTTP clients; a link click or form submit that leaves the target host is guarded by skill guidance, not code.
+- Script and shell inspection is pattern-based: heavily obfuscated JavaScript, or HTTP sent from another language (`python -c`, `node -e`), is not resolved. Unresolvable script URLs prompt only when production hosts are configured.
 - The click skiplist hook cannot see chrome-devtools-mcp or Claude in Chrome clicks.
 - Redaction is shape-based: a secret with no recognisable key or form is not caught, and images are not scanned.
 - Write-verb route probes can still change data on a misconfigured server; they run only on targets you mark disposable, after you confirm the request list.
