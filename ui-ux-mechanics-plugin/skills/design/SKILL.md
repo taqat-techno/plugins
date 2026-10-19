@@ -1,12 +1,14 @@
 ---
 name: design
 description: >-
-  Use when the user asks to design a UI screen, page or flow, wireframe or mock up a layout, build a
-  design system, generate a color palette or typography scale, choose spacing or responsive
-  breakpoints, or review a design for visual quality and accessibility (WCAG contrast, touch targets,
-  focus, labels) on web, iOS, Android or desktop. Typical phrasings: 'design a login screen',
-  'wireframe the checkout flow', 'create a color palette', 'is this contrast enough', 'audit this form
-  for accessibility'.
+  Use when checking text, button or icon colors against their backgrounds for WCAG contrast (which
+  ratio applies to body text, large text and UI components), or when the user asks to design a UI
+  screen, page or flow, wireframe or mock up a layout, build a design system, generate a color
+  palette or typography scale, choose spacing or responsive breakpoints, or review a design for
+  visual quality and accessibility (contrast, touch targets, focus, labels) on web, iOS, Android or
+  desktop. Typical phrasings: 'design a login screen', 'wireframe the checkout flow', 'create a
+  color palette', 'is this contrast enough', 'what contrast ratio do my buttons need', 'audit this
+  form for accessibility'.
 metadata:
   filePattern:
     - "**/*.html"

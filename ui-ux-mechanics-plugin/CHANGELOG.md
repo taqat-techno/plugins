@@ -1,5 +1,15 @@
 # Changelog
 
+## [4.0.1] - 2026-10-19
+
+Skill triggering tuned against real eval results. Measured with `claude plugin eval --runs 1 --model claude-sonnet-5-5`; the no-plugin baseline is the 2026-10-19 run, and Δ counts the criteria grader only.
+
+### Changed
+- `design` description opens with checking text, button or icon colours against their backgrounds for WCAG contrast, and which ratio applies to body text, large text and UI components.
+
+### Eval results
+- Must-fire: 2/3 -> 3/3. Must-not-fire: 3/3 quiet before and after. Mean Δ: +0.17 -> +0.17.
+
 ## [4.0.0] - 2026-10-19
 
 Major: the command was renamed and Figma writes now stop for approval.

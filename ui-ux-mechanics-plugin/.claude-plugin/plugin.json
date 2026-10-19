@@ -1,6 +1,6 @@
 {
   "name": "ui-ux-mechanics",
-  "version": "4.0.0",
+  "version": "4.0.1",
   "license": "MIT",
   "description": "UI/UX design plus Figma MCP execution mechanics: screen design, wireframing, design review, design systems and WCAG 2.2 accessibility auditing for web, mobile and desktop, and safe Figma MCP workflows (user approval before any write, write-access probing, metadata lossiness, auto-layout and variant mechanics, prototype-safe edits).",
   "author": {
