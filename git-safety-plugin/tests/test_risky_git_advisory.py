@@ -109,6 +109,38 @@ def test_ask_mode_asks_for_each_irreversible_shape(command, no_repo):
     assert "[git-safety]" in out["permissionDecisionReason"]
 
 
+@pytest.mark.parametrize("command", [
+    "git push origin ${BRANCH} --force",
+    "git push origin $BRANCH --force",
+    "git push origin \"$BRANCH\" --force",
+    "git push origin $(git branch --show-current) --force",
+    "git push origin ${BRANCH} --delete",
+    "git branch -D ${OLD}",
+])
+def test_ask_mode_asks_when_an_expansion_precedes_the_flag(command, no_repo):
+    """RA-GIT-01: an unresolvable ${VAR}/$VAR/$(cmd) ref must not hide the flags after it."""
+    proc = run_hook(bash(command, no_repo), clean_env(GIT_SAFETY_MODE="ask"))
+    out = json.loads(proc.stdout)["hookSpecificOutput"]
+    assert out["permissionDecision"] == "ask", command
+
+
+@pytest.mark.parametrize("command", [
+    "git push origin ${BRANCH}",
+    "git push origin \"$(git branch --show-current)\"",
+    "git log ${RANGE} --oneline",
+])
+def test_ask_mode_stays_silent_for_expansions_without_destructive_flags(command, no_repo):
+    proc = run_hook(bash(command, no_repo), clean_env(GIT_SAFETY_MODE="ask"))
+    assert proc.returncode == 0 and proc.stdout == b"", command
+
+
+def test_expansion_tokens_are_kept_whole():
+    assert rga.tokenize("git push origin $(git rev-parse --abbrev-ref HEAD) -f") == [
+        "git", "push", "origin", "$(git rev-parse --abbrev-ref HEAD)", "-f"]
+    assert rga.split_segments("git push origin ${BRANCH} --force") == ["git push origin ${BRANCH} --force"]
+    assert rga.split_segments("{ git status; }") == ["git status"]
+
+
 def test_ask_mode_uses_plugin_option(no_repo):
     proc = run_hook(bash("git reset --hard", no_repo), clean_env(CLAUDE_PLUGIN_OPTION_GUARD_MODE="ask"))
     assert json.loads(proc.stdout)["hookSpecificOutput"]["permissionDecision"] == "ask"

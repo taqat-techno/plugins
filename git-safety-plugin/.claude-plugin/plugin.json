@@ -1,6 +1,6 @@
 {
   "name": "git-safety",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "Local git-workflow safety for Claude Code: stage explicit paths, re-check the tree before commit and push, never discard a dirty tree, author and push identity, and the hazards of several sessions or a file syncer sharing one working tree. One PreToolUse hook spots risky git commands (reset --hard, clean -f, force push, remote deletes, branch -D, history rewrites). By default it reminds Claude after the command runs; the opt-in ask mode makes you confirm irreversible operations before they run.",
   "author": {
     "name": "TaqaTechno",

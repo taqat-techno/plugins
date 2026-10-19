@@ -33,8 +33,16 @@ path ending in one) is analysed. Leading VAR=value assignments and wrappers such
 (-C <path>, -c k=v, --git-dir, --work-tree, --namespace, --no-pager, ...) are skipped
 before the subcommand. Flags are matched anywhere after the subcommand.
 
+Shell expansions (`$VAR`, `${VAR}`, `$(cmd)`, quoted or not) are opaque words: their
+value is unknown, but the flags around them still count, so
+`git push origin ${BRANCH} --force` is a force push whatever BRANCH holds. `$(...)`
+bodies are analysed too, because they run. An expansion before the program or the
+subcommand (`$SUDO git ...`, `git $GIT_OPTS push ...`) is skipped like a wrapper or
+global option.
+
 Cannot see: git aliases, scripts that call git, IDE or MCP git tools, commands built at
-runtime (eval, $(...) strings). Stdlib only, fails open on any error.
+runtime (eval), flags that live inside a variable (`git push $FORCE_FLAG`). Stdlib
+only, fails open on any error.
 
     python risky_git_advisory.py              # hook mode (reads the payload on stdin)
     python risky_git_advisory.py --self-test  # run the built-in detection table
@@ -113,13 +121,74 @@ MSG = {
 _SEPARATORS = ("&&", "||", ";", "|", "&", "\n", "(", ")", "{", "}")
 
 
+def _expansion_end(s: str, i: int) -> int:
+    """If s[i:] starts a `${...}`, `$(...)` or `$((...))` expansion, return the index just
+    past its closing bracket (len(s) when unterminated); otherwise -1.
+
+    Expansions are opaque words: the brackets inside them are not shell separators, so
+    `git push origin ${BRANCH} --force` keeps its `--force` (RA-GIT-01). Quotes and
+    nested expansions inside the brackets are respected."""
+    if s[i] != "$" or s[i + 1:i + 2] not in ("{", "("):
+        return -1
+    open_ch = s[i + 1]
+    close_ch = "}" if open_ch == "{" else ")"
+    depth, j, quote = 1, i + 2, None
+    while j < len(s):
+        ch = s[j]
+        if quote:
+            if ch == quote:
+                quote = None
+        elif ch in ("'", '"'):
+            quote = ch
+        elif ch == "$" and s[j + 1:j + 2] in ("{", "("):
+            j = _expansion_end(s, j)
+            continue
+        elif ch == open_ch:
+            depth += 1
+        elif ch == close_ch:
+            depth -= 1
+            if depth == 0:
+                return j + 1
+        j += 1
+    return len(s)
+
+
+def _substitutions(segment: str) -> list[str]:
+    """Bodies of the `$(...)` command substitutions in a segment (outside single quotes).
+    They run too, so git_invocations analyses them recursively."""
+    bodies, quote, i = [], None, 0
+    while i < len(segment):
+        ch = segment[i]
+        if quote == "'":
+            if ch == "'":
+                quote = None
+        elif ch == "$" and segment[i + 1:i + 2] == "(":
+            end = _expansion_end(segment, i)
+            bodies.append(segment[i + 2:end - 1] if segment[end - 1] == ")" else segment[i + 2:end])
+            i = end
+            continue
+        elif ch == '"':
+            quote = None if quote == '"' else '"'
+        elif ch == "'" and quote is None:
+            quote = "'"
+        i += 1
+    return bodies
+
+
 def split_segments(command: str) -> list[str]:
     """Split on unquoted shell separators. Quotes are kept so the tokenizer sees them.
-    `&` that is part of a redirection (2>&1, &>file) is not a separator."""
+    `&` that is part of a redirection (2>&1, &>file) is not a separator, and `${...}` /
+    `$(...)` expansions are kept whole as opaque words."""
     command = command.replace("\\\r\n", " ").replace("\\\n", " ")
     segments, buf, quote, i = [], [], None, 0
     while i < len(command):
         ch = command[i]
+        if quote != "'":
+            end = _expansion_end(command, i)
+            if end > 0:
+                buf.append(command[i:end])
+                i = end
+                continue
         if quote:
             buf.append(ch)
             if ch == quote:
@@ -154,9 +223,19 @@ def split_segments(command: str) -> list[str]:
 
 def tokenize(segment: str) -> list[str]:
     """Whitespace split with single/double quotes removed. Backslashes are kept literally
-    so Windows paths such as C:\\Git\\bin\\git.exe survive."""
+    so Windows paths such as C:\\Git\\bin\\git.exe survive. A `${...}` / `$(...)`
+    expansion stays inside one token even when it contains spaces."""
     tokens, buf, quote, has = [], [], None, False
-    for ch in segment:
+    i = 0
+    while i < len(segment):
+        ch = segment[i]
+        i += 1
+        if quote != "'":
+            end = _expansion_end(segment, i - 1)
+            if end > 0:
+                buf.append(segment[i - 1:end])
+                i = end
+                continue
         if quote:
             if ch == quote:
                 quote = None
@@ -185,6 +264,14 @@ _GLOBAL_WITH_VALUE = {"-C", "-c", "--git-dir", "--work-tree", "--namespace", "--
                       "--super-prefix", "--list-cmds", "--attr-source"}
 
 
+_EXPANSION_TOKEN = re.compile(r"^\$(?:[A-Za-z_][A-Za-z0-9_]*|[@*#?0-9]|\{.*\}|\(.*\))$", re.S)
+
+
+def _is_expansion(token: str) -> bool:
+    """True for a token that is nothing but one shell expansion ($VAR, ${VAR}, $(cmd))."""
+    return bool(_EXPANSION_TOKEN.match(token))
+
+
 def _prog(token: str) -> str:
     base = re.split(r"[\\/]", token)[-1].lower()
     return base[:-4] if base.endswith(".exe") else base
@@ -196,10 +283,12 @@ def git_invocations(command: str, depth: int = 0) -> list[tuple[str, list[str]]]
     if depth > 3:
         return found
     for segment in split_segments(command):
+        for body in _substitutions(segment):
+            found.extend(git_invocations(body, depth + 1))
         tokens = tokenize(segment)
         i = 0
         while i < len(tokens) and (_ASSIGN.match(tokens[i]) or _prog(tokens[i]) in _WRAPPERS
-                                   or tokens[i].startswith("$env:")):
+                                   or tokens[i].startswith("$env:") or _is_expansion(tokens[i])):
             i += 1
             # `env -i`, `nice -n 5`, `sudo -u x`: skip their flags too
             while i < len(tokens) and tokens[i].startswith("-") and _prog(tokens[i - 1]) in _WRAPPERS:
@@ -218,7 +307,9 @@ def git_invocations(command: str, depth: int = 0) -> list[tuple[str, list[str]]]
         if prog != "git":
             continue
         i += 1
-        while i < len(tokens) and tokens[i].startswith("-"):
+        # global options; an expansion here (`git $GIT_OPTS push ...`) is unresolvable,
+        # so it is skipped like an option rather than taken as the subcommand
+        while i < len(tokens) and (tokens[i].startswith("-") or _is_expansion(tokens[i])):
             opt = tokens[i]
             i += 1
             if opt in _GLOBAL_WITH_VALUE and "=" not in opt:
@@ -501,6 +592,29 @@ SELF_TEST = [
     ("(cd sub && git clean -fd)", ["clean-force"]),
     ("git status", []),
     ("git diff --cached --name-only", []),
+    # RA-GIT-01: expansions are opaque words; flags after them still count
+    ("git push origin ${BRANCH} --force", ["force-push"]),
+    ("git push origin $BRANCH --force", ["force-push"]),
+    ("git push origin \"$BRANCH\" --force", ["force-push"]),
+    ("git push origin \"${BRANCH}\" -f", ["force-push"]),
+    ("git push origin $(git rev-parse --abbrev-ref HEAD) --force", ["force-push"]),
+    ("git push origin \"$(git branch --show-current)\" --force", ["force-push"]),
+    ("git push origin ${BRANCH:-main} --delete", ["push-delete"]),
+    ("git push origin +${BRANCH}", ["force-push"]),
+    ("git push origin :${BRANCH}", ["push-delete"]),
+    ("git branch -D ${OLD_BRANCH}", ["branch-force-delete"]),
+    ("git reset --hard ${UPSTREAM}", ["reset-hard"]),
+    ("git -C ${REPO} clean -fdx", ["clean-force"]),
+    ("git $GIT_OPTS push origin main --force", ["force-push"]),
+    ("$SUDO git reset --hard", ["reset-hard"]),
+    ("bash -c \"git push origin ${BRANCH} --force\"", ["force-push"]),
+    ("echo \"$(git reset --hard)\"", ["reset-hard"]),
+    ("{ git reset --hard; }", ["reset-hard"]),
+    ("git push origin ${BRANCH}", []),
+    ("git push origin $(git branch --show-current)", []),
+    ("git checkout ${BRANCH}", []),
+    ("echo '${X} git push --force'", []),
+    ("git commit -m \"bump ${VERSION}\"", []),
 ]
 
 

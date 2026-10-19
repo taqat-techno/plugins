@@ -82,9 +82,14 @@ Flags count anywhere after the subcommand. It looks inside `sh -c` / `bash -c` /
 `pwsh -Command` bodies. Text in quotes, comments, `echo` and `grep` patterns and commit
 messages is not matched.
 
+Shell expansions (`$VAR`, `${VAR}`, `$(cmd)`, quoted or not) are read as opaque words: the
+hook cannot know their value, but the flags around them still count, so
+`git push origin ${BRANCH} --force` is treated as a force push whatever `BRANCH` holds.
+`$(...)` bodies are checked too, because they run.
+
 What it cannot see: git aliases (`git config alias.nuke 'reset --hard'`), scripts that call
-git (`./cleanup.sh`), commands assembled at runtime (`eval`, `$(...)`), IDE git
-integrations and MCP git tools. Treat it as a seatbelt, not a sandbox.
+git (`./cleanup.sh`), commands assembled at runtime (`eval`), flags kept inside a variable
+(`git push $FORCE_FLAG`), IDE git integrations and MCP git tools. Treat it as a seatbelt, not a sandbox.
 
 Check the detection table offline: `python hooks/risky_git_advisory.py --self-test`.
 

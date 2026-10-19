@@ -4,6 +4,12 @@ All notable changes to the `git-safety` plugin are documented here. The format i
 based on [Keep a Changelog](https://keepachangelog.com/), and the project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [0.5.1] - 2026-10-19
+
+### Fixed
+- **Shell expansions no longer hide the flags after them (RA-GIT-01).** `${...}` and `$(...)` were split on their brackets, so `git push origin ${BRANCH} --force` (and the same with `$(cmd)`) was not detected and ask mode did not ask. Expansions (`$VAR`, `${VAR}`, `$(cmd)`, quoted or not) are now opaque words and flag scanning continues after them; an unresolvable ref never cancels a destructive flag. `$(...)` bodies are analysed recursively, and an expansion before the program or subcommand (`$SUDO git ...`, `git $GIT_OPTS push ...`) is skipped like a wrapper or global option.
+- `--self-test` table grows from 54 to 76 cases (17 positive and 5 negative expansion rows); new offline tests cover ask mode with expansions.
+
 ## [0.5.0] - 2026-10-19
 
 ### Added
