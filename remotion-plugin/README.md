@@ -1,4 +1,4 @@
-# Remotion Video Creator - Claude Code Plugin v2.1.0
+# Remotion Video Creator - Claude Code Plugin v2.2.2
 
 Create professional videos with smooth voice narration using [Remotion](https://remotion.dev) and Claude Code. Describe your video in plain English, get a rendered MP4 with free voice narration.
 
@@ -27,7 +27,7 @@ cd my-video && npm run dev
 | Command | Description |
 |---------|-------------|
 | `/remotion` | Check project status and prerequisites |
-| `/remotion [name]` | Initialize a new Remotion project with all dependencies |
+| `/remotion [name]` | Start a new Remotion project with the given name. There is no scripted init step yet: Claude scaffolds it following the skill's guidance |
 
 All other workflows (rendering, voice generation, video creation) are handled through natural language — no slash commands needed.
 
@@ -87,17 +87,20 @@ One continuous audio track at the root level:
 
 ```
 remotion-plugin/
-├── remotion/SKILL.md          # Skill (triggers on video/voice/render requests)
-├── commands/remotion.md       # /remotion command (init/setup only)
-├── hooks/hooks.json           # 5 PostToolUse safety hooks
-├── scripts/                   # Python tools for voice pipeline
+├── skills/remotion/SKILL.md   # remotion-video skill (triggers on video/voice/render requests)
+├── commands/remotion.md       # /remotion command
+├── hooks/hooks.json           # Empty: no hooks are registered
+├── scripts/                   # Python tools for the voice pipeline, run in place
+│   │                          #   as python "${CLAUDE_PLUGIN_ROOT}/scripts/<name>.py"
 │   ├── setup_check.py         # Check all prerequisites
 │   ├── generate_voice.py      # Generate MP3 from text (edge-tts)
 │   ├── concat_audio.py        # Merge MP3s into continuous track
 │   ├── measure_audio.py       # Validate audio duration vs frames
 │   └── _common.py             # Shared utilities
-├── templates/                 # TSX composition templates (copied during setup)
+├── templates/                 # TSX composition templates (reference only; not copied automatically)
 ├── memories/                  # Reference files for patterns and troubleshooting
+├── tests/test_paths.py        # Offline check: referenced plugin paths exist
+├── CHANGELOG.md
 └── README.md
 ```
 
@@ -114,4 +117,4 @@ MIT — Free to use, modify, and distribute.
 
 ## Author
 
-**TAQAT Techno** — support@example.com
+**TAQAT Techno** — info@taqatechno.com

@@ -1,5 +1,29 @@
 # Changelog
 
+## [2.2.2] - 2026-10-19
+
+**The voice pipeline commands now run from the user's project** (RMT-P0-01).
+`skills/remotion/SKILL.md` told Claude to run `python scripts/generate_voice.py`,
+`concat_audio.py`, `measure_audio.py` and `setup_check.py` by relative path,
+saying the scripts were "copied from plugin" - nothing ever copied them, so from a
+video project's directory every command failed. Each invocation now uses
+`python "${CLAUDE_PLUGIN_ROOT}/scripts/<name>.py"` (the scripts already locate
+`_common.py` relative to themselves), the project tree no longer shows a copied
+`scripts/` folder, and the skill states that output paths are relative to the
+current directory.
+
+README no longer claims things that do not ship: the "5 PostToolUse safety
+hooks" line is gone (`hooks/hooks.json` is empty), templates are described as
+reference-only rather than "copied during setup", `/remotion [name]` says there is
+no scripted init step yet, the structure tree shows `skills/remotion/SKILL.md`
+and `tests/`, the header version is current, and the placeholder
+`support@example.com` contact is replaced with `info@taqatechno.com`.
+
+- Added `tests/test_paths.py` (offline, stdlib `unittest`): every concrete
+  `${CLAUDE_PLUGIN_ROOT}/...` reference resolves to a file, the skill references
+  all four pipeline scripts, and no bare `python scripts/...` invocation remains.
+  Run with `python -m unittest discover -s tests -v`.
+
 ## [2.2.1] - 2026-09-12
 
 Adds a behavioural eval suite under `evals/` (1 must-fire case + 1 must-not-fire case), so this plugin's value claim is measured as

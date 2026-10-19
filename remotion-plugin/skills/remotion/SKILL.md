@@ -66,7 +66,7 @@ All other workflows (rendering, voice generation, video creation) are handled vi
 | edge-tts | latest | `pip install edge-tts` |
 | mutagen | latest | `pip install mutagen` |
 
-Run `python scripts/setup_check.py` from the plugin directory to verify.
+Run `python "${CLAUDE_PLUGIN_ROOT}/scripts/setup_check.py"` to verify (works from any directory).
 
 ---
 
@@ -87,7 +87,6 @@ my-video/
 │   └── lib/
 │       ├── types.ts        # Zod schemas
 │       └── constants.ts    # FPS, durations, colors
-├── scripts/                # Voice generation tools (copied from plugin)
 ├── remotion.config.ts
 └── package.json
 ```
@@ -128,11 +127,11 @@ When each slide has its own `<Audio>` inside a `<Sequence>`, audio **stops** whe
 ### The Pipeline
 
 1. Write narration text for each scene
-2. Generate per-scene MP3 files with edge-tts (`python scripts/generate_voice.py`)
-3. Concatenate all MP3s into ONE continuous track (`python scripts/concat_audio.py`)
+2. Generate per-scene MP3 files with edge-tts (`python "${CLAUDE_PLUGIN_ROOT}/scripts/generate_voice.py"`)
+3. Concatenate all MP3s into ONE continuous track (`python "${CLAUDE_PLUGIN_ROOT}/scripts/concat_audio.py"`)
 4. Use segment timestamps from concat output for visual `<Sequence>` timing
 5. Place single `<Audio>` at root — never inside `<Sequence>`
-6. Validate with `python scripts/measure_audio.py`
+6. Validate with `python "${CLAUDE_PLUGIN_ROOT}/scripts/measure_audio.py"`
 
 ### Frame Calculation Formula
 
@@ -149,17 +148,17 @@ const startFrame = Math.ceil(timestampMs * FPS / 1000);
 
 ## Voice Generation Workflow
 
-When the user asks to add voice narration or create a video with voice:
+When the user asks to add voice narration or create a video with voice, run the plugin's scripts in place from the video project's root (they are not copied into the project; output paths are relative to the current directory):
 
 ```bash
 # Generate per-scene audio
-python scripts/generate_voice.py --text "Scene text..." --voice "en-US-AriaNeural" --output public/audio/scene01.mp3 --fps 30
+python "${CLAUDE_PLUGIN_ROOT}/scripts/generate_voice.py" --text "Scene text..." --voice "en-US-AriaNeural" --output public/audio/scene01.mp3 --fps 30
 
 # Concatenate into continuous track
-python scripts/concat_audio.py --files public/audio/scene01.mp3 public/audio/scene02.mp3 --output public/audio/narration.mp3 --gap 200 --fps 30
+python "${CLAUDE_PLUGIN_ROOT}/scripts/concat_audio.py" --files public/audio/scene01.mp3 public/audio/scene02.mp3 --output public/audio/narration.mp3 --gap 200 --fps 30
 
 # Measure and validate
-python scripts/measure_audio.py public/audio/narration.mp3 --fps 30
+python "${CLAUDE_PLUGIN_ROOT}/scripts/measure_audio.py" public/audio/narration.mp3 --fps 30
 ```
 
 The concat script outputs JSON with segment boundaries — use these for `<Sequence>` timing.
