@@ -2,6 +2,18 @@
 
 All notable changes to `rag-plugin` are documented here. Format is loosely based on [Keep a Changelog](https://keepachangelog.com/). Versioning follows [SemVer](https://semver.org/).
 
+## [0.19.0] - 2026-10-19
+
+### Security
+- **`/report` issue bodies are counts-only by default.** Transcript snippets, session file paths, project IDs and watched-path lists stay in the local report. `--include-snippets` opts in to up to 6 redacted snippets; even then paths become `<path>`, project keys become `<project>`, and session paths are never included (audit RAG-P1-01, D-038).
+- Before filing, `/report` shows each issue body in full (`--preview --from <dir>`) and asks for approval of that exact body, not just the repo and title.
+### Fixed
+- Target repos and the GitHub account now come from `~/.claude/rag-plugin/config.json` (`report.repos.application`, `report.repos.plugin`, `report.github_account`), as `commands/report.md` already said. They were hardcoded (RAG-P1-04).
+### Changed
+- Added `"license": "MIT"` to plugin.json.
+- Internal planning and investigation reports (`RAG_PLUGIN_*.md`) are no longer shipped. Author paths and project names in docs are replaced with placeholders.
+- Cross-references renamed from `claude-env-doctor` to `env-doctor`.
+
 ## [0.18.2] - 2026-10-19
 
 ### Fixed
@@ -57,7 +69,7 @@ The same defect ran through the two other layers that reach Claude: the injected
 
 - **Scope is now mandatory everywhere the plugin teaches a search.** The `CLAUDE.md` block (bumped to `v=0.6.0`), the injected hook reminder, and `mcp-envelope.md` all show `project=`. A structural test fails the build if any artefact emits an unscoped call.
 - **Rule-version drift is now an ERROR, not a table row.** Every measured install sat at block `v=0.4.0` while the plugin shipped `v=0.5.0` — a whole routing section existed only in the repository. `/doctor` reports drift as a prominent finding; `commands/config.md` no longer hardcodes a version literal.
-- **The scope resolver no longer picks the wrong project.** Descendant matches were ranked `200 + len(path)`, so from `C:/MY-WorkSpace/claude_plugins` it selected `taqat-plugins` (`…/TR_plugins`, 241) over `claude-plugins` (`…/plugins`, 238) — decided by three characters of path string, with an ambiguity guard that needed a difference of *less than* 3. Relations are now separated: exact and ancestor matches rank by specificity; multiple descendants are **ambiguous** and surfaced, with a union search offered.
+- **The scope resolver no longer picks the wrong project.** Descendant matches were ranked `200 + len(path)`, so from `C:/work/claude_plugins` it selected `taqat-plugins` (`…/TR_plugins`, 241) over `claude-plugins` (`…/plugins`, 238) — decided by three characters of path string, with an ambiguity guard that needed a difference of *less than* 3. Relations are now separated: exact and ancestor matches rank by specificity; multiple descendants are **ambiguous** and surfaced, with a union search offered.
 - **Project enumeration costs one HTTP call, not 1+N.** `/api/projects/configured` returns `path`, `mode`, `state`, `enabled`, `files` and `chunks` for every project at once — 25 requests became 1 on a 24-project install, and it carries the two fields the old path never fetched.
 - **`mode` and `state` now reach Claude before the first search.** On a measured install **22 of 24 projects were `docs` mode** and 8 were `indexed_stale`; an empty code result there means nothing, and saying "that does not exist" is the most damaging error this tool allows.
 - **Citation paths are repaired and verified.** ragtools stores `file_path` as `{project_id}/{rel}` and its text formatter prefixes `project_id/` again, so `rag/docs/x.md` is cited as `rag/rag/docs/x.md`. One conditional strip, keyed on the scoped project id, then an existence check — and an unresolvable citation is reported as unverified rather than repaired by guesswork.
@@ -831,7 +843,7 @@ The lesson that justifies D-020 is worth stating plainly: **when wiring a stdio 
 For the rare install where `rag` is genuinely not on PATH (user skipped the installer's "Add to PATH" option on Windows, or did not set up PATH on macOS), `/setup` branch C.1–C.2 still works: it reads `GET http://127.0.0.1:21420/api/mcp-config` to get the absolute binary path from the running service, then writes a user-level `~/.claude/.mcp.json` with the **wrapped** shape and that absolute path. Duplicate-registration cleanup via `/config mcp-dedupe` handles the plugin-level-vs-user-level coexistence. This flow is unchanged from v0.1.0 and is the documented fallback.
 
 ### Verification
-- `where rag` on the reporter's Windows machine returns `C:\Users\ahmed\AppData\Local\Programs\RAGTools\rag.exe` — confirming `rag` is on PATH by default after the installer runs (the reporter's screenshot also shows `C:\Users\ahmed\AppData\Local\Programs\RAGTools` in the user Path env var).
+- `where rag` on the reporter's Windows machine returns `C:\Users\<user>\AppData\Local\Programs\RAGTools\rag.exe` — confirming `rag` is on PATH by default after the installer runs (the reporter's screenshot also shows `C:\Users\<user>\AppData\Local\Programs\RAGTools` in the user Path env var).
 - `where rag-mcp` returns nothing on packaged Windows — this is why hardcoding `rag-mcp` in v0.2.0/v0.3.0 was broken, and also why `rag` is the correct choice (not `rag-mcp`).
 - `python plugins/validate_plugin.py rag-plugin` passes.
 - JSON sanity: `python -c "import json; d=json.load(open('plugins/rag-plugin/.mcp.json')); assert d['ragtools']['command']=='rag' and d['ragtools']['args']==['serve']"` exits 0.
@@ -869,7 +881,7 @@ The v0.3.0 bug was **one** bug (command `rag-mcp` not on PATH in packaged Window
 
 ### Verification
 - Before-and-after: `cat ~/.claude/plugins/cache/taqat-techno-plugins/rag/0.3.2/.mcp.json` shows flat shape with launcher.
-- `python plugins/rag-plugin/scripts/rag_mcp_launcher.py --dry-run` resolves to `C:\Users\ahmed\AppData\Local\Programs\RAGTools\rag.exe serve` via the running service.
+- `python plugins/rag-plugin/scripts/rag_mcp_launcher.py --dry-run` resolves to `C:\Users\<user>\AppData\Local\Programs\RAGTools\rag.exe serve` via the running service.
 - Compared against `~/.claude/plugins/cache/claude-plugins-official/chrome-devtools-mcp/latest/.mcp.json` byte-for-byte structure — both use identical flat shape.
 - `/mcp` after restart: `plugin:rag:ragtools` should now expose `search_knowledge_base`, `list_projects`, `index_status` to the model (requires Claude Code session restart so the deferred-tool registry re-indexes).
 
@@ -961,7 +973,7 @@ Post-roadmap amendment. Ships the CLAUDE.md retrieval rule as an auto-installed 
 - **`README.md`** updated with the v0.2.0 auto-install behavior under "What this plugin IS".
 
 ### Rationale
-User incident — asked *"What is the process for emergency assistance requests?"*. The ragtools MCP was loaded and the answer was in `tq-workspace/planing/Alaqraboon/_Emergency_Assistance_Procedure_en.md` at confidence 0.80. Claude never called `search_knowledge_base` and said *"I don't have information about an 'emergency assistance request' process."* This was a retrieval failure: the tool existed, but nothing instructed Claude *when* to use it.
+User incident — asked *"What is the process for emergency assistance requests?"*. The ragtools MCP was loaded and the answer was in `docs/procedures/emergency-assistance.md` at confidence 0.80. Claude never called `search_knowledge_base` and said *"I don't have information about an 'emergency assistance request' process."* This was a retrieval failure: the tool existed, but nothing instructed Claude *when* to use it.
 
 Fix: ship a workflow instruction block (`rules/claude-md-retrieval-rule.md`) that the plugin's setup and repair commands inject into the user's `~/.claude/CLAUDE.md`. The rule loads at session start and applies globally across all projects — no per-project configuration needed. Versioned with begin/end markers for idempotent upgrade and clean removal. Safety-gated like every other write operation in the plugin: backup, atomic write, confirmation, splice by marker.
 

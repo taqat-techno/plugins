@@ -1078,5 +1078,179 @@ class TestHealthySystemNoStaleHeuristics(unittest.TestCase):
         self.assertIsNone(_by_id(app, "A-015"), _ids(app))
 
 
+# ============================================================================
+# D-038 (RAG-P1-01 / RAG-P1-04): public issue bodies are counts-only by
+# default; snippets are opt-in and scrubbed; target repos come from config.
+# ============================================================================
+
+
+_SECRET_SNIPPET = ("I don't have information about acme-secret-proj in "
+                   "C:\\Users\\bob\\.claude\\projects\\C--work-acme-secret-proj\\s.jsonl "
+                   "or ~/work/acme-secret-proj/notes.md")
+_SESSION_FILE = "~/.claude/projects/C--work-acme-secret-proj/1234.jsonl"
+
+
+def _leaky_inputs(rr):
+    state = rr.State()
+    state.install_mode = "packaged-windows"
+    state.service_mode = "UP"
+    state.api_projects = [
+        {"project_id": "acme-secret-proj", "files": 3, "chunks": 30, "enabled": True},
+        {"project_id": "zeta-internal", "files": 2, "chunks": 20, "enabled": False},
+    ]
+    state.watcher_status = {"running": True,
+                            "paths": ["C:/work/acme-secret-proj", "C:/work/zeta-internal"]}
+    plugin = rr.PluginInspection()
+    plugin.manifest_version = "0.0.0-test"
+    cci = rr.ClaudeConfigInspection()
+    hook_stats = rr.HookLogStats()
+    scan = rr.SessionScanResult()
+    scan.sessions_found = scan.sessions_scanned = scan.sessions_with_signal = 1
+    scan.signal_counts = {"retrieval-skipped": 4}
+    scan.examples = [{"session_file": _SESSION_FILE, "signal": "retrieval-skipped",
+                      "snippet": _SECRET_SNIPPET}]
+    scan.project_keys = ["C--work-acme-secret-proj"]
+    meta = {"timestamp": "t", "hostname": "h***x", "platform": "p",
+            "python": "3", "shell": "s", "plugin_version": "0.0.0-test"}
+    return state, plugin, cci, hook_stats, scan, meta
+
+
+def _render(rr, target, include_snippets=False, config=None):
+    state, plugin, cci, hook_stats, scan, meta = _leaky_inputs(rr)
+    findings = [_finding(rr, "P-010" if target == "plugins" else "A-003", target)]
+    return rr.render_github_issue(target, findings, state, plugin, cci, hook_stats,
+                                  scan, meta, config=config,
+                                  include_snippets=include_snippets)
+
+
+class TestPublicIssueBodyPrivacy(unittest.TestCase):
+    def setUp(self):
+        self.rr = _load_rr()
+        self.cfg = self.rr.load_report_config(Path("/nonexistent/config.json"))
+
+    def _assert_no_leaks(self, body):
+        self.assertNotIn(".claude/projects", body)
+        self.assertNotIn(".claude\\projects", body)
+        self.assertNotIn("1234.jsonl", body)
+        self.assertNotIn("acme-secret-proj", body)
+        self.assertNotIn("zeta-internal", body)
+        self.assertNotIn("C--work", body)
+
+    def test_default_plugins_body_has_no_snippets_or_paths(self):
+        body = _render(self.rr, "plugins", config=self.cfg)
+        self.assertNotIn("I don't have information", body)
+        self.assertNotIn("Example snippets (opt-in", body)
+        self.assertIn("`retrieval-skipped`: 4", body)  # counts survive
+        self._assert_no_leaks(body)
+
+    def test_default_rag_body_has_no_project_id_list(self):
+        body = _render(self.rr, "rag", config=self.cfg)
+        self.assertIn("Projects configured: 2", body)
+        self.assertNotIn("| Name | Files | Chunks | Enabled |", body)
+        self.assertIn("2 entries withheld", body)
+        self._assert_no_leaks(body)
+
+    def test_opt_in_snippets_are_scrubbed_and_pathless(self):
+        body = _render(self.rr, "plugins", include_snippets=True, config=self.cfg)
+        self.assertIn("I don't have information about <project>", body)
+        self.assertIn("<path>", body)
+        self._assert_no_leaks(body)
+
+    def test_stale_manual_copy_notice_removed(self):
+        body = _render(self.rr, "plugins", config=self.cfg)
+        self.assertNotIn("copying this manually", body)
+
+    def test_local_behavior_report_keeps_snippets(self):
+        state, plugin, cci, hook_stats, scan, meta = _leaky_inputs(self.rr)
+        local = self.rr.render_plugin_report(state, plugin, cci, hook_stats, scan, [], meta)
+        self.assertIn(_SESSION_FILE, local)
+        self.assertIn("I don't have information", local)
+
+
+class TestReportConfigRouting(unittest.TestCase):
+    def setUp(self):
+        self.rr = _load_rr()
+
+    def _cfg(self, payload):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        p = Path(tmp.name) / "config.json"
+        p.write_text(_json.dumps(payload), encoding="utf-8")
+        return self.rr.load_report_config(p)
+
+    def test_defaults_are_current_public_repos(self):
+        cfg = self.rr.load_report_config(Path("/nonexistent/config.json"))
+        self.assertEqual(cfg["repos"], {"rag": "taqat-techno/rag",
+                                        "plugins": "taqat-techno/plugins"})
+        self.assertIsNone(cfg["github_account"])
+
+    def test_config_override_is_honored_in_meta_body_and_plan(self):
+        cfg = self._cfg({"report": {"repos": {"application": "me/rag-fork",
+                                              "plugin": "me/plugins-fork"},
+                                    "github_account": "me-bot"}})
+        state, plugin, *_ = _leaky_inputs(self.rr)
+        f = [_finding(self.rr, "A-003", "rag")]
+        self.assertEqual(self.rr.build_issue_meta("rag", f, state, plugin, cfg)["repo"],
+                         "me/rag-fork")
+        body = _render(self.rr, "plugins", config=cfg)
+        self.assertIn("github.com/me/plugins-fork", body)
+        plan, _ = self.rr.build_issue_plan([("rag", f, "pre\n---\nbody", "h.md")],
+                                           state, plugin, cfg)
+        self.assertEqual(plan[0]["repo"], "me/rag-fork")
+        self.assertEqual(plan[0]["github_account"], "me-bot")
+
+    def test_invalid_values_fall_back_with_warning(self):
+        cfg = self._cfg({"report": {"repos": {"application": "not a repo"},
+                                    "github_account": "bad login!"}})
+        self.assertEqual(cfg["repos"]["rag"], "taqat-techno/rag")
+        self.assertIsNone(cfg["github_account"])
+        self.assertEqual(len(cfg["warnings"]), 2)
+
+    def test_main_reads_config_from_home(self):
+        """End-to-end: config.json under HOME drives issue-plan.json, no gh call."""
+        orig_gh, fake = self.rr._run_gh, _FakeGh()
+        self.rr._run_gh = fake
+        orig_path = self.rr.report_config_path
+        with tempfile.TemporaryDirectory() as tmp:
+            cfgp = Path(tmp) / "config.json"
+            cfgp.write_text(_json.dumps({"report": {"repos": {
+                "application": "me/rag-fork", "plugin": "me/plugins-fork"}}}),
+                encoding="utf-8")
+            self.rr.report_config_path = lambda: cfgp
+            try:
+                out = Path(tmp) / "out"
+                rc = self.rr.main(["--no-sessions", "--quiet", "--out", str(out)])
+                plan = _json.loads((out.resolve() / "issue-plan.json").read_text(encoding="utf-8"))
+            finally:
+                self.rr.report_config_path = orig_path
+                self.rr._run_gh = orig_gh
+        self.assertEqual(rc, 0)
+        self.assertEqual({e["repo"] for e in plan}, {"me/rag-fork", "me/plugins-fork"})
+        self.assertEqual(len(fake.calls), 0)
+
+
+class TestPreviewPrintsFullBody(unittest.TestCase):
+    def setUp(self):
+        self.rr = _load_rr()
+
+    def test_preview_prints_body_and_never_calls_gh(self):
+        import contextlib
+        import io
+        orig, fake = self.rr._run_gh, _FakeGh()
+        self.rr._run_gh = fake
+        buf = io.StringIO()
+        try:
+            with tempfile.TemporaryDirectory() as tmp:
+                d = _write_plan_dir(tmp)
+                with contextlib.redirect_stdout(buf):
+                    rc = self.rr.main(["--preview", "--from", str(d)])
+        finally:
+            self.rr._run_gh = orig
+        self.assertEqual(rc, 0)
+        self.assertIn("issue body", buf.getvalue())
+        self.assertIn("ISSUE BODY", buf.getvalue())
+        self.assertEqual(len(fake.calls), 0)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

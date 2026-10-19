@@ -251,7 +251,7 @@ Packaged macOS users must manually add the extract directory to PATH (no install
 **Phase:** Post-9
 **Status:** binding
 **Ships in:** v0.2.0
-**Triggered by:** User incident — a user asked *"What is the process for emergency assistance requests?"*. The ragtools MCP was loaded and the answer was in `tq-workspace/planing/Alaqraboon/_Emergency_Assistance_Procedure_en.md` at confidence 0.80. Claude never called `search_knowledge_base` and said *"I don't have information about an 'emergency assistance request' process."* This was a retrieval failure: the tool existed, but nothing instructed Claude *when* to use it.
+**Triggered by:** User incident — a user asked *"What is the process for emergency assistance requests?"*. The ragtools MCP was loaded and the answer was in `docs/procedures/emergency-assistance.md` at confidence 0.80. Claude never called `search_knowledge_base` and said *"I don't have information about an 'emergency assistance request' process."* This was a retrieval failure: the tool existed, but nothing instructed Claude *when* to use it.
 
 ### The decision
 
@@ -309,7 +309,7 @@ Never. The rule closes a genuine retrieval failure and the install mechanism is 
 **Phase:** Post-9
 **Status:** binding
 **Ships in:** v0.3.0
-**Triggered by:** The D-016 CLAUDE.md rule is advisory. A follow-up incident confirmed the gap: with the rule loaded, Claude still misclassified *"What is the process for emergency assistance requests?"* as general knowledge and refused to call `search_knowledge_base`, even though the answer was in `tq-workspace/planing/Alaqraboon/_Emergency_Assistance_Procedure_en.md` at confidence 0.80. The user correctly identified this as a failure of instruction-layer enforcement: CLAUDE.md is text Claude reads, not a hook Claude must execute.
+**Triggered by:** The D-016 CLAUDE.md rule is advisory. A follow-up incident confirmed the gap: with the rule loaded, Claude still misclassified *"What is the process for emergency assistance requests?"* as general knowledge and refused to call `search_knowledge_base`, even though the answer was in `docs/procedures/emergency-assistance.md` at confidence 0.80. The user correctly identified this as a failure of instruction-layer enforcement: CLAUDE.md is text Claude reads, not a hook Claude must execute.
 
 ### The decision
 
@@ -544,7 +544,7 @@ This matches the pattern used by every working MCP plugin on the reporter's mach
 
 ### Why `rag` (not `rag-mcp`)
 
-`where rag` returns `C:\Users\ahmed\AppData\Local\Programs\RAGTools\rag.exe` on the reporter's packaged Windows install. `where rag-mcp` returns nothing. This was the original v0.3.0 bug — the plugin hardcoded `rag-mcp` which only exists as a pip console-script on dev installs. Fixing the binary name (`rag`) was the single change v0.3.0 actually needed. Everything after that (wrapped schema, launcher script) was over-correction.
+`where rag` returns `C:\Users\<user>\AppData\Local\Programs\RAGTools\rag.exe` on the reporter's packaged Windows install. `where rag-mcp` returns nothing. This was the original v0.3.0 bug — the plugin hardcoded `rag-mcp` which only exists as a pip console-script on dev installs. Fixing the binary name (`rag`) was the single change v0.3.0 actually needed. Everything after that (wrapped schema, launcher script) was over-correction.
 
 `rag` is a pyproject console-script in the ragtools package, so it is also available on dev installs via `pip install -e .`. Both supported install modes cover it.
 
@@ -646,7 +646,7 @@ Considered: keep `rag-status.md` / `rag-repair.md` / `rag-upgrade.md` as thin st
 **Status:** binding
 **Ships in:** v0.5.0
 **Refines:** D-001 (ops-only, never search). Does not supersede it. D-001 remains in force for content-retrieval tools.
-**Triggered by:** ragtools MCP v2.5.0 (handoff doc at `C:\MY-WorkSpace\claude_plugins\ragtools_mcp_doc.md`) expanded the MCP surface from 3 content-retrieval tools to **22 tools**: 3 core (content), 9 optional project ops (default ON), 9 optional debug (default OFF). D-001 was written when the MCP only had the 3 core content tools, and its "never call MCP tools" posture would now forbid the plugin from using 19 explicitly-designed operational tools — which is backwards.
+**Triggered by:** ragtools MCP v2.5.0 (handoff doc at `<workspace>\ragtools_mcp_doc.md`) expanded the MCP surface from 3 content-retrieval tools to **22 tools**: 3 core (content), 9 optional project ops (default ON), 9 optional debug (default OFF). D-001 was written when the MCP only had the 3 core content tools, and its "never call MCP tools" posture would now forbid the plugin from using 19 explicitly-designed operational tools — which is backwards.
 
 ### The clarification
 
@@ -713,7 +713,7 @@ Three safety and design properties fall out of this split:
 **Phase:** Post-9
 **Status:** binding
 **Ships in:** v0.7.0
-**Triggered by:** user-provided Markdown authoring standard at `C:\MY-WorkSpace\claude_plugins\rag_md_guidelines.md`, reverse-engineered from `src/ragtools/chunking/markdown.py` + `src/ragtools/retrieval/formatter.py` + `src/ragtools/embedding/encoder.py` (MiniLM-L6-v2, 256-token max). The guideline documents exactly which Markdown patterns the chunker rewards and which it punishes. Ships alongside the rag-plugin's shift from "any Markdown" to "Markdown that chunks well for this specific RAG pipeline."
+**Triggered by:** user-provided Markdown authoring standard at `<workspace>\rag_md_guidelines.md`, reverse-engineered from `src/ragtools/chunking/markdown.py` + `src/ragtools/retrieval/formatter.py` + `src/ragtools/embedding/encoder.py` (MiniLM-L6-v2, 256-token max). The guideline documents exactly which Markdown patterns the chunker rewards and which it punishes. Ships alongside the rag-plugin's shift from "any Markdown" to "Markdown that chunks well for this specific RAG pipeline."
 
 ### The decision
 
@@ -1377,3 +1377,27 @@ silent-pass:probe-error:http-422   105   first 2026-07-29T07:55:59Z
 
 - Per-prompt scope resolution proves too expensive even cached — then split the probe back out and accept that it cannot know the project.
 - Claude Code stops supporting a single hook doing both jobs.
+
+---
+
+## D-038 — `/report` public issue bodies are counts-only; full body approved before filing; routing is configuration (amends D-030)
+
+Date: 2026-10-19
+Phase: Public-readiness review (RAG-P1-01, RAG-P1-04, SEC-02)
+Status: binding
+Amends: D-030 §1 (confirmation), §4 (routing), §6 (privacy)
+
+### Context
+
+`/report` files issues into **public** repositories. The posted body embedded up to six session-transcript snippets drawn from every project under `~/.claude/projects/`, the session file paths (whose directory names encode local project paths), and a table of up to fifteen ragtools project IDs. The D-030 confirmation showed only repo + title, so the user approved content they had not seen. The body's privacy notice still claimed the user was "copying this manually". Separately, `commands/report.md` said the repos and gh account came from `~/.claude/rag-plugin/config.json`, while the script hardcoded both repos.
+
+### The decision
+
+1. **Counts-only by default.** The issue body carries signal counts, the project count with aggregate files/chunks, and watched-path counts. No snippet text, no session file paths, no project IDs or names. The local reports and `redacted-diagnostics.json` keep the full detail.
+2. **Snippets are opt-in** (`--include-snippets`): at most six, secret-redacted, with every path replaced by `<path>` and session project keys / ragtools project IDs replaced by `<project>`. Session file paths are never included, even with the opt-in.
+3. **The user approves the body, not the title.** `--preview --from <dir>` prints each body verbatim; the command relays it in full and asks `File these issue body/bodies exactly as shown? [yes/no]`.
+4. **Routing is configuration.** `report.repos.application`, `report.repos.plugin`, and `report.github_account` in `~/.claude/rag-plugin/config.json`; defaults `taqat-techno/rag` and `taqat-techno/plugins`, no default account. Invalid values fall back with a warning. Resolved values are recorded in `issue-plan.json`, so `--create` files where the preview said it would.
+
+### Reverse only if
+
+- Maintainers show that counts-only bodies cannot be triaged — then widen the opt-in, never the default.

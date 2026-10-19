@@ -13,7 +13,7 @@ Nine ragtools defects found while implementing the plugin's retrieval upgrade. *
 
 Each carries the plugin-side mitigation shipped in v0.18.0 and the condition that retires it. Two of them (**A-01**, **A-02**) let the plugin *delete* a workaround rather than carry it, so they are worth filing first. One (**A-04**) cannot be mitigated plugin-side at all.
 
-Evidence base: `C:\MY-WorkSpace\rag\RAG_MCP_CLAUDE_CAPABILITY_AND_PLUGIN_UPGRADE_REPORT.md` (§32 carries the reproduction commands), plus this session's measurements against the live `:21420` service running v3.5.1.
+Evidence base: `<ragtools-repo>\RAG_MCP_CLAUDE_CAPABILITY_AND_PLUGIN_UPGRADE_REPORT.md` (§32 carries the reproduction commands), plus this session's measurements against the live `:21420` service running v3.5.1.
 
 ---
 
@@ -179,7 +179,7 @@ A **PyInstaller bundle** puts the package under `_internal/`, which contains no 
 $ curl -s http://127.0.0.1:21420/identity
 install_mode : source        <- wrong; the binary is …\Programs\RAGTools\rag.exe
 profile      : installed     <- right, but see below
-data_dir     : C:\Users\ahmed\AppData\Local\RAGTools\data
+data_dir     : C:\Users\<user>\AppData\Local\RAGTools\data
 ```
 
 `profile` is unreliable in the opposite direction: `os.environ.get("RAG_PROFILE", "installed")` defaults to `"installed"`, which is exactly how a developer runs from source. **Neither self-report can be trusted alone.**

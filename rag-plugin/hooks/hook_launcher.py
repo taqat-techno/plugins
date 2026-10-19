@@ -2,7 +2,7 @@
 """rag-plugin resilient hook launcher — fail-open by construction (D-031).
 
 This launcher fixes a *prompt/tool-blocking* design vulnerability in the bundled
-hooks (see RAG_PLUGIN_HOOK_INVESTIGATION_REPORT.md and docs/decisions.md#d-031).
+hooks (see docs/decisions.md#d-031).
 
 The problem (proven, present since v0.3.0)
 ------------------------------------------

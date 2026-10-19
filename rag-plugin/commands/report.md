@@ -1,15 +1,15 @@
 ---
-description: Generate local diagnostic reports, route findings to the right repo, and — after one yes/no confirmation — file GitHub issues automatically. Application/runtime findings go to taqat-techno/rag; plugin/Claude/behavior findings go to taqat-techno/plugins. Redacts secrets, dedups by fingerprint, writes artifacts under ~/.claude/rag-plugin/reports/. Use --dry-run for local-only (no creation); falls back to local-only if the GitHub CLI is unavailable.
-argument-hint: "[--dry-run] [--no-sessions] [--max-sessions N] [--out <dir>] [--quiet]"
+description: Generate local diagnostic reports, route findings to the right repo, show the full issue body, and — after you approve that body — file GitHub issues. Application/runtime findings go to taqat-techno/rag; plugin/Claude/behavior findings go to taqat-techno/plugins (both configurable). Public issue bodies are counts-only by default. Redacts secrets, dedups by fingerprint, writes artifacts under ~/.claude/rag-plugin/reports/. Use --dry-run for local-only (no creation); falls back to local-only if the GitHub CLI is unavailable.
+argument-hint: "[--dry-run] [--no-sessions] [--max-sessions N] [--include-snippets] [--out <dir>] [--quiet]"
 allowed-tools: Bash(python:*), Bash(python3:*), Bash(where rag:*), Bash(which rag:*), Bash(rag version:*), Bash(curl:*), Bash(gh:*), Read
 disable-model-invocation: false
 ---
 
 # /report
 
-Generates **two diagnostic reports** plus a summary and two GitHub-ready issue bodies in a single timestamped directory, then — by default, after one explicit yes/no confirmation — **files the issues automatically** to the correct repo via the GitHub CLI. Captures install/runtime/performance/configuration/session-behavior evidence for the maintainers. Reports surface findings whether the system is healthy, degraded, or broken — not just bugs but also performance issues, config drift, missed retrievals, manual workarounds, and improvement opportunities.
+Generates **two diagnostic reports** plus a summary and two GitHub-ready issue bodies in a single timestamped directory, then — by default, after you have seen the **full issue body** and approved it — **files the issues** to the correct repo via the GitHub CLI. Captures install/runtime/performance/configuration/session-behavior evidence for the maintainers. Reports surface findings whether the system is healthy, degraded, or broken — not just bugs but also performance issues, config drift, missed retrievals, manual workarounds, and improvement opportunities.
 
-**Creation is never silent:** the command always shows which repo each issue targets and the issue title(s), then asks `Create GitHub issue(s) now? [yes/no]`. `--dry-run` skips the question and stays local-only (the legacy behavior). If the GitHub CLI is missing or unauthenticated, it falls back to local-only and says so. Duplicate filing is prevented by a fingerprint marker (see **Duplicate prevention** below).
+**Creation is never silent:** the command always shows the target repo, the title, and the **complete body** of every issue it would file, then asks `File these issue body/bodies exactly as shown? [yes/no]`. The target repos are **public**, so the body is counts-only by default (see **Privacy and redaction**). `--dry-run` skips the question and stays local-only (the legacy behavior). If the GitHub CLI is missing or unauthenticated, it falls back to local-only and says so. Duplicate filing is prevented by a fingerprint marker (see **Duplicate prevention** below).
 
 ## What it produces
 
@@ -44,10 +44,10 @@ A timestamped directory at `~/.claude/rag-plugin/reports/YYYY-MM-DD-HHMMSS/` con
 
 ## What it does NOT do
 
-- Does **NOT** create or upload any issue **without your explicit `yes`** to the one confirmation prompt — and never at all under `--dry-run`.
+- Does **NOT** create or upload any issue **without your explicit `yes`** after the full body was shown — and never at all under `--dry-run`.
 - Does **NOT** create a **duplicate**: before filing, it searches the target repo for an open issue carrying the same fingerprint marker and, if found, prints that issue's URL instead of opening a new one.
 - Does **NOT** mutate any user configuration, ragtools data, or the knowledge base — generation is pure filesystem + HTTP probes (no MCP write tools, D-001).
-- Does **NOT** include full conversations — only short, secret-redacted, single-line snippets; redaction (secrets, tokens, cookies, PEM keys, home-path normalization, hostname masking) is **unchanged** from the local-only era.
+- Does **NOT** put transcript snippets, session file paths, or project IDs/names into a public issue body by default (D-038). Snippets and session paths stay in the **local** `rag-plugin-behavior-report.md` / `redacted-diagnostics.json` only. `--include-snippets` opts in to up to 6 secret-redacted snippets in the issue body, with every path replaced by `<path>` and project keys/IDs by `<project>`; session file paths are never included even then.
 - Does **NOT** attach raw session logs or unrelated logs to the issue body.
 - Does **NOT** include unrelated user activity — only ragtools/plugin-relevant signals.
 
@@ -63,6 +63,8 @@ The script redacts before any text reaches a report:
 
 Home directory paths are normalized to `~/...`. Hostname is partially masked. Snippets are clipped to ~220 chars and stripped of newlines.
 
+**Public issue bodies (D-038).** The routing repos are public. The issue body carries session-signal **counts**, the project **count** with aggregate files/chunks, and watched-path **counts** — never snippet text, `~/.claude/projects/...` paths, or the project ID list. The local report files keep the full detail for your own triage.
+
 ## Step 0 — State detection
 
 Follow `${CLAUDE_PLUGIN_ROOT}/rules/state-detection.md`. Print the 6-line mode banner verbatim. The script handles its own probing internally — Step 0 is to give the user the same orientation as `/doctor`. If `state.install_mode == not-installed`, the script will still produce both reports; the application report will simply note "ragtools is not installed on this device" as the top finding (this is the expected case for users who run the report before installing).
@@ -73,7 +75,7 @@ Follow `${CLAUDE_PLUGIN_ROOT}/rules/state-detection.md`. Print the 6-line mode b
 python "${CLAUDE_PLUGIN_ROOT}/scripts/rag_report.py"
 ```
 
-Pass `--max-sessions N` to limit the JSONL scan (default 60, newest-first). Pass `--no-sessions` to skip session scanning entirely if the user is privacy-cautious or in a shared environment. Pass `--out <dir>` to override the output location. Pass `--quiet` to suppress progress lines.
+Pass `--max-sessions N` to limit the JSONL scan (default 60, newest-first). Pass `--include-snippets` only if the user explicitly asked for transcript snippets in the public issue (redacted and path/project-scrubbed; off by default). Pass `--no-sessions` to skip session scanning entirely if the user is privacy-cautious or in a shared environment. Pass `--out <dir>` to override the output location. Pass `--quiet` to suppress progress lines.
 
 The script:
 
@@ -93,7 +95,7 @@ After the generation run returns, show compactly:
 
 1. The output directory path.
 2. The summary table from `summary.md` — top application-side + plugin-side findings, severity-sorted.
-3. The **GitHub issue plan** the script printed (also saved as `issue-plan.json`): for each actionable repo, the **target repo** and the **issue title**. Healthy (info-only) reports have **no** actionable issues — say so and stop (nothing to file).
+3. The **GitHub issue plan** the script printed (also saved as `issue-plan.json`): for each actionable repo, the **target repo**, the **issue title**, the body file path, and the gh account to file as. Healthy (info-only) reports have **no** actionable issues — say so and stop (nothing to file).
 
 Compact-by-default per D-008.
 
@@ -101,17 +103,25 @@ Compact-by-default per D-008.
 
 **If `--dry-run` was passed:** skip this step entirely. Print `dry-run: local report written, no GitHub issue created.` and stop. (Legacy local-only behavior.)
 
-**Otherwise, ask exactly one simple question**, showing the target repo + title per issue so the user knows precisely what will be filed:
+**Otherwise, first show the full body.** Run the read-only preview, which prints every actionable `_issue-body-*.md` verbatim — exactly the bytes `--create` would post:
+
+```bash
+python "${CLAUDE_PLUGIN_ROOT}/scripts/rag_report.py" --preview --from "<dir>"
+```
+
+Relay that output to the user **in full** (do not summarize or truncate it — they are approving the body, not a title), together with the body file path(s) so they can open them. Then ask exactly one question:
 
 ```
-Create GitHub issue(s) now? [yes/no]
-  • taqat-techno/rag     — [ragtools] <title>
-  • taqat-techno/plugins — [rag-plugin] <title>
+File these issue body/bodies exactly as shown? [yes/no]
+  • <application repo> — [ragtools] <title>
+  • <plugin repo>      — [rag-plugin] <title>
 ```
+
+If the user wants to change the body, they may edit `<dir>/_issue-body-*.md` locally; re-run `--preview` and ask again before filing.
 
 - **If the user answers no** (or anything not affirmative): print `No issue created. Local report + issue bodies are at <dir>.` and stop. Nothing is filed.
 - **If the user answers yes:**
-  1. **Ensure GitHub auth + account.** The routing repositories and the account to file as are **configuration, never hardcoded** — read them from the report routing config at `~/.claude/rag-plugin/config.json`, keys `report.repos.application`, `report.repos.plugin`, and `report.github_account`. The repo keys default to the upstream repositories declared in the plugin manifest; `report.github_account` has **no default** — when it is unset, file with whatever account `gh auth status` reports as active and do **not** switch. Only when `report.github_account` is set, and only if that account is not already the active one, switch to it first: `gh auth switch --user "$REPORT_GITHUB_ACCOUNT"` — and record the previously active account so Step 3.4 can restore it. If `gh` is missing or unauthenticated, do **not** fail — the script detects this and falls back to local-only.
+  1. **Ensure GitHub auth + account.** The routing repositories and the account to file as are **configuration** — the script reads `~/.claude/rag-plugin/config.json` (shape below) at generation time and records the resolved values in `issue-plan.json` (`repo`, `github_account`) and in the printed plan. The repo keys default to `taqat-techno/rag` (application) and `taqat-techno/plugins` (plugin); `report.github_account` has **no default** — when it is unset (the plan prints `gh account: (unset ...)`), file with whatever account `gh auth status` reports as active and do **not** switch. Only when `report.github_account` is set, and only if that account is not already the active one, switch to it first: `gh auth switch --user "$REPORT_GITHUB_ACCOUNT"` — and record the previously active account so Step 3.4 can restore it. If `gh` is missing or unauthenticated, do **not** fail — the script detects this and falls back to local-only.
   2. **File the issues** against the directory just generated — **no re-scan, no re-redaction**:
      ```bash
      python "${CLAUDE_PLUGIN_ROOT}/scripts/rag_report.py" --create --from "<dir>"
@@ -119,7 +129,18 @@ Create GitHub issue(s) now? [yes/no]
   3. **Relay the script's result verbatim:** `CREATED <repo>: <url>` per issue; `DUPLICATE <repo>: <existing url>` when an open issue with the same fingerprint already exists (nothing re-filed); or the local-only fallback line if `gh` was unavailable.
   4. **Restore the previous account:** if — and only if — Step 3.1 switched accounts, switch back to the account that was active before: `gh auth switch --user "$PREVIOUS_GITHUB_ACCOUNT"`. If no switch happened, do nothing here; never leave the user on an account they did not start on.
 
-**Never** create issues without the explicit `yes`. **Never** hand-build the issue body — the script posts the clean, redacted, fingerprint-marked `_issue-body-*.md` automatically via `gh issue create --body-file`.
+```json
+{
+  "report": {
+    "repos": { "application": "taqat-techno/rag", "plugin": "taqat-techno/plugins" },
+    "github_account": "your-gh-login"
+  }
+}
+```
+
+Every key is optional. A value that is not `owner/repo` (or not a valid GitHub login) is ignored with a warning and the default is used.
+
+**Never** create issues without the explicit `yes` given after the full body was shown. **Never** hand-build the issue body — the script posts the clean, redacted, fingerprint-marked `_issue-body-*.md` automatically via `gh issue create --body-file`.
 
 ## Duplicate prevention
 
@@ -149,7 +170,7 @@ After implementation:
 1. `python scripts/rag_report.py --self-test` → all checks pass.
 2. `python scripts/rag_report.py --max-sessions 5` → produces **9** files in `~/.claude/rag-plugin/reports/<ts>/` (the 6 reports + `issue-plan.json` + `_issue-body-rag.md` + `_issue-body-plugins.md`), and **creates no GitHub issue**.
 2a. `python scripts/rag_report.py --dry-run --no-sessions` → local-only, creates no issue. `--create --from <dir>` on a generated dir files (or dedups) via `gh`, and prints a clear local-only fallback when `gh` is unavailable.
-2b. `python scripts/test_rag_report.py` → all unit tests pass (routing, cause-based re-route, fingerprint, dedup, create, never-create-during-generation).
+2b. `python scripts/test_rag_report.py` → all unit tests pass (routing, cause-based re-route, fingerprint, dedup, create, never-create-during-generation, counts-only public body, opt-in snippet scrubbing, config.json repo override, `--preview`).
 3. The application report prints the install mode + service mode banner correctly.
 4. The plugin report shows command/skill/agent/hook/rule/script inventories.
 5. The session scanner finds at least one RAC/RAG mention in recent sessions (or notes "no Claude session directory found").
@@ -163,4 +184,4 @@ After implementation:
 - `scripts/rag_report.py` — the analyzer
 - `scripts/analyze_hook_decisions.py` — hook-decisions histogram
 - `rules/state-detection.md` — shared state probe contract
-- `docs/decisions.md` — D-024 (rag-report design contract)
+- `docs/decisions.md` — D-024 (rag-report design contract), D-030 (issue filing), D-038 (public-body privacy + configurable routing)

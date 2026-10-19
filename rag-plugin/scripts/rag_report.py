@@ -916,6 +916,9 @@ class SessionScanResult:
     signal_counts: dict[str, int] = field(default_factory=dict)
     examples: list[dict[str, Any]] = field(default_factory=list)
     notes: str = ""
+    #: ~/.claude/projects/<key> directory names of scanned sessions. Local
+    #: only — used to scrub those names out of opt-in public snippets (D-038).
+    project_keys: list[str] = field(default_factory=list)
 
 
 def _redact_snippet(text: str, max_len: int = 220) -> str:
@@ -946,6 +949,8 @@ def scan_sessions(max_sessions: int = 60, max_examples: int = 12) -> SessionScan
     seen_examples_per_signal: dict[str, int] = {}
     for f in files:
         res.sessions_scanned += 1
+        if f.parent.name not in res.project_keys:
+            res.project_keys.append(f.parent.name)
         any_signal = False
         try:
             with f.open("r", encoding="utf-8", errors="replace") as fh:
@@ -1480,6 +1485,109 @@ def synthesize_findings(state: State, plugin: PluginInspection,
 
 FINGERPRINT_MARKER_PREFIX = "rag-plugin-report:fingerprint:"
 
+# --- Routing configuration (D-038) ----------------------------------------- #
+# Target repositories and the gh account are configuration, read from
+# ~/.claude/rag-plugin/config.json:
+#   {"report": {"repos": {"application": "owner/repo", "plugin": "owner/repo"},
+#               "github_account": "login"}}
+# Missing keys fall back to these defaults; github_account has NO default
+# (file with whatever account `gh` reports as active).
+
+DEFAULT_REPORT_REPOS: dict[str, str] = {
+    "rag": "taqat-techno/rag",
+    "plugins": "taqat-techno/plugins",
+}
+_CONFIG_REPO_KEYS = {"rag": "application", "plugins": "plugin"}
+_REPO_SLUG_RE = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
+_GH_LOGIN_RE = re.compile(r"^[A-Za-z0-9-]{1,39}$")
+
+
+def report_config_path() -> Path:
+    return Path.home() / ".claude" / "rag-plugin" / "config.json"
+
+
+def load_report_config(path: Optional[Path] = None) -> dict[str, Any]:
+    """Resolve report routing config. Never raises: an unreadable file or an
+    invalid value falls back to the default and is recorded in `warnings`."""
+    p = path or report_config_path()
+    cfg: dict[str, Any] = {"repos": dict(DEFAULT_REPORT_REPOS),
+                           "github_account": None,
+                           "source": "defaults", "warnings": []}
+    if not p.is_file():
+        return cfg
+    try:
+        raw = json.loads(p.read_text(encoding="utf-8"))
+    except Exception as e:
+        cfg["warnings"].append(f"config.json unreadable ({e.__class__.__name__}); using defaults")
+        return cfg
+    report = raw.get("report") if isinstance(raw, dict) else None
+    if not isinstance(report, dict):
+        return cfg
+    cfg["source"] = normalize_home(str(p))
+    repos = report.get("repos") if isinstance(report.get("repos"), dict) else {}
+    for target, key in _CONFIG_REPO_KEYS.items():
+        val = repos.get(key)
+        if val is None:
+            continue
+        if isinstance(val, str) and _REPO_SLUG_RE.match(val.strip()):
+            cfg["repos"][target] = val.strip()
+        else:
+            cfg["warnings"].append(f"report.repos.{key} is not 'owner/repo'; using default")
+    acct = report.get("github_account")
+    if acct is not None:
+        if isinstance(acct, str) and _GH_LOGIN_RE.match(acct.strip()):
+            cfg["github_account"] = acct.strip()
+        else:
+            cfg["warnings"].append("report.github_account is not a valid login; ignored")
+    return cfg
+
+
+def target_repo(target: str, config: Optional[dict[str, Any]] = None) -> str:
+    cfg = config if config is not None else load_report_config()
+    return cfg["repos"].get(target) or DEFAULT_REPORT_REPOS.get(target, DEFAULT_REPORT_REPOS["plugins"])
+
+
+# --- Public-body scrubbing (D-038) ------------------------------------------ #
+# Issue bodies go to PUBLIC repositories. Snippets are opt-in only and, even
+# then, absolute/home paths and project keys/IDs are replaced.
+
+_PUBLIC_PATH_PATTERNS = [
+    # ~/... and Windows drive paths (also JSON-escaped backslashes)
+    re.compile(r"~[\\/][^\s'\"`<>|)\]]*"),
+    re.compile(r"\b[A-Za-z]:(?:\\\\|\\|/)[^\s'\"`<>|)\]]*"),
+    # POSIX absolute paths under common roots
+    re.compile(r"(?<![\w.])/(?:home|Users|mnt|tmp|var|opt|srv|root|workspace|data)/[^\s'\"`<>|)\]]*"),
+    # any remaining .claude/projects reference
+    re.compile(r"\.claude[\\/]+projects[\\/]*[^\s'\"`<>|)\]]*"),
+]
+
+
+def scrub_for_public(text: str, sensitive_terms: Optional[list[str]] = None) -> str:
+    """Make a (already secret-redacted) snippet safe for a public issue:
+    replace project keys / project IDs with <project> and every path with
+    <path>. Terms shorter than 3 chars are ignored (too collision-prone)."""
+    out = redact(text or "")
+    for pat in _PUBLIC_PATH_PATTERNS:
+        out = pat.sub("<path>", out)
+    terms = sorted({t for t in (sensitive_terms or []) if t and len(t) >= 3},
+                   key=len, reverse=True)
+    for t in terms:
+        out = re.sub(re.escape(t), "<project>", out, flags=re.IGNORECASE)
+    return out
+
+
+def _project_terms(state: "State", scan: "SessionScanResult") -> list[str]:
+    terms: list[str] = list(getattr(scan, "project_keys", []) or [])
+    views = list(state.api_projects)
+    if state.api_status and isinstance(state.api_status.get("projects"), list):
+        views += [p for p in state.api_status["projects"] if isinstance(p, dict)]
+    for p in views:
+        for k in ("project_id", "id", "name"):
+            v = p.get(k)
+            if isinstance(v, str):
+                terms.append(v)
+    return terms
+
 
 def issue_fingerprint(findings: list[Finding]) -> str:
     """Stable 12-hex fingerprint over the sorted non-info finding IDs, so the
@@ -1492,11 +1600,12 @@ def issue_fingerprint(findings: list[Finding]) -> str:
 
 
 def build_issue_meta(target: str, findings: list[Finding],
-                     state: State, plugin: PluginInspection) -> dict[str, Any]:
+                     state: State, plugin: PluginInspection,
+                     config: Optional[dict[str, Any]] = None) -> dict[str, Any]:
     """Single source of truth for an issue's repo / title / labels / fingerprint.
     Used by both render_github_issue (body marker) and build_issue_plan (gh
     creation) so the marker in the body and the plan never drift."""
-    repo = "taqat-techno/rag" if target == "rag" else "taqat-techno/plugins"
+    repo = target_repo(target, config)
     title_subject = "ragtools" if target == "rag" else "rag-plugin"
     non_info = [f for f in findings if f.severity != "info"]
     if non_info:
@@ -1541,7 +1650,8 @@ def route_findings(app_findings: list[Finding],
 
 
 def build_issue_plan(routed: list[tuple[str, list[Finding], str, str]],
-                     state: State, plugin: PluginInspection
+                     state: State, plugin: PluginInspection,
+                     config: Optional[dict[str, Any]] = None,
                      ) -> tuple[list[dict[str, Any]], dict[str, str]]:
     """Build issue-plan.json entries + the clean issue-body files used for
     creation. The clean body is the portion of the rendered issue AFTER the
@@ -1550,8 +1660,9 @@ def build_issue_plan(routed: list[tuple[str, list[Finding], str, str]],
     Returns (plan, bodies) where bodies maps filename -> content."""
     plan: list[dict[str, Any]] = []
     bodies: dict[str, str] = {}
+    cfg = config if config is not None else load_report_config()
     for target, findings, rendered_md, human_file in routed:
-        meta = build_issue_meta(target, findings, state, plugin)
+        meta = build_issue_meta(target, findings, state, plugin, cfg)
         parts = rendered_md.split("\n---\n", 1)
         clean_body = parts[1] if len(parts) == 2 else rendered_md
         body_file = f"_issue-body-{target}.md"
@@ -1566,6 +1677,7 @@ def build_issue_plan(routed: list[tuple[str, list[Finding], str, str]],
             "finding_count": meta["finding_count"],
             "body_file": body_file,
             "human_file": human_file,
+            "github_account": cfg.get("github_account"),
         })
     return plan, bodies
 
@@ -1661,15 +1773,52 @@ def do_create(report_dir: Path) -> dict[str, Any]:
     return {"ok": True, "results": results}
 
 
-def _print_issue_plan(plan: list[dict[str, Any]]) -> None:
+def _print_issue_plan(plan: list[dict[str, Any]], report_dir: Optional[Path] = None) -> None:
     actionable = [e for e in plan if e.get("actionable")]
     if not actionable:
         print("[rag_report] no actionable findings — no GitHub issues to file (healthy report).")
         return
     print("[rag_report] GitHub issue plan (nothing filed yet):")
     for e in actionable:
+        body = (report_dir / e["body_file"]) if report_dir else e["body_file"]
         print(f"  • {e['repo']}: {e['title']}")
-        print(f"      fingerprint {e['fingerprint']} | body {e['body_file']}")
+        print(f"      fingerprint {e['fingerprint']} | body {body}")
+    acct = actionable[0].get("github_account")
+    print(f"  gh account: {acct if acct else '(unset — use the active gh account, do not switch)'}")
+    print("  Review the FULL body before approving: rag_report.py --preview --from <dir>")
+
+
+def do_preview(report_dir: Path) -> int:
+    """Print every actionable issue body verbatim — exactly the bytes
+    `--create` would post — so the user approves the body, not just a title.
+    Read-only; never calls gh."""
+    plan_path = report_dir / "issue-plan.json"
+    if not plan_path.is_file():
+        print("[rag_report] no issue-plan.json in that directory — run the report first.")
+        return 1
+    try:
+        plan = json.loads(plan_path.read_text(encoding="utf-8"))
+    except Exception as e:
+        print(f"[rag_report] issue-plan.json unreadable: {e}")
+        return 1
+    actionable = [e for e in plan if e.get("actionable")]
+    if not actionable:
+        print("[rag_report] no actionable issues to file (healthy report).")
+        return 0
+    for e in actionable:
+        body_path = report_dir / e["body_file"]
+        try:
+            body = body_path.read_text(encoding="utf-8")
+        except Exception as ex:
+            print(f"[rag_report] cannot read {body_path}: {ex}")
+            return 1
+        print(f"===== ISSUE BODY → {e['repo']} =====")
+        print(f"Title: {e['title']}")
+        print(f"File:  {body_path}")
+        print("-----")
+        print(body)
+        print(f"===== END ISSUE BODY → {e['repo']} =====\n")
+    return 0
 
 
 def _print_create_result(result: dict[str, Any]) -> None:
@@ -2038,7 +2187,9 @@ def render_summary(state: State, app_findings: list[Finding], plugin_findings: l
 def render_github_issue(target: str, findings: list[Finding], state: State,
                         plugin: PluginInspection, cci: ClaudeConfigInspection,
                         hook_stats: HookLogStats, scan: SessionScanResult,
-                        meta: dict[str, str]) -> str:
+                        meta: dict[str, str],
+                        config: Optional[dict[str, Any]] = None,
+                        include_snippets: bool = False) -> str:
     """Render a substantive, ready-to-paste GitHub issue body for the target repo.
 
     The output is designed so a user (anyone running rag-plugin) can copy it
@@ -2049,8 +2200,15 @@ def render_github_issue(target: str, findings: list[Finding], state: State,
 
     All content is redacted by `redact()` and `normalize_home()` before this
     function sees it. This function only assembles, never raw-strings user data.
+
+    The body is posted to a PUBLIC repository (D-038), so by default it is
+    counts-only: no session snippets, no session file paths, no project IDs.
+    `include_snippets=True` adds up to 6 snippets passed through
+    `scrub_for_public` (paths -> <path>, project keys/IDs -> <project>);
+    session file paths are never included either way.
     """
-    repo = "taqat-techno/rag" if target == "rag" else "taqat-techno/plugins"
+    cfg = config if config is not None else load_report_config()
+    repo = target_repo(target, cfg)
     sev_counts: dict[str, int] = {}
     for f in findings:
         sev_counts[f.severity] = sev_counts.get(f.severity, 0) + 1
@@ -2058,7 +2216,7 @@ def render_github_issue(target: str, findings: list[Finding], state: State,
     # Title, labels, and the duplicate-detection fingerprint all come from the
     # single source of truth (build_issue_meta) so the body marker and
     # issue-plan.json can never drift.
-    issue_meta = build_issue_meta(target, findings, state, plugin)
+    issue_meta = build_issue_meta(target, findings, state, plugin, cfg)
     suggested_title = issue_meta["title"]
     labels = issue_meta["labels"]
     fingerprint = issue_meta["fingerprint"]
@@ -2141,28 +2299,31 @@ def render_github_issue(target: str, findings: list[Finding], state: State,
             md.append(redact(json.dumps(excerpt, indent=2, default=str))[:1500])
             md.append("```\n")
         if state.watcher_status:
+            # Watched-path lists name the user's project directories — public
+            # body carries their count only (D-038).
+            ws = {k: (f"<{len(v)} entries withheld>" if isinstance(v, list)
+                      and k in ("paths", "watched_paths", "projects", "roots") else v)
+                  for k, v in state.watcher_status.items()}
             md.append("**`GET /api/watcher/status`:**")
             md.append("```json")
-            md.append(redact(json.dumps(state.watcher_status, indent=2, default=str))[:600])
+            md.append(redact(json.dumps(ws, indent=2, default=str))[:600])
             md.append("```\n")
 
-        # Project inventory — concise; many users care about the count + scale
+        # Project inventory — aggregate counts only; project IDs/names stay in
+        # the local application report (D-038).
         project_view: list[dict[str, Any]] = list(state.api_projects)
         if not project_view and state.api_status:
             embedded = state.api_status.get("projects")
             if isinstance(embedded, list):
                 project_view = [p for p in embedded if isinstance(p, dict)]
         if project_view:
-            md.append(f"**Projects configured: {len(project_view)}**\n")
-            md.append("| Name | Files | Chunks | Enabled |")
-            md.append("|---|---|---|---|")
-            for p in project_view[:15]:
-                name = p.get("project_id") or p.get("id") or p.get("name") or "?"
-                md.append(f"| `{name}` | {p.get('files', '?')} | "
-                          f"{p.get('chunks', '?')} | {p.get('enabled', '?')} |")
-            if len(project_view) > 15:
-                md.append(f"\n_+{len(project_view) - 15} more not shown._")
-            md.append("")
+            def _num(v: Any) -> int:
+                return v if isinstance(v, int) and not isinstance(v, bool) else 0
+            enabled = sum(1 for p in project_view if p.get("enabled") is True)
+            md.append(f"**Projects configured: {len(project_view)}** "
+                      f"({enabled} enabled; {sum(_num(p.get('files')) for p in project_view)} files, "
+                      f"{sum(_num(p.get('chunks')) for p in project_view)} chunks in total). "
+                      "Project names are not included in public issues.\n")
     else:
         # Plugin-side evidence: plugin layout inventory, Claude config state,
         # hook decisions stats, redacted session-signal counts.
@@ -2209,18 +2370,23 @@ def render_github_issue(target: str, findings: list[Finding], state: State,
         md.append("")
 
         md.append("## Session-behavior signals\n")
-        md.append(f"- Sessions discovered in `~/.claude/projects/`: **{scan.sessions_found}**")
+        md.append(f"- Sessions discovered: **{scan.sessions_found}**")
         md.append(f"- Sessions scanned (newest-first, capped): **{scan.sessions_scanned}**")
         md.append(f"- Sessions with at least one RAC/RAG signal: **{scan.sessions_with_signal}**")
         if scan.signal_counts:
             md.append("- Signal counts:")
             for sig, n in sorted(scan.signal_counts.items(), key=lambda kv: -kv[1]):
                 md.append(f"  - `{sig}`: {n}")
-        if scan.examples:
-            md.append("\n_Redacted example snippets (≤220 chars each, single-line, secret-redacted):_\n")
+        if scan.examples and include_snippets:
+            terms = _project_terms(state, scan)
+            md.append("\n_Example snippets (opt-in `--include-snippets`; ≤220 chars, "
+                      "secret-redacted, paths → `<path>`, project names → `<project>`):_\n")
             for i, e in enumerate(scan.examples[:6], 1):
-                md.append(f"{i}. `[{e['signal']}]` from `{e['session_file']}`:")
-                md.append(f"   > {e['snippet']}")
+                md.append(f"{i}. `[{e['signal']}]`:")
+                md.append(f"   > {scrub_for_public(e['snippet'], terms)}")
+        elif scan.examples:
+            md.append(f"- Example snippets: {len(scan.examples)} kept in the local "
+                      "report only (not included in public issues).")
         md.append("")
 
     # ------------------------------------------------------------------ #
@@ -2257,9 +2423,15 @@ def render_github_issue(target: str, findings: list[Finding], state: State,
     md.append("- Secrets, API keys, bearer headers, cookies, PEM private keys, GitHub PATs, AWS keys, Slack tokens.")
     md.append("- Home directory paths normalized to `~/...`.")
     md.append("- Hostname masked (first 2 + last 2 chars).")
-    md.append("- Session JSONL snippets clipped to ≤220 chars and stripped of newlines.")
+    if include_snippets:
+        md.append("- Session snippets included by explicit opt-in; clipped to ≤220 chars, "
+                  "paths and project names replaced.")
+    else:
+        md.append("- Session-behavior evidence is counts only — no transcript snippets, "
+                  "session file paths, or project names.")
     md.append("- Only RAC/RAG-related signals were extracted from sessions — never full conversations.")
-    md.append("- The command never auto-uploads anything; the user is copying this manually.")
+    md.append("- The reporter reviewed this exact body and approved filing it; "
+              "nothing is posted without that approval.")
     md.append("")
     md.append("**Before posting publicly, scan the body once more for anything project-specific "
               "you do not want to share.** The redaction is high-precision but not exhaustive — "
@@ -2374,10 +2546,21 @@ def main(argv: Optional[list[str]] = None) -> int:
                     help="with --create: file from an existing report directory instead of re-scanning")
     ap.add_argument("--dry-run", action="store_true",
                     help="generate local artifacts only; never create issues (legacy local-only mode)")
+    ap.add_argument("--include-snippets", action="store_true",
+                    help="opt in to up to 6 redacted session snippets in the PUBLIC issue body "
+                         "(paths and project names are replaced; session paths never included)")
+    ap.add_argument("--preview", action="store_true",
+                    help="with --from: print the full issue body/bodies that --create would post, then exit")
     args = ap.parse_args(argv)
 
     if args.self_test:
         return _self_test()
+
+    if args.preview:
+        if not args.from_dir:
+            print("[rag_report] --preview requires --from <report dir>.", file=sys.stderr)
+            return 2
+        return do_preview(Path(args.from_dir).expanduser().resolve())
 
     # Safety: --dry-run always wins over --create (legacy local-only mode).
     if args.dry_run:
@@ -2472,10 +2655,17 @@ def main(argv: Optional[list[str]] = None) -> int:
     if dropped:
         print(f"[rag_report] WARNING: {len(dropped)} finding(s) had an unroutable target and were "
               f"omitted from issues: {dropped}", file=sys.stderr)
+    report_cfg = load_report_config()
+    for w in report_cfg["warnings"]:
+        print(f"[rag_report] WARNING: {w}", file=sys.stderr)
     issue_rag = render_github_issue("rag", rag_findings,
-                                    state, plugin, cci, hook_stats, scan, meta)
+                                    state, plugin, cci, hook_stats, scan, meta,
+                                    config=report_cfg,
+                                    include_snippets=args.include_snippets)
     issue_plg = render_github_issue("plugins", plugins_findings,
-                                    state, plugin, cci, hook_stats, scan, meta)
+                                    state, plugin, cci, hook_stats, scan, meta,
+                                    config=report_cfg,
+                                    include_snippets=args.include_snippets)
 
     # Structured diagnostics (machine-readable, redacted)
     diag = {
@@ -2499,7 +2689,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         ("rag", rag_findings, issue_rag, "github-rag-issue.md"),
         ("plugins", plugins_findings, issue_plg, "github-plugins-issue.md"),
     ]
-    issue_plan, issue_bodies = build_issue_plan(routed, state, plugin)
+    issue_plan, issue_bodies = build_issue_plan(routed, state, plugin, report_cfg)
 
     files = {
         "rag-application-setup-report.md": app_md,
@@ -2522,7 +2712,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     if not args.quiet:
         print(f"[rag_report] wrote {len(files)} files to {outdir}")
         print(f"[rag_report] open the summary: {outdir / 'summary.md'}")
-        _print_issue_plan(issue_plan)
+        _print_issue_plan(issue_plan, outdir)
 
     # Optional one-shot creation (`--create` without `--from`). The /report
     # command normally generates first, shows the plan, asks the yes/no, then

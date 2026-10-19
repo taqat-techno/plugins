@@ -118,7 +118,7 @@ Commands that install this block must follow these steps:
 
 ## Why this exists
 
-The previous turn's incident: a user asked *"What is the process for emergency assistance requests?"*. The ragtools MCP was loaded and the answer was in `tq-workspace/planing/Alaqraboon/_Emergency_Assistance_Procedure_en.md` at confidence 0.80. But Claude never called `search_knowledge_base` — it scanned CLAUDE.md, memory, and recent messages, found nothing, and said *"I don't have information about an 'emergency assistance request' process"*.
+The previous turn's incident: a user asked *"What is the process for emergency assistance requests?"*. The ragtools MCP was loaded and the answer was in `docs/procedures/emergency-assistance.md` at confidence 0.80. But Claude never called `search_knowledge_base` — it scanned CLAUDE.md, memory, and recent messages, found nothing, and said *"I don't have information about an 'emergency assistance request' process"*.
 
 The failure wasn't in the MCP. The failure was that **nothing told Claude when to reach for the MCP**. The MCP tool description said what the tool does (`"Search the local Markdown knowledge base"`), not when to use it. This rule fixes that by putting a workflow-level instruction in CLAUDE.md itself, which loads at the start of every session.
 
