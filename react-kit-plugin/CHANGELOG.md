@@ -2,6 +2,11 @@
 
 All notable changes to `react-kit-plugin` are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/). Versioning follows [SemVer](https://semver.org/).
 
+## [0.6.3] - 2026-10-19
+
+### Fixed
+- **README accuracy (QW #15, F-RKT-03/08).** The adapter-intake list now matches what `/admin-scaffold` actually asks; the "makes no assumptions" claim is replaced by an explicit note that the admin skills default to a module x level RBAC model you can decline; version badge and "this release" marker corrected.
+
 ## [0.6.2] - 2026-09-27
 
 ### Changed

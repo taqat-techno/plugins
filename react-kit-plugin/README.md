@@ -1,6 +1,6 @@
 # react-kit
 
-![Version](https://img.shields.io/badge/version-0.5.0-blue.svg)
+![Version](https://img.shields.io/badge/version-0.6.3-blue.svg)
 ![Status](https://img.shields.io/badge/status-functional-green.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 
@@ -85,7 +85,9 @@ Reusable patterns for building and auditing React / Next.js applications — wit
 
 ## Adapter inputs (asked the first time you invoke a command)
 
-The plugin makes **no assumptions** about your project. The first invocation asks for: admin base path; role/module model + level semantics; auth + audit helper imports; data-fetching library; UI/component library + status-badge palette; PII field list + masking rule; RTL languages; import format. Answers are cached locally (gitignored), never committed.
+The first `/admin-scaffold` invocation asks for: admin base path; auth helper import; role list; PII field list; audit helper import; RTL locales; validation library; form library; CSS framework; import format (optional). Answers are written to `.react-kit.local.json` (add it to `.gitignore`), never committed.
+
+The admin-panel skills do carry one default architecture: a **module × level** permission model in which an admin module implies access to the others. Treat it as a starting proposal, not a requirement - if your project already has a different RBAC shape, say so and keep it.
 
 ## What this plugin deliberately does NOT do
 
@@ -102,7 +104,7 @@ The plugin makes **no assumptions** about your project. The first invocation ask
 | `0.2.0` | 8 admin skills + 3 commands + 1 agent |
 | `0.3.0` | Renamed `react-admin-kit`→`react-kit`; added `react-lint-triage`, `data-fetching-states`, `react19-migration` |
 | `0.4.0` | Flexible admin **view patterns** — `admin-panel-architecture`, `admin-view-patterns`, `admin-kanban-workflow`, `admin-dashboard-overview`; tree/nested + form-tabs/relations/attachments enhancements; 8 reference docs |
-| `0.5.0` (this release) | `frontend-build-traps` skill — deterministic recovery for HMR stale-module 500s, vitest/rolldown-vite jsx-preserve, lockfile PM-major mismatch, TipTap attributes, ORM client/schema drift; `react-lint-triage` gains the lint-the-new-file-before-push rule |
+| `0.5.0` | `frontend-build-traps` skill — deterministic recovery for HMR stale-module 500s, vitest/rolldown-vite jsx-preserve, lockfile PM-major mismatch, TipTap attributes, ORM client/schema drift; `react-lint-triage` gains the lint-the-new-file-before-push rule |
 | `1.0.0` | First stable release after real-project shakedown |
 
 ## License
