@@ -2,6 +2,15 @@
 
 All notable changes to this plugin are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.3] - 2026-10-19
+
+### Fixed
+- **Hook launch is portable and space-safe (Wave 1, QW #2/#3).** `hooks/hooks.json` now runs each python hook through one POSIX-sh launcher: the `${CLAUDE_PLUGIN_ROOT}` path is quoted (a plugin root containing a space no longer hands python a truncated path, which exited 2 and blocked the call), the interpreter is picked from `python3` -> `python` -> `py -3` with the `command -v` builtin (guards no longer fail open where `python3` is not the name), a missing script or unresolved root exits 0, and the hook's own exit code is propagated unchanged. Known limit: on Windows without Git Bash, Claude Code runs shell-form hooks in PowerShell, where the launcher does not parse and the hook fails open (non-blocking).
+- **README matches the shipped plugin (QW #15, CED-P1-02).** The SessionStart hook prints one fixed reminder line and performs no check; the README claimed a check that stays silent when nothing is wrong. `/env-doctor` takes an optional free-text `[symptom]` only; the advertised scope flags never existed. The routing skill is `env-doctor-router` (renamed in 0.5.0), not `env-doctor`.
+
+### Tests
+- `tests/test_hook_launcher.py` proves quoting, exit-2 propagation from a root with a space, unresolved root -> 0, and no python on PATH -> 0.
+
 ## [0.6.2] - 2026-09-12
 
 Absorbs two recorded lessons into `windows-script-and-task-authoring`, split across the two layers so neither rule is stated twice.
@@ -41,9 +50,11 @@ reference files; no skill `description` changed and nothing was removed.
 ### Added
 
 - `windows-script-and-task-authoring/references/shell-boundary-hazards.md` - **do not test for CRLF
-  with `grep` on an escape sequence.** `grep -c $''` collapses to an empty pattern in Git Bash and
+  with `grep` on an escape sequence.** `grep -c $'
+'` collapses to an empty pattern in Git Bash and
   matches every line, reporting a file as 100% CRLF when it is pure LF; the resulting line-ending
-  "defect" is an artifact of the test. Count raw bytes with `tr -dc '' | wc -c`, and be explicit
+  "defect" is an artifact of the test. Count raw bytes with `tr -dc '
+' | wc -c`, and be explicit
   about whether the working tree or the staged blob is being measured, since `core.autocrlf=true`
   makes them legitimately differ.
 - Same file - **never deliver multi-line content through a heredoc**: quoting misbehaves at the

@@ -23,11 +23,11 @@ The output is a triage report: symptom, most likely cause, and a suggested next 
 
 Runs the full local environment diagnosis. **Works with no arguments** — a bare `/env-doctor` performs a complete read-only sweep and prints a ranked report.
 
-Optional flags narrow the scope to one area (for example, focus only on MCP wiring, or only on networking) when you already know roughly where the problem is. Flags are shortcuts, never required.
+An optional free-text symptom (`/env-doctor [symptom]`, for example `/env-doctor MCP server not loading`) routes straight to the matching branch when you already know roughly where the problem is. It is a shortcut, never required; there are no other flags.
 
 ## Skills
 
-### `env-doctor`
+### `env-doctor-router`
 
 The routing skill that owns the diagnostic workflow. It decides which probes to run, interprets their output, and assembles the report. It pulls detailed, OS-specific guidance from eleven bundled reference documents:
 
@@ -47,14 +47,14 @@ Reference docs hold the heavy, platform-specific detail so the skill body stays 
 
 ### `windows-script-and-task-authoring`
 
-The upstream half of the same boundary. Where `env-doctor` fires on a **symptom** that already happened, this skill fires **before the artifact exists** — before a `.ps1`/`.cmd`/`.vbs` is written, before a Scheduled Task is registered, before a process-inventory sweep, and before a Windows-native tool is invoked from Git Bash. It owns the authoring reflexes that stop the symptom being created: the ASCII-or-BOM rule for Windows PowerShell 5.1, encoding on both sides of a read-modify-write, case-insensitive variable collisions, the Scheduled Task `Execute`-is-the-whole-path rule and UTF-16 task XML, the deliberate registration choices (RunLevel, hidden-window wrapper, `ExecutionTimeLimit`, argv-over-environment), the 32-bit-host blind spot in a process audit, the MSYS path-translation hazards, and the vary-one-dimension-at-a-time discipline on a refusal.
+The upstream half of the same boundary. Where `env-doctor-router` fires on a **symptom** that already happened, this skill fires **before the artifact exists** — before a `.ps1`/`.cmd`/`.vbs` is written, before a Scheduled Task is registered, before a process-inventory sweep, and before a Windows-native tool is invoked from Git Bash. It owns the authoring reflexes that stop the symptom being created: the ASCII-or-BOM rule for Windows PowerShell 5.1, encoding on both sides of a read-modify-write, case-insensitive variable collisions, the Scheduled Task `Execute`-is-the-whole-path rule and UTF-16 task XML, the deliberate registration choices (RunLevel, hidden-window wrapper, `ExecutionTimeLimit`, argv-over-environment), the 32-bit-host blind spot in a process audit, the MSYS path-translation hazards, and the vary-one-dimension-at-a-time discipline on a refusal.
 
 It ships two reference documents:
 
 1. **`references/scheduled-task-authoring.md`** — registration recipes, the hidden-window VBS wrapper, the elevation escape hatch, and the export/rollback contract.
 2. **`references/shell-boundary-hazards.md`** — command-level MSYS/WSL translation workarounds and the bitness-safe process query.
 
-The two skills do not overlap: recovery for a command that has **already** misbehaved stays in `env-doctor`'s `references/windows-powershell.md`; this skill owns only the choice made before the command is written.
+The two skills do not overlap: recovery for a command that has **already** misbehaved stays in `env-doctor-router`'s `references/windows-powershell.md`; this skill owns only the choice made before the command is written.
 
 ## Agent
 
@@ -64,7 +64,7 @@ A focused subagent that gathers environment signals and produces the diagnostic 
 
 ## Hook
 
-A **non-blocking `SessionStart` advisory** hook. When a session begins, it runs a fast, lightweight check and, if it spots an obvious environment problem, prints a one-line advisory pointing you at `/env-doctor`. It is advisory only: it never blocks the session, never prompts, and never mutates anything. If nothing looks wrong, it stays silent.
+A **non-blocking `SessionStart` advisory** hook. When a session begins, it prints one fixed reminder line pointing you at `/env-doctor`. It performs **no** environment check: the line is the same in every session, whether or not anything is wrong. It is advisory only: it never blocks the session, never prompts, and never mutates anything.
 
 ## Scope / non-goals
 
@@ -105,4 +105,4 @@ All inputs are read for diagnosis only. The plugin never prints secrets, tokens,
 
 ---
 
-> Example (illustrative — not required): a session starts, the hook notices an MCP server stuck in a failed state, and prints `Environment check: 1 MCP server failed to connect — run /env-doctor`. Running `/env-doctor` then reports the likely cause (a stdio command not found on `PATH`) and the suggested fix, which you apply yourself.
+> Example (illustrative — not required): an MCP server fails to connect, you run `/env-doctor MCP not loading`, and it reports the likely cause (a stdio command not found on `PATH`) and the suggested fix, which you apply yourself.
