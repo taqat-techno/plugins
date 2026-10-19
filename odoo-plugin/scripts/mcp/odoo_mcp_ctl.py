@@ -10,7 +10,9 @@
 
 `approve` is for the DEVELOPER. It refuses to run without an interactive terminal
 and asks you to type the profile name back, so a grant cannot come from Claude's
-non-interactive shell. (In Git Bash on Windows, run it via `winpty python ...` or
+non-interactive shell. Grants are HMAC-signed with ~/.odoo-mcp/grant.key, which this
+script creates on first approval; the server ignores an unsigned or altered grant.
+Never let an agent read or copy grant.key. (In Git Bash on Windows, run it via `winpty python ...` or
 from PowerShell / Windows Terminal, where the terminal is detected.)
 
 A grant never exceeds the profile's ceiling: the ceiling is what the developer wrote
@@ -80,14 +82,8 @@ def cmd_approve(args) -> int:
     if typed != prof.name:
         print("Not approved.")
         return 1
-    now = time.time()
-    grant = {"profile": prof.name, "mode": args.mode, "created_at": now,
-             "expires_at": now + ttl * 60, "by": "odoo_mcp_ctl (interactive)"}
-    path = S.grant_path(prof.name)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix(".tmp")
-    tmp.write_text(json.dumps(grant, indent=2), encoding="utf-8")
-    os.replace(tmp, path)
+    grant = S.write_grant(prof, args.mode, ttl, by="odoo_mcp_ctl (interactive)")
+    now = grant["created_at"]
     S.audit({"action": "grant", "profile": prof.name, "tier": prof.tier, "mode": args.mode,
              "ttl_minutes": ttl})
     print("Approved until %s UTC. Tell Claude to retry." % time.strftime("%H:%M", time.gmtime(now + ttl * 60)))
@@ -116,7 +112,8 @@ def cmd_grants(_args) -> int:
             if left <= 0:
                 path.unlink(missing_ok=True)
                 continue
-            rows.append({"profile": g.get("profile"), "mode": g.get("mode"), "minutes_left": left})
+            rows.append({"profile": g.get("profile"), "mode": g.get("mode"), "minutes_left": left,
+                         "signed": S.read_grant(str(g.get("profile"))) is not None})
     print(json.dumps({"grants": rows}, indent=2))
     return 0
 

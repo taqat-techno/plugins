@@ -2,7 +2,15 @@
 """Unified CLI entry point for all Odoo upgrade operations."""
 
 import argparse
+import os
 import sys
+
+if __package__ in (None, ""):
+    # Run as `python scripts/upgrade/cli.py ...` (how the command and skill invoke it):
+    # make the package importable so the relative imports below resolve.
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    import upgrade  # noqa: E402,F401  (the scripts/upgrade package)
+    __package__ = "upgrade"
 
 
 def main():
@@ -67,5 +75,10 @@ def main():
         print(f"Updated {count} manifests")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
+    for _stream in (sys.stdout, sys.stderr):  # cp1252 consoles choke on non-ASCII output
+        try:
+            _stream.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
     main()

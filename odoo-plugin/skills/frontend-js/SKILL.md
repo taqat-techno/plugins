@@ -1,35 +1,11 @@
 ---
 name: frontend-js
-description: |
-  Odoo frontend JavaScript patterns for website themes. Covers publicWidget framework (complete pattern with editableMode handling), Owl v1/v2 component patterns, standalone Owl app boot paths (mountComponent / startWebClient with MinimalWebClient), _t() translation best practices, Bootstrap 4-to-5 migration, version detection, and critical development rules. Supports Odoo 14-19.
-
-  <example>
-  Context: User wants to create a publicWidget
-  user: "Create a publicWidget for my Odoo website"
-  assistant: "I will create a publicWidget with editableMode handling and proper cleanup."
-  <commentary>publicWidget creation.</commentary>
-  </example>
-
-  <example>
-  Context: User asks about Owl components
-  user: "How do I create an Owl component in Odoo 18?"
-  assistant: "I will show the Owl v2 pattern with static template and props."
-  <commentary>Owl component pattern.</commentary>
-  </example>
-
-  <example>
-  Context: User needs help with translations
-  user: "How do I translate JavaScript strings in Odoo?"
-  assistant: "Use _t() at DEFINITION TIME for static labels, not runtime wrappers."
-  <commentary>Translation best practices.</commentary>
-  </example>
-
-  <example>
-  Context: User migrating Bootstrap classes
-  user: "Convert Bootstrap 4 classes to Bootstrap 5 for Odoo 17"
-  assistant: "Replace ml-* with ms-*, mr-* with me-*, text-left with text-start."
-  <commentary>Bootstrap migration.</commentary>
-  </example>
+description: >-
+  Use when writing or fixing JavaScript for an Odoo 14-19 website or theme: a publicWidget
+  (selector, events, editableMode, destroy), an Owl v1/v2 component on the website, booting
+  a standalone Owl app with mountComponent or MinimalWebClient, translating JS strings with
+  _t(), or moving Bootstrap 4 classes to Bootstrap 5. Not for backend client actions or full
+  OWL application architecture (use the owl-* skills).
 license: "MIT"
 metadata:
   version: "8.0.0"
@@ -38,6 +14,21 @@ metadata:
 ---
 
 # Odoo Frontend JavaScript Patterns
+
+## Scope and example requests
+
+Odoo frontend JavaScript patterns for website themes. Covers publicWidget framework
+(complete pattern with editableMode handling), Owl v1/v2 component patterns, standalone Owl
+app boot paths (mountComponent / startWebClient with MinimalWebClient), _t() translation
+best practices, Bootstrap 4-to-5 migration, version detection, and critical development
+rules. Supports Odoo 14-19.
+
+Example requests:
+
+- "Create a publicWidget for my Odoo website" (publicWidget creation)
+- "How do I create an Owl component in Odoo 18?" (Owl component pattern)
+- "How do I translate JavaScript strings in Odoo?" (Translation best practices)
+- "Convert Bootstrap 4 classes to Bootstrap 5 for Odoo 17" (Bootstrap migration)
 
 ## Critical Rules
 

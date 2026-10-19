@@ -10,13 +10,16 @@ redistributes nothing (they are LGPL-3, part of Odoo Community).
 
   (no command)  status, then install or update when the project's version has them
   install       fetch the set for the detected (or --branch) version
-  update        re-fetch when upstream has a newer commit
+  update        show what changed upstream; with --yes, re-fetch the newer commit
   status        installed set, its commit, whether upstream moved
   remove        delete the directories this script installed (marker-verified)
 
 Projects on Odoo 14-19 get an explanation and nothing is installed: those branches
 ship no official skills, and the 20.0 rules are wrong for them (ir.access, removed
 t-esc/t-raw, models.Constraint-only constraints). This plugin's own skills cover them.
+
+`--commit SHA` pins an exact upstream commit. An update of an installed set lists the
+changed files and the compare URL first and replaces nothing until `--yes`.
 
 Standard library only. `--self-test` checks version detection.
 """
@@ -119,11 +122,23 @@ def _get(url: str):
         return resp.read()
 
 
-def upstream(branch: str) -> dict:
-    """Latest commit touching skills/ and the file list, or raise with a clear reason."""
+_SHA_RE = re.compile(r"^[0-9a-f]{7,40}$")
+
+
+def upstream(branch: str, commit: "str | None" = None) -> dict:
+    """Latest commit touching skills/ (or the pinned `commit`) and the file list, or
+    raise with a clear reason."""
     try:
-        commits = json.loads(_get("%s/commits?sha=%s&path=skills&per_page=1" % (API, branch)))
-        tree = json.loads(_get("%s/git/trees/%s:skills?recursive=1" % (API, branch)))
+        if commit:
+            if not _SHA_RE.match(commit.lower()):
+                raise SystemExit("--commit must be a hex commit SHA, got %r" % commit)
+            one = json.loads(_get("%s/commits/%s" % (API, commit)))
+            commits = [one] if isinstance(one, dict) and one.get("sha") else []
+            ref = commits[0]["sha"] if commits else commit
+        else:
+            commits = json.loads(_get("%s/commits?sha=%s&path=skills&per_page=1" % (API, branch)))
+            ref = branch
+        tree = json.loads(_get("%s/git/trees/%s:skills?recursive=1" % (API, ref)))
     except urllib.error.HTTPError as exc:
         if exc.code == 404:
             raise SystemExit("odoo/odoo branch %r has no skills/ directory." % branch)
@@ -158,8 +173,19 @@ def installed(dest: Path) -> dict:
     return out
 
 
-def do_install(dest: Path, branch: str, force: bool) -> dict:
-    up = upstream(branch)
+def changes(old: str, new: str) -> list:
+    """Files under skills/ that differ between two upstream commits (GitHub compare)."""
+    try:
+        data = json.loads(_get("%s/compare/%s...%s" % (API, old, new)))
+    except (urllib.error.URLError, ValueError):
+        return []
+    return [{"file": f.get("filename"), "status": f.get("status"),
+             "changes": f.get("changes")}
+            for f in data.get("files", []) if str(f.get("filename", "")).startswith("skills/")]
+
+
+def do_install(dest: Path, branch: str, force: bool, up: "dict | None" = None) -> dict:
+    up = up or upstream(branch)
     blocked = [s for s in up["skills"]
                if (dest / s).exists() and not (dest / s / MARKER).is_file()]
     if blocked and not force:
@@ -183,6 +209,7 @@ def do_install(dest: Path, branch: str, force: bool) -> dict:
             "source": "https://github.com/%s/tree/%s/skills/%s" % (REPO, branch, skill),
             "branch": branch,
             "commit": up["commit"],
+            "pinned": bool(up.get("pinned")),
             "upstream_date": up["date"],
             "fetched_at": now,
             "license": "LGPL-3.0, Odoo S.A. Fetched unmodified from upstream; not part of odoo-plugin.",
@@ -236,6 +263,9 @@ def main(argv=None) -> int:
     ap.add_argument("--branch", help="odoo/odoo branch to fetch from (default: detected)")
     ap.add_argument("--dest", help="skills directory (default: <project>/.claude/skills)")
     ap.add_argument("--force", action="store_true", help="replace same-named skills this command did not install")
+    ap.add_argument("--commit", help="install exactly this upstream commit SHA instead of the branch head")
+    ap.add_argument("--yes", action="store_true",
+                    help="apply an update after its changes were shown (and reviewed)")
     ap.add_argument("--self-test", action="store_true")
     args = ap.parse_args(argv)
     if args.self_test:
@@ -278,10 +308,25 @@ def main(argv=None) -> int:
         print(json.dumps(out, indent=2))
         return 0
 
+    up = upstream(branch, args.commit)
+    up["pinned"] = bool(args.commit)
     if args.command in ("auto", "update") and have:
-        up = upstream(branch)
         if all(v.get("commit") == up["commit"] and v.get("branch") == branch for v in have.values()):
             report["result"] = "already up to date"
+            print(json.dumps(report, indent=2))
+            return 0
+        old = sorted({v.get("commit") for v in have.values() if v.get("commit")})
+        if not args.yes:
+            # Upstream skills become instructions for the agent: show what changed and
+            # let the user review it before anything is replaced.
+            report["result"] = "update available, not applied"
+            report["from_commit"] = [c[:10] for c in old]
+            report["to_commit"] = up["commit"][:10]
+            report["changed_files"] = changes(old[0], up["commit"]) if len(old) == 1 else []
+            if len(old) == 1:
+                report["compare_url"] = "https://github.com/%s/compare/%s...%s" % (
+                    REPO, old[0][:12], up["commit"][:12])
+            report["next"] = "review the changes, then re-run with --yes (or pin one with --commit SHA --yes)"
             print(json.dumps(report, indent=2))
             return 0
     if args.command == "update" and not have:
@@ -289,7 +334,7 @@ def main(argv=None) -> int:
         print(json.dumps(report, indent=2))
         return 0
 
-    result = do_install(dest, branch, args.force)
+    result = do_install(dest, branch, args.force, up)
     result["note"] = ("Restart the Claude Code session so the new skills are discovered. "
                       "odoo-plugin's reviewer and security skills treat these as the rule floor "
                       "on 20.0+. Decide whether .claude/skills/ belongs in version control.")

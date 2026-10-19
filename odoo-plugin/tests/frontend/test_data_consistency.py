@@ -1,5 +1,5 @@
 """
-Data consistency tests for the Odoo Frontend plugin.
+Data consistency tests for the odoo plugin's frontend data (data/frontend/).
 
 Validates internal consistency of data files — typography hierarchy,
 template structure, and cross-file references.
@@ -10,8 +10,8 @@ import pytest
 from pathlib import Path
 
 
-PLUGIN_ROOT = Path(__file__).parent.parent
-DATA_DIR = PLUGIN_ROOT / "data"
+PLUGIN_ROOT = Path(__file__).resolve().parents[2]
+DATA_DIR = PLUGIN_ROOT / "data" / "frontend"
 
 
 # ─── Typography Consistency ──────────────────────────────────────
@@ -22,7 +22,7 @@ class TestTypographyConsistency:
 
     @pytest.fixture(scope="class")
     def typography(self):
-        with open(DATA_DIR / "typography_defaults.json") as f:
+        with open(DATA_DIR / "typography_defaults.json", encoding="utf-8") as f:
             return json.load(f)
 
     def test_base_font_size_is_16(self, typography):
@@ -67,7 +67,7 @@ class TestTemplateConsistency:
 
     @pytest.fixture(scope="class")
     def templates(self):
-        with open(DATA_DIR / "theme_templates.json") as f:
+        with open(DATA_DIR / "theme_templates.json", encoding="utf-8") as f:
             return json.load(f)
 
     def test_has_header_templates(self, templates):
@@ -115,7 +115,7 @@ class TestVersionMappingConsistency:
 
     @pytest.fixture(scope="class")
     def version_map(self):
-        with open(DATA_DIR / "version_mapping.json") as f:
+        with open(DATA_DIR / "version_mapping.json", encoding="utf-8") as f:
             return json.load(f)
 
     def test_all_versions_have_js_info(self, version_map):

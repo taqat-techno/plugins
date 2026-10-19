@@ -32,7 +32,7 @@ services:
       - "random_page_cost=1.1"
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-odoo}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-odoo}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
       POSTGRES_DB: ${POSTGRES_DB:-postgres}
     volumes:
       - {project_name}_{version}_db_data:/var/lib/postgresql/data
@@ -70,7 +70,7 @@ services:
       - "8072"
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-odoo}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-odoo}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
       POSTGRES_DB: ${POSTGRES_DB:-postgres}
       DEV_MODE: "0"
       ENABLE_DEBUGGER: "0"

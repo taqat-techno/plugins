@@ -40,4 +40,4 @@ docker-compose up -d --build   # if --build flag
 
 ## Script
 
-Use `server_manager.py start --config <path> [--dev] [--workers N]` from the plugin scripts directory.
+Run `python "${CLAUDE_PLUGIN_ROOT}/scripts/service/server_manager.py" start --config <path> [--dev] [--workers N]`.

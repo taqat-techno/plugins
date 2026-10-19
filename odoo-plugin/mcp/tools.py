@@ -691,11 +691,23 @@ def _call(sess: Session, args: dict) -> str:
     model = guards.check_model_name(args.get("model"))
     method = guards.check_method_name(args.get("method"))
     guards.check_call_allowed(prof, model, method)
-    ctx = guards.check_context(args.get("context"))
     ids = guards.check_ids(args.get("ids"))
     kwargs = args.get("kwargs") or {}
     if not isinstance(kwargs, dict):
         raise GuardError("kwargs must be an object")
+    kwargs = dict(kwargs)
+    # A context can arrive twice: as the top-level `context` argument and as
+    # kwargs["context"]. Merge both and check the merged dict, otherwise a denied
+    # key (tracking_disable, ...) slips through kwargs unchecked.
+    kw_ctx = kwargs.pop("context", None)
+    if kw_ctx is not None and not isinstance(kw_ctx, dict):
+        raise GuardError("kwargs.context must be an object/dict")
+    merged = dict(kw_ctx or {})
+    top = args.get("context")
+    if top is not None and not isinstance(top, dict):
+        raise GuardError("context must be an object/dict")
+    merged.update(top or {})
+    ctx = guards.check_context(merged)
     result = c.call(model, method, ids=ids, kwargs=kwargs, context=ctx)
     if method not in guards.READ_ONLY_METHODS:
         _write_audit(prof, method, model, len(ids))

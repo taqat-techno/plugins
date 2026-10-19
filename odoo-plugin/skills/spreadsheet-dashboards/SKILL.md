@@ -1,28 +1,54 @@
 ---
 name: spreadsheet-dashboards
-description: Design, review and restyle Odoo `spreadsheet.dashboard` workbooks (o-spreadsheet; Odoo 16+, mechanisms verified on 17). Owns the two-rendering-systems model (the sheet body is one raster canvas that CSS cannot reach; only figures are DOM), the CSS specificity rule against the library's JS-injected stylesheets, the figure `data-id` scoping hook and the scope-isolation trap, the figures-or-invisible-on-mobile rule, geometry-is-data (colNumber sets the sheet width, not the last used column), the period-over-period delta recipe, and the correctness rules for pivot domains, literal constants and filter coverage. Activates when asked to build, redesign, restyle, audit or review an Odoo spreadsheet dashboard or a `spreadsheet.dashboard` record; when someone proposes CSS to change dashboard cell colours, card backgrounds or "the dashboard background"; when a dashboard renders blank on a phone, shows a permanent horizontal scrollbar, refuses to centre, or its section labels are off-screen; when authoring or editing a dashboard workbook JSON (figures, pivots, globalFilters, cols/rows, styles); when a KPI needs a delta, trend or comparison; and when auditing the numbers already on a dashboard against the pivots and models they claim to summarise. Anti-triggers — this skill writes and runs no tests, and it reviews the workbook artifact, never the state of your task or whether your work is finished.
+description: >-
+  Use when building, restyling, auditing or reviewing an Odoo spreadsheet.dashboard workbook
+  (o-spreadsheet, Odoo 16+): editing the dashboard JSON (figures, pivots, globalFilters,
+  styles), someone proposing CSS to recolour cells or the dashboard background, a dashboard
+  that is blank on a phone or has a permanent horizontal scrollbar, a KPI that needs a delta
+  or trend, or checking a dashboard's numbers against its pivots. Not for running tests or
+  judging whether a task is finished.
 version: 0.1.0
-last_reviewed: 2026-08-10
-owns:
-  - the two-rendering-systems model (canvas cells vs DOM figures) and what each layer can change
-  - the specificity rule for overriding library CSS injected from JS at import time
-  - the figure `data-id` scoping hook and the shared-action scope-isolation trap
-  - the figures-or-invisible-on-mobile rule (below 768px only figures render)
-  - geometry-is-data (colNumber/rowNumber set the sheet box; spacing is empty gutter columns)
-  - the period-over-period delta recipe (twin pivot + filter offset + scorecard baseline)
-  - dashboard correctness rules (translatable-name domains, literal constants, unlabelled period exemptions)
-  - the four-way A/B/C/D separation used to plan and review a dashboard redesign
-defers_to:
-  - theme-scss / theme-design for website-theme SCSS variables and palettes (this skill governs backend dashboard chrome only)
-  - reviewer for general Odoo module review conventions and manifest/version hygiene
-  - i18n / i18n-audit for `.pot` extraction, msgid discipline and the translation-file workflow once labels are wrapped in `=_t()`
-  - stack-doctor for module-update and DB-lifecycle verification (reading the server log rather than the exit code, cloning a DB with its filestore) — this skill only says which checks a dashboard change needs
-  - a general data-visualisation skill, where one is available, for chart-type choice and palette accessibility; this skill owns only the subset o-spreadsheet can actually express
-  - the issue/decision owner for any defect that source control shows was a deliberate, documented choice
 user-invocable: false
+metadata:
+  last_reviewed: 2026-08-10
+  owns:
+    - the two-rendering-systems model (canvas cells vs DOM figures) and what each layer can change
+    - the specificity rule for overriding library CSS injected from JS at import time
+    - the figure `data-id` scoping hook and the shared-action scope-isolation trap
+    - the figures-or-invisible-on-mobile rule (below 768px only figures render)
+    - geometry-is-data (colNumber/rowNumber set the sheet box; spacing is empty gutter columns)
+    - the period-over-period delta recipe (twin pivot + filter offset + scorecard baseline)
+    - dashboard correctness rules (translatable-name domains, literal constants, unlabelled period exemptions)
+    - the four-way A/B/C/D separation used to plan and review a dashboard redesign
+  defers_to:
+    - theme-scss / theme-design for website-theme SCSS variables and palettes (this skill governs backend dashboard chrome only)
+    - reviewer for general Odoo module review conventions and manifest/version hygiene
+    - i18n / i18n-audit for `.pot` extraction, msgid discipline and the translation-file workflow once labels are wrapped in `=_t()`
+    - stack-doctor for module-update and DB-lifecycle verification (reading the server log rather than the exit code, cloning a DB with its filestore) — this skill only says which checks a dashboard change needs
+    - a general data-visualisation skill, where one is available, for chart-type choice and palette accessibility; this skill owns only the subset o-spreadsheet can actually express
+    - the issue/decision owner for any defect that source control shows was a deliberate, documented choice
 ---
 
 # spreadsheet-dashboards
+
+## Scope and example requests
+
+Design, review and restyle Odoo `spreadsheet.dashboard` workbooks (o-spreadsheet; Odoo 16+,
+mechanisms verified on 17). Owns the two-rendering-systems model (the sheet body is one
+raster canvas that CSS cannot reach; only figures are DOM), the CSS specificity rule against
+the library's JS-injected stylesheets, the figure `data-id` scoping hook and the
+scope-isolation trap, the figures-or-invisible-on-mobile rule, geometry-is-data (colNumber
+sets the sheet width, not the last used column), the period-over-period delta recipe, and
+the correctness rules for pivot domains, literal constants and filter coverage. Activates
+when asked to build, redesign, restyle, audit or review an Odoo spreadsheet dashboard or a
+`spreadsheet.dashboard` record; when someone proposes CSS to change dashboard cell colours,
+card backgrounds or "the dashboard background"; when a dashboard renders blank on a phone,
+shows a permanent horizontal scrollbar, refuses to centre, or its section labels are
+off-screen; when authoring or editing a dashboard workbook JSON (figures, pivots,
+globalFilters, cols/rows, styles); when a KPI needs a delta, trend or comparison; and when
+auditing the numbers already on a dashboard against the pivots and models they claim to
+summarise. Anti-triggers — this skill writes and runs no tests, and it reviews the workbook
+artifact, never the state of your task or whether your work is finished.
 
 ## Purpose
 

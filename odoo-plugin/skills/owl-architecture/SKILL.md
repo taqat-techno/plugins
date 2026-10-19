@@ -1,31 +1,28 @@
 ---
 name: odoo-owl-architecture
-description: |
-  Choose and justify the SHAPE of an Odoo 17-19 front-end before writing code — a normal backend view, an ir.actions.client OWL client action, or a self-rooted full OWL application mounted on your own route. Covers the three bootstrap paths, the decision table, what a self-rooted app gives up (router, error handling, breadcrumbs, navbar, systray, upgrade-following), and the layer map from manifest glob to mounted component.
-
-  <example>
-  Context: User wants to build a new screen and reaches straight for a full OWL app.
-  user: "I want to build a custom kiosk UI in Odoo, like POS"
-  assistant: "Before scaffolding, let me check which of the three shapes this actually needs — a self-rooted app is a large, permanent cost and only three requirements genuinely force it."
-  <commentary>Shape choice is architectural and near-irreversible; run the decision table first.</commentary>
-  </example>
-
-  <example>
-  Context: User asks where a client action lives.
-  user: "How do I register an OWL component as a client action?"
-  assistant: "That's Shape B. Let me walk the actions-registry registration and the props contract the action service injects."
-  <commentary>Client action = ir.actions.client + the actions registry category.</commentary>
-  </example>
-
-  <example>
-  Context: User is deciding whether to keep the WebClient chrome.
-  user: "Can I get rid of the Odoo navbar for this screen but keep breadcrumbs?"
-  assistant: "Those come as a pair. Let me show what target=fullscreen gives you versus going self-rooted."
-  <commentary>Chrome is all-or-nothing; the decision table makes the trade explicit.</commentary>
-  </example>
+description: >-
+  Use when deciding the shape of a new Odoo 17-19 front-end before writing code: a normal
+  backend view, an ir.actions.client OWL client action, or a self-rooted OWL application on
+  its own route. Also when registering a component as a client action, or when someone wants
+  to drop the navbar, breadcrumbs or other web-client chrome for one screen. Covers the
+  decision table and what a self-rooted app gives up.
 ---
 
 # Choosing the shape of an Odoo OWL front-end
+
+## Scope and example requests
+
+Choose and justify the SHAPE of an Odoo 17-19 front-end before writing code — a normal
+backend view, an ir.actions.client OWL client action, or a self-rooted full OWL application
+mounted on your own route. Covers the three bootstrap paths, the decision table, what a
+self-rooted app gives up (router, error handling, breadcrumbs, navbar, systray,
+upgrade-following), and the layer map from manifest glob to mounted component.
+
+Example requests:
+
+- "I want to build a custom kiosk UI in Odoo, like POS" (Shape choice is architectural and near-irreversible; run the decision table first)
+- "How do I register an OWL component as a client action?" (Client action = ir.actions.client + the actions registry category)
+- "Can I get rid of the Odoo navbar for this screen but keep breadcrumbs?" (Chrome is all-or-nothing; the decision table makes the trade explicit)
 
 Three shapes exist. They differ in who owns the root component and the environment — everything
 else follows from that.

@@ -128,3 +128,43 @@ def test_hard_deny_holds_through_call_even_with_unlink_allowed():
             c.handshake()
             text, is_error = _call(c, "res.users", "unlink")
             assert is_error is True and "blocked" in text.lower(), text
+
+
+# ------------------------------------------------ kwargs.context (ODOO-P1-02)
+
+def test_kwargs_context_denied_key_is_refused_end_to_end():
+    with tempfile.TemporaryDirectory() as td:
+        env = _profile_dir(Path(td), mode="write")
+        with Client(env_extra=env) as c:
+            c.handshake()
+            text, is_error = _call(c, "sale.order", "action_confirm",
+                                   kwargs={"context": {"tracking_disable": True}})
+            assert is_error is True and "tracking_disable" in text, text
+
+
+def test_kwargs_context_must_be_an_object():
+    with tempfile.TemporaryDirectory() as td:
+        env = _profile_dir(Path(td), mode="write")
+        with Client(env_extra=env) as c:
+            c.handshake()
+            text, is_error = _call(c, "sale.order", "action_confirm",
+                                   kwargs={"context": "tracking_disable"})
+            assert is_error is True and "kwargs.context" in text, text
+
+
+def test_client_folds_kwargs_context_into_the_merged_context():
+    import odoo_client
+
+    prof = Profile(name="local", url="http://127.0.0.1:1", db="t", lang="ar_001")
+    client = odoo_client.OdooClient(prof)
+    client._flavor = "json2"
+    seen = {}
+
+    def fake(model, method, ids, args, kwargs):
+        seen.update(kwargs)
+        return True
+
+    client._call_json2 = fake
+    client.call("res.partner", "read", ids=[1],
+                kwargs={"context": {"active_test": False}}, context={"tz": "UTC"})
+    assert seen["context"] == {"lang": "ar_001", "active_test": False, "tz": "UTC"}

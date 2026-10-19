@@ -314,6 +314,11 @@ class OdooClient:
         kwargs = dict(kwargs or {})
 
         ctx = dict(self.p.base_context())
+        # Never forward a caller-supplied kwargs["context"] untouched: fold it into
+        # the one merged context so every key goes through the same path.
+        kw_ctx = kwargs.pop("context", None)
+        if isinstance(kw_ctx, dict):
+            ctx.update(kw_ctx)
         if context:
             ctx.update(context)
         if ctx:

@@ -167,7 +167,7 @@ def create_venv(
     # Create venv
     result = subprocess.run(
         [python, "-m", "venv", str(venv_path)],
-        capture_output=True, text=True
+        capture_output=True, text=True, encoding="utf-8", errors="replace"
     )
 
     if result.returncode != 0:
@@ -275,7 +275,7 @@ def check_postgresql(
     try:
         result = subprocess.run(
             ["psql", "-U", user, "-h", host, "-p", str(port), "-c", "SELECT 1;"],
-            env=env, capture_output=True, text=True, timeout=5
+            env=env, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=5
         )
         if result.returncode == 0:
             print(f"[OK] PostgreSQL connection successful ({host}:{port})")
@@ -302,7 +302,7 @@ def create_postgresql_user(
         result = subprocess.run(
             ["createuser", "-P"] + flags + [username],
             input=f"{password}\n{password}\n",
-            text=True, capture_output=True
+            text=True, encoding="utf-8", errors="replace", capture_output=True
         )
         if result.returncode == 0:
             print(f"[OK] PostgreSQL user '{username}' created.")
@@ -417,7 +417,7 @@ def check_wkhtmltopdf() -> bool:
         try:
             result = subprocess.run(
                 ["wkhtmltopdf", "--version"],
-                capture_output=True, text=True
+                capture_output=True, text=True, encoding="utf-8", errors="replace"
             )
             version = result.stdout.strip()
             print(f"[OK] wkhtmltopdf found: {version} (at {wk_path})")
@@ -707,4 +707,9 @@ def main():
 
 
 if __name__ == "__main__":
+    for _stream in (sys.stdout, sys.stderr):  # cp1252 consoles choke on non-ASCII output
+        try:
+            _stream.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
     main()

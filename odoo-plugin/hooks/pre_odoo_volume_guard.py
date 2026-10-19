@@ -1,117 +1,174 @@
 #!/usr/bin/env python3
-"""PreToolUse hook (Bash): hard-block Docker commands that destroy Odoo-stack volumes.
+"""PreToolUse hook (Bash): ask the user before a command destroys Odoo data.
 
-An Odoo Docker stack keeps its Postgres database and its Odoo filestore in named
-volumes. Destroying those volumes is irreversible. This hook blocks the three
-deterministic ways a Bash command can wipe them:
+It returns `permissionDecision: "ask"` - the user sees the command and the reason
+and decides - for:
 
-  1. `docker compose down -v` / `--volumes`  (legacy `docker-compose down -v` too)
-  2. `docker volume rm ...`
-  3. `docker volume prune ...`
+  1. `docker compose down -v|--volumes` (and legacy `docker-compose down -v`) on an
+     Odoo stack: deletes the Postgres database and filestore volumes.
+  2. `docker volume rm|remove|prune` and `docker system prune --volumes` on an Odoo
+     stack, or naming a volume whose name contains "odoo".
+  3. This plugin's destructive database scripts: `db_manager.py drop`,
+     `db_manager.py reset-admin`, `db_manager.py restore --no-create` (restore over an
+     existing database), and `dropdb` inside an Odoo project.
+  4. `server_manager.py stop --all --yes`: stops every Odoo server on the machine.
 
-UNLESS an explicit override token appears in the SAME command line:
-  - the literal string  ALLOW_VOLUME_DELETE
-  - or the flag         --i-understand-data-loss
+Scope: only on an Odoo stack (see _odoo_shell.is_odoo_project) or when the command
+itself names Odoo; silent everywhere else. It matches the commands that will run,
+parsed from the shell line, never text inside quotes, comments, echo or grep.
 
-Reads JSON on stdin (Claude Code PreToolUse payload). The Bash command is read
-from tool_input.command.
+There is no override token the model could add to the command. The user answers the
+prompt. To switch the guard off, the user sets ODOO_DESTRUCTIVE_GUARD=off in the
+environment before starting Claude Code.
 
-Exit 0 = allow (silent). Exit 2 = deny with a one-line reason on stderr.
-
-Design notes:
-- Stdlib-only, fast, no secrets read or printed.
-- Conservative: matches only clearly-destructive, deterministically-detectable
-  signals so reads and ordinary docker commands pass silently.
-- Fail-OPEN on any internal error or timeout: if we cannot parse the payload or
-  the matcher hangs, we exit 0 so the user is never hard-blocked by our bug.
+Fails open: bad input, an exception or the 3 s watchdog all end in exit 0.
 """
-import json
+from __future__ import annotations
+
 import os
-import re
 import sys
-import threading
 
-# Internal timeout guard: fail-OPEN after 3 seconds. This hook does only cheap
-# string/regex work, so >3s means something is wrong; allowing is safer than
-# wedging every Bash call.
-_timer = threading.Timer(3.0, lambda: os._exit(0))
-_timer.daemon = True
-_timer.start()
+HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, os.path.join(HERE, "_vendor"))
+sys.path.insert(0, HERE)
 
-# Override tokens. Presence of EITHER anywhere in the command line allows the
-# destructive operation through. The user is explicitly opting into data loss.
-_OVERRIDE_TOKENS = ("ALLOW_VOLUME_DELETE", "--i-understand-data-loss")
+import hooklib  # noqa: E402
 
-# `docker compose down ... -v` or `... --volumes` (modern plugin form) and the
-# legacy hyphenated `docker-compose down ...` form. We require the `down`
-# subcommand AND a volumes flag to be present; bare `down` (no -v) is safe and
-# must pass silently.
-_COMPOSE_DOWN_RE = re.compile(
-    r"\bdocker(?:-compose|\s+compose)\b[^\n;&|]*\bdown\b", re.IGNORECASE
-)
-# A standalone -v / --volumes token (not part of a longer flag like --volumes-from
-# or a path). Word-ish boundaries on both sides.
-_VOLUMES_FLAG_RE = re.compile(r"(?<![\w-])(?:-v|--volumes)(?![\w-])")
+try:  # hooklib writes JSON with non-ASCII text; a cp1252 console stdout would choke on it
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+except Exception:
+    pass
 
-# `docker volume rm ...` and `docker volume prune ...` (allowing intervening
-# flags between `volume` and the verb, e.g. `docker volume rm -f name`).
-_VOLUME_RM_RE = re.compile(
-    r"\bdocker\s+volume\b[^\n;&|]*\b(?:rm|prune)\b", re.IGNORECASE
-)
+_TRIGGERS = ("docker", "podman", "db_manager", "server_manager", "dropdb")
+_ADVICE = (" This cannot be undone. Back up first (db_manager.py backup, plus the "
+           "filestore). Approve only if you mean to delete this data.")
 
 
-def _has_override(command: str) -> bool:
-    return any(tok in command for tok in _OVERRIDE_TOKENS)
+def _volumes_flag(args) -> bool:
+    for a in args:
+        if a in ("-v", "--volumes"):
+            return True
+        # combined short flags, e.g. -fv
+        if a.startswith("-") and not a.startswith("--") and "v" in a[1:] and a[1:].isalpha():
+            return True
+    return False
 
 
-def _classify(command: str):
-    """Return a short reason string if the command destroys volumes, else None."""
-    # compose down WITH a volumes flag
-    if _COMPOSE_DOWN_RE.search(command) and _VOLUMES_FLAG_RE.search(command):
-        return "compose down with -v/--volumes deletes the Postgres DB + Odoo filestore volumes"
-    # docker volume rm / prune
-    m = _VOLUME_RM_RE.search(command)
-    if m:
-        verb = "prune" if "prune" in m.group(0).lower() else "rm"
-        return f"docker volume {verb} destroys named Odoo-stack volumes (DB + filestore)"
+def _compose_files(args, cwd):
+    files = []
+    for i, a in enumerate(args):
+        if a in ("-f", "--file") and i + 1 < len(args):
+            files.append(args[i + 1])
+        elif a.startswith("--file="):
+            files.append(a.split("=", 1)[1])
+    return [f if os.path.isabs(f) else os.path.join(cwd, f) for f in files]
+
+
+def _docker_reason(argv, cwd, odoo_project):
+    """Reason string when a docker/podman argv destroys Odoo volumes, else None."""
+    import _odoo_shell as sh
+
+    name = sh.prog(argv)
+    args = argv[1:]
+    if name in ("docker", "podman") and args[:1] == ["compose"]:
+        sub = args[1:]
+    elif name in ("docker-compose", "podman-compose"):
+        sub = args
+    else:
+        sub = None
+
+    if sub is not None:
+        if "down" in sub and _volumes_flag(sub[sub.index("down") + 1:] + sub[:sub.index("down")]):
+            files = _compose_files(sub, cwd)
+            odoo = any(sh.compose_mentions_odoo(f) for f in files) if files else odoo_project
+            if odoo:
+                return "`compose down -v` deletes this Odoo stack's database and filestore volumes."
+        return None
+
+    if name not in ("docker", "podman") or not args:
+        return None
+    if args[0] == "volume" and len(args) > 1:
+        verb, rest = args[1], args[2:]
+        if verb in ("rm", "remove"):
+            names = [a for a in rest if not a.startswith("-")]
+            if odoo_project or any("odoo" in n.lower() for n in names):
+                return "`docker volume %s %s` destroys Odoo volumes (database, filestore)." % (
+                    verb, " ".join(names) or "...")
+        if verb == "prune" and odoo_project:
+            return "`docker volume prune` can delete this Odoo stack's database and filestore volumes."
+    if args[0] == "system" and len(args) > 1 and args[1] == "prune" and "--volumes" in args \
+            and odoo_project:
+        return "`docker system prune --volumes` can delete this Odoo stack's volumes."
     return None
 
 
-def main():
-    try:
-        data = json.loads(sys.stdin.buffer.read().decode("utf-8", "replace"))
-    except (json.JSONDecodeError, EOFError, ValueError):
-        sys.exit(0)
+def _script_reason(argv, odoo_project):
+    import _odoo_shell as sh
 
-    tool_input = data.get("tool_input", {}) or {}
-    command = tool_input.get("command", "")
-    if not command or not isinstance(command, str):
-        sys.exit(0)
+    if sh.prog(argv) == "dropdb" and odoo_project:
+        target = [a for a in argv[1:] if not a.startswith("-")]
+        return "`dropdb %s` drops an Odoo database." % (target[-1] if target else "")
+    script = sh.python_script(argv)
+    if not script:
+        return None
+    base, args = script
+    sub = args[0] if args else ""
+    if base == "db_manager.py":
+        db = ""
+        for i, a in enumerate(args):
+            if a in ("--db", "-d") and i + 1 < len(args):
+                db = args[i + 1]
+        if sub == "drop":
+            return "db_manager.py drop deletes database %r." % db
+        if sub == "reset-admin":
+            return "db_manager.py reset-admin overwrites the admin password of database %r." % db
+        if sub == "restore" and "--no-create" in args:
+            return "db_manager.py restore --no-create restores over existing database %r." % db
+    if base == "server_manager.py" and sub == "stop" and "--all" in args and "--yes" in args:
+        return "server_manager.py stop --all --yes stops every Odoo server on this machine."
+    return None
 
-    # Fast path: if there is no "docker" token at all, nothing to do.
-    if "docker" not in command.lower():
-        sys.exit(0)
 
-    reason = _classify(command)
-    if reason is None:
-        _timer.cancel()
-        sys.exit(0)
+def main() -> int:
+    hooklib.watchdog(3.0)
+    if os.environ.get("ODOO_DESTRUCTIVE_GUARD", "").strip().lower() in ("off", "0", "false"):
+        return 0
+    payload = hooklib.read_payload()
+    if payload is None:
+        return 0
+    command = hooklib.tool_input(payload).get("command", "")
+    if not isinstance(command, str) or not command:
+        return 0
+    low = command.lower()
+    if not any(t in low for t in _TRIGGERS):
+        return 0
 
-    if _has_override(command):
-        # User explicitly opted into data loss in the same command. Allow.
-        _timer.cancel()
-        sys.exit(0)
+    import _odoo_shell as sh
 
-    print(
-        "BLOCKED: " + reason + ". This is irreversible and has no undo. "
-        "Back up the DB dump + filestore first; to proceed anyway, re-run with "
-        "the explicit override token ALLOW_VOLUME_DELETE (or the "
-        "--i-understand-data-loss flag) in the same command.",
-        file=sys.stderr,
-    )
-    _timer.cancel()
-    sys.exit(2)
+    cwd = payload.get("cwd") if isinstance(payload.get("cwd"), str) else ""
+    cwd = cwd or os.getcwd()
+    cache = {}
+
+    def odoo_project():
+        if "v" not in cache:
+            cache["v"] = sh.is_odoo_project(cwd)
+        return cache["v"]
+
+    reasons = []
+    for argv in sh.commands(command):
+        name = sh.prog(argv)
+        if name in ("docker", "podman", "docker-compose", "podman-compose"):
+            r = _docker_reason(argv, cwd, odoo_project())
+        elif name == "dropdb" or sh.python_script(argv):
+            r = _script_reason(argv, odoo_project() if name == "dropdb" else True)
+        else:
+            r = None
+        if r:
+            reasons.append(r)
+    if reasons:
+        hooklib.ask("[odoo] " + " ".join(dict.fromkeys(reasons)) + _ADVICE)
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    hooklib.run(main)

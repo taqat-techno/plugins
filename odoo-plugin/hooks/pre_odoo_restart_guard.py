@@ -4,152 +4,128 @@
 This hook NEVER blocks, NEVER mutates files, NEVER kills processes. It only hands a
 one-line nudge to Claude as PreToolUse additionalContext JSON on stdout and ALWAYS
 exits 0. Claude receives it next to the tool result, so it informs the next call
-rather than this one. It warns on three deterministic, documented-dangerous Bash
-command shapes:
+rather than this one. It warns on three documented-dangerous command shapes:
 
   1. Unbounded Odoo readiness polling: `curl --retry-connrefused` aimed at an
      Odoo-like port/endpoint with no bound (`--max-time` / `--retry-max-time` /
      `--retry-delay`). An unbounded retry storm can take down the backend, notably
      through IDE port-forwarding.
-  2. Combined stop+start in one chain: `pkill ... && ... odoo-bin` — the pkill
-     pattern self-matches this command line (including the odoo-bin part) and can
-     SIGTERM the chain (exit 144) before the start runs.
-  3. Raw Odoo DB clone: `CREATE DATABASE ... TEMPLATE` / `createdb -T` — copies only
-     SQL and leaves the Odoo filestore / attachments broken.
+  2. Stop and start in one command line: `pkill ...` followed by an Odoo launch
+     (`odoo-bin`, `python -m odoo`). The pkill pattern self-matches this command line
+     and can SIGTERM the chain (exit 144) before the start runs.
+  3. Raw Odoo DB clone in an Odoo project: `CREATE DATABASE ... TEMPLATE` via psql /
+     `createdb -T` copies only SQL and leaves the filestore / attachments broken.
 
-It stays SILENT on the safe forms: a bounded curl, a split pkill and odoo-bin in
-separate commands, `odoo-bin db duplicate`, and any non-Odoo command.
+It matches the commands that run (parsed from the shell line), not text inside echo,
+grep patterns or commit messages. It is silent on the safe forms: a bounded curl, a
+pkill and an odoo-bin in separate tool calls, `odoo-bin db duplicate`.
 
-Reads the Claude Code PreToolUse JSON payload on stdin; the Bash command is at
-tool_input.command. Stdlib-only. Fail-OPEN (exit 0) on any parse error or timeout.
+Fails open: bad input, an exception or the 3 s watchdog all end in exit 0.
 """
-import json
+from __future__ import annotations
+
 import os
 import re
 import sys
-import threading
 
-try:
-    sys.stdout.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[attr-defined]
-    sys.stderr.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[attr-defined]
+HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, os.path.join(HERE, "_vendor"))
+sys.path.insert(0, HERE)
+
+import hooklib  # noqa: E402
+
+try:  # hooklib writes JSON with non-ASCII text; a cp1252 console stdout would choke on it
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 except Exception:
     pass
 
-# Fail-OPEN after 3s. This hook does only cheap regex work; >3s means something is
-# wrong, and since it is advisory we simply exit 0 (never wedge a Bash call).
-_timer = threading.Timer(3.0, lambda: os._exit(0))
-_timer.daemon = True
-_timer.start()
-
-# --- pattern 1: unbounded Odoo readiness poll --------------------------------
 # An Odoo-like target: an 80xx port, a /web endpoint, or a *.localhost host.
 _ODOO_TARGET_RE = re.compile(r":80\d\d(?:\b|/)|/web(?:/|\b)|\.localhost\b", re.IGNORECASE)
-# Any of these flags means the retry loop is throttled/bounded -> safe -> silent.
-_BOUNDED_RE = re.compile(r"--max-time\b|--retry-max-time\b|--retry-delay\b", re.IGNORECASE)
+_BOUND_FLAGS = ("--max-time", "-m", "--retry-max-time", "--retry-delay")
+_CREATE_TEMPLATE_RE = re.compile(r"create\s+database\b[^;]*\btemplate\b", re.IGNORECASE)
+
+CURL_ADVICE = (
+    "[odoo] advisory: `curl --retry-connrefused` against an Odoo port with no "
+    "`--max-time`/`--retry-max-time`/`--retry-delay` can retry-storm and take down "
+    "the backend (notably through IDE port-forwarding). Use a BOUNDED poll (fixed "
+    "retry count + delay + `--max-time`), or grep the logfile for "
+    "'HTTP service ... running'."
+)
+PKILL_ADVICE = (
+    "[odoo] advisory: `pkill ... && ... odoo-bin` in one chain - the pkill "
+    "pattern self-matches this command line (including the odoo-bin part) and "
+    "can SIGTERM the chain (exit 144) before the start runs. Split stop and "
+    "start into SEPARATE calls and kill by resolved PID."
+)
+TEMPLATE_ADVICE = (
+    "[odoo] advisory: cloning a database via `CREATE DATABASE ... TEMPLATE` / "
+    "`createdb -T` copies only SQL. If this is an Odoo DB, the filestore / "
+    "attachments are NOT copied and will be broken. Use Odoo duplication that "
+    "copies the filestore: `odoo-bin db duplicate` or "
+    "`exp_duplicate_database(src, dst)`."
+)
 
 
-def _warn_unbounded_curl(cmd):
-    low = cmd.lower()
-    if "curl" not in low or "--retry-connrefused" not in low:
-        return None
-    if not _ODOO_TARGET_RE.search(cmd):
-        return None
-    if _BOUNDED_RE.search(cmd):
-        return None  # bounded -> safe -> silent
-    return (
-        "[odoo] advisory: `curl --retry-connrefused` against an Odoo port with no "
-        "`--max-time`/`--retry-max-time`/`--retry-delay` can retry-storm and take down "
-        "the backend (notably through IDE port-forwarding). Use a BOUNDED poll (fixed "
-        "retry count + delay + `--max-time`), or grep the logfile for "
-        "'HTTP service ... running'."
-    )
+def _is_odoo_launch(argv) -> bool:
+    import _odoo_shell as sh
+
+    name = sh.prog(argv)
+    if name in ("odoo-bin", "odoo"):
+        return True
+    if name.startswith("python") or name == "py":
+        if "-m" in argv:
+            i = argv.index("-m")
+            return i + 1 < len(argv) and argv[i + 1] == "odoo"
+        script = sh.python_script(argv)
+        return bool(script) and script[0] in ("odoo-bin", "odoo", "odoo-bin.py")
+    return False
 
 
-# --- pattern 2: combined stop+start (pkill ... && ... odoo launcher) ----------
-_ODOO_LAUNCH = r"(?:odoo-bin|odoo\s+-c|-m\s+odoo|setup/odoo)"
-_PKILL_CHAIN_RE = re.compile(r"\bpkill\b[^\n]*&&[^\n]*" + _ODOO_LAUNCH, re.IGNORECASE)
+def advisories(command: str, cwd: str) -> list:
+    import _odoo_shell as sh
+
+    out = []
+    cmds = sh.commands(command)
+    for argv in cmds:
+        if sh.prog(argv) == "curl" and "--retry-connrefused" in argv:
+            joined = " ".join(argv)
+            bounded = any(a in _BOUND_FLAGS or a.split("=", 1)[0] in _BOUND_FLAGS for a in argv)
+            if _ODOO_TARGET_RE.search(joined) and not bounded:
+                out.append(CURL_ADVICE)
+                break
+    for i, argv in enumerate(cmds):
+        if sh.prog(argv) == "pkill" and any(_is_odoo_launch(a) for a in cmds[i + 1:]):
+            out.append(PKILL_ADVICE)
+            break
+    for argv in cmds:
+        name = sh.prog(argv)
+        clone = (name == "createdb" and any(a in ("-T", "--template") or a.startswith("--template=")
+                                            for a in argv)) or \
+                (name == "psql" and bool(_CREATE_TEMPLATE_RE.search(" ".join(argv))
+                                         or _CREATE_TEMPLATE_RE.search(command)))
+        if clone and sh.is_odoo_project(cwd):
+            out.append(TEMPLATE_ADVICE)
+            break
+    return out
 
 
-def _warn_pkill_chain(cmd):
-    if _PKILL_CHAIN_RE.search(cmd):
-        return (
-            "[odoo] advisory: `pkill ... && ... odoo-bin` in one chain — the pkill "
-            "pattern self-matches this command line (including the odoo-bin part) and "
-            "can SIGTERM the chain (exit 144) before the start runs. Split stop and "
-            "start into SEPARATE calls and kill by resolved PID."
-        )
-    return None
-
-
-# --- pattern 3: raw Odoo DB clone via psql TEMPLATE / createdb -T -------------
-_CREATE_TEMPLATE_RE = re.compile(r"create\s+database\b[^\n;]*\btemplate\b", re.IGNORECASE)
-_CREATEDB_T_RE = re.compile(r"\bcreatedb\b[^\n;]*(?:-T\b|--template\b)", re.IGNORECASE)
-
-
-def _warn_psql_template(cmd):
-    if _CREATE_TEMPLATE_RE.search(cmd) or _CREATEDB_T_RE.search(cmd):
-        return (
-            "[odoo] advisory: cloning a database via `CREATE DATABASE ... TEMPLATE` / "
-            "`createdb -T` copies only SQL. If this is an Odoo DB, the filestore / "
-            "attachments are NOT copied and will be broken. Use Odoo duplication that "
-            "copies the filestore: `odoo-bin db duplicate` or "
-            "`exp_duplicate_database(src, dst)`."
-        )
-    return None
-
-
-def _read_payload():
-    """Parse the hook payload, decoding stdin as UTF-8 (Windows defaults to cp1252)."""
-    try:
-        return json.loads(sys.stdin.buffer.read().decode("utf-8", errors="replace"))
-    except (ValueError, OSError):
-        return None
-
-
-def _advise(text):
-    """Hand an advisory to Claude without blocking the tool call.
-
-    On PreToolUse, stderr and plain stdout from an exit-0 hook never reach the
-    model; only hookSpecificOutput.additionalContext does, and only with
-    hookEventName set. Claude receives it next to the tool result, so it steers
-    the next step rather than this call. No permissionDecision is emitted, so
-    the normal permission flow is untouched.
-    """
-    print(json.dumps({"hookSpecificOutput": {
-        "hookEventName": "PreToolUse",
-        "additionalContext": text,
-    }}))
-
-
-def main():
-    data = _read_payload()
-
-    tool_input = (data.get("tool_input") or {}) if isinstance(data, dict) else {}
-    command = tool_input.get("command", "")
-    if not command or not isinstance(command, str):
-        sys.exit(0)
-
+def main() -> int:
+    hooklib.watchdog(3.0)
+    payload = hooklib.read_payload()
+    if payload is None:
+        return 0
+    command = hooklib.tool_input(payload).get("command", "")
+    if not isinstance(command, str) or not command:
+        return 0
     low = command.lower()
-    # Fast path: none of the trigger tokens -> nothing to advise.
-    if not any(t in low for t in ("curl", "pkill", "psql", "createdb", "create database")):
-        _timer.cancel()
-        sys.exit(0)
-
-    warnings = [
-        w
-        for w in (
-            _warn_unbounded_curl(command),
-            _warn_pkill_chain(command),
-            _warn_psql_template(command),
-        )
-        if w
-    ]
+    if not any(t in low for t in ("curl", "pkill", "psql", "createdb")):
+        return 0
+    cwd = payload.get("cwd") if isinstance(payload.get("cwd"), str) else ""
+    warnings = advisories(command, cwd or os.getcwd())
     if warnings:
-        _advise("\n".join(warnings))
-
-    _timer.cancel()
-    sys.exit(0)  # ALWAYS allow — advisory only
+        hooklib.context("PreToolUse", "\n".join(warnings))
+    return 0  # ALWAYS allow - advisory only
 
 
 if __name__ == "__main__":
-    main()
+    hooklib.run(main)

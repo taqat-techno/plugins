@@ -1,45 +1,55 @@
 ---
 name: multi-tenancy-isolation
 description: >-
-  Design-time multi-tenant isolation rules for Odoo 14-19 — the decisions that are already
-  wrong before anything raises. Owns the tenant-anchor contract (a nullable anchor disables
-  isolation in four non-raising ways at once, so it is required, and a refactor that could
-  null it re-anchors in the SAME change), NULL-kills-UNIQUE (a Postgres UNIQUE over a
-  nullable column stops deduplicating — use a partial unique index), the host-gate brick
-  rule (a deny-by-default gate in ir.http._authenticate / _pre_dispatch precedes route
-  dispatch, so it also 404s /xmlrpc and /jsonrpc and leaves no channel to undo a bad
-  hostname claim), Host resolution as two decoupled layers (db_filter vs
-  get_current_website, so website_id is not a tenant boundary), isolation-comes-from-rendering
-  (fields are instance-global whatever the branding), and ACL-is-not-isolation (portal users
-  are blocked only by accidental default-deny). Activates on the artifact, not on a phase —
-  when a tenant_id / company_id anchor is added, moved, made related= or compute=, or made
-  optional; when an ir.rule domain is written or reviewed; when a UNIQUE, models.Constraint
-  or index lands on a tenant-scoped model; when a route gate or ir.http override keys on
-  hostname or website_id; when an ir.model.access.csv row is added to make a screen work;
-  when a portal or frontend controller builds a domain from a tenant field; or when someone
-  asks to run two brands, tenants, or websites on one instance. Not the audit-time scan of
-  an existing module (odoo-security) and not test authoring or running (odoo-test).
+  Use when designing or reviewing tenant isolation in Odoo 14-19: adding, moving or making
+  optional a tenant_id or company_id anchor, writing an ir.rule domain, adding a UNIQUE
+  constraint or index on a tenant-scoped model, gating routes on hostname or website_id,
+  adding an ir.model.access row to make a screen work, building portal domains from a tenant
+  field, or running several brands, tenants or websites on one instance. Not for scanning an
+  existing module (security) or writing tests (test).
 version: 0.1.0
-last_reviewed: 2026-08-10
-owns:
-  - the tenant-anchor contract (the anchor field is required; a nullable anchor disables isolation in four non-raising ways)
-  - the re-anchor-in-the-same-change rule for refactors that move or null a tenant anchor
-  - the NULL-kills-UNIQUE rule and the decision to replace the constraint with a partial unique index (the declaration syntax itself belongs to odoo-reviewer)
-  - the host-gate brick rule (a pre-dispatch host gate also gates /xmlrpc and /jsonrpc; reserved hosts + resolver-side repair)
-  - the two-layer Host resolution model (db_filter vs get_current_website) and why website_id is not a tenant boundary
-  - the isolation-comes-from-rendering rule (fields on shared models are instance-global)
-  - the ACL-is-not-isolation rule (a broad ACL row with no matching ir.rule; default-deny is accident, not design)
-defers_to:
-  - odoo-security for the audit-time scan of an existing module (ACL completeness, sudo() usage, route auth, SQL injection); this skill owns the design-time rules that decide what that scan should find
-  - odoo-test for authoring and running the per-role reproduction, and for the HttpCase reliability caveat (HttpCase reads 200 + placeholder rather than 403 on denied Binary / /web/image routes, so it false-greens exactly the host-gated and attachment cases this skill cares about)
-  - odoo-reviewer (references/v19_deltas.md) for the v19 declaration syntax itself — _sql_constraints tuples vs models.Constraint / models.UniqueIndex class attributes, and where they sit in class-attribute order
-  - odoo-upgrade for cross-version migration mechanics when a pre-19 module has to gain a partial index through a migration script
-  - theme-create for the exact per-website hook naming and available helpers (_theme_<module>_post_copy on theme.utils)
-  - odoo-stack-doctor (references/db-safety.md) for per-instance separation at the deployment layer (own hostname / port pair / db_filter / filestore), which is a different boundary from tenant isolation inside one database
 user-invocable: false
+metadata:
+  last_reviewed: 2026-08-10
+  owns:
+    - the tenant-anchor contract (the anchor field is required; a nullable anchor disables isolation in four non-raising ways)
+    - the re-anchor-in-the-same-change rule for refactors that move or null a tenant anchor
+    - the NULL-kills-UNIQUE rule and the decision to replace the constraint with a partial unique index (the declaration syntax itself belongs to odoo-reviewer)
+    - the host-gate brick rule (a pre-dispatch host gate also gates /xmlrpc and /jsonrpc; reserved hosts + resolver-side repair)
+    - the two-layer Host resolution model (db_filter vs get_current_website) and why website_id is not a tenant boundary
+    - the isolation-comes-from-rendering rule (fields on shared models are instance-global)
+    - the ACL-is-not-isolation rule (a broad ACL row with no matching ir.rule; default-deny is accident, not design)
+  defers_to:
+    - odoo-security for the audit-time scan of an existing module (ACL completeness, sudo() usage, route auth, SQL injection); this skill owns the design-time rules that decide what that scan should find
+    - odoo-test for authoring and running the per-role reproduction, and for the HttpCase reliability caveat (HttpCase reads 200 + placeholder rather than 403 on denied Binary / /web/image routes, so it false-greens exactly the host-gated and attachment cases this skill cares about)
+    - odoo-reviewer (references/v19_deltas.md) for the v19 declaration syntax itself — _sql_constraints tuples vs models.Constraint / models.UniqueIndex class attributes, and where they sit in class-attribute order
+    - odoo-upgrade for cross-version migration mechanics when a pre-19 module has to gain a partial index through a migration script
+    - theme-create for the exact per-website hook naming and available helpers (_theme_<module>_post_copy on theme.utils)
+    - odoo-stack-doctor (../stack-doctor/references/db-safety.md) for per-instance separation at the deployment layer (own hostname / port pair / db_filter / filestore), which is a different boundary from tenant isolation inside one database
 ---
 
 # multi-tenancy-isolation
+
+## Scope and example requests
+
+Design-time multi-tenant isolation rules for Odoo 14-19 — the decisions that are already
+wrong before anything raises. Owns the tenant-anchor contract (a nullable anchor disables
+isolation in four non-raising ways at once, so it is required, and a refactor that could
+null it re-anchors in the SAME change), NULL-kills-UNIQUE (a Postgres UNIQUE over a nullable
+column stops deduplicating — use a partial unique index), the host-gate brick rule (a
+deny-by-default gate in ir.http._authenticate / _pre_dispatch precedes route dispatch, so it
+also 404s /xmlrpc and /jsonrpc and leaves no channel to undo a bad hostname claim), Host
+resolution as two decoupled layers (db_filter vs get_current_website, so website_id is not a
+tenant boundary), isolation-comes-from-rendering (fields are instance-global whatever the
+branding), and ACL-is-not-isolation (portal users are blocked only by accidental
+default-deny). Activates on the artifact, not on a phase — when a tenant_id / company_id
+anchor is added, moved, made related= or compute=, or made optional; when an ir.rule domain
+is written or reviewed; when a UNIQUE, models.Constraint or index lands on a tenant-scoped
+model; when a route gate or ir.http override keys on hostname or website_id; when an
+ir.model.access.csv row is added to make a screen work; when a portal or frontend controller
+builds a domain from a tenant field; or when someone asks to run two brands, tenants, or
+websites on one instance. Not the audit-time scan of an existing module (odoo-security) and
+not test authoring or running (odoo-test).
 
 ## Purpose
 
@@ -278,7 +288,7 @@ uniqueness/indexes don't depend on it being nullable --no--> duplicates accumula
       name resolution, so the test cannot pass or fail for resolver reasons. `*.localhost` is only
       dependable where the platform's resolver implements RFC 6761 for sub-names (systemd-resolved
       does; the Windows resolver does not), which is why per-instance `<name>.localhost` hostnames
-      work as a dev convention (see odoo-stack-doctor `references/db-safety.md`) but must not be
+      work as a dev convention (see `../stack-doctor/references/db-safety.md`) but must not be
       the mechanism a gate test depends on.
 
 ## Anti-patterns

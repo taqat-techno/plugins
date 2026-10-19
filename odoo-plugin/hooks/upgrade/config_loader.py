@@ -3,7 +3,8 @@
 Shared configuration loader for odoo-upgrade plugin hooks.
 
 Loads odoo-upgrade.config.json from (first match wins):
-1. $CLAUDE_PROJECT_ROOT/odoo-upgrade.config.json  (user override)
+1. $CLAUDE_PROJECT_DIR/odoo-upgrade.config.json  (project override;
+   $CLAUDE_PROJECT_ROOT is read as a legacy fallback)
 2. $CLAUDE_PLUGIN_ROOT/config/odoo-upgrade.config.json   (plugin default)
 3. Hardcoded fallback (zero-dependency safety net)
 """
@@ -29,6 +30,8 @@ DEFAULT_CONFIG = {
         r"odoo-\d+\.\d+/odoo/modules/",
         r"/odoo/odoo/addons/",
         r"/odoo/addons/[^/]+/(?!projects/)",
+        # pip / distro installs of Odoo (site-packages layout)
+        r"(?:site|dist)-packages/odoo/",
     ],
     "target_version_path_patterns": {
         "19": [r"odoo19[/\\]", r"odoo-19", r"[/\\]v19[/\\]", r"19\.0"],

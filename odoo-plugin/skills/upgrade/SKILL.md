@@ -1,38 +1,40 @@
 ---
 name: odoo-upgrade
-description: |
-  Comprehensive Odoo ERP upgrade assistant for migrating modules between Odoo versions (14-19). Handles XML views, Python API changes, JavaScript/OWL components, theme SCSS variables, manifest updates, security implementations, and database migrations. Use when user asks to upgrade Odoo modules, fix version compatibility issues, migrate themes between versions, or resolve Odoo 17/18/19 migration errors. Specializes in frontend RPC service migrations, view XML transformations, theme variable restructuring, and portal template XPath fixes. Activates on migration internals that silently lose data — a model/table rename that must also rename its constraints (ir_model_constraint vs pg_constraint mismatch), noupdate="0" config/cron seeds wiped on every -u, and moving a model to a new module (skipped migrations/ and orphan column drops).
-
-  <example>
-  Context: User wants to upgrade an Odoo module to a newer version
-  user: "Upgrade my Odoo 16 module to Odoo 17"
-  assistant: "I will use the odoo-upgrade skill to analyze your module, apply XML view transformations, update Python API decorators, and fix manifest version strings for Odoo 17 compatibility."
-  <commentary>Core trigger - version migration request with module in scope.</commentary>
-  </example>
-
-  <example>
-  Context: User hits migration errors after an Odoo version change
-  user: "My module breaks with tree views in Odoo 19 - how do I fix it?"
-  assistant: "I will use the odoo-upgrade skill to convert all tree views to list views, update attrs expressions to inline invisible, and fix any other Odoo 19 breaking changes."
-  <commentary>Error-driven trigger - fix specific migration breakage.</commentary>
-  </example>
-
-  <example>
-  Context: User needs data migration scripts
-  user: "Generate migration scripts for upgrading my module from Odoo 17 to 19"
-  assistant: "I will create pre-migrate.py and post-migrate.py scripts handling field renames, data transformations, and cleanup."
-  <commentary>Data migration trigger - generates migration script templates.</commentary>
-  </example>
+description: >-
+  Use when migrating Odoo modules or themes between versions 14 and 19, or fixing errors
+  that appear after an upgrade: tree to list, attrs, RPC service changes, theme SCSS
+  variables, manifest and security changes, portal XPath fixes and migration scripts. Also
+  when a model or table rename, noupdate seed data, or moving a model to another module
+  could silently lose data.
 license: "MIT"
-last_reviewed: 2026-07-23
 metadata:
   filePattern: "**/__manifest__.py,**/views/*.xml,**/static/src/js/*.js,**/static/src/scss/*.scss"
   bashPattern: "odoo.*upgrade|odoo.*precheck|odoo.*migrate"
   model: sonnet
+  last_reviewed: 2026-07-23
 ---
 <!-- Last updated: 2026-07-23 -->
 
 # Odoo Upgrade Assistant v5.0
+
+## Scope and example requests
+
+Comprehensive Odoo ERP upgrade assistant for migrating modules between Odoo versions
+(14-19). Handles XML views, Python API changes, JavaScript/OWL components, theme SCSS
+variables, manifest updates, security implementations, and database migrations. Use when
+user asks to upgrade Odoo modules, fix version compatibility issues, migrate themes between
+versions, or resolve Odoo 17/18/19 migration errors. Specializes in frontend RPC service
+migrations, view XML transformations, theme variable restructuring, and portal template
+XPath fixes. Activates on migration internals that silently lose data — a model/table rename
+that must also rename its constraints (ir_model_constraint vs pg_constraint mismatch),
+noupdate="0" config/cron seeds wiped on every -u, and moving a model to a new module
+(skipped migrations/ and orphan column drops).
+
+Example requests:
+
+- "Upgrade my Odoo 16 module to Odoo 17" (Core trigger - version migration request with module in scope)
+- "My module breaks with tree views in Odoo 19 - how do I fix it?" (Error-driven trigger - fix specific migration breakage)
+- "Generate migration scripts for upgrading my module from Odoo 17 to 19" (Data migration trigger - generates migration script templates)
 
 ## When to Use
 
@@ -50,9 +52,9 @@ Activate when:
 
 1. **Analyze** - Read `__manifest__.py`, identify source version, scan all files
 2. **Backup** - Create timestamped backup before changes
-3. **Pre-check** - Run `scripts/cli.py precheck <path> --target <version>` to identify all issues
+3. **Pre-check** - Run `python "${CLAUDE_PLUGIN_ROOT}/scripts/upgrade/cli.py" precheck <path> --target <version>` to identify all issues
 4. **Transform** - Apply transforms in order: manifest, XML, Python, JS, SCSS
-5. **Validate** - Run `scripts/cli.py validate <path>` to check syntax
+5. **Validate** - Run `python "${CLAUDE_PLUGIN_ROOT}/scripts/upgrade/cli.py" validate <path>` to check syntax
 6. **Test** - Install module: `python -m odoo -d DB -i MODULE --stop-after-init`
 
 ## XML/View Transformations

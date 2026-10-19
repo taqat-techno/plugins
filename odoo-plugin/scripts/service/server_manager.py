@@ -8,7 +8,8 @@ Last updated: 2026-03-26 for v3.0.0
 
 Usage:
     python server_manager.py start --config conf/myproject.conf [--dev] [--workers 4]
-    python server_manager.py stop [--port 8069]
+    python server_manager.py stop [--port 8069] [--force]
+    python server_manager.py stop --all [--yes]
     python server_manager.py status [--port 8069]
     python server_manager.py restart --config conf/myproject.conf
     python server_manager.py install --config conf/myproject.conf --db mydb --module my_module
@@ -78,7 +79,7 @@ def get_pid_on_port(port: int) -> Optional[int]:
         try:
             result = subprocess.run(
                 ["netstat", "-ano"],
-                capture_output=True, text=True
+                capture_output=True, text=True, encoding="utf-8", errors="replace"
             )
             for line in result.stdout.splitlines():
                 if f":{port}" in line and "LISTENING" in line:
@@ -90,7 +91,7 @@ def get_pid_on_port(port: int) -> Optional[int]:
         try:
             result = subprocess.run(
                 ["lsof", "-ti", f":{port}"],
-                capture_output=True, text=True
+                capture_output=True, text=True, encoding="utf-8", errors="replace"
             )
             pids = result.stdout.strip().split()
             if pids:
@@ -104,15 +105,15 @@ def get_pid_on_port(port: int) -> Optional[int]:
 # Process Management
 # ---------------------------------------------------------------------------
 
-def kill_process(pid: int, force: bool = True) -> bool:
-    """Kill a process by PID. Returns True on success."""
+def kill_process(pid: int, force: bool = False) -> bool:
+    """Stop a process by PID: SIGTERM / taskkill by default, SIGKILL / taskkill /F
+    only with force=True. Returns True on success."""
     try:
         if IS_WINDOWS:
-            flags = "/F" if force else ""
             cmd = ["taskkill", "/PID", str(pid)]
             if force:
                 cmd.append("/F")
-            result = subprocess.run(cmd, capture_output=True, text=True)
+            result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace")
             return result.returncode == 0
         else:
             import signal
@@ -124,73 +125,165 @@ def kill_process(pid: int, force: bool = True) -> bool:
         return False
 
 
-def kill_port(port: int) -> bool:
-    """Kill whatever process is listening on the given port."""
+def _split_cmdline(cmdline) -> List[str]:
+    if isinstance(cmdline, (list, tuple)):
+        return [str(t) for t in cmdline]
+    return str(cmdline or "").split()
+
+
+def is_odoo_server_cmdline(cmdline) -> bool:
+    """True only for an actual Odoo server process: `odoo-bin ...`, the `odoo`
+    console script, or `python -m odoo ...`. A command line that merely contains
+    the word "odoo" (this plugin's MCP server, an editor or language server opened
+    on an Odoo checkout, a grep) is NOT a server."""
+    tokens = _split_cmdline(cmdline)
+    low = " ".join(tokens).lower().replace("\\", "/")
+    # Never this plugin's own processes (the MCP server, these scripts).
+    if "/mcp/server.py" in low or "server_manager.py" in low or "odoo-plugin/" in low:
+        return False
+    if not tokens:
+        return False
+
+    def base(tok):
+        return tok.replace("\\", "/").rsplit("/", 1)[-1].lower()
+
+    names = ("odoo-bin", "odoo-bin.py", "odoo", "odoo.exe", "odoo.py")
+    if base(tokens[0]) in names:
+        return True
+    prog = base(tokens[0])
+    if not (prog.startswith("python") or prog in ("py", "py.exe")):
+        return False
+    # The program python runs: the first argument that is not an interpreter option.
+    i = 1
+    while i < len(tokens):
+        tok = tokens[i]
+        if tok == "-m":
+            return i + 1 < len(tokens) and tokens[i + 1].lower() == "odoo"
+        if tok in ("-X", "-W"):
+            i += 2
+            continue
+        if tok.startswith("-"):
+            i += 1
+            continue
+        return base(tok) in names
+    return False
+
+
+def _cmdline_of(pid: int) -> Optional[List[str]]:
+    """Best-effort command line of a PID, or None when it cannot be read."""
+    if PSUTIL_AVAILABLE:
+        try:
+            return psutil.Process(pid).cmdline()
+        except Exception:
+            return None
+    proc = Path(f"/proc/{pid}/cmdline")
+    if proc.is_file():
+        try:
+            return [t for t in proc.read_bytes().decode("utf-8", "replace").split("\0") if t]
+        except OSError:
+            return None
+    return None
+
+
+def _wait_port_free(port: int, seconds: float = 5.0) -> bool:
+    deadline = time.time() + seconds
+    while time.time() < deadline:
+        if not is_port_in_use(port):
+            return True
+        time.sleep(0.25)
+    return not is_port_in_use(port)
+
+
+def kill_port(port: int, force: bool = False) -> bool:
+    """Stop the Odoo server listening on `port`.
+
+    Sends SIGTERM (taskkill without /F) first and escalates to a forced kill only
+    when the port is still busy 5 seconds later. Refuses to touch a listener that
+    is visibly NOT an Odoo server unless force=True."""
     pid = get_pid_on_port(port)
     if pid is None:
         print(f"[INFO] No process found on port {port}")
         return True
 
-    print(f"[INFO] Killing PID {pid} on port {port}...")
+    cmdline = _cmdline_of(pid)
+    if cmdline is not None and not is_odoo_server_cmdline(cmdline) and not force:
+        print(f"[ERROR] PID {pid} on port {port} is not an Odoo server "
+              f"({' '.join(cmdline)[:100]}). Not stopping it; pass --force if you are sure.")
+        return False
+    if cmdline is None:
+        print(f"[WARNING] Cannot read the command line of PID {pid}; assuming it is Odoo.")
+
+    print(f"[INFO] Stopping PID {pid} on port {port} (SIGTERM)...")
     success = kill_process(pid)
+    if success and is_port_in_use(port) and not _wait_port_free(port):
+        print(f"[INFO] PID {pid} still running; forcing.")
+        success = kill_process(pid, force=True)
     if success:
-        print(f"[OK] Killed PID {pid} (port {port})")
+        print(f"[OK] Stopped PID {pid} (port {port})")
     return success
 
 
+def _windows_python_processes() -> List[Tuple[int, str]]:
+    """(pid, cmdline) of python processes on Windows without psutil. Uses CIM via
+    PowerShell; `wmic` is gone from current Windows 11 builds."""
+    script = ("Get-CimInstance Win32_Process -Filter \"Name like 'python%' or Name like 'odoo%'\" | "
+              "Select-Object ProcessId,CommandLine | ConvertTo-Json -Compress")
+    try:
+        result = subprocess.run(["powershell", "-NoProfile", "-NonInteractive", "-Command", script],
+                                capture_output=True, text=True, encoding="utf-8",
+                                errors="replace", timeout=20)
+        import json as _json
+        data = _json.loads(result.stdout or "[]")
+    except Exception:
+        return []
+    if isinstance(data, dict):
+        data = [data]
+    out = []
+    for row in data or []:
+        try:
+            out.append((int(row.get("ProcessId")), row.get("CommandLine") or ""))
+        except (TypeError, ValueError):
+            continue
+    return out
+
+
 def get_running_odoo_processes() -> List[dict]:
-    """Return list of running Odoo-related Python processes."""
+    """Return the running Odoo SERVER processes (see is_odoo_server_cmdline)."""
     processes = []
+    me = os.getpid()
 
     if PSUTIL_AVAILABLE:
         for proc in psutil.process_iter(["pid", "name", "cmdline", "create_time"]):
             try:
-                if proc.info["name"] and "python" in proc.info["name"].lower():
-                    cmdline = proc.info.get("cmdline") or []
-                    cmdline_str = " ".join(cmdline)
-                    if "odoo" in cmdline_str.lower():
-                        processes.append({
-                            "pid": proc.info["pid"],
-                            "name": proc.info["name"],
-                            "cmdline": cmdline_str[:120],
-                            "create_time": proc.info.get("create_time"),
-                        })
+                cmdline = proc.info.get("cmdline") or []
+                if proc.info["pid"] != me and is_odoo_server_cmdline(cmdline):
+                    processes.append({
+                        "pid": proc.info["pid"],
+                        "name": proc.info["name"],
+                        "cmdline": " ".join(cmdline)[:120],
+                        "create_time": proc.info.get("create_time"),
+                    })
             except (psutil.NoSuchProcess, psutil.AccessDenied):
                 continue
+    elif IS_WINDOWS:
+        for pid, cmdline in _windows_python_processes():
+            if pid != me and is_odoo_server_cmdline(cmdline):
+                processes.append({"pid": pid, "cmdline": cmdline[:120]})
     else:
-        # Fallback
-        if IS_WINDOWS:
-            try:
-                result = subprocess.run(
-                    ["wmic", "process", "where", "name='python.exe'",
-                     "get", "ProcessId,CommandLine", "/format:csv"],
-                    capture_output=True, text=True
-                )
-                for line in result.stdout.splitlines():
-                    if "odoo" in line.lower():
-                        parts = line.split(",")
-                        if len(parts) >= 2:
-                            processes.append({
-                                "pid": parts[-1].strip(),
-                                "cmdline": line[:120]
-                            })
-            except Exception:
-                pass
-        else:
-            try:
-                result = subprocess.run(
-                    ["pgrep", "-a", "-f", "odoo"],
-                    capture_output=True, text=True
-                )
-                for line in result.stdout.splitlines():
-                    parts = line.split(None, 1)
-                    if len(parts) >= 2:
-                        processes.append({
-                            "pid": int(parts[0]),
-                            "cmdline": parts[1][:120]
-                        })
-            except Exception:
-                pass
+        try:
+            result = subprocess.run(
+                ["pgrep", "-a", "-f", "odoo"],
+                capture_output=True, text=True, encoding="utf-8", errors="replace"
+            )
+            for line in result.stdout.splitlines():
+                parts = line.split(None, 1)
+                if len(parts) >= 2 and int(parts[0]) != me and is_odoo_server_cmdline(parts[1]):
+                    processes.append({
+                        "pid": int(parts[0]),
+                        "cmdline": parts[1][:120]
+                    })
+        except Exception:
+            pass
 
     return processes
 
@@ -293,17 +386,18 @@ def start_local(
 # Stop
 # ---------------------------------------------------------------------------
 
-def stop_local(port: int = DEFAULT_HTTP_PORT, also_longpolling: bool = True) -> bool:
-    """Stop Odoo by killing processes on the HTTP (and optionally longpolling) port."""
+def stop_local(port: int = DEFAULT_HTTP_PORT, also_longpolling: bool = True,
+               force: bool = False) -> bool:
+    """Stop Odoo on the HTTP (and optionally longpolling) port, gracefully first."""
     stopped_any = False
 
-    http_stopped = kill_port(port)
+    http_stopped = kill_port(port, force=force)
     if http_stopped:
         stopped_any = True
 
     if also_longpolling:
         lp_port = port + 3  # Typically 8069 -> 8072
-        lp_stopped = kill_port(lp_port)
+        lp_stopped = kill_port(lp_port, force=force)
         if lp_stopped:
             stopped_any = True
 
@@ -524,7 +618,11 @@ Examples:
     stop_p = subparsers.add_parser("stop", help="Stop Odoo server")
     stop_p.add_argument("--port", "-p", type=int, default=DEFAULT_HTTP_PORT)
     stop_p.add_argument("--all", dest="kill_all", action="store_true",
-                         help="Kill all Odoo Python processes")
+                         help="Stop every Odoo server process (lists them; add --yes to stop)")
+    stop_p.add_argument("--yes", action="store_true",
+                        help="With --all: actually stop the listed processes")
+    stop_p.add_argument("--force", action="store_true",
+                        help="Stop the port owner even if it is not an Odoo server")
 
     # status
     status_p = subparsers.add_parser("status", help="Check if Odoo is running")
@@ -590,13 +688,22 @@ def main():
 
     elif args.command == "stop":
         if getattr(args, "kill_all", False):
-            print("[INFO] Killing all Odoo Python processes...")
             procs = get_running_odoo_processes()
+            if not procs:
+                print("[INFO] No Odoo server processes found.")
+                sys.exit(0)
+            print(f"[INFO] {len(procs)} Odoo server process(es):")
             for p in procs:
-                kill_process(p["pid"])
-                print(f"[OK] Killed PID {p['pid']}")
+                print(f"  PID {p['pid']}: {p['cmdline']}")
+            if not args.yes:
+                print("[INFO] Nothing stopped. This may include other people's or other "
+                      "projects' servers. Confirm with the user, then re-run with --all --yes.")
+                sys.exit(0)
+            for p in procs:
+                if kill_process(int(p["pid"])):
+                    print(f"[OK] Sent SIGTERM to PID {p['pid']}")
         else:
-            stop_local(port=args.port)
+            stop_local(port=args.port, force=args.force)
 
     elif args.command == "status":
         running = status(port=args.port)
@@ -654,4 +761,9 @@ def main():
 
 
 if __name__ == "__main__":
+    for _stream in (sys.stdout, sys.stderr):  # cp1252 consoles choke on non-ASCII output
+        try:
+            _stream.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
     main()

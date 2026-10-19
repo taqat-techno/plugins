@@ -101,7 +101,7 @@ cd /path/to/compose-dir
 docker compose exec db ls /var/lib/postgresql/data
 ```
 
-For broader Windows, Git Bash, and WSL environment problems (PATH issues, line-ending mangling, Docker Desktop integration, shell quoting), do not duplicate diagnostics here — reach for the **env-doctor** plugin, which owns generic environment troubleshooting. This section is scoped only to the Odoo-on-Docker volume/exec path-translation gotcha.
+For broader Windows, Git Bash, and WSL environment problems (PATH issues, line-ending mangling, Docker Desktop integration, shell quoting), do not duplicate diagnostics here — if the **env-doctor** plugin is installed, use it; it owns generic environment troubleshooting. This section is scoped only to the Odoo-on-Docker volume/exec path-translation gotcha.
 
 ## Quick checklist before touching volumes
 

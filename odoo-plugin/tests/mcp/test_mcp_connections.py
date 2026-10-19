@@ -176,6 +176,7 @@ def test_production_write_needs_a_human_grant_not_a_chat_yes():
         text, err = c.text("odoo_session", {"action": "mode", "mode": "write",
                                             "approved_by_user": "yes do it"})
         assert err and "odoo_mcp_ctl.py" in text, text
+        # A hand-written grant (what Claude's Write tool could produce) is ignored.
         grants = home / "grants"
         grants.mkdir()
         import time
@@ -183,7 +184,46 @@ def test_production_write_needs_a_human_grant_not_a_chat_yes():
             {"profile": "prod", "mode": "write", "created_at": time.time(),
              "expires_at": time.time() + 600}), encoding="utf-8")
         text, err = c.text("odoo_session", {"action": "mode", "mode": "write"})
+        assert err and "odoo_mcp_ctl.py" in text, text
+        # The signed grant odoo_mcp_ctl.py writes is accepted.
+        _signed_grant(home, project, "prod", "write", 10)
+        text, err = c.text("odoo_session", {"action": "mode", "mode": "write"})
         assert err is False and "human-grant" in text, text
+
+
+def _signed_grant(home, project, name, mode, ttl):
+    sys.path.insert(0, str(MCP_DIR))
+    import profiles as P
+    import session_state as S
+    old = os.environ.get("ODOO_MCP_HOME")
+    os.environ["ODOO_MCP_HOME"] = str(home)
+    try:
+        prof = P.load_catalog(None, project).profiles[name]
+        return S.write_grant(prof, mode, ttl, by="test")
+    finally:
+        if old is None:
+            os.environ.pop("ODOO_MCP_HOME", None)
+        else:
+            os.environ["ODOO_MCP_HOME"] = old
+
+
+def test_tampered_or_rebound_grant_is_rejected():
+    project = Path(tempfile.mkdtemp())
+    home = _home_with({"profiles": {"prod": _prof(tier="production", ceiling="write+unlink",
+                                                  projects=[str(project)])}})
+    grant = _signed_grant(home, project, "prod", "write", 10)
+    path = home / "grants" / "prod.json"
+    # Raising the mode in the file breaks the signature.
+    path.write_text(json.dumps(dict(grant, mode="write+unlink")), encoding="utf-8")
+    with _client(home, project) as c:
+        c.handshake()
+        text, err = c.text("odoo_session", {"action": "mode", "mode": "write+unlink"})
+        assert err and "odoo_mcp_ctl.py" in text, text
+        # Without the key file no grant is valid at all.
+        path.write_text(json.dumps(grant), encoding="utf-8")
+        (home / "grant.key").unlink()
+        text, err = c.text("odoo_session", {"action": "mode", "mode": "write"})
+        assert err and "odoo_mcp_ctl.py" in text, text
 
 
 def test_production_approval_can_be_set_to_chat_by_the_developer():

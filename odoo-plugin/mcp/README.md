@@ -46,7 +46,7 @@ Three owners, so the configuration never becomes a mess:
 | `<project>/.odoo-mcp.json` | developer | optional pin for one checkout |
 | `~/.odoo-mcp/local/<project>.json` | `scripts/mcp/local_profile.py` | local instances, one file per checkout, expiring keys |
 | `~/.odoo-mcp/state/learned.json` | the server | staging databases renamed by a rebuild |
-| `~/.odoo-mcp/grants/`, `audit.log` | `scripts/mcp/odoo_mcp_ctl.py` / the server | human approvals, the audit trail |
+| `~/.odoo-mcp/grants/`, `grant.key`, `audit.log` | `scripts/mcp/odoo_mcp_ctl.py` / the server | signed human approvals, their signing key, the audit trail |
 
 `ODOO_MCP_HOME` relocates the whole store (tests use it).
 
@@ -70,6 +70,17 @@ free of any process-execution path, and the tests enforce it:
 - `local_profile.py provision | list | prune` sets up local connections without questions;
 - `odoo_mcp_ctl.py approve | revoke | grants | audit` handles production approvals, and
   `approve` needs an interactive terminal.
+
+### What "human" approval does and does not guarantee
+
+A grant is HMAC-SHA256 signed with `~/.odoo-mcp/grant.key` (created by the first
+`approve`) and bound to the profile's url and database; the server ignores an unsigned,
+edited or re-targeted grant and any grant that outlives the tier's maximum TTL. That
+stops a hand-written grant file and an injected "create this grant" instruction.
+It does not stop a process running as you from reading `grant.key` and signing its own
+grant, so never let an agent read that file. **The profile's `ceiling` is the only hard
+limit**: no grant, approval or session action can exceed it, and only you can raise it
+by editing the profile. Keep production at `ceiling: read` unless you need writes.
 
 Any string value may reference an environment variable as `${VAR}`, so a profile file can
 be kept free of secrets. Full reference: `../config/odoo-mcp.profiles.json.example`.

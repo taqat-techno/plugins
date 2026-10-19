@@ -1,64 +1,12 @@
 ---
 name: odoo-i18n
-description: |
-  Comprehensive Odoo i18n toolkit for extracting translatable strings, validating .po files, generating translation reports, managing Arabic/RTL layouts, and handling multilingual deployments across Odoo 14-19.
-
-
-  <example>
-  Context: User wants to extract translatable strings
-  user: "Extract all translatable strings from my Odoo 17 module to a .pot file"
-  assistant: "I will use the odoo-i18n skill to scan Python _() calls, XML translate attributes, and field strings, then generate a properly structured .pot template file."
-  <commentary>Core trigger - translation extraction workflow.</commentary>
-  </example>
-
-  <example>
-  Context: User wants Arabic translation
-  user: "Generate an Arabic .po file for my Odoo module"
-  assistant: "I will use the odoo-i18n skill to create an ar.po file with RTL-aware formatting and placeholder translations for all extractable strings."
-  <commentary>Language-specific trigger - Arabic/RTL translation generation.</commentary>
-  </example>
-
-  <example>
-  Context: User wants to validate a translation file
-  user: "Validate my Arabic .po file for errors"
-  assistant: "I will use the odoo-i18n skill to check syntax, encoding, empty translations, fuzzy entries, and RTL-specific issues."
-  <commentary>Validate trigger - .po file validation.</commentary>
-  </example>
-
-  <example>
-  Context: User wants to find missing translations
-  user: "Find all strings missing Arabic translation in my module"
-  assistant: "I will compare the .pot template against ar.po and report all untranslated or fuzzy entries."
-  <commentary>Missing trigger - translation gap analysis.</commentary>
-  </example>
-
-  <example>
-  Context: User wants RTL/SCSS help
-  user: "Fix the RTL layout issues in my Odoo theme for Arabic"
-  assistant: "I will use the odoo-i18n skill to apply CSS logical properties, [dir='rtl'] overrides, and Font Awesome icon swaps for Arabic support."
-  <commentary>RTL trigger - Arabic layout and styling guidance.</commentary>
-  </example>
-
-  <example>
-  Context: User needs to export/import translations via Odoo CLI
-  user: "Export translations for my module using Odoo CLI"
-  assistant: "I will use the odoo-i18n skill to run the Odoo export command and generate the .po file."
-  <commentary>Export trigger - Odoo CLI translation export.</commentary>
-  </example>
-
-  <example>
-  Context: User needs to load a language into Odoo
-  user: "How do I activate Arabic language in my Odoo database?"
-  assistant: "I will use the odoo-i18n skill to load the Arabic language pack and activate it via shell or CLI."
-  <commentary>Language activation trigger.</commentary>
-  </example>
-
-  <example>
-  Context: User has translation issues after deployment
-  user: "My translations are not showing after I updated the module"
-  assistant: "I will diagnose the issue: check encoding, language activation, module update, and browser cache."
-  <commentary>Troubleshooting trigger - translation visibility issues.</commentary>
-  </example>
+description: >-
+  Use when working on Odoo 14-19 translations: extracting strings to a .pot, creating or
+  validating a .po file (Arabic or any other language), finding untranslated or fuzzy
+  entries, exporting or importing translations with the Odoo CLI, loading and activating a
+  language, fixing RTL layout for Arabic, or translations that do not show after a module
+  update. For a filled msgstr that still does not apply, or a scripted .po edit, also use
+  i18n-audit.
 license: "MIT"
 metadata:
   mode: "codebase"
@@ -72,6 +20,23 @@ metadata:
 <!-- Last updated: 2026-03-26 -->
 
 # Odoo i18n Skill
+
+## Scope and example requests
+
+Comprehensive Odoo i18n toolkit for extracting translatable strings, validating .po files,
+generating translation reports, managing Arabic/RTL layouts, and handling multilingual
+deployments across Odoo 14-19.
+
+Example requests:
+
+- "Extract all translatable strings from my Odoo 17 module to a .pot file" (Core trigger - translation extraction workflow)
+- "Generate an Arabic .po file for my Odoo module" (Language-specific trigger - Arabic/RTL translation generation)
+- "Validate my Arabic .po file for errors" (Validate trigger - .po file validation)
+- "Find all strings missing Arabic translation in my module" (Missing trigger - translation gap analysis)
+- "Fix the RTL layout issues in my Odoo theme for Arabic" (RTL trigger - Arabic layout and styling guidance)
+- "Export translations for my module using Odoo CLI" (Export trigger - Odoo CLI translation export)
+- "How do I activate Arabic language in my Odoo database?" (Language activation trigger)
+- "My translations are not showing after I updated the module" (Troubleshooting trigger - translation visibility issues)
 
 Provides deep expertise in Odoo internationalization (i18n) and localization (l10n) across Odoo 14-19.
 
@@ -246,8 +211,10 @@ msgstr "record not found"          msgstr "record not found"
 ### CI/CD Integration
 
 ```yaml
+# Copy i18n_validator.py from the plugin's scripts/i18n/ into the repository (tools/ here):
+# a CI runner has no Claude Code plugin install to call.
 - name: Validate Arabic translations
-  run: python scripts/i18n/i18n_validator.py --po-file my_module/i18n/ar.po --lang ar --strict
+  run: python tools/i18n_validator.py --po-file my_module/i18n/ar.po --lang ar --strict
 ```
 
 Exit code `0` = passed (may have warnings), `1` = failed (errors found).

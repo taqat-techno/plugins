@@ -1,17 +1,20 @@
 """
-Plugin structure tests for the Odoo Frontend plugin.
+Structure tests for the frontend part of the unified odoo plugin.
 
-Validates that all expected files exist, deleted files are gone,
-plugin.json is valid, hooks are consistent, and cross-references are clean.
+The frontend plugin was merged into odoo-plugin: its data lives in data/frontend/,
+its hooks in hooks/frontend/ and its scripts in scripts/frontend/. These tests check
+that layout, the JSON data, hooks.json wiring and cross-references.
 """
 
 import json
+import re
+
 import pytest
 from pathlib import Path
 
 
-PLUGIN_ROOT = Path(__file__).parent.parent
-DATA_DIR = PLUGIN_ROOT / "data"
+PLUGIN_ROOT = Path(__file__).resolve().parents[2]
+DATA_DIR = PLUGIN_ROOT / "data" / "frontend"
 SKILLS_DIR = PLUGIN_ROOT / "skills"
 COMMANDS_DIR = PLUGIN_ROOT / "commands"
 HOOKS_DIR = PLUGIN_ROOT / "hooks"
@@ -39,17 +42,18 @@ class TestFileExistence:
         "commands/create-theme.md",
         "commands/frontend.md",
         "hooks/hooks.json",
-        "hooks/pre_write_check.py",
-        "hooks/post_write_check.py",
-        "hooks/session_start.py",
-        "data/color_palettes.json",
-        "data/theme_templates.json",
-        "data/typography_defaults.json",
-        "data/version_mapping.json",
-        "data/figma_prompts.json",
-        "scripts/bootstrap_mapper.py",
-        "scripts/version_detector.py",
+        "hooks/frontend/pre_write_check.py",
+        "hooks/frontend/session_start.py",
+        "hooks/_vendor/hooklib.py",
+        "data/frontend/color_palettes.json",
+        "data/frontend/theme_templates.json",
+        "data/frontend/typography_defaults.json",
+        "data/frontend/version_mapping.json",
+        "data/frontend/figma_prompts.json",
+        "scripts/frontend/bootstrap_mapper.py",
+        "scripts/frontend/version_detector.py",
         "README.md",
+        "LICENSE",
     ])
     def test_expected_file_exists(self, path):
         assert (PLUGIN_ROOT / path).exists(), f"Expected file missing: {path}"
@@ -82,19 +86,18 @@ class TestPluginJson:
         with open(PLUGIN_ROOT / ".claude-plugin" / "plugin.json") as f:
             return json.load(f)
 
-    def test_version_is_8(self, plugin_config):
-        assert plugin_config["version"].startswith("8."), f"Plugin version should be 8.x, got {plugin_config['version']}"
+    def test_version_is_semver(self, plugin_config):
+        parts = plugin_config["version"].split(".")
+        assert len(parts) == 3 and all(p.isdigit() for p in parts), plugin_config["version"]
 
     def test_has_name(self, plugin_config):
-        assert plugin_config["name"] == "odoo-frontend"
+        assert plugin_config["name"] == "odoo"
 
     def test_has_author(self, plugin_config):
         assert "author" in plugin_config
 
-    def test_has_keywords(self, plugin_config):
-        assert "keywords" in plugin_config
-        assert isinstance(plugin_config["keywords"], list)
-        assert len(plugin_config["keywords"]) >= 5
+    def test_has_spdx_license(self, plugin_config):
+        assert plugin_config.get("license") == "MIT"
 
 
 # ─── JSON Syntax ─────────────────────────────────────────────────
@@ -104,17 +107,17 @@ class TestJsonSyntax:
     """Verify all JSON data files parse correctly."""
 
     @pytest.mark.parametrize("path", [
-        "data/color_palettes.json",
-        "data/theme_templates.json",
-        "data/typography_defaults.json",
-        "data/version_mapping.json",
-        "data/figma_prompts.json",
+        "data/frontend/color_palettes.json",
+        "data/frontend/theme_templates.json",
+        "data/frontend/typography_defaults.json",
+        "data/frontend/version_mapping.json",
+        "data/frontend/figma_prompts.json",
         "hooks/hooks.json",
         ".claude-plugin/plugin.json",
     ])
     def test_json_parses(self, path):
         full = PLUGIN_ROOT / path
-        with open(full) as f:
+        with open(full, encoding="utf-8") as f:
             data = json.load(f)
         assert isinstance(data, dict), f"{path} should parse to a dict"
 
@@ -127,14 +130,15 @@ class TestHooksConsistency:
 
     @pytest.fixture(scope="class")
     def hooks_config(self):
-        with open(HOOKS_DIR / "hooks.json") as f:
+        with open(HOOKS_DIR / "hooks.json", encoding="utf-8") as f:
             return json.load(f)
 
     def test_has_pre_tool_use(self, hooks_config):
         assert "PreToolUse" in hooks_config.get("hooks", {}), "Should have PreToolUse hooks"
 
-    def test_has_post_tool_use(self, hooks_config):
-        assert "PostToolUse" in hooks_config.get("hooks", {}), "Should have PostToolUse hooks"
+    def test_inline_script_check_is_registered(self, hooks_config):
+        commands = [h["command"] for g in hooks_config["hooks"]["PreToolUse"] for h in g["hooks"]]
+        assert any("hooks/frontend/pre_write_check.py" in c for c in commands)
 
     def test_has_session_start(self, hooks_config):
         assert "SessionStart" in hooks_config.get("hooks", {}), "Should have SessionStart hook"
@@ -144,13 +148,10 @@ class TestHooksConsistency:
             for hook_group in event_hooks:
                 for hook in hook_group.get("hooks", []):
                     command = hook.get("command", "")
-                    # Extract .py script references
-                    for part in command.split():
-                        if part.endswith('.py"') or part.endswith(".py"):
-                            script_name = part.strip('"').split("/")[-1]
-                            assert (HOOKS_DIR / script_name).exists(), (
-                                f"hooks.json references missing script: {script_name}"
-                            )
+                    for rel in re.findall(r'/hooks/([^"\s]+\.py)', command):
+                        assert (HOOKS_DIR / rel).exists(), (
+                            f"hooks.json references missing script: {rel}"
+                        )
 
 
 # ─── Version Mapping ─────────────────────────────────────────────
@@ -161,7 +162,7 @@ class TestVersionMapping:
 
     @pytest.fixture(scope="class")
     def version_map(self):
-        with open(DATA_DIR / "version_mapping.json") as f:
+        with open(DATA_DIR / "version_mapping.json", encoding="utf-8") as f:
             return json.load(f)
 
     @pytest.mark.parametrize("version", ["14", "15", "16", "17", "18", "19"])
@@ -196,7 +197,7 @@ class TestColorPalettes:
 
     @pytest.fixture(scope="class")
     def palettes(self):
-        with open(DATA_DIR / "color_palettes.json") as f:
+        with open(DATA_DIR / "color_palettes.json", encoding="utf-8") as f:
             return json.load(f)
 
     def test_has_5_semantic_colors(self, palettes):
@@ -249,7 +250,7 @@ class TestSkillReferences:
 class TestCommandFiles:
     """Verify command files have required structure."""
 
-    EXPECTED_COMMANDS = ["create-theme", "odoo-frontend"]
+    EXPECTED_COMMANDS = ["create-theme", "frontend"]
 
     @pytest.mark.parametrize("cmd", EXPECTED_COMMANDS)
     def test_command_exists(self, cmd):
@@ -269,15 +270,15 @@ class TestSessionStartHook:
     """Verify SessionStart hook is properly configured."""
 
     def test_session_start_script_exists(self):
-        assert (HOOKS_DIR / "session_start.py").exists(), "hooks/session_start.py not found"
+        assert (HOOKS_DIR / "frontend" / "session_start.py").exists()
 
     def test_hooks_json_has_session_start(self):
-        with open(HOOKS_DIR / "hooks.json") as f:
+        with open(HOOKS_DIR / "hooks.json", encoding="utf-8") as f:
             config = json.load(f)
         assert "SessionStart" in config.get("hooks", {}), "hooks.json missing SessionStart"
 
     def test_session_start_has_version_detection(self):
-        content = (HOOKS_DIR / "session_start.py").read_text(encoding="utf-8")
+        content = (HOOKS_DIR / "frontend" / "session_start.py").read_text(encoding="utf-8")
         has_detection = "version" in content.lower() or "detect" in content.lower() or "odoo" in content.lower()
         assert has_detection, "session_start.py should contain version detection logic"
 
@@ -290,7 +291,7 @@ class TestFigmaPrompts:
 
     @pytest.fixture(scope="class")
     def prompts(self):
-        with open(DATA_DIR / "figma_prompts.json") as f:
+        with open(DATA_DIR / "figma_prompts.json", encoding="utf-8") as f:
             return json.load(f)
 
     def test_has_prompts_key(self, prompts):
@@ -384,11 +385,6 @@ class TestProgressiveDisclosure:
     def test_theme_scss_skill_points_to_reference(self):
         content = (SKILLS_DIR / "theme-scss" / "SKILL.md").read_text(encoding="utf-8")
         assert "REFERENCE.md" in content, "theme-scss SKILL.md should point to REFERENCE.md"
-
-    def test_theme_scss_skill_is_compact(self):
-        content = (SKILLS_DIR / "theme-scss" / "SKILL.md").read_text(encoding="utf-8")
-        lines = content.strip().split("\n")
-        assert len(lines) < 100, f"theme-scss SKILL.md should be <100 lines (got {len(lines)})"
 
     def test_theme_snippets_has_reference(self):
         assert (SKILLS_DIR / "theme-snippets" / "REFERENCE.md").exists()

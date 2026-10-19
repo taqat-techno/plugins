@@ -13,6 +13,7 @@ Usage:
 
 import argparse
 import re
+import os
 import sys
 import unicodedata
 from dataclasses import dataclass
@@ -22,6 +23,7 @@ from typing import List, Optional, Tuple
 try:
     from ._common import PoEntry, PoParser
 except ImportError:
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))  # python -I drops it
     from _common import PoEntry, PoParser
 
 
@@ -464,4 +466,9 @@ def main():
 
 
 if __name__ == "__main__":
+    for _stream in (sys.stdout, sys.stderr):  # cp1252 consoles choke on non-ASCII output
+        try:
+            _stream.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
     main()

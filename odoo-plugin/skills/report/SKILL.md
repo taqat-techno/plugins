@@ -1,74 +1,12 @@
 ---
 name: odoo-report
-description: |
-  Professional Odoo Email Templates & QWeb Reports - Complete toolkit for creating, managing, and debugging email templates and PDF reports across Odoo 14-19. Includes wkhtmltopdf setup, Arabic/RTL support, bilingual patterns, and comprehensive validation.
-
-
-  <example>
-  Context: User wants to create an email template
-  user: "Create an invoice confirmation email template in Odoo 17"
-  assistant: "I will use the odoo-report skill to create a mail.template record with QWeb body, dynamic fields, and correct ir.attachment handling."
-  <commentary>Core trigger - new email template creation.</commentary>
-  </example>
-
-  <example>
-  Context: User wants a PDF report
-  user: "Design a QWeb PDF report for purchase orders"
-  assistant: "I will use the odoo-report skill to create a report action, QWeb template with page layout, header/footer, and register it in the module manifest."
-  <commentary>PDF report workflow trigger.</commentary>
-  </example>
-
-  <example>
-  Context: User has a broken email template
-  user: "My email template is sending plain text instead of HTML"
-  assistant: "I will use the odoo-report skill to diagnose the template body_html field, check subtype_id, and verify the mail.template arch is structured correctly for HTML rendering."
-  <commentary>Debugging trigger - email template not rendering correctly.</commentary>
-  </example>
-
-  <example>
-  Context: User wants to analyze a template
-  user: "Analyze this email template for issues and improvements"
-  assistant: "I will use the odoo-report skill to check template structure, context variables, rendering patterns, and suggest improvements."
-  <commentary>Analyze trigger - template quality review.</commentary>
-  </example>
-
-  <example>
-  Context: User wants to migrate templates between versions
-  user: "Migrate my templates from Odoo 14 to 17"
-  assistant: "I will use the odoo-report skill to apply version-specific transformations: t-esc to t-out, report_template to report_template_ids, and add template_category."
-  <commentary>Migration trigger - version upgrade.</commentary>
-  </example>
-
-  <example>
-  Context: User wants pre-deployment validation
-  user: "Validate my QWeb report template before deployment"
-  assistant: "I will check syntax, context variable usage, security patterns, and version compatibility."
-  <commentary>Validate trigger - pre-deployment template check.</commentary>
-  </example>
-
-  <example>
-  Context: User wants to see templates
-  user: "List all email templates for sale.order in my module"
-  assistant: "I will scan the module for mail.template and ir.actions.report records targeting the sale.order model."
-  <commentary>List trigger - template discovery.</commentary>
-  </example>
-
-  <example>
-  Context: User wants to preview output
-  user: "Preview this email template with sample data"
-  assistant: "I will generate a preview using the template's QWeb expressions with realistic sample context variables."
-  <commentary>Preview trigger - template output preview.</commentary>
-  </example>
-
-  <example>
-  Context: User wants automatic fixes
-  user: "Fix common issues in my email template"
-  assistant: "I will apply safe transformations to fix encoding, missing fields, broken QWeb expressions, and version-specific syntax."
-  <commentary>Fix trigger - auto-fix template issues.</commentary>
-  </example>
+description: >-
+  Use when creating, fixing or reviewing Odoo 14-19 email templates (mail.template) or QWeb
+  PDF reports: invoice and order emails, report layouts and paper formats, an email sent as
+  plain text, broken rendering, wkhtmltopdf setup, Arabic/RTL and bilingual output, listing
+  or previewing templates, or migrating templates between versions.
 version: "2.1.0"
-author: "TaqaTechno"
-license: "LGPL-3"
+license: "MIT"
 allowed-tools:
   - Read
   - Write
@@ -88,12 +26,31 @@ metadata:
     - "wkhtmltopdf"
   supported-versions: ["14", "15", "16", "17", "18", "19"]
   model: sonnet
+  author: "TaqaTechno"
 ---
 <!-- Last updated: 2026-03-26 -->
 
 # Odoo Email Templates & QWeb Reports Skill (v2.1)
 
-> **License note:** This plugin uses LGPL-3 (not MIT) because it generates Odoo module code (XML templates, QWeb reports) that must be LGPL-3 compatible per Odoo Enterprise license terms.
+## Scope and example requests
+
+Professional Odoo Email Templates & QWeb Reports - Complete toolkit for creating, managing,
+and debugging email templates and PDF reports across Odoo 14-19. Includes wkhtmltopdf setup,
+Arabic/RTL support, bilingual patterns, and comprehensive validation.
+
+Example requests:
+
+- "Create an invoice confirmation email template in Odoo 17" (Core trigger - new email template creation)
+- "Design a QWeb PDF report for purchase orders" (PDF report workflow trigger)
+- "My email template is sending plain text instead of HTML" (Debugging trigger - email template not rendering correctly)
+- "Analyze this email template for issues and improvements" (Analyze trigger - template quality review)
+- "Migrate my templates from Odoo 14 to 17" (Migration trigger - version upgrade)
+- "Validate my QWeb report template before deployment" (Validate trigger - pre-deployment template check)
+- "List all email templates for sale.order in my module" (List trigger - template discovery)
+- "Preview this email template with sample data" (Preview trigger - template output preview)
+- "Fix common issues in my email template" (Fix trigger - auto-fix template issues)
+
+> **License note:** This skill is MIT, like the rest of the plugin. The module code it helps you write (XML templates, QWeb reports) is yours; Odoo modules usually declare `license: 'LGPL-3'` in their manifest, so check what your project requires.
 
 A skill for creating, managing, debugging, and migrating Odoo email templates and QWeb reports across versions 14-19.
 

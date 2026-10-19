@@ -1,31 +1,30 @@
 ---
 name: odoo-owl-app-structure
-description: |
-  Build and organise a full standalone OWL application inside Odoo 17-19 — the healthy structure behind a large Odoo SPA, generalised. Covers the module layout, the three-bundle manifest and why the boot file is split out, the minimum viable bootstrap (controller, index document, main.js, root component), the six-layer dependency rules, the store and data services, screen registration, the server-side load contract, scaling checkpoints, what to deliberately NOT copy in a v1, and the build order from zero. Includes a scaffold generator.
-
-  <example>
-  Context: User wants to start a new full OWL app.
-  user: "I want to build a standalone OWL app in Odoo like POS"
-  assistant: "Let me scaffold the reference structure — bundle triple, bootstrap chain, store and data services — then we add screens on top."
-  <commentary>The structure is the hard part and is the same every time; generate it rather than hand-rolling it.</commentary>
-  </example>
-
-  <example>
-  Context: User asks where a piece of the app should live.
-  user: "Where should I put the code that loads products for my kiosk app?"
-  assistant: "In the data service — it's the only holder of orm. Screens never call orm directly."
-  <commentary>The layer rules are what keep a large OWL app maintainable.</commentary>
-  </example>
-
-  <example>
-  Context: User's app has grown and screens are duplicating state.
-  user: "Two screens need the same selected record and they keep getting out of sync"
-  assistant: "That's the signal for a store service. Let me show the shape and the migration."
-  <commentary>Scaling checkpoints: each subsystem has an observable signal that it is now needed.</commentary>
-  </example>
+description: >-
+  Use when building or reorganising a standalone full-page OWL application inside Odoo
+  17-19, such as a POS-like or kiosk app: module layout, asset bundles and the boot file,
+  the bootstrap controller and root component, layer and dependency rules, stores and data
+  services, screen registration, the server-side load contract and scaling checkpoints.
+  Includes a scaffold generator. To decide whether to build such an app at all, use
+  owl-architecture.
 ---
 
 # Structuring a full OWL application inside Odoo
+
+## Scope and example requests
+
+Build and organise a full standalone OWL application inside Odoo 17-19 — the healthy
+structure behind a large Odoo SPA, generalised. Covers the module layout, the three-bundle
+manifest and why the boot file is split out, the minimum viable bootstrap (controller, index
+document, main.js, root component), the six-layer dependency rules, the store and data
+services, screen registration, the server-side load contract, scaling checkpoints, what to
+deliberately NOT copy in a v1, and the build order from zero. Includes a scaffold generator.
+
+Example requests:
+
+- "I want to build a standalone OWL app in Odoo like POS" (The structure is the hard part and is the same every time; generate it rather than hand-rolling it)
+- "Where should I put the code that loads products for my kiosk app?" (The layer rules are what keep a large OWL app maintainable)
+- "Two screens need the same selected record and they keep getting out of sync" (Scaling checkpoints: each subsystem has an observable signal that it is now needed)
 
 This is the constructive counterpart to `odoo-owl-extending` (changing someone else's OWL code).
 Here you own the app.

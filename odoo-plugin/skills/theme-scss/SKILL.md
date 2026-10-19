@@ -1,35 +1,10 @@
 ---
 name: theme-scss
-description: |
-  Complete SCSS variable reference for Odoo themes. Covers all three core variable systems: $o-theme-font-configs (Google Fonts), $o-color-palettes (color system with 5 semantic colors), and $o-website-values-palettes (115+ keys for typography, buttons, inputs, headers, footers, layout). Includes SCSS load order rules and color derivation.
-
-  <example>
-  Context: User asks about SCSS variables
-  user: "What SCSS variables can I configure in my Odoo theme?"
-  assistant: "I will use the theme-scss skill to show the complete variable reference."
-  <commentary>Variable reference lookup.</commentary>
-  </example>
-
-  <example>
-  Context: User wants to configure colors
-  user: "How do I set up o-color-1 through o-color-5?"
-  assistant: "I will explain the semantic color system and palette configuration."
-  <commentary>Color palette configuration.</commentary>
-  </example>
-
-  <example>
-  Context: User gets undefined variable error
-  user: "I get 'Undefined variable $o-color-palettes' in my theme"
-  assistant: "This is a SCSS load order issue. Theme files load BEFORE core variables."
-  <commentary>SCSS debugging - load order issue.</commentary>
-  </example>
-
-  <example>
-  Context: User wants to configure fonts
-  user: "How do I add Google Fonts to my Odoo theme?"
-  assistant: "Use $o-theme-font-configs with the font query parameter, not the full URL."
-  <commentary>Font configuration.</commentary>
-  </example>
+description: >-
+  Use when configuring or debugging an Odoo theme's SCSS variables: $o-theme-font-configs
+  and Google Fonts, $o-color-palettes and o-color-1 to o-color-5, $o-website-values-palettes
+  keys for typography, buttons, headers and footers, SCSS load order, or an 'Undefined
+  variable' error in a theme.
 license: "MIT"
 metadata:
   version: "8.0.0"
@@ -38,6 +13,20 @@ metadata:
 ---
 
 # Odoo Theme SCSS Variable Reference
+
+## Scope and example requests
+
+Complete SCSS variable reference for Odoo themes. Covers all three core variable systems:
+$o-theme-font-configs (Google Fonts), $o-color-palettes (color system with 5 semantic
+colors), and $o-website-values-palettes (115+ keys for typography, buttons, inputs, headers,
+footers, layout). Includes SCSS load order rules and color derivation.
+
+Example requests:
+
+- "What SCSS variables can I configure in my Odoo theme?" (Variable reference lookup)
+- "How do I set up o-color-1 through o-color-5?" (Color palette configuration)
+- "I get 'Undefined variable $o-color-palettes' in my theme" (SCSS debugging - load order issue)
+- "How do I add Google Fonts to my Odoo theme?" (Font configuration)
 
 ## Critical Load Order Rule
 

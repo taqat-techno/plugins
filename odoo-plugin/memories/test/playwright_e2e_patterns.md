@@ -538,6 +538,6 @@ For teams upgrading from Odoo 14-16 where `browser_js()` was used:
 ## Related
 
 - `testing_patterns.md` — Python unit/integration test patterns
-- `devops-plugin/memories/cicd_patterns.md` — GitHub Actions E2E workflow (Stage 2.5)
-- `odoo-service-plugin/memories/deployment_patterns.md` — Starting Odoo for CI testing
-- `/e2e-test` command — Generate E2E test scaffolds for a module
+- `../../skills/test/references/ci-integration.md` — running Odoo tests in CI (GitHub Actions, GitLab CI, Azure Pipelines)
+- `../../skills/service/SKILL.md` — starting and stopping Odoo, including for CI runs
+- `/test e2e` — generate E2E test scaffolds for a module

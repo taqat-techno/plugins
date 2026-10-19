@@ -1,9 +1,13 @@
 ---
 name: odoo-i18n-audit
-description: |
-  Audit checklist for Odoo translations that look complete in the .po file but silently fall back to the source language at runtime — or take the language down entirely. Covers the gettext-discipline failures: PO entries for field/view labels need TYPED model references (not source-file paths); editing a translatable English source string invalidates the matching msgid (orphans the translation — re-export and re-merge after); .po/.pot bytes must be decoded as explicit UTF-8 (never routed through latin-1 or a unicode_escape-style codec); bilingual content must flow through the standard per-language PO merge pipeline (never a forked duplicate per-language view tree); and every entry must carry a "#. module:" occurrence comment, because Odoo's PO reader regex-matches it on every entry and an appended entry without one raises AttributeError and 500s every page in that language while msgfmt and PO libraries accept the file. Odoo-version-aware (14-19). Activates when a translation "doesn't apply" despite a filled msgstr, when reviewing a .po diff, after editing a translatable label/selection/help/view term, after any scripted/programmatic .po edit, or before shipping a second language.
+description: >-
+  Use when an Odoo translation has a filled msgstr but still shows the source language, when
+  a whole language starts returning 500 errors after a .po change, when reviewing a .po
+  diff, after editing a translatable label, selection, help or view term, after any scripted
+  or programmatic .po edit, or before shipping a second language. Audits typed references,
+  msgid invalidation, UTF-8 decoding, the per-language PO pipeline and the '#. module:'
+  comment (Odoo 14-19).
 version: 0.1.0
-last_reviewed: 2026-06-13
 license: "MIT"
 metadata:
   mode: codebase
@@ -11,21 +15,39 @@ metadata:
   categories: [i18n, translation, gettext, po, audit, rtl]
   filePattern: ["**/i18n/*.po", "**/i18n/*.pot"]
   model: sonnet
-owns:
-  - the "msgstr filled but translation does not apply" audit
-  - the typed-reference vs source-path rule for labels/selections/help/view terms
-  - the source-string-edit -> msgid-invalidation -> re-export/re-merge discipline
-  - the explicit-UTF-8 decode rule for PO bytes (no latin-1 / unicode_escape)
-  - the one-arch / one-.pot / one-.po-per-language bilingual pipeline (no forked _<lang> views)
-  - the "#. module:" occurrence-comment requirement (a programmatically appended entry without one 500s every page in that language; msgfmt and PO libraries both pass it)
-defers_to:
-  - skills/i18n/references/po-gettext-discipline.md (full per-rule detail and commands)
-  - skills/i18n/SKILL.md (extract / validate / report / import-export workflows)
-  - skills/upgrade/references/theme-load-and-cli-upgrade.md (theme-translated-fields mapping; reload via CLI)
+  last_reviewed: 2026-06-13
+  owns:
+    - the "msgstr filled but translation does not apply" audit
+    - the typed-reference vs source-path rule for labels/selections/help/view terms
+    - the source-string-edit -> msgid-invalidation -> re-export/re-merge discipline
+    - the explicit-UTF-8 decode rule for PO bytes (no latin-1 / unicode_escape)
+    - the one-arch / one-.pot / one-.po-per-language bilingual pipeline (no forked _<lang> views)
+    - the "#. module:" occurrence-comment requirement (a programmatically appended entry without one 500s every page in that language; msgfmt and PO libraries both pass it)
+  defers_to:
+    - skills/i18n/references/po-gettext-discipline.md (full per-rule detail and commands)
+    - skills/i18n/SKILL.md (extract / validate / report / import-export workflows)
+    - skills/upgrade/references/theme-load-and-cli-upgrade.md (theme-translated-fields mapping; reload via CLI)
 ---
 <!-- Last updated: 2026-06-13 -->
 
 # Odoo i18n Audit Skill
+
+## Scope and example requests
+
+Audit checklist for Odoo translations that look complete in the .po file but silently fall
+back to the source language at runtime — or take the language down entirely. Covers the
+gettext-discipline failures: PO entries for field/view labels need TYPED model references
+(not source-file paths); editing a translatable English source string invalidates the
+matching msgid (orphans the translation — re-export and re-merge after); .po/.pot bytes must
+be decoded as explicit UTF-8 (never routed through latin-1 or a unicode_escape-style codec);
+bilingual content must flow through the standard per-language PO merge pipeline (never a
+forked duplicate per-language view tree); and every entry must carry a "#. module:"
+occurrence comment, because Odoo's PO reader regex-matches it on every entry and an appended
+entry without one raises AttributeError and 500s every page in that language while msgfmt
+and PO libraries accept the file. Odoo-version-aware (14-19). Activates when a translation
+"doesn't apply" despite a filled msgstr, when reviewing a .po diff, after editing a
+translatable label/selection/help/view term, after any scripted/programmatic .po edit, or
+before shipping a second language.
 
 A translation that is fully filled in the `.po` can still render in the source
 language at runtime — or take every page in that language down with it. This

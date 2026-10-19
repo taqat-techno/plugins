@@ -102,7 +102,7 @@ def run_sub_auditor(script_name, module_path, extra_args=None):
         result = subprocess.run(
             cmd,
             capture_output=True,
-            text=True,
+            text=True, encoding="utf-8", errors="replace",
             timeout=120
         )
         if result.stdout:
@@ -532,6 +532,9 @@ def main():
         else:
             output_text = None
 
+    if args.json and not args.output:
+        print(output_text)  # --json without --output used to print nothing at all
+
     # Write to file if requested
     if args.output and output_text:
         output_path = Path(args.output)
@@ -545,5 +548,10 @@ def main():
     sys.exit(0)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
+    for _stream in (sys.stdout, sys.stderr):  # cp1252 consoles choke on non-ASCII output
+        try:
+            _stream.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
     main()

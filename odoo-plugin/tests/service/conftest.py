@@ -9,7 +9,7 @@ import pytest
 @pytest.fixture
 def scripts_dir():
     """Return the Path to the scripts directory and ensure it is importable."""
-    d = Path(__file__).resolve().parent.parent
+    d = Path(__file__).resolve().parents[2] / "scripts" / "service"
     if str(d) not in sys.path:
         sys.path.insert(0, str(d))
     return d

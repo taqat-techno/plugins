@@ -71,4 +71,4 @@ Database credentials read from `odoo-service.local.md` if it exists, otherwise u
 
 ## Script
 
-Use `env_initializer.py init --version N --project NAME` from the plugin scripts directory.
+Run `python "${CLAUDE_PLUGIN_ROOT}/scripts/service/env_initializer.py" init --version N --project NAME`.

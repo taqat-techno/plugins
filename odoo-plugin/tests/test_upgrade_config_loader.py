@@ -71,4 +71,6 @@ def test_core_guard_honours_project_override_end_to_end(tmp_path):
         [sys.executable, str(UPGRADE / "guard_core_odoo.py")],
         input=payload, capture_output=True, env=env, timeout=30,
     )
-    assert proc.returncode == 2, proc.stderr.decode("utf-8", "replace")
+    assert proc.returncode == 0, proc.stderr.decode("utf-8", "replace")
+    out = json.loads(proc.stdout.decode("utf-8"))["hookSpecificOutput"]
+    assert out["permissionDecision"] == "deny" and "forbidden_zone" in out["permissionDecisionReason"]

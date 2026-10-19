@@ -1,31 +1,29 @@
 ---
 name: odoo-owl-extending
-description: |
-  Safely extend existing Odoo 17-19 OWL code from your own addon — patch() semantics and ordering, t-inherit template extension, registry categories and which are one-shot, extending services and stores, and the fixed menu of extension points. Covers the rules that prevent silent breakage: always super(...arguments), prototype vs class, inline extension literals, never the three-argument patch, never copy a core component, never force-replace a registry entry.
-
-  <example>
-  Context: User wants to change behaviour in a core OWL component.
-  user: "I need to add a button to the POS product screen"
-  assistant: "That's patch(ControlButtons.prototype) plus a t-inherit xpath, shipped in the same commit. Let me check the current seam first."
-  <commentary>There is no control-button registry in Odoo 19; patch + t-inherit is the shipped pattern.</commentary>
-  </example>
-
-  <example>
-  Context: User's patch appears to do nothing.
-  user: "I patched the method but the original still runs"
-  assistant: "Let me check prototype vs class, whether the file is in the bundle, and whether the method name still exists upstream."
-  <commentary>A patch on a renamed method is silently additive — it installs as a brand-new property.</commentary>
-  </example>
-
-  <example>
-  Context: User wants to replace a core service.
-  user: "How do I override the pos service with my own?"
-  assistant: "Re-registering it is last-writer-wins and breaks silently. Patch the service definition instead."
-  <commentary>force:true means the next addon that forces the same key discards you.</commentary>
-  </example>
+description: >-
+  Use when changing existing Odoo 17-19 OWL code from your own addon: patching a component
+  or service with patch(), extending a template with t-inherit, adding a button to a core
+  screen such as POS, adding to or overriding a registry entry, or a patch whose original
+  method still runs. Covers super(...arguments), prototype vs class patches, one-shot
+  registries, and why not to copy or force-replace core components.
 ---
 
 # Extending Odoo OWL code without breaking it
+
+## Scope and example requests
+
+Safely extend existing Odoo 17-19 OWL code from your own addon — patch() semantics and
+ordering, t-inherit template extension, registry categories and which are one-shot,
+extending services and stores, and the fixed menu of extension points. Covers the rules that
+prevent silent breakage: always super(...arguments), prototype vs class, inline extension
+literals, never the three-argument patch, never copy a core component, never force-replace a
+registry entry.
+
+Example requests:
+
+- "I need to add a button to the POS product screen" (There is no control-button registry in Odoo 19; patch + t-inherit is the shipped pattern)
+- "I patched the method but the original still runs" (A patch on a renamed method is silently additive — it installs as a brand-new property)
+- "How do I override the pos service with my own?" (force:true means the next addon that forces the same key discards you)
 
 ## The extension menu is fixed
 

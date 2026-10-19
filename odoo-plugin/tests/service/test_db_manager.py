@@ -149,8 +149,8 @@ def test_list_databases_empty():
         assert result == []
 
 
-def test_reset_admin_password():
-    """reset_admin_password calls psql with UPDATE SQL."""
+def test_reset_admin_password(capsys):
+    """reset_admin_password sends the UPDATE on stdin, never argv, and never prints it."""
     from db_manager import reset_admin_password
 
     with patch("db_manager._run", return_value=0) as mock_run:
@@ -161,8 +161,85 @@ def test_reset_admin_password():
         assert result is True
         call_args = mock_run.call_args[0][0]
         assert "psql" in call_args
-        # Verify the SQL contains the password update
-        sql_arg_idx = call_args.index("-c") + 1
-        sql = call_args[sql_arg_idx]
+        assert "-c" not in call_args
+        assert not any("newpass123" in a for a in call_args)
+        sql = mock_run.call_args[1]["input_data"]
         assert "UPDATE res_users" in sql
         assert "newpass123" in sql
+    assert "newpass123" not in capsys.readouterr().out
+
+
+def test_reset_admin_password_escapes_quotes():
+    from db_manager import reset_admin_password
+
+    with patch("db_manager._run", return_value=0) as mock_run:
+        reset_admin_password(database="testdb", new_password="a'b")
+        assert "password='a''b'" in mock_run.call_args[1]["input_data"]
+
+
+def test_reset_admin_password_refuses_empty():
+    from db_manager import reset_admin_password
+
+    with patch("db_manager._run") as mock_run:
+        assert reset_admin_password(database="testdb", new_password="") is False
+        mock_run.assert_not_called()
+
+
+def test_new_admin_password_sources(monkeypatch):
+    import io
+    from types import SimpleNamespace
+    from db_manager import read_new_admin_password
+
+    monkeypatch.setattr("sys.stdin", io.StringIO("from-stdin\n"))
+    assert read_new_admin_password(SimpleNamespace(password_stdin=True, password=None)) == "from-stdin"
+    monkeypatch.setenv("ODOO_ADMIN_NEW_PASSWORD", "from-env")
+    assert read_new_admin_password(SimpleNamespace(password_stdin=False, password="argv")) == "from-env"
+    monkeypatch.delenv("ODOO_ADMIN_NEW_PASSWORD")
+    assert read_new_admin_password(SimpleNamespace(password_stdin=False, password="argv")) == "argv"
+
+
+def test_drop_refuses_without_confirmation_when_not_a_tty(monkeypatch, capsys):
+    import io
+    from db_manager import drop_database
+
+    monkeypatch.setattr("sys.stdin", io.StringIO(""))
+    with patch("db_manager._run") as mock_run:
+        assert drop_database("olddb") is False
+        mock_run.assert_not_called()
+    assert "Ask the user" in capsys.readouterr().out
+
+
+def test_drop_refuses_remote_host_without_flag():
+    from db_manager import drop_database
+
+    with patch("db_manager._run", return_value=0) as mock_run:
+        assert drop_database("olddb", host="db.example.com", confirm=False) is False
+        mock_run.assert_not_called()
+        assert drop_database("olddb", host="db.example.com", confirm=False,
+                             allow_remote=True) is True
+
+
+def test_drop_with_yes_on_localhost_runs_dropdb():
+    from db_manager import drop_database
+
+    with patch("db_manager._run", return_value=0) as mock_run:
+        assert drop_database("olddb", confirm=False) is True
+        assert mock_run.call_args[0][0][0] == "dropdb"
+
+
+def test_is_loopback_host():
+    from db_manager import is_loopback_host
+
+    for h in ("localhost", "127.0.0.1", "127.1.2.3", "::1", "/var/run/postgresql", ""):
+        assert is_loopback_host(h), h
+    for h in ("db.example.com", "10.0.0.5", "192.168.1.2"):
+        assert not is_loopback_host(h), h
+
+
+def test_pg_password_defaults_to_env(monkeypatch):
+    from db_manager import default_pg_password
+
+    monkeypatch.setenv("PGPASSWORD", "s3cret-example")
+    assert default_pg_password() == "s3cret-example"
+    monkeypatch.delenv("PGPASSWORD")
+    assert default_pg_password() == "odoo"

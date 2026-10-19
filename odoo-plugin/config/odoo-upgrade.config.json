@@ -10,7 +10,8 @@
     "odoo-\\d+\\.\\d+/odoo/[^/]+\\.py$",
     "odoo-\\d+\\.\\d+/odoo/tools/",
     "odoo-\\d+\\.\\d+/odoo/modules/",
-    "/odoo/odoo/addons/"
+    "/odoo/odoo/addons/",
+    "(?:site|dist)-packages/odoo/"
   ],
   "target_version_path_patterns": {
     "19": ["odoo19[/\\\\]", "odoo-19", "[/\\\\]v19[/\\\\]", "19\\.0"],

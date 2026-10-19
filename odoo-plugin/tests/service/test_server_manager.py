@@ -114,11 +114,86 @@ def test_kill_port_calls_helpers():
     from server_manager import kill_port
 
     with patch("server_manager.get_pid_on_port", return_value=1234) as mock_get_pid, \
+         patch("server_manager._cmdline_of", return_value=["python3", "odoo-bin", "-c", "x.conf"]), \
+         patch("server_manager.is_port_in_use", return_value=False), \
          patch("server_manager.kill_process", return_value=True) as mock_kill:
         result = kill_port(8069)
         mock_get_pid.assert_called_once_with(8069)
+        # Graceful first: no force on the first (and here only) attempt.
         mock_kill.assert_called_once_with(1234)
         assert result is True
+
+
+def test_kill_port_escalates_only_when_still_running():
+    from server_manager import kill_port
+
+    with patch("server_manager.get_pid_on_port", return_value=1234), \
+         patch("server_manager._cmdline_of", return_value=["odoo-bin"]), \
+         patch("server_manager.is_port_in_use", return_value=True), \
+         patch("server_manager._wait_port_free", return_value=False), \
+         patch("server_manager.kill_process", return_value=True) as mock_kill:
+        assert kill_port(8069) is True
+        assert mock_kill.call_args_list[0] == ((1234,),)
+        assert mock_kill.call_args_list[1] == ((1234,), {"force": True})
+
+
+def test_kill_port_refuses_a_non_odoo_listener():
+    from server_manager import kill_port
+
+    with patch("server_manager.get_pid_on_port", return_value=99), \
+         patch("server_manager._cmdline_of", return_value=["nginx", "-g", "daemon off;"]), \
+         patch("server_manager.kill_process") as mock_kill:
+        assert kill_port(8069) is False
+        mock_kill.assert_not_called()
+    with patch("server_manager.get_pid_on_port", return_value=99), \
+         patch("server_manager._cmdline_of", return_value=["nginx"]), \
+         patch("server_manager.is_port_in_use", return_value=False), \
+         patch("server_manager.kill_process", return_value=True) as mock_kill:
+        assert kill_port(8069, force=True) is True
+
+
+@pytest.mark.parametrize("cmdline,expected", [
+    ("python3 /opt/odoo19/odoo-bin -c conf/x.conf", True),
+    (["C:\\venv\\Scripts\\python.exe", "C:\\odoo19\\odoo-bin", "-c", "x.conf"], True),
+    ("/venv/bin/python -m odoo -c x.conf", True),
+    ("/venv/bin/odoo -c x.conf --dev=all", True),
+    # Not servers: this plugin's MCP server, editors, greps, language servers.
+    ("python /home/jane/.claude/plugins/cache/x/odoo-plugin/2.0/mcp/server.py", False),
+    ("python C:\\Users\\jane\\odoo-plugin\\mcp\\server.py", False),
+    ("code /home/jane/odoo19", False),
+    ("grep -r odoo .", False),
+    ("python -m pylsp --odoo-path /opt/odoo", False),
+    ("python /x/scripts/service/server_manager.py stop --all", False),
+])
+def test_is_odoo_server_cmdline(cmdline, expected):
+    from server_manager import is_odoo_server_cmdline
+
+    assert is_odoo_server_cmdline(cmdline) is expected
+
+
+def test_stop_all_without_yes_lists_but_kills_nothing(capsys):
+    import server_manager
+
+    procs = [{"pid": 4242, "cmdline": "python odoo-bin -c a.conf"}]
+    with patch.object(server_manager, "get_running_odoo_processes", return_value=procs), \
+         patch.object(server_manager, "kill_process") as mock_kill, \
+         patch.object(sys, "argv", ["server_manager.py", "stop", "--all"]):
+        with pytest.raises(SystemExit) as exc:
+            server_manager.main()
+        assert exc.value.code == 0
+        mock_kill.assert_not_called()
+    assert "4242" in capsys.readouterr().out
+
+
+def test_stop_all_with_yes_terminates_listed():
+    import server_manager
+
+    procs = [{"pid": 4242, "cmdline": "python odoo-bin -c a.conf"}]
+    with patch.object(server_manager, "get_running_odoo_processes", return_value=procs), \
+         patch.object(server_manager, "kill_process", return_value=True) as mock_kill, \
+         patch.object(sys, "argv", ["server_manager.py", "stop", "--all", "--yes"]):
+        server_manager.main()
+        mock_kill.assert_called_once_with(4242)
 
 
 def test_kill_port_no_process():

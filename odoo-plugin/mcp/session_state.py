@@ -11,18 +11,31 @@ mode. This module moves the session within those limits:
   approval "none"   local profiles: Claude switches freely.
   approval "chat"   Claude must ask the developer and pass their verbatim answer
                     (approved_by_user). Procedural: the transcript is the record.
-  approval "human"  needs a grant the model cannot produce - a file written by
-                    odoo_mcp_ctl.py, which refuses to run without an interactive
-                    terminal. Claude's shell tool has none.
+  approval "human"  needs a grant written by odoo_mcp_ctl.py, which refuses to run
+                    without an interactive terminal (Claude's shell tool has none).
+                    The grant is HMAC-SHA256 signed with a key in <home>/grant.key
+                    that only odoo_mcp_ctl.py creates, and is bound to the profile's
+                    url and database. A grant file written by hand (or by Claude's
+                    Write tool) has no valid signature and is ignored.
+
+Limits, stated plainly: the signature stops a forged JSON file and an injected
+"write this grant" instruction. It does not stop a process that runs as the
+developer from READING grant.key and signing its own grant - an agent with an
+unrestricted shell could do that deliberately, in several visible steps. The
+hard limit is the profile's `ceiling`, which only the developer can raise by
+editing the profile; keep production at `ceiling: read` unless writes are needed.
 
 Every switch, elevation, refusal and non-local write is appended to audit.log.
 """
 
 from __future__ import annotations
 
+import hashlib
+import hmac
 import json
 import os
 import re
+import secrets
 import time
 from dataclasses import dataclass, field
 from typing import Optional
@@ -63,13 +76,70 @@ def audit(event: dict) -> None:
 # --------------------------------------------------------------------------
 
 
+GRANT_KEY_FILE = "grant.key"
+_SIGNED_FIELDS = ("profile", "mode", "created_at", "expires_at", "url", "db")
+
+
 def grant_path(profile_name: str):
     safe = re.sub(r"[^A-Za-z0-9_.-]", "_", profile_name)[:80]
     return P.grants_dir() / (safe + ".json")
 
 
-def read_grant(profile_name: str) -> Optional[dict]:
-    """A valid, unexpired grant for exactly this profile, or None."""
+def grant_key_path():
+    return P.home() / GRANT_KEY_FILE
+
+
+def _load_key(create: bool = False) -> Optional[bytes]:
+    """The grant-signing key. Only odoo_mcp_ctl.py passes create=True; the server
+    never creates it, so a missing key means no grant can be valid."""
+    path = grant_key_path()
+    try:
+        key = bytes.fromhex(path.read_text(encoding="ascii").strip())
+        if len(key) >= 32:
+            return key
+    except (OSError, ValueError):
+        pass
+    if not create:
+        return None
+    key = secrets.token_bytes(32)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(".tmp")
+    tmp.write_text(key.hex(), encoding="ascii")
+    try:
+        os.chmod(tmp, 0o600)
+    except OSError:
+        pass
+    os.replace(tmp, path)
+    return key
+
+
+def _signature(grant: dict, key: bytes) -> str:
+    body = json.dumps({k: grant.get(k) for k in _SIGNED_FIELDS}, sort_keys=True,
+                      separators=(",", ":"), ensure_ascii=True)
+    return hmac.new(key, body.encode("ascii"), hashlib.sha256).hexdigest()
+
+
+def write_grant(prof: "P.Profile", mode: str, ttl_minutes: int, by: str = "") -> dict:
+    """Sign and store a grant. Called by odoo_mcp_ctl.py after its TTY checks."""
+    key = _load_key(create=True)
+    now = _now()
+    grant = {"profile": prof.name, "mode": mode, "created_at": now,
+             "expires_at": now + int(ttl_minutes) * 60, "url": prof.url,
+             "db": prof.db or "", "by": by}
+    grant["sig"] = _signature(grant, key)
+    path = grant_path(prof.name)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(".tmp")
+    tmp.write_text(json.dumps(grant, indent=2), encoding="utf-8")
+    os.replace(tmp, path)
+    return grant
+
+
+def read_grant(profile_name: str, prof: "Optional[P.Profile]" = None) -> Optional[dict]:
+    """A valid, signed, unexpired grant for exactly this profile, or None.
+
+    With `prof`, the grant must also name that profile's url and database and must
+    not outlive the tier's maximum TTL."""
     try:
         data = json.loads(grant_path(profile_name).read_text(encoding="utf-8"))
     except (OSError, ValueError):
@@ -78,11 +148,24 @@ def read_grant(profile_name: str) -> Optional[dict]:
         return None
     if data.get("mode") not in P.MODES:
         return None
+    key = _load_key()
+    sig = data.get("sig")
+    if key is None or not isinstance(sig, str) or not hmac.compare_digest(sig, _signature(data, key)):
+        return None
     try:
-        if float(data.get("expires_at", 0)) <= _now():
-            return None
+        created = float(data.get("created_at", 0))
+        expires = float(data.get("expires_at", 0))
     except (TypeError, ValueError):
         return None
+    now = _now()
+    if expires <= now or created > now + 60:
+        return None
+    if prof is not None:
+        if data.get("url") != prof.url or (data.get("db") or "") != (prof.db or ""):
+            return None
+        cap = MAX_TTL.get(prof.tier) or 480
+        if expires - created > cap * 60 + 60:
+            return None
     return data
 
 
@@ -161,7 +244,7 @@ class SessionState:
                 )
             return "chat"
         # human
-        grant = read_grant(prof.name)
+        grant = read_grant(prof.name, prof)
         if grant and P.RANK[grant["mode"]] >= P.RANK[target]:
             return "human-grant until %s" % _iso(float(grant["expires_at"]))
         raise ApprovalError(

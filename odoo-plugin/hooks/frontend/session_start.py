@@ -1,24 +1,22 @@
 #!/usr/bin/env python3
-"""
-SessionStart hook: Detect Odoo version and inject frontend context.
-Outputs JSON in official hookSpecificOutput format.
-Exit 0 always.
-"""
+"""SessionStart hook: when the workspace holds an Odoo source tree (`odooNN/`), tell
+Claude the Odoo, Bootstrap and Owl versions that go with it.
 
-import json
+Prints additionalContext JSON only when it finds one; in any other project it prints
+nothing. Fails open: bad input, an exception or the 8 s watchdog all end in exit 0.
+"""
+from __future__ import annotations
+
 import os
 import re
 import sys
-import threading
 
-# Internal timeout guard - fail-open after 8 seconds
-_timer = threading.Timer(8.0, lambda: os._exit(0))
-_timer.daemon = True
-_timer.start()
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "_vendor"))
 
-# Read stdin (required by hook protocol)
-try:
-    sys.stdin.buffer.read()  # bytes: never decoded with the locale codec
+import hooklib  # noqa: E402
+
+try:  # hooklib writes JSON with non-ASCII text; a cp1252 console stdout would choke on it
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 except Exception:
     pass
 
@@ -32,40 +30,37 @@ OWL_MAP = {
     "16": "1.x", "17": "1.x", "18": "2.x", "19": "2.x",
 }
 
+_DIR_RE = re.compile(r"^odoo(\d{2})$")
 
-def detect_odoo_version():
-    """Detect Odoo version from workspace directory structure (no recursion)."""
-    cwd = os.getcwd()
+
+def detect_odoo_version(cwd: str) -> str:
+    """Detect the Odoo version from the workspace directory layout (no recursion)."""
     try:
-        for item in os.listdir(cwd):
-            full = os.path.join(cwd, item)
-            if os.path.isdir(full):
-                m = re.match(r'^odoo(\d{2})$', item)
-                if m:
-                    ver = m.group(1)
-                    bs = BOOTSTRAP_MAP.get(ver, "5.1.3")
-                    owl = OWL_MAP.get(ver)
-                    parts = [f"Odoo {ver}", f"Bootstrap {bs}"]
-                    if owl:
-                        parts.append(f"Owl {owl}")
-                    return f"[Odoo Frontend] Detected: {', '.join(parts)}. Use publicWidget for website themes."
-    except (OSError, PermissionError):
-        pass
+        names = sorted(os.listdir(cwd))
+    except OSError:
+        return ""
+    for item in names:
+        m = _DIR_RE.match(item)
+        if m and os.path.isdir(os.path.join(cwd, item)):
+            ver = m.group(1)
+            parts = ["Odoo %s" % ver, "Bootstrap %s" % BOOTSTRAP_MAP.get(ver, "5.1.3")]
+            if OWL_MAP.get(ver):
+                parts.append("Owl %s" % OWL_MAP[ver])
+            return "[Odoo Frontend] Detected: %s. Use publicWidget for website themes." % ", ".join(parts)
     return ""
 
 
-try:
-    ctx = detect_odoo_version()
-    output = {
-        "hookSpecificOutput": {
-            "hookEventName": "SessionStart",
-            "additionalContext": ctx
-        }
-    }
-    print(json.dumps(output))
-except Exception:
-    # Fail-safe: always output valid JSON
-    print('{"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":""}}')
+def main() -> int:
+    hooklib.watchdog(8.0)
+    payload = hooklib.read_payload() or {}
+    cwd = payload.get("cwd") if isinstance(payload.get("cwd"), str) else ""
+    if not cwd or not os.path.isdir(cwd):
+        cwd = os.getcwd()
+    ctx = detect_odoo_version(cwd)
+    if ctx:
+        hooklib.context("SessionStart", ctx)
+    return 0
 
-_timer.cancel()
-sys.exit(0)
+
+if __name__ == "__main__":
+    hooklib.run(main)

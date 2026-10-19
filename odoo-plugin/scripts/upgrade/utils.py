@@ -121,20 +121,39 @@ def iter_project_files(
                 yield fpath
 
 
+BACKUP_DIR_NAME = ".odoo-upgrade-backups"
+
+
+def backup_root(project_path: str | Path) -> Path:
+    """Where backups go: $ODOO_UPGRADE_BACKUP_DIR, else a hidden
+    `.odoo-upgrade-backups/` next to the module. Each backup is a zip archive,
+    never a directory, so it can never be picked up from the addons path as a
+    second copy of the module."""
+    override = os.environ.get("ODOO_UPGRADE_BACKUP_DIR", "").strip()
+    if override:
+        return Path(os.path.expanduser(override))
+    return Path(project_path).resolve().parent / BACKUP_DIR_NAME
+
+
 def create_backup(project_path: str | Path, label: str = "backup") -> Path:
     """
-    Create a timestamped backup of the project directory.
+    Create a timestamped zip backup of the project directory, outside the addons path.
 
-    Returns the path to the backup directory.
+    Returns the path to the .zip archive.
     """
-    project_path = Path(project_path)
+    project_path = Path(project_path).resolve()
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    backup_name = f"{project_path.name}_{label}_{timestamp}"
-    backup_path = project_path.parent / backup_name
-
-    print(f"Creating backup at: {backup_path}")
-    shutil.copytree(project_path, backup_path)
-    return backup_path
+    root = backup_root(project_path)
+    root.mkdir(parents=True, exist_ok=True)
+    ignore = root / ".gitignore"
+    if not ignore.exists():
+        # Keep backups out of the user's git status.
+        ignore.write_text("*\n", encoding="utf-8")
+    base = root / f"{project_path.name}_{label}_{timestamp}"
+    print(f"Creating backup at: {base}.zip")
+    archive = shutil.make_archive(str(base), "zip", root_dir=str(project_path.parent),
+                                  base_dir=project_path.name)
+    return Path(archive)
 
 
 def read_file_safe(path: str | Path, encoding: str = 'utf-8') -> Optional[str]:

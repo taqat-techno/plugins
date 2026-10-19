@@ -1,89 +1,77 @@
 #!/usr/bin/env python3
+"""PreToolUse hook (Write|Edit): refuse writes to core Odoo framework files and to the
+MCP server's approval files.
+
+1. Core framework files (odoo/addons/, odoo/*.py, a pip-installed site-packages/odoo,
+   ...) must be changed by inheritance in a custom module, never in place. Patterns
+   come from odoo-upgrade.config.json: the project's copy at $CLAUDE_PROJECT_DIR, then
+   the plugin default (see config_loader.py).
+2. `~/.odoo-mcp/grant.key` and `~/.odoo-mcp/grants/` hold the developer's signed
+   production approvals. Only scripts/mcp/odoo_mcp_ctl.py, run by the developer in a
+   terminal, writes them; Claude must not.
+
+Refusals go out as `permissionDecision: "deny"` with the reason. Fails open: bad
+input, an exception or the 5 s watchdog all end in exit 0.
 """
-PreToolUse hook: Block writes to core Odoo framework files.
+from __future__ import annotations
 
-Reads tool input JSON from stdin. If the target file is inside a core
-Odoo directory, exits with code 2 to block the action. Otherwise exits 0.
-
-Safety-critical blocker: fail-CLOSED on timeout (exit 0 = allow would be wrong
-if we can't determine safety). However, the 5s internal timeout is generous
-for pure regex matching, so timeout implies a real hang — fail-open is safer
-than blocking all writes indefinitely.
-
-Core path patterns are loaded from odoo-upgrade.config.json (configurable).
-"""
-
-import json
 import os
 import re
 import sys
-import threading
 
-# Internal timeout: fail-OPEN after 5 seconds.
-# This hook does pure regex matching — if it takes >5s something is broken.
-# Failing open is safer than blocking all Write/Edit indefinitely.
-_timer = threading.Timer(5.0, lambda: os._exit(0))
-_timer.daemon = True
-_timer.start()
+HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, os.path.join(os.path.dirname(HERE), "_vendor"))
+sys.path.insert(0, HERE)
 
-# Import shared config loader (same directory)
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-try:
-    from config_loader import load_config
-except ImportError:
-    # If config_loader is missing, use hardcoded fallback
-    def load_config():
-        return {"core_path_patterns": [
-            r"odoo\d{2}/odoo/addons/",
-            r"odoo\d{2}/odoo/[^/]+\.py$",
-            r"odoo\d{2}/odoo/tools/",
-            r"odoo\d{2}/odoo/modules/",
-            r"odoo\d{2}/odoo/cli/",
-            r"odoo\d{2}/odoo/service/",
-            r"/odoo/odoo/addons/",
-        ]}
+import hooklib  # noqa: E402
+
+try:  # hooklib writes JSON with non-ASCII text; a cp1252 console stdout would choke on it
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+except Exception:
+    pass
+
+_GRANT_RE = re.compile(r"(^|/)\.odoo-mcp/(grant\.key|grants/)", re.IGNORECASE)
 
 
-def main():
+def _core_patterns():
     try:
-        data = json.loads(sys.stdin.buffer.read().decode("utf-8", "replace"))
-    except (json.JSONDecodeError, EOFError, ValueError):
-        sys.exit(0)
-
-    tool_input = data.get('tool_input', {})
-    file_path = tool_input.get('file_path', '') or tool_input.get('path', '')
-
-    if not file_path:
-        sys.exit(0)
-
-    normalized = file_path.replace('\\', '/')
-
-    try:
-        config = load_config()
+        from config_loader import load_config
+        return load_config().get("core_path_patterns", [])
     except Exception:
-        config = {"core_path_patterns": []}
+        return []
 
-    core_patterns = config.get('core_path_patterns', [])
 
-    for pattern in core_patterns:
+def main() -> int:
+    hooklib.watchdog(5.0)
+    payload = hooklib.read_payload()
+    if payload is None:
+        return 0
+    ti = hooklib.tool_input(payload)
+    file_path = ti.get("file_path", "") or ti.get("path", "")
+    if not isinstance(file_path, str) or not file_path:
+        return 0
+    normalized = file_path.replace("\\", "/")
+
+    if _GRANT_RE.search(normalized):
+        hooklib.deny(
+            "BLOCKED: %s is an Odoo MCP approval file. Grants are signed and written only by "
+            "the developer running scripts/mcp/odoo_mcp_ctl.py in their own terminal. Ask the "
+            "developer to run it; do not create or edit grant files." % file_path)
+        return 0
+
+    for pattern in _core_patterns():
         try:
             if re.search(pattern, normalized):
-                msg = (
-                    f"BLOCKED: Cannot modify core Odoo file: {file_path}\n"
+                hooklib.deny(
+                    "BLOCKED: Cannot modify core Odoo file: %s\n"
                     "Core framework files (odoo/addons/, odoo/*.py) must not be edited.\n"
-                    "Use model/view inheritance in projects/ instead."
-                )
-                # UTF-8 bytes, not the locale codec: the path may be non-ASCII.
-                sys.stderr.buffer.write((msg + "\n").encode("utf-8", "replace"))
-                sys.stderr.flush()
-                _timer.cancel()
-                sys.exit(2)
+                    "Use model/view inheritance in a custom module instead. A project can "
+                    "change these patterns in its own odoo-upgrade.config.json." % file_path)
+                return 0
         except re.error:
             continue  # Skip malformed user-provided patterns
-
-    _timer.cancel()
-    sys.exit(0)
+    return 0
 
 
-if __name__ == '__main__':
-    main()
+if __name__ == "__main__":
+    hooklib.run(main)

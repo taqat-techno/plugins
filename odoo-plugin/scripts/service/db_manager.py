@@ -10,9 +10,9 @@ Usage:
     python db_manager.py backup --db mydb [--format sql|dump] --output backups/
     python db_manager.py restore --file backups/backup.dump --db newdb
     python db_manager.py create --db newproject17
-    python db_manager.py drop --db oldproject
+    python db_manager.py drop --db oldproject --yes   (only after the user confirmed)
     python db_manager.py list
-    python db_manager.py reset-admin --db mydb --password newpass
+    python db_manager.py reset-admin --db mydb --password-stdin   (password on stdin)
     python db_manager.py modules --db mydb
     python db_manager.py auto-backup --config conf/myproject.conf --output backups/
 """
@@ -39,7 +39,37 @@ def _pg_env(user: str, password: str) -> dict:
     env = os.environ.copy()
     env["PGPASSWORD"] = password
     env["PGUSER"] = user
+    env.setdefault("PGCLIENTENCODING", "UTF8")  # SQL on stdin is sent as UTF-8
     return env
+
+
+_LOOPBACK = {"localhost", "127.0.0.1", "::1", "[::1]", "", "/tmp", "/var/run/postgresql"}
+
+
+def is_loopback_host(host: Optional[str]) -> bool:
+    """True for a local PostgreSQL: localhost, 127.x, ::1, or a Unix socket dir."""
+    h = (host or "").strip().lower()
+    return h in _LOOPBACK or h.startswith("127.") or h.startswith("/")
+
+
+def default_pg_password() -> str:
+    """PGPASSWORD from the environment, else Odoo's development default."""
+    return os.environ.get("PGPASSWORD") or "odoo"
+
+
+def read_new_admin_password(args) -> str:
+    """New admin password: --password-stdin, then ODOO_ADMIN_NEW_PASSWORD, then the
+    deprecated --password (argv is visible in the process list)."""
+    if getattr(args, "password_stdin", False):
+        return sys.stdin.readline().rstrip("\r\n")
+    env = os.environ.get("ODOO_ADMIN_NEW_PASSWORD", "")
+    if env:
+        return env
+    if getattr(args, "password", None):
+        print("[WARNING] --password puts the password in the process list; prefer "
+              "--password-stdin or ODOO_ADMIN_NEW_PASSWORD.", file=sys.stderr)
+        return args.password
+    return ""
 
 
 def _pg_args(host: str, port: int, user: str) -> List[str]:
@@ -58,8 +88,7 @@ def _run(cmd: List[str], env: Optional[dict] = None, input_data: Optional[str] =
     result = subprocess.run(
         cmd,
         env=env or os.environ.copy(),
-        input=input_data,
-        text=bool(input_data),
+        input=input_data.encode("utf-8") if input_data else None,
     )
     return result.returncode
 
@@ -73,7 +102,7 @@ def _run_capture(
         cmd,
         env=env or os.environ.copy(),
         capture_output=True,
-        text=True,
+        text=True, encoding="utf-8", errors="replace",
     )
     return result.stdout, result.stderr, result.returncode
 
@@ -104,7 +133,7 @@ def backup_sql(
     print(f"[INFO] Backing up '{database}' to SQL: {filename}")
 
     with open(filename, "w", encoding="utf-8") as f:
-        result = subprocess.run(cmd, env=env, stdout=f, stderr=subprocess.PIPE, text=True)
+        result = subprocess.run(cmd, env=env, stdout=f, stderr=subprocess.PIPE, text=True, encoding="utf-8", errors="replace")
 
     if result.returncode == 0:
         size = filename.stat().st_size / (1024 * 1024)
@@ -288,11 +317,25 @@ def drop_database(
     user: str = "odoo",
     password: str = "odoo",
     confirm: bool = True,
+    allow_remote: bool = False,
 ) -> bool:
-    """Drop a PostgreSQL database with optional confirmation prompt."""
+    """Drop a PostgreSQL database.
+
+    confirm=True asks on an interactive terminal; without one (Claude's Bash tool)
+    it refuses, because the user - not the agent - must confirm. confirm=False
+    (`--yes`) is for after the user has said yes in chat. A non-loopback host is
+    refused unless allow_remote=True."""
+    if not is_loopback_host(host) and not allow_remote:
+        print(f"[ERROR] Refusing to drop '{name}' on non-local host '{host}'. "
+              "Pass --allow-remote only if the user explicitly asked for that server.")
+        return False
     if confirm:
-        response = input(f"Are you sure you want to DROP database '{name}'? [yes/N]: ").strip().lower()
-        if response != "yes":
+        if not sys.stdin.isatty():
+            print(f"[ERROR] Not confirmed: dropping '{name}' is irreversible. Ask the user to "
+                  f"confirm the database name, then re-run with --yes.")
+            return False
+        response = input(f"Type the database name to DROP '{name}': ").strip()
+        if response != name:
             print("[INFO] Drop cancelled.")
             return False
 
@@ -351,23 +394,29 @@ def reset_admin_password(
     user: str = "odoo",
     password: str = "odoo",
 ) -> bool:
-    """Reset the Odoo admin user password directly in PostgreSQL."""
+    """Reset the Odoo admin user password directly in PostgreSQL.
+
+    The SQL goes to psql on stdin, never in argv (visible to every local user via
+    the process list), and the password is never printed."""
+    if not new_password:
+        print("[ERROR] No new password given (use --password-stdin or ODOO_ADMIN_NEW_PASSWORD).")
+        return False
     env = _pg_env(user, password)
 
-    # Escape single quotes to prevent SQL injection.
-    # Odoo will re-hash the plaintext password on next login.
+    # Escape single quotes to prevent SQL injection (standard_conforming_strings
+    # is on by default). Odoo will re-hash the plaintext password on next login.
     escaped_password = new_password.replace("'", "''")
-    sql = f"UPDATE res_users SET password='{escaped_password}' WHERE login='admin';"
+    sql = f"UPDATE res_users SET password='{escaped_password}' WHERE login='admin';\n"
     cmd = (
         ["psql"] +
         _pg_args(host, port, user) +
-        ["-d", database, "-c", sql]
+        ["-d", database, "-v", "ON_ERROR_STOP=1"]
     )
     print(f"[INFO] Resetting admin password for database: {database}")
-    rc = _run(cmd, env=env)
+    rc = _run(cmd, env=env, input_data=sql)
 
     if rc == 0:
-        print(f"[OK] Admin password reset. Log in with 'admin' / '{new_password}'")
+        print("[OK] Admin password reset for login 'admin' (password not shown).")
         print("[INFO] Odoo will re-hash the password on first login.")
         return True
     else:
@@ -487,7 +536,7 @@ def backup_docker(
     if backup_format == "sql":
         cmd = ["docker", "exec", container_name, "pg_dump", "-U", user, database]
         with open(out, "w", encoding="utf-8") as f:
-            result = subprocess.run(cmd, stdout=f, stderr=subprocess.PIPE, text=True)
+            result = subprocess.run(cmd, stdout=f, stderr=subprocess.PIPE, text=True, encoding="utf-8", errors="replace")
     else:
         cmd = ["docker", "exec", container_name, "pg_dump", "-U", user, "-Fc", database]
         with open(out, "wb") as f:
@@ -523,7 +572,7 @@ def restore_docker(
                 ["docker", "exec", "-i", container_name, "psql", "-U", user, database],
                 stdin=f,
                 capture_output=True,
-                text=True,
+                text=True, encoding="utf-8", errors="replace",
             )
     else:
         # pg_restore via docker exec -i
@@ -557,7 +606,8 @@ def build_parser() -> argparse.ArgumentParser:
         p.add_argument("--host", default="localhost")
         p.add_argument("--port", type=int, default=5432)
         p.add_argument("--user", "-U", default="odoo")
-        p.add_argument("--password", "-W", default="odoo")
+        p.add_argument("--password", "-W", default=None,
+                       help="PostgreSQL password (default: $PGPASSWORD, else 'odoo')")
 
     subparsers = parser.add_subparsers(dest="command")
 
@@ -585,7 +635,10 @@ def build_parser() -> argparse.ArgumentParser:
     # drop
     drop_p = subparsers.add_parser("drop", help="Drop database")
     drop_p.add_argument("--db", "-d", required=True)
-    drop_p.add_argument("--yes", action="store_true", help="Skip confirmation")
+    drop_p.add_argument("--yes", action="store_true",
+                        help="The user already confirmed this exact database in chat")
+    drop_p.add_argument("--allow-remote", action="store_true",
+                        help="Allow dropping on a non-local host")
     add_db_args(drop_p)
 
     # list
@@ -595,11 +648,15 @@ def build_parser() -> argparse.ArgumentParser:
     # reset-admin
     reset_p = subparsers.add_parser("reset-admin", help="Reset admin password")
     reset_p.add_argument("--db", "-d", required=True)
-    reset_p.add_argument("--password", "-p", required=True)
+    reset_p.add_argument("--password-stdin", action="store_true",
+                         help="Read the new password from the first line of stdin")
+    reset_p.add_argument("--password", "-p", default=None,
+                         help="Deprecated: visible in the process list")
     reset_p.add_argument("--host", default="localhost")
     reset_p.add_argument("--port", type=int, default=5432)
     reset_p.add_argument("--user", "-U", default="odoo")
-    reset_p.add_argument("--pg-password", default="odoo")
+    reset_p.add_argument("--pg-password", default=None,
+                         help="PostgreSQL password (default: $PGPASSWORD, else 'odoo')")
 
     # modules
     modules_p = subparsers.add_parser("modules", help="List installed Odoo modules")
@@ -626,7 +683,7 @@ def main():
     host = getattr(args, "host", "localhost")
     port = getattr(args, "port", 5432)
     user = getattr(args, "user", "odoo")
-    password = getattr(args, "password", "odoo")
+    password = getattr(args, "password", None) or default_pg_password()
 
     if args.command == "backup":
         docker = getattr(args, "docker", None)
@@ -658,7 +715,8 @@ def main():
         sys.exit(0 if success else 1)
 
     elif args.command == "drop":
-        success = drop_database(args.db, host, port, user, password, confirm=not args.yes)
+        success = drop_database(args.db, host, port, user, password, confirm=not args.yes,
+                                allow_remote=args.allow_remote)
         sys.exit(0 if success else 1)
 
     elif args.command == "list":
@@ -667,8 +725,8 @@ def main():
 
     elif args.command == "reset-admin":
         success = reset_admin_password(
-            args.db, args.password, args.host,
-            args.port, args.user, args.pg_password
+            args.db, read_new_admin_password(args), args.host,
+            args.port, args.user, args.pg_password or default_pg_password()
         )
         sys.exit(0 if success else 1)
 
@@ -682,4 +740,9 @@ def main():
 
 
 if __name__ == "__main__":
+    for _stream in (sys.stdout, sys.stderr):  # cp1252 consoles choke on non-ASCII output
+        try:
+            _stream.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
     main()

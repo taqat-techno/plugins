@@ -1,35 +1,10 @@
 ---
 name: theme-snippets
-description: |
-  Complete Odoo website snippet reference and creation guide. Covers snippet architecture, 81+ static snippet templates (structure, gallery, features, dynamic, inner content, mega menus), dynamic snippets system, snippet options (we-* elements), custom snippet creation for Odoo 14-19, and version-aware registration (simple vs groups).
-
-  <example>
-  Context: User wants to create a custom snippet
-  user: "Create a custom snippet for my Odoo website"
-  assistant: "I will create a version-aware snippet with template, registration, and options."
-  <commentary>Custom snippet creation.</commentary>
-  </example>
-
-  <example>
-  Context: User wants to know available snippets
-  user: "What snippets are available in Odoo?"
-  assistant: "Odoo has 81+ static snippets across 6 categories."
-  <commentary>Snippet inventory reference.</commentary>
-  </example>
-
-  <example>
-  Context: User wants a dynamic snippet
-  user: "Create a dynamic snippet that shows latest products"
-  assistant: "I will create a dynamic snippet with filter, display template, and data source."
-  <commentary>Dynamic snippet creation.</commentary>
-  </example>
-
-  <example>
-  Context: User needs snippet options
-  user: "Add customization options to my snippet"
-  assistant: "I will create snippet_options XML with we-* elements."
-  <commentary>Snippet options system.</commentary>
-  </example>
+description: >-
+  Use when creating or customizing Odoo 14-19 website snippets: a custom static snippet, a
+  dynamic snippet that lists records such as the latest products, snippet options (we-*
+  elements), registering a snippet the right way for the version, or finding which built-in
+  snippets exist.
 license: "MIT"
 metadata:
   version: "8.0.0"
@@ -38,6 +13,20 @@ metadata:
 ---
 
 # Odoo Website Snippets
+
+## Scope and example requests
+
+Complete Odoo website snippet reference and creation guide. Covers snippet architecture, 81+
+static snippet templates (structure, gallery, features, dynamic, inner content, mega menus),
+dynamic snippets system, snippet options (we-* elements), custom snippet creation for Odoo
+14-19, and version-aware registration (simple vs groups).
+
+Example requests:
+
+- "Create a custom snippet for my Odoo website" (Custom snippet creation)
+- "What snippets are available in Odoo?" (Snippet inventory reference)
+- "Create a dynamic snippet that shows latest products" (Dynamic snippet creation)
+- "Add customization options to my snippet" (Snippet options system)
 
 ## Snippet Architecture
 

@@ -141,5 +141,10 @@ def main():
     upgrader.run()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
+    for _stream in (sys.stdout, sys.stderr):  # cp1252 consoles choke on non-ASCII output
+        try:
+            _stream.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
     main()

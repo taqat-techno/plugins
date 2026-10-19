@@ -1,5 +1,5 @@
 {
-  "description": "Unified Odoo plugin hooks — core file protection, inline JS blocking, Odoo-stack volume-destruction guard, restart/clone safety advisories, and version detection",
+  "description": "Odoo plugin hooks: core-file and grant-file protection, inline-JS check in Odoo modules, ask-before-destroying guard for Odoo volumes and databases, restart/clone advisories, and Odoo version detection",
   "hooks": {
     "SessionStart": [
       {

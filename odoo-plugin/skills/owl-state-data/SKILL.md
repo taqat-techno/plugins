@@ -1,31 +1,28 @@
 ---
 name: odoo-owl-state-data
-description: |
-  Decide where state lives in an Odoo 17-19 OWL front-end and how server data reaches the client. Covers the state-ownership questions (backend field / record uiState / store / getter / component useState), the four ways a value escapes reactivity, why copying store data into useState silently loses edits, relation mutation by command, the declared data-loading contract versus ad-hoc RPC, and payload exposure review.
-
-  <example>
-  Context: User adds component state that resets unexpectedly.
-  user: "My selected filter resets every time I switch screens"
-  assistant: "That's a state-ownership question. Let me run the four questions — this one probably belongs on the store, not in useState."
-  <commentary>State that survives a screen switch cannot live in component state.</commentary>
-  </example>
-
-  <example>
-  Context: User reports the UI not updating.
-  user: "I change the value and the console shows it changed but the screen doesn't repaint"
-  assistant: "That's a reactivity escape. Let me check the four known ones before calling it a rendering bug."
-  <commentary>toRaw, markRaw, constructor-captured callbacks, and not re-reading are the four escapes.</commentary>
-  </example>
-
-  <example>
-  Context: User wants new server data in the client.
-  user: "I need the customer's credit limit available in the UI"
-  assistant: "That goes through the loading contract, not an RPC in the component — and adding a field to the payload is an exposure decision."
-  <commentary>Ad-hoc component fetches diverge from the store the moment the record updates.</commentary>
-  </example>
+description: >-
+  Use when deciding where state lives in an Odoo 17-19 OWL front-end or how server data
+  reaches it: a value that resets when switching screens, a change that does not repaint,
+  store data copied into useState, mutating relations, loading extra fields such as a
+  customer's credit limit into the UI, or reviewing what a payload exposes. Covers state
+  ownership, the four reactivity escapes and the declared data-loading contract.
 ---
 
 # State ownership and data loading in OWL
+
+## Scope and example requests
+
+Decide where state lives in an Odoo 17-19 OWL front-end and how server data reaches the
+client. Covers the state-ownership questions (backend field / record uiState / store /
+getter / component useState), the four ways a value escapes reactivity, why copying store
+data into useState silently loses edits, relation mutation by command, the declared
+data-loading contract versus ad-hoc RPC, and payload exposure review.
+
+Example requests:
+
+- "My selected filter resets every time I switch screens" (State that survives a screen switch cannot live in component state)
+- "I change the value and the console shows it changed but the screen doesn't repaint" (toRaw, markRaw, constructor-captured callbacks, and not re-reading are the four escapes)
+- "I need the customer's credit limit available in the UI" (Ad-hoc component fetches diverge from the store the moment the record updates)
 
 ## Where does this state belong? Four questions, in order
 

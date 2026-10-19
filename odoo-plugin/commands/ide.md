@@ -37,4 +37,4 @@ Generates everything above plus `.editorconfig` for universal formatting.
 
 ## Script
 
-Use `ide_configurator.py --ide <vscode|pycharm|both> --env <local|docker>` from the plugin scripts directory.
+Run `python "${CLAUDE_PLUGIN_ROOT}/scripts/service/ide_configurator.py" --ide <vscode|pycharm|both> --env <local|docker>`.
