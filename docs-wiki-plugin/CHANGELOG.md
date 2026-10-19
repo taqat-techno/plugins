@@ -2,6 +2,13 @@
 
 All notable changes to `docs-wiki-plugin` are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/). Versioning follows [SemVer](https://semver.org/).
 
+## [0.10.0] - 2026-10-19
+
+### Changed
+- **The PlantUML swimlane pipeline no longer needs PowerShell.** `render_puml.py` and `upload_attachment.py` (stdlib only) replace the `.ps1` helpers. Renderer discovery order: `--plantuml-jar`, `PLANTUML_JAR` (legacy `DOCS_WIKI_PLANTUML_JAR`), then `plantuml` on PATH. Java comes from `--java`, `DOCS_WIKI_JAVA`, `JAVA_HOME`, then PATH. If no renderer is found, the script prints install steps and exits 2 (audit WIKI-P1-05).
+- The Azure attachment upload reads `AZDO_PAT` (never printed) and keeps the retry and verify-on-fail behaviour. The `--approve` gate is unchanged.
+- README and SKILL.md document the requirements (Java 8+ and a PlantUML jar, or the plantuml CLI, or self-hosted Kroki) with Windows, macOS and Linux install steps.
+
 ## [0.9.0] - 2026-10-19
 
 ### Fixed

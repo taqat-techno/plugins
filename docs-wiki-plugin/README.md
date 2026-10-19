@@ -57,10 +57,32 @@ None. `hooks/hooks.json` is intentionally empty: there is no push gate and no st
 
 | Script | Purpose |
 |---|---|
-| `render_puml.ps1` | Local PlantUML render (pinned jar, no network). Needs `pwsh` + Java |
-| `upload_attachment.ps1` | Azure DevOps `/.attachments` upload (PAT from `$env:AZDO_PAT`) |
+| `render_puml.py` | Local PlantUML render (pinned jar or `plantuml` CLI, no network) |
+| `upload_attachment.py` | Azure DevOps `/.attachments` upload via REST (PAT from the `AZDO_PAT` env var, never echoed) |
 | `embed_swimlane.py` | Idempotent `### Swimlane` block embed; `--dry-run` prints the diff only |
 | `publish_update.py` | Swimlane pipeline. Preview by default; uploads, stages and writes only with `--approve`; never commits or pushes |
+
+All four are Python 3 standard library only and work on Windows, macOS and Linux. PowerShell is not needed.
+
+### Swimlane requirements
+
+Only `/docs-wiki:wiki-swimlane` on a GitHub or Azure DevOps wiki needs extra tools. GitLab and MkDocs render PlantUML natively.
+
+| Requirement | Notes |
+|---|---|
+| Python 3.9+ | Runs the scripts |
+| Java 8+ **and** a pinned PlantUML jar (`1.2026.x`, from the [PlantUML releases](https://github.com/plantuml/plantuml/releases)) | Pass `--plantuml-jar <path>` or set `PLANTUML_JAR`. Java is found via `DOCS_WIKI_JAVA`, then `JAVA_HOME`, then `PATH` |
+| **or** the `plantuml` CLI on `PATH` | Used only when no jar is configured |
+| `AZDO_PAT` (scope `vso.wiki_write`) | Azure flavour with `--approve` only |
+| `DOCS_WIKI_KROKI_ENDPOINT` (optional) | A **self-hosted** Kroki endpoint for `--render kroki`, which needs no local Java. Public `kroki.io` is refused |
+
+The renderer is found in this order: `--plantuml-jar`, then `PLANTUML_JAR`, then `plantuml` on `PATH`. If none is available, the script exits with install steps before anything is uploaded or written.
+
+| OS | Java | PlantUML |
+|---|---|---|
+| Windows | `winget install EclipseAdoptium.Temurin.21.JRE` | download the jar, or `choco install plantuml` / `scoop install plantuml` |
+| macOS | `brew install openjdk` | download the jar, or `brew install plantuml` |
+| Linux | `sudo apt install default-jre` | download the jar (distro packages are often too old) |
 
 ## Wiki flavours supported
 

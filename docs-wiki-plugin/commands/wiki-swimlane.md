@@ -31,14 +31,14 @@ Generate or refresh an actor-lane / BPMN-pool **swimlane** for a wiki page. Appl
 
 ## Step 2 — Render
 
-- `--render local` (default, privacy-safe): `scripts/render_puml.ps1 -Puml <file> -Format <fmt>` with a **pinned 1.2026.x jar** (reject the Maven `8059` trap) and `PLANTUML_LIMIT_SIZE`.
+- `--render local` (default, privacy-safe): `python scripts/render_puml.py --puml <file> --format <fmt>` with a **pinned 1.2026.x jar** (reject the Maven `8059` trap) and `PLANTUML_LIMIT_SIZE`. Needs **Java 8+ and the jar** (`--plantuml-jar` / `PLANTUML_JAR`) or the `plantuml` CLI on PATH — no PowerShell. If neither is found the script prints install steps; relay them (see `wiki-plantuml` → Requirements).
 - `--render kroki`: **self-hosted endpoint required**. A public `kroki.io` / `plantuml.com` endpoint is **refused** (paste-leak) — surface the governance flag.
 - `--format` default: **PNG** on github/azure (SVG sanitized there), SVG on gitlab/mkdocs.
 
 ## Step 3 — Embed per flavour
 
 - **github**: commit the image into the `OWNER/REPO.wiki.git` sibling clone `/images`, embed a **leading-slash wiki-link** `[[/images/<name>.png|Alt]]`.
-- **azure**: `scripts/upload_attachment.ps1` → PUT to `/.attachments` (**PAT from `$env:AZDO_PAT`, never echoed; base64 body; verify-on-500**), embed **root-relative** `![Alt](/.attachments/<name>.png)`.
+- **azure**: `scripts/upload_attachment.py` → PUT to `/.attachments` (**PAT from the `AZDO_PAT` env var, never echoed; base64 body; verify-on-500**), embed **root-relative** `![Alt](/.attachments/<name>.png)`.
 - **gitlab / mkdocs**: **no attach** — embed the inline ` ```plantuml ` fence (native render); self-host the render server for private diagrams.
 - `scripts/embed_swimlane.py` replaces the page's `### Swimlane` block **idempotently** (re-running yields no diff).
 

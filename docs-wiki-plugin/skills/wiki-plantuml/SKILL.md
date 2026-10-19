@@ -11,7 +11,7 @@ owns:
   - render then attach then embed pipeline per wiki flavour (azure-devops base64 attachment REST, github commit-to-.wiki.git, gitlab plus mkdocs native)
   - diagram-as-source rule (the .puml is the editable source, the SVG/PNG is generated and never hand-edited, re-render on change, naming swimlane-EPIC-SLUG)
   - renderMode local-jar (private default) vs self-hosted Kroki, with public kroki.io as a paste-leak governance flag
-  - the four helper scripts (render_puml.ps1, upload_attachment.ps1, embed_swimlane.py, publish_update.py) and the /wiki-swimlane command
+  - the four helper scripts (render_puml.py, upload_attachment.py, embed_swimlane.py, publish_update.py; Python stdlib only, no PowerShell) and the /wiki-swimlane command
   - operational rules (pin a 1.2026.x jar, the Maven-latest 8059 trap, PLANTUML_LIMIT_SIZE for the 4096px cap)
 defers_to:
   - wiki-mermaid (owns every NON-swimlane diagram type and is the zero-install native fallback when the render pipeline is unavailable)
@@ -57,7 +57,7 @@ Escalate (surface to the user, do **not** author) when:
 - Output format preference — **PNG** (safe default on GitHub/Azure) vs **SVG** (crisp, searchable; only where the platform renders it). Defaults per flavour — see the pipeline section.
 - `epic` + `slug` — compose the artifact name `swimlane-<epic>-<slug>.(puml|svg|png)`.
 
-Adapter cache (`.docs-wiki.local.json`) keys this skill reads/writes: `javaExe`, `plantumlJar`, `renderMode`, `krokiEndpoint`, `org`, `projectGuid`, `wikiId`, `attachmentApiVersion` (default `7.1`), `swimlaneNaming` (default `swimlane-<epic>-<slug>`), `palette` (ok/block hex).
+Adapter cache (`.docs-wiki.local.json`) keys this skill reads/writes (`plantumlJar` → `--plantuml-jar`, `javaExe` → `DOCS_WIKI_JAVA`; see Requirements): `javaExe`, `plantumlJar`, `renderMode`, `krokiEndpoint`, `org`, `projectGuid`, `wikiId`, `attachmentApiVersion` (default `7.1`), `swimlaneNaming` (default `swimlane-<epic>-<slug>`), `palette` (ok/block hex).
 
 ## Scope boundary — the one crisp rule
 
@@ -173,12 +173,33 @@ PlantUML **never** native; Mermaid only a restricted subset (no swimlane). Pipel
 - Naming: `swimlane-<epic>-<slug>.puml` → `swimlane-<epic>-<slug>.svg` (or `.png`). The source and its image share the basename so the pair is obvious and greppable.
 - Mark generated SVG `linguist-generated`/`-diff` and PNG `binary` in `.gitattributes` so humans review the `.puml`, not artifact churn.
 
+## Requirements (render + upload)
+
+All four helpers are **Python 3 standard library only** and run the same on Windows, macOS and Linux — **no PowerShell** is needed. `publish_update.py` runs the others with the current interpreter (`sys.executable`).
+
+| Need | When | How |
+|---|---|---|
+| **Java 8+** + a **pinned PlantUML jar** (`1.2026.x`, from the PlantUML GitHub releases) | Local render for `github` / `azure` (`--render local`, the default) | Pass `--plantuml-jar <path>` or set `PLANTUML_JAR`. Java comes from `DOCS_WIKI_JAVA`, else `$JAVA_HOME/bin/java`, else `java` on PATH |
+| **or** the `plantuml` CLI on PATH | Same — used only when no jar is configured | Package-manager wrapper around the jar (still needs Java) |
+| `AZDO_PAT` env var (scope `vso.wiki_write`) | `azure` flavour with `--approve` only | Set in the session, never on the command line; never echoed |
+| Nothing | `gitlab` / `mkdocs` (native render), or a **self-hosted** Kroki endpoint (`--render kroki` + `DOCS_WIKI_KROKI_ENDPOINT`) | — |
+
+**Renderer discovery order** (first match wins): `--plantuml-jar` flag → `PLANTUML_JAR` (legacy alias `DOCS_WIKI_PLANTUML_JAR`) → `plantuml` on PATH. If none is found, or a jar is set but Java is missing, `render_puml.py` exits `2` with install steps — before anything is uploaded, staged or written.
+
+| OS | Java | PlantUML |
+|---|---|---|
+| Windows | `winget install EclipseAdoptium.Temurin.21.JRE` (or `choco install temurin`) | download the jar, or `choco install plantuml` / `scoop install plantuml` |
+| macOS | `brew install openjdk` | download the jar, or `brew install plantuml` |
+| Linux | `sudo apt install default-jre` (or `dnf install java-21-openjdk`) | download the jar (distro `plantuml` packages are often too old for activity-beta) |
+
+Kroki alternative: point `--render kroki` at a **self-hosted** `yuzutech/kroki` container — no local Java needed. Public `kroki.io` / `plantuml.com` are **refused** (paste-leak).
+
 ## Helper scripts (shipped under `scripts/`)
 
 | Script | Purpose |
 |---|---|
-| `render_puml.ps1` | Render `.puml` → SVG (default) or PNG with the **pinned** local jar; lint for the deprecated prefix colour + unbalanced gateways before render; set `PLANTUML_LIMIT_SIZE`. No network. |
-| `upload_attachment.ps1` | **Azure only** — PUT a PNG to `/.attachments` (PAT from `$env:AZDO_PAT`, never echoed; **base64 body**; `api-version=7.1`; **verify-on-500**). |
+| `render_puml.py` | Render `.puml` → SVG (default) or PNG via `java -jar <pinned jar>` or `plantuml` on PATH; lint for the deprecated prefix colour + unbalanced gateways before render; refuse the `8059` jar; set `PLANTUML_LIMIT_SIZE`. No network. |
+| `upload_attachment.py` | **Azure only** — PUT a PNG to `/.attachments` with `urllib` (PAT from the `AZDO_PAT` env var, never echoed; **base64 body**; `api-version=7.1`; **verify-on-500** re-PUT). `--org` takes the org URL or a bare org name. |
 | `embed_swimlane.py` | Idempotently insert/replace the `### Swimlane` block in a page with the **flavour-correct** embed; prints a diff, never pushes. |
 | `publish_update.py` | Without `--approve`: preview only (temp-dir render, page diff via `embed_swimlane.py --dry-run`, list of pending actions; no upload, no staging, no page write). With `--approve`: render → (Azure attach / GitHub stage) → embed. Never commits or pushes — that stays a `wiki-safe-updates` step; handles verify-on-fail. |
 

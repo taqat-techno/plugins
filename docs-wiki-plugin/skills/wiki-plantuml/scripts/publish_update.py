@@ -13,14 +13,17 @@ Governance / safety:
     a local render into a temporary directory (deleted on exit) to prove the .puml
     renders; the page diff is computed by embed_swimlane.py --dry-run.
   - Renders locally by default (privacy-safe). renderMode=kroki REFUSES a public endpoint.
-  - Never echoes the PAT (delegated to upload_attachment.ps1, which reads $env:AZDO_PAT).
+  - Never echoes the PAT (delegated to upload_attachment.py, which reads AZDO_PAT from env).
+  - No PowerShell dependency: the render + upload helpers are Python (stdlib only) and are
+    run with sys.executable. Rendering needs Java 8+ and a PlantUML jar (--plantuml-jar /
+    PLANTUML_JAR) or a `plantuml` executable on PATH - see render_puml.py.
   - Idempotent: a no-op .puml change produces no diff.
   - Never commits or pushes: after --approve the git commit/push (or live page publish)
     remains a deliberate step routed through wiki-safe-updates.
 
 Pipelines by flavour (side effects happen only with --approve):
   github  -> render PNG, copy into the OWNER/REPO.wiki.git sibling clone /images, embed.
-  azure   -> render PNG, upload_attachment.ps1 (base64 + verify-on-500), embed root-relative.
+  azure   -> render PNG, upload_attachment.py (base64 + verify-on-500), embed root-relative.
   gitlab/mkdocs -> NO render/attach; embed the inline ```plantuml fence (native render).
 """
 from __future__ import annotations
@@ -57,6 +60,9 @@ def build_parser() -> argparse.ArgumentParser:
     ap.add_argument("--kroki-endpoint", default=os.environ.get("DOCS_WIKI_KROKI_ENDPOINT"))
     ap.add_argument("--format", choices=["svg", "png"], default=None,
                     help="default PNG for github/azure, svg for gitlab/mkdocs")
+    ap.add_argument("--plantuml-jar", default=None,
+                    help="plantuml.jar for the local render (else PLANTUML_JAR env, else "
+                         "`plantuml` on PATH)")
     # GitHub
     ap.add_argument("--wiki-clone", help="path to the OWNER/REPO.wiki.git sibling clone (github)")
     # Azure
@@ -95,11 +101,13 @@ def render(args: argparse.Namespace, fmt: str, out_dir: Path | None) -> Path | N
         die("kroki render path: POST the .puml to the self-hosted endpoint, save the "
             f"output as {puml.stem}.{fmt}, then re-run with --render local-style staging "
             "(kroki output still feeds commit/attach, never a live <img> src).")
-    ps = ["pwsh", "-File", str(HERE / "render_puml.ps1"), "-Puml", str(puml), "-Format", fmt]
+    cmd = [sys.executable, str(HERE / "render_puml.py"), "--puml", str(puml), "--format", fmt]
     if out_dir is not None:
-        ps += ["-Out", str(out_dir)]
-    if run(ps).returncode != 0:
-        die("render_puml.ps1 failed.")
+        cmd += ["--out", str(out_dir)]
+    if args.plantuml_jar:
+        cmd += ["--plantuml-jar", args.plantuml_jar]
+    if run(cmd).returncode != 0:
+        die("render_puml.py failed (see its error above).")
     rendered = (out_dir / f"{puml.stem}.{fmt}") if out_dir is not None \
         else puml.with_suffix(f".{fmt}")
     if not rendered.is_file():
@@ -158,11 +166,11 @@ def main(argv: list[str] | None = None) -> int:
 
     # --- attach / stage ---
     if args.flavour == "azure":
-        ps = ["pwsh", "-File", str(HERE / "upload_attachment.ps1"),
-              "-Org", args.org, "-Project", args.project, "-WikiId", args.wiki_id,
-              "-File", str(rendered), "-Name", artifact_name]
-        if run(ps).returncode != 0:
-            die("upload_attachment.ps1 failed (see verify-on-fail output above).")
+        cmd = [sys.executable, str(HERE / "upload_attachment.py"),
+               "--org", args.org, "--project", args.project, "--wiki-id", args.wiki_id,
+               "--file", str(rendered), "--name", artifact_name]
+        if run(cmd).returncode != 0:
+            die("upload_attachment.py failed (see verify-on-fail output above).")
     elif args.flavour == "github":
         if rendered is None:
             die("internal: github flavour produced no rendered artifact.")
