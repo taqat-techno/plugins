@@ -20,7 +20,7 @@ _timer.start()
 
 # Read stdin (required by hook protocol).
 try:
-    sys.stdin.read()
+    sys.stdin.buffer.read()
 except Exception:
     pass
 
