@@ -118,3 +118,30 @@ Reverse-only criteria:
 Make `advise` the default only if the user asks, or if a measured period of the decision
 log shows advise-mode sessions rarely repeat a whole-suite run after the first advisory.
 
+## D-003 - advise becomes the default mode
+
+Date: 2026-10-19 · Status: accepted · Amends: D-001 (default only), D-002 (default only)
+
+Context:
+
+The 2026-10-19 public-readiness audit (ASG-P1-03) found that shipping `enforce` as the
+default imposes one author's test policy on every project that installs the plugin: a stranger
+running `pytest` in an unrelated repository is denied with no prior configuration. D-002's
+reverse-only criterion was "make `advise` the default only if the user asks". The user approved
+that change as part of the audit's Wave 2.
+
+Decision:
+
+1. With `TEST_SCOPE_GUARD` unset, the guard runs in `advise` mode: the whole-suite run happens
+   and the guidance arrives with its result.
+2. `enforce` is opt-in. Set `TEST_SCOPE_GUARD=enforce` to restore the D-001 behaviour.
+3. A value that is set but not recognised still means `enforce`. Someone tried to change the
+   default, so the stricter reading is the safe one.
+4. Everything else in D-001 and D-002 is unchanged: `FULL_SUITE=1`, fail open, a content-free
+   decision log.
+
+Consequence for existing installs:
+
+Anyone who relied on the old default (including the author) gets advise behaviour after
+updating until they set `TEST_SCOPE_GUARD=enforce`.
+

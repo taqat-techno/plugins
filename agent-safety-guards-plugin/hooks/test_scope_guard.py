@@ -7,11 +7,11 @@ One script, two modes:
           file path for this session so the guard can name what actually changed.
   check   PreToolUse(Bash|PowerShell). When the command runs a WHOLE test suite, react
           according to TEST_SCOPE_GUARD:
-            enforce (default)  deny, with a reason naming the files changed this session
-                               and a scoped command. The run does not happen.
-            advise             let the run happen and attach the same guidance as
-                               PreToolUse additionalContext. Claude reads it with the
-                               result, so it steers the NEXT run, not this one.
+            advise (default)   let the run happen and attach the guidance (files changed
+                               this session, a scoped command) as PreToolUse
+                               additionalContext. Claude reads it with the result, so it
+                               steers the NEXT run, not this one.
+            enforce            deny, with the same reason. The run does not happen.
             off                do nothing.
           A command carrying FULL_SUITE=1 passes untouched in every mode.
 
@@ -398,12 +398,15 @@ def suggestion(runner: str, files: list[str]) -> str:
 
 
 def guard_mode() -> str:
-    """enforce | advise | off, from TEST_SCOPE_GUARD. Unknown values mean enforce."""
+    """advise | enforce | off, from TEST_SCOPE_GUARD (docs/decisions.md D-003).
+
+    Unset means advise. A value that is set but not recognised means enforce: someone
+    tried to change the default, and the stricter reading is the safe one."""
     value = os.environ.get("TEST_SCOPE_GUARD", "").strip().lower()
+    if not value or value in ("advise", "advice", "warn", "soft"):
+        return "advise"
     if value in ("off", "0", "false", "disabled"):
         return "off"
-    if value in ("advise", "advice", "warn", "soft"):
-        return "advise"
     return "enforce"
 
 

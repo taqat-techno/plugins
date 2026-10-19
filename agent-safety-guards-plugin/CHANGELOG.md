@@ -3,6 +3,11 @@
 All notable changes to the `agent-safety-guards` plugin are documented here.
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2026-10-19
+
+### Changed
+- **The test-scope guard defaults to `advise`.** A whole-suite run happens and the guidance arrives with its result. Set `TEST_SCOPE_GUARD=enforce` to deny such runs as before; any unrecognised value also means `enforce` (D-003, audit ASG-P1-03).
+
 ## [0.4.2] - 2026-10-19
 
 ### Added

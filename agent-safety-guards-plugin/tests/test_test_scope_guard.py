@@ -49,7 +49,7 @@ class TestScopeGuard(unittest.TestCase):
             track = run_hook("track", {"session_id": "s1", "tool_name": "Edit",
                                        "tool_input": {"file_path": path}}, self.data)
             self.assertEqual(track.returncode, 0)
-        out = self.decision(run_hook("check", bash("pytest -q"), self.data))
+        out = self.decision(run_hook("check", bash("pytest -q"), self.data, {"TEST_SCOPE_GUARD": "enforce"}))
         self.assertEqual(out["hookEventName"], "PreToolUse")
         self.assertEqual(out["permissionDecision"], "deny")
         reason = out["permissionDecisionReason"]
@@ -82,6 +82,12 @@ class TestScopeGuard(unittest.TestCase):
         with open(os.path.join(self.data, "test-scope", "decisions.jsonl"), encoding="utf-8") as fh:
             self.assertIn("\"advise\"", fh.read())
 
+    def test_default_mode_is_advise(self):
+        """D-003: with TEST_SCOPE_GUARD unset, a whole-suite run is never denied."""
+        out = self.decision(run_hook("check", bash("pytest"), self.data))
+        self.assertNotIn("permissionDecision", out)
+        self.assertIn("advise mode", out["additionalContext"])
+
     def test_advise_mode_is_silent_for_scoped_runs(self):
         proc = run_hook("check", bash("pytest tests/test_a.py"), self.data, {"TEST_SCOPE_GUARD": "advise"})
         self.assertIsNone(self.decision(proc))
@@ -98,18 +104,18 @@ class TestScopeGuard(unittest.TestCase):
 
     def test_sessions_are_isolated(self):
         run_hook("track", {"session_id": "other", "tool_input": {"file_path": "x/secret_change.py"}}, self.data)
-        out = self.decision(run_hook("check", bash("pytest", session="mine"), self.data))
+        out = self.decision(run_hook("check", bash("pytest", session="mine"), self.data, {"TEST_SCOPE_GUARD": "enforce"}))
         self.assertNotIn("secret_change.py", out["permissionDecisionReason"])
 
     def test_decision_log_has_no_command_text(self):
-        run_hook("check", bash("pytest --token=abc123"), self.data)
+        run_hook("check", bash("pytest --token=abc123"), self.data, {"TEST_SCOPE_GUARD": "enforce"})
         with open(os.path.join(self.data, "test-scope", "decisions.jsonl"), encoding="utf-8") as fh:
             content = fh.read()
         self.assertIn("\"deny\"", content)
         self.assertNotIn("abc123", content)
 
     def test_non_ascii_payload_on_windows(self):
-        proc = run_hook("check", bash("pytest  # تجربة"), self.data)
+        proc = run_hook("check", bash("pytest  # تجربة"), self.data, {"TEST_SCOPE_GUARD": "enforce"})
         self.assertEqual(self.decision(proc)["permissionDecision"], "deny")
 
 

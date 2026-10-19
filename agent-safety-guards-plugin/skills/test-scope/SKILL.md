@@ -141,13 +141,13 @@ whole suite. The user chooses the mode with the environment variable `TEST_SCOPE
 
 | Value | Effect |
 |---|---|
-| `enforce` (default) | The run is **denied**. The reason lists the changed files and a scoped command |
-| `advise` | The run **happens**, and the same guidance arrives with its result. It steers your next run; it cannot undo this one |
+| `advise` (default) | The run **happens**, and the guidance (changed files, a scoped command) arrives with its result. It steers your next run; it cannot undo this one |
+| `enforce` | The run is **denied**, with the same reason. Any unrecognised value also means `enforce` |
 | `off` | No hook |
 
 `FULL_SUITE=1` in the command passes in every mode. Treat an advise-mode note exactly like a
 denial: the next run is scoped. Detection is best-effort; a runner the hook does not
-recognise is simply allowed. See `docs/decisions.md` D-001 and D-002.
+recognise is simply allowed. See `docs/decisions.md` D-001, D-002 and D-003.
 
 ## Anti-patterns
 

@@ -92,17 +92,17 @@ Prints a single one-line reminder when the submitted prompt contains a token-sha
 ### `test_scope_guard.py` (PreToolUse Bash|PowerShell + PostToolUse Write|Edit)
 
 - `track` (async) records the files edited in the session, under `${CLAUDE_PLUGIN_DATA}`.
-- `check` recognises a whole-suite run - `manage.py test` without labels, bare `pytest`, `odoo-bin --test-enable` without module tags or with `-u all`, `npm test`, `vitest run`, `jest`, `playwright test` without a selector - and **denies** it with a reason listing the changed files and a scoped command.
+- `check` recognises a whole-suite run - `manage.py test` without labels, bare `pytest`, `odoo-bin --test-enable` without module tags or with `-u all`, `npm test`, `vitest run`, `jest`, `playwright test` without a selector - and, by default, lets it run while attaching guidance: the changed files and a scoped command. In `enforce` mode it **denies** the run instead.
 - Put `FULL_SUITE=1` in the command when the user asked for the full suite.
 - `TEST_SCOPE_GUARD` picks the mode:
-  - `enforce` (default): deny the whole-suite run.
-  - `advise`: let it run and attach the guidance to its result, which steers the next run but cannot stop this one.
+  - `advise` (default): let it run and attach the guidance to its result, which steers the next run but cannot stop this one.
+  - `enforce`: deny the whole-suite run. Set this for teams that want the speed bump. Any unrecognised value also means `enforce`.
   - `off`: disable the hook.
-- It fails open on any error, and its decision log never records command text. Rationale: `docs/decisions.md` D-001, D-002.
+- It fails open on any error, and its decision log never records command text. Rationale: `docs/decisions.md` D-001, D-002, D-003.
 
 ## Design stance
 
-- **Advisory, never mutating.** Nothing in this plugin applies a change on its own. Every decision — grant, override, revocation, apply — stays with the user. The one deny (test-scope) blocks a command; it never changes one, and `FULL_SUITE=1` always passes.
+- **Advisory, never mutating.** Nothing in this plugin applies a change on its own. Every decision — grant, override, revocation, apply — stays with the user. The only deny is test-scope in opt-in `enforce` mode. It blocks a command, never changes one, and `FULL_SUITE=1` always passes.
 - **Generic and portable.** No project, client, host, or credential specifics. The rules describe *how to reason*, not *what to type*.
 - **Conservative detection.** The hook prefers a harmless extra reminder over a missed leak, because its only effect is one advisory line.
 
