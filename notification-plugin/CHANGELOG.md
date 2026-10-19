@@ -3,6 +3,49 @@
 All notable changes to the notification plugin are documented here.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [1.2.0] - 2026-10-19
+
+### Added
+- **userConfig option `title_only`** (boolean, default `false`) and the matching
+  `config.json` key: bodies show a fixed phrase per category and no question,
+  message or error text. Either source can turn it on (NTF-P1-02, D-017).
+- `/notification:doctor` reports a **Hook interpreters** section: it probes
+  `python3`, `python` and `py -3` exactly as the hooks launch them, flags the
+  Microsoft Store alias and Pythons older than 3.8, warns when none is usable,
+  and names the interpreter that handled the last hook event (NTF-P1-01).
+- `/notification:doctor --uninstall-windows-identity` removes the HKCU app
+  identity key (NTF-P2-04).
+- Vendored `hooks/_vendor/hooklib.py` (marketplace runtime), used for secret
+  masking.
+- `tests/test_launch_and_privacy.py`: 31 tests for the launcher manifest, the
+  event claim, title-only mode, masking, the doctor report and flags, and the
+  registry removal. Suite total 110 (was 79).
+
+### Changed
+- **Hooks no longer depend on a bare `python`** (NTF-P1-01). Every event is
+  registered three times in exec form (`python3`, `python`, `py -3`); the first
+  process to start claims the event atomically under
+  `${CLAUDE_PLUGIN_DATA}/state/` and the others exit, so each event still
+  notifies once (D-016). This replaces the marketplace's shell launcher, which
+  D-003 (no shell) rules out.
+- `/notification:doctor` no longer retries `python3` / `py -3` silently; it says
+  which names failed and relies on the interpreter report.
+- README restructured to the marketplace template: requirements, hooks with
+  blocking status, userConfig, platform support, data & privacy, limitations.
+
+### Fixed
+- `/notification:doctor --write-config` (flags after `--doctor`) ran the
+  doctor instead of writing the config; doctor flags are now read in any order.
+- Doc drift: test-module docstring event counts, duplicated macOS sentence,
+  stale test count; unused `identity.attribution()` removed (NTF-P3-05).
+
+### Security
+- Token-, key- and password-shaped strings in notification bodies are masked
+  (`hooklib.redact`) before they reach the screen (D-017).
+- README documents on-screen exposure (notification centre, lock screen, screen
+  shares) and the HKCU `AppUserModelId` key, including that uninstall leaves it
+  and that `IconUri` is stale after an update until the next toast (SEC-18).
+
 ## [1.1.1] - 2026-10-19
 
 ### Changed

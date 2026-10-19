@@ -96,13 +96,86 @@ def _sweep():
     try:
         now = time.time()
         for name in os.listdir(state_dir()):
-            if not name.startswith(_PREFIX):
+            if name.startswith(_PREFIX):
+                limit = STALE_AFTER
+            elif name.startswith(_CLAIM_PREFIX):
+                limit = CLAIM_WINDOW
+            else:
                 continue
             path = os.path.join(state_dir(), name)
             try:
-                if now - os.path.getmtime(path) > STALE_AFTER:
+                if now - os.path.getmtime(path) > limit:
                     os.remove(path)
             except Exception:
                 continue
     except Exception:
         pass
+
+
+# --------------------------------------------------------------------------
+# One event, one run (D-016)
+# --------------------------------------------------------------------------
+#
+# hooks.json registers every event three times - `python3`, `python`, `py -3` -
+# because no single interpreter name exists on every host and exec form has no
+# shell to fall back with (D-003). A name that does not exist never starts;
+# every name that does start receives the same payload. The first process to
+# create the claim file for (verb, payload) handles the event; the others exit.
+
+CLAIM_WINDOW = 10          # seconds siblings of one event can take to start
+_CLAIM_PREFIX = "claim-"
+_LAST_RUN = "last-hook-run.json"
+
+
+def claim(verb, raw):
+    """True when this process should handle the event. Fails toward handling it.
+
+    O_CREAT|O_EXCL makes the claim atomic across processes. A claim older than
+    CLAIM_WINDOW belongs to an earlier, identical event and is taken over.
+    """
+    try:
+        import hashlib
+        digest = hashlib.sha256((verb or "").encode("utf-8") + b"\0" + (raw or b"")).hexdigest()[:32]
+        os.makedirs(state_dir(), exist_ok=True)
+        path = os.path.join(state_dir(), _CLAIM_PREFIX + digest)
+        try:
+            fd = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+            os.close(fd)
+            _sweep()
+            return True
+        except FileExistsError:
+            if time.time() - os.path.getmtime(path) > CLAIM_WINDOW:
+                os.utime(path, None)
+                return True
+            return False
+    except Exception:
+        return True
+
+
+def record_run(verb):
+    """Remember which interpreter handled the last hook event, for the doctor."""
+    try:
+        import json
+        import platform
+        import sys
+        os.makedirs(state_dir(), exist_ok=True)
+        path = os.path.join(state_dir(), _LAST_RUN)
+        tmp = path + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as handle:
+            json.dump({"verb": verb, "time": time.time(), "python": sys.executable or "?",
+                       "version": platform.python_version()}, handle)
+        os.replace(tmp, path)
+        return True
+    except Exception:
+        return False
+
+
+def last_run():
+    """The record written by record_run, or None."""
+    try:
+        import json
+        with open(os.path.join(state_dir(), _LAST_RUN), "r", encoding="utf-8") as handle:
+            data = json.load(handle)
+        return data if isinstance(data, dict) else None
+    except Exception:
+        return None

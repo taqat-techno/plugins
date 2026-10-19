@@ -1,52 +1,42 @@
 # notification
 
-Native desktop notifications when a Claude Code session needs you.
+## What it does
 
-Start a long task, switch to something else, and let your desktop tell you when
-Claude has a question, is waiting on a permission prompt, finished a task, ended
-its turn, or hit an API error.
+Native desktop notifications when a Claude Code session needs you. Start a long
+task, switch to something else, and your desktop tells you when Claude has a
+question, is waiting on a permission prompt, finished a task, ended its turn, or
+hit an API error.
 
-**Hooks only.** No skills, no agents, no MCP server, no model call, no transcript
-parsing. Every character of every notification is a field the hook payload
-already contained, so the plugin costs exactly zero tokens while it runs and
-behaves identically every time.
+**Hooks only.** No skills, no agents, no MCP server, no model call, no
+transcript parsing. Every character of every notification is a field the hook
+payload already contained, so the plugin costs zero tokens while it runs.
 
----
-
-## What you get
+For anyone who runs Claude Code on a desktop and steps away while it works.
 
 | Notification | Fires on | Class |
 |---|---|---|
-| ❓ **‹project› needs your answer** | Claude asks a multiple-choice question — exactly one notification per question | attention |
+| ❓ **‹project› needs your answer** | Claude asks a multiple-choice question; exactly one notification per question | attention |
 | 🔐 **‹project› needs your approval** | A permission prompt has waited ~6 s with no keystroke | attention |
 | ❌ **‹project› hit an error** | The turn ended on an API error (rate limit, auth, overloaded, …) | attention |
-| ☑️ **‹project› finished a task** | A single task was marked complete | informational |
+| ☑️ **‹project› finished a task** | A task was marked complete | informational |
 | ✅ **‹project› is done** | Claude finished responding | informational |
 
-Everything that means Claude is waiting for you — a question, an approval, an
-error, or a finished turn — **stays on screen until you close it**, and is
-withdrawn automatically once you answer or type your next prompt. New
-notifications never replace older ones. Task completions are transient. Questions, approvals and errors play a
-sound; the rest are silent.
-
-Each notification is three lines: what happened and where, the content, and
-which session. The project name is the git repository the session is working in
-(a worktree reads as itself); the session tag is the first six characters of the
-session id, so concurrent sessions stay distinguishable.
+Everything that means Claude is waiting for you (a question, an approval, an
+error, a finished turn) **stays on screen until you close it**, and is withdrawn
+on Windows once you answer or type your next prompt. New notifications never
+replace older ones. Task completions are transient. Questions, approvals and
+errors play a sound; the rest are silent.
 
 ```
-❓ acme-erp needs your answer     ✅ claude_plugins is done
+❓ acme-erp needs your answer             ✅ my-app is done
 Which migration strategy should I use?   Fixed the duplicate notification.
-session a1b2c3                           All 72 tests pass.
-                                         session 7f2e91
+session a1b2c3                           session 7f2e91
 ```
 
-Content is cleaned up for reading: Markdown is stripped from Claude's final
-message, API error codes become plain words ("Rate limit reached"), and a prompt
-with several questions shows `(+2 more)`. On Windows the toasts appear under
-**Claude Code** with the plugin's icon.
-
----
+Each notification names what happened and the project (the git repository the
+session works in; a worktree reads as itself), the content, and the first six
+characters of the session id. Markdown is stripped, API error codes become plain
+words, and several questions show `(+2 more)`.
 
 ## Install
 
@@ -55,215 +45,159 @@ with several questions shows `(+2 more)`. On Windows the toasts appear under
 /plugin install notification@taqat-techno-plugins
 ```
 
-Then restart Claude Code. There is nothing to configure and no setup step — the
-hooks detect your platform on their own.
+Restart Claude Code (hooks load at session start), then verify with
+`/notification:doctor`.
 
-Verify with:
+## Requirements
 
-```
-/notification:doctor
-```
+| Requirement | Check |
+|---|---|
+| Claude Code v2.1.202 or later (v2.1.233+ recommended) | `claude --version` |
+| Python 3.8+ reachable as `python3`, `python` or `py -3` | `/notification:doctor`, section "Hook interpreters" |
+| Windows: Windows PowerShell 5.1 (built in) | `powershell -Command $PSVersionTable.PSVersion` |
+| macOS: `osascript` (built in) plus the Script Editor permission below | `osascript -e 'display notification "test"'` |
+| Linux: `notify-send` (libnotify) and a notification daemon | `command -v notify-send` |
 
-It prints your platform, the notification backend it resolved, the effective
-configuration, and sends two test notifications.
+The hooks try all three interpreter names, so a host with only `python3`
+(default macOS, Debian, Ubuntu) and a Windows host with only `python` or `py`
+both work.
 
-**Requires** Python 3.8+ on `PATH` (the same requirement as most plugins in this
-marketplace) and Claude Code **v2.1.202 or later**; v2.1.233+ is recommended.
+## Commands
 
----
+| Command | Description |
+|---|---|
+| `/notification:doctor [--no-test] [--json] [--write-config] [--uninstall-windows-identity]` | Platform, resolved backend, the interpreters the hooks will use and the one that handled the last event, effective configuration, task-tool availability; sends two test notifications unless `--no-test` |
 
-## Platform support
+## Skills
 
-| | Windows 10/11 | macOS | Linux desktop |
-|---|---|---|---|
-| Mechanism | WinRT toast via Windows PowerShell 5.1 | `osascript` | `notify-send` (libnotify) |
-| Extra install | none | none | `libnotify-bin` if `notify-send` is missing |
-| Waiting-for-you notifications stay until closed | **yes** (Close button) | see below | **yes** (GNOME, KDE) |
-| Withdraws stale notifications when you act | yes | no | no |
+None.
 
-**Persistence.** Windows keeps a toast on screen only with its `reminder`
-scenario, which it ignores unless the toast shows a button — hence the Close
-button on waiting-for-you toasts. GNOME and KDE honour the freedesktop rule that critical
-notifications should not auto-expire. macOS has no programmatic equivalent. macOS has no programmatic equivalent — `display notification`
-produces a banner, and whether it waits for you is a *user* setting.
+## Agents
 
-### macOS one-time setup
+None.
 
-Notifications route through Script Editor, and the command **fails silently** if
-Script Editor lacks permission — macOS will not prompt you. Run this once:
+## Hooks
 
-```bash
-osascript -e 'display notification "test"'
-```
+Seven events, each registered three times (`python3`, `python`, `py -3`), all in
+exec form, all `async: true` with a 10-second timeout, all routed to
+`hooks/notify.py`. **None can block**: async hooks cannot block or control
+Claude, the script writes nothing to stdout and always exits 0.
 
-Nothing appears yet. Open **System Settings ▸ Notifications**, find **Script
-Editor**, turn on **Allow Notifications**, and set its style to **Alerts** if you
-want attention notifications to wait for you. Run the command again to confirm.
+| Event | Matcher | Does |
+|---|---|---|
+| `PreToolUse` | `AskUserQuestion` | question notification |
+| `PostToolUse` | `AskUserQuestion` | closes the question; never notifies |
+| `UserPromptSubmit` | — | withdraws this session's waiting toasts (Windows); never notifies |
+| `Notification` | `permission_prompt` | approval notification (suppressed while a question is open) |
+| `TaskCompleted` | — | task notification |
+| `Stop` | — | "is done" notification |
+| `StopFailure` | — | error notification |
 
-### Where notifications are skipped
+Why three registrations: exec form has no shell to fall back between names
+(D-003), and no single name exists everywhere. A missing name never starts; the
+first process that starts claims the event under `${CLAUDE_PLUGIN_DATA}/state/`
+and the others exit, so you get one notification (D-016).
 
-WSL, SSH sessions, headless Linux (no `DISPLAY` or `WAYLAND_DISPLAY`), and any
-machine without a notifier are detected and skipped **silently**. Every hook
-still exits 0 and Claude behaves exactly as it would without the plugin.
-
-WSL is detected deliberately rather than treated as Linux: WSL2 with WSLg has a
-display but usually no notification daemon, so `notify-send` would appear to work
-and quietly do nothing. A WSL-to-Windows-host adapter is planned.
-
----
-
-## Task notifications need one opt-in on current models
-
-Since Claude Code v2.1.233, the Task tools (`TaskCreate`, `TaskUpdate`,
-`TaskList`, `TodoWrite`) are **not provided** on Opus 4.8, Sonnet 5, Fable 5,
-Mythos 5 or later families unless you opt in. Without them the task list is never
-populated, so the `TaskCompleted` event never fires and **☑️ finished a task will
-never appear**.
-
-To enable it, start Claude Code with:
-
-```bash
-CLAUDE_CODE_ENABLE_TODO_TOOLS=1 claude
-```
-
-`/notification:doctor` detects and reports this. On older families such as Opus
-4.7 the Task tools are on by default and nothing is needed. Every other
-notification works regardless of model.
-
----
+`PermissionRequest` is deliberately not registered: a hook there can allow or
+deny permissions on your behalf. There is no `SessionStart` hook.
 
 ## Configuration
 
-Optional. With no config file, every category is enabled.
+**userConfig** (set in `/plugin` for this plugin):
 
-```
-/notification:doctor --write-config
-```
+| Option | Type | Default | Effect |
+|---|---|---|---|
+| `title_only` | boolean | `false` | Show only what happened and in which project, never the question, Claude's message or the error text. Hooks receive it as `CLAUDE_PLUGIN_OPTION_TITLE_ONLY`. |
 
-writes defaults to `${CLAUDE_PLUGIN_DATA}/config.json`
-(`~/.claude/plugins/data/notification-taqat-techno-plugins/config.json`):
+**config.json** (optional, `${CLAUDE_PLUGIN_DATA}/config.json`; write the
+defaults with `/notification:doctor --write-config`):
 
 ```json
 {
   "enabled": true,
-  "categories": {
-    "question": true,
-    "permission": true,
-    "task": true,
-    "turn": true,
-    "failure": true
-  },
+  "categories": { "question": true, "permission": true, "task": true, "turn": true, "failure": true },
   "sound": { "attention": true, "informational": false },
   "suppress_teammate_tasks": true,
-  "persistent": {
-    "question": true,
-    "permission": true,
-    "failure": true,
-    "turn": true,
-    "task": false
-  }
+  "title_only": false,
+  "persistent": { "question": true, "permission": true, "failure": true, "turn": true, "task": false }
 }
 ```
 
-Turning off `turn` is the usual first edit — ✅ *is done* fires once per
-assistant turn, the highest-volume notification the plugin sends.
+- `title_only` here and the userConfig option combine: either can turn it on.
+- Turning off `categories.turn` is the usual first edit; ✅ *is done* fires once
+  per assistant turn.
+- `persistent` chooses which notifications stay until closed.
 
-`persistent` chooses which notifications stay on screen until you close them.
-Set `"turn": false` there to keep ✅ *is done* transient instead of switching it
-off.
+**Environment:** `CLAUDE_CODE_ENABLE_TODO_TOOLS=1` (a Claude Code setting, not
+this plugin's) is needed for task notifications on current models: since Claude
+Code v2.1.233 the Task tools are not provided on Opus 4.8, Sonnet 5, Fable 5,
+Mythos 5 or later families unless you opt in, so `TaskCompleted` never fires.
+The doctor reports this.
 
-Config never lives under the plugin's install directory, which is replaced on
-every update.
+No per-project files.
 
----
+## Platform support
 
-## Why it cannot break your session
+| | Windows 10/11 | macOS | Linux desktop | WSL | SSH / headless |
+|---|---|---|---|---|---|
+| Mechanism | WinRT toast via Windows PowerShell 5.1 | `osascript` | `notify-send` | skipped | skipped |
+| Stays until closed | yes (Close button) | user setting (Alerts style) | yes (GNOME, KDE: critical urgency) | — | — |
+| Withdraws stale toasts | yes | no | no | — | — |
 
-This plugin observes the same lifecycle events that can *control* Claude, so its
-safety properties are structural rather than aspirational:
+**macOS one-time setup.** Notifications route through Script Editor and fail
+silently without permission. Run `osascript -e 'display notification "test"'`
+once, then System Settings ▸ Notifications ▸ Script Editor ▸ Allow
+Notifications (style Alerts if you want them to wait).
 
-- **Every hook is `async: true`.** Async hooks cannot block or control Claude.
-  That matters because exit code 2 on `PreToolUse` would suppress Claude's
-  question, on `Stop` would trap Claude in a non-terminating turn, and on
-  `TaskCompleted` would refuse the completion. Async removes the capability
-  entirely.
-- **The notifier writes nothing to stdout,** so there is no output for Claude
-  Code to parse and nothing that can be malformed.
-- **No shell, anywhere.** Hooks use exec form; backends run argument vectors with
-  `shell=False`; on Windows the text travels in environment variables. Notification
-  text is untrusted data and is never executable content.
-- **Nothing runs at session start.** The plugin registers no `SessionStart` hook,
-  so installing it cannot slow or disturb a session.
-- **Every failure is silent.** No notifier, no desktop, no Python — the hook
-  exits 0 and Claude continues untouched.
+**Skipped hosts.** WSL, SSH sessions, headless Linux and machines without a
+notifier are detected and skipped silently; every hook still exits 0. WSL is
+not treated as Linux because WSLg usually has no notification daemon
+(`notify-send` would appear to work and do nothing). A WSL-to-Windows bridge is
+not implemented.
 
-Full rationale, including what would justify reversing each rule, is in
+## Data & privacy
+
+- **What appears on screen.** By default the body shows up to 180 characters of
+  the question, the permission message, the task subject, Claude's final message
+  or the API error. That text can contain file contents, customer data or
+  anything Claude echoed. It appears in the OS notification centre, on the lock
+  screen and in screen shares or recordings, and waiting-for-you notifications
+  stay until closed. Token-, key- and password-shaped strings are masked as
+  `[REDACTED]`, but masking is shape-based and cannot catch everything. Turn on
+  **`title_only`** on shared, recorded or presented screens.
+- **What is stored.** Only under `${CLAUDE_PLUGIN_DATA}`: optional
+  `config.json`, short-lived `state/question-*` and `state/claim-*` markers
+  (swept automatically), and `state/last-hook-run.json` (interpreter path,
+  Python version, last verb, time). No notification text is written to disk.
+- **What leaves the machine.** Nothing. No network, no third-party service.
+- **Windows registry.** The first toast registers the app identity
+  `HKCU\Software\Classes\AppUserModelId\TaqaTechno.ClaudeCode.Notifications`
+  (`DisplayName` "Claude Code", `ShowInSettings`, and `IconUri` pointing at
+  `hooks/icon.png` inside the plugin's install directory). No admin rights, no
+  HKLM. Uninstalling the plugin does **not** remove it; run
+  `/notification:doctor --uninstall-windows-identity` first. After an update the
+  old version directory may be gone, so `IconUri` is stale until the next toast
+  re-points it, and Windows may keep showing its cached icon until you sign out.
+
+## Limitations
+
+- macOS has no programmatic persistence or withdrawal.
+- WSL is not supported (detected and skipped).
+- On hosts where two or three interpreter names resolve, up to three short
+  processes start per event; one notifies. If `${CLAUDE_PLUGIN_DATA}` is
+  unwritable, a duplicate notification is possible.
+- Task notifications need `CLAUDE_CODE_ENABLE_TODO_TOOLS=1` on current models.
+- Editing the plugin source has no effect until `/reload-plugins` or a restart:
+  Claude Code runs plugins from `~/.claude/plugins/cache/`.
+
+Troubleshooting starts with `/notification:doctor`: it names the reason when
+the backend is `unsupported`, warns when no interpreter is usable, and shows
+which interpreter handled the last event. Design rationale is in
 [`docs/decisions.md`](docs/decisions.md).
 
----
-
-## Hooks registered
-
-| Event | Matcher | Category |
-|---|---|---|
-| `PreToolUse` | `AskUserQuestion` | question |
-| `PostToolUse` | `AskUserQuestion` | answered — closes the question, never notifies |
-| `UserPromptSubmit` | — | prompted — withdraws this session's waiting toasts, never notifies |
-| `Notification` | `permission_prompt` | permission |
-| `TaskCompleted` | — | task |
-| `Stop` | — | turn |
-| `StopFailure` | — | failure |
-
-Seven registrations, one script, all async, each with a 10-second timeout.
-
-`PreToolUse` and `PostToolUse` bracket each question. Claude Code shows a
-question through its permission-prompt path, so every question also raises a
-generic permission prompt a few seconds later; while a question is open that
-prompt is not notified a second time. See
-[D-013](docs/decisions.md#d-013--one-question-one-notification).
-
-`PermissionRequest` is deliberately **not** registered: it fires on every
-permission ask rather than only when you have stepped away, and a hook on that
-event can allow or deny permissions on your behalf. An observability plugin has
-no business on the permission decision path.
-
----
-
-## Troubleshooting
-
-**Nothing appears at all.** Run `/notification:doctor`. If the backend reports
-`unsupported`, the report names the reason. If it reports a real backend but the
-test notifications did not appear, check your OS notification settings — Focus
-Assist on Windows, Do Not Disturb on macOS, or the Script Editor permission above.
-
-**Notifications appear but ☑️ finished a task never does.** See the opt-in section
-above.
-
-**Too many ✅ is done notifications.** Set `"turn": false` in
-`config.json`.
-
-**Nothing changed after editing the plugin.** Claude Code runs plugins from
-`~/.claude/plugins/cache/`, and hooks are loaded at session start. Run
-`/reload-plugins` or restart the session.
-
----
-
-## Tests
-
-```bash
-python notification-plugin/tests/test_notification.py
-```
-
-75 stdlib-only tests, no desktop required. They cover the isolation contract
-(silent stdout, always exit 0, survives garbage input), text safety (shell
-metacharacters, ANSI escapes, non-ASCII, clipping), rendering per category,
-identity derivation, every suppression rule including one notification per
-question, UTF-8 payload decoding on Windows, and structural assertions on
-`hooks.json` itself — including that every hook is async and that no
-`SessionStart` hook exists.
-
----
+Tests: `python -m pytest -q -p no:cacheprovider` from this directory (110
+stdlib-only tests, no desktop required).
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT, see [LICENSE](LICENSE). No third-party components are bundled.

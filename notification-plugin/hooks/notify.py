@@ -41,6 +41,7 @@ Stdlib only. Python 3.8+. Windows, macOS, Linux.
 
 import json
 import os
+import subprocess
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -58,8 +59,21 @@ except Exception:
     pass
 
 
-def read_payload(stream=None):
-    """Parse the hook payload as UTF-8. Any failure yields an empty dict, never a raise.
+def read_raw(stream=None):
+    """The payload's raw bytes, or b"" on any failure."""
+    stream = sys.stdin if stream is None else stream
+    try:
+        buffer = getattr(stream, "buffer", None)
+        raw = buffer.read() if buffer is not None else stream.read()
+    except Exception:
+        return b""
+    if isinstance(raw, str):
+        raw = raw.encode("utf-8", errors="replace")
+    return raw or b""
+
+
+def parse_payload(raw):
+    """Parse payload bytes as UTF-8 JSON. Any failure yields an empty dict, never a raise.
 
     Claude Code writes UTF-8, but on Windows Python decodes a PIPED stdin with the
     ANSI code page (cp1252, surrogateescape). Every non-ASCII question - Arabic,
@@ -67,21 +81,22 @@ def read_payload(stream=None):
     which no backend can deliver. Decoding the raw bytes explicitly is the only
     path that does not depend on the machine's locale.
     """
-    stream = sys.stdin if stream is None else stream
     try:
-        buffer = getattr(stream, "buffer", None)
-        raw = buffer.read() if buffer is not None else stream.read()
+        text = raw.decode("utf-8", errors="replace") if isinstance(raw, bytes) else raw
     except Exception:
         return {}
-    if isinstance(raw, bytes):
-        raw = raw.decode("utf-8", errors="replace")
-    if not raw:
+    if not text:
         return {}
     try:
-        data = json.loads(raw.lstrip("﻿"))
+        data = json.loads(text.lstrip("﻿"))
         return data if isinstance(data, dict) else {}
     except Exception:
         return {}
+
+
+def read_payload(stream=None):
+    """Read and parse the hook payload from `stream` (stdin by default)."""
+    return parse_payload(read_raw(stream))
 
 
 def deliver(category, payload, config):
@@ -105,6 +120,7 @@ def deliver(category, payload, config):
         category, payload,
         project=identity.project_name(payload.get("cwd")),
         tag=identity.session_tag(session),
+        title_only=policy.title_only(config),
     )
     if built is None:
         return "suppressed: nothing to say"
@@ -160,9 +176,16 @@ def _prompted(payload, config):
 
 
 def run_hook(category):
-    """Hook mode. Silent on every path, including success."""
-    payload = read_payload()
-    deliver(category, payload, policy.load())
+    """Hook mode. Silent on every path, including success.
+
+    Each event is registered once per interpreter name (D-016); only the first
+    process to claim it delivers.
+    """
+    raw = read_raw()
+    if not state.claim(category, raw):
+        return
+    state.record_run(category)
+    deliver(category, parse_payload(raw), policy.load())
 
 
 # --------------------------------------------------------------------------
@@ -247,6 +270,68 @@ def _print_config(config):
     persistent = config.get("persistent") or {}
     print("  persist   {0}".format(
         ", ".join(name for name in render.CATEGORIES if persistent.get(name)) or "none"))
+    print("  content   {0}".format(
+        "title only - no question, message or error text on screen" if policy.title_only(config)
+        else "full - bodies show up to {0} characters of payload text (secrets masked)".format(
+            render.BODY_LIMIT)))
+
+
+# The names hooks.json launches, in order (D-016). `py` is called as `py -3`.
+HOOK_INTERPRETERS = ("python3", "python", "py")
+
+
+def probe_interpreter(path, name):
+    """Run the interpreter the way the hooks would. Returns "" when it is usable,
+    otherwise why not. Only the doctor calls this; hooks never probe."""
+    argv = [path] + (["-3"] if name == "py" else []) + [
+        "-c", "import sys; print('%d.%d' % sys.version_info[:2]); sys.exit(0 if sys.version_info >= (3, 8) else 3)"]
+    try:
+        result = subprocess.run(argv, stdin=subprocess.DEVNULL, capture_output=True, text=True,
+                                timeout=15, shell=False)
+    except Exception as exc:
+        return "does not start ({0})".format(exc.__class__.__name__)
+    if result.returncode == 0:
+        return ""
+    if result.returncode == 3:
+        return "Python {0} is older than 3.8".format(result.stdout.strip())
+    if result.returncode in (9009, 49):
+        return "starts no Python (Microsoft Store alias without Store Python installed)"
+    return "exits {0} instead of running Python".format(result.returncode)
+
+
+def hook_interpreters(probe=None):
+    """[(name, path or None, problem)] for every interpreter name the hooks try."""
+    import shutil
+    probe = probe or probe_interpreter
+    rows = []
+    for name in HOOK_INTERPRETERS:
+        path = shutil.which(name)
+        rows.append((name, path, probe(path, name) if path else ""))
+    return rows
+
+
+def _print_interpreters():
+    import datetime
+    print("Hook interpreters (each event is registered for all three; the first that")
+    print("starts handles it)")
+    usable = False
+    for name, path, note in hook_interpreters():
+        launcher = "py -3" if name == "py" else name
+        print("  {0:<8}  {1}{2}".format(launcher, path or "not on PATH",
+                                       " - " + note if note else ""))
+        usable = usable or (path is not None and not note)
+    last = state.last_run()
+    if last:
+        when = datetime.datetime.fromtimestamp(last.get("time", 0)).strftime("%Y-%m-%d %H:%M:%S")
+        print("  last run  {0} ({1}) handled '{2}' at {3}".format(
+            last.get("python"), last.get("version"), last.get("verb"), when))
+    else:
+        print("  last run  none recorded yet - no hook has run since install or since")
+        print("            the data directory was reset")
+    if not usable:
+        print("  WARNING   no usable interpreter found: every notification hook fails")
+        print("            silently. Install Python 3.8+ (python.org, not the Store alias)")
+        print("            so that python3, python or py is on PATH, then restart Claude Code.")
 
 
 def _print_tasks():
@@ -286,6 +371,10 @@ def run_doctor(send_tests=True, as_json=False):
         info["version"] = plugin_version()
         info["config"] = config
         info["config_path"] = policy.config_path()
+        info["title_only"] = policy.title_only(config)
+        info["hook_interpreters"] = [
+            {"name": name, "path": path, "note": note} for name, path, note in hook_interpreters()]
+        info["last_hook_run"] = state.last_run()
         print(json.dumps(info, indent=2, ensure_ascii=False))
         return
 
@@ -299,6 +388,8 @@ def run_doctor(send_tests=True, as_json=False):
     print("  backend   {0}".format(info["backend"]))
     print("  resolved  {0}".format(info["detail"]))
     print("  plugin    {0}".format(os.environ.get("CLAUDE_PLUGIN_ROOT") or "(not running as a hook)"))
+    print("")
+    _print_interpreters()
     print("")
     _print_config(config)
     print("")
@@ -339,15 +430,37 @@ def run_doctor(send_tests=True, as_json=False):
     print("  If nothing appeared, re-read the platform notes above.")
 
 
+WINDOWS_IDENTITY_KEY = r"Software\Classes\AppUserModelId\TaqaTechno.ClaudeCode.Notifications"
+
+
+def uninstall_windows_identity(winreg_module=None):
+    """Remove the HKCU app identity win_toast.ps1 registers (D-014). Returns a message."""
+    try:
+        if winreg_module is None:
+            if os.name != "nt":
+                return "nothing to do: the app identity exists only on Windows"
+            import winreg as winreg_module
+        winreg_module.DeleteKey(winreg_module.HKEY_CURRENT_USER, WINDOWS_IDENTITY_KEY)
+        return "removed HKCU\\" + WINDOWS_IDENTITY_KEY
+    except FileNotFoundError:
+        return "nothing to do: HKCU\\" + WINDOWS_IDENTITY_KEY + " does not exist"
+    except Exception as exc:
+        return "failed: {0}".format(exc)
+
+
 def main():
     args = sys.argv[1:]
-    if args and args[0] == "--doctor":
-        run_doctor(send_tests="--no-test" not in args, as_json="--json" in args)
-        return
-    if args and args[0] == "--write-config":
-        print(write_default_config())
-        return
     if not args:
+        return
+    if args[0].startswith("--"):
+        # Doctor mode. The flags may arrive in any order after --doctor, because
+        # /notification:doctor passes its arguments straight through.
+        if "--uninstall-windows-identity" in args:
+            print(uninstall_windows_identity())
+        elif "--write-config" in args:
+            print(write_default_config())
+        elif "--doctor" in args:
+            run_doctor(send_tests="--no-test" not in args, as_json="--json" in args)
         return
     run_hook(args[0])
 

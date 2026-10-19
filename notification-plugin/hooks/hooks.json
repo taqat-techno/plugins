@@ -1,5 +1,5 @@
 {
-  "description": "notification plugin hooks. SEVEN async command hooks, all routed to hooks/notify.py. `async: true` is load-bearing, not a performance tweak: PreToolUse, PostToolUse, UserPromptSubmit, Stop and TaskCompleted are blocking events where exit code 2 would suppress a question, feed an error back to Claude, block and erase the user's prompt, trap Claude in a non-terminating turn, or refuse a task completion - and an async hook cannot block or control Claude at all. PreToolUse and PostToolUse on AskUserQuestion bracket a question so its follow-up permission_prompt does not notify twice (D-013); UserPromptSubmit withdraws the session's stay-until-closed toasts once the user is back (D-015). The script never writes to stdout, never exits non-zero, never runs a shell, and never writes state under the plugin root. Failure to notify is silent by design; run /notification:doctor to see why. Exec form (args) is used so path placeholders are passed as single arguments with no shell tokenisation.",
+  "description": "notification plugin hooks. Seven events, each registered three times - `python3`, `python`, `py -3` - all routed to hooks/notify.py. Exec form (command + args) has no shell to fall back between interpreter names (D-003), and no single name exists on every host: macOS and Debian/Ubuntu ship only python3, python.org Windows installs ship python and py, and python3 on Windows is often the Microsoft Store alias. A name that is missing never starts; the first process that does start claims the event under ${CLAUDE_PLUGIN_DATA}/state and the others exit (D-016). `async: true` is load-bearing: PreToolUse, PostToolUse, UserPromptSubmit, Stop and TaskCompleted are blocking events where exit 2 would suppress a question, feed an error back to Claude, erase the user's prompt, trap a turn or refuse a task completion; an async hook cannot block or control Claude at all. The script never writes to stdout, never exits non-zero, never runs a shell, and never writes under the plugin root. Run /notification:doctor to see which interpreter handled the last event.",
   "hooks": {
     "PreToolUse": [
       {
@@ -7,8 +7,32 @@
         "hooks": [
           {
             "type": "command",
+            "command": "python3",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/notify.py",
+              "question"
+            ],
+            "async": true,
+            "timeout": 10
+          },
+          {
+            "type": "command",
             "command": "python",
-            "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/notify.py", "question"],
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/notify.py",
+              "question"
+            ],
+            "async": true,
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "py",
+            "args": [
+              "-3",
+              "${CLAUDE_PLUGIN_ROOT}/hooks/notify.py",
+              "question"
+            ],
             "async": true,
             "timeout": 10
           }
@@ -21,8 +45,32 @@
         "hooks": [
           {
             "type": "command",
+            "command": "python3",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/notify.py",
+              "answered"
+            ],
+            "async": true,
+            "timeout": 10
+          },
+          {
+            "type": "command",
             "command": "python",
-            "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/notify.py", "answered"],
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/notify.py",
+              "answered"
+            ],
+            "async": true,
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "py",
+            "args": [
+              "-3",
+              "${CLAUDE_PLUGIN_ROOT}/hooks/notify.py",
+              "answered"
+            ],
             "async": true,
             "timeout": 10
           }
@@ -34,8 +82,32 @@
         "hooks": [
           {
             "type": "command",
+            "command": "python3",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/notify.py",
+              "prompted"
+            ],
+            "async": true,
+            "timeout": 10
+          },
+          {
+            "type": "command",
             "command": "python",
-            "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/notify.py", "prompted"],
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/notify.py",
+              "prompted"
+            ],
+            "async": true,
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "py",
+            "args": [
+              "-3",
+              "${CLAUDE_PLUGIN_ROOT}/hooks/notify.py",
+              "prompted"
+            ],
             "async": true,
             "timeout": 10
           }
@@ -48,8 +120,32 @@
         "hooks": [
           {
             "type": "command",
+            "command": "python3",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/notify.py",
+              "permission"
+            ],
+            "async": true,
+            "timeout": 10
+          },
+          {
+            "type": "command",
             "command": "python",
-            "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/notify.py", "permission"],
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/notify.py",
+              "permission"
+            ],
+            "async": true,
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "py",
+            "args": [
+              "-3",
+              "${CLAUDE_PLUGIN_ROOT}/hooks/notify.py",
+              "permission"
+            ],
             "async": true,
             "timeout": 10
           }
@@ -61,8 +157,32 @@
         "hooks": [
           {
             "type": "command",
+            "command": "python3",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/notify.py",
+              "task"
+            ],
+            "async": true,
+            "timeout": 10
+          },
+          {
+            "type": "command",
             "command": "python",
-            "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/notify.py", "task"],
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/notify.py",
+              "task"
+            ],
+            "async": true,
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "py",
+            "args": [
+              "-3",
+              "${CLAUDE_PLUGIN_ROOT}/hooks/notify.py",
+              "task"
+            ],
             "async": true,
             "timeout": 10
           }
@@ -74,8 +194,32 @@
         "hooks": [
           {
             "type": "command",
+            "command": "python3",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/notify.py",
+              "turn"
+            ],
+            "async": true,
+            "timeout": 10
+          },
+          {
+            "type": "command",
             "command": "python",
-            "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/notify.py", "turn"],
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/notify.py",
+              "turn"
+            ],
+            "async": true,
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "py",
+            "args": [
+              "-3",
+              "${CLAUDE_PLUGIN_ROOT}/hooks/notify.py",
+              "turn"
+            ],
             "async": true,
             "timeout": 10
           }
@@ -87,8 +231,32 @@
         "hooks": [
           {
             "type": "command",
+            "command": "python3",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/notify.py",
+              "failure"
+            ],
+            "async": true,
+            "timeout": 10
+          },
+          {
+            "type": "command",
             "command": "python",
-            "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/notify.py", "failure"],
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/notify.py",
+              "failure"
+            ],
+            "async": true,
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "py",
+            "args": [
+              "-3",
+              "${CLAUDE_PLUGIN_ROOT}/hooks/notify.py",
+              "failure"
+            ],
             "async": true,
             "timeout": 10
           }

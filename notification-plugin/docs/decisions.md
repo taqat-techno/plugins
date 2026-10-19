@@ -396,3 +396,65 @@ persisting); a new notification replacing or withdrawing an older one.
 
 **Reverse only if.** Windows gains a way to keep a toast on screen without a
 visible button — then drop the button, keep the rule.
+
+---
+
+## D-016 — Every event is launched under `python3`, `python` and `py -3`
+
+**Rule.** Each `hooks.json` event has three exec-form hooks running the same
+`notify.py <verb>`: `command: "python3"`, `command: "python"`, and
+`command: "py"` with `args` starting `-3`. Before doing anything else,
+`notify.py` claims the event by creating
+`${CLAUDE_PLUGIN_DATA}/state/claim-<sha256(verb, payload)>` with `O_EXCL`; a
+process that finds the claim already there (younger than 10 seconds) exits. The
+winner records its interpreter in `state/last-hook-run.json`, which
+`/notification:doctor` prints.
+
+**Why.** Through 1.1.x every hook ran bare `python`. macOS 12.3+ and
+Debian/Ubuntu ship only `python3`, so the hooks failed silently there while the
+doctor - which the model retried with `python3` - reported a healthy backend.
+The marketplace's standard fix is a shell launcher that loops over the names,
+but D-003 forbids a shell. Exec form has no fallback, so the fallback is three
+registrations plus an atomic claim. A missing name never starts (an async hook's
+launch failure cannot block Claude, and Claude Code shows async hook results only
+in verbose mode); the Windows Store `python3` alias exits 9009 without running
+Python and never claims.
+
+**Cost.** Up to three short-lived processes per event on hosts where several
+names resolve; one notifies. If the state directory is unusable, every sibling
+notifies (fails toward notifying, like D-013). Two genuinely identical payloads
+for the same verb within 10 seconds count as one event.
+
+**Violation looks like.** A single `python` registration; a shell-form launcher;
+a hook that notifies before claiming; a claim stored outside
+`${CLAUDE_PLUGIN_DATA}`.
+
+**Check.** `InterpreterFallbackManifest`, `OneEventOneRun`,
+`Doctor::test_report_shows_the_interpreter_that_handled_the_last_event`.
+
+**Reverse only if.** Claude Code gains interpreter resolution or an exec-form
+fallback list for hooks.
+
+---
+
+## D-017 — Notification text is masked, and can be left off the screen
+
+**Rule.** Every body that carries payload text passes through
+`hooklib.redact`, so token-, key- and password-shaped strings appear as
+`[REDACTED]`. The `title_only` option (plugin userConfig, or `title_only` in
+`config.json`; either can turn it on, neither can turn the other off) replaces
+every body with a fixed phrase per category.
+
+**Why.** Up to 180 characters of a question, Claude's last message or an API
+error appear in OS notification centres, on lock screens and in screen shares,
+and waiting-for-you toasts stay until closed (D-015). Shape-based masking catches
+the common secret forms; title-only mode is for screens that others see.
+
+**Violation looks like.** A body built from payload text without `redact`; any
+payload string in a title-only body; userConfig `false` overriding a config.json
+`true`.
+
+**Check.** `PrivacyMode`.
+
+**Reverse only if.** Never for masking; title-only stays opt-in unless the
+default is deliberately changed in a major version.

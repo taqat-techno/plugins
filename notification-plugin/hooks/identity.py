@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """notification plugin - which session, which project.
 
-Derives the identity line shown on every notification ("project · a1b2c3") from
+Derives the project name and session tag shown on every notification from
 fields the hook payload already carries. No subprocess, no git binary, no state.
 
 Why `cwd` and not ${CLAUDE_PROJECT_DIR}: when Claude enters a worktree,
@@ -49,18 +49,6 @@ def session_tag(session_id):
         return session_id.replace("-", "")[:SESSION_TAG_LENGTH]
     except Exception:
         return ""
-
-
-def attribution(payload):
-    """The identity line: 'project · a1b2c3', or whichever half is available."""
-    try:
-        name = project_name(payload.get("cwd"))
-        tag = session_tag(payload.get("session_id"))
-        if name and tag:
-            return "{0} · {1}".format(name, tag)
-        return name or tag or "Claude Code"
-    except Exception:
-        return "Claude Code"
 
 
 def group_key(payload, category):

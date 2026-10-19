@@ -6,7 +6,7 @@ Stdlib only, no pytest, no network, no desktop required. Run from anywhere:
     python notification-plugin/tests/test_notification.py
 
 The tests that matter most are the isolation ones: whatever else changes, the
-hook must stay silent on stdout and must always exit 0, because four of the six
+hook must stay silent on stdout and must always exit 0, because five of the seven
 events it subscribes to are blocking events.
 """
 
@@ -20,6 +20,7 @@ import sys
 import tempfile
 import time
 import unittest
+import uuid
 
 HOOKS = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "hooks"))
 NOTIFY = os.path.join(HOOKS, "notify.py")
@@ -305,7 +306,9 @@ class QuestionDeduplication(DataDirTestCase):
         return policy.suppression_reason("permission", payload, dict(policy.DEFAULTS))
 
     def ask(self, **extra):
-        payload = dict({"session_id": self.SESSION, "cwd": os.getcwd(),
+        # Real PreToolUse payloads carry a unique tool_use_id, so two questions
+        # are never mistaken for sibling launches of one event (D-016).
+        payload = dict({"session_id": self.SESSION, "cwd": os.getcwd(), "tool_use_id": uuid.uuid4().hex,
                         "tool_input": {"questions": [{"question": "Which?"}]}}, **extra)
         self.assertEqual(run_hook("question", payload, self.data).returncode, 0)
 

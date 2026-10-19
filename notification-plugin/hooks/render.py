@@ -13,6 +13,8 @@ Layout - clean and minimal, the same on every platform:
 
 Hard guarantees:
   - Pure function of the payload. No I/O, no subprocess, no network.
+  - Secret-shaped text is masked (hooklib.redact); `title_only` drops all
+    payload text from the body (NTF-P1-02).
   - Never raises. A missing or wrong-typed field degrades the text, never the run.
   - All text is treated as UNTRUSTED DATA: control characters and ANSI escape
     sequences are stripped, newlines collapsed, and length clipped, before the
@@ -23,7 +25,16 @@ Two intrusiveness classes:
   INFORMATIONAL  something finished - transient, silent.
 """
 
+import os
 import re
+import sys
+
+try:
+    sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "_vendor"))
+    from hooklib import redact as _redact
+except Exception:  # the vendored runtime is missing: show text unredacted
+    def _redact(text, mask="[REDACTED]"):
+        return text
 
 ATTENTION = "attention"
 INFORMATIONAL = "informational"
@@ -41,6 +52,15 @@ CATEGORIES = {
 TITLE_LIMIT = 80
 PROJECT_LIMIT = 40
 BODY_LIMIT = 180
+
+# Title-only mode (privacy): the body never carries payload text, only this.
+GENERIC_BODIES = {
+    "question": "Claude is waiting for your answer",
+    "permission": "A request is waiting for your approval in the terminal",
+    "failure": "Claude stopped on an error",
+    "task": "A task was completed",
+    "turn": "Claude finished and is waiting for you",
+}
 
 # The only text Claude Code puts in a permission_prompt payload today. Repeating
 # it under a title that already says "needs your approval" tells the reader
@@ -184,8 +204,14 @@ def _content(category, payload):
     return "", ""
 
 
-def build(category, payload, project="", tag=""):
-    """Return (klass, title, body, attribution) or None when nothing should be sent."""
+def build(category, payload, project="", tag="", title_only=False):
+    """Return (klass, title, body, attribution) or None when nothing should be sent.
+
+    Payload text is passed through hooklib.redact, so token-, key- and
+    password-shaped strings are masked before they reach the screen. With
+    `title_only` the body is a fixed phrase per category and no payload text is
+    shown at all.
+    """
     try:
         entry = CATEGORIES.get(category)
         if entry is None:
@@ -193,7 +219,11 @@ def build(category, payload, project="", tag=""):
         klass, icon, template = entry
         who = clean(project, PROJECT_LIMIT) or "Claude"
         title = clean("{0} {1}".format(icon, template.format(who=who)), TITLE_LIMIT)
-        text, suffix = _content(category, payload)
+        if title_only:
+            text, suffix = GENERIC_BODIES.get(category, ""), ""
+        else:
+            text, suffix = _content(category, payload)
+            text = _redact(text if isinstance(text, str) else str(text))
         body = clean(text, BODY_LIMIT - len(suffix))
         if not body:
             return None

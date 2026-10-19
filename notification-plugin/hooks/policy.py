@@ -30,6 +30,10 @@ DEFAULTS = {
     },
     "sound": {"attention": True, "informational": False},
     "suppress_teammate_tasks": True,
+    # NTF-P1-02 - show only the title and a fixed phrase, never the question,
+    # message or error text. The plugin's userConfig option `title_only`
+    # (CLAUDE_PLUGIN_OPTION_TITLE_ONLY) overrides this when set.
+    "title_only": False,
     # D-015 - categories that stay on screen until the user closes them: every
     # notification that means "Claude is waiting for you". Windows needs a Close
     # button for this (the toast "reminder" scenario is ignored without one),
@@ -130,6 +134,25 @@ def suppression_reason(category, payload, config):
     except Exception:
         # A broken policy must never silently start notifying; stay quiet.
         return "policy evaluation failed"
+
+
+USER_OPTION_TITLE_ONLY = "CLAUDE_PLUGIN_OPTION_TITLE_ONLY"
+_TRUE = ("1", "true", "yes", "on")
+
+
+def title_only(config):
+    """Privacy mode: on when the userConfig option OR config.json turns it on.
+
+    Either source can only make notifications more private, never less, so a
+    userConfig default of false never silently overrides a config.json opt-in.
+    """
+    try:
+        value = (os.environ.get(USER_OPTION_TITLE_ONLY) or "").strip().lower()
+        if value in _TRUE:
+            return True
+        return config.get("title_only", False) is True
+    except Exception:
+        return False
 
 
 def wants_sound(klass, config):
