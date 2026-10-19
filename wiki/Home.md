@@ -73,7 +73,7 @@ Full inventory with versions and component counts: [[Plugin Catalog\|Plugin-Cata
 - **Owner:** [TAQAT Techno](https://www.taqatechno.com)
 - **Contact:** `info@taqatechno.com`
 - **Issues:** [github.com/taqat-techno/plugins/issues](https://github.com/taqat-techno/plugins/issues)
-- **License:** MIT for the marketplace and most plugins; individual plugins may use their own licenses (e.g. `odoo-plugin` uses LGPL-3.0-or-later).
+- **License:** MIT for the marketplace and every plugin (each plugin ships its own LICENSE file).
 
 ---
 

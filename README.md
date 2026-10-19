@@ -15,53 +15,46 @@ Listed in marketplace order. Versions are the value in each plugin's `.claude-pl
 
 | # | Plugin | Version | Category | Description | Documentation |
 |---|--------|---------|----------|-------------|---------------|
-| 1 | **odoo** | `2.13.3` | development | Unified Odoo development toolkit — upgrade, frontend themes, testing, security auditing, i18n/PO, reports, Docker infrastructure, server lifecycle, OWL app scaffolding, and a live-instance MCP connection across Odoo 14–19. | [README](./odoo-plugin/README.md) |
-| 2 | **devops** | `7.0.0` | productivity | Azure DevOps HYBRID integration — work items, PRs, pipelines, repos, wiki via CLI + MCP, persistent profile, role-based state machine, plus a provider-neutral remote-write gate and CI-hardening checklist. | [README](./devops-plugin/README.md) |
-| 3 | **notification** | `1.1.1` | productivity | Native desktop notifications when a session needs you — questions, permission prompts, task completions, turn completion, API failures. Hooks only, zero tokens at runtime, never blocks Claude, silent no-op on WSL and headless hosts. | [README](./notification-plugin/README.md) |
-| 4 | **pandoc** | `2.2.3` | productivity | Universal document conversion powered by Pandoc — 50+ input and 60+ output formats, citations, Arabic/RTL support. | [README](./pandoc-plugin/README.md) |
-| 5 | **remotion** | `2.2.3` | development | Create professional videos with smooth voice narration using Remotion — continuous audio pipeline, free edge-tts voices, video from text prompts. | [README](./remotion-plugin/README.md) |
-| 6 | **ui-ux-mechanics** | `3.2.3` | design | UI/UX design + Figma-MCP execution mechanics — screen design, wireframing, design review, design systems, WCAG 2.1 AA accessibility auditing, plus safe Figma MCP write workflows. | [README](./ui-ux-mechanics-plugin/README.md) |
-| 7 | **rag** | `0.19.0` | productivity | Operational console **and** retrieval guide for the ragtools local RAG product — install, configure, diagnose, repair, upgrade, run, and scope every search correctly. Does NOT re-implement search. | [README](./rag-plugin/README.md) |
-| 8 | **react-kit** | `0.7.0` | development | Reusable React / Next.js patterns — architecture, admin panels, dashboards, CRUD/forms, role-aware UI, loading/error/empty/access states, data-fetching error handling, RTL/LTR, React-19 migration, and analyzer/lint finding triage. | [README](./react-kit-plugin/README.md) |
-| 9 | **qa-browser** | `0.8.0` | productivity | Framework-agnostic browser QA + role-based smoke tests, layered over chrome-devtools / playwright MCP. Live identity/RBAC proof, host-scoped headers, disposable-data safety, production-URL gate. | [README](./qa-browser-plugin/README.md) |
-| 10 | **docs-wiki** | `0.10.0` | productivity | Generic toolkit for creating, organising, editing, validating, and auditing a project Wiki. Source-of-truth doctrine, page templates, flat-namespace + link conventions, code-vs-wiki drift. | [README](./docs-wiki-plugin/README.md) |
-| 11 | **env-doctor** | `0.7.0` | productivity | Diagnose (never blindly mutate) the local Claude Code / dev environment — MCP wiring, Windows/WSL networking, login/401, LSP/Node spawn, Python encoding, Playwright browser setup. | [README](./env-doctor-plugin/README.md) |
-| 12 | **agent-safety-guards** | `0.5.0` | productivity | Generic agent-session safety + multi-agent workflow-reliability guardrails — credential-compromise response, read-only immutability, authorization verification, no-fabrication discipline, reliable fan-out. | [README](./agent-safety-guards-plugin/README.md) |
-| 13 | **release-safety** | `0.4.2` | productivity | Provider-neutral release / deployment / migration safety — verify a fix is actually deployed (not just merged), diff environment secrets before promotion, detect migration drift, run risky cutovers safely, keep CI signals honest. | [README](./release-safety-plugin/README.md) |
-| 14 | **django** | `0.4.1` | development | Reusable Django / DRF engineering toolkit — ORM & model design, zero-downtime migration safety, views & DRF API patterns, 12-factor config, security auditing, pytest-django testing, performance/caching. | [README](./django-plugin/README.md) |
-| 15 | **fastapi** | `0.4.1` | development | Reusable FastAPI engineering toolkit — Pydantic v2 schemas, async routing & DI, SQLAlchemy/SQLModel data layer, Alembic migration safety, pydantic-settings config, security auditing, pytest + httpx testing, async correctness. | [README](./fastapi-plugin/README.md) |
-| 16 | **git-safety** | `0.4.2` | productivity | Generic local git-workflow safety guardrails — stage explicit paths, re-check the tree before commit/push, never silent-switch or discard when dirty, per-repo identity, plus shared-checkout safety. Advisory only. | [README](./git-safety-plugin/README.md) |
-| 17 | **worktree** | `2.1.3` | development | Make git worktrees a first-class workspace — list, create, switch, and safely clean parallel worktrees, with the active worktree in the status line. Git stays the source of truth; registers **zero hooks**. | [README](./worktree-plugin/README.md) |
-| 18 | **sprint-recap** | `0.3.2` | productivity | Turn a finished sprint into a narrated walkthrough video of the real app plus a matching HTML reproduction guide — correlates Azure DevOps iteration items, git history and session transcripts into an approved step script, captures one browser clip per step read-only, renders it with Remotion overlays. | [README](./sprint-recap-plugin/README.md) |
+| 1 | **odoo** | `3.0.0` | development | Unified Odoo development toolkit — upgrade, frontend themes, testing, security auditing, i18n/PO, reports, Docker infrastructure, server lifecycle, OWL app scaffolding, and a live-instance MCP connection across Odoo 14–19. | [README](./odoo-plugin/README.md) |
+| 2 | **devops** | `8.0.0` | productivity | Azure DevOps HYBRID integration — work items, PRs, pipelines, repos, wiki via CLI + MCP, persistent profile, role-based state machine, plus a provider-neutral remote-write gate and CI-hardening checklist. | [README](./devops-plugin/README.md) |
+| 3 | **notification** | `1.2.0` | productivity | Native desktop notifications when a session needs you — questions, permission prompts, task completions, turn completion, API failures. Hooks only, zero tokens at runtime, never blocks Claude, silent no-op on WSL and headless hosts. | [README](./notification-plugin/README.md) |
+| 4 | **pandoc** | `3.0.0` | productivity | Universal document conversion powered by Pandoc — 50+ input and 60+ output formats, citations, Arabic/RTL support. | [README](./pandoc-plugin/README.md) |
+| 5 | **remotion** | `3.0.0` | development | Create professional videos with smooth voice narration using Remotion — continuous audio pipeline, free edge-tts voices, video from text prompts. | [README](./remotion-plugin/README.md) |
+| 6 | **ui-ux-mechanics** | `4.0.0` | design | UI/UX design + Figma-MCP execution mechanics — screen design, wireframing, design review, design systems, WCAG 2.1 AA accessibility auditing, plus safe Figma MCP write workflows. | [README](./ui-ux-mechanics-plugin/README.md) |
+| 7 | **rag** | `0.20.0` | productivity | Operational console **and** retrieval guide for the ragtools local RAG product — install, configure, diagnose, repair, upgrade, run, and scope every search correctly. Does NOT re-implement search. | [README](./rag-plugin/README.md) |
+| 8 | **react-kit** | `0.8.0` | development | Reusable React / Next.js patterns — architecture, admin panels, dashboards, CRUD/forms, role-aware UI, loading/error/empty/access states, data-fetching error handling, RTL/LTR, React-19 migration, and analyzer/lint finding triage. | [README](./react-kit-plugin/README.md) |
+| 9 | **qa-browser** | `0.9.0` | productivity | Framework-agnostic browser QA + role-based smoke tests, layered over chrome-devtools / playwright MCP. Live identity/RBAC proof, host-scoped headers, disposable-data safety, production-URL gate. | [README](./qa-browser-plugin/README.md) |
+| 10 | **docs-wiki** | `0.11.0` | productivity | Generic toolkit for creating, organising, editing, validating, and auditing a project Wiki. Source-of-truth doctrine, page templates, flat-namespace + link conventions, code-vs-wiki drift. | [README](./docs-wiki-plugin/README.md) |
+| 11 | **env-doctor** | `0.8.0` | productivity | Diagnose (never blindly mutate) the local Claude Code / dev environment — MCP wiring, Windows/WSL networking, login/401, LSP/Node spawn, Python encoding, Playwright browser setup. | [README](./env-doctor-plugin/README.md) |
+| 12 | **agent-safety-guards** | `0.6.0` | productivity | Generic agent-session safety + multi-agent workflow-reliability guardrails — credential-compromise response, read-only immutability, authorization verification, no-fabrication discipline, reliable fan-out. | [README](./agent-safety-guards-plugin/README.md) |
+| 13 | **release-safety** | `0.5.0` | productivity | Provider-neutral release / deployment / migration safety — verify a fix is actually deployed (not just merged), diff environment secrets before promotion, detect migration drift, run risky cutovers safely, keep CI signals honest. | [README](./release-safety-plugin/README.md) |
+| 14 | **django** | `0.5.0` | development | Reusable Django / DRF engineering toolkit — ORM & model design, zero-downtime migration safety, views & DRF API patterns, 12-factor config, security auditing, pytest-django testing, performance/caching. | [README](./django-plugin/README.md) |
+| 15 | **fastapi** | `0.5.0` | development | Reusable FastAPI engineering toolkit — Pydantic v2 schemas, async routing & DI, SQLAlchemy/SQLModel data layer, Alembic migration safety, pydantic-settings config, security auditing, pytest + httpx testing, async correctness. | [README](./fastapi-plugin/README.md) |
+| 16 | **git-safety** | `0.5.0` | productivity | Generic local git-workflow safety guardrails — stage explicit paths, re-check the tree before commit/push, never silent-switch or discard when dirty, per-repo identity, plus shared-checkout safety. Advisory only. | [README](./git-safety-plugin/README.md) |
+| 17 | **worktree** | `2.1.4` | development | Make git worktrees a first-class workspace — list, create, switch, and safely clean parallel worktrees, with the active worktree in the status line. Git stays the source of truth; registers **zero hooks**. | [README](./worktree-plugin/README.md) |
+| 18 | **sprint-recap** | `0.4.0` | productivity | Turn a finished sprint into a narrated walkthrough video of the real app plus a matching HTML reproduction guide — correlates Azure DevOps iteration items, git history and session transcripts into an approved step script, captures one browser clip per step read-only, renders it with Remotion overlays. | [README](./sprint-recap-plugin/README.md) |
 
 ---
 
 ## Quick installation
 
-### Method 1 — Claude Code UI (recommended)
+Inside Claude Code:
 
 ```
 /plugin marketplace add taqat-techno/plugins
 /plugin install <plugin-name>@taqat-techno-plugins
 ```
 
-Then restart Claude Code.
+Or from a shell:
 
-### Method 2 — Manual clone
-
-**Windows**
-```cmd
-cd %USERPROFILE%\.claude\plugins\marketplaces
-git clone https://github.com/taqat-techno/plugins.git taqat-techno-plugins
-```
-
-**macOS / Linux**
 ```bash
-cd ~/.claude/plugins/marketplaces
-git clone https://github.com/taqat-techno/plugins.git taqat-techno-plugins
+claude plugin marketplace add taqat-techno/plugins
+claude plugin install <plugin-name>@taqat-techno-plugins
 ```
 
-Then open `/plugins` inside Claude Code and enable what you want.
+Run `/reload-plugins` or start a new session to load it. Every plugin is independent: install
+only the ones you need. Each plugin's README lists its requirements, configuration and what
+data it stores or sends.
 
 ### Verify installation
 
@@ -159,7 +152,7 @@ Attention notifications are sticky where the OS allows it (Windows toast `remind
 
 Document conversion powered by [Pandoc](https://pandoc.org/) — 50+ input and 60+ output formats with intelligent automation (PDF, Word, HTML, EPUB, presentations, citations, Arabic/RTL). Describe what you want in natural language; no flags to memorize.
 
-**Commands:** `/pandoc setup`, `/pandoc status`, `/pandoc convert`, `/pandoc formats`, `/pandoc help`.
+**Commands:** `/pandoc:convert`, `/pandoc:setup`, `/pandoc:status`, `/pandoc:formats`. Installs are shown and confirmed, never auto-accepted.
 
 ---
 
@@ -169,7 +162,7 @@ Document conversion powered by [Pandoc](https://pandoc.org/) — 50+ input and 6
 
 Create professional videos with smooth voice narration using [Remotion](https://remotion.dev). Solves voice-cutting-between-slides with a Continuous Audio Pattern. Free edge-tts voices (200+), MP4/WebM/GIF output, video from text prompts.
 
-**Commands:** `/remotion` (status / initialize project).
+**Commands:** `/remotion:init`, `/remotion:status`, `/remotion:render`, `/remotion:voice`. Narration uses Microsoft edge-tts (text leaves the machine); Remotion needs a company licence above its size threshold.
 
 ---
 
@@ -211,7 +204,7 @@ Reusable engineering patterns for React / Next.js apps — application & compone
 
 Framework-agnostic browser QA and role-based smoke testing, **layered over** the official `playwright` / `chrome-devtools-mcp` engines (it does not reimplement browser automation). Logs in as each role, walks modals and table actions, verifies UI-vs-API permissions, captures console / network / screenshot evidence, and produces a PASS / BLOCKED / NOT-TESTABLE table for UAT signoff.
 
-**Commands:** `/qa-target`, `/qa-smoke`, `/qa-roles`, `/qa-route`, `/qa-report`. **Agents:** `qa-evidence-collector`, `qa-failure-classifier`.
+**Commands:** `/qa-browser:target`, `/qa-browser:smoke`, `/qa-browser:roles`, `/qa-browser:route`, `/qa-browser:report`. **Hooks:** host-based production gate on every navigation tool, click skiplist, credential-tracking warning. **Agents:** `qa-evidence-collector`, `qa-failure-classifier`.
 
 **Safety:** production-URL gate (case-insensitive host match), disposable-data + external-side-effect scope-out, cancel-first destructive pattern, credential redaction.
 
@@ -223,7 +216,7 @@ Framework-agnostic browser QA and role-based smoke testing, **layered over** the
 
 Generic toolkit for creating, organising, editing, validating, and auditing a project Wiki. Owns flat-namespace + filename-uniqueness + internal-link conventions, Mermaid and PlantUML authoring, broken-link sweeps, code-vs-wiki drift, and a push-approval gate. Adapts to GitHub Wiki / GitLab / Azure DevOps / MkDocs.
 
-**Commands:** `/wiki-init`, `/wiki-audit`, `/wiki-update`, `/wiki-new`, `/wiki-drift`, `/wiki-sync-audit`, `/wiki-swimlane`. **Agents:** `wiki-link-auditor`, `wiki-cleanup-validator`, `wiki-drift-reporter`. **Templates:** SOP, runbook, role-guide, user-manual, workflow, release-handover, onboarding, architecture, decision record.
+**Commands:** `/docs-wiki:init`, `/docs-wiki:audit`, `/docs-wiki:update`, `/docs-wiki:new`, `/docs-wiki:drift`, `/docs-wiki:sync-audit`, `/docs-wiki:swimlane`. **Agents:** `wiki-link-auditor`, `wiki-cleanup-validator`, `wiki-drift-reporter`. **Templates:** SOP, runbook, role-guide, user-manual, workflow, release-handover, onboarding, architecture, decision record.
 
 **Explicit boundary:** wiki-to-memory sync is **out of scope** — a separate future plugin.
 
@@ -235,7 +228,7 @@ Generic toolkit for creating, organising, editing, validating, and auditing a pr
 
 Generic doctor for the local **Claude Code / dev environment**. It **diagnoses, never blindly mutates** — routes a symptom to the right branch, runs read-only probes, classifies the failure, and proposes one safe next action. Branches: MCP not loading, Windows/WSL networking (DNS/VPN/HCS), login/401 loops, LSP / Node-CLI spawn, Python output encoding, and Playwright / browser-MCP setup. It is the canonical environment-troubleshooting home other plugins reference.
 
-**Command:** `/env-doctor` (works with no arguments). **Agent:** `env-probe-reporter` (read-only). **Hook:** non-blocking SessionStart advisory.
+**Command:** `/env-doctor:diagnose` (works with no arguments). **Agent:** `env-probe-reporter` (read-only). **Hook:** SessionStart check that stays silent unless it finds a broken `.mcp.json` or sync-ignore problem.
 
 **Scope / non-goals:** NOT server ops, deployment runbooks, or DevOps/GitHub workflow logic — local environment diagnosis only.
 
@@ -259,7 +252,7 @@ Generic guardrails for agent sessions and multi-agent fan-out. Covers credential
 
 Provider-neutral safety for the moment code leaves your machine. Verify a fix is actually **deployed to the target environment**, not merely merged; diff environment secrets before promotion; detect migration drift; run risky cutovers and migrations safely (discover → backup → stage + validate → additive cutover → archive-by-rename); and keep CI signals honest by sweeping for gates that swallow their exit code.
 
-**Command:** `/release-verify`. **Skills:** `release-verification`, `migration-safety`, `github-actions-release-safety`. **Hook:** SessionStart advisory.
+**Command:** `/release-safety:release-verify`, plus `scripts/check_release.py` (tag, manifest version and CHANGELOG agree; semver only moves forward). **Skills:** `release-verification`, `migration-safety`, `github-actions-release-safety`. **Hooks:** SessionStart reminder only in repos with CI or deploy config; optional ask-before-push of tags and releases.
 
 ---
 
@@ -269,7 +262,7 @@ Provider-neutral safety for the moment code leaves your machine. Verify a fix is
 
 Reusable Django and Django REST Framework patterns — ORM & model design, migration safety (zero-downtime expand-contract), views & DRF API design, settings/12-factor configuration, security auditing, pytest-django testing, and performance/caching.
 
-**7 auto-activating skills + 4 commands + 3 agents** (`django-security-auditor`, `migration-safety-analyzer`, `orm-query-optimizer`) **+ hooks** for version/layout detection at session start, risky-migration and hardcoded-secret advisories, and a destructive-management-command guard. Generic and adapter-driven.
+**7 auto-activating skills + 4 commands + 3 agents** (`django-security-auditor`, `migration-safety-analyzer`, `orm-query-optimizer`) **+ hooks** for version/layout detection at session start, risky-migration and hardcoded-secret advisories, and a guard that asks before destructive database commands, only inside Django projects. Generic and adapter-driven.
 
 ---
 
@@ -279,7 +272,7 @@ Reusable Django and Django REST Framework patterns — ORM & model design, migra
 
 Reusable FastAPI patterns — Pydantic v2 schema design, async routing & dependency injection, SQLAlchemy/SQLModel data layer (N+1 and async-session traps), Alembic migration safety, pydantic-settings configuration, security auditing (OAuth2/JWT, CORS, injection), pytest + httpx testing, and async correctness/performance.
 
-**8 auto-activating skills + 4 commands + 3 agents** (`fastapi-security-auditor`, `alembic-migration-analyzer`, `async-query-optimizer`) **+ hooks** for version/layout detection, event-loop-blocking and wildcard-CORS advisories, and a destructive-command guard.
+**8 auto-activating skills + 4 commands + 3 agents** (`fastapi-security-auditor`, `alembic-migration-analyzer`, `async-query-optimizer`) **+ hooks** for version/layout detection, event-loop-blocking and wildcard-CORS advisories, and a guard that asks before destructive database commands, only inside FastAPI projects.
 
 ---
 
@@ -289,7 +282,7 @@ Reusable FastAPI patterns — Pydantic v2 schema design, async routing & depende
 
 The safety layer that git integrations, commit helpers, and PR-review plugins leave out. Stage explicit paths (never `git add -A`); re-check the working tree before commit/push; never silent-switch or discard with a dirty tree; know that `git rm --cached` deletes a shared file team-wide on merge; keep per-repo author and remote push identity straight. Plus **shared-checkout safety** for when more than one agent, session, or syncer shares one working tree.
 
-**2 skills.** **Hook:** one non-fatal `PreToolUse` advisory on Bash and PowerShell that prints a single reminder when a command contains a risky git shape. **Advisory only — it warns, it never blocks.**
+**2 skills.** **Hook:** a `PreToolUse` check on Bash and PowerShell that recognises risky git operations (reset --hard, clean, force-push, branch -D, ...). Advisory by default; set `guard_mode` to `ask` to confirm irreversible operations before they run.
 
 ---
 
@@ -311,7 +304,7 @@ Turn a finished sprint into two review artifacts that cannot drift apart: an MP4
 
 Runs in resumable stages — `collect` → `script` → `capture` → `render` → `publish` — with a **human approval gate** on the step script before anything touches a browser. Drives the Playwright Python library and the Remotion CLI directly (no MCP dependency); `collect`, `render`, and `publish` run on a bare Python 3.9+, and only `capture` needs a third-party package.
 
-**Commands:** `/sprint-recap`, `/sprint-recap-target`. **5 skills:** `sprint-step-script`, `sprint-evidence-correlation`, `sprint-capture-clips`, `sprint-video-overlays`, `sprint-repro-guide`.
+**Commands:** `/sprint-recap:run`, `/sprint-recap:target`. **5 skills:** `sprint-step-script`, `sprint-evidence-correlation`, `sprint-capture-clips`, `sprint-video-overlays`, `sprint-repro-guide`.
 
 **Safety:** credentials live in a gitignored `.sprint-recap.local.json` and are never printed unmasked; a `SessionStart` advisory checks that config hygiene; a `PreToolUse` gate on Bash **blocks** git from staging the plaintext credential artifacts this plugin generates. Capture is read-only, with production-URL and destructive-action gates, and uncaptured steps get an honest status badge rather than a fabricated one.
 
@@ -370,17 +363,21 @@ python validate_marketplace.py                                  # require exit 0
 python validate_plugin_simple.py <plugin-dir>
 ```
 
-Also run a **genericness sweep** before shipping — grep all skill / command / agent / hook files for project-specific tokens (company/client names, business-domain terms, absolute user paths, private URLs, token shapes) and confirm 0 hits outside labelled illustrative examples.
+CI (`.github/workflows/validate.yml`) also runs `claude plugin validate --strict`, the eval
+validator, the hooklib sync check, a privacy scan (`tools/check_privacy.py`), a README-version
+check, the version-bump check, a gitleaks secret scan, every plugin's tests on Linux, macOS
+and Windows, and a smoke run of every registered hook (`tools/hook_smoke.py`). The full list of
+rules is in [`shared/PLUGIN_STANDARDS.md`](shared/PLUGIN_STANDARDS.md), and the workflow for
+contributors is in [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 ---
 
 ## Auto-updates
 
-Enable auto-updates in Claude Code settings → **Plugins** → **taqat-techno-plugins** → **Auto-Update**. Or update manually:
+Turn on auto-update for the marketplace in `/plugin` → **Marketplaces**, or update manually:
 
 ```bash
-cd ~/.claude/plugins/marketplaces/taqat-techno-plugins
-git pull
+claude plugin marketplace update taqat-techno-plugins
 ```
 
 Every plugin change ships with a `plugin.json` version bump and a CHANGELOG entry in the same commit. Without the bump, Claude Code's updater cannot detect the new version and users stay on stale code.
@@ -391,10 +388,10 @@ Every plugin change ships with a `plugin.json` version bump and a CHANGELOG entr
 
 ### Plugins not appearing
 ```bash
-ls ~/.claude/plugins/marketplaces/taqat-techno-plugins
-cat ~/.claude/plugins/marketplaces/taqat-techno-plugins/.claude-plugin/marketplace.json
-# Then restart Claude Code
+claude plugin marketplace list
+claude plugin list
 ```
+Then check the `/plugin` **Errors** tab, and run `/reload-plugins`.
 
 ### Plugin not loading
 1. Verify YAML frontmatter in the plugin's `commands/*.md`, `agents/*.md`, and `skills/*/SKILL.md`.
@@ -407,7 +404,7 @@ cat ~/.claude/plugins/marketplaces/taqat-techno-plugins/.claude-plugin/marketpla
 Claude Code runs plugins from `~/.claude/plugins/cache/<marketplace>/<plugin>/<version>/`, not from your development checkout, and hooks are read once at session start. Run `/reload-plugins`, or restart the session.
 
 ### Environment / MCP problems
-Use the **env-doctor** plugin (`/env-doctor`) for MCP-not-loading, WSL/Windows networking, login/401, LSP spawn, encoding, and Playwright setup issues.
+Use the **env-doctor** plugin (`/env-doctor:diagnose`) for MCP-not-loading, WSL/Windows networking, login/401, LSP spawn, encoding, and Playwright setup issues.
 
 ### No desktop notifications
 Use the **notification** plugin's `/notification:doctor` — it reports the resolved backend and explains any unsupported host.
@@ -430,6 +427,6 @@ TAQAT Techno is an Odoo development and consulting firm specializing in enterpri
 
 ## License
 
-MIT License — see [`LICENSE`](./LICENSE). Individual plugins may ship their own license (e.g., `odoo-plugin` uses LGPL-3.0-or-later). See each plugin's `plugin.json` or `LICENSE` / `LICENSES.md`.
+MIT License — see [`LICENSE`](./LICENSE). Every plugin ships its own MIT `LICENSE` file and declares `"license": "MIT"` in its manifest. See each plugin's `plugin.json` or `LICENSE` / `LICENSES.md`.
 
 ---

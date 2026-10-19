@@ -1,221 +1,105 @@
-# Contributing to Claude Code Skills Marketplace
+# Contributing
 
-Thank you for your interest in contributing! This marketplace thrives on community contributions.
+Thanks for helping. This repository is a Claude Code **plugin marketplace**: each
+`<name>-plugin/` directory is one plugin, registered in `.claude-plugin/marketplace.json`.
+This guide covers how to change a plugin, add one, and get the change merged.
 
-## 🎯 How to Contribute
+The rules every plugin must follow are in [`shared/PLUGIN_STANDARDS.md`](shared/PLUGIN_STANDARDS.md).
+Read it before your first change. CI enforces most of it.
 
-### Adding a New Skill
+## Set up
 
-1. **Fork the Repository**
+```bash
+git clone https://github.com/taqat-techno/plugins.git
+cd plugins
+python -m pip install pyyaml pytest
+npm install --global @anthropic-ai/claude-code   # provides `claude plugin validate`
+```
+
+To try your working copy in Claude Code, add it as a local marketplace:
+
+```bash
+claude plugin marketplace add ./
+```
+
+Then run `/plugin install <name>@taqat-techno-plugins`. Claude Code runs plugins from its
+cache (`~/.claude/plugins/cache/...`), not from your checkout, and reads hooks once at
+session start. After an edit, run `/reload-plugins` or start a new session.
+
+## Change a plugin
+
+1. **Find the owning file.** Larger plugins use single-owner layering:
+   commands → skills → agents → rules → data. Each concern lives in one file and the others
+   reference it, so change the owner rather than restating it.
+2. **Make the change and test it.** Every script and hook has offline tests in the plugin's
+   `tests/`. Add or update them:
    ```bash
-   gh repo fork taqat-techno/plugins
+   cd <name>-plugin && python -m pytest -q -p no:cacheprovider
    ```
-
-2. **Create Your Skill Directory**
+3. **Bump the version** in `.claude-plugin/plugin.json` and add an entry to the plugin's
+   `CHANGELOG.md` (`## [x.y.z] - YYYY-MM-DD`). Without a bump, users who installed the
+   plugin never receive the change. A change to default behaviour bumps the major version
+   (the minor version while at 0.x).
+4. **Run the checks CI runs:**
    ```bash
-   mkdir your-skill-name
-   cd your-skill-name
+   claude plugin validate . --strict
+   python validate_marketplace.py
+   python validate_plugin.py <name>-plugin
+   python validate_evals.py
+   python tools/sync_vendor.py --check
+   python tools/check_privacy.py
+   python tools/readme_versions.py --check
+   python tools/hook_smoke.py <name>-plugin
    ```
+   `tools/readme_versions.py` without `--check` updates the root README's version table for you.
 
-3. **Add Required Files**
-   ```
-   your-skill-name/
-   ├── README.md           # Documentation with badges
-   ├── your-skill.md       # The actual skill file
-   └── examples/           # Optional examples
-       └── example.md
-   ```
+## Add a plugin
 
-4. **Write Your Skill**
-   - Follow the [skill template](#skill-template)
-   - Include comprehensive documentation
-   - Add usage examples
-   - Test thoroughly
+1. Create `<name>-plugin/` with `.claude-plugin/plugin.json` (`name`, `version`,
+   `description`, `author`, `license`, `homepage`, `repository`, `keywords`), a `LICENSE`
+   file, `README.md` (the template in PLUGIN_STANDARDS §5), `CHANGELOG.md` and `tests/`.
+   The name must not start with `claude-`, `anthropic-` or `cc-plugin-`; those are reserved.
+2. Add the plugin's entry to `.claude-plugin/marketplace.json` and a row to the root
+   README table. An unregistered plugin is invisible, and no per-plugin check notices.
+3. Skills go in `skills/<skill-name>/SKILL.md`. The description is the trigger, so start it
+   with "Use when …" and keep it to 1,024 characters. Put custom frontmatter under
+   `metadata:`.
+4. Hooks use the portable launcher and the vendored `hooklib`: create `hooks/_vendor/` and
+   run `python tools/sync_vendor.py`.
+5. Add one must-fire and one must-not-fire eval case per skill under `evals/`.
 
-5. **Submit Pull Request**
-   - Describe what your skill does
-   - Include testing details
-   - Reference any related issues
+For canonical examples, see Anthropic's `plugin-dev` plugin
+(<https://github.com/anthropics/claude-plugins-official/tree/main/plugins/plugin-dev>).
 
-## 📝 Skill Template
+## Shared code
 
-Your skill file (`your-skill.md`) should follow this structure:
+`shared/hooklib.py` is the canonical hook runtime. Never edit a plugin's
+`hooks/_vendor/hooklib.py` directly: change `shared/hooklib.py`, run
+`python tools/sync_vendor.py`, and bump every plugin whose copy changed.
 
-```markdown
-# Your Skill Name
+## Privacy
 
-## Skill Metadata
-- **Name**: your-skill-name
-- **Description**: Brief description of what the skill does
-- **Trigger**: What user requests activate this skill
+Never commit real names, e-mail addresses, client or project names, home-directory paths,
+tokens or internal reports. Use placeholders such as `acme`, `jane.doe@example.com` and
+`C:\Users\<user>`. To catch your own identifying strings before CI does, list them one per
+line in `.privacy-denylist` at the repository root. That file is git-ignored, and
+`tools/check_privacy.py` reads it.
 
-## Task Overview
-Detailed explanation of the skill's purpose and capabilities.
+## Pull requests
 
-## Critical Constraints
-- List any important restrictions
-- Safety considerations
-- What NOT to do
+- One purpose per PR. Explain what changed and why, and how you tested it.
+- CI must be green: validators, privacy, version bumps and secret scan on Linux, plus tests
+  and hook smoke on Linux, macOS and Windows.
+- A code owner reviews every PR (`.github/CODEOWNERS`).
 
-## Execution Steps
+## Reporting issues
 
-### Step 1: Gather Requirements
-What information is needed from the user...
+Open an issue at <https://github.com/taqat-techno/plugins/issues>. Include the plugin name
+and version, your OS and Claude Code version (`claude --version`), what you expected, and
+what happened. Remove tokens, internal hostnames and private project names from logs
+before you paste them.
 
-### Step 2: Validate Inputs
-What to check before proceeding...
+## License
 
-### Step 3: Execute Task
-Detailed step-by-step instructions...
-
-### Step N: Report Results
-What to show the user when complete...
-
-## Error Handling
-How to handle failures...
-
-## Important Notes
-Additional context, limitations, etc.
-```
-
-## 📄 README Template
-
-Your skill's README should include:
-
-```markdown
-# Your Skill Name
-
-![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)
-![License](https://img.shields.io/badge/license-MIT-green.svg)
-
-Brief description (1-2 sentences).
-
-## 🚀 Features
-- Feature 1
-- Feature 2
-
-## 📦 Installation
-Installation instructions...
-
-## 🎯 Usage
-Usage examples...
-
-## ⚙️ Requirements
-What's needed to use this skill...
-
-## ⚠️ Limitations
-What the skill can't do...
-
-## 📝 License
-MIT License
-
-## 👥 Credits
-Author information...
-```
-
-## ✅ Quality Guidelines
-
-### Documentation
-- ✅ Clear, concise descriptions
-- ✅ Usage examples with expected outcomes
-- ✅ Installation instructions for all platforms
-- ✅ Requirements clearly stated
-- ✅ Limitations and warnings included
-
-### Skill File
-- ✅ Step-by-step instructions
-- ✅ Error handling procedures
-- ✅ Safety constraints
-- ✅ Well-organized structure
-- ✅ Comments for complex logic
-
-### Testing
-- ✅ Test on multiple scenarios
-- ✅ Verify error handling
-- ✅ Check compatibility
-- ✅ Document test results
-
-## 🔍 Review Process
-
-1. **Automated Checks**
-   - File structure validation
-   - Markdown linting
-   - Link checking
-
-2. **Manual Review**
-   - Skill quality assessment
-   - Documentation completeness
-   - Example clarity
-   - Security considerations
-
-3. **Testing**
-   - Skill functionality
-   - Edge cases
-   - Error scenarios
-
-## 🐛 Reporting Issues
-
-Found a bug or have a suggestion?
-
-1. **Search Existing Issues**: Check if it's already reported
-2. **Open New Issue**: Use the appropriate template
-3. **Provide Details**:
-   - Skill name and version
-   - Steps to reproduce
-   - Expected vs actual behavior
-   - Environment details
-
-## 💡 Suggesting Features
-
-Have an idea for a new skill or enhancement?
-
-1. **Open a Feature Request**
-2. **Describe the Use Case**
-3. **Explain the Benefits**
-4. **Offer to Help Implement**
-
-## 🏷️ Skill Categories
-
-When adding a skill, categorize it:
-
-- **Development Tools**: Code generation, refactoring, etc.
-- **Testing & QA**: Test automation, quality checks
-- **DevOps**: Deployment, CI/CD, infrastructure
-- **Data & Analytics**: Data processing, reporting
-- **Documentation**: Doc generation, API docs
-- **Security**: Security audits, vulnerability scanning
-- **Other**: Anything else
-
-## 📊 Badge Guidelines
-
-Use these badges in your README:
-
-```markdown
-![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)
-![License](https://img.shields.io/badge/license-MIT-green.svg)
-![Status](https://img.shields.io/badge/status-stable-green.svg)
-```
-
-## 🔒 Security
-
-- Never include credentials in skills
-- Don't hardcode sensitive data
-- Warn users about security implications
-- Follow secure coding practices
-
-## 📜 Code of Conduct
-
-- Be respectful and inclusive
-- Provide constructive feedback
-- Help newcomers
-- Focus on the problem, not the person
-
-## 🙏 Thank You!
-
-Every contribution makes this marketplace better for the community. Whether it's a new skill, bug fix, or documentation improvement, your help is appreciated!
-
----
-
-**Questions?** Open an issue or reach out to the maintainers.
-
-**Happy Contributing!** 🚀
+By contributing, you agree that your contributions are licensed under the MIT License
+(see `LICENSE`).

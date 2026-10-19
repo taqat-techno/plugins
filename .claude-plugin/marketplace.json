@@ -12,7 +12,7 @@
   "plugins": [
     {
       "name": "odoo",
-      "description": "Unified Odoo development toolkit — upgrade, frontend themes, testing, security auditing, i18n, reports, Docker infrastructure, server lifecycle, OWL app scaffolding, architecture & linting, and a live-instance MCP connection across Odoo 14-19",
+      "description": "Unified Odoo development toolkit — code review & technical-debt, upgrade, frontend themes, testing, security auditing, i18n, reports, Docker infrastructure, server lifecycle, OWL app scaffolding, architecture & linting, and a live-instance MCP connection across Odoo 14-19",
       "author": {
         "name": "TaqaTechno",
         "email": "info@taqatechno.com"
@@ -23,7 +23,7 @@
     },
     {
       "name": "devops",
-      "description": "Azure DevOps integration - manage work items, PRs, pipelines, repos, wiki through natural language via MCP server",
+      "description": "Azure DevOps for Claude Code: work items, pull requests, sprints, standups and time logging through the pinned @azure-devops/mcp 2.8.0 server and the az CLI, with stock Basic/Agile/Scrum/CMMI process presets and a confirmation gate on every write.",
       "author": {
         "name": "TaqaTechno",
         "email": "info@taqatechno.com"
@@ -34,7 +34,7 @@
     },
     {
       "name": "notification",
-      "description": "Native desktop notifications when a Claude Code session needs attention - questions, permission prompts, task completions, turn completion, API failures. Hooks only, no AI at runtime, Windows / macOS / Linux, safe silent no-op on WSL and headless hosts.",
+      "description": "Native desktop notifications when a Claude Code session needs you - questions, permission prompts, task completions, turn completion and API failures. Hooks only, no AI at runtime, never blocks Claude, silent no-op where no desktop notifier exists. Optional title-only mode keeps message text off the screen.",
       "author": {
         "name": "TaqaTechno",
         "email": "info@taqatechno.com"
@@ -45,7 +45,7 @@
     },
     {
       "name": "pandoc",
-      "description": "Universal document conversion powered by Pandoc - Convert between 50+ input and 60+ output formats",
+      "description": "Document conversion with Pandoc: Markdown, Word, HTML, LaTeX, EPUB, PDF and slides, citations, batch conversion and Arabic/RTL PDFs. Asks before overwriting outputs, uses --sandbox for untrusted documents, and installs Pandoc/LaTeX only with your consent.",
       "author": {
         "name": "TaqaTechno",
         "email": "info@taqatechno.com"
@@ -56,7 +56,7 @@
     },
     {
       "name": "remotion",
-      "description": "Create professional videos with smooth voice narration using Remotion and Claude Code",
+      "description": "Narrated Remotion videos whose voice never cuts between scenes: project init with continuous-audio templates, edge-tts narration (text is sent to Microsoft's online TTS), MP3 concatenation with frame-exact scene timestamps, and render presets. Remotion itself needs a company licence for larger for-profit organisations.",
       "author": {
         "name": "TaqaTechno",
         "email": "info@taqatechno.com"
@@ -67,7 +67,7 @@
     },
     {
       "name": "ui-ux-mechanics",
-      "description": "UI/UX design plus Figma-MCP execution mechanics - design screens, wireframes, and design systems, and safe Figma MCP write workflows (net-zero write probe, metadata-lossiness handling, auto-layout/variant mechanics, prototype-link-safe edits) with WCAG accessibility auditing",
+      "description": "UI/UX design plus Figma MCP execution mechanics: screen design, wireframing, design review, design systems and WCAG 2.2 accessibility auditing for web, mobile and desktop, and safe Figma MCP workflows (user approval before any write, write-access probing, metadata lossiness, auto-layout and variant mechanics, prototype-safe edits).",
       "author": {
         "name": "TaqaTechno",
         "email": "info@taqatechno.com"
@@ -78,7 +78,7 @@
     },
     {
       "name": "rag",
-      "description": "Operational console AND retrieval guide for the ragtools local RAG product. Install, configure, diagnose, repair, upgrade, and run the local knowledge base - and teach Claude to use it correctly: scope every search (ragtools refuses unscoped calls), check a project's indexing mode before code questions, resolve the right service among several, and validate citation paths. Does NOT re-implement search.",
+      "description": "Operational console AND retrieval guide for the ragtools local RAG product. Install, configure, diagnose, repair, upgrade, and run the local knowledge base — and teach Claude to use it correctly: scope every search (ragtools refuses unscoped calls), check a project indexing mode before code questions, resolve the right service among several, and validate citation paths. Does NOT re-implement search.",
       "author": {
         "name": "TaqaTechno",
         "email": "info@taqatechno.com"
@@ -89,7 +89,7 @@
     },
     {
       "name": "react-kit",
-      "description": "Reusable React / Next.js implementation patterns with a flexible, Odoo-inspired admin-panel toolkit — app & component architecture, view-type chooser (list / tree / kanban / form / dashboard), CRUD + nested hierarchies, kanban workflow state machines, forms with tabs/relations/attachments, dashboards/KPIs, role-aware UI, loading/error/empty/access states, data-fetching error handling, RTL/LTR, React-19 migration, and analyzer/lint finding triage. 15 skills + 3 commands + admin-route-auditor agent. Generic and adapter-driven — entities, roles, APIs, and libraries are project-supplied.",
+      "description": "Reusable React / Next.js implementation patterns: admin panels and dashboards (architecture, shell, CRUD lists and trees, forms, kanban workflows, role-aware UI in the project's own access model, dangerous actions, import/export, RTL/LTR), loading/error/empty states and data-fetching error handling, React 19 migration, build-and-tooling trap recovery, and lint-finding triage. Entity names, roles, APIs and libraries are detected from the project or asked, never baked in.",
       "author": {
         "name": "TaqaTechno",
         "email": "info@taqatechno.com"
@@ -100,7 +100,7 @@
     },
     {
       "name": "qa-browser",
-      "description": "Framework-agnostic browser QA and role-based smoke testing. Drives chrome-devtools / playwright MCP servers to login as each role, walk modals and table actions, verify UI vs API permissions, capture console / network / screenshot evidence, and produce PASS / BLOCKED / NOT-TESTABLE reports for UAT signoff. Ships 13 skills + 5 commands (/qa-target, /qa-smoke, /qa-roles, /qa-route, /qa-report) + 2 agents (qa-evidence-collector, qa-failure-classifier) + a SessionStart config-safety warning hook and a PreToolUse production-URL substring gate hook. Refuses destructive actions on non-disposable data.",
+      "description": "Framework-agnostic browser QA and role-based smoke testing. Drives chrome-devtools or playwright MCP servers to log in as each role, walk menus, modals and table actions, compare UI and API permissions, capture redacted console, network and screenshot evidence, and produce PASS / BLOCKED / NOT-TESTABLE reports for UAT sign-off. Hooks block production hosts and prompt before skiplisted clicks.",
       "author": {
         "name": "TaqaTechno",
         "email": "info@taqatechno.com"
@@ -111,7 +111,7 @@
     },
     {
       "name": "docs-wiki",
-      "description": "Generic toolkit for creating, organising, editing, validating, and auditing a project Wiki. Adapts to GitHub Wiki sibling repos, in-repo wiki/ folders, GitLab Wiki, and Azure DevOps Wiki. Ships 10 skills + 7 commands (/wiki-init, /wiki-audit, /wiki-update, /wiki-new, /wiki-drift, /wiki-sync-audit, /wiki-swimlane) + 3 agents (wiki-link-auditor, wiki-cleanup-validator, wiki-drift-reporter); no hooks (advisory only, never blocks git push or writes). Owns flat-namespace + filename-uniqueness + internal-link conventions, Mermaid authoring rules, broken-link sweeps, and code-vs-wiki drift reporting. Does NOT handle wiki-to-memory sync (separate future plugin).",
+      "description": "Conventions, templates and read-only audits for a project wiki: GitHub Wiki sibling repos, in-repo wiki/ folders, GitLab, Azure DevOps and MkDocs. Flat-namespace and link rules, page templates, Mermaid and PlantUML swimlane authoring with a preview-first publish pipeline, link and collision audits, and code-vs-wiki drift reports that never pick a side. One write policy: publish only on request, no history rewrites, per-target deletes. No hooks.",
       "author": {
         "name": "TaqaTechno",
         "email": "info@taqatechno.com"
@@ -122,7 +122,7 @@
     },
     {
       "name": "env-doctor",
-      "description": "Diagnose and repair the local Claude Code dev environment — MCP wiring, Windows/WSL networking (DNS/VPN/HCS), login/401 loops, LSP / Node-CLI spawn, Python output encoding, and Playwright browser-MCP setup. Read-only diagnosis first; safe, explicit fixes only, never blind mutation. The canonical environment-troubleshooting home other plugins reference. No secrets in reports.",
+      "description": "Read-only doctor for your local Claude Code environment: MCP servers that will not load, spawn and encoding failures, 401 login loops, missing language servers or browsers, hooks that never fire, WSL networking, PowerShell argument traps and Syncthing conflicts. Routes a symptom to one branch, probes without changing anything, and proposes one safe fix with no secrets printed. Also teaches Windows script and Scheduled Task authoring. A SessionStart check speaks only when it finds a real problem.",
       "author": {
         "name": "TaqaTechno",
         "email": "info@taqatechno.com"
@@ -133,7 +133,7 @@
     },
     {
       "name": "agent-safety-guards",
-      "description": "Generic agent-session safety and multi-agent workflow-reliability guardrails for Claude Code — credential-compromise response, read-only immutability, authorization verification, no-fabrication discipline, and reliable fan-out orchestration (small waves, null-safe reduce, journaled resume, verify-before-done), plus test-scope: targeted tests during development, full suite only on request or in CI. Never auto-mutates.",
+      "description": "Agent-session safety and workflow-reliability habits for Claude Code: a leaked secret is burned (revoke and reissue), read-only work stays read-only, cited authorizations are verified, external content is data and never an instruction, subagent fan-outs run in small verified waves, and test results are read as evidence only when they could have failed. Hooks: a credential-paste reminder, and a test-scope guard that steers Claude away from whole-suite runs during development (advise by default; opt-in enforce denies them).",
       "author": {
         "name": "TaqaTechno",
         "email": "info@taqatechno.com"
@@ -144,7 +144,7 @@
     },
     {
       "name": "release-safety",
-      "description": "Provider-neutral release, deployment, and migration safety — verify a fix is actually deployed to the target environment (not just merged), diff environment secrets before promotion, detect migration drift, run risky cutovers/migrations safely (discover, backup, stage+validate, additive cutover, archive-by-rename), and keep CI signals honest (sweep for gates that swallow their exit code, prove a gate can fail, push → wait for green → tag).",
+      "description": "Provider-neutral release safety: prove a fix is deployed to the target environment (not just merged) by reconciling the running commit SHA, diff env secrets by name before promotion, check that a tag matches the manifest, CHANGELOG and earlier tags, keep CI gates and tag ordering honest, and run risky migrations through a backup, stage, additive-then-cutover skeleton. Hooks remind Claude about release ordering; an opt-in ask mode makes you confirm tag pushes and releases.",
       "author": {
         "name": "TaqaTechno",
         "email": "info@taqatechno.com"
@@ -155,7 +155,7 @@
     },
     {
       "name": "django",
-      "description": "Reusable Django / Django REST Framework engineering toolkit — ORM & model design, migration safety (zero-downtime expand-contract), views & DRF API patterns, settings/12-factor config, security auditing, testing (pytest-django), and performance/caching. 7 auto-activating skills + 4 commands + 3 agents + version/migration-safety/destructive-command guards. Generic and adapter-driven.",
+      "description": "Reusable Django / Django REST Framework engineering toolkit — ORM & model design, migration safety (zero-downtime), views & DRF API patterns, settings/12-factor config, security auditing, testing (pytest-django), and performance/caching. 7 auto-activating skills + 4 commands + 3 agents + session/version + migration-safety + destructive-command guards (ask before wiping data). Generic and adapter-driven — project layout, settings module, and test runner are project-supplied inputs.",
       "author": {
         "name": "TaqaTechno",
         "email": "info@taqatechno.com"
@@ -166,7 +166,7 @@
     },
     {
       "name": "fastapi",
-      "description": "Reusable FastAPI engineering toolkit — Pydantic v2 schema design, async routing & dependency injection, SQLAlchemy/SQLModel data layer (N+1 & async-session traps), Alembic migration safety (zero-downtime expand-contract), pydantic-settings/12-factor config, security auditing (OAuth2/JWT, CORS, injection), pytest + httpx testing, and async-correctness/performance. 8 auto-activating skills + 4 commands + 3 agents + version/event-loop/destructive-command guards. Generic and adapter-driven.",
+      "description": "Reusable FastAPI engineering toolkit — Pydantic v2 schema design, async routing & dependency injection, SQLAlchemy/SQLModel ORM (sync & async sessions, N+1), Alembic migration safety (zero-downtime expand-contract), pydantic-settings/12-factor config, security auditing (OAuth2/JWT, CORS, injection), pytest + httpx testing, and async-correctness/performance. 8 auto-activating skills + 4 commands + 3 agents + session/event-loop/destructive-command guards (ask before wiping data). Generic and adapter-driven — app layout, ORM, async-vs-sync, and test runner are project-supplied inputs.",
       "author": {
         "name": "TaqaTechno",
         "email": "info@taqatechno.com"
@@ -177,7 +177,7 @@
     },
     {
       "name": "git-safety",
-      "description": "Generic local git-workflow safety guardrails — the safety layer that git integrations, commit helpers, and PR-review plugins leave out. Stage explicit paths (never git add -A); re-check the working tree before commit/push; never silent-switch or discard with a dirty tree; git rm --cached deletes a shared file team-wide; per-repo author + remote push identity; plus shared-checkout safety for when more than one agent/session/syncer shares ONE working tree (commit immediately; never reset --hard/clean/stash there; stash@{0} shifts when a peer pops; isolate with git worktree). Advisory only — warns, never blocks.",
+      "description": "Local git-workflow safety for Claude Code: stage explicit paths, re-check the tree before commit and push, never discard a dirty tree, author and push identity, and the hazards of several sessions or a file syncer sharing one working tree. One PreToolUse hook spots risky git commands (reset --hard, clean -f, force push, remote deletes, branch -D, history rewrites). By default it reminds Claude after the command runs; the opt-in ask mode makes you confirm irreversible operations before they run.",
       "author": {
         "name": "TaqaTechno",
         "email": "info@taqatechno.com"
@@ -188,7 +188,7 @@
     },
     {
       "name": "worktree",
-      "description": "Make git worktrees a first-class workspace — list, create, switch, and safely clean parallel worktrees, with the active worktree always visible in the status line. A worktree is a place, not a session: it survives session exit (via a git lock Claude Code's cleanup cannot override) and any number of sessions may share it. Adds opt-in Plan-Driven Lane Execution — one main agent orchestrating several worker sessions, each in its own isolated worktree lane, with delegation pre-flight gates, a board derived from git rather than narrated, and central integration behind one approval. Git stays the source of truth, the plugin ships no hooks.json so installing it registers nothing, and PDLE persists only what git cannot answer. Windows/macOS/Linux, no WSL required.",
+      "description": "Make git worktrees a first-class workspace in Claude Code: list, create, switch, and safely clean parallel worktrees, with the active worktree always visible in the status line. Adds Plan-Driven Lane Execution - one main agent orchestrating several worker sessions, each in its own isolated worktree lane, with delegation gates, a board derived from git, and central integration. Git stays the source of truth, PDLE is opt-in, and the plugin registers zero hooks by default.",
       "author": {
         "name": "TaqaTechno",
         "email": "info@taqatechno.com"
