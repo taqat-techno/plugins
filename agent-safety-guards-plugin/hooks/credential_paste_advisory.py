@@ -95,7 +95,7 @@ def _looks_like_secret(text):
 def _read_prompt():
     """Extract the prompt text from the stdin JSON. Silent-pass on any error."""
     try:
-        raw = sys.stdin.read()
+        raw = sys.stdin.buffer.read().decode("utf-8", "replace")
     except Exception:
         return ""
     if not raw:

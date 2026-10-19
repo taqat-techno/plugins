@@ -3,6 +3,16 @@
 All notable changes to the `agent-safety-guards` plugin are documented here.
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.1] - 2026-10-19
+
+### Fixed
+- **Hook launch is portable and space-safe (Wave 1, QW #2/#3).** `hooks/hooks.json` now runs each python hook through one POSIX-sh launcher: the `${CLAUDE_PLUGIN_ROOT}` path is quoted (a plugin root containing a space no longer hands python a truncated path, which exited 2 and blocked the call), the interpreter is picked from `python3` -> `python` -> `py -3` with the `command -v` builtin (guards no longer fail open where `python3` is not the name), a missing script or unresolved root exits 0, and the hook's own exit code is propagated unchanged. Known limit: on Windows without Git Bash, Claude Code runs shell-form hooks in PowerShell, where the launcher does not parse and the hook fails open (non-blocking).
+- **Hook stdin is decoded as UTF-8 (ECO-14, QW #18).** `credential_paste_advisory.py` read `sys.stdin` as text, which on Windows is cp1252 with surrogateescape, so an Arabic or other non-ASCII payload arrived as mojibake. It now read `sys.stdin.buffer` and decode UTF-8.
+
+### Tests
+- `tests/test_hook_launcher.py` proves quoting, exit-2 propagation from a root with a space, unresolved root -> 0, and no python on PATH -> 0.
+- `tests/test_stdin_utf8.py` feeds a cp1252-wrapped UTF-8 Arabic payload and asserts the prompt is recovered exactly; a structural gate forbids text-mode stdin in `hooks/`.
+
 ## [0.4.0] - 2026-09-27
 
 ### Added

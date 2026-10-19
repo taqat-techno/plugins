@@ -7,7 +7,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/credential_paste_advisory.py"
+            "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/credential_paste_advisory.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\"; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0"
           }
         ]
       }
@@ -18,7 +18,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/test_scope_guard.py\" check",
+            "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/test_scope_guard.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\" check; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0",
             "timeout": 5
           }
         ]
@@ -30,7 +30,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/test_scope_guard.py\" track",
+            "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/test_scope_guard.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\" track; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0",
             "timeout": 5,
             "async": true
           }
