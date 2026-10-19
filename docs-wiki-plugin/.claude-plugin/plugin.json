@@ -1,6 +1,6 @@
 {
   "name": "docs-wiki",
-  "version": "0.11.0",
+  "version": "0.11.2",
   "description": "Conventions, templates and read-only audits for a project wiki: GitHub Wiki sibling repos, in-repo wiki/ folders, GitLab, Azure DevOps and MkDocs. Flat-namespace and link rules, page templates, Mermaid and PlantUML swimlane authoring with a preview-first publish pipeline, link and collision audits, and code-vs-wiki drift reports that never pick a side. One write policy: publish only on request, no history rewrites, per-target deletes. No hooks.",
   "author": {
     "name": "TAQAT Techno",

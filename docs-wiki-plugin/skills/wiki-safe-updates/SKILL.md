@@ -1,6 +1,6 @@
 ---
 name: wiki-safe-updates
-description: "Use when about to write, push, move, rename or delete wiki pages, upload wiki attachments or write Azure DevOps work items. Holds the plugin's single write policy (publish only on the user's request, never rewrite published history, per-target deletes), plan-first previews for multi-page changes, content-preserving edits and link repointing after a move."
+description: "Use when undoing or rolling back a bad wiki edit or push that others may already have pulled (revert it, never reset --hard plus force-push), and when about to write, push, move, rename or delete wiki pages, upload wiki attachments or write Azure DevOps work items. Holds the plugin's single write policy (publish only on the user's request, never rewrite published history, per-target deletes), plan-first previews for multi-page changes, content-preserving edits and link repointing after a move."
 version: 1.1.0
 user-invocable: false
 metadata:

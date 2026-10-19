@@ -43,7 +43,30 @@ from pathlib import Path
 from typing import NoReturn
 
 HERE = Path(__file__).resolve().parent
-PUBLIC_KROKI = ("kroki.io", "www.plantuml.com", "plantuml.com")
+PUBLIC_KROKI = ("kroki.io", "plantuml.com")  # each also covers its subdomains
+
+
+def endpoint_host(endpoint: str) -> str | None:
+    """Lower-cased hostname of an endpoint URL (scheme optional), without the port,
+    userinfo or trailing dot; None when no host can be read."""
+    ep = (endpoint or "").strip().replace("\\", "/")
+    if "://" not in ep:
+        ep = "http://" + ep.lstrip("/")
+    try:
+        host = urllib.parse.urlsplit(ep).hostname
+    except ValueError:
+        return None
+    host = (host or "").rstrip(".").lower()
+    return host or None
+
+
+def is_public_kroki(endpoint: str) -> bool:
+    """True for a public Kroki / PlantUML host (exact or subdomain, case-insensitive),
+    and for an endpoint whose host cannot be read (fail closed)."""
+    host = endpoint_host(endpoint)
+    if host is None:
+        return True
+    return any(host == h or host.endswith("." + h) for h in PUBLIC_KROKI)
 
 
 def run(cmd: list[str]) -> subprocess.CompletedProcess:
@@ -92,13 +115,28 @@ def validate(args: argparse.Namespace) -> None:
         ep = (args.kroki_endpoint or "").strip()
         if not ep:
             die("renderMode=kroki requires a self-hosted --kroki-endpoint (no default).")
-        if any(h in ep for h in PUBLIC_KROKI):
-            die("REFUSED: a PUBLIC Kroki/PlantUML endpoint receives the full diagram source "
-                "(paste-leak). Use a self-hosted endpoint.")
+        if is_public_kroki(ep):
+            die("REFUSED: a PUBLIC Kroki/PlantUML endpoint (or one whose host cannot be "
+                "read) receives the full diagram source (paste-leak). Use a self-hosted "
+                "endpoint.")
     if args.flavour == "azure":
         for req in ("org", "project", "wiki_id"):
             if not getattr(args, req):
                 die(f"azure flavour requires --{req.replace('_', '-')}")
+        # The PAT is sent to this host: refuse plain http before any side effect and
+        # warn on a host that is not Azure DevOps (WIKI-P3-21).
+        sys.dont_write_bytecode = True  # no __pycache__ next to the shipped scripts
+        sys.path.insert(0, str(HERE))
+        try:
+            from upload_attachment import check_org
+        finally:
+            sys.path.pop(0)
+        try:
+            _, warning = check_org(args.org)
+        except ValueError as exc:
+            die(str(exc))
+        if warning:
+            print(f"warning: {warning}", file=sys.stderr)
     if args.flavour == "github" and not args.wiki_clone:
         die("github flavour requires --wiki-clone (the OWNER/REPO.wiki.git sibling path).")
 

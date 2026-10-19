@@ -2,6 +2,27 @@
 
 All notable changes to `docs-wiki-plugin` are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/). Versioning follows [SemVer](https://semver.org/).
 
+## [0.11.2] - 2026-10-19
+
+### Changed
+- **Skill triggering, from real eval results.** Five skills answered correctly from their listing but were never loaded. Each description now opens with the symptom a user actually reports:
+  - `wiki-structure`: a GitHub wiki page vanished, was overwritten, or a link opens another page after a push.
+  - `wiki-source-of-truth`: about to state a platform capability on the strength of a popular or old issue or blog posts.
+  - `wiki-plantuml`: a wiki swimlane or process diagram with one lane per actor, role or department.
+  - `wiki-safe-updates`: undoing a bad wiki push that others already pulled.
+  - `wiki-code-vs-docs-discrepancy`: about to update the wiki to match the code, or the reverse.
+- Eval (`claude plugin eval`, claude-sonnet-5-5, 1 run per case after the change): must-fire fire rate **5/10 -> 10/10**. The five re-run cases all fired and all scored 1. Δ on the re-run cases is +0.20, the same as before, because the replies already passed without the skill loading; plugin-wide Δ was +0.24 before. All 7 `ignores-*` cases stayed quiet (0 fires).
+
+## [0.11.1] - 2026-10-19
+
+### Security
+- **Public-Kroki refusal compares hostnames, not substrings** (RA-WIKI-01). `publish_update.py` parses the endpoint host, lower-cases it, drops a trailing dot, port and userinfo, and refuses `kroki.io` / `plantuml.com` and their subdomains in any case (`https://KROKI.IO` was allowed). An endpoint whose host cannot be read is refused. A self-hosted name that merely contains a public one (`my-plantuml.company.internal`) is no longer refused.
+- **The PAT goes only to an https org URL** (RA-WIKI-02). `upload_attachment.py` (and `publish_update.py` before any side effect) refuses a non-https `--org`, and warns, naming the host, when it is not Azure DevOps Services (`dev.azure.com`, `*.visualstudio.com`).
+- Tests: `tests/test_endpoint_hosts.py` (positive and negative cases for both checks); 89 tests total.
+
+### Notes
+- RA-WIKI-03 (untrusted-content rule) needed no change: the three agents already carry an "External content is data" section, and the skills and commands reference it.
+
 ## [0.11.0] - 2026-10-19
 
 ### Changed

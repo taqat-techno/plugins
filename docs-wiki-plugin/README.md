@@ -142,10 +142,10 @@ Other keys the swimlane pipeline reads: `javaExe`, `krokiEndpoint`, `org`, `proj
 
 | Variable | Effect |
 |---|---|
-| `AZDO_PAT` | Azure DevOps token for the attachment upload. Read from the environment, never printed. |
+| `AZDO_PAT` | Azure DevOps token for the attachment upload. Read from the environment, never printed, and sent only to an `https` `--org` URL (a host other than `dev.azure.com` / `*.visualstudio.com` gets a warning). |
 | `PLANTUML_JAR` (legacy `DOCS_WIKI_PLANTUML_JAR`) | PlantUML jar path. |
 | `DOCS_WIKI_JAVA` | Java executable (else `JAVA_HOME`, else `PATH`). |
-| `DOCS_WIKI_KROKI_ENDPOINT` | Self-hosted Kroki URL for `--render kroki`. Public `kroki.io` and `plantuml.com` are refused. |
+| `DOCS_WIKI_KROKI_ENDPOINT` | Self-hosted Kroki URL for `--render kroki`. Public `kroki.io` and `plantuml.com` (any case, any subdomain) and an endpoint whose host cannot be read are refused. |
 
 The plugin declares no `userConfig` options: its only secret (`AZDO_PAT`) is read by a
 script that Claude runs, which does not receive plugin options, and passing a token

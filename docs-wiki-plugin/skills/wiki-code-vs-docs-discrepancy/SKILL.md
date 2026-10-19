@@ -1,6 +1,6 @@
 ---
 name: wiki-code-vs-docs-discrepancy
-description: "Use when a wiki page and the code, config, schema, deploy scripts or CI disagree, or the user asks whether the wiki still matches the code (\"the wiki says X but the code does Y\"). Reports each discrepancy with file-line evidence on both sides, classifies it (doc-drift, code-drift, intentional gap, unknown) and never picks a side silently."
+description: "Use when about to update a wiki page to match the code, or to change code to match the wiki, when they disagree on a business rule, approval limit, workflow, config value, schema, deploy step or CI behaviour, or when the user asks whether the wiki still matches the code (\"the wiki says X but the code does Y\"). Reports each discrepancy with file-line evidence on both sides, classifies it (doc-drift, code-drift, intentional gap, unknown) and never picks a side silently."
 version: 0.3.0
 user-invocable: false
 metadata:

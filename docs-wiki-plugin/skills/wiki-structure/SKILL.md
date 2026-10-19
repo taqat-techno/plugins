@@ -1,6 +1,6 @@
 ---
 name: wiki-structure
-description: "Use when setting up a wiki, adding or renaming wiki pages, reorganising Home, _Sidebar or _Footer navigation, or checking a GitHub wiki for filename collisions: flat namespace, unique filenames, links without .md, hub pages instead of empty folders, the sibling .wiki clone path, and the per-flavour rules for GitLab, Azure DevOps (page-ID links) and MkDocs."
+description: "Use when a GitHub wiki page vanished, was overwritten, or a link opens another page's content after a push (two files with the same name in different folders collide, because the filename and not the folder becomes the URL), and when setting up a wiki, adding or renaming wiki pages, or reorganising Home, _Sidebar or _Footer navigation. Covers the flat namespace, unique filenames, links without .md, hub pages instead of empty folders, the sibling .wiki clone path, and the per-flavour rules for GitLab, Azure DevOps (page-ID links) and MkDocs."
 version: 0.4.0
 user-invocable: false
 metadata:

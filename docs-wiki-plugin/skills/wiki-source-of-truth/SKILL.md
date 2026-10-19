@@ -1,6 +1,6 @@
 ---
 name: wiki-source-of-truth
-description: "Use when two documentation artifacts disagree and someone must decide which is authoritative, when onboarding a project from its wiki and docs, when checking whether a wiki describes the target or the current state, or when a restructure risks copying a rule onto several pages. Applies the declared precedence order and resolves conflicts with evidence, not guesses."
+description: "Use when a wiki or standards page is about to state a platform or tool capability as fact on the strength of a popular or old GitHub issue, forum thread or blog posts (verify against the dated changelog for the version in use), when two documentation artifacts disagree and someone must decide which is authoritative, when onboarding a project from its wiki and docs, when checking whether a wiki describes the target or the current state, or when a restructure risks copying a rule onto several pages. Applies the declared precedence order and resolves conflicts with evidence, not guesses."
 version: 0.4.0
 user-invocable: false
 metadata:

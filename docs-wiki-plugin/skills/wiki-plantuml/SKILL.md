@@ -1,6 +1,6 @@
 ---
 name: wiki-plantuml
-description: "Use when a wiki page needs an actor-lane or BPMN-pool swimlane diagram, which no wiki renders natively from Mermaid: authoring PlantUML activity-beta lanes and gateways, the suffix colour rule, and the render, attach and embed pipeline per wiki flavour (GitHub image commit, Azure DevOps attachment upload, GitLab or MkDocs native fence)."
+description: "Use when someone wants a swimlane or process diagram for a wiki with one lane per actor, role or department (for example Customer, Sales, Warehouse) or BPMN pools, and asks how to build or embed it. No wiki renders lanes natively from Mermaid. Covers authoring PlantUML activity-beta lanes and gateways, the suffix colour rule, and the render, attach and embed pipeline per wiki flavour (GitHub image commit, Azure DevOps attachment upload, GitLab or MkDocs native fence)."
 version: 0.1.1
 user-invocable: false
 metadata:

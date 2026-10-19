@@ -45,12 +45,37 @@ class UploadError(Exception):
     pass
 
 
+AZURE_HOSTS = ("dev.azure.com", "visualstudio.com", "azure.com")  # + subdomains
+
+
 def org_url(org: str) -> str:
     """Accept a full org URL or a bare org name (-> https://dev.azure.com/<org>)."""
     org = org.strip().rstrip("/")
     if "://" not in org:
         org = "https://dev.azure.com/" + urllib.parse.quote(org, safe="")
     return org
+
+
+def check_org(org: str) -> tuple[str, str | None]:
+    """Validate where the PAT will be sent (WIKI-P3-21). Returns (url, warning).
+    Raises ValueError for a non-https URL or one without a host: the Basic-auth header
+    would otherwise travel in clear text, or to an unreadable destination. A host that
+    is not Azure DevOps Services (an on-premises Azure DevOps Server, or a URL supplied
+    by a cloned repo's adapter file) is allowed with a warning naming the host."""
+    raw = (org or "").strip()
+    url = urllib.parse.urlsplit(raw).geturl() if "://" in raw else org_url(raw)
+    parts = urllib.parse.urlsplit(url)
+    if parts.scheme.lower() != "https":
+        raise ValueError(f"REFUSED: --org must be an https URL (got scheme "
+                         f"'{parts.scheme}'); the PAT would be sent unencrypted.")
+    host = (parts.hostname or "").rstrip(".").lower()
+    if not host:
+        raise ValueError("REFUSED: --org has no host.")
+    if any(host == h or host.endswith("." + h) for h in AZURE_HOSTS):
+        return org_url(raw), None
+    return org_url(raw), (f"--org host '{host}' is not Azure DevOps Services "
+                          f"(dev.azure.com / *.visualstudio.com). The AZDO_PAT is sent to "
+                          f"it; continue only if this is your Azure DevOps Server.")
 
 
 def build_request(org: str, project: str, wiki_id: str, name: str, data: bytes,
@@ -132,6 +157,13 @@ def main(argv: list[str] | None = None) -> int:
     if not path.is_file():
         print(f"error: file not found: {args.file}", file=sys.stderr)
         return 1
+    try:
+        _, warning = check_org(args.org)
+    except ValueError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    if warning:
+        print(f"warning: {warning}", file=sys.stderr)
     pat = os.environ.get(TOKEN_ENV, "")
     if not pat:
         print(f"error: {TOKEN_ENV} not set in the environment (scope vso.wiki_write). It is "
