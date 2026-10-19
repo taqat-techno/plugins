@@ -3,6 +3,51 @@
 All notable changes to the sprint-recap plugin are documented here.
 This project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.3.1] - 2026-10-19
+
+### Security
+
+- **Cached session state can no longer be committed.** `capture_steps.py` caches
+  each role's logged-in Playwright storage state (live session cookies) in
+  `<run>/<capture>/.auth/<role>.json`, but nothing told the user to ignore it and
+  the commit gate did not cover it. `pre_commit_secret_gate.py` now blocks any
+  `git add`/`commit` naming a path under `.sprint-recap/**/.auth`, and
+  `.sprint-recap/**/.auth/` is added to the `.gitignore` guidance in the README,
+  `/sprint-recap-target`, and the `sprint-repro-guide` skill. `check_config.py`
+  warns when it is not ignored, and the broad-`git add` note mentions it.
+- **edge-tts narration no longer runs through a shell.** `build_remotion.py`
+  invoked `edge-tts` with `shell=True` on Windows, so cmd.exe parsed the caption
+  text (`Save & calc` would run `calc`). It now resolves the binary with
+  `shutil.which("edge-tts")` and passes an argv list with no shell. A missing
+  binary is reported and narration skipped; a `.bat`/`.cmd` shim (which Windows
+  would still hand to cmd.exe) is refused with an install hint. A non-zero
+  edge-tts exit is now reported per scene instead of silently dropping the audio.
+
+### Fixed
+
+- **SessionStart warnings are now visible.** `session_start_config_check.py`
+  wrote its findings (config not gitignored, credentials page tracked) to stderr
+  with exit 0, which Claude Code never shows. They are now emitted on stdout as
+  `hookSpecificOutput.additionalContext` with `hookEventName: "SessionStart"`;
+  still exit 0, still silent when there is nothing to report, and an unexpected
+  error now fails open.
+- **Portable hook launcher.** `hooks/hooks.json` launches both python hooks
+  through a quoted `${CLAUDE_PLUGIN_ROOT}` path with a `python3` -> `python` ->
+  `py -3` fallback, so a plugin path containing a space no longer breaks the
+  hooks, and a missing interpreter exits 0 instead of blocking
+  (`tests/test_hook_launcher.py`).
+
+### Tests
+
+- `tests/test_secret_gate.py`: `.auth` file/dir/Windows-separator/commit cases
+  block; `oauth-notes.md`, `.authors` and `.auth` outside `.sprint-recap/` do not.
+- `tests/test_narration.py`: argv list without `shell`, caption passed as one
+  intact argument, not-found and batch-shim handling.
+- `tests/test_session_start.py`: SessionStart output contract (stdout JSON,
+  empty stderr, exit 0, silent when unused).
+- `tests/test_gitignore_guidance.py`: docs name `.sprint-recap/**/.auth/`;
+  `check_config.py` warns only when it is not ignored.
+
 ## [0.3.0] - 2026-09-27
 
 ### Fixed

@@ -137,7 +137,11 @@ Add to `.gitignore` before the first run:
 ```
 .sprint-recap.local.json
 .sprint-recap/credentials/
+.sprint-recap/**/.auth/
 ```
+
+`.auth/` is where `capture` caches each role's logged-in browser storage state
+(session cookies); committing it hands out a live session.
 
 ## Skills
 

@@ -15,6 +15,8 @@ Blocked paths:
   * .sprint-recap.local.json          (base URLs + every role's password)
   * .sprint-recap/credentials/**      (generated plaintext credential pages)
   * *-credentials.html                (the generated file, moved anywhere)
+  * .sprint-recap/**/.auth/           (Playwright storage state per role: live
+                                       session cookies, as good as a password)
 
 Exit codes:
   0 - allow; a broad `git add` also hands Claude a note as PreToolUse
@@ -37,6 +39,9 @@ SECRET_PATTERNS = [
     re.compile(r"\.sprint-recap\.local\.json", re.IGNORECASE),
     re.compile(r"\.sprint-recap[\\/]credentials", re.IGNORECASE),
     re.compile(r"[-\w]*credentials\.html", re.IGNORECASE),
+    # capture_steps.py caches each role's logged-in storage state (cookies) at
+    # .sprint-recap/runs/<sprint>/<capture dir>/.auth/<role>.json.
+    re.compile(r"\.sprint-recap[\\/](?:[^\s'\"|;&]*[\\/])?\.auth(?![\w.-])", re.IGNORECASE),
 ]
 
 # Only gate commands that actually put something into git.
@@ -129,8 +134,9 @@ def main() -> int:
         # assumed.
         _advise(
             "[sprint-recap] note: broad `git add` detected. Confirm "
-            ".sprint-recap.local.json and .sprint-recap/credentials/ are "
-            "ignored here (`git check-ignore -v <path>`)."
+            ".sprint-recap.local.json, .sprint-recap/credentials/ and "
+            ".sprint-recap/**/.auth/ are ignored here "
+            "(`git check-ignore -v <path>`)."
         )
     return 0
 

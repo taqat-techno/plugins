@@ -7,12 +7,24 @@ or a config file exists). Never blocks; it only surfaces the two mistakes that
 cost the most later:
   * the local config is not gitignored, so passwords are one commit from GitHub
   * a generated credentials page is already tracked by git
+
+Output contract: findings go to STDOUT as
+  {"hookSpecificOutput": {"hookEventName": "SessionStart", "additionalContext": "..."}}
+with exit 0. Stderr from an exit-0 SessionStart hook is never shown to Claude
+(or the user), so warnings written there were silently dropped. No output at
+all when there is nothing to report.
 """
 from __future__ import annotations
 
+import json
 import subprocess
 import sys
 from pathlib import Path
+
+try:
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[attr-defined]
+except Exception:
+    pass
 
 CONFIG = ".sprint-recap.local.json"
 RECAP_DIR = ".sprint-recap"
@@ -80,11 +92,22 @@ def main() -> int:
             )
 
     if notes:
-        print("[sprint-recap]", file=sys.stderr)
-        for note in notes:
-            print("  - " + note, file=sys.stderr)
+        emit(notes)
     return 0
 
 
+def emit(notes: list) -> None:
+    """Hand the findings to Claude as SessionStart additionalContext JSON."""
+    text = "[sprint-recap]\n" + "\n".join("  - " + note for note in notes)
+    print(json.dumps({"hookSpecificOutput": {
+        "hookEventName": "SessionStart",
+        "additionalContext": text,
+    }}))
+
+
 if __name__ == "__main__":
-    sys.exit(main())
+    try:
+        code = main()
+    except Exception:  # noqa: BLE001 - an advisory hook must never break the session
+        code = 0
+    sys.exit(code)

@@ -4,7 +4,8 @@
 Used by /sprint-recap-target check. Verifies the four things that matter:
   1. the config parses
   2. git is not tracking it
-  3. .gitignore covers it and the credentials directory
+  3. .gitignore covers it, the credentials directory and the cached .auth/
+     session state
   4. no target points at something that looks like production
 """
 from __future__ import annotations
@@ -56,12 +57,16 @@ def main() -> int:
     in_git = git_flag(["git", "rev-parse", "--is-inside-work-tree"], root)
     report["git_repo"] = in_git
     creds_rel = RECAP_DIRNAME + "/credentials/"
+    # Representative path: capture_steps.py writes <run>/<capture>/.auth/<role>.json.
+    # check-ignore matches patterns, so the path need not exist yet.
+    auth_probe = RECAP_DIRNAME + "/runs/example/capture/.auth/role.json"
 
     if not in_git:
         report["warnings"].append(
             "Not inside a git work tree, so ignore rules were not checked. "
             "If this project becomes a repo, gitignore " + CONFIG_FILENAME
-            + " and " + creds_rel + " before the first commit."
+            + ", " + creds_rel + " and " + RECAP_DIRNAME + "/**/.auth/ before "
+            "the first commit."
         )
     else:
         if git_flag(["git", "ls-files", "--error-unmatch", CONFIG_FILENAME], root):
@@ -75,6 +80,12 @@ def main() -> int:
             report["warnings"].append(
                 creds_rel + " is not gitignored; publish --with-credentials would "
                 "write a plaintext page into a tracked path."
+            )
+        if not git_flag(["git", "check-ignore", "-q", auth_probe], root):
+            report["warnings"].append(
+                RECAP_DIRNAME + "/**/.auth/ is not gitignored; capture caches each "
+                "role's session cookies there. Add `" + RECAP_DIRNAME
+                + "/**/.auth/` to .gitignore."
             )
 
     for name, target in (config.get("targets") or {}).items():

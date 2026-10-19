@@ -66,6 +66,48 @@ class BlocksRealStaging(unittest.TestCase):
         )
 
 
+class BlocksCachedSessionState(unittest.TestCase):
+    """capture_steps.py caches each role's storage state (cookies) under .auth/."""
+
+    def test_auth_state_file(self):
+        self.assertEqual(
+            run("git add .sprint-recap/runs/sprint-3/03-capture/.auth/admin.json"),
+            BLOCK,
+        )
+
+    def test_auth_directory(self):
+        self.assertEqual(run("git add .sprint-recap/runs/sprint-3/03-capture/.auth/"), BLOCK)
+        self.assertEqual(run("git add .sprint-recap/runs/sprint-3/03-capture/.auth"), BLOCK)
+
+    def test_windows_separators(self):
+        self.assertEqual(
+            run("git add .sprint-recap\\runs\\s3\\capture\\.auth\\qa.json"), BLOCK
+        )
+
+    def test_auth_directly_under_recap_dir(self):
+        self.assertEqual(run("git add .sprint-recap/.auth/x.json"), BLOCK)
+
+    def test_commit_of_auth_path(self):
+        self.assertEqual(
+            run("git commit .sprint-recap/runs/s3/capture/.auth/admin.json -m 'x'"),
+            BLOCK,
+        )
+
+    def test_similar_names_are_not_auth(self):
+        self.assertEqual(run("git add .sprint-recap/runs/s3/oauth-notes.md"), ALLOW)
+        self.assertEqual(run("git add .sprint-recap/runs/s3/.authors"), ALLOW)
+        self.assertEqual(run("git add src/.auth/helpers.py"), ALLOW)
+
+    def test_message_mentioning_auth_dir_is_allowed(self):
+        self.assertEqual(
+            run("git commit -m 'never commit .sprint-recap/**/.auth/ state'"), ALLOW
+        )
+
+    def test_broad_add_note_mentions_auth(self):
+        _, out, _ = run_full("git add -A")
+        self.assertIn(".auth/", json.loads(out)["hookSpecificOutput"]["additionalContext"])
+
+
 class AllowsDiscussion(unittest.TestCase):
     """A commit message is not a path."""
 

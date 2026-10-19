@@ -53,7 +53,8 @@ text in place.
 
 ## Before publishing
 
-Confirm `.sprint-recap.local.json` and `.sprint-recap/credentials/` are
+Confirm `.sprint-recap.local.json`, `.sprint-recap/credentials/` and
+`.sprint-recap/**/.auth/` (the capture stage's cached session cookies) are
 gitignored (`python scripts/check_config.py`). The plugin's PreToolUse hook
 blocks git from staging these paths, but a check costs nothing and the hook is
 the last line of defence, not the first.

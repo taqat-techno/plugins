@@ -177,10 +177,30 @@ def build_timeline(log: dict, project: Path, fps: int, script: dict | None):
 # --------------------------------------------------------------------------- #
 # narration (optional)
 # --------------------------------------------------------------------------- #
-def narrate(scenes: list, project: Path, voice: str) -> None:
-    if not which("edge-tts"):
+def resolve_edge_tts() -> str | None:
+    """Absolute path of a directly executable edge-tts, or None.
+
+    The caption text is passed as an argument, so edge-tts must run WITHOUT a
+    shell: through cmd.exe (shell=True, or a .bat/.cmd shim that Windows hands
+    to cmd.exe) a caption containing `&`, `|` or `%VAR%` becomes a command.
+    """
+    exe = shutil.which("edge-tts")
+    if not exe:
         warn("--narrate requested but edge-tts is not on PATH; "
              "install it with `pip install edge-tts`. Continuing without audio.")
+        return None
+    if Path(exe).suffix.lower() in (".bat", ".cmd"):
+        warn("--narrate: edge-tts resolves to a batch shim (" + exe + "), which "
+             "Windows runs through cmd.exe and would let caption text act as "
+             "shell syntax. Install it with `pip install edge-tts` so an "
+             "edge-tts.exe is on PATH. Continuing without audio.")
+        return None
+    return exe
+
+
+def narrate(scenes: list, project: Path, voice: str) -> None:
+    exe = resolve_edge_tts()
+    if not exe:
         return
     audio_dir = project / "public" / "audio"
     audio_dir.mkdir(parents=True, exist_ok=True)
@@ -191,13 +211,15 @@ def narrate(scenes: list, project: Path, voice: str) -> None:
         out = audio_dir / (slugify(str(i) + "-" + str(text)[:40]) + ".mp3")
         try:
             result = subprocess.run(
-                ["edge-tts", "--voice", voice, "--text", str(text),
+                [exe, "--voice", voice, "--text", str(text),
                  "--write-media", str(out)],
                 capture_output=True, text=True, timeout=120,
-                shell=(os.name == "nt"),
             )
             if result.returncode == 0 and out.exists():
                 scene["audio"] = "audio/" + out.name
+            else:
+                warn("narration failed for scene " + str(i) + " (edge-tts exit "
+                     + str(result.returncode) + ")")
         except (OSError, subprocess.SubprocessError):
             warn("narration failed for scene " + str(i))
 
