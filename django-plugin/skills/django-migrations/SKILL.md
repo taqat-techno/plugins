@@ -1,21 +1,22 @@
 ---
 name: django-migrations
-description: Safe Django migration workflow and zero-downtime schema-change sequencing — makemigrations/migrate discipline, reversibility, data migrations (RunPython with a reverse), splitting schema vs data, and the multi-deploy patterns for adding/renaming/dropping columns without breaking a running app. Activates when creating/editing a migration, running makemigrations or migrate, reviewing a migration diff, planning a schema change against a live database, or diagnosing a migration conflict/drift. Owns the migration-safety gate; defers model field choices to django-orm-models.
+description: Use when creating or editing a Django migration, running makemigrations or migrate, reviewing a migration diff or its sqlmigrate SQL, writing a data migration (RunPython with a reverse), planning a schema change against a live database (add, rename, drop or retype a column without downtime), or resolving a migration conflict, drift, squash or --fake problem. Owns the makemigrations -> review -> migrate gate, reversibility, the schema-vs-data split, expand-contract sequencing and table-locking risk. Defers field and constraint choices to django-orm-models.
 version: 0.1.0
-last_reviewed: 2026-06-22
-owns:
-  - the makemigrations -> review -> migrate gate (never auto-trust a generated migration)
-  - reversibility rule (every migration must be reversible; RunPython needs a reverse_code)
-  - idempotency rule for migrations that restore schema objects some environments already have
-  - schema-vs-data split rule (one concern per migration; data migrations are separate)
-  - zero-downtime / expand-contract sequencing for add / rename / drop / type-change
-  - migration-conflict & drift resolution (--merge, squashmigrations, --fake hazards)
-  - locking-risk rules (operations that take ACCESS EXCLUSIVE / rewrite a table)
-defers_to:
-  - django-orm-models (what the field/constraint/index should be)
-  - django-performance (whether a backfill needs batching/throttling)
-  - project deploy pipeline (how/when migrate runs relative to code rollout — adapter input)
 user-invocable: false
+metadata:
+  last_reviewed: 2026-06-22
+  owns:
+    - the makemigrations -> review -> migrate gate (never auto-trust a generated migration)
+    - reversibility rule (every migration must be reversible; RunPython needs a reverse_code)
+    - idempotency rule for migrations that restore schema objects some environments already have
+    - schema-vs-data split rule (one concern per migration; data migrations are separate)
+    - zero-downtime / expand-contract sequencing for add / rename / drop / type-change
+    - migration-conflict & drift resolution (--merge, squashmigrations, --fake hazards)
+    - locking-risk rules (operations that take ACCESS EXCLUSIVE / rewrite a table)
+  defers_to:
+    - django-orm-models (what the field/constraint/index should be)
+    - django-performance (whether a backfill needs batching/throttling)
+    - project deploy pipeline (how/when migrate runs relative to code rollout — adapter input)
 ---
 
 # django-migrations

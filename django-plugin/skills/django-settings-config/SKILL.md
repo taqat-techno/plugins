@@ -1,21 +1,22 @@
 ---
 name: django-settings-config
-description: Django settings architecture and 12-factor configuration — splitting base/dev/prod settings, driving config from the environment, keeping secrets out of source, and the per-environment correctness of DEBUG, ALLOWED_HOSTS, DATABASES, CACHES, static/media, and logging. Activates when creating or editing a settings module, adding a new configuration value, wiring an environment variable or .env, setting up a new environment, pointing the CI/test DATABASES at the same engine as prod (a SQLite test DB hides Postgres-only constraints), or reviewing settings for environment-correctness. Defers the security verdict on settings to django-security-audit.
+description: Use when creating or editing a Django settings module, splitting base/dev/prod settings, adding a configuration value, wiring an environment variable or .env file, keeping a secret out of source, standing up a new environment, choosing DJANGO_SETTINGS_MODULE for manage.py/wsgi/asgi/tests, checking per-environment DEBUG, ALLOWED_HOSTS, DATABASES, CACHES, static/media or LOGGING, pointing CI/test DATABASES at the same engine as prod (a SQLite test DB hides Postgres-only constraints), or removing an override (import * shares mutable objects; whole-key assignment replaces rather than merges). Defers the security verdict on settings to django-security-audit.
 version: 0.1.0
-last_reviewed: 2026-07-23
-owns:
-  - settings layout rule (base + per-env overrides; one settings module per environment)
-  - environment-driven config rule (read config from env; typed/validated; sane defaults only for dev)
-  - secret-handling rule (secrets never in source/VCS; SECRET_KEY/DB creds/API keys from env or a secret store)
-  - per-environment setting correctness (DEBUG, ALLOWED_HOSTS, DATABASES, CACHES, EMAIL, LOGGING, static/media)
-  - DJANGO_SETTINGS_MODULE selection rule across manage.py / wsgi / asgi / tests
-  - settings-override semantics (`import *` shares mutable objects; whole-key assignment replaces rather than merges)
-defers_to:
-  - django-security-audit (the pass/fail security verdict on a settings file)
-  - django-performance (cache backend tuning, connection pooling/CONN_MAX_AGE values)
-  - django-migrations (nothing settings-side, but DB routing config interacts)
-  - project secret-store choice (Vault / SSM / Doppler / .env — adapter input)
 user-invocable: false
+metadata:
+  last_reviewed: 2026-07-23
+  owns:
+    - settings layout rule (base + per-env overrides; one settings module per environment)
+    - environment-driven config rule (read config from env; typed/validated; sane defaults only for dev)
+    - secret-handling rule (secrets never in source/VCS; SECRET_KEY/DB creds/API keys from env or a secret store)
+    - per-environment setting correctness (DEBUG, ALLOWED_HOSTS, DATABASES, CACHES, EMAIL, LOGGING, static/media)
+    - DJANGO_SETTINGS_MODULE selection rule across manage.py / wsgi / asgi / tests
+    - settings-override semantics (`import *` shares mutable objects; whole-key assignment replaces rather than merges)
+  defers_to:
+    - django-security-audit (the pass/fail security verdict on a settings file)
+    - django-performance (cache backend tuning, connection pooling/CONN_MAX_AGE values)
+    - django-migrations (nothing settings-side, but DB routing config interacts)
+    - project secret-store choice (Vault / SSM / Doppler / .env — adapter input)
 ---
 
 # django-settings-config
@@ -59,7 +60,7 @@ project/settings/
 - Select the module via `DJANGO_SETTINGS_MODULE` consistently across **`manage.py`, `wsgi.py`, `asgi.py`, and the test runner** — a mismatch (e.g. tests on dev settings, wsgi on prod) is a classic "works locally, breaks in prod" source.
 - **`from .base import *` binds the *same* mutable objects — assigning a whole key replaces it, it does not merge.** An override module that writes `REST_FRAMEWORK = {...}` (or `LOGGING = {...}`, `CACHES = {...}`) discards every key the base defined and the override omits. Nothing complains: the app still boots, and a value the base set deliberately — a throttle rate, a default permission class, a log handler — is simply absent wherever that module is loaded. Assign the single nested key (`REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"]["user"] = …`) or drive the value from the environment in one place, so base and override cannot diverge.
 - **Verify a config change against the settings module the deployment actually loads, not the one you edited.** A fix applied to `settings.py` is inert if the container image pins `DJANGO_SETTINGS_MODULE` to an override module that re-declares the same key — the change is in the repo, in the review, and in no running environment, so the same bug gets re-reported after it was called fixed. Probe each module in a clean subprocess before reporting a config fix done: `DJANGO_SETTINGS_MODULE=<module> python -c "import django; django.setup(); from django.conf import settings; print(settings.X)"`.
-- **Deleting a per-environment override can be a security regression, not a cleanup.** The override that is wrong for one key may be the only thing tightening another — dropping a whole `REST_FRAMEWORK` block to "fall back to the base" can quietly double the anonymous rate limit guarding login, registration, OTP, and password reset. Before removing an override, diff **every** key it resolved, not the one that brought you there.
+- **Deleting a per-environment override can be a security regression, not a cleanup.** The override that is wrong for one key may be the only thing tightening another — dropping a whole `REST_FRAMEWORK` block to "fall back to the base" can quietly double the anonymous rate limit guarding login, registration and password reset. Before removing an override, diff **every** key it resolved, not the one that brought you there.
 
 ## Environment-driven config rule
 

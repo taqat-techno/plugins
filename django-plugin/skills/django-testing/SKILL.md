@@ -1,24 +1,25 @@
 ---
 name: django-testing
-description: Django testing strategy — pytest-django vs Django's test runner, the TestCase/TransactionTestCase distinction, fixtures vs factory_boy, the test database lifecycle, mocking external calls and time, assertNumQueries for query regressions, and DRF APIClient endpoint tests. Activates when writing or reviewing Django tests, choosing a test base class or fixture strategy, setting up the test runner/DB, deciding to run the constraint-sensitive suite against Postgres instead of SQLite (varchar length, partial/deferrable constraints are Postgres-only and invisible on SQLite), reproducing deployed behavior against a reachable staging DB with a rolled-back force_authenticate + transaction.atomic script, diagnosing flaky/slow/leaky tests, or adding query-count or API-contract coverage. Defers production query design to django-orm-models.
+description: Use when writing or reviewing Django tests, choosing pytest-django vs manage.py test, picking TestCase vs TransactionTestCase vs SimpleTestCase, replacing fixtures with factory_boy, managing the test database (--keepdb, --parallel, fast hashers), mocking external calls or time, adding assertNumQueries or DRF APIClient contract tests, scoping a test run to what changed, running the constraint-sensitive suite on Postgres instead of SQLite (varchar length, partial/deferrable constraints are invisible on SQLite), reproducing deployed behavior against a reachable staging DB with a rolled-back force_authenticate + transaction.atomic script, or diagnosing flaky, slow or leaky tests. Defers production query design to django-orm-models.
 version: 0.1.0
-last_reviewed: 2026-07-23
-owns:
-  - test-runner choice (pytest-django vs manage.py test) and its config
-  - TestCase vs TransactionTestCase vs SimpleTestCase selection rule
-  - test-data strategy (factory_boy over static fixtures; per-test isolation)
-  - test-DB lifecycle rules (rollback isolation, --keepdb, parallel, fast hashers)
-  - external-dependency & time mocking rules (mock at boundary; freeze time; no real network)
-  - backend parity (run the constraint-sensitive suite on the engine you deploy)
-  - CI environment parity (an early-step failure masks the suite; task-eager gating)
-  - rolled-back live-DB repro recipe (force_authenticate + atomic with forced rollback)
-  - regression-coverage rules (assertNumQueries for N+1; APIClient for endpoint contracts)
-defers_to:
-  - django-orm-models (what the production query should be; this skill locks it with a count test)
-  - django-views-drf (the endpoint contract being asserted)
-  - django-settings-config (the test settings module itself)
-  - project test conventions & coverage targets (adapter input)
 user-invocable: false
+metadata:
+  last_reviewed: 2026-07-23
+  owns:
+    - test-runner choice (pytest-django vs manage.py test) and its config
+    - TestCase vs TransactionTestCase vs SimpleTestCase selection rule
+    - test-data strategy (factory_boy over static fixtures; per-test isolation)
+    - test-DB lifecycle rules (rollback isolation, --keepdb, parallel, fast hashers)
+    - external-dependency & time mocking rules (mock at boundary; freeze time; no real network)
+    - backend parity (run the constraint-sensitive suite on the engine you deploy)
+    - CI environment parity (an early-step failure masks the suite; task-eager gating)
+    - rolled-back live-DB repro recipe (force_authenticate + atomic with forced rollback)
+    - regression-coverage rules (assertNumQueries for N+1; APIClient for endpoint contracts)
+  defers_to:
+    - django-orm-models (what the production query should be; this skill locks it with a count test)
+    - django-views-drf (the endpoint contract being asserted)
+    - django-settings-config (the test settings module itself)
+    - project test conventions & coverage targets (adapter input)
 ---
 
 # django-testing
@@ -70,15 +71,18 @@ The trap: `TestCase`'s outer transaction means **`on_commit` callbacks never fir
 
 ## Scoped runs during development
 
-Test the change, not the project. The tier policy is owned by the `test-scope` skill
-(agent-safety-guards plugin). These are the Django selectors for each tier:
+Test the change, not the project. Run the narrowest tier that proves the change, stop
+at the first red tier and fix it before widening, and report which tiers ran (with
+counts) and that the full suite did not. If the `agent-safety-guards` plugin is
+installed, its `test-scope` skill owns this tier policy in more detail. These are the
+Django selectors for each tier:
 
 | Tier | Django run |
 |---|---|
 | T0 | `python -m py_compile` on changed files; `makemigrations --check --dry-run` when models changed |
 | T1 | `manage.py test orders.tests.test_services.ServiceTest.test_round --keepdb`, or pytest `orders/tests/test_services.py::test_round` |
 | T2 | `manage.py test orders --keepdb` for each changed app, plus the apps importing a changed model, migration, settings or base class |
-| T3 | Whole project: **only when the user asks, or in CI**, with `FULL_SUITE=1`. Postgres-parity runs belong in CI (see Backend parity) |
+| T3 | Whole project: **only when the user asks, or in CI** (with agent-safety-guards installed, its hook may want `FULL_SUITE=1` in the command). Postgres-parity runs belong in CI (see Backend parity) |
 
 - After a red run, re-run only the failing labels (`--failed` / pytest `--lf`), then the
   whole T1 set.
@@ -126,7 +130,7 @@ When a bug reproduces only against real (staging) data and the frontend is walle
 - **Expand the database URL only inside the subprocess/script, from the environment, at connection time** — never bake a staging DSN into committed code or a fixture. Read it from the same secret source the app uses and scope it to the single run; prefer a read replica when one exists.
 - Confirm autocommit is off and the rollback actually happened (assert the row count is unchanged) so an early exception can't leave a partial write. Log what the view returned, not what you assumed.
 
-This yields a faithful repro of the deployed code path with zero persistent effect. (The "verify in the target environment" framing is `release-safety`'s; this is the Django-side recipe.)
+This yields a faithful repro of the deployed code path with zero persistent effect. (If the `release-safety` plugin is installed, it owns the wider "verify in the target environment" procedure; this is the Django-side recipe.)
 
 ## Red flags
 

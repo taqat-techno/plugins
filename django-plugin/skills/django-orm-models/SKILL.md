@@ -1,23 +1,24 @@
 ---
 name: django-orm-models
-description: Django model design and ORM query discipline — field/relation modeling, database constraints and indexes, transaction boundaries, and the N+1 / over-fetch query rules (select_related vs prefetch_related, only/defer, bulk operations, QuerySet laziness). Activates when designing or editing a Django model, writing or reviewing ORM queries, diagnosing slow or duplicated queries, choosing select_related vs prefetch_related, deciding where a transaction boundary belongs, or chasing silent data-drift — a derived field skipped when a save passes update_fields, a filter on an encrypted field matching ciphertext (zero rows), a reparent that 500s without a DEFERRABLE composite FK, or a partial UniqueConstraint(condition=…) that lives as a partial index (absent from pg_constraint) and is dropped by DRF's UniqueTogetherValidator. Defers migration mechanics to django-migrations and caching to django-performance.
+description: Use when designing or editing a Django model, writing or reviewing ORM queries, diagnosing slow or duplicated queries (N+1, over-fetch), choosing select_related vs prefetch_related, using only/defer, bulk_create or update(), adding a constraint or index, deciding where a transaction.atomic / select_for_update / on_commit boundary belongs, or chasing silent data drift - values().annotate() group-by counts inflated by Meta.ordering, a derived field skipped when save() passes update_fields, a filter on an encrypted field matching zero rows, a reparent that 500s without a DEFERRABLE composite FK, or a partial UniqueConstraint(condition=...) that is a partial index absent from pg_constraint and dropped by DRF's UniqueTogetherValidator. Covers field and relation modeling, on_delete, null vs blank and QuerySet laziness. Defers migration mechanics to django-migrations and caching to django-performance.
 version: 0.1.0
-last_reviewed: 2026-07-23
-owns:
-  - model field & relation modeling rules (FK/M2M/O2O, on_delete, related_name, null vs blank)
-  - database-level integrity rules (CheckConstraint, UniqueConstraint, db_index, Meta.indexes)
-  - the N+1 detection + fix decision (select_related for FK/O2O, prefetch_related for M2M/reverse FK)
-  - over-fetch rules (only/defer, values/values_list, exists/count vs len/bool)
-  - aggregation/group-by correctness (bare `.order_by()` before values/annotate; counts from the same filtered queryset)
-  - bulk-operation rules (bulk_create/bulk_update/in_bulk, update() vs save() loops)
-  - transaction-boundary rules (atomic scope, select_for_update, on_commit)
-  - silent data-drift traps (update_fields-gated derived fields, filtering an encrypted field by plaintext, deferrable FKs for re-parenting)
-defers_to:
-  - django-migrations (how a model change becomes a safe migration)
-  - django-performance (caching, denormalization, async, pagination at scale)
-  - django-views-drf (serializer-side query shaping for API responses)
-  - project model layout & base-model conventions (adapter input)
 user-invocable: false
+metadata:
+  last_reviewed: 2026-07-23
+  owns:
+    - model field & relation modeling rules (FK/M2M/O2O, on_delete, related_name, null vs blank)
+    - database-level integrity rules (CheckConstraint, UniqueConstraint, db_index, Meta.indexes)
+    - the N+1 detection + fix decision (select_related for FK/O2O, prefetch_related for M2M/reverse FK)
+    - over-fetch rules (only/defer, values/values_list, exists/count vs len/bool)
+    - aggregation/group-by correctness (bare `.order_by()` before values/annotate; counts from the same filtered queryset)
+    - bulk-operation rules (bulk_create/bulk_update/in_bulk, update() vs save() loops)
+    - transaction-boundary rules (atomic scope, select_for_update, on_commit)
+    - silent data-drift traps (update_fields-gated derived fields, filtering an encrypted field by plaintext, deferrable FKs for re-parenting)
+  defers_to:
+    - django-migrations (how a model change becomes a safe migration)
+    - django-performance (caching, denormalization, async, pagination at scale)
+    - django-views-drf (serializer-side query shaping for API responses)
+    - project model layout & base-model conventions (adapter input)
 ---
 
 # django-orm-models

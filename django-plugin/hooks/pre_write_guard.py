@@ -5,7 +5,8 @@ This hook NEVER blocks and NEVER mutates anything. It hands one-line nudges to
 Claude as PreToolUse additionalContext JSON on stdout and ALWAYS exits 0. It inspects the content being written/edited and the
 target path, and warns on a few deterministic, documented-risky shapes:
 
-  Settings files (settings.py / settings/*.py):
+  Settings files (settings.py / settings/*.py; DEBUG and ALLOWED_HOSTS only for
+  prod-bound modules, not test/dev/local ones):
     1. DEBUG = True  hardcoded (rather than env-driven).
     2. A hardcoded secret literal — SECRET_KEY / PASSWORD / API key assigned a
        non-empty string literal that is not reading from the environment.
@@ -22,29 +23,32 @@ target path, and warns on a few deterministic, documented-risky shapes:
 
 It stays SILENT on env-driven config, reversible migrations, and explicit field
 lists. Reads the PreToolUse JSON payload on stdin (content at tool_input.content
-for Write, tool_input.new_string for Edit). Stdlib-only. Fail-OPEN on any error.
+for Write, tool_input.new_string for Edit, edits[].new_string for MultiEdit).
+DEBUG / ALLOWED_HOSTS nudges are skipped in test/dev/local settings modules
+(test_settings.py, settings/dev.py, settings_local.py). Stdlib-only. Fail-OPEN on any error.
 """
-import json
 import os
 import re
 import sys
-import threading
 
-try:
-    sys.stdout.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[attr-defined]
-    sys.stderr.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[attr-defined]
-except Exception:
-    pass
-
-# Fail-OPEN after 3s — advisory only, never wedge a Write/Edit.
-_timer = threading.Timer(3.0, lambda: os._exit(0))
-_timer.daemon = True
-_timer.start()
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "_vendor"))
+import hooklib  # noqa: E402
 
 
 def _is_settings(path):
     p = path.replace("\\", "/").lower()
     return p.endswith("/settings.py") or "/settings/" in p or p.endswith("settings.py")
+
+
+_DEV_SCOPE_RE = re.compile(r"(^|[/_.-])(test|tests|testing|dev|develop|development|local|ci)([/_.-]|$)")
+
+
+def _is_dev_settings(path):
+    """test_settings.py, settings/dev.py, settings_local.py, ... (DEBUG there is expected)."""
+    p = path.replace("\\", "/").lower()
+    name = p.rsplit("/", 1)[-1][:-3] if p.endswith(".py") else p.rsplit("/", 1)[-1]
+    parent = p.rsplit("/", 2)[-2] if p.count("/") >= 1 else ""
+    return bool(_DEV_SCOPE_RE.search(name)) or bool(_DEV_SCOPE_RE.search(parent) and parent != "settings")
 
 
 def _is_migration(path):
@@ -67,13 +71,13 @@ _SECRET_LITERAL_RE = re.compile(
 _ENV_HINT_RE = re.compile(r"environ|os\.environ|getenv|env\(|config\(|decouple|Path\(", re.IGNORECASE)
 
 
-def _check_settings(content):
+def _check_settings(content, dev_scope=False):
     out = []
-    if _DEBUG_TRUE_RE.search(content):
+    if not dev_scope and _DEBUG_TRUE_RE.search(content):
         out.append("[django] advisory: `DEBUG = True` hardcoded in a settings file. Drive it "
                    "from the environment (default False); DEBUG=True in prod leaks tracebacks, "
                    "settings, and SQL.")
-    if _ALLOWED_STAR_RE.search(content):
+    if not dev_scope and _ALLOWED_STAR_RE.search(content):
         out.append("[django] advisory: `ALLOWED_HOSTS = ['*']` accepts any Host header. Set an "
                    "explicit host list for any prod-bound settings module.")
     for m in _SECRET_LITERAL_RE.finditer(content):
@@ -125,58 +129,41 @@ def _check_serializer(content):
     return []
 
 
-def _read_payload():
-    """Parse the hook payload, decoding stdin as UTF-8 (Windows defaults to cp1252)."""
-    try:
-        return json.loads(sys.stdin.buffer.read().decode("utf-8", errors="replace"))
-    except (ValueError, OSError):
-        return None
-
-
-def _advise(text):
-    """Hand an advisory to Claude without blocking the tool call.
-
-    On PreToolUse, stderr and plain stdout from an exit-0 hook never reach the
-    model; only hookSpecificOutput.additionalContext does, and only with
-    hookEventName set. Claude receives it next to the tool result, so it steers
-    the next step rather than this call. No permissionDecision is emitted, so
-    the normal permission flow is untouched.
-    """
-    print(json.dumps({"hookSpecificOutput": {
-        "hookEventName": "PreToolUse",
-        "additionalContext": text,
-    }}))
+def _content(tool_input):
+    """Write content, Edit new_string, or every MultiEdit new_string."""
+    content = tool_input.get("content") or tool_input.get("new_string") or ""
+    edits = tool_input.get("edits")
+    if not content and isinstance(edits, list):
+        content = "\n".join(e.get("new_string", "") for e in edits
+                            if isinstance(e, dict) and isinstance(e.get("new_string"), str))
+    return content if isinstance(content, str) else ""
 
 
 def main():
-    data = _read_payload()
-
-    tool_input = (data.get("tool_input") or {}) if isinstance(data, dict) else {}
+    hooklib.watchdog(3.0)
+    payload = hooklib.read_payload()
+    if payload is None:
+        return 0
+    tool_input = hooklib.tool_input(payload)
     path = tool_input.get("file_path") or tool_input.get("path") or ""
-    if not path or not path.replace("\\", "/").lower().endswith(".py"):
-        _timer.cancel()
-        sys.exit(0)
-
-    # Content for Write, new_string for Edit.
-    content = tool_input.get("content") or tool_input.get("new_string") or ""
-    if not isinstance(content, str) or not content:
-        _timer.cancel()
-        sys.exit(0)
+    if not isinstance(path, str) or not path.replace("\\", "/").lower().endswith(".py"):
+        return 0
+    content = _content(tool_input)
+    if not content:
+        return 0
 
     warnings = []
     if _is_settings(path):
-        warnings += _check_settings(content)
+        warnings += _check_settings(content, dev_scope=_is_dev_settings(path))
     if _is_migration(path):
         warnings += _check_migration(content)
     if _is_serializer(path):
         warnings += _check_serializer(content)
 
     if warnings:
-        _advise("\n".join(warnings))
-
-    _timer.cancel()
-    sys.exit(0)  # ALWAYS allow — advisory only
+        hooklib.context("PreToolUse", "\n".join(warnings))
+    return 0  # ALWAYS allow - advisory only
 
 
 if __name__ == "__main__":
-    main()
+    hooklib.run(main)

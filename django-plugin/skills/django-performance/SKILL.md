@@ -1,21 +1,22 @@
 ---
 name: django-performance
-description: Django performance and scale — query optimization beyond N+1 (annotate/aggregate at the DB, indexing for real query shapes, pagination strategy at scale), the caching layers (per-view, template fragment, low-level cache API, queryset/object cache, cache invalidation), database connection reuse, offloading slow work to Celery/async, and finding the actual bottleneck before changing anything. Activates when an endpoint/page/job is slow, when adding caching, when planning for scale/load, or when batching a large backfill. Defers per-query select_related rules to django-orm-models.
+description: Use when a Django endpoint, page or job is slow beyond a plain N+1, when adding caching (per-view, template fragment, low-level cache API) or cache invalidation, when planning for scale or load, when choosing keyset vs offset pagination for large tables, tuning CONN_MAX_AGE, moving slow work to Celery or async, or batching a large backfill. Owns measure-first, DB-side annotate/aggregate/F() over Python loops, and indexing for the real query shape. Defers per-query select_related rules to django-orm-models.
 version: 0.1.0
-last_reviewed: 2026-06-22
-owns:
-  - measure-first rule (profile/identify the real bottleneck before optimizing)
-  - DB-side computation rules (annotate/aggregate/F-expressions vs Python-side loops)
-  - indexing-for-query-shape rules (index the actual filter/order/join, not every column)
-  - caching-layer selection + invalidation rules (per-view / fragment / low-level / object)
-  - connection reuse (CONN_MAX_AGE) & pagination-at-scale (keyset vs offset)
-  - offloading rule (move slow/blocking work to Celery/async; throttle large backfills)
-defers_to:
-  - django-orm-models (select_related/prefetch/only/defer per-query rules; N+1 mechanics)
-  - django-migrations (how an index/backfill becomes a safe migration)
-  - django-settings-config (cache backend wiring & CONN_MAX_AGE values)
-  - project infra (cache server, broker, worker topology — adapter input)
 user-invocable: false
+metadata:
+  last_reviewed: 2026-06-22
+  owns:
+    - measure-first rule (profile/identify the real bottleneck before optimizing)
+    - DB-side computation rules (annotate/aggregate/F-expressions vs Python-side loops)
+    - indexing-for-query-shape rules (index the actual filter/order/join, not every column)
+    - caching-layer selection + invalidation rules (per-view / fragment / low-level / object)
+    - connection reuse (CONN_MAX_AGE) & pagination-at-scale (keyset vs offset)
+    - offloading rule (move slow/blocking work to Celery/async; throttle large backfills)
+  defers_to:
+    - django-orm-models (select_related/prefetch/only/defer per-query rules; N+1 mechanics)
+    - django-migrations (how an index/backfill becomes a safe migration)
+    - django-settings-config (cache backend wiring & CONN_MAX_AGE values)
+    - project infra (cache server, broker, worker topology — adapter input)
 ---
 
 # django-performance

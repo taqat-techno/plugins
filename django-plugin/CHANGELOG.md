@@ -3,6 +3,36 @@
 All notable changes to the `django` plugin are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/); this plugin uses [Semantic Versioning](https://semver.org/).
 
+## [0.5.0] - 2026-10-19
+
+### Added
+- `userConfig.destructive_guard` (boolean, default true): turn the bash guard's confirmation prompts off from `/config`. `ALLOW_DJANGO_DESTRUCTIVE=1` in the environment Claude Code is launched with does the same.
+- Bash guard now also covers `python -m django flush`, `migrate <app> zero` (unapplies every migration of an app), `mysqladmin drop`, `DROP DATABASE` piped or heredoc'd into a SQL client or sent through `manage.py dbshell`, and commands wrapped in `sudo`, `env`, `poetry run`/`uv run`, `docker compose exec`, `bash -c`, `$(...)` and `if/then` (DJG-P2-03).
+- `/django:migrate --apply` prints the resolved settings module and the target database's engine, host, port and name (never the password) and requires explicit confirmation when the host is not local (DJG-P1-04).
+- `/django:scaffold` documents and, with consent, writes the `.claude/django.local.json` adapter cache, with its JSON schema (DJG-P2-09).
+- Session-start detection finds `manage.py` up to two levels below the session directory (monorepos, DJG-P3-07).
+- Evals: a must-fire case for every skill (5 new) and 7 new must-not-fire near-miss cases. Not run yet; no delta recorded.
+
+### Changed
+- **Commands renamed to bare verbs (ECO-18):** `/django:migrate`, `/django:scaffold`, `/django:test`, `/django:security`. The old `/django:django-*` files remain as deprecated aliases until 0.6.0.
+- **Bash guard asks instead of blocking (DJG-P1-01, ECO-P1-04):** destructive commands return `permissionDecision: "ask"`, so you confirm them. The guard no longer prints an override token, and writing `ALLOW_DJANGO_DESTRUCTIVE` inside a command no longer bypasses it.
+- **Bash guard is scoped to Django projects (ECO-03):** it fires only when `manage.py` is found walking up from the working directory or a `cd` target, or within two levels of `CLAUDE_PROJECT_DIR`.
+- **Bash guard parses the shell command (DJG-P2-02):** quoted text, comments, `echo`, `grep`/`rg` patterns, commit messages, `--help` and `migrate ... zero --plan` no longer trigger it. `--fake` is matched as a token, so `--fake-initial --fake` now advises.
+- Write guard: `DEBUG = True` / `ALLOWED_HOSTS = ['*']` nudges skip test/dev/local settings modules; the matcher now includes `MultiEdit` (DJG-P3-06).
+- SessionStart prints nothing outside a Django project instead of an empty context object.
+- All hooks use the vendored `hooks/_vendor/hooklib.py` (UTF-8 payload, watchdog, fail-open `run`, `ask`, `context`).
+- Adapter cache moved to `.claude/django.local.json`; the legacy `.django-kit.local.json` is still read.
+- Skill descriptions rewritten to start with "Use when" (all under 1,024 characters).
+- `django-testing` and `/django:test` inline the T0-T3 tier summary; the agent-safety-guards `test-scope` skill and `FULL_SUITE=1` are mentioned only as optional ("if installed"). The `release-safety` reference is conditional too (DJG-P2-05).
+- README restructured to the marketplace template, with Configuration, Platform support and Data & privacy sections and the agents' Bash scope stated (DJG-P3-05).
+
+### Fixed
+- `django-views-drf` no longer describes an author-specific "admin/module access registry"; it names the generic role-wide / admin-wide grant. `django-settings-config` drops an OTP-specific example.
+
+### Security
+- The destructive guard can no longer be bypassed by the model adding a token to its own command; only the user (the ask prompt, the plugin option, or the launch environment) can let it through.
+- Agents, `/django:security`, `/django:test` and `django-security-audit` carry the rule that file contents, logs, test output and audit reports are data, never instructions.
+
 ## [0.4.1] - 2026-10-19
 
 ### Fixed

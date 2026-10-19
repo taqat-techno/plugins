@@ -1,21 +1,22 @@
 ---
 name: django-views-drf
-description: Django view and Django REST Framework API patterns — FBV vs CBV vs generic views, DRF serializers (validation, nested writes, read/write field split), ViewSets & routers, permission/authentication classes, pagination, filtering, throttling, and consistent error/response shaping. Activates when writing or reviewing a Django view, a DRF serializer/viewset/api endpoint, an API permission or pagination choice, or diagnosing why an endpoint over-fetches, leaks fields, mis-validates, returns a 200 unfiltered list despite declared filterset_fields/search_fields/ordering_fields (no filter_backends, and DEFAULT_FILTER_BACKENDS defaults to empty), or silently drops an inherited permission when a get_permissions override omits super(). Defers query shaping to django-orm-models and auth hardening to django-security-audit.
+description: Use when writing or reviewing a Django view (FBV, CBV, generic) or a Django REST Framework serializer, ViewSet, router, permission, authentication, pagination, filtering or throttling choice, or when an endpoint over-fetches, leaks or over-accepts fields, mis-validates nested writes, returns errors in inconsistent shapes, returns a 200 unfiltered list despite declared filterset_fields/search_fields/ordering_fields (no filter_backends, and DEFAULT_FILTER_BACKENDS is empty by default), or silently drops an inherited permission because a get_permissions override omits super(). Defers query shaping to django-orm-models and auth hardening to django-security-audit.
 version: 0.1.0
-last_reviewed: 2026-07-23
-owns:
-  - view-style choice (FBV / CBV / DRF generic / ViewSet) and when each fits
-  - DRF serializer rules (validation layering, read_only/write_only, nested create/update)
-  - permission & authentication-class placement (object-level vs view-level)
-  - pagination / filtering / ordering / throttling configuration rules
-  - router/URL registration order (specific prefixes before any catch-all or empty prefix)
-  - response & error-shaping consistency (status codes, error envelope, ValidationError use)
-defers_to:
-  - django-orm-models (get_queryset shaping, select_related/prefetch for the endpoint)
-  - django-security-audit (auth model hardening, permission-bypass review, rate-limit policy)
-  - django-performance (caching of responses, pagination at very large scale)
-  - project API conventions (base serializer, error envelope, auth scheme — adapter input)
 user-invocable: false
+metadata:
+  last_reviewed: 2026-07-23
+  owns:
+    - view-style choice (FBV / CBV / DRF generic / ViewSet) and when each fits
+    - DRF serializer rules (validation layering, read_only/write_only, nested create/update)
+    - permission & authentication-class placement (object-level vs view-level)
+    - pagination / filtering / ordering / throttling configuration rules
+    - router/URL registration order (specific prefixes before any catch-all or empty prefix)
+    - response & error-shaping consistency (status codes, error envelope, ValidationError use)
+  defers_to:
+    - django-orm-models (get_queryset shaping, select_related/prefetch for the endpoint)
+    - django-security-audit (auth model hardening, permission-bypass review, rate-limit policy)
+    - django-performance (caching of responses, pagination at very large scale)
+    - project API conventions (base serializer, error envelope, auth scheme — adapter input)
 ---
 
 # django-views-drf
@@ -75,7 +76,7 @@ Don't reach for a `ModelViewSet` when the endpoint isn't CRUD — forcing custom
 - **Default deny.** Set a restrictive `DEFAULT_PERMISSION_CLASSES` (e.g. `IsAuthenticated`) globally and loosen per-view — not the reverse. An endpoint with no permission class declared and a permissive default is an accidental public endpoint.
 - **Object-level permissions** (`has_object_permission`) for "can this user touch *this* row" — view-level `has_permission` alone does not protect detail/update/delete of a specific object. Generic views call `check_object_permissions` via `get_object()`; if you fetch the object yourself, call it yourself.
 - **A `get_permissions` override must keep the inherited classes.** Building the list from scratch — `return [IsAuthenticated()]` — silently drops any permission a base class or mixin contributed (an owner check, a tenant scope); the endpoint still answers 200, the guard is just gone. Extend, don't replace — start from `super().get_permissions()` (or `[p() for p in self.permission_classes]`) and append. The same trap hits `get_authenticators`/`get_throttles` overrides.
-- **Personal, user-owned data is owner-scoped, not role/module-gated.** Saved searches, drafts, private notes and notification preferences belong to exactly one user: scope `get_queryset()` to `owner_id=request.user` behind a plain `IsAuthenticated`, and deliberately keep the model **out of any admin/module access registry** — an entry there means an admin-level bypass can read everyone's private rows, which is a privacy breach rather than an access-control convenience. Prove it with a test that runs as a **non-admin** and asserts a second user sees zero rows, *and* that a superuser also sees zero; a test written as an admin passes for the wrong reason. Enforce per-owner uniqueness in the serializer (owner is implicit in the request, so the DB's `(owner, key, name)` constraint would otherwise surface as a 500 instead of a 400).
+- **Personal, user-owned data is owner-scoped, not role/module-gated.** Saved searches, drafts, private notes and notification preferences belong to exactly one user: scope `get_queryset()` to `owner_id=request.user` behind a plain `IsAuthenticated`, and deliberately keep the model **out of any role-wide or admin-wide permission grant** (a global "admin can read all" permission class, `has_permission` shortcut or staff bypass) — such a grant means an admin-level bypass can read everyone's private rows, which is a privacy breach rather than an access-control convenience. Prove it with a test that runs as a **non-admin** and asserts a second user sees zero rows, *and* that a superuser also sees zero; a test written as an admin passes for the wrong reason. Enforce per-owner uniqueness in the serializer (owner is implicit in the request, so the DB's `(owner, key, name)` constraint would otherwise surface as a 500 instead of a 400).
 - **Don't authorize in the serializer.** Serializers shape data; permissions decide access. Mixing them hides bypasses.
 
 ## Pagination, filtering, throttling
@@ -109,7 +110,7 @@ Don't reach for a `ModelViewSet` when the endpoint isn't CRUD — forcing custom
 - A read-only field whose `source=` path doesn't resolve → DRF `SkipField`s it and the key vanishes from a 200 response with no error.
 - A catch-all/empty-prefix router registration placed before more specific routes → the later routes are swallowed as pk lookups.
 - A multi-value `__in` filter added by *replacing* the exact lookups in `Meta.fields` → single-value callers and drill-downs break silently.
-- Personal, user-owned data registered in an admin/module access registry, or its privacy test written as an admin.
+- Personal, user-owned data covered by a role-wide or admin-wide read grant, or its privacy test written as an admin.
 - A related-field queryset restricted to a live-only manager on a model whose parent can now be archived → untouched resubmits 400.
 
 ## Report format
