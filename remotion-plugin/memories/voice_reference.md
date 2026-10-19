@@ -73,9 +73,13 @@ edge-tts --text "Lower voice" --voice "en-US-GuyNeural" --pitch="-10Hz" --write-
 | Detailed explanation | 20-30 seconds |
 | Full presentation (10 slides) | 3-7 minutes |
 
-## ElevenLabs (Premium - Optional)
+## ElevenLabs (Premium - Optional, not wired into this plugin)
 
-Ultra-realistic voices with character-level timestamps. Requires API key.
+Ultra-realistic voices with character-level timestamps. This plugin's scripts do
+not call ElevenLabs; the snippet below is for projects that integrate it
+themselves. It needs a paid API key: keep it in an environment variable the user
+sets, never in the project or the chat, and note that the text is sent to
+ElevenLabs.
 
 ```bash
 npm install @elevenlabs/elevenlabs-js

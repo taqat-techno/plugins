@@ -65,11 +65,36 @@ def concat_with_pydub(files, output_path, gap_ms=0):
     return segments, current_ms
 
 
-def concat_with_ffmpeg(files, output_path, gap_ms=0):
-    """Concatenate MP3 files using ffmpeg CLI (fallback method)."""
+def _ffconcat_line(path):
+    """One line of an ffmpeg concat-demuxer list. A ' in the path is written as '\\''."""
+    path = os.path.abspath(path).replace(chr(92), "/")
+    return "file '" + path.replace("'", "'" + chr(92) + "''") + "'\n"
+
+
+def _audio_format(filepath):
+    """(sample_rate, channels) of an MP3, with edge-tts defaults if unreadable."""
+    try:
+        from mutagen.mp3 import MP3
+        info = MP3(filepath).info
+        return int(info.sample_rate) or 24000, int(info.channels) or 1
+    except Exception:
+        return 24000, 1
+
+
+def concat_with_ffmpeg(files, output_path, gap_ms=0, runner=None):
+    """Concatenate MP3 files using the ffmpeg CLI (fallback method).
+
+    The output is RE-ENCODED (libmp3lame), never stream-copied: edge-tts writes
+    24 kHz mono MP3 and a stream copy of inputs whose sample rate or channel
+    layout differ (including the generated silence) yields a malformed stream
+    whose duration no longer matches the segment timestamps. Silence is generated
+    at the first input's sample rate and channel layout, and every ffmpeg return
+    code is checked.
+    """
     import subprocess
     import tempfile
 
+    run = runner or subprocess.run
     segments = []
     current_ms = 0
 
@@ -80,56 +105,47 @@ def concat_with_ffmpeg(files, output_path, gap_ms=0):
         if i > 0 and gap_ms > 0:
             current_ms += gap_ms
 
-        segment_info = {
+        segments.append({
             "file": os.path.basename(filepath),
             "index": i,
             "start_ms": current_ms,
             "end_ms": current_ms + duration_ms,
             "duration_ms": duration_ms,
-        }
-        segments.append(segment_info)
+        })
         current_ms += duration_ms
 
-    # Build ffmpeg concat file
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
-        concat_list_path = f.name
-        for i, filepath in enumerate(files):
-            abs_path = os.path.abspath(filepath).replace("\\", "/")
-            f.write(f"file '{abs_path}'\n")
-            if i < len(files) - 1 and gap_ms > 0:
-                # Create a silence file for gaps
-                silence_path = os.path.join(
-                    tempfile.gettempdir(), f"_silence_{gap_ms}ms.mp3"
-                )
-                if not os.path.exists(silence_path):
-                    subprocess.run(
-                        [
-                            "ffmpeg", "-y", "-f", "lavfi",
-                            "-i", f"anullsrc=r=44100:cl=mono",
-                            "-t", str(gap_ms / 1000),
-                            "-q:a", "9",
-                            silence_path,
-                        ],
-                        capture_output=True,
-                    )
-                f.write(f"file '{silence_path.replace(chr(92), '/')}'\n")
+    rate, channels = _audio_format(files[0])
+    layout = "mono" if channels == 1 else "stereo"
 
-    # Run ffmpeg concat
-    result = subprocess.run(
-        [
-            "ffmpeg", "-y",
-            "-f", "concat",
-            "-safe", "0",
-            "-i", concat_list_path,
-            "-c", "copy",
-            output_path,
-        ],
-        capture_output=True,
-        text=True,
-    )
+    with tempfile.TemporaryDirectory(prefix="remotion-concat-") as work:
+        silence_path = None
+        if gap_ms > 0 and len(files) > 1:
+            silence_path = os.path.join(work, "silence.mp3")
+            made = run(
+                ["ffmpeg", "-y", "-f", "lavfi",
+                 "-i", "anullsrc=r={0}:cl={1}".format(rate, layout),
+                 "-t", str(gap_ms / 1000), "-c:a", "libmp3lame", "-q:a", "9",
+                 silence_path],
+                capture_output=True, text=True,
+            )
+            if made.returncode != 0:
+                print("ERROR: ffmpeg could not generate silence: {0}".format(made.stderr),
+                      file=sys.stderr)
+                sys.exit(1)
 
-    # Clean up
-    os.unlink(concat_list_path)
+        concat_list_path = os.path.join(work, "list.txt")
+        with open(concat_list_path, "w", encoding="utf-8") as f:
+            for i, filepath in enumerate(files):
+                f.write(_ffconcat_line(filepath))
+                if silence_path and i < len(files) - 1:
+                    f.write(_ffconcat_line(silence_path))
+
+        result = run(
+            ["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", concat_list_path,
+             "-ar", str(rate), "-ac", str(channels),
+             "-c:a", "libmp3lame", "-b:a", "192k", output_path],
+            capture_output=True, text=True,
+        )
 
     if result.returncode != 0:
         print(f"ERROR: ffmpeg failed: {result.stderr}", file=sys.stderr)
@@ -139,32 +155,33 @@ def concat_with_ffmpeg(files, output_path, gap_ms=0):
 
 
 def concat_simple(files, output_path, gap_ms=0):
-    """Simple binary concatenation (no gap support, last resort)."""
+    """Byte-level concatenation (last resort). It cannot insert gaps.
+
+    The timestamps therefore never include a gap: reporting gap_ms that is not in
+    the audio would shift scene N's visuals by gap_ms*(N-1) from the narration.
+    The caller reports gap_ms as 0 for this method.
+    """
     segments = []
     current_ms = 0
 
     with open(output_path, "wb") as out_f:
         for i, filepath in enumerate(files):
             duration_ms = get_audio_duration_ms(filepath)
-
-            if i > 0 and gap_ms > 0:
-                current_ms += gap_ms
-
-            segment_info = {
+            segments.append({
                 "file": os.path.basename(filepath),
                 "index": i,
                 "start_ms": current_ms,
                 "end_ms": current_ms + duration_ms,
                 "duration_ms": duration_ms,
-            }
-            segments.append(segment_info)
+            })
             current_ms += duration_ms
 
             with open(filepath, "rb") as in_f:
                 out_f.write(in_f.read())
 
     if gap_ms > 0:
-        print("WARNING: Gap insertion not supported in simple mode. Gaps ignored.", file=sys.stderr)
+        print("WARNING: simple mode cannot insert gaps; segments are back to back "
+              "(gap_ms reported as 0). Install pydub or ffmpeg for gaps.", file=sys.stderr)
 
     return segments, current_ms
 
@@ -194,6 +211,9 @@ def main():
         files = sorted(glob.glob(os.path.join(args.dir, "*.mp3")))
     else:
         parser.error("Provide --files or --dir")
+
+    if args.gap < 0:
+        parser.error("--gap must be >= 0")
 
     # Validate files exist
     for f in files:
@@ -226,12 +246,14 @@ def main():
     print(f"Method: {method} | Files: {len(files)} | Gap: {args.gap}ms | FPS: {args.fps}", file=sys.stderr)
 
     # Concatenate
+    applied_gap = args.gap
     if method == "pydub":
         segments, total_ms = concat_with_pydub(files, args.output, args.gap)
     elif method == "ffmpeg":
         segments, total_ms = concat_with_ffmpeg(files, args.output, args.gap)
     else:
         segments, total_ms = concat_simple(files, args.output, args.gap)
+        applied_gap = 0
 
     # Verify output
     actual_ms = get_audio_duration_ms(args.output)
@@ -253,7 +275,7 @@ def main():
         "total_frames": total_frames,
         "total_frames_with_padding": total_frames + padding_frames,
         "fps": args.fps,
-        "gap_ms": args.gap,
+        "gap_ms": applied_gap,
         "segment_count": len(segments),
         "segments": segments,
     }

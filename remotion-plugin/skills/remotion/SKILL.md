@@ -1,216 +1,144 @@
 ---
 name: remotion-video
-description: |
-  Create professional videos with smooth voice narration using Remotion and Claude Code. Complete video creation pipeline: describe scenes in natural language, generate free edge-tts narration (300+ voices), build React compositions with continuous audio that never cuts between slides, and render production-quality MP4/WebM/GIF output.
-
-  <example>
-  Context: User wants to create a video with narration
-  user: "Create a product demo video with voice narration explaining our features"
-  assistant: "I will use the remotion skill to scaffold a Remotion composition, generate edge-tts voice narration for each scene, and produce a continuous audio pipeline without voice cutting."
-  <commentary>Core trigger - video creation from text prompts with AI narration.</commentary>
-  </example>
-
-  <example>
-  Context: User wants to render the final video
-  user: "Render my Remotion video in 1080p as an MP4 file"
-  assistant: "I will use the remotion skill to detect compositions, select quality preset, and run the Remotion render command."
-  <commentary>Rendering trigger - final video export.</commentary>
-  </example>
-
-  <example>
-  Context: User wants to add voice to an existing composition
-  user: "Add professional voice narration to my existing Remotion video"
-  assistant: "I will use the remotion skill to generate edge-tts audio tracks, concatenate them into a continuous track, and integrate at the root level."
-  <commentary>Audio integration trigger - adding voice to existing video.</commentary>
-  </example>
+description: >-
+  Use when the user is building or fixing a narrated video in Remotion (React):
+  voice-over that cuts, stops or restarts between scenes or slides, an Audio
+  element inside a Sequence, scene timing that drifts from the narration,
+  generating narration with edge-tts, concatenating per-scene MP3s into one
+  track, converting audio milliseconds to frames, creating a new Remotion
+  project, or rendering a composition to MP4, WebM or GIF. Not for general
+  ffmpeg video editing, non-Remotion video tools, or audio work unrelated to a
+  Remotion composition.
+user-invocable: false
 metadata:
   mode: "cli-tool"
   supported-platforms: ["windows", "macos", "linux"]
   node-min-version: "18.0.0"
   remotion-version: "4.0.0+"
-  voice-engines: ["edge-tts", "elevenlabs"]
+  voice-engines: ["edge-tts"]
   output-formats: ["mp4", "webm", "gif", "png-sequence"]
-  model: sonnet
-user-invocable: false
+  last_reviewed: "2026-10-19"
 ---
-<!-- Last updated: 2026-03-26 -->
 
 # Remotion Video Creator
 
-Create professional videos with voice narration using Remotion and Claude Code.
+Narrated Remotion videos whose voice never cuts between scenes: one continuous
+narration track at the root of the composition, with scene timing taken from
+measured MP3 durations.
 
-## When to Use This Skill
+## Commands
 
-- **Create videos from text prompts** - Describe scenes and get a full video
-- **Add voice narration** - Free text-to-speech with 300+ voices via edge-tts
-- **Build animated presentations** - Multi-scene videos with smooth transitions
-- **Render video content** - MP4, WebM, GIF from React components
-- **Fix audio cutting issues** - Continuous audio pipeline prevents voice gaps
+| Command | Does |
+|---|---|
+| `/remotion:init [name]` | New project from the Blank template plus this plugin's templates |
+| `/remotion:status` | Prerequisites and current-project check |
+| `/remotion:render [id]` | Render a composition (Rendering workflow below) |
+| `/remotion:voice [--list]` | List voices or run the narration pipeline |
 
-## Command
+Natural-language requests use the same workflows.
 
-| Command | Description |
-|---------|-------------|
-| `/remotion` | Initialize a new Remotion project with all dependencies |
+## Before you start: licence and data egress
 
-All other workflows (rendering, voice generation, video creation) are handled via natural language.
+Say each of these once per session, before the step it applies to:
 
----
+- **Remotion licence** (before creating a project or a first render): Remotion
+  is source-available. It is free for individuals, non-profits, for-profit
+  organisations with up to 3 employees and for evaluation; other companies need
+  a company licence: https://www.remotion.dev/license
+- **edge-tts** (before the first narration call): edge-tts is an unofficial
+  client of Microsoft Edge's online read-aloud service. Every narration string is
+  sent to Microsoft; it is not an SLA-backed or explicitly commercially licensed
+  API. Ask before narrating text the user called confidential or unreleased.
 
 ## Prerequisites
 
-| Tool | Min Version | Install |
-|------|-------------|---------|
-| Node.js | 18.0.0 | `winget install OpenJS.NodeJS.LTS` |
-| Python | 3.8.0 | Pre-installed on most systems |
-| edge-tts | latest | `pip install edge-tts` |
-| mutagen | latest | `pip install mutagen` |
+| Tool | Min version | Check |
+|---|---|---|
+| Node.js + npm | 18.0.0 | `node --version` |
+| Python | 3.8 | `python --version` |
+| edge-tts | latest | `python -m pip show edge-tts` |
+| mutagen | latest | `python -m pip show mutagen` |
+| pydub or ffmpeg | optional | needed for gaps between segments |
 
-Run `python "${CLAUDE_PLUGIN_ROOT}/scripts/setup_check.py"` to verify (works from any directory).
+`python "${CLAUDE_PLUGIN_ROOT}/scripts/setup_check.py"` checks all of them and
+prints install commands. It installs nothing; show the user the commands rather
+than running package installs yourself.
 
----
+## The Continuous Audio Pattern (critical)
 
-## Project Structure
+An `<Audio>` inside a `<Sequence>` stops when that Sequence ends, so per-scene
+audio cuts at every transition. Put ONE `<Audio>` at the root and drive the
+visual `<Sequence>`s from the narration's segment timestamps:
 
-```
-my-video/
-├── public/
-│   ├── audio/              # Voice narration MP3 files
-│   │   └── narration.mp3   # Single continuous narration track
-│   ├── images/             # Background images, logos
-│   └── content/
-│       └── timeline.json   # Scene timing data
-├── src/
-│   ├── Root.tsx            # Composition registration
-│   ├── compositions/       # Video compositions
-│   │   └── scenes/         # Individual scene components
-│   └── lib/
-│       ├── types.ts        # Zod schemas
-│       └── constants.ts    # FPS, durations, colors
-├── remotion.config.ts
-└── package.json
-```
-
----
-
-## The Continuous Audio Pattern (CRITICAL)
-
-### The Problem
-
-When each slide has its own `<Audio>` inside a `<Sequence>`, audio **stops** when the Sequence ends. This creates jarring cuts in voice narration.
-
-### WRONG - Audio Cuts
-
-```typescript
-// BAD - Audio cuts at every slide transition!
-<Sequence from={0} durationInFrames={90}>
-  <Audio src={staticFile("audio/slide1.mp3")} />  {/* STOPS at frame 90 */}
-</Sequence>
-```
-
-### CORRECT - Continuous Audio
-
-```typescript
-// GOOD - Audio plays continuously through all transitions
+```tsx
 <AbsoluteFill>
-  <Audio src={staticFile("audio/narration.mp3")} />  {/* ROOT level - never cuts */}
-
-  <Sequence from={0} durationInFrames={scene1Frames}>
-    <IntroScene />
-  </Sequence>
-  <Sequence from={scene1Frames} durationInFrames={scene2Frames}>
-    <ContentScene />
-  </Sequence>
+  <Audio src={staticFile("audio/narration.mp3")} />  {/* root level: never cuts */}
+  <Sequence from={0} durationInFrames={scene1Frames}><IntroScene /></Sequence>
+  <Sequence from={scene1Frames} durationInFrames={scene2Frames}><ContentScene /></Sequence>
 </AbsoluteFill>
 ```
 
-### The Pipeline
+Frames: `Math.ceil(ms * FPS / 1000)` for every conversion, plus 1 second of
+padding (`Math.ceil(1.0 * FPS)`) after the audio ends.
 
-1. Write narration text for each scene
-2. Generate per-scene MP3 files with edge-tts (`python "${CLAUDE_PLUGIN_ROOT}/scripts/generate_voice.py"`)
-3. Concatenate all MP3s into ONE continuous track (`python "${CLAUDE_PLUGIN_ROOT}/scripts/concat_audio.py"`)
-4. Use segment timestamps from concat output for visual `<Sequence>` timing
-5. Place single `<Audio>` at root — never inside `<Sequence>`
-6. Validate with `python "${CLAUDE_PLUGIN_ROOT}/scripts/measure_audio.py"`
+## Narration workflow
 
-### Frame Calculation Formula
-
-```typescript
-// ALWAYS use Math.ceil - never truncate audio timing
-const FPS = 30;
-const PADDING_FRAMES = Math.ceil(1.0 * FPS); // 1 second padding
-
-const durationFrames = Math.ceil(audioDurationMs * FPS / 1000) + PADDING_FRAMES;
-const startFrame = Math.ceil(timestampMs * FPS / 1000);
-```
-
----
-
-## Voice Generation Workflow
-
-When the user asks to add voice narration or create a video with voice, run the plugin's scripts in place from the video project's root (they are not copied into the project; output paths are relative to the current directory):
+The scripts run in place from the plugin. Run them from the video project's
+root; output paths are relative to the current directory.
 
 ```bash
-# Generate per-scene audio
-python "${CLAUDE_PLUGIN_ROOT}/scripts/generate_voice.py" --text "Scene text..." --voice "en-US-AriaNeural" --output public/audio/scene01.mp3 --fps 30
+# 1. One MP3 per scene (or --scenes scenes.json --output-dir public/audio/scenes)
+python "${CLAUDE_PLUGIN_ROOT}/scripts/generate_voice.py" --text "Scene text..." --voice en-US-AriaNeural --output public/audio/scenes/01_intro.mp3 --fps 30
 
-# Concatenate into continuous track
-python "${CLAUDE_PLUGIN_ROOT}/scripts/concat_audio.py" --files public/audio/scene01.mp3 public/audio/scene02.mp3 --output public/audio/narration.mp3 --gap 200 --fps 30
+# 2. Concatenate into ONE track; stdout is JSON with per-segment start/end ms and frames
+python "${CLAUDE_PLUGIN_ROOT}/scripts/concat_audio.py" --dir public/audio/scenes --output public/audio/narration.mp3 --gap 200 --fps 30
 
-# Measure and validate
+# 3. Validate the final track
 python "${CLAUDE_PLUGIN_ROOT}/scripts/measure_audio.py" public/audio/narration.mp3 --fps 30
 ```
 
-The concat script outputs JSON with segment boundaries — use these for `<Sequence>` timing.
+- Use the concat JSON `segments[].start_frame` / `duration_frames` for the
+  `<Sequence>`s and `total_frames_with_padding` for `durationInFrames`.
+- Concat picks pydub, then ffmpeg, then a byte-level `simple` mode. `simple`
+  cannot insert gaps; its JSON then reports `gap_ms: 0` and back-to-back
+  timestamps, which are correct for the audio it wrote.
+- Scene ids in `--scenes` JSON are file names: letters, digits, `_` and `-` only.
+- If an output file already exists and was not produced in this session, ask
+  before overwriting it.
+- Default voice `en-US-AriaNeural`; `generate_voice.py --list-voices --language ar`
+  filters the list.
 
-Default voice: `en-US-AriaNeural`. Run `edge-tts --list-voices` to see all 300+ options.
+## Rendering workflow
 
----
-
-## Rendering Workflow
-
-When the user asks to render a video:
-
-1. Detect compositions from `src/Root.tsx`
-2. Ask user for quality preset and format if not specified
-
-```bash
-# Quality presets
-npx remotion render [CompositionId] --crf=15    # Max quality
-npx remotion render [CompositionId] --crf=18    # High quality
-npx remotion render [CompositionId] --crf=24    # Balanced (default)
-npx remotion render [CompositionId] --crf=28    # Draft (fast)
-
-# Format options
-npx remotion render [CompositionId] out/video.mp4               # MP4 (default)
-npx remotion render [CompositionId] out/video.webm --codec=vp8  # WebM
-npx remotion render [CompositionId] out/video.gif --codec=gif    # GIF
-
-# Thumbnail
-npx remotion still [CompositionId] out/thumb.png --frame=0
-```
-
----
-
-## Key Rules
-
-1. **ONE `<Audio>` at root level** — never inside `<Sequence>`. This is the #1 rule.
-2. **Always use `Math.ceil()`** for ms-to-frame conversions — never truncate.
-3. **Always add 1 second padding** to total composition duration after audio ends.
-4. **Validate audio duration** with measure_audio.py before final render.
-5. **Use `staticFile()`** for all assets in `public/` — never hardcode paths.
-
----
-
-## Quick Start
+1. Read the composition ids from `src/Root.tsx`.
+2. Ask for format and quality if the user did not say; ask before overwriting an
+   existing output file.
 
 ```bash
-# 1. Set up project
-/remotion my-video
-
-# 2. Start Remotion Studio
-cd my-video && npm run dev
-
-# 3. Describe your video in natural language
-"Create a 5-scene presentation about [TOPIC] with voice narration"
+npx remotion render <CompositionId> out/video.mp4 --crf=18             # high (15 max, 24 balanced, 28 draft)
+npx remotion render <CompositionId> out/video.webm --codec=vp8         # WebM
+npx remotion render <CompositionId> out/video.gif --codec=gif          # GIF
+npx remotion still <CompositionId> out/thumb.png --frame=0             # thumbnail
 ```
+
+Resource use: the first render downloads Chrome Headless Shell. Rendering is
+CPU- and RAM-heavy and uses roughly half the CPU cores by default; pass
+`--concurrency=<n>` to limit it on a shared machine, and expect temporary frame
+data on disk proportional to length and resolution. Use `--crf=28` or a frame
+range (`--frames=0-90`) for quick drafts.
+
+## Key rules
+
+1. ONE `<Audio>` at root level, never inside `<Sequence>`.
+2. `Math.ceil()` for every ms-to-frame conversion.
+3. 1 second of padding after the audio ends.
+4. Validate with `measure_audio.py` before the final render.
+5. `staticFile()` for every asset in `public/`.
+
+## Reference files (read when needed)
+
+- `${CLAUDE_PLUGIN_ROOT}/memories/audio_patterns.md` - the continuous-audio pattern, anti-patterns, mixing music under narration
+- `${CLAUDE_PLUGIN_ROOT}/memories/composition_patterns.md` - title, bullet, Ken Burns, transition, counter and progress-bar scene recipes; colour and resolution presets
+- `${CLAUDE_PLUGIN_ROOT}/memories/voice_reference.md` - voice tables, rate and pitch, SSML, script-writing tips
+- `${CLAUDE_PLUGIN_ROOT}/memories/troubleshooting.md` - common errors, audio-debugging checklist, render recovery
+- `${CLAUDE_PLUGIN_ROOT}/templates/` - the files `/remotion:init` copies: `Root.tsx`, `composition_continuous_audio.tsx`, `composition_multi_scene.tsx`, `timeline_schema.ts`. Copy one into an existing project when the user wants that pattern there.

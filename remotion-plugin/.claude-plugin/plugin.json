@@ -1,11 +1,14 @@
 {
   "name": "remotion",
-  "version": "2.2.3",
+  "version": "3.0.0",
   "license": "MIT",
-  "description": "Create professional videos with smooth voice narration using Remotion and Claude Code. Features continuous audio pipeline that prevents voice cutting between slides, free edge-tts voice generation, and full video creation from text prompts.",
+  "description": "Narrated Remotion videos whose voice never cuts between scenes: project init with continuous-audio templates, edge-tts narration (text is sent to Microsoft's online TTS), MP3 concatenation with frame-exact scene timestamps, and render presets. Remotion itself needs a company licence for larger for-profit organisations.",
   "author": {
     "name": "TaqaTechno",
     "email": "info@taqatechno.com",
     "url": "https://github.com/taqat-techno"
-  }
+  },
+  "homepage": "https://github.com/taqat-techno/plugins/tree/main/remotion-plugin",
+  "repository": "https://github.com/taqat-techno/plugins",
+  "keywords": ["remotion", "video", "narration", "edge-tts", "tts"]
 }

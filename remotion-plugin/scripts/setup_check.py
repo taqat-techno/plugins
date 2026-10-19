@@ -94,7 +94,8 @@ def main():
         elif plat == "macos":
             print("  Install: brew install node@20")
         else:
-            print("  Install: sudo apt install nodejs  OR  curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash - && sudo apt install nodejs")
+            print("  Install: your distribution's package (e.g. sudo apt install nodejs - check it is >= 18)")
+            print("       or: nvm (https://github.com/nvm-sh/nvm), then: nvm install --lts")
         all_ok = False
 
     # ── npm ──────────────────────────────────────────────────────
@@ -163,10 +164,8 @@ def main():
     if all_ok:
         print("All prerequisites satisfied! You're ready to go.")
         print("\nNext steps:")
-        print("  1. npx create-video@latest")
-        print("  2. cd my-video && npm install")
-        print("  3. npm run dev       (Terminal 1)")
-        print("  4. claude            (Terminal 2)")
+        print("  1. /remotion:init my-video   (in Claude Code)")
+        print("  2. cd my-video && npm run dev")
     else:
         print("Some prerequisites are missing. Install them and run again.")
         print(f"\nQuick install all Python deps:")

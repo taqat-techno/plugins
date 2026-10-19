@@ -28,7 +28,7 @@ import { Audio } from "@remotion/media";
 
 // ─── Scene Configuration ───────────────────────────────────────────────────
 // These values come from concat_audio.py output (segment timestamps)
-// Run: python concat_audio.py --files scene01.mp3 scene02.mp3 ... --output narration.mp3
+// Run (via the remotion plugin): concat_audio.py --files scene01.mp3 scene02.mp3 ... --output narration.mp3
 // Then use the "segments" array from the JSON output
 
 const FPS = 30;

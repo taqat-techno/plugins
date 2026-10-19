@@ -1,8 +1,13 @@
 """
-Remotion Plugin - Voice Generation via edge-tts (FREE)
+Remotion Plugin - Voice Generation via edge-tts
 
 Generates MP3 narration from text using Microsoft Neural TTS voices.
 No API key required. 300+ voices across 70+ languages.
+
+DATA EGRESS: edge-tts is an unofficial client of Microsoft Edge's online
+read-aloud service. Every narration string is sent to Microsoft's servers over
+the network. It is not an SLA-backed or explicitly commercially licensed API.
+Do not narrate confidential text you may not share with Microsoft.
 
 Usage:
     python generate_voice.py --text "Hello world" --output output.mp3
@@ -16,12 +21,43 @@ Usage:
 import argparse
 import asyncio
 import json
+import math
 import os
+import re
 import sys
 
 # Allow importing _common from the same directory
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from _common import check_dependencies
+
+# A scene id becomes a file name inside --output-dir, so it may not carry a path.
+SCENE_ID_RE = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
+
+EGRESS_NOTICE = ("NOTE: edge-tts sends the narration text to Microsoft's online "
+                 "text-to-speech service.")
+
+
+def frames_for(duration_seconds, fps):
+    """Frames needed to cover the audio: always rounded UP, never truncated."""
+    return math.ceil(duration_seconds * fps)
+
+
+def validate_scenes(scenes):
+    """Return the scene list or raise ValueError naming the first bad entry."""
+    if not isinstance(scenes, list):
+        raise ValueError("scenes JSON must be a list of {\"id\", \"text\"} objects")
+    seen = set()
+    for index, scene in enumerate(scenes):
+        if not isinstance(scene, dict) or "id" not in scene or "text" not in scene:
+            raise ValueError("scene {0} needs \"id\" and \"text\"".format(index))
+        scene_id = scene["id"]
+        if not isinstance(scene_id, str) or not SCENE_ID_RE.match(scene_id):
+            raise ValueError(
+                "scene {0} id {1!r} must be 1-64 characters of A-Z a-z 0-9 _ -".format(index, scene_id))
+        if scene_id in seen:
+            raise ValueError("duplicate scene id {0!r}".format(scene_id))
+        seen.add(scene_id)
+    return scenes
 
 
 async def list_voices(language_filter=None):
@@ -97,7 +133,7 @@ async def generate_voice(text, voice, output_path, fps=30, rate=None, pitch=None
         "voice": voice,
         "duration_seconds": round(duration_seconds, 3),
         "duration_ms": duration_ms,
-        "duration_frames": int(duration_seconds * fps) + 1,
+        "duration_frames": frames_for(duration_seconds, fps),
         "fps": fps,
         "file_size_bytes": file_size,
         "text_length": len(text),
@@ -118,6 +154,11 @@ async def generate_multi_scene(scenes_json_path, output_dir, voice, fps=30, rate
     """
     with open(scenes_json_path, "r", encoding="utf-8") as f:
         scenes = json.load(f)
+    try:
+        validate_scenes(scenes)
+    except ValueError as exc:
+        print("ERROR: {0}".format(exc), file=sys.stderr)
+        sys.exit(1)
 
     os.makedirs(output_dir, exist_ok=True)
     results = []
@@ -148,7 +189,7 @@ async def generate_multi_scene(scenes_json_path, output_dir, voice, fps=30, rate
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Generate voice narration using edge-tts (FREE Microsoft Neural TTS)"
+        description="Generate voice narration using edge-tts (sends the text to Microsoft's online TTS service)"
     )
 
     parser.add_argument("--text", type=str, help="Text to convert to speech")
@@ -176,6 +217,8 @@ def main():
     if args.list_voices:
         asyncio.run(list_voices(args.language))
         return
+
+    print(EGRESS_NOTICE, file=sys.stderr)
 
     if args.scenes:
         if not os.path.exists(args.scenes):

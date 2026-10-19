@@ -20,7 +20,7 @@
 2. Does `narration.mp3` exist in `public/audio/`?
 3. Does the total `durationInFrames` of the composition >= audio duration in frames?
 4. Are scene boundaries using `Math.ceil()` for frame calculations?
-5. Run `python measure_audio.py public/audio/narration.mp3` to verify actual duration
+5. Run `python "${CLAUDE_PLUGIN_ROOT}/scripts/measure_audio.py" public/audio/narration.mp3` to verify actual duration
 6. Check Remotion Studio audio waveform - is there a continuous line?
 
 ## Performance Tips
@@ -29,9 +29,8 @@
 2. **Prefer `interpolate()`** over manual math - it handles edge cases
 3. **Use `spring()`** for natural motion instead of linear easing
 4. **Keep components small** - one component per scene
-5. **Use TailwindCSS** for styling instead of heavy inline styles
-6. **Optimize images** - compress before placing in `public/`
-7. **Use `premountFor`** on heavy sequences to pre-load them
+5. **Optimize images** - compress before placing in `public/`
+6. **Use `premountFor`** on heavy sequences to pre-load them
 
 ## Render Error Recovery
 

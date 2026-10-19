@@ -1,5 +1,67 @@
 # Changelog
 
+## [3.0.0] - 2026-10-19
+
+Major: the `/remotion` command is split into verb commands, and concat output
+changes (ffmpeg mode re-encodes; simple mode reports no gaps).
+
+### Added
+- `/remotion:init [name]` with an explicit procedure (RMT-P0-02): prerequisite
+  check, refuse-or-ask on an existing directory, Remotion licence and Chrome
+  download notice, `npx create-video@latest --yes --blank`, `npx remotion add
+  @remotion/media zod`, copy of all four `templates/` into `src/`, and a
+  `npx remotion compositions` check. Bare invocation proposes `my-video`.
+- `/remotion:status`, `/remotion:render`, `/remotion:voice`.
+- The skill now links every `memories/` note and the `templates/` directory as
+  progressive-disclosure references.
+- Render resource notes: Chrome Headless Shell download, CPU/RAM use,
+  `--concurrency`, draft frame ranges (RMT-P3-09).
+- `tests/test_scripts.py`: 25 offline pytest cases covering every script
+  (concat timing in all three modes, ffmpeg argv, quote escaping, frame
+  rounding, scene-id validation, measurement, dependency check, setup check).
+  `tests/test_paths.py` also checks that init copies every template and the skill
+  links every memory file.
+
+### Changed
+- `/remotion` is now a deprecated stub that routes to the new commands; it is
+  removed in the next minor version.
+- Skill description rewritten to 1,024 characters or fewer, starting "Use
+  when"; `<example>` blocks removed; `last_reviewed` moved under `metadata`.
+- `templates/Root.tsx` no longer imports a Tailwind `index.css` the Blank
+  template does not have.
+- README restructured to the marketplace template (requirements, scripts,
+  platform support, data & privacy, limitations, licences) (RMT-P1-05).
+- `generate_voice.py` rounds `duration_frames` up with `math.ceil`, matching
+  `measure_audio.py` and the skill (it overcounted by one frame on exact
+  multiples).
+
+### Fixed
+- **Concat timing in simple mode** (RMT-P1-04): byte-level concatenation cannot
+  insert gaps but still added `--gap` to every timestamp, so scene N's visuals
+  drifted `gap*(N-1)` ms from the audio. Timestamps are now cumulative durations
+  and the JSON reports `gap_ms: 0`.
+- **ffmpeg concat format mismatch** (RMT-P1-04): silence was generated at
+  44.1 kHz and stream-copied next to 24 kHz edge-tts audio. Silence now matches
+  the first input's sample rate and channel layout, the output is re-encoded with
+  libmp3lame, every ffmpeg return code is checked, temporary files live in a
+  per-run directory, and `'` in paths is escaped for the concat list.
+- `--gap` below zero is rejected.
+- The plugin no longer advertises ElevenLabs in skill metadata; the memory note
+  marks it as an unwired, optional snippet (RMT-P2-08).
+
+### Security
+- Discloses that edge-tts sends narration text to Microsoft's online service and
+  that Remotion needs a company licence for larger for-profit organisations, in
+  the README, skill, `/remotion:voice` and `generate_voice.py` (help text plus a
+  stderr notice on each run) (RMT-P1-03).
+- Scene ids from `--scenes` JSON must match `[A-Za-z0-9_-]{1,64}`; `../` ids are
+  rejected before any network call (RMT-P2-07).
+- `setup_check.py` no longer suggests piping a remote script into `sudo bash`;
+  it suggests the distro package or nvm (RMT-P2-07).
+
+### Removed
+- The empty `hooks/hooks.json` (ECO-P3-02).
+
 ## [2.2.3] - 2026-10-19
 
 ### Changed

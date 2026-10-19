@@ -44,6 +44,22 @@ class PluginRootPaths(unittest.TestCase):
         bare = re.findall(r"python3? scripts/\S+", SKILL.read_text(encoding="utf-8"))
         self.assertEqual(bare, [])
 
+    def test_init_command_copies_every_template(self):
+        found = refs(ROOT / "commands" / "init.md")
+        for template in sorted((ROOT / "templates").iterdir()):
+            self.assertIn(f"templates/{template.name}", found)
+
+    def test_skill_links_every_memory_file(self):
+        found = refs(SKILL)
+        for memory in sorted((ROOT / "memories").glob("*.md")):
+            self.assertIn(f"memories/{memory.name}", found)
+
+    def test_no_command_repeats_the_plugin_name_except_the_deprecated_stub(self):
+        stub = (ROOT / "commands" / "remotion.md").read_text(encoding="utf-8")
+        self.assertIn("Deprecated", stub)
+        for name in ("init", "status", "render", "voice"):
+            self.assertTrue((ROOT / "commands" / f"{name}.md").is_file())
+
 
 if __name__ == "__main__":
     unittest.main()

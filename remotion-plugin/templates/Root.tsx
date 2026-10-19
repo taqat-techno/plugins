@@ -10,7 +10,8 @@
  */
 
 import { Composition, staticFile } from "remotion";
-import "./index.css"; // TailwindCSS import
+// The templates use inline styles only; add `import "./index.css";` here if your
+// project was created with Tailwind and you want to use its classes.
 
 // Import your compositions
 import { ContinuousAudioVideo } from "./compositions/ContinuousAudioVideo";
