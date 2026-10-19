@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.2.3] - 2026-10-19
+
+### Changed
+- Added `"license": "MIT"` to plugin.json.
+
 ## [2.2.2] - 2026-10-19
 
 **The voice pipeline commands now run from the user's project** (RMT-P0-01).
