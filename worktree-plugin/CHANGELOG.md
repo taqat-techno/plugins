@@ -5,6 +5,16 @@ All notable changes to the Git Worktree Workspaces plugin.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.1.5] - 2026-10-19
+
+Skill triggering tuned against real eval results. Measured with `claude plugin eval --runs 1 --model claude-sonnet-5-5`; the no-plugin baseline is the 2026-10-19 run, and Δ counts the criteria grader only.
+
+### Changed
+- `new` description now covers wanting a separate, isolated copy of the repo for long-running work. It also covers asking what to know first, or how to stop the copy disappearing when the session ends. It states that the skill locks the worktree so it survives session exit. The skill body already had the auto-removal, lock and fresh-checkout guidance; the skill just never loaded (`fires-on-persistent-isolated-workspace` scored 0).
+
+### Eval results
+- Must-fire: 2/3 -> 3/3. Must-not-fire: 1/1 quiet before and after. Mean Δ: +0.50 -> +0.75. The persistent-workspace case went 0 -> 1.
+
 ## [2.1.4] - 2026-10-19
 
 ### Changed

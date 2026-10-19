@@ -1,6 +1,11 @@
 ---
 name: new
-description: Use when the user wants an isolated worktree or workspace for a task, wants to work on something in parallel without touching the current checkout, or asks to start a new worktree. Creates it and moves this session into it.
+description: >-
+  Use when the user wants a separate, isolated copy of their repository to work in - a worktree or
+  workspace for a task, a long-running refactor kept apart from the main checkout, parallel work
+  that must not touch the current checkout - including when they ask what to know before setting one
+  up or how to keep it from disappearing when the session ends. Creates it, locks it so it survives
+  session exit, and moves this session into it.
 allowed-tools: Bash(bash "${CLAUDE_PLUGIN_ROOT}/scripts/wt-inventory.sh"*), Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/wt-inventory.sh *)
 ---
 
