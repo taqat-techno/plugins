@@ -5,6 +5,11 @@ All notable changes to the Git Worktree Workspaces plugin.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.1.4] - 2026-10-19
+
+### Changed
+- Examples use neutral project and path names.
+
 ## [2.1.3] - 2026-10-19
 
 ### Fixed
@@ -137,8 +142,8 @@ breaking change.
   not the closing one, so every field came back with a trailing `"`:
 
   ```
-  1.0.0   cwd=[C:\\MY-WorkSpace\\odoo\\projects\\medline-19"]   name=[main agent"]
-  2.0.0   cwd=[C:\\MY-WorkSpace\\odoo\\projects\\medline-19]    name=[main agent]
+  1.0.0   cwd=[C:\\work\\odoo\\projects\\acme-19"]   name=[main agent"]
+  2.0.0   cwd=[C:\\work\\odoo\\projects\\acme-19]    name=[main agent]
   ```
 
   Because `cwd` is normalised and compared against worktree paths, the stray

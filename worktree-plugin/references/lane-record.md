@@ -42,7 +42,7 @@ acked-at        2026-08-22T22:47:10Z
 held            false
 env             config odoo.lane-p11-cash.conf
 env             ports 8703,8704
-env             db_prefix medline_p11c_
+env             db_prefix acme_p11c_
 ```
 
 ## Fields
