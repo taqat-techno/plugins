@@ -235,5 +235,5 @@ This skill hardcodes no project, path, version number, package-manager name, or 
 - `react-lint-triage` — analyzer/linter finding classification and the false-positive catalog (incl. never auto-deleting a file on an alias-blind dead-file signal); this skill defers all finding-judgment there.
 - `data-fetching-states` — runtime loading/error/empty state verdicts (not build failures).
 - `react19-migration` — deprecated/removed-API migration verdicts.
-- `env-doctor` (claude-env-doctor-plugin) — generic broken-local-environment diagnosis (spawn / auth / missing-binary / version / DNS / encoding / config-shadowing); use it when the failure is environmental rather than a build/tooling trap.
+- `env-doctor` (env-doctor-plugin) — generic broken-local-environment diagnosis (spawn / auth / missing-binary / version / DNS / encoding / config-shadowing); use it when the failure is environmental rather than a build/tooling trap.
 - The project's package-manager, bundler, and ORM config — the source of truth for versions, cache paths, and codegen/schema locations.

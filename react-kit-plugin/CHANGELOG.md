@@ -2,6 +2,11 @@
 
 All notable changes to `react-kit-plugin` are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/). Versioning follows [SemVer](https://semver.org/).
 
+## [0.6.4] - 2026-10-19
+
+### Changed
+- Cross-references renamed from `claude-env-doctor` to `env-doctor`.
+
 ## [0.6.3] - 2026-10-19
 
 ### Fixed

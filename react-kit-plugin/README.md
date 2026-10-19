@@ -81,7 +81,7 @@ Reusable patterns for building and auditing React / Next.js applications — wit
 - **Aesthetics / visual design** → the official `frontend-design` plugin owns net-new visual style. react-kit owns **structure, state, CRUD, views, and workflow methodology**, not the look.
 - **Testing the running UI** → `qa-browser` (layered over the official Playwright MCP) verifies roles, RBAC, and that the API enforces what the UI hides.
 - **Docs / SOPs** → `docs-wiki`.
-- **Environment problems** → `claude-env-doctor`.
+- **Environment problems** → `env-doctor`.
 
 ## Adapter inputs (asked the first time you invoke a command)
 
