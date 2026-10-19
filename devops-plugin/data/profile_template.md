@@ -13,6 +13,14 @@ identity:
   uniqueName: "{UNIQUE_NAME}"
 
 role: "{ROLE}"
+# Process preset detected by /init (data/state_machine.json processPresets):
+# basic | agile | scrum | cmmi | custom-scrum-qc
+process: "{PROCESS_PRESET}"
+# Optional - how role/naming rule violations are handled: ask (default) | block | advise
+# enforcement: "ask"
+# Optional overrides of the preset's rules (inline JSON, or off):
+# roleRules: {"restrictedStates": {"Closed": {"allowedRoles": ["pm", "lead"]}}}
+# taskNaming: {"appliesTo": ["Task"], "prefixes": ["[Dev]", "[Front]"]}
 team: "{DEFAULT_TEAM}"
 defaultProject: "{DEFAULT_PROJECT}"
 
@@ -24,8 +32,9 @@ preferences:
 
 taskTemplates:
 # {TASK_TEMPLATES_YAML}
-# Fetched from: Project Settings → Boards → Templates → Task
-# Example:
+# Fetched from: Project Settings → Boards → Templates → Task (suggestions only;
+# prefixes are REQUIRED only when the preset or a taskNaming override defines them)
+# Example (custom-scrum-qc style):
 #  - name: "[Dev]"
 #    description: "Backend/Full-Stack development"
 #    keywords: ["api", "endpoint", "database", "backend"]
@@ -44,8 +53,8 @@ taskTemplates:
 
 statePermissions:
 # {STATE_PERMISSIONS_YAML}
-# Auto-generated from role during /init profile
-# Source: data/state_machine.json → rolePermissions[role].permissions
+# Only for presets that define rolePermissions (custom-scrum-qc); omitted for stock presets
+# Source: data/state_machine.json → processPresets[process].rolePermissions[role].permissions
 # DO NOT edit manually — re-run /init profile to refresh
 
 projects:

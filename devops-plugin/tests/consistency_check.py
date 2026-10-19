@@ -39,14 +39,19 @@ def log_verbose(msg: str):
 
 
 def load_json(path: Path) -> dict:
-    with open(path) as f:
+    with open(path, encoding="utf-8") as f:
         return json.load(f)
+
+
+def load_custom_preset() -> dict:
+    """The custom-scrum-qc preset: the one preset carrying role permissions/rules."""
+    return load_json(DATA_DIR / "state_machine.json")["processPresets"]["custom-scrum-qc"]
 
 
 def check_state_machine_schema() -> List[str]:
     """Validate state_machine.json internal consistency."""
     errors = []
-    sm = load_json(DATA_DIR / "state_machine.json")
+    sm = load_custom_preset()
 
     # Check required top-level keys
     for key in ["workItemTypes", "rolePermissions", "universalRules", "businessRules"]:
@@ -95,7 +100,7 @@ def check_state_machine_schema() -> List[str]:
 def check_role_permissions() -> List[str]:
     """Validate role permissions reference valid work item types and transitions."""
     errors = []
-    sm = load_json(DATA_DIR / "state_machine.json")
+    sm = load_custom_preset()
 
     wit_types = set(sm.get("workItemTypes", {}).keys())
     role_perms = sm.get("rolePermissions", {})
@@ -138,7 +143,7 @@ def check_role_permissions() -> List[str]:
 def check_hierarchy_rules() -> List[str]:
     """Validate hierarchy_rules.json references valid work item types."""
     errors = []
-    sm = load_json(DATA_DIR / "state_machine.json")
+    sm = load_custom_preset()
     hr = load_json(DATA_DIR / "hierarchy_rules.json")
 
     sm_types = set(sm.get("workItemTypes", {}).keys())
@@ -263,7 +268,7 @@ def check_hooks_reference_existing_scripts() -> List[str]:
 def check_role_names_consistent() -> List[str]:
     """Validate role names in state_machine match profile template."""
     errors = []
-    sm = load_json(DATA_DIR / "state_machine.json")
+    sm = load_custom_preset()
     template_path = DATA_DIR / "profile_template.md"
 
     if not template_path.exists():

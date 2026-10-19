@@ -14,10 +14,26 @@ from pathlib import Path
 DATA_DIR = Path(__file__).parent.parent / "data"
 
 
+CUSTOM = "custom-scrum-qc"
+STOCK = ["basic", "agile", "scrum", "cmmi"]
+
+
 @pytest.fixture(scope="module")
-def state_machine():
-    with open(DATA_DIR / "state_machine.json") as f:
+def raw_state_machine():
+    with open(DATA_DIR / "state_machine.json", encoding="utf-8") as f:
         return json.load(f)
+
+
+@pytest.fixture(scope="module")
+def state_machine(raw_state_machine):
+    """The opt-in custom-scrum-qc preset merged with the shared top-level sections.
+
+    Most assertions below describe that customized model; they moved from the old
+    top level into processPresets["custom-scrum-qc"] unchanged in substance.
+    """
+    view = {k: v for k, v in raw_state_machine.items() if k != "processPresets"}
+    view.update(raw_state_machine["processPresets"][CUSTOM])
+    return view
 
 
 # ─── Schema Validation ───────────────────────────────────────────
@@ -27,7 +43,8 @@ class TestSchema:
     """Verify state_machine.json has all required top-level keys and structure."""
 
     def test_has_required_top_level_keys(self, state_machine):
-        for key in ["workItemTypes", "rolePermissions", "universalRules", "businessRules", "preFlightFields"]:
+        for key in ["workItemTypes", "rolePermissions", "universalRules", "businessRules",
+                    "roleRules", "taskNaming", "preFlightFields"]:
             assert key in state_machine, f"Missing top-level key: {key}"
 
     def test_has_meta(self, state_machine):
@@ -252,8 +269,8 @@ class TestBusinessRules:
     """Validate business rules section."""
 
     def test_task_naming_has_prefixes(self, state_machine):
-        naming = state_machine["businessRules"]["taskNaming"]
-        prefixes = naming["defaultPrefixes"]
+        naming = state_machine["taskNaming"]
+        prefixes = naming["prefixes"]
         assert len(prefixes) >= 5
         prefix_names = [p["prefix"] for p in prefixes]
         assert "[Dev]" in prefix_names
@@ -285,11 +302,11 @@ class TestUniversalRules:
     """Validate universal permission rules."""
 
     def test_close_restriction_exists(self, state_machine):
-        rule = state_machine["universalRules"]["closeRestriction"]
+        rule = state_machine["roleRules"]["restrictedStates"]["Closed"]
         assert "pm" in rule["allowedRoles"] or "lead" in rule["allowedRoles"]
 
     def test_remove_restriction_exists(self, state_machine):
-        rule = state_machine["universalRules"]["removeRestriction"]
+        rule = state_machine["roleRules"]["restrictedStates"]["Removed"]
         assert "pm" in rule["allowedRoles"]
 
     def test_return_handling_requires_comment(self, state_machine):
@@ -297,5 +314,76 @@ class TestUniversalRules:
         assert rule["requireComment"] is True
 
     def test_no_profile_fallback(self, state_machine):
-        rule = state_machine["universalRules"]["noProfileFallback"]
+        rule = state_machine["genericRules"]["noProfileFallback"]
         assert rule["behavior"] == "warn-and-allow"
+
+
+# ─── Process presets ─────────────────────────────────────────────
+
+
+# Microsoft's documented default states per stock template (Azure DevOps Services).
+MS_DEFAULT_STATES = {
+    ("basic", "Issue"): ["To Do", "Doing", "Done"],
+    ("basic", "Task"): ["To Do", "Doing", "Done"],
+    ("agile", "UserStory"): ["New", "Active", "Resolved", "Closed", "Removed"],
+    ("agile", "Task"): ["New", "Active", "Closed", "Removed"],
+    ("agile", "Bug"): ["New", "Active", "Resolved", "Closed"],
+    ("scrum", "ProductBacklogItem"): ["New", "Approved", "Committed", "Done", "Removed"],
+    ("scrum", "Bug"): ["New", "Approved", "Committed", "Done", "Removed"],
+    ("scrum", "Task"): ["To Do", "In Progress", "Done", "Removed"],
+    ("cmmi", "Requirement"): ["Proposed", "Active", "Resolved", "Closed"],
+    ("cmmi", "Task"): ["Proposed", "Active", "Resolved", "Closed"],
+}
+
+
+class TestProcessPresets:
+    def test_all_presets_present(self, raw_state_machine):
+        presets = raw_state_machine["processPresets"]
+        assert set(presets) == set(STOCK + [CUSTOM])
+
+    def test_default_preset_is_stock(self, raw_state_machine):
+        assert raw_state_machine["defaultPreset"] in STOCK
+
+    def test_no_org_specific_authority_framing(self, raw_state_machine):
+        blob = json.dumps(raw_state_machine["_meta"])
+        assert "THIS org" not in blob and "auto-detected" not in blob
+
+    @pytest.mark.parametrize("name", STOCK)
+    def test_stock_presets_are_marked_microsoft_default(self, raw_state_machine, name):
+        preset = raw_state_machine["processPresets"][name]
+        assert preset["source"] == "microsoft-default"
+        assert preset["transitionModel"] == "any"
+
+    @pytest.mark.parametrize("name", STOCK)
+    def test_stock_presets_have_no_role_or_naming_rules(self, raw_state_machine, name):
+        preset = raw_state_machine["processPresets"][name]
+        for key in ("roleRules", "taskNaming", "rolePermissions"):
+            assert key not in preset, f"{name} must not carry {key}"
+
+    @pytest.mark.parametrize("key,states", sorted(MS_DEFAULT_STATES.items()))
+    def test_stock_states_match_microsoft_defaults(self, raw_state_machine, key, states):
+        preset, wit = key
+        assert raw_state_machine["processPresets"][preset]["workItemTypes"][wit]["states"] == states
+
+    def test_every_preset_type_is_well_formed(self, raw_state_machine):
+        for name, preset in raw_state_machine["processPresets"].items():
+            assert preset.get("requirementType"), name
+            for wit, cfg in preset["workItemTypes"].items():
+                assert cfg.get("name"), f"{name}.{wit} missing ADO name"
+                states = set(cfg["states"])
+                assert set(cfg["happyPath"]) <= states, f"{name}.{wit} happyPath"
+                for key in cfg.get("transitions", {}):
+                    if key.startswith("Any"):
+                        continue
+                    src, dst = key.split(" -> ")
+                    assert {src, dst} <= states, f"{name}.{wit} {key}"
+
+    def test_custom_preset_is_opt_in_and_explicit(self, raw_state_machine):
+        custom = raw_state_machine["processPresets"][CUSTOM]
+        assert custom["source"] == "custom" and custom["transitionModel"] == "explicit"
+        assert "Bug" in custom["roleRules"]["createRestrictions"]
+
+    def test_detection_covers_every_preset(self, raw_state_machine):
+        order = [r["preset"] for r in raw_state_machine["presetDetection"]["order"]]
+        assert set(order) == set(raw_state_machine["processPresets"])
+        assert order[0] == CUSTOM, "custom signature must be tested before plain scrum"

@@ -39,9 +39,10 @@ Each concern has exactly ONE owner. Other layers reference but never re-implemen
 ┌──────────────────────▼──────────────────────────────────────────┐
 │  DATA (5) — Source of truth (JSON/MD)                           │
 │                                                                 │
-│  state_machine.json      OWNS: states, transitions, roles,      │
-│                          required fields, business rules,        │
-│                          error patterns + recovery actions        │
+│  state_machine.json      OWNS: process presets (basic, agile,   │
+│                          scrum, cmmi, custom-scrum-qc): states,  │
+│                          transitions, optional role/naming rules;│
+│                          preset detection, error patterns        │
 │  hierarchy_rules.json    OWNS: parent-child enforcement          │
 │  project_defaults.json   OWNS: project aliases, URL templates,   │
 │                          work tracking + staleness config         │
@@ -54,8 +55,9 @@ Each concern has exactly ONE owner. Other layers reference but never re-implemen
 │                                                                 │
 │  session-start.sh       Context: profile check + staleness      │
 │  pre_write_validate.py  Context: state/hierarchy hints           │
-│                         Enforce: bug creation block (exit 2)     │
-│                         Enforce: close/remove restriction (exit 2)│
+│                         Ask: preset role/naming rule violations  │
+│                              + states not in the active preset   │
+│                              (exit 2 only if enforcement: block) │
 │                         Enforce: unresolved @mentions (exit 2)   │
 │  pre_write_confirm.py   Enforce: permissionDecision "ask" on   │
 │                         all other ADO writes (list: write-gate) │
@@ -64,7 +66,7 @@ Each concern has exactly ONE owner. Other layers reference but never re-implemen
 │  error-recovery.sh      Context: API error guidance             │
 │                                                                 │
 │  Rule: Hooks INJECT context. They do NOT re-implement logic.    │
-│  Exception: Bug creation authority block (hard exit 2).         │
+│  Exception: unresolved @mentions (hard exit 2).                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -76,10 +78,12 @@ Each concern has exactly ONE owner. Other layers reference but never re-implemen
 | Tool selection | `rules/guards.md` G1 | Rule | SKILL, work-item-ops |
 | Mention resolution | `rules/guards.md` G2 | Rule | SKILL, work-item-ops, hooks |
 | Repo GUID resolution | `rules/guards.md` G3 | Rule | SKILL, pr-reviewer, hooks |
-| State transitions | `data/state_machine.json` | Data | SKILL, work-item-ops, hooks |
+| Process presets + detection | `data/state_machine.json` (`processPresets`, `presetDetection`) | Data | /init, SKILL, work-item-ops, hooks |
+| Active preset selection | profile `process` field (`rules/profile-loader.md`) | Rule | SKILL, hooks |
+| State transitions | `data/state_machine.json` `processPresets[*]` | Data | SKILL, work-item-ops, hooks |
 | Hierarchy enforcement | `data/hierarchy_rules.json` | Data | SKILL, hooks |
-| Business rules | `data/state_machine.json` | Data | SKILL, hooks |
-| Bug creation authority | `data/state_machine.json` | Data | hooks (enforced exit 2) |
+| Business rules | `data/state_machine.json` preset `businessRules` / `genericRules` | Data | SKILL, hooks |
+| Role + naming rules (optional) | preset `roleRules` / `taskNaming`, profile overrides | Data | hooks (ask; block on opt-in) |
 | Error recovery | `data/state_machine.json` (`errorPatterns`) | Data | hooks (single source of truth for all error codes) |
 | Profile management | `rules/profile-loader.md` | Rule | SKILL, all agents |
 | CLI/MCP routing | `devops/SKILL.md` | Skill | commands |
@@ -104,7 +108,7 @@ Each concern has exactly ONE owner. Other layers reference but never re-implemen
 ## Adding New Components
 
 ### New work item type
-1. Add to `data/state_machine.json` → workItemTypes + rolePermissions
+1. Add to the relevant preset in `data/state_machine.json` → `processPresets.<preset>.workItemTypes` (+ `rolePermissions` if that preset has role rules)
 2. Add hierarchy rule to `data/hierarchy_rules.json` if needed
 3. Run `pytest tests/` — state machine tests will catch missing fields
 

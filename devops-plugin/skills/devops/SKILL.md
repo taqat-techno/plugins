@@ -114,21 +114,21 @@ All behavioral enforcement lives in `rules/`. Do NOT re-implement — follow the
 | Tool selection (`wit_my_work_items` vs `search_workitem`) | `rules/guards.md` Guard 1 | Decision table + auto-correction. |
 | Mention resolution (@name → GUID → HTML) | `rules/guards.md` Guard 2 | Checklist before posting comments. |
 | Repository name → GUID resolution | `rules/guards.md` Guard 3 | Required before all PR/branch operations. |
-| State transitions & role permissions | `data/state_machine.json` | Pre-flight: check role → fetch item → check required fields → ask if missing → confirm → execute. |
+| Process presets, state transitions, role rules | `data/state_machine.json` `processPresets[profile.process]` | Pre-flight: resolve the active preset (rules/profile-loader.md) → fetch item → check the transition and required fields → apply role rules only if the preset/profile defines them → confirm → execute. |
 | Work item hierarchy enforcement | `data/hierarchy_rules.json` | Epic > Feature > Story > Task/Bug/Enhancement. Tasks/Bugs MUST have parent. |
-| Business rules (naming, bug authority, sprint) | `data/state_machine.json` `businessRules` | Task prefixes, QA-only bugs, user story format, auto-sprint. |
+| Business rules (naming, bug authority, sprint) | `data/state_machine.json` preset `taskNaming` / `roleRules` / `businessRules`, plus `genericRules` | Task prefixes and QA-only bugs exist only in presets that define them (e.g. `custom-scrum-qc`); auto-sprint is generic. |
 | Error recovery patterns | `data/state_machine.json` (`errorPatterns`) | Single source of truth for all error codes → recovery actions. |
 | Profile loading & project context | `rules/profile-loader.md` | Cache-first resolution, context persistence. |
 
 ---
 
-## Work-Item Field Semantics (Scrum Process Notes)
+## Work-Item Field Semantics (Process Notes)
 
 ### Hours and "In Progress" — Task vs PBI (process-aware)
 
 In **stock** Azure DevOps Scrum, scheduling hours (Original / Completed / Remaining Work) and the working **"In Progress"** state live on **Tasks**. A **Product Backlog Item** carries **Effort (points)** and flows `New → Approved → Committed → Done` — it has no hours fields and no "In Progress" state. So the default place to log time and move through "In Progress" is a Task under the PBI, not the PBI itself.
 
-**But this plugin models a CUSTOMIZED process** (see `data/state_machine.json` `_meta.processModelNote`) in which PBIs and Bugs **do** move through "In Progress" (and "Ready For QC"). That customization is deliberate — `data/state_machine.json` is the source of truth for the actual transitions here; **do not "correct" it back to stock Scrum.** Treat the state machine as authoritative for the current org, and re-detect the process at `/init` for any org whose customization differs. State the stock-Scrum default when a user is surprised that a PBI has hours/In-Progress, but follow the detected process, not a hardcoded assumption.
+**Follow the active process preset, not an assumption.** The profile's `process` field selects a preset in `data/state_machine.json` `processPresets` (detected by `/init`, Step 3.5). The stock presets (`basic`, `agile`, `scrum`, `cmmi`) encode Microsoft's defaults; the opt-in `custom-scrum-qc` preset models a customized Scrum in which PBIs and Bugs **do** move through "In Progress" (and "Ready For QC"). Under that preset the customization is deliberate — do not "correct" it back to stock Scrum. Under a stock preset, do not apply custom states, QC gates or prefixes. When the live project disagrees with its preset, say so and suggest `/init profile` to re-detect.
 
 ### `TF401320` is a field-RULE error — SET the estimate, don't DROP the field
 

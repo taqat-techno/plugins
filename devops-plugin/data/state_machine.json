@@ -1,474 +1,1309 @@
 {
   "_meta": {
-    "description": "Single source of truth for work item state machines, role permissions, and required fields (Azure DevOps Scrum process - auto-detected at /init time)",
-    "processId": "auto-detected",
-    "processName": "Scrum (default - auto-detected at /init time)",
-    "source": "Merged from state_permissions.json + required_fields.json + business_rules.md",
-    "version": "6.0.0",
-    "lastUpdated": "2026-07-23",
-    "processModelNote": "This file encodes a CUSTOMIZED Scrum process. In STOCK Azure DevOps Scrum, scheduling hours (Original/Completed/Remaining Work) and the working 'In Progress' state live on TASKS, while Product Backlog Items carry Effort (points) and flow New -> Approved -> Committed -> Done with NO hours and NO 'In Progress' state. This process intentionally puts 'In Progress' (and 'Ready For QC') on PBIs and Bugs -- that is deliberate, not an error; do NOT 'flip it back' to stock Scrum. Treat the transitions in this file as authoritative for THIS org, and re-detect the process at /init for any org whose customization differs."
+    "description": "Single source of truth for work item processes (states, transitions, optional role and naming rules), required fields, and API error patterns. Process models are named presets under processPresets; the active one is the profile's 'process' field (~/.claude/devops.md), set by /init's process-detection step.",
+    "version": "7.0.0",
+    "lastUpdated": "2026-10-19",
+    "processModelNote": "Four presets (basic, agile, scrum, cmmi) encode Microsoft's stock templates and carry NO role or naming rules. 'custom-scrum-qc' is an opt-in customized-Scrum preset with role rules and Task prefixes. Role/naming rules apply only when the active preset or the profile defines them; violations ask for confirmation by default."
   },
-
-  "workItemTypes": {
-    "Task": {
-      "referenceName": "Scrum.Task",
-      "states": ["To Do", "In Progress", "Done", "Closed", "Removed"],
-      "happyPath": ["To Do", "In Progress", "Done", "Closed"],
-      "hasClose": true,
-      "hasReturn": false,
-      "hasRemoved": true,
-      "transitions": {
-        "To Do -> In Progress": {
-          "requiredFields": [],
-          "autoSetFields": {}
-        },
-        "In Progress -> Done": {
-          "requiredFields": [
-            {
-              "field": "Microsoft.VSTS.Scheduling.OriginalEstimate",
-              "path": "/fields/Microsoft.VSTS.Scheduling.OriginalEstimate",
-              "prompt": "Original Estimate (hours): How many hours did you estimate for this task?",
-              "type": "number",
-              "min": 0
-            },
-            {
-              "field": "Microsoft.VSTS.Scheduling.CompletedWork",
-              "path": "/fields/Microsoft.VSTS.Scheduling.CompletedWork",
-              "prompt": "Completed Work (hours): How many hours did you actually spend?",
-              "type": "number",
-              "min": 0
-            }
+  "defaultPreset": "agile",
+  "presetDetection": {
+    "$comment": "Used by commands/init.md 'Detect the process'. Evaluate top to bottom against the work item type names the project exposes (wit_list_backlogs + wit_get_work_item_type); first match wins.",
+    "order": [
+      {
+        "preset": "custom-scrum-qc",
+        "when": "type 'Product Backlog Item' exists AND (type 'Enhancement' exists OR the PBI states include 'Ready For QC')"
+      },
+      {
+        "preset": "scrum",
+        "when": "type 'Product Backlog Item' exists"
+      },
+      {
+        "preset": "agile",
+        "when": "type 'User Story' exists"
+      },
+      {
+        "preset": "cmmi",
+        "when": "type 'Requirement' exists"
+      },
+      {
+        "preset": "basic",
+        "when": "type 'Issue' exists and Task states are To Do / Doing / Done"
+      }
+    ],
+    "fallback": "Ask the user which process the project uses (Project Settings > Overview shows it); if still unknown use defaultPreset."
+  },
+  "processPresets": {
+    "basic": {
+      "displayName": "Basic (Microsoft default)",
+      "source": "microsoft-default",
+      "note": "Microsoft's documented default for this stock process template (Azure DevOps Services, inherited process). Inherited processes allow a transition between any two states of a type, so transitionModel is 'any' and happyPath is the documented forward flow. Encoded from Microsoft Learn ('Default processes and process templates', 'Workflow states and state categories'); a customized copy of the process can differ - /init re-reads the live types with wit_get_work_item_type.",
+      "transitionModel": "any",
+      "requirementType": "Issue",
+      "workItemTypes": {
+        "Epic": {
+          "name": "Epic",
+          "states": [
+            "To Do",
+            "Doing",
+            "Done"
           ],
-          "autoSetFields": {
-            "Microsoft.VSTS.Scheduling.RemainingWork": "0"
+          "happyPath": [
+            "To Do",
+            "Doing",
+            "Done"
+          ]
+        },
+        "Issue": {
+          "name": "Issue",
+          "states": [
+            "To Do",
+            "Doing",
+            "Done"
+          ],
+          "happyPath": [
+            "To Do",
+            "Doing",
+            "Done"
+          ]
+        },
+        "Task": {
+          "name": "Task",
+          "states": [
+            "To Do",
+            "Doing",
+            "Done"
+          ],
+          "happyPath": [
+            "To Do",
+            "Doing",
+            "Done"
+          ]
+        },
+        "TestCase": {
+          "name": "Test Case",
+          "states": [
+            "Design",
+            "Ready",
+            "Closed"
+          ],
+          "happyPath": [
+            "Design",
+            "Ready",
+            "Closed"
+          ]
+        }
+      }
+    },
+    "agile": {
+      "displayName": "Agile (Microsoft default)",
+      "source": "microsoft-default",
+      "note": "Microsoft's documented default for this stock process template (Azure DevOps Services, inherited process). Inherited processes allow a transition between any two states of a type, so transitionModel is 'any' and happyPath is the documented forward flow. Encoded from Microsoft Learn ('Default processes and process templates', 'Workflow states and state categories'); a customized copy of the process can differ - /init re-reads the live types with wit_get_work_item_type.",
+      "transitionModel": "any",
+      "requirementType": "User Story",
+      "workItemTypes": {
+        "Epic": {
+          "name": "Epic",
+          "states": [
+            "New",
+            "Active",
+            "Resolved",
+            "Closed",
+            "Removed"
+          ],
+          "happyPath": [
+            "New",
+            "Active",
+            "Resolved",
+            "Closed"
+          ]
+        },
+        "Feature": {
+          "name": "Feature",
+          "states": [
+            "New",
+            "Active",
+            "Resolved",
+            "Closed",
+            "Removed"
+          ],
+          "happyPath": [
+            "New",
+            "Active",
+            "Resolved",
+            "Closed"
+          ]
+        },
+        "UserStory": {
+          "name": "User Story",
+          "states": [
+            "New",
+            "Active",
+            "Resolved",
+            "Closed",
+            "Removed"
+          ],
+          "happyPath": [
+            "New",
+            "Active",
+            "Resolved",
+            "Closed"
+          ]
+        },
+        "Task": {
+          "name": "Task",
+          "states": [
+            "New",
+            "Active",
+            "Closed",
+            "Removed"
+          ],
+          "happyPath": [
+            "New",
+            "Active",
+            "Closed"
+          ]
+        },
+        "Bug": {
+          "name": "Bug",
+          "states": [
+            "New",
+            "Active",
+            "Resolved",
+            "Closed"
+          ],
+          "happyPath": [
+            "New",
+            "Active",
+            "Resolved",
+            "Closed"
+          ]
+        },
+        "Issue": {
+          "name": "Issue",
+          "states": [
+            "Active",
+            "Closed"
+          ],
+          "happyPath": [
+            "Active",
+            "Closed"
+          ]
+        },
+        "TestCase": {
+          "name": "Test Case",
+          "states": [
+            "Design",
+            "Ready",
+            "Closed"
+          ],
+          "happyPath": [
+            "Design",
+            "Ready",
+            "Closed"
+          ]
+        }
+      }
+    },
+    "scrum": {
+      "displayName": "Scrum (Microsoft default)",
+      "source": "microsoft-default",
+      "note": "Microsoft's documented default for this stock process template (Azure DevOps Services, inherited process). Inherited processes allow a transition between any two states of a type, so transitionModel is 'any' and happyPath is the documented forward flow. Encoded from Microsoft Learn ('Default processes and process templates', 'Workflow states and state categories'); a customized copy of the process can differ - /init re-reads the live types with wit_get_work_item_type. In stock Scrum, hours and 'In Progress' live on Tasks; PBIs and Bugs carry Effort and flow New -> Approved -> Committed -> Done.",
+      "transitionModel": "any",
+      "requirementType": "Product Backlog Item",
+      "workItemTypes": {
+        "Epic": {
+          "name": "Epic",
+          "states": [
+            "New",
+            "In Progress",
+            "Done",
+            "Removed"
+          ],
+          "happyPath": [
+            "New",
+            "In Progress",
+            "Done"
+          ]
+        },
+        "Feature": {
+          "name": "Feature",
+          "states": [
+            "New",
+            "In Progress",
+            "Done",
+            "Removed"
+          ],
+          "happyPath": [
+            "New",
+            "In Progress",
+            "Done"
+          ]
+        },
+        "ProductBacklogItem": {
+          "name": "Product Backlog Item",
+          "states": [
+            "New",
+            "Approved",
+            "Committed",
+            "Done",
+            "Removed"
+          ],
+          "happyPath": [
+            "New",
+            "Approved",
+            "Committed",
+            "Done"
+          ]
+        },
+        "Bug": {
+          "name": "Bug",
+          "states": [
+            "New",
+            "Approved",
+            "Committed",
+            "Done",
+            "Removed"
+          ],
+          "happyPath": [
+            "New",
+            "Approved",
+            "Committed",
+            "Done"
+          ]
+        },
+        "Task": {
+          "name": "Task",
+          "states": [
+            "To Do",
+            "In Progress",
+            "Done",
+            "Removed"
+          ],
+          "happyPath": [
+            "To Do",
+            "In Progress",
+            "Done"
+          ]
+        },
+        "Impediment": {
+          "name": "Impediment",
+          "states": [
+            "Open",
+            "Closed"
+          ],
+          "happyPath": [
+            "Open",
+            "Closed"
+          ]
+        },
+        "TestCase": {
+          "name": "Test Case",
+          "states": [
+            "Design",
+            "Ready",
+            "Closed"
+          ],
+          "happyPath": [
+            "Design",
+            "Ready",
+            "Closed"
+          ]
+        }
+      }
+    },
+    "cmmi": {
+      "displayName": "CMMI (Microsoft default)",
+      "source": "microsoft-default",
+      "note": "Microsoft's documented default for this stock process template (Azure DevOps Services, inherited process). Inherited processes allow a transition between any two states of a type, so transitionModel is 'any' and happyPath is the documented forward flow. Encoded from Microsoft Learn ('Default processes and process templates', 'Workflow states and state categories'); a customized copy of the process can differ - /init re-reads the live types with wit_get_work_item_type.",
+      "transitionModel": "any",
+      "requirementType": "Requirement",
+      "workItemTypes": {
+        "Epic": {
+          "name": "Epic",
+          "states": [
+            "Proposed",
+            "Active",
+            "Resolved",
+            "Closed"
+          ],
+          "happyPath": [
+            "Proposed",
+            "Active",
+            "Resolved",
+            "Closed"
+          ]
+        },
+        "Feature": {
+          "name": "Feature",
+          "states": [
+            "Proposed",
+            "Active",
+            "Resolved",
+            "Closed"
+          ],
+          "happyPath": [
+            "Proposed",
+            "Active",
+            "Resolved",
+            "Closed"
+          ]
+        },
+        "Requirement": {
+          "name": "Requirement",
+          "states": [
+            "Proposed",
+            "Active",
+            "Resolved",
+            "Closed"
+          ],
+          "happyPath": [
+            "Proposed",
+            "Active",
+            "Resolved",
+            "Closed"
+          ]
+        },
+        "Task": {
+          "name": "Task",
+          "states": [
+            "Proposed",
+            "Active",
+            "Resolved",
+            "Closed"
+          ],
+          "happyPath": [
+            "Proposed",
+            "Active",
+            "Resolved",
+            "Closed"
+          ]
+        },
+        "Bug": {
+          "name": "Bug",
+          "states": [
+            "Proposed",
+            "Active",
+            "Resolved",
+            "Closed"
+          ],
+          "happyPath": [
+            "Proposed",
+            "Active",
+            "Resolved",
+            "Closed"
+          ]
+        },
+        "ChangeRequest": {
+          "name": "Change Request",
+          "states": [
+            "Proposed",
+            "Active",
+            "Resolved",
+            "Closed"
+          ],
+          "happyPath": [
+            "Proposed",
+            "Active",
+            "Resolved",
+            "Closed"
+          ]
+        },
+        "Issue": {
+          "name": "Issue",
+          "states": [
+            "Proposed",
+            "Active",
+            "Resolved",
+            "Closed"
+          ],
+          "happyPath": [
+            "Proposed",
+            "Active",
+            "Resolved",
+            "Closed"
+          ]
+        },
+        "Risk": {
+          "name": "Risk",
+          "states": [
+            "Proposed",
+            "Active",
+            "Resolved",
+            "Closed"
+          ],
+          "happyPath": [
+            "Proposed",
+            "Active",
+            "Resolved",
+            "Closed"
+          ]
+        },
+        "Review": {
+          "name": "Review",
+          "states": [
+            "Active",
+            "Resolved",
+            "Closed"
+          ],
+          "happyPath": [
+            "Active",
+            "Resolved",
+            "Closed"
+          ]
+        },
+        "TestCase": {
+          "name": "Test Case",
+          "states": [
+            "Design",
+            "Ready",
+            "Closed"
+          ],
+          "happyPath": [
+            "Design",
+            "Ready",
+            "Closed"
+          ]
+        }
+      }
+    },
+    "custom-scrum-qc": {
+      "displayName": "Customized Scrum with QC gates (opt-in)",
+      "source": "custom",
+      "basedOn": "scrum",
+      "note": "An opt-in preset for organizations running a CUSTOMIZED Scrum process: PBIs and Bugs move through 'In Progress' (and 'Ready For QC'), an Enhancement type, QC Return loops, fixed Task-title prefixes, and role rules (QA-only Bug creation, PM/Lead-only Close/Remove). It is NOT stock Scrum. Select it with 'process: custom-scrum-qc' in ~/.claude/devops.md; /init proposes it only when the live project has the Enhancement type or a 'Ready For QC' PBI state.",
+      "transitionModel": "explicit",
+      "requirementType": "Product Backlog Item",
+      "workItemTypes": {
+        "Task": {
+          "name": "Task",
+          "referenceName": "Scrum.Task",
+          "states": [
+            "To Do",
+            "In Progress",
+            "Done",
+            "Closed",
+            "Removed"
+          ],
+          "happyPath": [
+            "To Do",
+            "In Progress",
+            "Done",
+            "Closed"
+          ],
+          "hasClose": true,
+          "hasReturn": false,
+          "hasRemoved": true,
+          "transitions": {
+            "To Do -> In Progress": {
+              "requiredFields": [],
+              "autoSetFields": {}
+            },
+            "In Progress -> Done": {
+              "requiredFields": [
+                {
+                  "field": "Microsoft.VSTS.Scheduling.OriginalEstimate",
+                  "path": "/fields/Microsoft.VSTS.Scheduling.OriginalEstimate",
+                  "prompt": "Original Estimate (hours): How many hours did you estimate for this task?",
+                  "type": "number",
+                  "min": 0
+                },
+                {
+                  "field": "Microsoft.VSTS.Scheduling.CompletedWork",
+                  "path": "/fields/Microsoft.VSTS.Scheduling.CompletedWork",
+                  "prompt": "Completed Work (hours): How many hours did you actually spend?",
+                  "type": "number",
+                  "min": 0
+                }
+              ],
+              "autoSetFields": {
+                "Microsoft.VSTS.Scheduling.RemainingWork": "0"
+              }
+            },
+            "To Do -> Done": {
+              "requiredFields": [
+                {
+                  "field": "Microsoft.VSTS.Scheduling.OriginalEstimate",
+                  "path": "/fields/Microsoft.VSTS.Scheduling.OriginalEstimate",
+                  "prompt": "Original Estimate (hours): How many hours did you estimate for this task?",
+                  "type": "number",
+                  "min": 0
+                },
+                {
+                  "field": "Microsoft.VSTS.Scheduling.CompletedWork",
+                  "path": "/fields/Microsoft.VSTS.Scheduling.CompletedWork",
+                  "prompt": "Completed Work (hours): How many hours did you actually spend?",
+                  "type": "number",
+                  "min": 0
+                }
+              ],
+              "autoSetFields": {
+                "Microsoft.VSTS.Scheduling.RemainingWork": "0"
+              }
+            },
+            "Done -> Closed": {
+              "requiredFields": [],
+              "autoSetFields": {}
+            },
+            "Any -> Removed": {
+              "requiredFields": [],
+              "autoSetFields": {}
+            }
           }
         },
-        "To Do -> Done": {
-          "requiredFields": [
-            {
-              "field": "Microsoft.VSTS.Scheduling.OriginalEstimate",
-              "path": "/fields/Microsoft.VSTS.Scheduling.OriginalEstimate",
-              "prompt": "Original Estimate (hours): How many hours did you estimate for this task?",
-              "type": "number",
-              "min": 0
-            },
-            {
-              "field": "Microsoft.VSTS.Scheduling.CompletedWork",
-              "path": "/fields/Microsoft.VSTS.Scheduling.CompletedWork",
-              "prompt": "Completed Work (hours): How many hours did you actually spend?",
-              "type": "number",
-              "min": 0
-            }
+        "Bug": {
+          "name": "Bug",
+          "referenceName": "Scrum.Bug",
+          "states": [
+            "New",
+            "Approved",
+            "In Progress",
+            "Resolved",
+            "Return",
+            "Committed",
+            "Done",
+            "Closed",
+            "Removed"
           ],
-          "autoSetFields": {
-            "Microsoft.VSTS.Scheduling.RemainingWork": "0"
+          "happyPath": [
+            "New",
+            "Approved",
+            "In Progress",
+            "Resolved",
+            "Done",
+            "Closed"
+          ],
+          "returnPath": [
+            "Resolved",
+            "Return",
+            "In Progress"
+          ],
+          "hasClose": true,
+          "hasReturn": true,
+          "hasRemoved": true,
+          "transitions": {
+            "New -> Approved": {
+              "requiredFields": [],
+              "autoSetFields": {}
+            },
+            "Approved -> In Progress": {
+              "requiredFields": [],
+              "autoSetFields": {}
+            },
+            "In Progress -> Resolved": {
+              "requiredFields": [
+                {
+                  "field": "Microsoft.VSTS.Common.ResolvedReason",
+                  "path": "/fields/Microsoft.VSTS.Common.ResolvedReason",
+                  "prompt": "Resolved Reason: Why is this bug being resolved?",
+                  "type": "select",
+                  "options": [
+                    "Fixed",
+                    "As Designed",
+                    "Cannot Reproduce",
+                    "Deferred",
+                    "Duplicate",
+                    "Not a Bug",
+                    "Obsolete"
+                  ],
+                  "default": "Fixed"
+                },
+                {
+                  "field": "Microsoft.VSTS.Scheduling.CompletedWork",
+                  "path": "/fields/Microsoft.VSTS.Scheduling.CompletedWork",
+                  "prompt": "Completed Work (hours): How many hours did you spend fixing this bug?",
+                  "type": "number",
+                  "min": 0
+                }
+              ],
+              "autoSetFields": {}
+            },
+            "Resolved -> Return": {
+              "requiredFields": [],
+              "requiresComment": true,
+              "commentPrompt": "Return reason: Please describe why this fix is being rejected.",
+              "autoSetFields": {}
+            },
+            "Return -> In Progress": {
+              "requiredFields": [],
+              "autoSetFields": {}
+            },
+            "In Progress -> Committed": {
+              "requiredFields": [],
+              "autoSetFields": {}
+            },
+            "Committed -> In Progress": {
+              "requiredFields": [],
+              "autoSetFields": {}
+            },
+            "Committed -> Done": {
+              "requiredFields": [],
+              "autoSetFields": {}
+            },
+            "Resolved -> Done": {
+              "requiredFields": [],
+              "autoSetFields": {}
+            },
+            "Done -> Closed": {
+              "requiredFields": [],
+              "autoSetFields": {}
+            },
+            "Any -> Removed": {
+              "requiredFields": [],
+              "autoSetFields": {}
+            }
           }
         },
-        "Done -> Closed": {
-          "requiredFields": [],
-          "autoSetFields": {}
-        },
-        "Any -> Removed": {
-          "requiredFields": [],
-          "autoSetFields": {}
-        }
-      }
-    },
-
-    "Bug": {
-      "referenceName": "Scrum.Bug",
-      "states": ["New", "Approved", "In Progress", "Resolved", "Return", "Committed", "Done", "Closed", "Removed"],
-      "happyPath": ["New", "Approved", "In Progress", "Resolved", "Done", "Closed"],
-      "returnPath": ["Resolved", "Return", "In Progress"],
-      "hasClose": true,
-      "hasReturn": true,
-      "hasRemoved": true,
-      "transitions": {
-        "New -> Approved": {
-          "requiredFields": [],
-          "autoSetFields": {}
-        },
-        "Approved -> In Progress": {
-          "requiredFields": [],
-          "autoSetFields": {}
-        },
-        "In Progress -> Resolved": {
-          "requiredFields": [
-            {
-              "field": "Microsoft.VSTS.Common.ResolvedReason",
-              "path": "/fields/Microsoft.VSTS.Common.ResolvedReason",
-              "prompt": "Resolved Reason: Why is this bug being resolved?",
-              "type": "select",
-              "options": ["Fixed", "As Designed", "Cannot Reproduce", "Deferred", "Duplicate", "Not a Bug", "Obsolete"],
-              "default": "Fixed"
-            },
-            {
-              "field": "Microsoft.VSTS.Scheduling.CompletedWork",
-              "path": "/fields/Microsoft.VSTS.Scheduling.CompletedWork",
-              "prompt": "Completed Work (hours): How many hours did you spend fixing this bug?",
-              "type": "number",
-              "min": 0
-            }
+        "ProductBacklogItem": {
+          "name": "Product Backlog Item",
+          "referenceName": "Scrum.ProductBacklogItem",
+          "states": [
+            "New",
+            "Approved",
+            "Committed",
+            "In Progress",
+            "Ready For QC",
+            "Return",
+            "Done",
+            "Removed"
           ],
-          "autoSetFields": {}
+          "happyPath": [
+            "New",
+            "Approved",
+            "Committed",
+            "In Progress",
+            "Ready For QC",
+            "Done"
+          ],
+          "returnPath": [
+            "Ready For QC",
+            "Return",
+            "In Progress"
+          ],
+          "hasClose": false,
+          "hasReturn": true,
+          "hasRemoved": true,
+          "qcGate": {
+            "rule": "Must go through 'Ready For QC' before 'Done'",
+            "blockedTransitions": [
+              "In Progress -> Done",
+              "New -> Done",
+              "Approved -> Done",
+              "Committed -> Done"
+            ],
+            "requiredIntermediate": "Ready For QC",
+            "suggestion": "Would you like me to move to 'Ready For QC' first?"
+          },
+          "transitions": {
+            "New -> Approved": {
+              "requiredFields": [],
+              "autoSetFields": {}
+            },
+            "Approved -> Committed": {
+              "requiredFields": [],
+              "autoSetFields": {}
+            },
+            "Committed -> In Progress": {
+              "requiredFields": [],
+              "autoSetFields": {}
+            },
+            "In Progress -> Ready For QC": {
+              "requiredFields": [],
+              "autoSetFields": {}
+            },
+            "Ready For QC -> Return": {
+              "requiredFields": [],
+              "requiresComment": true,
+              "commentPrompt": "Return reason: Please describe why this item is being returned.",
+              "autoSetFields": {}
+            },
+            "Ready For QC -> Done": {
+              "requiredFields": [],
+              "autoSetFields": {}
+            },
+            "Return -> In Progress": {
+              "requiredFields": [],
+              "autoSetFields": {}
+            },
+            "Any -> Removed": {
+              "requiredFields": [],
+              "autoSetFields": {}
+            }
+          }
         },
-        "Resolved -> Return": {
-          "requiredFields": [],
-          "requiresComment": true,
-          "commentPrompt": "Return reason: Please describe why this fix is being rejected.",
-          "autoSetFields": {}
+        "UserStory": {
+          "name": "User Story",
+          "referenceName": "Scrum.UserStory",
+          "states": [
+            "New",
+            "Committed",
+            "Done"
+          ],
+          "happyPath": [
+            "New",
+            "Committed",
+            "Done"
+          ],
+          "hasClose": false,
+          "hasReturn": false,
+          "hasRemoved": false,
+          "committedGate": {
+            "rule": "Must go through 'Committed' before 'Done'",
+            "blockedTransitions": [
+              "New -> Done"
+            ],
+            "requiredIntermediate": "Committed",
+            "suggestion": "Would you like me to move to 'Committed' first?"
+          },
+          "transitions": {
+            "New -> Committed": {
+              "requiredFields": [],
+              "autoSetFields": {}
+            },
+            "Committed -> Done": {
+              "requiredFields": [],
+              "autoSetFields": {}
+            }
+          }
         },
-        "Return -> In Progress": {
-          "requiredFields": [],
-          "autoSetFields": {}
+        "Enhancement": {
+          "name": "Enhancement",
+          "referenceName": "Scrum.Enhancement",
+          "states": [
+            "New",
+            "Committed",
+            "Return",
+            "Done",
+            "Closed"
+          ],
+          "happyPath": [
+            "New",
+            "Committed",
+            "Done",
+            "Closed"
+          ],
+          "returnPath": [
+            "Committed",
+            "Return",
+            "Committed"
+          ],
+          "hasClose": true,
+          "hasReturn": true,
+          "hasRemoved": false,
+          "transitions": {
+            "New -> Committed": {
+              "requiredFields": [],
+              "autoSetFields": {}
+            },
+            "Committed -> Return": {
+              "requiredFields": [],
+              "requiresComment": true,
+              "commentPrompt": "Return reason: Please describe why this is being returned for rework.",
+              "autoSetFields": {}
+            },
+            "Return -> Committed": {
+              "requiredFields": [],
+              "autoSetFields": {}
+            },
+            "Committed -> Done": {
+              "requiredFields": [],
+              "autoSetFields": {}
+            },
+            "Done -> Closed": {
+              "requiredFields": [],
+              "autoSetFields": {}
+            }
+          }
         },
-        "In Progress -> Committed": {
-          "requiredFields": [],
-          "autoSetFields": {}
+        "Feature": {
+          "name": "Feature",
+          "referenceName": "Scrum.Feature",
+          "states": [
+            "New",
+            "In Progress",
+            "Done",
+            "Removed"
+          ],
+          "happyPath": [
+            "New",
+            "In Progress",
+            "Done"
+          ],
+          "hasClose": false,
+          "hasReturn": false,
+          "hasRemoved": true,
+          "transitions": {
+            "New -> In Progress": {
+              "requiredFields": [],
+              "autoSetFields": {}
+            },
+            "In Progress -> Done": {
+              "requiredFields": [],
+              "autoSetFields": {}
+            },
+            "Any -> Removed": {
+              "requiredFields": [],
+              "autoSetFields": {}
+            }
+          }
         },
-        "Committed -> In Progress": {
-          "requiredFields": [],
-          "autoSetFields": {}
+        "Epic": {
+          "name": "Epic",
+          "referenceName": "Microsoft.VSTS.WorkItemTypes.Epic",
+          "states": [
+            "New",
+            "In Progress",
+            "Done",
+            "Removed"
+          ],
+          "happyPath": [
+            "New",
+            "In Progress",
+            "Done"
+          ],
+          "hasClose": false,
+          "hasReturn": false,
+          "hasRemoved": true,
+          "transitions": {
+            "New -> In Progress": {
+              "requiredFields": [],
+              "autoSetFields": {}
+            },
+            "In Progress -> Done": {
+              "requiredFields": [],
+              "autoSetFields": {}
+            },
+            "Any -> Removed": {
+              "requiredFields": [],
+              "autoSetFields": {}
+            }
+          }
         },
-        "Committed -> Done": {
-          "requiredFields": [],
-          "autoSetFields": {}
-        },
-        "Resolved -> Done": {
-          "requiredFields": [],
-          "autoSetFields": {}
-        },
-        "Done -> Closed": {
-          "requiredFields": [],
-          "autoSetFields": {}
-        },
-        "Any -> Removed": {
-          "requiredFields": [],
-          "autoSetFields": {}
+        "TestCase": {
+          "name": "Test Case",
+          "referenceName": "Microsoft.VSTS.WorkItemTypes.TestCase",
+          "states": [
+            "Design",
+            "Ready",
+            "Closed"
+          ],
+          "happyPath": [
+            "Design",
+            "Ready",
+            "Closed"
+          ],
+          "hasClose": true,
+          "hasReturn": false,
+          "hasRemoved": false,
+          "transitions": {
+            "Design -> Ready": {
+              "requiredFields": [],
+              "autoSetFields": {}
+            },
+            "Ready -> Closed": {
+              "requiredFields": [],
+              "autoSetFields": {}
+            }
+          }
         }
-      }
-    },
-
-    "ProductBacklogItem": {
-      "referenceName": "Scrum.ProductBacklogItem",
-      "states": ["New", "Approved", "Committed", "In Progress", "Ready For QC", "Return", "Done", "Removed"],
-      "happyPath": ["New", "Approved", "Committed", "In Progress", "Ready For QC", "Done"],
-      "returnPath": ["Ready For QC", "Return", "In Progress"],
-      "hasClose": false,
-      "hasReturn": true,
-      "hasRemoved": true,
-      "qcGate": {
-        "rule": "Must go through 'Ready For QC' before 'Done'",
-        "blockedTransitions": ["In Progress -> Done", "New -> Done", "Approved -> Done", "Committed -> Done"],
-        "requiredIntermediate": "Ready For QC",
-        "suggestion": "Would you like me to move to 'Ready For QC' first?"
       },
-      "transitions": {
-        "New -> Approved": {
-          "requiredFields": [],
-          "autoSetFields": {}
+      "rolePermissions": {
+        "developer": {
+          "displayName": "Developer (Backend/Full-Stack)",
+          "appliesTo": [
+            "developer",
+            "backend",
+            "fullstack"
+          ],
+          "permissions": {
+            "Task": {
+              "allowed": [
+                "To Do -> In Progress",
+                "In Progress -> Done"
+              ],
+              "blocked": [
+                "Done -> Closed"
+              ],
+              "blockedMessage": "Only PM/Lead can close Tasks."
+            },
+            "Bug": {
+              "allowed": [
+                "Approved -> In Progress",
+                "In Progress -> Resolved",
+                "Return -> In Progress",
+                "Committed -> In Progress"
+              ],
+              "blocked": [
+                "New -> Approved",
+                "Resolved -> Done",
+                "Resolved -> Return",
+                "Done -> Closed"
+              ],
+              "blockedMessage": "QA approves/verifies Bugs. PM closes."
+            },
+            "ProductBacklogItem": {
+              "allowed": [
+                "Committed -> In Progress",
+                "In Progress -> Ready For QC",
+                "Return -> In Progress"
+              ],
+              "blocked": [
+                "New -> Approved",
+                "Approved -> Committed",
+                "Ready For QC -> Done",
+                "Ready For QC -> Return"
+              ],
+              "blockedMessage": "PM approves PBIs. QA verifies Ready For QC -> Done."
+            },
+            "UserStory": {
+              "allowed": [],
+              "blocked": [
+                "New -> Committed",
+                "Committed -> Done"
+              ],
+              "blockedMessage": "PM commits User Stories. QA/PM verifies Done."
+            },
+            "Enhancement": {
+              "allowed": [
+                "New -> Committed",
+                "Committed -> Done",
+                "Return -> Committed"
+              ],
+              "blocked": [
+                "Done -> Closed",
+                "Committed -> Return"
+              ],
+              "blockedMessage": "QA can return Enhancements. PM closes."
+            }
+          }
         },
-        "Approved -> Committed": {
-          "requiredFields": [],
-          "autoSetFields": {}
+        "frontend": {
+          "displayName": "Frontend Developer",
+          "appliesTo": [
+            "frontend"
+          ],
+          "permissions": "$ref:developer"
         },
-        "Committed -> In Progress": {
-          "requiredFields": [],
-          "autoSetFields": {}
+        "qa": {
+          "displayName": "QA / QC",
+          "appliesTo": [
+            "tester",
+            "qa",
+            "qc-bugfix",
+            "qc-test"
+          ],
+          "permissions": {
+            "Task": {
+              "allowed": [
+                "To Do -> In Progress"
+              ],
+              "blocked": [
+                "In Progress -> Done",
+                "Done -> Closed"
+              ],
+              "blockedMessage": "Developers complete Tasks. PM closes."
+            },
+            "Bug": {
+              "allowed": [
+                "New -> Approved",
+                "Resolved -> Done",
+                "Resolved -> Return"
+              ],
+              "blocked": [
+                "Approved -> In Progress",
+                "In Progress -> Resolved",
+                "Done -> Closed"
+              ],
+              "blockedMessage": "Developers fix Bugs. PM closes."
+            },
+            "ProductBacklogItem": {
+              "allowed": [
+                "Ready For QC -> Done",
+                "Ready For QC -> Return"
+              ],
+              "blocked": [
+                "New -> Approved",
+                "Approved -> Committed",
+                "Committed -> In Progress",
+                "In Progress -> Ready For QC"
+              ],
+              "blockedMessage": "PM approves PBIs. Developers do the work."
+            },
+            "UserStory": {
+              "allowed": [
+                "Committed -> Done"
+              ],
+              "blocked": [
+                "New -> Committed"
+              ],
+              "blockedMessage": "PM commits User Stories."
+            },
+            "Enhancement": {
+              "allowed": [
+                "Committed -> Return"
+              ],
+              "blocked": [
+                "New -> Committed",
+                "Committed -> Done",
+                "Done -> Closed"
+              ],
+              "blockedMessage": "Developers handle Enhancements. PM closes."
+            }
+          }
         },
-        "In Progress -> Ready For QC": {
-          "requiredFields": [],
-          "autoSetFields": {}
-        },
-        "Ready For QC -> Return": {
-          "requiredFields": [],
-          "requiresComment": true,
-          "commentPrompt": "Return reason: Please describe why this item is being returned.",
-          "autoSetFields": {}
-        },
-        "Ready For QC -> Done": {
-          "requiredFields": [],
-          "autoSetFields": {}
-        },
-        "Return -> In Progress": {
-          "requiredFields": [],
-          "autoSetFields": {}
-        },
-        "Any -> Removed": {
-          "requiredFields": [],
-          "autoSetFields": {}
+        "pm": {
+          "displayName": "Project Manager / Team Lead",
+          "appliesTo": [
+            "pm",
+            "lead"
+          ],
+          "permissions": {
+            "Task": {
+              "allowed": [
+                "To Do -> In Progress",
+                "Done -> Closed"
+              ],
+              "blocked": [
+                "In Progress -> Done"
+              ],
+              "blockedMessage": "Developers complete Tasks."
+            },
+            "Bug": {
+              "allowed": [
+                "New -> Approved",
+                "Done -> Closed"
+              ],
+              "blocked": [
+                "In Progress -> Resolved",
+                "Resolved -> Done"
+              ],
+              "blockedMessage": "Developers resolve Bugs. QA verifies."
+            },
+            "ProductBacklogItem": {
+              "allowed": [
+                "New -> Approved",
+                "Approved -> Committed",
+                "Committed -> In Progress"
+              ],
+              "blocked": [
+                "In Progress -> Ready For QC",
+                "Ready For QC -> Done"
+              ],
+              "blockedMessage": "Developers prepare for QC. QA verifies."
+            },
+            "UserStory": {
+              "allowed": [
+                "New -> Committed",
+                "Committed -> Done"
+              ],
+              "blocked": [],
+              "blockedMessage": ""
+            },
+            "Enhancement": {
+              "allowed": [
+                "New -> Committed",
+                "Committed -> Done",
+                "Done -> Closed"
+              ],
+              "blocked": [],
+              "blockedMessage": ""
+            }
+          }
         }
-      }
-    },
-
-    "UserStory": {
-      "referenceName": "Scrum.UserStory",
-      "states": ["New", "Committed", "Done"],
-      "happyPath": ["New", "Committed", "Done"],
-      "hasClose": false,
-      "hasReturn": false,
-      "hasRemoved": false,
-      "committedGate": {
-        "rule": "Must go through 'Committed' before 'Done'",
-        "blockedTransitions": ["New -> Done"],
-        "requiredIntermediate": "Committed",
-        "suggestion": "Would you like me to move to 'Committed' first?"
       },
-      "transitions": {
-        "New -> Committed": {
-          "requiredFields": [],
-          "autoSetFields": {}
+      "roleRules": {
+        "$comment": "Machine-readable rules the PreToolUse hook enforces. Violations -> permissionDecision 'ask' (profile 'enforcement: block' -> hard block). The hook cannot see the item's type on an update, so restrictedStates apply to any type moved to that state.",
+        "restrictedStates": {
+          "Closed": {
+            "allowedRoles": [
+              "pm",
+              "lead"
+            ],
+            "rule": "Only PM/Lead can transition to Closed"
+          },
+          "Removed": {
+            "allowedRoles": [
+              "pm",
+              "lead"
+            ],
+            "rule": "Only PM/Lead can transition to Removed"
+          }
         },
-        "Committed -> Done": {
-          "requiredFields": [],
-          "autoSetFields": {}
+        "createRestrictions": {
+          "Bug": {
+            "deniedRoles": [
+              "developer",
+              "backend",
+              "fullstack",
+              "frontend",
+              "devops"
+            ],
+            "rule": "Bugs are reserved for defects identified by QA/QC",
+            "redirect": "Create a [Dev-Internal-fix] Task instead (businessRules.bugCreationAuthority)."
+          }
         }
-      }
-    },
-
-    "Enhancement": {
-      "referenceName": "Scrum.Enhancement",
-      "states": ["New", "Committed", "Return", "Done", "Closed"],
-      "happyPath": ["New", "Committed", "Done", "Closed"],
-      "returnPath": ["Committed", "Return", "Committed"],
-      "hasClose": true,
-      "hasReturn": true,
-      "hasRemoved": false,
-      "transitions": {
-        "New -> Committed": {
-          "requiredFields": [],
-          "autoSetFields": {}
+      },
+      "taskNaming": {
+        "rule": "Task titles must start with a template prefix",
+        "source": "Project Settings > Boards > Templates > Task (fetched at /init profile)",
+        "appliesTo": [
+          "Task"
+        ],
+        "prefixes": [
+          {
+            "prefix": "[Dev]",
+            "role": "developer",
+            "keywords": [
+              "api",
+              "endpoint",
+              "database",
+              "model",
+              "backend",
+              "server",
+              "implement"
+            ]
+          },
+          {
+            "prefix": "[Front]",
+            "role": "frontend",
+            "keywords": [
+              "ui",
+              "component",
+              "form",
+              "page",
+              "style",
+              "css",
+              "frontend"
+            ]
+          },
+          {
+            "prefix": "[QC Bug Fixing]",
+            "role": "qc-bugfix",
+            "keywords": [
+              "fix",
+              "bug",
+              "patch",
+              "hotfix",
+              "debug",
+              "resolve",
+              "reproduce"
+            ]
+          },
+          {
+            "prefix": "[QC Test Execution]",
+            "role": "qc-test",
+            "keywords": [
+              "test",
+              "execute",
+              "test case",
+              "regression",
+              "scenario",
+              "validate"
+            ]
+          },
+          {
+            "prefix": "[IMP]",
+            "role": "devops",
+            "keywords": [
+              "deploy",
+              "config",
+              "setup",
+              "install",
+              "migration",
+              "infrastructure"
+            ]
+          },
+          {
+            "prefix": "[Dev-Internal-fix]",
+            "role": "developer",
+            "keywords": [
+              "internal fix",
+              "regression found by dev"
+            ]
+          }
+        ]
+      },
+      "universalRules": {
+        "approveRestriction": {
+          "rule": "Only PM/Lead can approve PBIs and User Stories",
+          "appliesTo": [
+            "ProductBacklogItem",
+            "UserStory"
+          ],
+          "allowedRoles": [
+            "pm",
+            "lead"
+          ]
         },
-        "Committed -> Return": {
-          "requiredFields": [],
-          "requiresComment": true,
-          "commentPrompt": "Return reason: Please describe why this is being returned for rework.",
-          "autoSetFields": {}
-        },
-        "Return -> Committed": {
-          "requiredFields": [],
-          "autoSetFields": {}
-        },
-        "Committed -> Done": {
-          "requiredFields": [],
-          "autoSetFields": {}
-        },
-        "Done -> Closed": {
-          "requiredFields": [],
-          "autoSetFields": {}
+        "returnHandling": {
+          "rule": "QA initiates Return; Developer picks up from Return state",
+          "appliesTo": [
+            "Bug",
+            "ProductBacklogItem",
+            "Enhancement"
+          ],
+          "returnInitiator": [
+            "qa",
+            "qc-bugfix",
+            "qc-test",
+            "tester"
+          ],
+          "returnResolver": [
+            "developer",
+            "frontend",
+            "backend",
+            "fullstack"
+          ],
+          "requireComment": true
         }
-      }
-    },
-
-    "Feature": {
-      "referenceName": "Scrum.Feature",
-      "states": ["New", "In Progress", "Done", "Removed"],
-      "happyPath": ["New", "In Progress", "Done"],
-      "hasClose": false,
-      "hasReturn": false,
-      "hasRemoved": true,
-      "transitions": {
-        "New -> In Progress": { "requiredFields": [], "autoSetFields": {} },
-        "In Progress -> Done": { "requiredFields": [], "autoSetFields": {} },
-        "Any -> Removed": { "requiredFields": [], "autoSetFields": {} }
-      }
-    },
-
-    "Epic": {
-      "referenceName": "Microsoft.VSTS.WorkItemTypes.Epic",
-      "states": ["New", "In Progress", "Done", "Removed"],
-      "happyPath": ["New", "In Progress", "Done"],
-      "hasClose": false,
-      "hasReturn": false,
-      "hasRemoved": true,
-      "transitions": {
-        "New -> In Progress": { "requiredFields": [], "autoSetFields": {} },
-        "In Progress -> Done": { "requiredFields": [], "autoSetFields": {} },
-        "Any -> Removed": { "requiredFields": [], "autoSetFields": {} }
-      }
-    },
-
-    "TestCase": {
-      "referenceName": "Microsoft.VSTS.WorkItemTypes.TestCase",
-      "states": ["Design", "Ready", "Closed"],
-      "happyPath": ["Design", "Ready", "Closed"],
-      "hasClose": true,
-      "hasReturn": false,
-      "hasRemoved": false,
-      "transitions": {
-        "Design -> Ready": { "requiredFields": [], "autoSetFields": {} },
-        "Ready -> Closed": { "requiredFields": [], "autoSetFields": {} }
+      },
+      "businessRules": {
+        "bugCreationAuthority": {
+          "rule": "Bugs are reserved for defects identified by QA/QC",
+          "qaRoles": [
+            "tester",
+            "qa",
+            "qc-bugfix",
+            "qc-test"
+          ],
+          "developerRedirect": "Create [Dev-Internal-fix] Task instead",
+          "devInternalFixRules": {
+            "titleFormat": "[Dev-Internal-fix] [Module/Feature] - [What is broken] - [Where]",
+            "mustNotifyQC": true,
+            "parentPbiInProgress": "Log fix on existing Task, add comment with bug description",
+            "parentPbiDone": "Create new [Dev-Internal-fix] Task under PBI, move PBI back to In Progress",
+            "raiseFlag": "Ask if fix changes user-facing behavior; if yes, escalate to QA Lead"
+          }
+        },
+        "userStoryFormat": {
+          "rule": "User Story descriptions MUST follow How/What/Why sequence",
+          "sections": [
+            "How (Implementation Approach)",
+            "What (Requirements + Acceptance Criteria)",
+            "Why (Business Value + Impact)"
+          ]
+        }
       }
     }
   },
-
-  "rolePermissions": {
-    "developer": {
-      "displayName": "Developer (Backend/Full-Stack)",
-      "appliesTo": ["developer", "backend", "fullstack"],
-      "permissions": {
-        "Task": {
-          "allowed": ["To Do -> In Progress", "In Progress -> Done"],
-          "blocked": ["Done -> Closed"],
-          "blockedMessage": "Only PM/Lead can close Tasks."
-        },
-        "Bug": {
-          "allowed": ["Approved -> In Progress", "In Progress -> Resolved", "Return -> In Progress", "Committed -> In Progress"],
-          "blocked": ["New -> Approved", "Resolved -> Done", "Resolved -> Return", "Done -> Closed"],
-          "blockedMessage": "QA approves/verifies Bugs. PM closes."
-        },
-        "ProductBacklogItem": {
-          "allowed": ["Committed -> In Progress", "In Progress -> Ready For QC", "Return -> In Progress"],
-          "blocked": ["New -> Approved", "Approved -> Committed", "Ready For QC -> Done", "Ready For QC -> Return"],
-          "blockedMessage": "PM approves PBIs. QA verifies Ready For QC -> Done."
-        },
-        "UserStory": {
-          "allowed": [],
-          "blocked": ["New -> Committed", "Committed -> Done"],
-          "blockedMessage": "PM commits User Stories. QA/PM verifies Done."
-        },
-        "Enhancement": {
-          "allowed": ["New -> Committed", "Committed -> Done", "Return -> Committed"],
-          "blocked": ["Done -> Closed", "Committed -> Return"],
-          "blockedMessage": "QA can return Enhancements. PM closes."
-        }
-      }
-    },
-
-    "frontend": {
-      "displayName": "Frontend Developer",
-      "appliesTo": ["frontend"],
-      "permissions": "$ref:developer"
-    },
-
-    "qa": {
-      "displayName": "QA / QC",
-      "appliesTo": ["tester", "qa", "qc-bugfix", "qc-test"],
-      "permissions": {
-        "Task": {
-          "allowed": ["To Do -> In Progress"],
-          "blocked": ["In Progress -> Done", "Done -> Closed"],
-          "blockedMessage": "Developers complete Tasks. PM closes."
-        },
-        "Bug": {
-          "allowed": ["New -> Approved", "Resolved -> Done", "Resolved -> Return"],
-          "blocked": ["Approved -> In Progress", "In Progress -> Resolved", "Done -> Closed"],
-          "blockedMessage": "Developers fix Bugs. PM closes."
-        },
-        "ProductBacklogItem": {
-          "allowed": ["Ready For QC -> Done", "Ready For QC -> Return"],
-          "blocked": ["New -> Approved", "Approved -> Committed", "Committed -> In Progress", "In Progress -> Ready For QC"],
-          "blockedMessage": "PM approves PBIs. Developers do the work."
-        },
-        "UserStory": {
-          "allowed": ["Committed -> Done"],
-          "blocked": ["New -> Committed"],
-          "blockedMessage": "PM commits User Stories."
-        },
-        "Enhancement": {
-          "allowed": ["Committed -> Return"],
-          "blocked": ["New -> Committed", "Committed -> Done", "Done -> Closed"],
-          "blockedMessage": "Developers handle Enhancements. PM closes."
-        }
-      }
-    },
-
-    "pm": {
-      "displayName": "Project Manager / Team Lead",
-      "appliesTo": ["pm", "lead"],
-      "permissions": {
-        "Task": {
-          "allowed": ["To Do -> In Progress", "Done -> Closed"],
-          "blocked": ["In Progress -> Done"],
-          "blockedMessage": "Developers complete Tasks."
-        },
-        "Bug": {
-          "allowed": ["New -> Approved", "Done -> Closed"],
-          "blocked": ["In Progress -> Resolved", "Resolved -> Done"],
-          "blockedMessage": "Developers resolve Bugs. QA verifies."
-        },
-        "ProductBacklogItem": {
-          "allowed": ["New -> Approved", "Approved -> Committed", "Committed -> In Progress"],
-          "blocked": ["In Progress -> Ready For QC", "Ready For QC -> Done"],
-          "blockedMessage": "Developers prepare for QC. QA verifies."
-        },
-        "UserStory": {
-          "allowed": ["New -> Committed", "Committed -> Done"],
-          "blocked": [],
-          "blockedMessage": ""
-        },
-        "Enhancement": {
-          "allowed": ["New -> Committed", "Committed -> Done", "Done -> Closed"],
-          "blocked": [],
-          "blockedMessage": ""
-        }
-      }
-    }
-  },
-
-  "universalRules": {
-    "closeRestriction": {
-      "rule": "Only PM/Lead can transition to Closed state",
-      "appliesTo": ["Task", "Bug", "Enhancement"],
-      "allowedRoles": ["pm", "lead"]
-    },
-    "removeRestriction": {
-      "rule": "Only PM/Lead can transition to Removed state",
-      "appliesTo": ["Task", "Bug", "ProductBacklogItem", "Feature", "Epic"],
-      "allowedRoles": ["pm", "lead"]
-    },
-    "approveRestriction": {
-      "rule": "Only PM/Lead can approve PBIs and User Stories",
-      "appliesTo": ["ProductBacklogItem", "UserStory"],
-      "allowedRoles": ["pm", "lead"]
-    },
-    "returnHandling": {
-      "rule": "QA initiates Return; Developer picks up from Return state",
-      "appliesTo": ["Bug", "ProductBacklogItem", "Enhancement"],
-      "returnInitiator": ["qa", "qc-bugfix", "qc-test", "tester"],
-      "returnResolver": ["developer", "frontend", "backend", "fullstack"],
-      "requireComment": true
-    },
+  "genericRules": {
     "noProfileFallback": {
       "rule": "If no profile loaded, allow all transitions with a warning",
       "behavior": "warn-and-allow"
-    }
-  },
-
-  "businessRules": {
-    "taskNaming": {
-      "rule": "All Task titles MUST start with a template prefix from project settings",
-      "source": "Fetched via /init profile from Project Settings > Boards > Templates > Task",
-      "defaultPrefixes": [
-        {"prefix": "[Dev]", "role": "developer", "keywords": ["api", "endpoint", "database", "model", "backend", "server", "implement"]},
-        {"prefix": "[Front]", "role": "frontend", "keywords": ["ui", "component", "form", "page", "style", "css", "frontend"]},
-        {"prefix": "[QC Bug Fixing]", "role": "qc-bugfix", "keywords": ["fix", "bug", "patch", "hotfix", "debug", "resolve", "reproduce"]},
-        {"prefix": "[QC Test Execution]", "role": "qc-test", "keywords": ["test", "execute", "test case", "regression", "scenario", "validate"]},
-        {"prefix": "[IMP]", "role": "devops", "keywords": ["deploy", "config", "setup", "install", "migration", "infrastructure"]}
-      ]
-    },
-    "bugCreationAuthority": {
-      "rule": "Bugs are reserved for defects identified by QA/QC",
-      "qaRoles": ["tester", "qa", "qc-bugfix", "qc-test"],
-      "developerRedirect": "Create [Dev-Internal-fix] Task instead",
-      "devInternalFixRules": {
-        "titleFormat": "[Dev-Internal-fix] [Module/Feature] - [What is broken] - [Where]",
-        "mustNotifyQC": true,
-        "parentPbiInProgress": "Log fix on existing Task, add comment with bug description",
-        "parentPbiDone": "Create new [Dev-Internal-fix] Task under PBI, move PBI back to In Progress",
-        "raiseFlag": "Ask if fix changes user-facing behavior; if yes, escalate to QA Lead"
-      }
-    },
-    "userStoryFormat": {
-      "rule": "User Story descriptions MUST follow How/What/Why sequence",
-      "sections": ["How (Implementation Approach)", "What (Requirements + Acceptance Criteria)", "Why (Business Value + Impact)"]
     },
     "autoSprintDetection": {
       "rule": "Tasks auto-assigned to current sprint by date",
       "method": "Fetch team iterations, find where startDate <= today <= finishDate"
+    },
+    "enforcement": {
+      "default": "ask",
+      "values": {
+        "ask": "Policy violations return permissionDecision 'ask' with the reason (default).",
+        "block": "Policy violations are hard-blocked (exit 2). Opt-in via profile 'enforcement: block'.",
+        "advise": "Policy violations are injected as context only; no prompt."
+      },
+      "unknownState": "A target state not defined by the active preset always asks (custom processes exist); it is never hard-blocked."
     }
   },
-
   "preFlightFields": [
     "System.Id",
     "System.Title",
@@ -480,7 +1315,6 @@
     "Microsoft.VSTS.Scheduling.RemainingWork",
     "Microsoft.VSTS.Common.ResolvedReason"
   ],
-
   "errorPatterns": {
     "$comment": "Azure DevOps API error patterns and recovery actions — single source of truth",
     "version": "2.0.0",

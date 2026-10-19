@@ -3,18 +3,26 @@
 
 Reads the PreToolUse JSON payload on stdin (tool_name + tool_input).
 
-  Exit 2 + stderr  hard block; Claude sees stderr as the denial reason. Used only
-                   for clear violations detectable without the model:
-                     * non-PM/Lead moving a work item to Closed/Removed
-                     * a developer role creating a Bug
-                     * a comment with unresolved @mentions
-  Exit 0 + JSON    soft reminder as hookSpecificOutput.additionalContext. Plain
-                   stdout/stderr from an exit-0 PreToolUse hook never reaches the
-                   model, and additionalContext without hookEventName fails schema
-                   validation, so both keys are always emitted. No permissionDecision
-                   is set: the normal permission flow is untouched.
+Process-aware: the active process preset comes from the profile's `process:` field
+(~/.claude/devops.md) and is looked up in data/state_machine.json `processPresets`.
+Role rules (`roleRules`) and Task naming rules (`taskNaming`) apply ONLY when the
+active preset - or a profile override - defines them. The stock presets (basic,
+agile, scrum, cmmi) define none. No profile, no `process:` field, or an unknown
+preset name -> generic behavior: reminders only.
 
-Design: hooks inject REMINDERS. The LLM + rules/ + data/ do the actual validation.
+  Exit 0 + JSON ask   policy violation (role rule / naming rule) or a target state
+                      the active preset does not define. permissionDecision "ask"
+                      with the reason, so the user decides. Default enforcement.
+  Exit 2 + stderr     hard block, only for:
+                        * a policy violation when the profile sets `enforcement: block`
+                        * a comment with unresolved @mentions (a correctness guard)
+  Exit 0 + JSON       soft reminder as hookSpecificOutput.additionalContext (also the
+                      channel for violations under `enforcement: advise`). Both
+                      hookEventName and additionalContext are always emitted.
+
+Design: hooks inject REMINDERS and surface clear violations. The LLM + rules/ +
+data/ do the full validation (the hook cannot see an item's current state or type
+on an update, so from -> to validity is checked by the model against the preset).
 
 Ported from the former bash hook (pre-write-validate.sh). The target state is
 read from the parsed JSON-Patch update whose path is /fields/System.State; the
@@ -54,12 +62,118 @@ def _profile_path():
     return Path.home() / ".claude" / "devops.md"
 
 
-def _user_role(profile):
-    """Role from the profile: YAML `role:` line first, else the Markdown table row."""
+_DATA_FILE = Path(__file__).resolve().parent.parent / "data" / "state_machine.json"
+_OFF_VALUES = ("off", "none", "false", "null", "~", "no", "[]", "{}")
+_ENFORCEMENT_VALUES = ("ask", "block", "advise")
+
+
+def _scalar(value):
+    return value.strip().strip("'\"").strip()
+
+
+def _override(value, frontmatter, key):
+    """A roleRules/taskNaming override: dict, False (explicitly off) or None (absent).
+
+    Inline JSON / YAML flow form (`taskNaming: {"prefixes": ["[Dev]"]}`) is parsed with
+    the stdlib; a block-YAML mapping is parsed only if PyYAML happens to be installed.
+    """
+    v = value.strip()
+    if not v:
+        try:
+            import yaml  # optional; stdlib-only otherwise
+            data = yaml.safe_load(frontmatter) or {}
+            got = data.get(key) if isinstance(data, dict) else None
+            return got if isinstance(got, dict) else None
+        except Exception:
+            return None
+    if _scalar(v).lower() in _OFF_VALUES:
+        return False
     try:
-        lines = profile.read_text(encoding="utf-8", errors="replace").splitlines()
+        got = json.loads(v)
+    except ValueError:
+        return None
+    return got if isinstance(got, dict) else None
+
+
+def _load_profile(profile):
+    """Parse the fields the hook needs from ~/.claude/devops.md, or None if absent."""
+    if not profile.is_file():
+        return None
+    try:
+        text = profile.read_text(encoding="utf-8", errors="replace")
     except OSError:
-        return ""
+        return None
+    lines = text.splitlines()
+    front = text
+    if lines and lines[0].strip() == "---":
+        end = next((i for i in range(1, len(lines)) if lines[i].strip() == "---"), len(lines))
+        front = "\n".join(lines[1:end])
+    info = {"role": _user_role(lines), "process": "", "enforcement": "ask",
+            "roleRules": None, "taskNaming": None}
+    for line in front.splitlines():
+        if not line or line[0] in " \t#" or ":" not in line:
+            continue
+        key, value = line.split(":", 1)
+        key = key.strip()
+        if key == "process":
+            info["process"] = _scalar(value).lower()
+        elif key == "enforcement":
+            enf = _scalar(value).lower()
+            if enf in _ENFORCEMENT_VALUES:
+                info["enforcement"] = enf
+        elif key in ("roleRules", "taskNaming"):
+            info[key] = _override(value, front, key)
+    return info
+
+
+def _load_preset(name):
+    """(preset dict, all-preset dict) for a preset name; preset is None if unknown."""
+    try:
+        data = json.loads(_DATA_FILE.read_text(encoding="utf-8"))
+        presets = data.get("processPresets") or {}
+    except (OSError, ValueError, AttributeError):
+        return None, {}
+    preset = presets.get(name) if name else None
+    return (preset if isinstance(preset, dict) else None), presets
+
+
+def _preset_states(preset):
+    states = set()
+    for cfg in (preset.get("workItemTypes") or {}).values():
+        if isinstance(cfg, dict):
+            states.update(s for s in cfg.get("states") or [] if isinstance(s, str))
+    return states
+
+
+class _Context:
+    """Active process + profile-derived rules for one hook invocation."""
+
+    def __init__(self, profile_path):
+        self.profile = _load_profile(profile_path)
+        p = self.profile or {}
+        self.role = p.get("role", "")
+        self.process = p.get("process", "")
+        self.enforcement = p.get("enforcement", "ask")
+        self.preset, _ = _load_preset(self.process)
+        base = self.preset or {}
+        self.role_rules = self._pick(p.get("roleRules"), base.get("roleRules"))
+        self.task_naming = self._pick(p.get("taskNaming"), base.get("taskNaming"))
+
+    @staticmethod
+    def _pick(override, preset_value):
+        if override is False:
+            return {}
+        if isinstance(override, dict):
+            return override
+        return preset_value if isinstance(preset_value, dict) else {}
+
+    @property
+    def label(self):
+        return f"process preset '{self.process}'" if self.preset else "generic rules"
+
+
+def _user_role(lines):
+    """Role from the profile: YAML `role:` line first, else the Markdown table row."""
     for line in lines:
         if line.startswith("role:"):
             role = line[len("role:"):].strip().replace('"', "")
@@ -114,6 +228,37 @@ def _advise(text):
     }}))
 
 
+def _ask(reason, context=""):
+    out = {"hookEventName": "PreToolUse",
+           "permissionDecision": "ask",
+           "permissionDecisionReason": reason}
+    if context:
+        out["additionalContext"] = context
+    print(json.dumps({"hookSpecificOutput": out}))
+
+
+def _decide(ctx, violations, unknown, reminder):
+    """Route policy violations / unknown-state findings by the enforcement setting.
+
+    violations: org-policy findings (role / naming rules) -> ask | block | advise.
+    unknown:    data-gap findings (state not in the preset) -> always ask.
+    """
+    if violations and ctx.enforcement == "block":
+        _block("[DevOps] BLOCKED: " + " ".join(violations)
+               + " (profile enforcement: block; see data/state_machine.json processPresets.)")
+    asks = list(unknown) + (violations if ctx.enforcement == "ask" else [])
+    notes = violations if ctx.enforcement == "advise" else []
+    context = " ".join([reminder] + [f"[DevOps] Policy note: {v}" for v in notes]).strip()
+    if asks:
+        _ask("[DevOps] Confirm: " + " ".join(asks), context)
+    elif context:
+        _advise(context)
+
+
+def _roles(values):
+    return {_normalize_role(r) for r in values or [] if isinstance(r, str)}
+
+
 def _block(text):
     print(text, file=sys.stderr)
     _timer.cancel()
@@ -144,53 +289,106 @@ def _target_state(raw):
     return ""
 
 
-def _update_work_item(raw, profile):
+def _update_work_item(raw, ctx):
     target_state = _target_state(raw)
     if not target_state:
         return
 
-    # HARD BLOCK: Close/Remove restriction (universalRules).
-    if target_state in ("Closed", "Removed") and profile.is_file():
-        role = _user_role(profile)
-        if _normalize_role(role) not in ("pm", "lead"):
-            _block(
-                f"[DevOps] BLOCKED: Role '{role}' cannot transition to '{target_state}'. "
-                "Only PM/Lead can close or remove work items. See data/state_machine.json "
-                "universalRules."
-            )
-
-    _advise(
-        f"[DevOps] State change to '{target_state}' detected. Follow data/state_machine.json "
-        "pre-flight: check role permissions, required fields, and confirm via "
-        "rules/write-gate.md."
+    reminder = (
+        f"[DevOps] State change to '{target_state}' detected ({ctx.label}). Follow "
+        "data/state_machine.json pre-flight for the active process preset: check the "
+        "transition, required fields, and confirm via rules/write-gate.md."
     )
+    violations, unknown = [], []
 
+    # Data gap: the active preset does not define this state (custom process?).
+    if ctx.preset is not None and target_state not in _preset_states(ctx.preset):
+        unknown.append(
+            f"State '{target_state}' is not defined in {ctx.label}. The project may use a "
+            "customized process - confirm the state is valid, or re-run /init profile to "
+            "re-detect the process."
+        )
 
-def _create_work_item(raw, profile):
-    wi_type = _first_string_field(raw, "workItemType")
-
-    # HARD BLOCK: Bug creation authority (developers cannot create bugs).
-    if wi_type == "Bug" and profile.is_file():
-        role = _user_role(profile)
-        if _normalize_role(role) in ("developer", "backend", "fullstack", "frontend", "devops"):
-            _block(
-                f"[DevOps] BLOCKED: Role '{role}' cannot create Bugs. Create a "
-                "[Dev-Internal-fix] Task instead. See data/state_machine.json "
-                "businessRules.bugCreationAuthority."
+    # Policy: restricted states, only when the preset/profile defines roleRules.
+    rule = (ctx.role_rules.get("restrictedStates") or {}).get(target_state)
+    if isinstance(rule, dict) and ctx.role:
+        allowed = _roles(rule.get("allowedRoles"))
+        if allowed and _normalize_role(ctx.role) not in allowed:
+            violations.append(
+                f"Role '{ctx.role}' moving a work item to '{target_state}' - "
+                f"{rule.get('rule') or 'restricted to ' + ', '.join(sorted(allowed))} "
+                f"({ctx.label} roleRules)."
             )
+
+    _decide(ctx, violations, unknown, reminder)
+
+
+def _create_title(raw):
+    """System.Title from wit_create_work_item tool_input.fields, or ""."""
+    try:
+        fields = (json.loads(raw).get("tool_input") or {}).get("fields")
+    except (ValueError, AttributeError):
+        return ""
+    if isinstance(fields, dict):
+        value = fields.get("System.Title") or fields.get("Title")
+        return value.strip() if isinstance(value, str) else ""
+    for item in fields if isinstance(fields, list) else []:
+        if isinstance(item, dict) and str(item.get("name", "")).lower() in (
+                "system.title", "title"):
+            value = item.get("value")
+            return value.strip() if isinstance(value, str) else ""
+    return ""
+
+
+def _prefixes(naming):
+    out = []
+    for p in naming.get("prefixes") or []:
+        value = p.get("prefix") if isinstance(p, dict) else p
+        if isinstance(value, str) and value.strip():
+            out.append(value.strip())
+    return out
+
+
+def _create_work_item(raw, ctx):
+    wi_type = _first_string_field(raw, "workItemType")
+    violations = []
+
+    # Policy: create restrictions, only when the preset/profile defines roleRules.
+    rule = (ctx.role_rules.get("createRestrictions") or {}).get(wi_type)
+    if isinstance(rule, dict) and ctx.role:
+        role = _normalize_role(ctx.role)
+        denied, allowed = _roles(rule.get("deniedRoles")), _roles(rule.get("allowedRoles"))
+        if role in denied or (allowed and role not in allowed):
+            violations.append(
+                f"Role '{ctx.role}' creating a {wi_type} - "
+                f"{rule.get('rule') or 'restricted'}. {rule.get('redirect') or ''}".strip()
+                + f" ({ctx.label} roleRules)."
+            )
+
+    # Policy: title prefixes, only when the preset/profile defines taskNaming.
+    applies = ctx.task_naming.get("appliesTo") or ["Task"]
+    prefixes = _prefixes(ctx.task_naming)
+    title = _create_title(raw)
+    if prefixes and wi_type in applies and title and not any(
+            title.startswith(p) for p in prefixes):
+        violations.append(
+            f"{wi_type} title '{title}' does not start with a required prefix "
+            f"({', '.join(prefixes)}) ({ctx.label} taskNaming)."
+        )
 
     if wi_type in ("Task", "Bug", "Enhancement"):
-        parent = "User Story/PBI"
-    elif wi_type in ("User Story", "Product Backlog Item"):
+        parent = "User Story/PBI/Requirement/Issue"
+    elif wi_type in ("User Story", "Product Backlog Item", "Requirement"):
         parent = "Feature"
     elif wi_type == "Feature":
         parent = "Epic"
     else:
-        return
-    _advise(
+        parent = ""
+    reminder = (
         f"[DevOps] Creating {wi_type} - ensure parent {parent} is linked per "
-        "data/hierarchy_rules.json."
+        "data/hierarchy_rules.json." if parent else ""
     )
+    _decide(ctx, violations, [], reminder)
 
 
 def _add_comment(raw):
@@ -221,12 +419,10 @@ def main():
     # Namespace-agnostic: plugin tools are "mcp__plugin_devops_azure-devops__<tool>",
     # legacy ones "mcp__azure-devops__<tool>". Keep only the bare tool segment.
     tool = _first_string_field(raw, "tool_name").rsplit("azure-devops__", 1)[-1]
-    profile = _profile_path()
-
     if tool == "wit_update_work_item":
-        _update_work_item(raw, profile)
+        _update_work_item(raw, _Context(_profile_path()))
     elif tool == "wit_create_work_item":
-        _create_work_item(raw, profile)
+        _create_work_item(raw, _Context(_profile_path()))
     elif tool == "wit_add_work_item_comment":
         _add_comment(raw)
     elif tool == "repo_create_pull_request":

@@ -112,8 +112,11 @@ class TestStateMachineFlow:
     def test_state_machine_has_all_required_sections(self):
         with open(DATA_DIR / "state_machine.json") as f:
             sm = json.load(f)
-        for key in ["workItemTypes", "rolePermissions", "universalRules", "businessRules"]:
+        for key in ["defaultPreset", "presetDetection", "processPresets", "genericRules",
+                    "preFlightFields", "errorPatterns"]:
             assert key in sm, f"state_machine.json missing {key}"
+        for name, preset in sm["processPresets"].items():
+            assert "workItemTypes" in preset, f"preset {name} missing workItemTypes"
 
 
 # ─── Flow: Hook targets match actual MCP tool names ─────────────
@@ -147,21 +150,21 @@ class TestHookToolTargeting:
                         f"Hook intercepts '{tool}' but no agent declares it in tools"
                     )
 
-    def test_bug_block_exits_with_2(self):
-        """The bug creation authority check must hard-block (exit 2)."""
+    def test_hard_block_path_exists(self):
+        """exit 2 survives for @mentions and for opt-in `enforcement: block`."""
         content = (HOOKS_DIR / "pre_write_validate.py").read_text(encoding="utf-8")
-        assert "sys.exit(2)" in content, "Bug creation block must use exit 2"
+        assert "sys.exit(2)" in content
 
-    def test_three_hard_blocks_exist(self):
-        """Should have exit 2 for bug creation, close/remove restriction, and mention resolution."""
-        content = (HOOKS_DIR / "pre_write_validate.py").read_text(encoding="utf-8")
-        # One `def _block(` plus a call per hard block; behavior is in test_hooks.py.
-        assert content.count("_block(") >= 4, "Should have at least 3 hard blocks (exit 2)"
+    def test_policy_rules_come_from_the_active_preset(self):
+        """Role/naming rules are read from the preset/profile, not hardcoded role lists.
 
-    def test_close_remove_block_in_hook(self):
-        """The close/remove restriction check must hard-block."""
+        Behavior (ask by default, block on opt-in) is covered in test_hooks.py.
+        """
         content = (HOOKS_DIR / "pre_write_validate.py").read_text(encoding="utf-8")
-        assert "BLOCKED" in content and "Closed" in content, "Should block non-PM/Lead from closing"
+        for token in ("processPresets", "roleRules", "taskNaming", '"ask"', "enforcement"):
+            assert token in content, f"hook should reference {token}"
+        assert '("developer", "backend", "fullstack", "frontend", "devops")' not in content
+        assert 'not in ("pm", "lead")' not in content
 
     def test_mention_block_exits_with_2(self):
         """The unresolved mention check must hard-block (exit 2)."""

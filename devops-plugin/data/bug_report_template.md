@@ -4,7 +4,7 @@
 
 This template is used for:
 - **Bugs** (created by QA/QC)
-- **[Dev-Internal-fix] Tasks** (created by developers when Rule 8 blocks bug creation)
+- **[Dev-Internal-fix] Tasks** (created by developers when the `custom-scrum-qc` preset's Bug-creation rule applies)
 
 Both types use the same structured body format to ensure consistency and traceability.
 

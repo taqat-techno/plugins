@@ -14,10 +14,14 @@ At session start or first DevOps operation:
         Include "me"/"myself" -> current user
       - teamByEmail = Map(email -> {name, guid, role})
       - projectsByName = Map(name -> {role, team, repos})
-      - statePerms = from profile statePermissions section
-   c. Set defaultProject from profile
-   d. Set taskPrefix from preferences
-   e. Log: "Profile loaded: {displayName} ({role}) -- {defaultProject}"
+      - statePerms = from profile statePermissions section (custom presets only)
+   c. Resolve the process preset: profile `process` -> data/state_machine.json
+      `processPresets[process]`. Missing or unknown -> generic rules (no role or
+      naming rules) and suggest `/init profile` to detect the process.
+      Profile `roleRules` / `taskNaming` (inline JSON or `off`) replace the preset's.
+   d. Set defaultProject from profile
+   e. Set taskPrefix from preferences
+   f. Log: "Profile loaded: {displayName} ({role}, {process}) -- {defaultProject}"
 3. If NOT found:
    a. Show: "No DevOps profile found. Run /init profile for faster operations."
    b. Fall back to API-based resolution
@@ -30,7 +34,8 @@ At session start or first DevOps operation:
 |-----------|----------------|--------------|
 | "assign to me" | API call | Instant: use `identity.guid` |
 | "@teammate" | API call | Cache lookup -> instant if found |
-| /create "Fix bug" | Infer prefix | Use `preferences.taskPrefix` |
+| /create "Fix bug" | No prefix | Use `preferences.taskPrefix`; required only if the preset/profile defines `taskNaming` |
+| State change | Generic reminder | Validate against `processPresets[process]` states/transitions |
 | (session start) | Auto-detect project | Use `defaultProject` |
 
 ## Cache-First Resolution

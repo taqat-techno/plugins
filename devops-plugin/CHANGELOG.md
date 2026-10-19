@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [7.0.0] - 2026-10-19
+
+### Changed (breaking)
+- **Process presets replace the single built-in process.** `data/state_machine.json` (v7.0.0) ships Microsoft's stock Basic, Agile, Scrum and CMMI presets, plus the previous customized model as the opt-in `custom-scrum-qc` preset with its role rules and task-name prefixes. `defaultPreset` is `agile` (audit DEV-P0-02).
+- **Rule violations ask instead of block.** Role restrictions, task-name prefixes and states outside the active preset now return `permissionDecision: "ask"`. Set `enforcement: block` in the profile to restore hard blocks. Without a profile, or with no `process` field, the hook only gives reminders. Unresolved @mentions still block.
+- **Existing profiles:** add `process: custom-scrum-qc` (and `enforcement: block` for the old behaviour), or run `/init profile --refresh`.
+### Added
+- `/init` Step 3.5 detects the project's process from its backlogs and work item types, maps it to a preset, and confirms it with you.
+- README "Process presets" section; profile template fields `process`, `enforcement`, `roleRules`, `taskNaming`.
+
 ## [6.11.0] - 2026-10-19
 
 ### Security

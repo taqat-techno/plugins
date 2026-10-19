@@ -26,18 +26,19 @@ Parse `$ARGUMENTS` for type flag, title, and optional parent (`under #ID`).
 ## Auto-Detection Rules
 
 If no type flag is given, detect from title keywords:
-- "fix", "bug", "broken", "error" -> Bug (but check role — developers create `[Dev-Internal-fix]` Tasks instead)
-- "test", "qa", "verify" -> Task with `[QC Test Execution]` prefix
-- "implement", "add", "create", "build" -> Task with role-based prefix
-- "improve", "enhance", "refactor" -> Enhancement
+- "fix", "bug", "broken", "error" -> Bug (if the active preset's `roleRules.createRestrictions.Bug` denies the user's role, offer its `redirect` instead, e.g. a `[Dev-Internal-fix]` Task under `custom-scrum-qc`)
+- "test", "qa", "verify" -> Task (with the matching `taskNaming` prefix when the preset defines one)
+- "implement", "add", "create", "build" -> Task (role-based prefix when the preset defines `taskNaming`)
+- "improve", "enhance", "refactor" -> Enhancement if the preset has that type, else the preset's `requirementType` or a Task
+- Use only work item types that exist in the active preset (`processPresets[process].workItemTypes`)
 
 ## Workflow
 
 1. **Parse** arguments for type, title, parent reference
-2. **Load profile** per `rules/profile-loader.md` (get role, project, task prefix)
-3. **Apply naming** — prepend task prefix from profile (e.g., `[Dev] Fix login API`)
+2. **Load profile** per `rules/profile-loader.md` (get role, project, process preset, task prefix)
+3. **Apply naming** — prepend `preferences.taskPrefix` if set; a prefix is **required** only when the preset/profile defines `taskNaming` (e.g., `[Dev] Fix login API` under `custom-scrum-qc`)
 4. **Check hierarchy** per `data/hierarchy_rules.json`:
-   - Tasks/Bugs/Enhancements MUST have a parent User Story or PBI
+   - Tasks/Bugs/Enhancements MUST have a parent at the preset's requirement level (User Story, PBI, Requirement or Issue)
    - If no `under #ID`, search for matching parent and ask user to select
 5. **Detect sprint** — auto-assign to current iteration
 6. **Present confirmation** per `rules/write-gate.md`:

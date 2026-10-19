@@ -86,7 +86,10 @@ matcher and this table list exactly the same tools.
 The five tools in the CREATE/UPDATE tables above (`wit_create_work_item`,
 `wit_update_work_item`, `wit_add_work_item_comment`, `wit_work_items_link`,
 `repo_create_pull_request`) are instead routed to `hooks/pre_write_validate.py`
-(role / state / mention / repo-GUID validation) and are not in the ask gate.
+(process-preset state checks, optional role/naming rules, mention and repo-GUID
+validation) and are not in the ask gate. That hook asks (`permissionDecision: "ask"`)
+on a rule violation or a state the active preset does not define; it hard-blocks only
+unresolved @mentions and, when the profile sets `enforcement: "block"`, rule violations.
 
 When the MCP server is upgraded, add any new write tool to this table **and** the
 hooks.json matcher in the same change; the sync test fails otherwise.

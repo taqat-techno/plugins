@@ -14,6 +14,9 @@ identity:
   uniqueName: "jane@example.com"
 
 role: "developer"
+# This sample uses the opt-in customized-Scrum preset. A stock-process project would
+# have process: "agile" / "scrum" / "cmmi" / "basic" and no statePermissions block.
+process: "custom-scrum-qc"
 team: "Engineering Team"
 defaultProject: "My Project"
 

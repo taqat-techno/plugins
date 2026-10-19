@@ -192,12 +192,13 @@ class TestHooksConsistency:
 
 
 class TestStateNameConsistency:
-    """Verify state names are consistent across state_machine.json."""
+    """Verify state names are consistent in the custom-scrum-qc preset (the only preset
+    that carries rolePermissions / universalRules)."""
 
     @pytest.fixture(scope="class")
     def state_machine(self):
-        with open(DATA_DIR / "state_machine.json") as f:
-            return json.load(f)
+        with open(DATA_DIR / "state_machine.json", encoding="utf-8") as f:
+            return json.load(f)["processPresets"]["custom-scrum-qc"]
 
     def test_role_permission_types_match_state_machine(self, state_machine):
         """Work item types in rolePermissions should exist in workItemTypes."""
@@ -264,8 +265,11 @@ class TestPluginJson:
         with open(PLUGIN_ROOT / ".claude-plugin" / "plugin.json") as f:
             return json.load(f)
 
-    def test_version_is_6(self, plugin_config):
-        assert plugin_config["version"].startswith("6."), f"Plugin version should be 6.x, got {plugin_config['version']}"
+    def test_version_is_semver_and_in_changelog(self, plugin_config):
+        version = plugin_config["version"]
+        assert re.fullmatch(r"\d+\.\d+\.\d+", version), f"Plugin version is not semver: {version}"
+        changelog = (Path(__file__).parent.parent / "CHANGELOG.md").read_text(encoding="utf-8")
+        assert f"## [{version}]" in changelog, f"CHANGELOG has no entry for {version}"
 
     def test_has_name(self, plugin_config):
         assert plugin_config["name"] == "devops"
