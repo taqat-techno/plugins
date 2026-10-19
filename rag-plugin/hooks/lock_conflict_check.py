@@ -178,7 +178,7 @@ def emit_ask(command: str, matched_pattern: str) -> None:
 def main() -> None:
     # Parse stdin. If anything is malformed, silent pass.
     try:
-        raw = sys.stdin.read()
+        raw = sys.stdin.buffer.read().decode("utf-8", "replace")
         if not raw.strip():
             emit_silent_pass()
         payload = json.loads(raw)

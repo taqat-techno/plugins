@@ -2,6 +2,14 @@
 
 All notable changes to `rag-plugin` are documented here. Format is loosely based on [Keep a Changelog](https://keepachangelog.com/). Versioning follows [SemVer](https://semver.org/).
 
+## [0.18.2] - 2026-10-19
+
+### Fixed
+- **Hook stdin is decoded as UTF-8 (ECO-14, QW #18).** `context_inject.py` and `lock_conflict_check.py` read `sys.stdin` as text, which on Windows is cp1252 with surrogateescape, so an Arabic or other non-ASCII payload arrived as mojibake. Both now read `sys.stdin.buffer` and decode UTF-8. For `context_inject.py` this mangled the prompt used for the scoped relevance probe.
+
+### Tests
+- `tests/test_wp14_stdin_utf8.py`: structural gate against text-mode stdin in `hooks/`, plus a cp1252-stream decode check.
+
 ## [0.18.1] - 2026-09-12
 
 Adds a behavioural eval suite under `evals/` (2 must-fire cases + 1 must-not-fire case), so this plugin's value claim is measured as

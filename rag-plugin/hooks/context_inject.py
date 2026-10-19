@@ -483,7 +483,7 @@ def inject(block: str, **fields) -> None:
 
 def main() -> None:
     try:
-        raw = sys.stdin.read()
+        raw = sys.stdin.buffer.read().decode("utf-8", "replace")
     except Exception:
         silent_pass("stdin-read-error")
         return
