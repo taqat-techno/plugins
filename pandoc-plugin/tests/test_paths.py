@@ -12,7 +12,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 REF_RE = re.compile(r"\$\{CLAUDE_PLUGIN_ROOT\}/([A-Za-z0-9_./-]+)")
-INSTALLERS = ("skills/pandoc/scripts/setup.ps1", "skills/pandoc/scripts/setup.sh")
+INSTALLERS = ("skills/pandoc-conversion/scripts/setup.ps1", "skills/pandoc-conversion/scripts/setup.sh")
 
 
 def md_files():
@@ -34,7 +34,7 @@ class PluginRootPaths(unittest.TestCase):
         self.assertTrue(any(refs(md) for md in md_files()), "no references scanned")
 
     def test_setup_command_and_skill_reference_both_installers(self):
-        for md in (ROOT / "commands" / "setup.md", ROOT / "skills" / "pandoc" / "SKILL.md"):
+        for md in (ROOT / "commands" / "setup.md", ROOT / "skills" / "pandoc-conversion" / "SKILL.md"):
             found = refs(md)
             for installer in INSTALLERS:
                 self.assertIn(installer, found, f"{md.name} does not reference {installer}")

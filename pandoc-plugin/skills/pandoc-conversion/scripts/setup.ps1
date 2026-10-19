@@ -133,8 +133,9 @@ if (-not $SkipLatex) {
         if ($latexPath) {
             Write-Ok "MiKTeX installed: $latexPath"
         } else {
-            Write-Warn "MiKTeX installation failed or pdflatex.exe was not found afterwards."
-            Write-Warn "PDF output will not work. Install manually from https://miktex.org/download"
+            # Printed even with -Quiet; the summary exits 1 for this.
+            Write-Fail "MiKTeX installation failed or pdflatex.exe was not found afterwards."
+            Write-Fail "PDF output will not work. Install manually from https://miktex.org/download"
         }
     } else {
         Write-Warn "LaTeX not found (MiKTeX basic, about 140 MB)."
@@ -214,8 +215,14 @@ if ($pandocCheck) {
 }
 
 if (-not $SkipLatex) {
-    if ($latexPath) { Write-Ok "LaTeX: $latexPath" }
-    else { Write-Warn "LaTeX: not available (PDF output disabled)" }
+    if ($latexPath) {
+        Write-Ok "LaTeX: $latexPath"
+    } else {
+        # Only reachable after an attempted install (a check-only run exited above).
+        Write-Fail "LaTeX: the MiKTeX install did not complete (PDF output disabled)."
+        Write-Fail "Re-run with -SkipLatex if you do not need PDF output."
+        exit 1
+    }
 }
 
 Write-Status ""

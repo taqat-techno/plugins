@@ -158,10 +158,16 @@ else
     exit 1
 fi
 if [[ "$SKIP_LATEX" != "true" ]]; then
-    if command -v pdflatex &> /dev/null || command -v xelatex &> /dev/null; then
+    # BasicTeX/MacTeX put the engines in /Library/TeX/texbin, which is on PATH only
+    # in a new shell.
+    if command -v pdflatex &> /dev/null || command -v xelatex &> /dev/null \
+        || [[ -x /Library/TeX/texbin/pdflatex || -x /Library/TeX/texbin/xelatex ]]; then
         success "LaTeX: available"
     else
-        warn "LaTeX: not available (PDF output disabled)"
+        # Only reachable after an attempted install (a check-only run exited above).
+        error "LaTeX: the install did not complete (PDF output disabled)."
+        error "Re-run with --skip-latex if you do not need PDF output."
+        exit 1
     fi
 fi
 log "Setup complete. Open a new terminal if PATH changed."

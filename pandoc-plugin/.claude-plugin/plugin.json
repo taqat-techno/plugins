@@ -1,6 +1,6 @@
 {
   "name": "pandoc",
-  "version": "3.0.0",
+  "version": "3.0.2",
   "license": "MIT",
   "description": "Document conversion with Pandoc: Markdown, Word, HTML, LaTeX, EPUB, PDF and slides, citations, batch conversion and Arabic/RTL PDFs. Asks before overwriting outputs, uses --sandbox for untrusted documents, and installs Pandoc/LaTeX only with your consent.",
   "author": {

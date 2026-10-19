@@ -57,8 +57,8 @@ None. The plugin ships no hooks.
 
 | Script | Behaviour |
 |---|---|
-| `skills/pandoc/scripts/setup.ps1` | Windows. Flags: `-SkipLatex`, `-Quiet`, `-PrintOnly`, `-Install`, `-EnableAutoInstall`. |
-| `skills/pandoc/scripts/setup.sh` | Linux/macOS (and prints winget commands under Git Bash). Flags: `--skip-latex`, `--quiet`, `--print-only`, `--install`. |
+| `skills/pandoc-conversion/scripts/setup.ps1` | Windows. Flags: `-SkipLatex`, `-Quiet`, `-PrintOnly`, `-Install`, `-EnableAutoInstall`. |
+| `skills/pandoc-conversion/scripts/setup.sh` | Linux/macOS (and prints winget commands under Git Bash). Flags: `--skip-latex`, `--quiet`, `--print-only`, `--install`. |
 
 Both:
 
@@ -66,7 +66,11 @@ Both:
   only print the install commands, then exit 0;
 - run package managers without `-y`, `--noconfirm` or winget `--accept-*`
   flags, so you accept licence terms and `sudo` prompts yourself;
-- exit 1 when an install did not complete.
+- exit 1 when an install they ran did not complete: Pandoc, or LaTeX unless
+  you passed `-SkipLatex` / `--skip-latex` (a check-only run exits 0).
+
+On Windows the installer is started with `-ExecutionPolicy Bypass`, which applies
+only to that one PowerShell process and leaves your execution policy unchanged.
 
 `-EnableAutoInstall` (Windows) turns on MiKTeX's on-the-fly package downloads
 (`[MPM]AutoInstall=1`, a persistent per-user MiKTeX setting) and pre-installs

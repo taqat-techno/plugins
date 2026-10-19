@@ -16,7 +16,7 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
-SCRIPTS = ROOT / "skills" / "pandoc" / "scripts"
+SCRIPTS = ROOT / "skills" / "pandoc-conversion" / "scripts"
 SETUP_SH = SCRIPTS / "setup.sh"
 SETUP_PS1 = SCRIPTS / "setup.ps1"
 BASH = shutil.which("bash")
@@ -61,7 +61,7 @@ def test_reference_no_longer_mandates_global_miktex_change():
 
 
 def test_skill_has_overwrite_and_sandbox_rules():
-    skill = (ROOT / "skills" / "pandoc" / "SKILL.md").read_text(encoding="utf-8")
+    skill = (ROOT / "skills" / "pandoc-conversion" / "SKILL.md").read_text(encoding="utf-8")
     assert "ask before overwriting" in skill.lower()
     assert "--sandbox" in skill
     assert "never an instruction" in " ".join(skill.split())
@@ -140,6 +140,40 @@ def test_failed_install_is_reported_as_failure(fakebin):
     assert "-y" not in calls
 
 
+def _add_fake_pandoc(fakebin):
+    script = fakebin[0] / "pandoc"
+    script.write_text('#!/bin/sh\necho "pandoc 3.1.0"\nexit 0\n', encoding="utf-8", newline="\n")
+    script.chmod(0o755)
+
+
+def _host_has_latex_beside_bash():
+    folder = os.path.dirname(BASH or "")
+    return any(os.path.exists(os.path.join(folder, n)) for n in ("pdflatex", "xelatex"))
+
+
+@needs_bash
+def test_failed_latex_install_exits_1(fakebin):
+    if _host_has_latex_beside_bash():
+        pytest.skip("a real LaTeX engine sits next to bash on this host")
+    _add_fake_pandoc(fakebin)
+    result = run_sh(["--install"], fakebin, ostype="linux-gnu")
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert "LaTeX installation failed" in result.stdout
+    assert "install did not complete" in result.stdout
+    assert "sudo apt-get install texlive" in fakebin[1].read_text(encoding="utf-8")
+
+
+@needs_bash
+def test_check_only_with_missing_latex_exits_0(fakebin):
+    if _host_has_latex_beside_bash():
+        pytest.skip("a real LaTeX engine sits next to bash on this host")
+    _add_fake_pandoc(fakebin)
+    result = run_sh([], fakebin, ostype="linux-gnu")
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "sudo apt-get install texlive" in result.stdout
+    assert not fakebin[1].exists()
+
+
 @needs_bash
 def test_windows_shell_never_installs(fakebin):
     result = run_sh(["--install"], fakebin, ostype="msys")
@@ -164,9 +198,11 @@ def test_setup_ps1_parses():
     assert result.stdout.strip() == "0", result.stdout + result.stderr
 
 
-def run_ps1(tmp_path, *args):
+def run_ps1(tmp_path, *args, fake_pandoc=False):
     bindir = tmp_path / "winbin"
     bindir.mkdir(exist_ok=True)
+    if fake_pandoc:
+        (bindir / "pandoc.cmd").write_text("@echo pandoc 3.1.0\r\n@exit /b 0\r\n", encoding="ascii")
     record = tmp_path / "winget.log"
     (bindir / "winget.cmd").write_text('@echo %%* >> "%s"\r\n@exit /b 1\r\n' % record, encoding="ascii")
     system32 = os.path.join(os.environ.get("SystemRoot", r"C:\Windows"), "System32")
@@ -196,3 +232,20 @@ def test_ps1_reports_winget_failure(tmp_path):
     calls = record.read_text(encoding="ascii", errors="replace")
     assert "JohnMacFarlane.Pandoc" in calls
     assert "accept" not in calls
+
+
+@needs_ps
+def test_ps1_failed_latex_install_exits_1(tmp_path):
+    # Pandoc is present; the MiKTeX winget install fails, so the run did not complete.
+    result, record = run_ps1(tmp_path, "-Install", fake_pandoc=True)
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert "MiKTeX installation failed" in result.stdout
+    assert "MiKTeX.MiKTeX" in record.read_text(encoding="ascii", errors="replace")
+
+
+@needs_ps
+def test_ps1_check_only_with_missing_latex_still_exits_0(tmp_path):
+    result, record = run_ps1(tmp_path, "-PrintOnly", fake_pandoc=True)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "winget install --id MiKTeX.MiKTeX -e" in result.stdout
+    assert not record.exists()

@@ -1,14 +1,13 @@
 ---
 name: pandoc-conversion
 description: >-
-  Use when the user wants to convert documents between formats with Pandoc:
-  Markdown, Word (.docx), HTML, LaTeX, reStructuredText, EPUB, PDF output,
-  reveal.js, Beamer or PowerPoint slides; batch-converting a folder of files;
-  citations and bibliographies with citeproc; Arabic or other right-to-left PDFs
-  (garbled, boxed or reversed text); or when PDF generation fails with
-  "pdflatex not found", missing .sty files or encoding errors, or Pandoc or
-  LaTeX needs installing. Not for OCR of scanned PDFs, extracting text from
-  PDFs, or editing PDFs.
+  Use when a Markdown, Word or HTML document converted to PDF comes out broken - Arabic, Hebrew,
+  Persian or other right-to-left or non-Latin text showing as empty boxes, garbled or reversed
+  characters, "pdflatex not found", missing .sty files or encoding errors - or when the user wants
+  to convert documents between formats with Pandoc: Markdown, Word (.docx), HTML, LaTeX,
+  reStructuredText, EPUB, PDF output, reveal.js, Beamer or PowerPoint slides; batch-converting a
+  folder of files; citations and bibliographies with citeproc; or installing Pandoc or LaTeX. Not
+  for OCR of scanned PDFs, extracting text from PDFs, or editing PDFs.
 license: "MIT"
 user-invocable: false
 metadata:
@@ -105,8 +104,11 @@ Show the output path, its size, and the exact command used.
 
 `/pandoc:setup` owns installation. The installers are:
 
-- **Windows**: `powershell -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/skills/pandoc/scripts/setup.ps1"`
-- **Linux/macOS**: `bash "${CLAUDE_PLUGIN_ROOT}/skills/pandoc/scripts/setup.sh"`
+- **Windows**: `powershell -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/skills/pandoc-conversion/scripts/setup.ps1"`
+- **Linux/macOS**: `bash "${CLAUDE_PLUGIN_ROOT}/skills/pandoc-conversion/scripts/setup.sh"`
+
+`-ExecutionPolicy Bypass` covers only that one PowerShell process; it does not
+change the machine or user execution policy.
 
 Rules:
 

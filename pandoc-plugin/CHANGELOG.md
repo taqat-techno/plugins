@@ -1,5 +1,29 @@
 # Changelog
 
+## [3.0.2] - 2026-10-19
+
+Skill triggering tuned against real eval results. Measured with `claude plugin eval --runs 1 --model claude-sonnet-5-5`; the no-plugin baseline is the 2026-10-19 run, and Δ counts the criteria grader only.
+
+### Changed
+- `pandoc-conversion` description opens with broken PDF output: right-to-left or non-Latin text (Arabic, Hebrew, Persian) showing as boxes, garbled or reversed characters, `pdflatex not found`. A user who never says "Pandoc" now still reaches the skill.
+
+### Eval results
+- Must-fire: 0/1 -> 1/1. Must-not-fire (`ignores-scanned-pdf-ocr-extraction`): quiet before and after. Mean Δ: +0.00 -> +0.00.
+
+## [3.0.1] - 2026-10-19
+
+### Fixed
+- A failed LaTeX/MiKTeX install now makes both installers exit 1, matching the
+  README (RA-PDC-01, PDC-P3-11). Check-only runs still exit 0 and `-SkipLatex` /
+  `--skip-latex` skips the step; `setup.sh` also finds BasicTeX/MacTeX in
+  `/Library/TeX/texbin` before a new shell has it on PATH. Tests use the existing
+  fake sudo/apt/winget harness with a fake `pandoc`.
+- The skill directory is now `skills/pandoc-conversion/`, matching its
+  `name: pandoc-conversion` (RA-PDC-02, PDC-P3-12). Installer paths in the skill,
+  `/pandoc:setup`, the README and the tests follow.
+- `/pandoc:setup`, the skill and the README say that `-ExecutionPolicy Bypass`
+  applies only to the one PowerShell process (RA-PDC-03, PDC-P3-13).
+
 ## [3.0.0] - 2026-10-19
 
 Major: `/pandoc` is split into verb commands, and the installers no longer
