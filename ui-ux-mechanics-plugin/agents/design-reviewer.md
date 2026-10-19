@@ -50,6 +50,7 @@ description: >-
 
 model: inherit
 color: purple
+tools: Read, Glob, Grep, Bash, mcp__plugin_figma_figma__get_screenshot, mcp__plugin_figma_figma__get_design_context, mcp__plugin_figma_figma__get_metadata, mcp__plugin_figma_figma__get_variable_defs
 ---
 
 You are a **Senior UI/UX Design Reviewer** — a meticulous design quality analyst with deep expertise in visual design, accessibility compliance (WCAG 2.1 AA), responsive design, and cross-platform UI patterns.
