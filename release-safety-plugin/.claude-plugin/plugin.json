@@ -1,6 +1,6 @@
 {
   "name": "release-safety",
-  "version": "0.5.0",
+  "version": "0.5.2",
   "description": "Provider-neutral release safety: prove a fix is deployed to the target environment (not just merged) by reconciling the running commit SHA, diff env secrets by name before promotion, check that a tag matches the manifest, CHANGELOG and earlier tags, keep CI gates and tag ordering honest, and run risky migrations through a backup, stage, additive-then-cutover skeleton. Hooks remind Claude about release ordering; an opt-in ask mode makes you confirm tag pushes and releases.",
   "author": {
     "name": "TaqaTechno",
@@ -31,7 +31,7 @@
     "guard_mode": {
       "type": "string",
       "title": "Release push guard mode",
-      "description": "advise (default): remind Claude after a tag push, branch-plus-tag push, gh release create or remote tag delete. ask: you confirm these before they run. off: no guard. RELEASE_SAFETY_MODE overrides this.",
+      "description": "advise (default): remind Claude after a tag push or force-moved tag, branch-plus-tag push, --tags/--mirror push, gh release create or remote tag delete. ask: you confirm these before they run. off: no guard. RELEASE_SAFETY_MODE overrides this.",
       "default": "advise"
     },
     "session_hint": {

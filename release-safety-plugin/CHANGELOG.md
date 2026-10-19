@@ -2,6 +2,26 @@
 
 All notable changes to this plugin are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.2] - 2026-10-19
+
+Skill triggering tuned against real eval results. Measured with `claude plugin eval --runs 1 --model claude-sonnet-5-5`; the no-plugin baseline is the 2026-10-19 run, and Δ counts the criteria grader only.
+
+### Changed
+- `migration-safety` description opens with reviewing a rename or drop plan on a large, constantly-read production table, especially one migration that adds, copies and drops in a single deploy. The "Covers" list is shortened to stay under 1,024 characters.
+
+### Eval results
+- Must-fire: 2/3 -> 3/3. Must-not-fire: 3/3 quiet before and after. Mean Δ: +0.00 -> +0.00.
+
+## [0.5.1] - 2026-10-19
+
+### Fixed
+- **Push guard recognises the tag pushes it used to miss (RA-REL-01).** Variable tags (`git push origin "$TAG"`, `"v$VERSION"`, `$(git describe --tags)`, and any `$X` when the same command creates or names a tag), moving major tags (`v1`; `latest`/`stable` when force-pushed), `git push origin tag <name>`, commands wrapped in `bash -c` / `sh -c` / `pwsh -Command`, `$(...)` bodies, and `gh -R/--repo owner/repo release create|delete`. The parser now matches git-safety's: `${...}`/`$(...)` are opaque words, more wrappers are skipped, gh global flags are skipped.
+- **Branch-shaped refs are no longer read as tags (RA-REL-02).** `release-1.2`, `release/1.2`, a two-part `17.0`, `refs/heads/...`, `$BRANCH`-style expansions and the checked-out branch (read from `.git/HEAD`, no git process) are branches. `git push origin tag v1.2.0` is a tag push, not a branch-plus-tag push.
+
+### Added
+- Rules `push-mirror` (`git push --mirror`, RA-REL-03) and `tag-move` (a tag pushed with `-f`/`--force`/`+ref`).
+- `--self-test` grows from 22 to 54 cases (23 positive and 9 negative new rows); new offline hook tests for ask mode on the new shapes, branch-shaped refs, and the checked-out-branch exemption. The README documents exactly what counts as a tag.
+
 ## [0.5.0] - 2026-10-19
 
 ### Added

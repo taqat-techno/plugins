@@ -80,12 +80,25 @@ There are no agents.
 | Hook | Event / matcher | What it does | Can block? |
 |---|---|---|---|
 | `hooks/session_start_release_advisory.py` | `SessionStart` | In a project with CI or deploy configuration (`.github/workflows`, `.gitlab-ci.yml`, `azure-pipelines.yml`, `fly.toml`, `vercel.json`, `railway.json`, `Procfile`, release-tool configs, ...) it gives Claude one reminder to run `/release-safety:release-verify` and the check script. Once per project; silent elsewhere. | No |
-| `hooks/release_push_guard.py` | `PreToolUse` on `Bash\|PowerShell` | Spots a branch and tag pushed together, `git push --tags`/`--follow-tags`, pushing a release tag, `gh release create`, and remote tag or release deletion | Only in `ask` mode, by asking you; never denies |
+| `hooks/release_push_guard.py` | `PreToolUse` on `Bash\|PowerShell` | Spots a branch and tag pushed together, `git push --tags`/`--follow-tags`/`--mirror`, pushing a release tag (also `"$TAG"`, `tag <name>`, `v1`), force-moving a tag (`v1`, `latest`), `gh release create` (also with `-R`), and remote tag or release deletion, including inside `bash -c "..."` | Only in `ask` mode, by asking you; never denies |
 
 In the default `advise` mode the push reminder is PreToolUse `additionalContext`, which
 Claude Code delivers with the tool result: the push has already happened when Claude reads
 it. Only `ask` mode stops the command first. The guard matches the command that runs, not
-text in quotes or commit messages. It cannot see tags pushed by scripts, aliases or a CI
+text in quotes or commit messages.
+
+How it tells a tag from a branch, without running git:
+
+- **Tag:** `refs/tags/<x>`; `tag <x>`; a version-shaped name (`v1`, `v1.2`, `v1.2.3`,
+  `1.2.3`, `<name>-v1.2.3`, `<name>@1.2.3`, optional `-rc.1`/`+build` suffix); `latest` or
+  `stable` only when force-pushed; a shell expansion whose variable name says
+  tag/version/release (`"$TAG"`, `"v$VERSION"`, `$(git describe --tags)`), or any expansion
+  when the same command also creates or names a tag (`git tag ...`, `refs/tags/`, `gh release`).
+- **Branch:** `refs/heads/<x>`; the checked-out branch (read from `.git/HEAD`); expansions
+  named like a branch (`$BRANCH`, `$(git branch --show-current)`); branch-like versions
+  such as `release-1.2`, `release/1.2` or a two-part `17.0`; everything else.
+
+It cannot see tags pushed by scripts, aliases or a CI
 job. Check its table offline with `python hooks/release_push_guard.py --self-test`.
 
 ## Configuration

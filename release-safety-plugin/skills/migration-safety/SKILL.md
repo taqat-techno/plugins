@@ -1,6 +1,17 @@
 ---
 name: migration-safety
-description: Use when about to run a risky database migration, schema change, data backfill or cutover (table, database, queue or storage), when reviewing whether a migration is destructive or reaches CASCADE deletes, when checking for migration drift or environment-versus-environment schema drift before a deploy, when building an extractor that moves data between systems, or when a database dump is about to be treated as a complete migration. Covers the discover, backup, stage, additive-then-cutover, archive-by-rename skeleton; why soft-delete overrides do not protect bulk or admin deletes; auditing cascade foreign keys into financial, audit or historical tables; reading the live information_schema instead of committed schema files; binary assets on local disk that a dump misses; and the MIGRATION SAFETY REPORT. Engine- and ORM-neutral; commands are discovered, never assumed.
+description: >-
+  Use when reviewing a plan to rename, drop, retype or move a column or table on a large production
+  table the app reads constantly - especially a single migration that adds the new column, copies
+  the data and drops the old one in one deploy - or when about to run any risky database migration,
+  schema change, data backfill or cutover (table, database, queue or storage), when checking whether
+  a migration is destructive or reaches CASCADE deletes, when checking for migration drift or
+  environment-versus-environment schema drift before a deploy, when building an extractor that moves
+  data between systems, or when a database dump is about to be treated as a complete migration.
+  Covers the discover, backup, stage, additive-then-cutover, archive-by-rename skeleton; soft-delete
+  overrides that do not protect bulk deletes; cascade foreign keys into financial or audit tables;
+  the live information_schema over committed schema files; and the MIGRATION SAFETY REPORT. Engine-
+  and ORM-neutral.
 version: 0.2.0
 user-invocable: false
 metadata:

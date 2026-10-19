@@ -75,6 +75,62 @@ def test_push_guard_silent_on_plain_push():
     assert proc.returncode == 0 and proc.stdout == b""
 
 
+@pytest.mark.parametrize("command", [
+    "git tag v1.2.0 && git push origin \"$TAG\"",
+    "git push origin v1 --force",
+    "git push origin +latest",
+    "git push --mirror origin",
+    "bash -c \"git push --tags\"",
+    "gh -R owner/repo release create v1.0.0",
+    "git push origin tag v1.2.0",
+])
+def test_push_guard_ask_mode_covers_ra_rel_01_shapes(command, tmp_path):
+    """RA-REL-01: variable, major/moving, wrapped and -R tag/release actions ask in ask mode."""
+    proc = run("release_push_guard.py", {"cwd": str(tmp_path), "tool_input": {"command": command}},
+               environ=env(RELEASE_SAFETY_MODE="ask"))
+    out = json.loads(proc.stdout)["hookSpecificOutput"]
+    assert out["permissionDecision"] == "ask", command
+
+
+@pytest.mark.parametrize("command", [
+    "git push origin release-1.2",
+    "git push origin 17.0",
+    "git push origin latest",
+    "git push origin \"$BRANCH\"",
+    "git push origin refs/heads/v1.2.0",
+])
+def test_push_guard_ask_mode_ignores_branch_shaped_refs(command, tmp_path):
+    """RA-REL-02: version-looking branch names do not raise a spurious prompt."""
+    proc = run("release_push_guard.py", {"cwd": str(tmp_path), "tool_input": {"command": command}},
+               environ=env(RELEASE_SAFETY_MODE="ask"))
+    assert proc.returncode == 0 and proc.stdout == b"", command
+
+
+def test_push_guard_checked_out_branch_is_not_a_tag(tmp_path):
+    (tmp_path / ".git").mkdir()
+    (tmp_path / ".git" / "HEAD").write_text("ref: refs/heads/v2\n", encoding="utf-8")
+    sub = tmp_path / "src"
+    sub.mkdir()
+    assert rpg.current_branch(str(sub)) == "v2"
+    assert rpg.detect("git push origin v2", current_branch="v2") == []
+    assert rpg.detect("git push origin v2") == ["tag-push"]
+    proc = run("release_push_guard.py", {"cwd": str(sub), "tool_input": {"command": "git push origin v2"}},
+               environ=env(RELEASE_SAFETY_MODE="ask"))
+    assert proc.stdout == b""
+
+
+def test_push_guard_detached_head_means_unknown_branch(tmp_path):
+    (tmp_path / ".git").mkdir()
+    (tmp_path / ".git" / "HEAD").write_text("0123456789abcdef0123456789abcdef01234567\n", encoding="utf-8")
+    assert rpg.current_branch(str(tmp_path)) is None
+
+
+def test_push_guard_off_mode_is_silent_for_new_shapes():
+    proc = run("release_push_guard.py", {"tool_input": {"command": "git push origin v1 --force"}},
+               environ=env(RELEASE_SAFETY_MODE="off"))
+    assert proc.stdout == b""
+
+
 # ------------------------------------------------------------------ session start
 
 def test_session_silent_without_release_signals(tmp_path):
