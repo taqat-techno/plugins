@@ -4,7 +4,8 @@
 Schema v2 — per-workspace focus map + optional explicit global focus.
 See `docs/decisions.md#d-028` for the design rationale and migration policy.
 
-State file: ``~/.claude/rag-plugin/state/project-focus.json``.
+State file: ``${CLAUDE_PLUGIN_DATA}/state/project-focus.json`` (legacy
+``~/.claude/rag-plugin/state/project-focus.json`` is read as a fallback).
 
 v2 shape::
 
@@ -86,8 +87,12 @@ from scope_resolve import (  # noqa: E402
     resolve_workspace_key,
 )
 
-STATE_DIR = Path.home() / ".claude" / "rag-plugin" / "state"
-STATE_FILE = STATE_DIR / "project-focus.json"
+import plugin_data  # noqa: E402
+
+#: ${CLAUDE_PLUGIN_DATA}/state/project-focus.json; the legacy
+#: ~/.claude/rag-plugin/state copy is read as a fallback (plugin_data.py).
+STATE_FILE = plugin_data.path("state/project-focus.json")
+STATE_DIR = STATE_FILE.parent
 V1_BACKUP_NAME = "project-focus.v1.bak.json"
 
 DEFAULT_HOST = "127.0.0.1"

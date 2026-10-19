@@ -79,11 +79,11 @@ Because there is no code signing or notarization (G-005), macOS Gatekeeper quara
 - After every upgrade (the new tarball is also unsigned)
 - If the user moves the directory across volumes that strip xattrs
 
-The plugin's `/setup` and `/rag-upgrade` commands include this step in the macOS branch.
+The plugin's `/setup` command (and `/setup --upgrade`) includes this step in the macOS branch.
 
 ## What rag-plugin does differently on macOS
 
-### `/rag-status` and `/doctor`
+### `/doctor` (default probe and `--full`)
 - Mode banner shows `packaged-macos` and the macOS conventional paths
 - Process discovery uses `ps aux | grep rag` instead of `tasklist | findstr rag.exe`
 - Port collision diagnostic uses `lsof -i :21420` instead of `netstat -ano | findstr 21420`
@@ -94,7 +94,7 @@ The plugin's `/setup` and `/rag-upgrade` commands include this step in the macOS
 - Walks the tarball + Gatekeeper flow (Branch A.3 in `setup-walkthrough.md`)
 - Warns that no LaunchAgent exists and the user must start the service manually each session
 
-### `/rag-repair` playbooks
+### `/doctor` playbooks
 - **P-qdrant:** kill commands use `kill -9 <pid>` (after `ps aux | grep rag`) instead of `taskkill /F /PID <pid>`
 - **P-qdrant:** lock-file path is `~/Library/Application Support/RAGTools/data/qdrant/.lock`
 - **P-port:** `lsof -i :21420` to identify conflicting process
@@ -104,7 +104,7 @@ The plugin's `/setup` and `/rag-upgrade` commands include this step in the macOS
 - Cloud-sync detection includes iCloud (`Mobile Documents/com~apple~CloudDocs/`) — see `risks-and-constraints.md#syncthing--cloud-synced-config-directory`
 - HTTP API surface is identical to Windows
 
-### `/rag-upgrade`
+### `/setup --upgrade`
 - Selects the macOS arm64 tarball asset
 - Walks the tarball-replace flow from `upgrade-paths.md#tarball-replace-macos-arm64`
 - Reminds about Gatekeeper for every upgrade (no signing → quarantine bit returns)

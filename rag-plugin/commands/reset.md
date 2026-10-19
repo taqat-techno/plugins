@@ -319,7 +319,7 @@ After any branch, re-run mode detection and print the updated banner. If anythin
 | Situation | Behavior |
 |---|---|
 | Pre-v2.4.1 detected | **BLOCK.** Print warning, recommend `/setup` (which walks the upgrade flow), stop. |
-| Multiple flags or no flag | Refuse with usage line |
+| Multiple flags | Refuse with usage line (no flag opens the interactive picker) |
 | Service mode wrong for chosen flag | Refuse with "start/stop the service first" message |
 | User types anything other than `DELETE` at a gate | Refuse and stop. **Do not retry automatically.** |
 | `rag version` unparseable | Refuse — do not assume a version |
@@ -340,7 +340,7 @@ After any branch, re-run mode detection and print the updated banner. If anythin
 ## See also
 
 - `/setup` — recommended path before any reset on a pre-v2.4.1 install (walks the upgrade flow). Also the entry point for re-adding the first project after `--nuclear`.
-- `/doctor` — verify post-reset state and diagnose any post-reset issues. Absorbs the former `/rag-status` and `/rag-repair`.
+- `/doctor` — verify post-reset state and diagnose any post-reset issues.
 - `/projects` — re-add additional projects after `--nuclear`
 - `rules/state-detection.md` — canonical state-detection recipe used by the preamble
 - `references/recovery-and-reset.md` — full reset/recovery source-of-truth

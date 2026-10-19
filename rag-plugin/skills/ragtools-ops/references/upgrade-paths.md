@@ -173,11 +173,11 @@ If the user is on **any version below 2.4.1**, upgrading is **not optional**. Th
 - Even if the add appears to succeed, the next service restart can delete "orphaned" data
 - `/reset` is **blocked** by `/reset` Step 2 on pre-v2.4.1 because a reset on a buggy version can lose more data than intended
 
-The plugin's `/rag-upgrade` command surfaces a strong warning when pre-v2.4.1 is detected. The plugin's `/reset` command refuses entirely. Both behaviors trace back to F-001 and the v2.4.1 incident history.
+The plugin's `/setup --upgrade` command surfaces a strong warning when pre-v2.4.1 is detected. The plugin's `/reset` command refuses entirely. Both behaviors trace back to F-001 and the v2.4.1 incident history.
 
-## What `/rag-upgrade` does for you
+## What `/setup --upgrade` does for you
 
-The `/rag-upgrade` slash command:
+The `/setup --upgrade` slash command:
 - Detects the installed version via `rag version`
 - Fetches the latest release from `https://api.github.com/repos/taqat-techno/rag/releases/latest`
 - Compares versions

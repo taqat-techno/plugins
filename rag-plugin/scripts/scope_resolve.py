@@ -63,6 +63,10 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Optional
 
+import sys as _sys
+_sys.path.insert(0, str(Path(__file__).resolve().parent))
+import plugin_data  # noqa: E402
+
 __all__ = [
     "ProjectMatch",
     "ScopeDecision",
@@ -79,8 +83,10 @@ __all__ = [
 
 SCRIPT_VERSION = "1.0.0"
 
-STATE_DIR = Path.home() / ".claude" / "rag-plugin" / "state"
-CACHE_FILE = STATE_DIR / "context-cache.json"
+#: ${CLAUDE_PLUGIN_DATA}/state (legacy ~/.claude/rag-plugin/state is read as a
+#: fallback, see plugin_data.py).
+CACHE_FILE = plugin_data.path("state/context-cache.json")
+STATE_DIR = CACHE_FILE.parent
 #: Scope changes when the directory changes, not when the prompt does. Long
 #: enough that a normal session never re-fetches; short enough that adding a
 #: project shows up without a restart.

@@ -1,7 +1,7 @@
 ---
-description: Generate local diagnostic reports, route findings to the right repo, show the full issue body, and — after you approve that body — file GitHub issues. Application/runtime findings go to taqat-techno/rag; plugin/Claude/behavior findings go to taqat-techno/plugins (both configurable). Public issue bodies are counts-only by default. Redacts secrets, dedups by fingerprint, writes artifacts under ~/.claude/rag-plugin/reports/. Use --dry-run for local-only (no creation); falls back to local-only if the GitHub CLI is unavailable.
+description: Generate local diagnostic reports, route findings to the right repo, show the full issue body, and — after you approve that body — file GitHub issues. Application/runtime findings go to taqat-techno/rag; plugin/Claude/behavior findings go to taqat-techno/plugins (both configurable). Public issue bodies are counts-only by default. Redacts secrets, dedups by fingerprint, writes artifacts under ${CLAUDE_PLUGIN_DATA}/reports/. Use --dry-run for local-only (no creation); falls back to local-only if the GitHub CLI is unavailable.
 argument-hint: "[--dry-run] [--no-sessions] [--max-sessions N] [--include-snippets] [--out <dir>] [--quiet]"
-allowed-tools: Bash(python:*), Bash(python3:*), Bash(where rag:*), Bash(which rag:*), Bash(rag version:*), Bash(curl:*), Bash(gh:*), Read
+allowed-tools: Bash(python:*), Bash(python3:*), Bash(where rag:*), Bash(which rag:*), Bash(rag version:*), Bash(curl:*), Bash(gh auth status:*), Bash(gh auth switch:*), Bash(gh issue list:*), Bash(gh issue create:*), Read
 disable-model-invocation: false
 ---
 
@@ -13,7 +13,7 @@ Generates **two diagnostic reports** plus a summary and two GitHub-ready issue b
 
 ## What it produces
 
-A timestamped directory at `~/.claude/rag-plugin/reports/YYYY-MM-DD-HHMMSS/` containing:
+A timestamped directory at `${CLAUDE_PLUGIN_DATA}/reports/YYYY-MM-DD-HHMMSS/` containing:
 
 | File | Purpose |
 |---|---|
@@ -34,7 +34,7 @@ A timestamped directory at `~/.claude/rag-plugin/reports/YYYY-MM-DD-HHMMSS/` con
 - **Plugin layout** — `.claude-plugin/plugin.json`, commands/skills/agents/hooks/rules/scripts inventories, expected-file presence.
 - **Claude configuration** — `~/.claude/CLAUDE.md` (retrieval-rule marker), `~/.claude/settings.json`, user-level `.mcp.json` and `.claude.json`, plugin-level `.mcp.json`.
 - **MCP duplicates** — flags ragtools entries in user-level configs that conflict with the plugin-level registration.
-- **Hook observability log** — reads `~/.claude/rag-plugin/hook-decisions.log` (no prompt content, only action tags + scores) and computes injection rates.
+- **Hook observability log** — reads `${CLAUDE_PLUGIN_DATA}/hook-decisions.log` (no prompt content, only action tags + scores) and computes injection rates.
 - **Recent session JSONL files** — newest-first, scans for RAC/RAG-related signals only:
   - mentions of ragtools / rag-plugin / search_knowledge_base / 127.0.0.1:21420
   - "I don't have information"-shaped responses
@@ -72,7 +72,7 @@ Follow `${CLAUDE_PLUGIN_ROOT}/rules/state-detection.md`. Print the 6-line mode b
 ## Step 1 — Run the script
 
 ```bash
-python "${CLAUDE_PLUGIN_ROOT}/scripts/rag_report.py"
+CLAUDE_PLUGIN_DATA="${CLAUDE_PLUGIN_DATA}" python "${CLAUDE_PLUGIN_ROOT}/scripts/rag_report.py"
 ```
 
 Pass `--max-sessions N` to limit the JSONL scan (default 60, newest-first). Pass `--include-snippets` only if the user explicitly asked for transcript snippets in the public issue (redacted and path/project-scrubbed; off by default). Pass `--no-sessions` to skip session scanning entirely if the user is privacy-cautious or in a shared environment. Pass `--out <dir>` to override the output location. Pass `--quiet` to suppress progress lines.
@@ -106,7 +106,7 @@ Compact-by-default per D-008.
 **Otherwise, first show the full body.** Run the read-only preview, which prints every actionable `_issue-body-*.md` verbatim — exactly the bytes `--create` would post:
 
 ```bash
-python "${CLAUDE_PLUGIN_ROOT}/scripts/rag_report.py" --preview --from "<dir>"
+CLAUDE_PLUGIN_DATA="${CLAUDE_PLUGIN_DATA}" python "${CLAUDE_PLUGIN_ROOT}/scripts/rag_report.py" --preview --from "<dir>"
 ```
 
 Relay that output to the user **in full** (do not summarize or truncate it — they are approving the body, not a title), together with the body file path(s) so they can open them. Then ask exactly one question:
@@ -121,10 +121,10 @@ If the user wants to change the body, they may edit `<dir>/_issue-body-*.md` loc
 
 - **If the user answers no** (or anything not affirmative): print `No issue created. Local report + issue bodies are at <dir>.` and stop. Nothing is filed.
 - **If the user answers yes:**
-  1. **Ensure GitHub auth + account.** The routing repositories and the account to file as are **configuration** — the script reads `~/.claude/rag-plugin/config.json` (shape below) at generation time and records the resolved values in `issue-plan.json` (`repo`, `github_account`) and in the printed plan. The repo keys default to `taqat-techno/rag` (application) and `taqat-techno/plugins` (plugin); `report.github_account` has **no default** — when it is unset (the plan prints `gh account: (unset ...)`), file with whatever account `gh auth status` reports as active and do **not** switch. Only when `report.github_account` is set, and only if that account is not already the active one, switch to it first: `gh auth switch --user "$REPORT_GITHUB_ACCOUNT"` — and record the previously active account so Step 3.4 can restore it. If `gh` is missing or unauthenticated, do **not** fail — the script detects this and falls back to local-only.
+  1. **Ensure GitHub auth + account.** The routing repositories and the account to file as are **configuration** — the script reads `${CLAUDE_PLUGIN_DATA}/config.json` (legacy `~/.claude/rag-plugin/config.json` is read as a fallback) (shape below) at generation time and records the resolved values in `issue-plan.json` (`repo`, `github_account`) and in the printed plan. The repo keys default to `taqat-techno/rag` (application) and `taqat-techno/plugins` (plugin); `report.github_account` has **no default** — when it is unset (the plan prints `gh account: (unset ...)`), file with whatever account `gh auth status` reports as active and do **not** switch. Only when `report.github_account` is set, and only if that account is not already the active one, switch to it first: `gh auth switch --user "$REPORT_GITHUB_ACCOUNT"` — and record the previously active account so Step 3.4 can restore it. If `gh` is missing or unauthenticated, do **not** fail — the script detects this and falls back to local-only.
   2. **File the issues** against the directory just generated — **no re-scan, no re-redaction**:
      ```bash
-     python "${CLAUDE_PLUGIN_ROOT}/scripts/rag_report.py" --create --from "<dir>"
+     CLAUDE_PLUGIN_DATA="${CLAUDE_PLUGIN_DATA}" python "${CLAUDE_PLUGIN_ROOT}/scripts/rag_report.py" --create --from "<dir>"
      ```
   3. **Relay the script's result verbatim:** `CREATED <repo>: <url>` per issue; `DUPLICATE <repo>: <existing url>` when an open issue with the same fingerprint already exists (nothing re-filed); or the local-only fallback line if `gh` was unavailable.
   4. **Restore the previous account:** if — and only if — Step 3.1 switched accounts, switch back to the account that was active before: `gh auth switch --user "$PREVIOUS_GITHUB_ACCOUNT"`. If no switch happened, do nothing here; never leave the user on an account they did not start on.
@@ -168,7 +168,7 @@ Each issue body carries a stable hidden marker `<!-- rag-plugin-report:fingerpri
 After implementation:
 
 1. `python scripts/rag_report.py --self-test` → all checks pass.
-2. `python scripts/rag_report.py --max-sessions 5` → produces **9** files in `~/.claude/rag-plugin/reports/<ts>/` (the 6 reports + `issue-plan.json` + `_issue-body-rag.md` + `_issue-body-plugins.md`), and **creates no GitHub issue**.
+2. `python scripts/rag_report.py --max-sessions 5` → produces **9** files in `${CLAUDE_PLUGIN_DATA}/reports/<ts>/` (the 6 reports + `issue-plan.json` + `_issue-body-rag.md` + `_issue-body-plugins.md`), and **creates no GitHub issue**.
 2a. `python scripts/rag_report.py --dry-run --no-sessions` → local-only, creates no issue. `--create --from <dir>` on a generated dir files (or dedups) via `gh`, and prints a clear local-only fallback when `gh` is unavailable.
 2b. `python scripts/test_rag_report.py` → all unit tests pass (routing, cause-based re-route, fingerprint, dedup, create, never-create-during-generation, counts-only public body, opt-in snippet scrubbing, config.json repo override, `--preview`).
 3. The application report prints the install mode + service mode banner correctly.

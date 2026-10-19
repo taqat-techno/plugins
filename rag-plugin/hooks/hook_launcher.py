@@ -18,16 +18,22 @@ layer *above* the script, at the command-invocation layer.
 
 The fix
 -------
-Move the resolution-failure guarantee above the target script. ``hooks.json`` no
-longer names a script file on the interpreter command line; it runs a tiny inline
-``-c`` bootstrap. Because ``-c`` takes no script-file argument, the
-"can't open file -> exit 2" branch is structurally impossible. The bootstrap
-resolves THIS launcher at runtime (``CLAUDE_PLUGIN_ROOT`` env var, with a
-host-expanded path fallback) and runs it only if it exists; otherwise it exits 0.
-The command also chains interpreters (``python3 || python || py``) so the hook
-still runs where ``python3`` is not the interpreter name — and because the only
-blocking code is exactly 2, a missing interpreter (127) or a stray parse error is
-non-blocking by spec.
+Move the resolution-failure guarantee above the target script. Since 0.20.0
+``hooks.json`` uses the marketplace's standard portable launcher
+(``shared/PLUGIN_STANDARDS.md`` section 1.1, which was modelled on this plugin's
+earlier inline ``-c`` bootstrap)::
+
+    s="${CLAUDE_PLUGIN_ROOT}/hooks/hook_launcher.py"; [ -f "$s" ] || exit 0;
+    for c in python3 python py; do ... $c "$s" <target>; r=$?;
+    [ $r -eq 49 ] || exit $r; done; exit 0
+
+The ``[ -f "$s" ] || exit 0`` test makes the "can't open file -> exit 2" branch
+unreachable: an unexpanded root, an unset variable or a missing launcher all end
+in exit 0 before any interpreter starts. The loop tries ``python3``, ``python``
+and ``py -3``, skipping a name that is absent and the Windows Store ``python3``
+stub (exit 49 = 9009 mod 256). Unlike the old ``a || b || c`` chain, an
+intentional non-zero exit from a guarded target is not retried with the next
+interpreter.
 
 This launcher then resolves the real target script *beside its own* ``__file__``
 (needs no env var of its own) and runs it in-process via ``runpy`` so the
@@ -49,8 +55,7 @@ In both modes a resolution failure yields ``0``; the difference is only what
 happens once the target actually runs.
 
 Python 3 stdlib only. Cross-platform: this launcher contains no shell-specific
-constructs, and the inline bootstrap that invokes it uses no shell metacharacters
-inside its payload.
+constructs. The targets use the vendored ``hooks/_vendor/hooklib.py``.
 """
 
 import os
@@ -62,14 +67,7 @@ import sys
 #               decision survives), but fail open on path-resolution failure and
 #               on unexpected exceptions.
 _TARGETS = {
-    # v1.0.0 (WP-7): the two UserPromptSubmit injectors merged into one.
     "context-inject": ("context_inject.py", "advisory"),
-    # Retained for one release so a stale hooks.json cannot break a session:
-    # a user who upgrades the plugin but whose Claude Code still holds the old
-    # hooks.json would otherwise hit "unknown target" on every prompt. Both map
-    # to the merged hook, which supersedes them.
-    "retrieval-reminder": ("context_inject.py", "advisory"),
-    "project-focus": ("context_inject.py", "advisory"),
     "lock-conflict": ("lock_conflict_check.py", "guarded"),
 }
 

@@ -429,6 +429,9 @@ def _run_hook(state_file: Path, cwd: Path) -> dict[str, Any]:
     # listens on so scope resolution cannot reach the network, leaving the
     # focus override as the only source of scope — which is what is under test.
     env["RAG_PLUGIN_SERVICE_PORT"] = "21499"
+    # Hook state (decision log, caches) goes next to the focus file, never
+    # into the real ~/.claude.
+    env["RAG_PLUGIN_DATA_DIR"] = str(state_file.parent / "data")
     proc = subprocess.run(
         [sys.executable, str(HOOK)],
         input=json.dumps({"hook_event_name": "UserPromptSubmit",

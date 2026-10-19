@@ -32,7 +32,7 @@ Privacy / safety invariants:
 Stdlib-only. Python 3.10+.
 
 Output directory:
-  ~/.claude/rag-plugin/reports/YYYY-MM-DD-HHMMSS/
+  ${CLAUDE_PLUGIN_DATA}/reports/YYYY-MM-DD-HHMMSS/ (legacy: ~/.claude/rag-plugin/reports/)
 
 CLI:
   python rag_report.py [--out <dir>] [--no-sessions] [--max-sessions N]
@@ -770,7 +770,7 @@ class HookLogStats:
 
 def inspect_hook_log() -> HookLogStats:
     stats = HookLogStats()
-    stats.log_path = str(Path.home() / ".claude" / "rag-plugin" / "hook-decisions.log")
+    stats.log_path = str(_plugin_data().path("hook-decisions.log"))
     p = Path(stats.log_path)
     if not p.exists():
         stats.notes = "no hook-decisions log (hook never fired or observability disabled)"
@@ -1487,7 +1487,7 @@ FINGERPRINT_MARKER_PREFIX = "rag-plugin-report:fingerprint:"
 
 # --- Routing configuration (D-038) ----------------------------------------- #
 # Target repositories and the gh account are configuration, read from
-# ~/.claude/rag-plugin/config.json:
+# ${CLAUDE_PLUGIN_DATA}/config.json (legacy ~/.claude/rag-plugin/config.json):
 #   {"report": {"repos": {"application": "owner/repo", "plugin": "owner/repo"},
 #               "github_account": "login"}}
 # Missing keys fall back to these defaults; github_account has NO default
@@ -1503,7 +1503,15 @@ _GH_LOGIN_RE = re.compile(r"^[A-Za-z0-9-]{1,39}$")
 
 
 def report_config_path() -> Path:
-    return Path.home() / ".claude" / "rag-plugin" / "config.json"
+    """${CLAUDE_PLUGIN_DATA}/config.json, legacy ~/.claude/rag-plugin/config.json
+    as a fallback (plugin_data.py)."""
+    return _plugin_data().path("config.json")
+
+
+def _plugin_data():
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import plugin_data
+    return plugin_data
 
 
 def load_report_config(path: Optional[Path] = None) -> dict[str, Any]:
@@ -2075,7 +2083,6 @@ def render_plugin_report(state: State, plugin: PluginInspection,
 
     md.append("## 4. Hook behavior state\n")
     expected_hooks = {"hooks.json", "lock_conflict_check.py",
-                      "prompt_retrieval_reminder.py", "project_focus_inject.py",
                       "context_inject.py", "hook_launcher.py"}
     present_hooks = set(plugin.hooks)
     missing = sorted(expected_hooks - present_hooks)
@@ -2087,7 +2094,7 @@ def render_plugin_report(state: State, plugin: PluginInspection,
                   "(see finding P-013 / D-031).")
     else:
         md.append("- Advisory hook fail-open: `OK` — UserPromptSubmit hooks cannot block the "
-                  "prompt (inline bootstrap + hook_launcher.py, D-031).")
+                  "prompt (portable launcher + hook_launcher.py, D-031).")
     md.append(f"- User settings.json hooks block: `{cci.user_hooks_present}` "
               f"({cci.user_hooks_summary or 'none'})")
     md.append(f"- Hook decision log: `{normalize_home(hook_stats.log_path)}`")
@@ -2403,7 +2410,7 @@ def render_github_issue(target: str, findings: list[Finding], state: State,
         md.append("")
         md.append("Maintainer: the structured findings are also in "
                   "`redacted-diagnostics.json` next to this file in the user's "
-                  "`~/.claude/rag-plugin/reports/<timestamp>/` directory.")
+                  "`${CLAUDE_PLUGIN_DATA}/reports/<timestamp>/` directory.")
     else:
         md.append("To regenerate this evidence on any device with `rag-plugin` installed:")
         md.append("")
@@ -2532,7 +2539,7 @@ def _gather_meta(plugin_version: str) -> dict[str, str]:
 
 def main(argv: Optional[list[str]] = None) -> int:
     ap = argparse.ArgumentParser(description="rag-plugin diagnostic report generator")
-    ap.add_argument("--out", help="output directory (default: ~/.claude/rag-plugin/reports/<ts>/)")
+    ap.add_argument("--out", help="output directory (default: ${CLAUDE_PLUGIN_DATA}/reports/<ts>/)")
     ap.add_argument("--no-sessions", action="store_true",
                     help="skip the session JSONL scanner (privacy-cautious mode)")
     ap.add_argument("--max-sessions", type=int, default=60,
@@ -2588,7 +2595,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     if args.out:
         outdir = Path(args.out).expanduser().resolve()
     else:
-        outdir = Path.home() / ".claude" / "rag-plugin" / "reports" / ts
+        outdir = _plugin_data().data_dir() / "reports" / ts
     try:
         outdir.mkdir(parents=True, exist_ok=True)
     except Exception as e:

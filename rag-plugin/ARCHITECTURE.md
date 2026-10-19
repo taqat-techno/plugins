@@ -165,7 +165,7 @@ All 10 phases (0–9) of the rag-plugin roadmap are shipped, plus three post-roa
 
 - **Plugin manifest:** `.claude-plugin/plugin.json` (`v0.3.0`)
 - **9 slash commands:**
-  - User-facing (7): `/rag-status`, `/doctor`, `/setup`, `/rag-repair`, `/projects`, `/rag-upgrade`, `/reset`
+  - User-facing (7): status, doctor, setup, repair, projects, upgrade, reset (status and repair were later merged into `/doctor`, upgrade into `/setup --upgrade`)
   - User-facing config (1): `/config` — four subcommand groups: telemetry (D-012), claude-md (D-016), mcp-dedupe (D-015), hook-observability (D-017)
   - Maintainer-only (1): `/sync-docs` (`disable-model-invocation: true`, never auto-invoked)
 - **1 skill:** `ragtools-ops` (`skills/ragtools-ops/SKILL.md`)
@@ -183,7 +183,7 @@ All 10 phases (0–9) of the rag-plugin roadmap are shipped, plus three post-roa
 
 The new UserPromptSubmit hook is an **additional writable surface** for the plugin: it now injects `hookSpecificOutput.additionalContext` on matched prompts. This is a read+compute flow (read user prompt, compute shape/probe decision, write decision metadata to log, emit reminder JSON). It does NOT modify any user config file. It does NOT read any result content from the probe — only `results[0].score`. It does NOT call any MCP tool. It does NOT block, deny, or crash a turn.
 
-The observability log at `~/.claude/rag-plugin/hook-decisions.log` is a new plugin-owned writable surface (distinct from the existing D-012 telemetry log at `~/.claude/rag-plugin/usage.log`). Same directory, different file, different purpose: the hook-decisions log captures **decision metadata** for the retrieval-reminder hook's own behavior; the telemetry log captures user command invocation counts. Neither contains user content.
+The observability log (now `${CLAUDE_PLUGIN_DATA}/hook-decisions.log`, formerly `~/.claude/rag-plugin/hook-decisions.log`) is a new plugin-owned writable surface (distinct from the existing D-012 telemetry log at `~/.claude/rag-plugin/usage.log`). Same directory, different file, different purpose: the hook-decisions log captures **decision metadata** for the retrieval-reminder hook's own behavior; the telemetry log captures user command invocation counts. Neither contains user content.
 
 ### Validator state
 

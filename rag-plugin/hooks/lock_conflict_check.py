@@ -1,226 +1,227 @@
 #!/usr/bin/env python3
 """
-rag-plugin lock-conflict PreToolUse hook.
+rag-plugin lock-conflict PreToolUse hook (Bash and PowerShell tools).
 
-Reads stdin JSON from Claude Code, extracts tool_input.command, and decides
-whether the command would fight the Qdrant single-process file lock that the
-ragtools service holds when it is up.
+Reads the hook payload, takes ``tool_input.command`` and decides whether the
+command would fight the Qdrant single-process file lock that the ragtools
+service holds while it is up.
 
-Returns hookSpecificOutput.permissionDecision: "ask" only when BOTH conditions
-hold:
+It returns ``permissionDecision: "ask"`` only when BOTH conditions hold:
 
-  1. The command matches one of the known lock-conflicting CLI patterns
-     (rag index / rag rebuild / rag watch / rag-mcp standalone / direct
-      QdrantClient access).
-  2. a ragtools service answers /health inside a 1-second timeout (the likely
-     ports are probed — installed 21420, source 21421 — or the one named by
-     RAG_SERVICE_PORT / RAG_PLUGIN_SERVICE_PORT) —
-     i.e. the service is currently up and holding the lock.
+  1. A command that will actually run matches a known lock-conflicting CLI
+     shape: ``rag index`` / ``rag rebuild`` / ``rag watch`` / standalone
+     ``rag-mcp`` / ``rag.exe`` variants, or Python opening Qdrant directly
+     (``QdrantClient(path=...)``).
+  2. A ragtools service answers ``/health`` within one second (the likely ports
+     are probed: installed 21420, source 21421, or the one named by the
+     ``service_port`` plugin option / ``RAG_PLUGIN_SERVICE_PORT`` /
+     ``RAG_SERVICE_PORT``).
 
-In every other case (no pattern match, or service not reachable, or stdin
-malformed, or any unexpected error) the hook prints nothing and exits 0,
-which is a silent pass-through. This is deliberate:
+In every other case (no match, service not reachable, malformed input, any
+unexpected error) the hook prints nothing and exits 0.
 
-  - Never DENY (D-007). Always ASK.
-  - Both conditions must hold — false positives erode trust.
-  - The hook never blocks. Worst case: the user gets one extra confirmation
-    prompt for a command that turns out to be safe.
+  - Never DENY (D-007). Always ASK, and print no override token: the user
+    answers the prompt.
+  - Match the command that runs, not text that mentions it. ``echo``,
+    ``grep``/``rg``/``Select-String`` patterns, ``git commit -m`` messages,
+    comments and quoted strings never trigger the guard. Quoted text counts
+    only as the code argument of a ``python -c`` call, because that code runs.
+  - HTTP API calls (``curl -X POST .../api/rebuild``) and ``/projects rebuild``
+    go through the service on purpose and do not match.
 
-Design notes:
-
-  - Python stdlib only (json, sys, re, urllib.request, socket). No curl,
-    no jq, no third-party deps. Cross-platform.
-  - The matcher does NOT match HTTP API calls (curl POST /api/rebuild),
-    /projects rebuild, or /rag-status — those go through the service
-    on purpose and do not fight the lock.
-  - The matcher requires a whole-word "rag" boundary so it does not
-    false-match other commands that happen to contain the substring "rag".
-  - The health probe uses urllib.request.urlopen with a 1-second timeout;
-    any exception (timeout, connection refused, DNS error, JSON parse fail)
-    is treated as "service down" and the hook silently passes.
-
-This hook is the security-guidance equivalent of the F-003 "Storage folder
-data/qdrant is already accessed by another instance" failure mode. It
-exists because the v2.4.1 incident showed that the lock-contention failure
-class is the single most common operational footgun for ragtools users.
+Python 3 stdlib only, plus the vendored ``hooks/_vendor/hooklib.py``.
 """
+from __future__ import annotations
 
-import json
 import os
 import re
 import sys
-import urllib.request
 import urllib.error
+import urllib.request
 
-# Resolvable, not hardcoded. The installed service defaults to 21420 and a
-# SOURCE install to 21421 (ragtools `config._default_service_port`), and both
-# can be running at once. This hook only needs "is a service up right now", so
-# it probes the likely ports rather than running full discovery — a guard that
-# costs a scan on every Bash call would be worse than the guard is worth.
-#
-# The override existed on the sibling UserPromptSubmit hook and not here (N-06);
-# the two now honour the same variables.
-_ENV_PORT = next(
-    (os.environ[v] for v in ("RAG_PLUGIN_SERVICE_PORT", "RAG_SERVICE_PORT")
-     if os.environ.get(v, "").strip().isdigit()),
-    "",
-)
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "_vendor"))
+import hooklib  # noqa: E402
+
+GUARDED_TOOLS = ("Bash", "PowerShell")
+
+
+def _env_port() -> str:
+    for var in ("CLAUDE_PLUGIN_OPTION_SERVICE_PORT", "RAG_PLUGIN_SERVICE_PORT",
+                "RAG_SERVICE_PORT"):
+        value = os.environ.get(var, "").strip()
+        if value.isdigit() and int(value) > 0:
+            return value
+    return ""
+
+
+_ENV_PORT = _env_port()
 HEALTH_URLS = (
     [f"http://127.0.0.1:{_ENV_PORT}/health"]
     if _ENV_PORT
     else ["http://127.0.0.1:21420/health", "http://127.0.0.1:21421/health"]
 )
-#: Back-compat alias — some tests and docs refer to the single-URL name.
+#: Back-compat alias: some docs refer to the single-URL name.
 HEALTH_URL = HEALTH_URLS[0]
 HEALTH_TIMEOUT_SECONDS = 1.0
 
-# Pattern list. Each pattern is a compiled regex applied to the literal
-# tool_input.command string with re.search (not re.match) so the command
-# can have leading whitespace, environment-variable prefixes, etc.
-#
-# Anchoring rules:
-#   - "rag" patterns require a word boundary before "rag" so they do not
-#     match commands like "fragrag" or paths containing "ragtools" inside
-#     a longer word.
-#   - Each pattern ends with either a whitespace boundary or end-of-string
-#     so that "rag rebuild" matches but "rag rebuilder" does not.
-#   - The matcher MUST NOT match HTTP API curl invocations even when they
-#     contain the substring "rebuild" — those go through /api/rebuild on
-#     the service. The patterns specifically look for the CLI shape:
-#     "rag <subcommand>", not "curl ... /api/...".
-LOCK_CONFLICT_PATTERNS = [
-    # rag index — direct CLI indexing, takes the Qdrant lock
-    re.compile(r"(?<![\w.-])rag\s+index(?:\s|$)"),
-    # rag rebuild — direct CLI rebuild, takes the Qdrant lock
-    re.compile(r"(?<![\w.-])rag\s+rebuild(?:\s|$)"),
-    # rag watch — direct CLI watcher, takes the Qdrant lock
-    re.compile(r"(?<![\w.-])rag\s+watch(?:\s|$)"),
-    # rag-mcp standalone — direct MCP server invocation, takes the Qdrant lock
-    re.compile(r"(?<![\w.-])rag-mcp(?:\s|$)"),
-    # rag.exe variants on Windows
-    re.compile(r"(?<![\w.-])rag\.exe\s+(index|rebuild|watch)(?:\s|$)"),
-    # Direct QdrantClient(path=...) python access — fights the lock
+# CLI shapes, matched against the UNQUOTED text of one command segment.
+CLI_PATTERNS = [
+    re.compile(r"(?<![\w.-])rag(?:\.exe)?\s+(?:index|rebuild|watch)(?:\s|$)"),
+    re.compile(r"(?<![\w.-])rag-mcp(?:\.exe)?(?:\s|$)"),
+]
+# Direct Qdrant access from Python. Matched against the whole segment, but only
+# when the segment runs a Python interpreter (the code is usually quoted).
+PYTHON_PATTERNS = [
     re.compile(r"QdrantClient\s*\(\s*path\s*="),
-    # python -c "from qdrant_client import QdrantClient; ..."
     re.compile(r"from\s+qdrant_client\s+import\s+QdrantClient"),
 ]
+#: Back-compat: the full list some docs refer to.
+LOCK_CONFLICT_PATTERNS = CLI_PATTERNS + PYTHON_PATTERNS
+
+# Programs whose arguments are text, not commands to run.
+_TEXT_PROGRAMS = {
+    "echo", "printf", "grep", "egrep", "fgrep", "rg", "ag", "ack", "cat", "less",
+    "more", "head", "tail", "sed", "awk", "findstr", "select-string", "sls",
+    "write-output", "write-host", "write-verbose", "write-information", "man",
+    "help", "type", "which", "where", "get-command", "gcm",
+}
+_PYTHON_PROGRAMS = re.compile(r"^(?:python(?:\d+(?:\.\d+)?)?|py|pythonw|uv|poetry|pipx)(?:\.exe)?$")
+_ENV_ASSIGN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
+_WRAPPERS = {"sudo", "env", "nohup", "time", "exec", "command", "&", "call", "start"}
+
+
+def _segments(command: str):
+    """Split ``command`` into segments at ; && || | & and newlines that sit
+    outside quotes. Yields ``(full_text, unquoted_text)`` per segment, where
+    ``unquoted_text`` has quoted strings blanked and comments removed."""
+    segs = []
+    full, bare = [], []
+    quote = ""
+    i, n = 0, len(command)
+    while i < n:
+        ch = command[i]
+        if quote:
+            full.append(ch)
+            if ch == "\\" and quote == '"' and i + 1 < n:
+                full.append(command[i + 1])
+                i += 2
+                continue
+            if ch == quote:
+                quote = ""
+            bare.append(" ")
+            i += 1
+            continue
+        if ch in ("'", '"'):
+            quote = ch
+            full.append(ch)
+            bare.append(" ")
+            i += 1
+            continue
+        if ch == "#" and (i == 0 or command[i - 1].isspace()):
+            while i < n and command[i] not in "\r\n":
+                i += 1
+            continue
+        if ch in ";|&\r\n":
+            segs.append(("".join(full), "".join(bare)))
+            full, bare = [], []
+            i += 1
+            continue
+        full.append(ch)
+        bare.append(ch)
+        i += 1
+    segs.append(("".join(full), "".join(bare)))
+    return [(f, b) for f, b in segs if b.strip() or f.strip()]
+
+
+def _program(full: str, bare: str) -> tuple[str, str]:
+    """The program a segment runs (lower-case basename) and the segment's
+    unquoted text rebuilt as ``<program> <unquoted args>``. The program may be a
+    quoted path (PowerShell ``& "C:\\Tools\\rag.exe" index``)."""
+    import shlex
+
+    try:
+        tokens = shlex.split(full, posix=False)
+    except ValueError:
+        tokens = full.split()
+    words = bare.split()
+    while tokens and (_ENV_ASSIGN.match(tokens[0]) or tokens[0].lower() in _WRAPPERS):
+        tokens = tokens[1:]
+        if words:
+            words = words[1:]
+    if not tokens:
+        return "", ""
+    first = tokens[0]
+    quoted = first[:1] in ("'", '"')
+    prog = re.split(r"[\\/]", first.strip("'\""))[-1].lower()
+    if not quoted and words:
+        words = words[1:]
+    return prog, " ".join([prog] + words)
 
 
 def matches_lock_conflict(command: str) -> str | None:
-    """Return the matched pattern source if any pattern matches, else None."""
-    if not command:
+    """Return the matched pattern source if a segment that runs matches, else None."""
+    if not command or not isinstance(command, str):
         return None
-    for pattern in LOCK_CONFLICT_PATTERNS:
-        if pattern.search(command):
-            return pattern.pattern
+    for full, bare in _segments(command):
+        prog, text = _program(full, bare)
+        if not prog or prog in _TEXT_PROGRAMS:
+            continue
+        if prog == "git":
+            # git commit -m "...", git log --grep ... : the text is a message.
+            continue
+        for pattern in CLI_PATTERNS:
+            if pattern.search(text):
+                return pattern.pattern
+        if _PYTHON_PROGRAMS.match(prog):
+            for pattern in PYTHON_PATTERNS:
+                if pattern.search(full):
+                    return pattern.pattern
     return None
 
 
 def service_is_up() -> bool:
-    """Probe the candidate /health endpoints with a 1-second timeout each.
-
-    Any exception (connection refused, timeout, DNS error, etc.) is treated
-    as "service down" and we return False. We do not parse the response body
-    because /health may return JSON or plain text depending on the version;
-    a 200 is sufficient evidence *a* service is holding the lock — and for a
-    lock-conflict guard, any running service is reason enough to ask.
-
-    Both likely ports are probed (installed 21420, source 21421) unless an
-    explicit override names one. The first 200 wins; a closed loopback port
-    refuses immediately, so the second probe costs nothing when the first
-    succeeds and almost nothing when it does not.
-    """
+    """True when any candidate /health answers 200 within one second."""
     for url in HEALTH_URLS:
         try:
             with urllib.request.urlopen(url, timeout=HEALTH_TIMEOUT_SECONDS) as resp:
                 if resp.status == 200:
                     return True
-        except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError,
-                OSError, ValueError):
+        except (urllib.error.URLError, TimeoutError, OSError, ValueError):
             continue
         except Exception:
-            # Any other unexpected error → treat this URL as down and move on.
-            # We never want this hook to blow up Claude Code's tool call.
             continue
     return False
 
 
-def emit_silent_pass() -> None:
-    """Print nothing and exit 0. Claude Code interprets this as 'no decision'
-    and proceeds with the tool call as normal."""
-    sys.exit(0)
-
-
-def emit_ask(command: str, matched_pattern: str) -> None:
-    """Emit a hookSpecificOutput JSON with permissionDecision: ask."""
-    reason = (
-        "About to run a Bash command that opens Qdrant in direct mode while "
-        "the ragtools service is up at http://127.0.0.1:21420.\n\n"
-        "Both processes would compete for the Qdrant single-process file lock — "
-        "the most common ragtools failure mode (F-003 in references/known-failures.md). "
-        "Either stop the service first (`rag service stop`) or use the HTTP API "
-        "equivalent (e.g. `curl -X POST http://127.0.0.1:21420/api/rebuild` for rebuild, "
-        "`/projects rebuild` for project management).\n\n"
+def ask_reason(command: str, matched_pattern: str) -> str:
+    base = HEALTH_URL.rsplit("/health", 1)[0]
+    return (
+        "This command opens Qdrant in direct mode while the ragtools service is up "
+        f"at {base}.\n\n"
+        "Both processes would compete for the Qdrant single-process file lock, the "
+        "most common ragtools failure (F-003 in references/known-failures.md). Stop "
+        "the service first (`rag service stop`) or use the HTTP API "
+        f"(`curl -X POST {base}/api/rebuild` to rebuild, `/projects rebuild` to "
+        "manage projects).\n\n"
         f"matched pattern: {matched_pattern}\n"
-        f"command: {command[:200]}"
+        f"command: {hooklib.redact(command[:200])}"
     )
-    output = {
-        "hookSpecificOutput": {
-            "hookEventName": "PreToolUse",
-            "permissionDecision": "ask",
-            "permissionDecisionReason": reason,
-        }
-    }
-    print(json.dumps(output))
-    sys.exit(0)
 
 
-def main() -> None:
-    # Parse stdin. If anything is malformed, silent pass.
-    try:
-        raw = sys.stdin.buffer.read().decode("utf-8", "replace")
-        if not raw.strip():
-            emit_silent_pass()
-        payload = json.loads(raw)
-    except (json.JSONDecodeError, ValueError):
-        emit_silent_pass()
-        return  # unreachable, for type checkers
-    except Exception:
-        emit_silent_pass()
-        return
-
-    # Extract the command. If it's not a Bash tool call, silent pass.
-    tool_name = payload.get("tool_name", "")
-    if tool_name != "Bash":
-        emit_silent_pass()
-        return
-
-    tool_input = payload.get("tool_input", {})
-    if not isinstance(tool_input, dict):
-        emit_silent_pass()
-        return
-
-    command = tool_input.get("command", "")
-    if not isinstance(command, str):
-        emit_silent_pass()
-        return
-
-    # Pattern check first (cheap). If no match, silent pass without
-    # touching the network.
-    matched = matches_lock_conflict(command)
+def main() -> int:
+    hooklib.watchdog(8.0)
+    payload = hooklib.read_payload()
+    if payload is None or payload.get("tool_name", "") not in GUARDED_TOOLS:
+        return 0
+    command = hooklib.tool_input(payload).get("command", "")
+    matched = matches_lock_conflict(command) if isinstance(command, str) else None
     if matched is None:
-        emit_silent_pass()
-        return
-
-    # Pattern matched. Now check if the service is up. If not, silent pass —
-    # there's no lock contention to warn about when the service is down.
+        return 0  # cheap path: no network
     if not service_is_up():
-        emit_silent_pass()
-        return
-
-    # Both conditions hold. Ask the user to confirm.
-    emit_ask(command, matched)
+        return 0
+    hooklib.ask(ask_reason(command, matched))
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    hooklib.run(main)

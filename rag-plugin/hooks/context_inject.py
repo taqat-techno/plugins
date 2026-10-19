@@ -45,7 +45,19 @@ D-031 is preserved without exception: this file is registered **advisory**, so
 D-028 §5's anti-leak rule is preserved: a foreign workspace's project name is
 never injected.
 
-Python 3 stdlib only.
+Since 0.20.0 (audit F-RAG-06, RAG-P1-05)
+----------------------------------------
+* A "service down" verdict is cached for ``RAG_PLUGIN_HOOK_DOWN_TTL`` seconds
+  (default 60) in the plugin data directory, so a machine without a running
+  ragtools pays the /health probes once a minute, not on every prompt.
+* ``http_calls`` in the decision log counts every request, health probes
+  included.
+* The decision log rotates at 1 MB (one ``.1`` backup) and can be switched off
+  with the ``hook_decision_log`` plugin option or ``/config hook-observability off``.
+* State lives in ``${CLAUDE_PLUGIN_DATA}`` (``scripts/plugin_data.py``), with the
+  legacy ``~/.claude/rag-plugin`` read as a fallback.
+
+Python 3 stdlib only, plus the vendored ``hooks/_vendor/hooklib.py``.
 """
 
 from __future__ import annotations
@@ -60,15 +72,25 @@ import urllib.parse
 import urllib.request
 from typing import NamedTuple
 
-HOOK_VERSION = "1.0.0"
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "_vendor"))
+import hooklib  # noqa: E402
+
+HOOK_VERSION = "1.1.0"
 
 # --- endpoint -------------------------------------------------------------
 
-_ENV_PORT = next(
-    (os.environ[v] for v in ("RAG_PLUGIN_SERVICE_PORT", "RAG_SERVICE_PORT")
-     if os.environ.get(v, "").strip().isdigit()),
-    "",
-)
+def _env_port() -> str:
+    """Port override: the ``service_port`` plugin option (0 = auto), then the
+    ``RAG_PLUGIN_SERVICE_PORT`` / ``RAG_SERVICE_PORT`` environment variables."""
+    for var in ("CLAUDE_PLUGIN_OPTION_SERVICE_PORT", "RAG_PLUGIN_SERVICE_PORT",
+                "RAG_SERVICE_PORT"):
+        value = os.environ.get(var, "").strip()
+        if value.isdigit() and int(value) > 0:
+            return value
+    return ""
+
+
+_ENV_PORT = _env_port()
 #: Installed defaults to 21420, a SOURCE install to 21421, and both can run at
 #: once. Full discovery (rules/service-discovery.md) is too expensive for a
 #: per-prompt hook, so the likely pair is probed and the winner cached.
@@ -77,14 +99,17 @@ CANDIDATE_PORTS = [int(_ENV_PORT)] if _ENV_PORT else [21420, 21421]
 HEALTH_TIMEOUT = float(os.environ.get("RAG_PLUGIN_HOOK_HEALTH_TIMEOUT", "0.5"))
 SEARCH_TIMEOUT = float(os.environ.get("RAG_PLUGIN_HOOK_SEARCH_TIMEOUT", "1.5"))
 PROBE_THRESHOLD = float(os.environ.get("RAG_PLUGIN_HOOK_PROBE_THRESHOLD", "0.65"))
-
-_CLAUDE_HOME = os.path.expanduser("~/.claude")
-OBS_DIR = os.path.join(_CLAUDE_HOME, "rag-plugin")
-OBS_LOG = os.path.join(OBS_DIR, "hook-decisions.log")
-OBS_DISABLE_MARKER = os.path.join(OBS_DIR, ".hook-observability-disabled")
+#: How long a "no service answered /health" verdict is trusted (F-RAG-06).
+DOWN_TTL = float(os.environ.get("RAG_PLUGIN_HOOK_DOWN_TTL", "60"))
+#: The decision log rotates when it reaches this size (RAG-P1-05).
+OBS_MAX_BYTES = int(os.environ.get("RAG_PLUGIN_HOOK_LOG_MAX_BYTES", str(1024 * 1024)))
 
 _SCRIPTS_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                             "scripts")
+
+OBS_LOG_NAME = "hook-decisions.log"
+OBS_DISABLE_MARKER_NAME = ".hook-observability-disabled"
+DOWN_CACHE_NAME = "state/service-down.json"
 
 
 # --- Phase A: shape heuristic (carried over unchanged) ---------------------
@@ -282,6 +307,7 @@ def resolve_scope(cwd: str) -> Scope:
     try:
         from pathlib import Path
 
+        _http_calls[0] += 1
         projects = scope.fetch_projects(base, timeout=SEARCH_TIMEOUT)
         decision = scope.resolve(Path(cwd), projects)
         scope.write_cache(workspace_key, decision, service={"base_url": base})
@@ -299,21 +325,71 @@ def resolve_scope(cwd: str) -> Scope:
 # --- HTTP -------------------------------------------------------------------
 
 _live_base_url_cache: list = []
+#: Every HTTP request this process made, health probes included.
+_http_calls = [0]
+
+
+def _data():
+    """scripts/plugin_data.py, or None. Loaded lazily: only paths that touch state
+    pay for it."""
+    return _load("rp_plugin_data", "plugin_data.py")
+
+
+def _down_cache_path():
+    data = _data()
+    return data.path(DOWN_CACHE_NAME) if data is not None else None
+
+
+def _down_recently() -> bool:
+    """True when no service answered within the last DOWN_TTL seconds."""
+    if DOWN_TTL <= 0:
+        return False
+    try:
+        path = _down_cache_path()
+        if path is None or not path.is_file():
+            return False
+        blob = json.loads(path.read_text(encoding="utf-8"))
+        if blob.get("ports") != CANDIDATE_PORTS:
+            return False
+        return 0 <= time.time() - float(blob.get("ts", 0)) < DOWN_TTL
+    except Exception:
+        return False
+
+
+def _record_down(is_down: bool) -> None:
+    try:
+        path = _down_cache_path()
+        if path is None:
+            return
+        if is_down:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(json.dumps({"ts": time.time(), "ports": CANDIDATE_PORTS}),
+                            encoding="utf-8")
+        elif path.is_file():
+            path.unlink()
+    except Exception:
+        pass
 
 
 def _first_live_base_url():
-    """The first candidate port whose /health answers. Cached per process."""
+    """The first candidate port whose /health answers. Cached per process, and a
+    "down" verdict is cached on disk for DOWN_TTL seconds."""
     if _live_base_url_cache:
         return _live_base_url_cache[0]
+    if _down_recently():
+        return None
     for port in CANDIDATE_PORTS:
         url = f"http://127.0.0.1:{port}"
+        _http_calls[0] += 1
         try:
             with urllib.request.urlopen(f"{url}/health", timeout=HEALTH_TIMEOUT) as resp:
                 if resp.status == 200:
                     _live_base_url_cache.append(url)
+                    _record_down(False)
                     return url
         except Exception:
             continue
+    _record_down(True)
     return None
 
 
@@ -333,6 +409,7 @@ def domain_probe(prompt: str, project: str):
             "top_k": "1",
             "compact": "true",
         })
+        _http_calls[0] += 1
         with urllib.request.urlopen(f"{base}/api/search?{query}",
                                     timeout=SEARCH_TIMEOUT) as resp:
             if resp.status != 200:
@@ -367,17 +444,37 @@ def domain_probe(prompt: str, project: str):
 # --- observability ----------------------------------------------------------
 
 
+def _log_enabled() -> bool:
+    option = os.environ.get("CLAUDE_PLUGIN_OPTION_HOOK_DECISION_LOG", "").strip().lower()
+    if option in ("false", "0", "no", "off"):
+        return False
+    data = _data()
+    return data is not None and not data.marker_present(OBS_DISABLE_MARKER_NAME)
+
+
+def _rotate(path) -> None:
+    """Keep the log bounded: at OBS_MAX_BYTES the file becomes ``<name>.1``
+    (replacing any older backup) and a new file starts."""
+    try:
+        if path.is_file() and path.stat().st_size >= OBS_MAX_BYTES:
+            os.replace(str(path), str(path) + ".1")
+    except Exception:
+        pass
+
+
 def log_decision(**fields) -> None:
     """One JSONL record. Never user content; never fails the hook (D-012)."""
-    if os.path.isfile(OBS_DISABLE_MARKER):
-        return
     try:
-        os.makedirs(OBS_DIR, exist_ok=True)
+        if not _log_enabled():
+            return
+        path = _data().path(OBS_LOG_NAME)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        _rotate(path)
         entry = {"ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
                  "hook_version": HOOK_VERSION}
         entry.update(fields)
-        with open(OBS_LOG, "a", encoding="utf-8") as f:
-            f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+        with open(path, "a", encoding="utf-8") as f:
+            f.write(json.dumps(entry, ensure_ascii=False) + chr(10))
     except Exception:
         pass
 
@@ -468,12 +565,7 @@ def build_block(scope, probe_score=0.0, probe_matched=False):
 
 
 def inject(block: str, **fields) -> None:
-    print(json.dumps({
-        "hookSpecificOutput": {
-            "hookEventName": "UserPromptSubmit",
-            "additionalContext": block,
-        }
-    }))
+    hooklib.context("UserPromptSubmit", block)
     log_decision(action="context-injected", **fields)
     sys.exit(0)
 
@@ -482,21 +574,10 @@ def inject(block: str, **fields) -> None:
 
 
 def main() -> None:
-    try:
-        raw = sys.stdin.buffer.read().decode("utf-8", "replace")
-    except Exception:
-        silent_pass("stdin-read-error")
-        return
-    if not raw.strip():
-        silent_pass("empty-stdin")
-        return
-    try:
-        payload = json.loads(raw)
-    except Exception:
-        silent_pass("stdin-parse-error")
-        return
-    if not isinstance(payload, dict):
-        silent_pass("stdin-not-object")
+    hooklib.watchdog(8.0)
+    payload = hooklib.read_payload()
+    if payload is None:
+        silent_pass("stdin-invalid")
         return
 
     prompt = payload.get("user_prompt") or payload.get("prompt") or ""
@@ -523,17 +604,16 @@ def main() -> None:
     if (not scope.project and not scope.ambiguous and scope.source == "none"
             and not scope.focus_note):
         silent_pass("no-repo-context", shape_match=True,
-                    prompt_length=prompt_length, scope_source="none", http_calls=0)
+                    prompt_length=prompt_length, scope_source="none",
+                    http_calls=_http_calls[0])
         return
-
-    http_calls = 0 if scope.source.startswith(("cache", "override")) else 1
 
     # Ambiguous or unresolved scope: say so; never probe unscoped.
     if scope.ambiguous or not scope.project:
         inject(build_block(scope),
                shape_match=True, prompt_length=prompt_length,
                scope_source=scope.source, ambiguous=bool(scope.ambiguous),
-               focus_note=scope.focus_note, http_calls=http_calls)
+               focus_note=scope.focus_note, http_calls=_http_calls[0])
         return
 
     # Phase C — SCOPED probe
@@ -545,15 +625,15 @@ def main() -> None:
                shape_match=True, prompt_length=prompt_length,
                scope_source=scope.source, project_id=scope.project,
                project_mode=scope.mode, project_state=scope.state,
-               probe_error=err, http_calls=http_calls + 1)
+               probe_error=err, http_calls=_http_calls[0])
         return
 
     inject(build_block(scope, score, matched),
            shape_match=True, prompt_length=prompt_length, scope_source=scope.source,
            project_id=scope.project, project_mode=scope.mode,
            project_state=scope.state, probe_match=matched,
-           probe_top_score=round(score, 3), http_calls=http_calls + 1)
+           probe_top_score=round(score, 3), http_calls=_http_calls[0])
 
 
 if __name__ == "__main__":
-    main()
+    hooklib.run(main)

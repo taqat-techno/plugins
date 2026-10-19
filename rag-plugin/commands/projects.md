@@ -234,7 +234,7 @@ Complete file list for a project. Useful as the first step of the "why isn't X i
 
 5. **Verify by re-listing:** `GET /api/projects` and confirm the new entry is present.
 
-6. **Note about indexing:** `indexing started in background. use /doctor to monitor.` — do **not** poll for completion in this command (that's `/rag-status`'s job).
+6. **Note about indexing:** `indexing started in background. use /doctor to monitor.` — do **not** poll for completion in this command (that's `/doctor`'s job).
 
 #### `remove <id>`
 
@@ -394,7 +394,7 @@ then re-run: /projects add <path>
 
 ## See also
 
-- `/doctor` — monitor indexing progress, diagnose write failures, classify known failures (e.g. F-006 "projects empty after restart"), walk repair playbooks. Absorbs the former `/rag-status` and `/rag-repair`.
+- `/doctor` — monitor indexing progress, diagnose write failures, classify known failures (e.g. F-006 "projects empty after restart"), walk repair playbooks.
 - `/setup` — first-time setup including the first project add. Also handles upgrades.
 - `rules/state-detection.md` — canonical state-detection recipe used by the preamble
 - `references/runtime-flow.md` — canonical HTTP API surface (`/api/projects`, etc.)

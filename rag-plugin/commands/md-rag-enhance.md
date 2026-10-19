@@ -1,8 +1,8 @@
 ---
 description: Enhance Markdown files against the rag-plugin authoring standard (RAG-optimized for the ragtools chunker + MiniLM-L6-v2 embedder).
-argument-hint: "[<file-path>] [--verbose] [--no-backup]"
+argument-hint: "[<file-path>] [--dry-run] [--verbose] [--no-backup]"
 allowed-tools: Bash(python:*), Read, Write, Glob, Grep
-disable-model-invocation: false
+disable-model-invocation: true
 ---
 
 # /md-rag-enhance
@@ -13,16 +13,17 @@ disable-model-invocation: false
 
 ## Invocations
 
-Minimal by design. Four forms, all listed below:
+Minimal by design. Five forms, all listed below. The command runs only when the user types it (`disable-model-invocation: true`): a recursive rewrite is never started by the model on its own.
 
 | Form | Behavior |
 |---|---|
-| `/md-rag-enhance` | Enhance every `.md` file under the current directory (recursive). Skips `.git/`, `node_modules/`, `.venv/`, `dist/`, `build/`, `__pycache__/`. Respects `.gitignore` where safe. |
+| `/md-rag-enhance` | Preview, then enhance every `.md` file under the current directory (recursive). It first runs a dry run, prints how many files would change and the fixes per file, and **asks before writing anything**. Skips `.git/`, `node_modules/`, `.venv/`, `dist/`, `build/`, `__pycache__/`. Respects `.gitignore` where safe. |
+| `/md-rag-enhance --dry-run` | Report what would change (diff per file) and write nothing. Combinable with a path. |
 | `/md-rag-enhance path/to/file.md` | Enhance only that one file. Same safe-fix + backup + report discipline. |
 | `/md-rag-enhance --verbose` | Full per-file findings instead of the compact summary (combinable with a path). |
 | `/md-rag-enhance --no-backup` | Skip writing `<file>.bak-pre-md-rag-enhance` siblings. For users on git who prefer diff review. |
 
-**Not exposed:** no `--analyze`, no `--fix-safe`, no `--fix-aggressive`, no `--report`, no `--path`, no `--max-files`, no `--dry-run`. The command is always-safe by design — there is no other mode. The 500-file safety cap is hardcoded and surfaces a clear error message when exceeded, with a hint to pass a specific file path.
+**Not exposed:** no `--analyze`, no `--fix-safe`, no `--fix-aggressive`, no `--report`, no `--path`, no `--max-files`. The fixes are always-safe by design; `--dry-run` only previews them. The 500-file safety cap is hardcoded and surfaces a clear error message when exceeded, with a hint to pass a specific file path.
 
 ## What the command does (always, on every invocation)
 
@@ -71,12 +72,29 @@ If `state.install_mode == not-installed`, the command still works: it's a filesy
 
 Parse the positional file argument (if any) and the two optional flags. Invalid combinations (e.g. non-existent file path) → print error + usage + exit 1.
 
-## Step 2 — Run the analyzer
+## Step 2 — Preview (recursive runs and `--dry-run`)
+
+With no file argument, or with `--dry-run`, run the analyzer in preview mode first:
+
+```bash
+python "${CLAUDE_PLUGIN_ROOT}/scripts/md_analyzer.py" --dry-run [<file>] [--verbose]
+```
+
+Print the number of files that would change and the safe fixes per file. If the user
+passed `--dry-run`, stop here. Otherwise ask:
+
+```
+<N> files would be rewritten in place (backups: <yes|no>). proceed? (yes/no)
+```
+
+Write nothing unless the answer is `yes`. With zero files to change, say so and stop.
+
+## Step 3 — Run the analyzer
 
 Invoke:
 
 ```bash
-python ${CLAUDE_PLUGIN_ROOT}/scripts/md_analyzer.py <args>
+python "${CLAUDE_PLUGIN_ROOT}/scripts/md_analyzer.py" <args>
 ```
 
 Where `<args>` is the positional file (if any) + `--verbose` and/or `--no-backup` as passed. The script:
@@ -85,7 +103,7 @@ Where `<args>` is the positional file (if any) + `--verbose` and/or `--no-backup
 2. For each file: parses structure, runs the 10 checks (`GL-01..GL-10`), applies the two safe fixes, writes atomic + backup.
 3. Emits a compact summary report to stdout (or verbose with `--verbose`).
 
-## Step 3 — Report (the command's output)
+## Step 4 — Report (the command's output)
 
 The stdout from the analyzer is the command's primary output. Format:
 
@@ -121,7 +139,7 @@ top findings for manual review (up to 20):
 
 ## Companion — the `markdown-authoring` skill
 
-`/md-rag-enhance` handles **existing** Markdown. The `markdown-authoring` skill handles **new** Markdown — it auto-activates when Claude is asked to create a README, runbook, SOP, or any `.md` file, and produces content that satisfies the same standard from the start. See `${CLAUDE_PLUGIN_ROOT}/skills/markdown-authoring/SKILL.md`.
+`/md-rag-enhance` handles **existing** Markdown. The `markdown-authoring` skill handles **new** Markdown — it activates when Claude writes Markdown that a ragtools project will index, and produces content that satisfies the same standard from the start. See `${CLAUDE_PLUGIN_ROOT}/skills/markdown-authoring/SKILL.md`.
 
 ## Verification recipes
 
@@ -131,7 +149,7 @@ cd plugins/rag-plugin
 /md-rag-enhance --verbose
 
 # Run against a specific file
-/md-rag-enhance plugins/rag-plugin/README.md
+/md-rag-enhance docs/runbook.md
 
 # CI-style: no backups, just enhance, full output
 /md-rag-enhance --no-backup --verbose

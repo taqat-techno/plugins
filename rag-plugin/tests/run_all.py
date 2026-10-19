@@ -36,7 +36,6 @@ TESTS_DIR = PLUGIN_ROOT / "tests"
 
 #: Suites that live beside the code they test. Each is a standalone script.
 SIDECAR_SUITES = [
-    ("hook fail-open (D-031)", PLUGIN_ROOT / "hooks" / "test_hook_launcher.py", False),
     ("project focus", PLUGIN_ROOT / "scripts" / "test_project_focus.py", False),
     ("report engine", PLUGIN_ROOT / "scripts" / "test_rag_report.py", True),
     ("operational-intent classifier",

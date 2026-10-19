@@ -101,16 +101,16 @@ Same as the dev-mode prerequisites in `install.md`:
   - No startup auto-registration
   - User must start the service manually each session
 
-### `/rag-status`
+### `/doctor` (default probe)
 - Mode banner shows `dev-mode` explicitly
 - Paths shown are absolute (resolved from the dev-mode CWD)
 - Service mode probe is identical (HTTP API on `127.0.0.1:21420`)
 
-### `/doctor`
+### `/doctor --full`
 - Wraps `rag doctor` identically; the doctor command is platform-agnostic
 - Log scan path resolves to `./data/logs/service.log`
 
-### `/rag-repair`
+### `/doctor` playbooks (`--fix`)
 - Process discovery: `ps aux | grep rag` (same as macOS)
 - Port collision: `lsof -i :21420` (or `ss -tlnp | grep 21420` if `lsof` missing)
 - **P-empty stale-CWD rescue** is more relevant on Linux dev mode than on Windows packaged — the bug class (CWD-relative config write going to the wrong directory) is still possible if the user runs `rag service start` from a directory that is not the original install dir
@@ -119,7 +119,7 @@ Same as the dev-mode prerequisites in `install.md`:
 - HTTP API surface is identical
 - Cloud-sync detection on Linux includes Syncthing (`~/.config/syncthing/`) and Dropbox/OneDrive desktop sync clients if installed
 
-### `/rag-upgrade`
+### `/setup --upgrade`
 - Detects dev mode and skips the GitHub releases download flow entirely
 - Walks the source-pull flow from `upgrade-paths.md#source-pull-dev-mode`:
   ```bash
@@ -172,7 +172,7 @@ source rag/.venv/bin/activate
 rag service start    # creates new ./data and ./ragtools.toml in /home/user — wrong!
 ```
 
-Symptom of this footgun: F-006 ("projects empty after restart"), but the root cause is wrong CWD, not a real config-load failure. The plugin's `/rag-status` banner shows the resolved paths so the user can spot this immediately.
+Symptom of this footgun: F-006 ("projects empty after restart"), but the root cause is wrong CWD, not a real config-load failure. The plugin's `/doctor` banner shows the resolved paths so the user can spot this immediately.
 
 ## See also
 

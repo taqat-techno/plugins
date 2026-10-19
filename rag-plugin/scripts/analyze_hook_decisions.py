@@ -2,7 +2,7 @@
 """
 rag-plugin hook-decisions analyzer (v0.3.0).
 
-Reads ~/.claude/rag-plugin/hook-decisions.log (JSONL, written by
+Reads ${CLAUDE_PLUGIN_DATA}/hook-decisions.log (legacy ~/.claude/rag-plugin/) (JSONL, written by
 hooks/context_inject.py, formerly prompt_retrieval_reminder.py) and prints
 aggregate statistics for the
 Tier 2 retrieval-reminder hook. Read-only. Python 3 stdlib only.
@@ -38,7 +38,11 @@ import os
 import sys
 from collections import Counter
 
-LOG_PATH = os.path.expanduser("~/.claude/rag-plugin/hook-decisions.log")
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import plugin_data  # noqa: E402
+
+#: ${CLAUDE_PLUGIN_DATA}/hook-decisions.log (legacy ~/.claude/rag-plugin/ as fallback).
+LOG_PATH = str(plugin_data.path("hook-decisions.log"))
 
 
 def main() -> None:

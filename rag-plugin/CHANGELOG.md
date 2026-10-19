@@ -2,6 +2,39 @@
 
 All notable changes to `rag-plugin` are documented here. Format is loosely based on [Keep a Changelog](https://keepachangelog.com/). Versioning follows [SemVer](https://semver.org/).
 
+## [0.20.0] - 2026-10-19
+
+### Added
+- **Plugin options** (`userConfig`): `service_port` (0 = probe 21420 then 21421) and `hook_decision_log` (default true). Hooks read them as `CLAUDE_PLUGIN_OPTION_*`; the `RAG_PLUGIN_SERVICE_PORT` / `RAG_SERVICE_PORT` variables and the `/config` markers still work as fallbacks.
+- `scripts/plugin_data.py`: the single owner of where state lives. State moves to `${CLAUDE_PLUGIN_DATA}` (survives updates, removed on uninstall). The legacy `~/.claude/rag-plugin/` is read as a fallback and each file is copied forward once; a marker in either place counts.
+- Eval cases for every skill: `fires-on-ragtools-qdrant-lock-error`, `fires-on-ragtools-release-preflight`, `ignores-generic-service-port-conflict`, `ignores-generic-release-checklist`, `ignores-plain-readme-without-index`, `ignores-unindexed-repo-code-question`. Not run yet; no Δ recorded.
+- `tests/test_wp15_state_latency_guard.py` (data dir, down cache, log rotation and opt-out, port option, lock-guard matching) and a rewritten `tests/test_hook_launcher.py` that runs the hooks.json strings through bash (moved out of `hooks/`).
+
+### Changed
+- **Hooks use the standard portable launcher** (PLUGIN_STANDARDS 1.1), which was modelled on this plugin's `-c` bootstrap: `[ -f "$s" ] || exit 0` gives the same "a missing path can never exit 2" guarantee, and the interpreter loop no longer re-runs a guarded hook that exited non-zero on purpose. `hook_launcher.py` keeps the advisory/guarded split. Both hooks have a 10 s timeout (SEC-20) and an 8 s in-process watchdog.
+- Both hooks use the vendored `hooks/_vendor/hooklib.py` (`read_payload`, `tool_input`, `context`, `ask`, `redact`, `watchdog`, `run`).
+- **Lock guard matches the command that runs** (PLUGIN_STANDARDS 1.7): text inside `echo`, `grep`/`rg`/`Select-String` patterns, `git commit -m` messages, comments and quoted strings no longer triggers it; quoted code counts only as a `python -c` argument. It now also covers the PowerShell tool (RAG-P3-12) and masks secret-shaped values in the command it shows.
+- **Skill triggers narrowed** (ECO-15, RAG-P2-08): `markdown-authoring` loads only for Markdown a ragtools project will index and defers wiki pages to docs-wiki's `wiki-authoring` when that plugin is installed; `ragtools-release` loads only for a release of ragtools itself and stops in other repos; `ragtools-retrieval` no longer claims code questions in repositories ragtools does not index; `ragtools-ops` starts with "Use when" and keeps its keyword list in the body.
+- `/md-rag-enhance` is user-invoked only, previews a recursive run and asks before writing, and has `--dry-run` (RAG-P3-13).
+- `/config claude-md install` always asks unless the user types `--yes`; `/setup` no longer skips the question (RAG-P2-09).
+- `/report` `allowed-tools` narrowed from `Bash(gh:*)` to `gh auth status`, `gh auth switch`, `gh issue list`, `gh issue create` (RAG-P3-10).
+- README rewritten to the marketplace template (requirements incl. Python 3.10+, bash and the ragtools licence status, generated component tables, hooks, configuration, platform support, data & privacy). Docs no longer name the retired `/rag-status`, `/rag-repair`, `/rag-upgrade` commands (RAG-P3-11).
+- Added `homepage`, `repository` and `keywords` to plugin.json.
+
+### Fixed
+- **The hook decision log is bounded and disclosed** (RAG-P1-05). It rotates at 1 MB with one `.1` backup (`RAG_PLUGIN_HOOK_LOG_MAX_BYTES`), the README states that it is on by default and what it holds (including the ragtools project id, never prompt text), and `/config` documents every field. The old README line "records nothing by default" was false and is gone.
+- **Prompt latency with ragtools down** (F-RAG-06, RAG-P2-07): a "no service answered" verdict is cached for 60 s (`RAG_PLUGIN_HOOK_DOWN_TTL`), so the health probes run about once a minute instead of on every qualifying prompt.
+- `http_calls` in the decision log counts every request, health probes included (it logged 0 when probes had run).
+- `/config` no longer claims that commands record telemetry events; nothing does yet, and the docs say so.
+- `/reset` docs: no flag opens the level picker (one table said it refused).
+
+### Removed
+- The `retrieval-reminder` and `project-focus` launcher aliases, kept for one release after 0.18.0. An unknown target still exits 0.
+
+### Security
+- The lock guard never prints an override token; the user answers the `ask`.
+- `rag-log-scanner` and the skills that read ragtools output, logs or indexed documents state that such text is data, never an instruction.
+
 ## [0.19.0] - 2026-10-19
 
 ### Security

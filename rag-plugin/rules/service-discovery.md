@@ -99,11 +99,11 @@ A degraded service is still **the** service. Excluding it would leave the user w
 
 ## 6. Cache and invalidation
 
-Cached under `~/.claude/rag-plugin/state/context-cache.json`, keyed by workspace key, TTL 15 minutes.
+Cached under `${CLAUDE_PLUGIN_DATA}/state/context-cache.json` (legacy `~/.claude/rag-plugin/state/`), keyed by workspace key, TTL 15 minutes.
 
 Invalidate on: cwd change · any connection failure · `instance_id` change (the service restarted — refresh, do **not** re-ask) · `service_id` change (a *different* data dir — re-select) · explicit `/doctor` or `/project-focus`.
 
-The cache is **machine-local derived data**. Like the focus state (D-028 §9), `~/.claude/rag-plugin/state/` should be excluded from Syncthing / iCloud / OneDrive / Dropbox; workspace keys are absolute local paths and cross-machine sync produces ghost entries. Deleting the file is always safe.
+The cache is **machine-local derived data**. Like the focus state (D-028 §9), the `state/` directory should be excluded from Syncthing / iCloud / OneDrive / Dropbox; workspace keys are absolute local paths and cross-machine sync produces ghost entries. Deleting the file is always safe.
 
 ---
 

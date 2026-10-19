@@ -11,10 +11,21 @@ disable-model-invocation: false
 
 Manage `rag-plugin` plugin configuration. Four feature groups:
 
+> **Where state lives (0.20.0+).** Every file below sits in the plugin data directory,
+> written `<data>` in this document: `${CLAUDE_PLUGIN_DATA}`, which Claude Code keeps across
+> plugin updates and removes on uninstall. Plugin versions up to 0.19.x used
+> `~/.claude/rag-plugin/`; files there are still read as a fallback (and copied forward
+> the first time they are needed), and a marker in either place counts. Every shell step
+> starts with:
+>
+> ```bash
+> D="${CLAUDE_PLUGIN_DATA}"; [ -n "$D" ] || D="$HOME/.claude/rag-plugin"; LEGACY="$HOME/.claude/rag-plugin"
+> ```
+
 1. **Telemetry toggle** — local-only opt-in usage log. Default off. Honors D-012.
 2. **CLAUDE.md retrieval rule** — installs, upgrades, or removes the rule block that tells Claude to reach for `search_knowledge_base` before saying "I don't have information." Source of truth: `rules/claude-md-retrieval-rule.md`. Honors D-016.
 3. **MCP-duplicate detection** — scans `~/.claude.json` and `~/.claude/.mcp.json` for duplicate `ragtools` MCP registrations that would conflict with the plugin-level `.mcp.json`. Honors D-015.
-4. **UserPromptSubmit hook observability** — controls the `~/.claude/rag-plugin/hook-decisions.log` file that records decision metadata from the retrieval-reminder hook (D-017). Default ON. No user content ever logged.
+4. **UserPromptSubmit hook observability** — controls `<data>/hook-decisions.log`, which records decision metadata from the context-inject hook (D-017, D-037). Default ON, bounded at about 2 MB (rotates at 1 MB, one backup). No prompt text is logged; the ragtools project id is. The `hook_decision_log` plugin option turns it off too.
 
 ## Subcommand catalog
 
@@ -42,14 +53,14 @@ The `telemetry` group has three subcommands:
 | Subcommand | Effect |
 |---|---|
 | `status` | (Bare `/config`) Show the unified four-group dashboard. Read-only. |
-| `telemetry on` | Create/touch `~/.claude/rag-plugin/usage.log` and set the on-marker file alongside it |
+| `telemetry on` | Create/touch `<data>/usage.log` and set the on-marker file alongside it |
 | `telemetry off` | Remove the on-marker file (the existing log is preserved so the user can read it; `cat` it themselves if they want, then `rm` it themselves) |
 
 The plugin reads the on-marker before recording any usage event. If the marker is absent → no recording. If the marker is present → append one JSON line per command invocation.
 
 ## What gets recorded (when telemetry is on)
 
-A single JSONL file at `~/.claude/rag-plugin/usage.log`. One JSON object per line:
+A single JSONL file at `<data>/usage.log`. One JSON object per line:
 
 ```json
 {"ts": "2026-04-14T13:42:51Z", "command": "rag-status", "outcome": "ok", "failure_id": null}
@@ -102,12 +113,9 @@ Whitelist:
 
 ### Step 2 — Resolve the log directory
 
-The log file lives at `~/.claude/rag-plugin/usage.log`. Resolve `~` per platform:
+The log file lives at `<data>/usage.log` (`$D` above; legacy `<data>/usage.log`).
 
-- Windows: `%USERPROFILE%\.claude\rag-plugin\`
-- macOS / Linux: `$HOME/.claude/rag-plugin/`
-
-The on-marker file is `~/.claude/rag-plugin/.telemetry-enabled` (an empty file whose presence is the signal).
+The on-marker file is `<data>/.telemetry-enabled` (an empty file whose presence is the signal; a legacy marker also counts).
 
 ### Step 3 — Execute the subcommand
 
@@ -122,7 +130,7 @@ The on-marker file is `~/.claude/rag-plugin/.telemetry-enabled` (an empty file w
 ragtools detected: <mode banner>
 
 rag-plugin telemetry: <ON|OFF>
-log file: ~/.claude/rag-plugin/usage.log
+log file: <data>/usage.log
 log size: <N events recorded | empty | not yet created>
 
 what is recorded: timestamp, command name, outcome, optional failure_id
@@ -134,26 +142,24 @@ toggle: /config telemetry <on|off>
 
 #### `telemetry on`
 
-1. Create the log directory if missing: `mkdir -p ~/.claude/rag-plugin/`
-2. Create the on-marker: `echo "" > ~/.claude/rag-plugin/.telemetry-enabled`
-3. Touch the log file (if missing): `test -f ~/.claude/rag-plugin/usage.log || echo "" > ~/.claude/rag-plugin/usage.log`
+1. Create the log directory if missing: `mkdir -p "$D"`
+2. Create the on-marker: `echo "" > "$D/.telemetry-enabled"`
+3. Touch the log file (if missing): `test -f "$D/usage.log" || echo "" > "$D/usage.log"`
 4. Print the recording schema (`{"ts": ..., "command": ..., "outcome": ..., "failure_id": ...}`) and the "what is NOT recorded" list one more time, so the user can't claim surprise
-5. Confirm: `telemetry: ON. local-only. inspect with: cat ~/.claude/rag-plugin/usage.log`
+5. Confirm: `telemetry: ON. local-only. inspect with: cat <data>/usage.log`
 
 #### `telemetry off`
 
-1. Remove the on-marker: `test -f ~/.claude/rag-plugin/.telemetry-enabled && rm ~/.claude/rag-plugin/.telemetry-enabled` (or platform equivalent)
+1. Remove the on-marker: `rm -f "$D/.telemetry-enabled" "$LEGACY/.telemetry-enabled"`
 2. **Do not** delete the existing log file — the user might want to inspect it. Tell them how to delete it manually if they want:
    ```
-   to delete the existing log: rm ~/.claude/rag-plugin/usage.log
+   to delete the existing log: rm "$D/usage.log"
    ```
-3. Confirm: `telemetry: OFF. existing log preserved at ~/.claude/rag-plugin/usage.log (delete manually if desired).`
+3. Confirm: `telemetry: OFF. existing log preserved at <data>/usage.log (delete manually if desired).`
 
 ## How recording happens (informational)
 
-This command toggles the marker. The actual recording is done by the other rag-plugin commands when they finish. Each command's footer logic checks for the marker and appends a single line to `usage.log` if present. Recording is intentionally **best-effort**: if the marker check or the append fails for any reason, the command's primary work is not affected.
-
-This is documented here for transparency. The user does not need to do anything special — toggling the marker is enough.
+This command toggles the marker and creates an empty `usage.log`. **No command appends events yet**: no shipped command or hook checks the marker today, so the log stays empty even when telemetry is ON. The toggle and the schema above are kept so a future version can record against a consent the user already gave, and the README says the same. If a command ever does record, the append is best-effort: a failed marker check or append never affects the command's primary work.
 
 ## Failure handling
 
@@ -249,7 +255,7 @@ The install path is idempotent: running it twice on an already-installed rule pr
    lines unchanged: <...>
    ```
 
-6. **Ask for confirmation** unless `--yes` is passed OR the command is invoked from `/setup`'s first-install branch:
+6. **Ask for confirmation.** This writes a user-global file, so the only way to skip the question is an explicit `--yes` typed by the user. `/setup` never passes `--yes` for the user; it offers the install and this step still asks:
    ```
    proceed with install? (yes/no)
    ```
@@ -369,41 +375,45 @@ Removes all duplicate `ragtools` entries, leaving only the plugin-level one.
 
 # `hook-observability` subcommand group
 
-Controls the `~/.claude/rag-plugin/hook-decisions.log` file written by the `UserPromptSubmit` context injector (`hooks/context_inject.py`, which merged the retrieval-reminder and project-focus hooks in D-037). See **D-017** and **D-037** in `docs/decisions.md` and the README section "What we record".
+Controls the `<data>/hook-decisions.log` file written by the `UserPromptSubmit` context injector (`hooks/context_inject.py`, which merged the retrieval-reminder and project-focus hooks in D-037). See **D-017** and **D-037** in `docs/decisions.md` and the README section "What we record".
 
 **Default state:** **enabled.** Rationale: the log contains zero user content (decision metadata only — timestamp, shape_match, probe_match, probe_top_score, action tag, prompt_length, hook version). The user asked for observability to drive the Tier-2-vs-Tier-3 escalation decision, so the default must actually accumulate data.
 
-**Opt-out marker:** `~/.claude/rag-plugin/.hook-observability-disabled` (empty file). Presence disables the hook's logging. Absence enables it.
+**Opt-out:** the `hook_decision_log` plugin option (set it to false in the plugin's settings), or the marker `<data>/.hook-observability-disabled` (empty file; a legacy marker in `~/.claude/rag-plugin/` also counts). Either one disables logging.
 
-**What the log contains:** one JSON object per hook invocation with these fields only:
+**Size:** the log rotates when it reaches 1 MB: the file becomes `hook-decisions.log.1` (replacing an older backup) and a new file starts, so it never holds more than about 2 MB. `RAG_PLUGIN_HOOK_LOG_MAX_BYTES` changes the threshold.
+
+**What the log contains:** one JSON object per hook invocation:
 
 | Field | Type | Example |
 |---|---|---|
 | `ts` | ISO 8601 UTC | `2026-04-14T15:11:35Z` |
-| `shape_match` | bool | `true` |
-| `probe_match` | bool | `true` |
-| `probe_top_score` | float | `0.813` |
-| `action` | string | `reminder-injected` / `silent-pass:<reason>` |
+| `hook_version` | string | `1.1.0` |
+| `action` | string | `context-injected` / `silent-pass:<reason>` |
 | `prompt_length` | int | `53` |
-| `hook_version` | string | `0.3.0` |
+| `shape_match` | bool | `true` |
+| `scope_source` | string | `cache` / `resolved` / `override-workspace` / `none` |
+| `project_id`, `project_mode`, `project_state` | string | `acme-docs`, `docs`, `indexed` |
+| `probe_match`, `probe_top_score`, `probe_error` | bool / float / string | `true`, `0.813`, `service-down` |
+| `http_calls` | int | `2` (every request, health probes included) |
 
-**What the log does NOT contain:** prompt text, query text, result content, file paths, project IDs, machine identifiers, environment variables, or anything the user typed. D-012 aligned.
+**What the log does NOT contain:** prompt text, query text, result content, file paths, machine identifiers, environment variables, or anything the user typed. It does contain the **ragtools project id** that was resolved for the directory; `/report` keeps those out of public issue bodies by default (D-038).
 
 ## `hook-observability status`
 
-1. Resolve `~/.claude/rag-plugin/`. Check for the log file and the disable marker.
+1. Resolve `$D` (and `$LEGACY`). Check for the log file, the disable marker in either directory, and `CLAUDE_PLUGIN_OPTION_HOOK_DECISION_LOG`.
 2. Render:
    ```
    hook-observability: ENABLED    (default)
-     log file:  ~/.claude/rag-plugin/hook-decisions.log
+     log file:  <data>/hook-decisions.log
      log size:  <N> lines, <B> bytes
      last entry ts: <ts or "empty">
    ```
    Or when disabled:
    ```
    hook-observability: DISABLED
-     disable marker: ~/.claude/rag-plugin/.hook-observability-disabled
-     log file (preserved): ~/.claude/rag-plugin/hook-decisions.log (<N> lines)
+     disable marker: <data>/.hook-observability-disabled
+     log file (preserved): <data>/hook-decisions.log (<N> lines)
      to re-enable: /config hook-observability on
    ```
 
@@ -412,18 +422,18 @@ Controls the `~/.claude/rag-plugin/hook-decisions.log` file written by the `User
 Removes the disable marker. No-op if already enabled.
 
 ```bash
-rm -f "$HOME/.claude/rag-plugin/.hook-observability-disabled"
+rm -f "$D/.hook-observability-disabled" "$LEGACY/.hook-observability-disabled"
 ```
 
-Confirm: `hook-observability: ENABLED. future hook invocations will append to ~/.claude/rag-plugin/hook-decisions.log.`
+Confirm: `hook-observability: ENABLED. future hook invocations will append to <data>/hook-decisions.log.`
 
 ## `hook-observability off`
 
 Creates the disable marker. The existing log file is **preserved** — user can inspect it before deciding to delete.
 
 ```bash
-mkdir -p "$HOME/.claude/rag-plugin"
-touch "$HOME/.claude/rag-plugin/.hook-observability-disabled"
+mkdir -p "$D"
+touch "$D/.hook-observability-disabled"
 ```
 
 Confirm: `hook-observability: DISABLED. the hook will silent-pass without logging. existing log preserved at <path>. to delete: /config hook-observability clear.`
@@ -433,7 +443,7 @@ Confirm: `hook-observability: DISABLED. the hook will silent-pass without loggin
 Runs the bundled analyzer and prints aggregate stats:
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/analyze_hook_decisions.py"
+CLAUDE_PLUGIN_DATA="${CLAUDE_PLUGIN_DATA}" python3 "${CLAUDE_PLUGIN_ROOT}/scripts/analyze_hook_decisions.py"
 ```
 
 The analyzer produces:
@@ -456,7 +466,7 @@ Deletes the log file. Requires typed `CLEAR` confirmation (same discipline as `/
 2. If the file doesn't exist, print `log file not found — nothing to clear` and stop.
 3. Print the current line count and last-entry timestamp so the user knows what they're about to delete:
    ```
-   about to delete: ~/.claude/rag-plugin/hook-decisions.log
+   about to delete: <data>/hook-decisions.log
    current size: <N> lines (<B> bytes)
    last entry: <ts>
    
@@ -465,7 +475,7 @@ Deletes the log file. Requires typed `CLEAR` confirmation (same discipline as `/
 4. Wait for the user to type `CLEAR` verbatim.
 5. Delete the file:
    ```bash
-   rm "$HOME/.claude/rag-plugin/hook-decisions.log"
+   rm -f "$D/hook-decisions.log" "$D/hook-decisions.log.1" "$LEGACY/hook-decisions.log"
    ```
 6. Confirm: `log cleared. future hook invocations will create a fresh log (assuming observability is enabled).`
 
@@ -501,7 +511,7 @@ If any of the four is in a non-default state (telemetry on, rule outdated/missin
 - **Splice by markers.** Never use find-and-replace on the rule body.
 - **Always backup before editing user config files** (`~/.claude.json`, `~/.claude/.mcp.json`, `~/.claude/CLAUDE.md`). Backup extension: `.bak-pre-<operation>`.
 - **Atomic writes only.** Load → modify → write tmp → rename.
-- **Confirm by default**, with `--yes` opt-out for scripted use (and a silent pass when called from `/setup`'s first-install flow).
+- **Confirm by default**, with `--yes` opt-out for scripted use.
 - **Never touch non-ragtools MCP entries.** Other servers are off-limits.
 - **Never delete the plugin-level `.mcp.json`.**
 - **Never networked telemetry (D-012).** Unchanged by this update.
@@ -515,7 +525,7 @@ If any of the four is in a non-default state (telemetry on, rule outdated/missin
 - `scripts/analyze_hook_decisions.py` — aggregate analyzer invoked by `hook-observability analyze`
 - `/setup` — calls `claude-md install` and `mcp-dedupe clean` as part of Step C.2b / C.5
 - `/doctor` — surfaces retrieval-rule, MCP-dedupe, and hook-observability state in the diagnostic table
-- `/doctor` — classifies plugin-behavior symptoms that route here (absorbs the former `/rag-repair`)
+- `/doctor` — classifies plugin-behavior symptoms that route here
 - `docs/decisions.md#d-015` — plugin-level `.mcp.json` auto-wiring
 - `docs/decisions.md#d-016` — CLAUDE.md retrieval rule as a shipped plugin asset
 - `docs/decisions.md#d-017` — Tier 2 guided-enforcement hook + observability-first escalation

@@ -199,7 +199,7 @@ After adding, the watcher kicks in and incremental indexing starts. Watch progre
 
 - The admin panel "Recent Activity" card
 - `curl http://127.0.0.1:21420/api/status` (look at `chunks` and `last_indexed`)
-- `/rag-status` (compact summary)
+- `/doctor` (compact summary)
 
 ### C.4 — Smoke test from Claude Code
 
@@ -207,7 +207,7 @@ Now ask Claude Code something that should hit your knowledge base:
 
 > Search my knowledge base for [a topic from your project].
 
-Claude calls the `search_knowledge_base` MCP tool directly — neither rag-plugin nor any plugin wraps it. If results come back with HIGH or MODERATE confidence, you're done. If LOW or empty, check `/rag-status` for chunks count, then `/doctor`.
+Claude calls the `search_knowledge_base` MCP tool directly — neither rag-plugin nor any plugin wraps it. If results come back with HIGH or MODERATE confidence, you're done. If LOW or empty, check `/doctor` for chunks count, then `/doctor`.
 
 ## Verification checklist
 
@@ -231,7 +231,7 @@ After setup, run through `post-install-verify.md` or just:
 | Service starts but `/api/projects` is empty after restart | F-006 / `repair-playbooks.md#projects-empty-after-restart` |
 | `Permission denied: 'ragtools.toml'` on add-project | F-001 / upgrade to ≥ v2.4.1 |
 | MCP server doesn't connect from Claude Code | F-009 / `repair-playbooks.md#mcp-not-connecting` |
-| Search returns no results | `/rag-status` to confirm chunks; `/doctor` if chunks > 0 but search is empty |
+| Search returns no results | `/doctor` to confirm chunks; `/doctor` if chunks > 0 but search is empty |
 
 ## See also
 

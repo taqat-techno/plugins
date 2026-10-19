@@ -34,13 +34,25 @@ from _tree import PLUGIN_ROOT, is_baseline, read  # type: ignore[import-not-foun
 
 HOOK = PLUGIN_ROOT / "hooks" / "context_inject.py"
 
+import tempfile  # noqa: E402
+
+#: Every hook run in this module writes its state here, never into ~/.claude.
+_DATA_DIR = tempfile.mkdtemp(prefix="rag_wp07_")
+
+
+def _env() -> dict:
+    env = dict(os.environ)
+    env["RAG_PLUGIN_DATA_DIR"] = _DATA_DIR
+    env["RAG_PLUGIN_SERVICE_PORT"] = "9"
+    return env
+
 
 def run_hook(prompt: str, cwd: str, timeout: int = 30) -> str:
     """Run the hook as Claude Code does. Returns stdout (empty = silent pass)."""
     payload = json.dumps({"hook_event_name": "UserPromptSubmit",
                           "user_prompt": prompt, "cwd": cwd})
     proc = subprocess.run([sys.executable, str(HOOK)], input=payload,
-                          capture_output=True, text=True, timeout=timeout)
+                          capture_output=True, text=True, timeout=timeout, env=_env())
     assert proc.returncode == 0, f"advisory hook must always exit 0, got {proc.returncode}"
     return proc.stdout.strip()
 
@@ -164,7 +176,7 @@ class TestFailOpenIsStructural(unittest.TestCase):
     def test_malformed_stdin_exits_zero(self):
         for payload in ("", "   ", "not json", "[]", '{"user_prompt": 42}'):
             proc = subprocess.run([sys.executable, str(HOOK)], input=payload,
-                                  capture_output=True, text=True, timeout=30)
+                                  capture_output=True, text=True, timeout=30, env=_env())
             self.assertEqual(proc.returncode, 0,
                              f"payload {payload!r} produced exit {proc.returncode}")
 
@@ -174,12 +186,13 @@ class TestFailOpenIsStructural(unittest.TestCase):
                       "the merged hook must be registered advisory, so every exit "
                       "is normalised to 0")
 
-    def test_retired_target_names_remain_mapped(self):
+    def test_retired_target_names_are_gone(self):
+        """retrieval-reminder / project-focus were kept mapped for one release
+        after the WP-7 merge (0.18.0). 0.20.0 removes them; an unknown name
+        still fails open (tests/test_hook_launcher.py)."""
         launcher = read("hooks/hook_launcher.py")
         for legacy in ("retrieval-reminder", "project-focus"):
-            self.assertIn(f'"{legacy}"', launcher,
-                          f"{legacy} must stay mapped for one release so a stale "
-                          "hooks.json cannot break a session")
+            self.assertNotIn(f'"{legacy}":', launcher)
 
 
 class TestHooksJsonShape(unittest.TestCase):
@@ -192,18 +205,19 @@ class TestHooksJsonShape(unittest.TestCase):
                          "the two injectors were merged; two entries means one "
                          "of them is still firing")
 
-    def test_the_inline_bootstrap_is_preserved(self):
-        """D-031's mechanism: the `-c` form takes no script-file argument, so a
-        missing script can never produce the blocking exit 2."""
+    def test_the_portable_launcher_is_used(self):
+        """D-031's guarantee in the standard form: a missing launcher exits 0
+        before any interpreter starts, and the interpreter chain is intact."""
         ups = self.data["hooks"]["UserPromptSubmit"][0]["hooks"][0]["command"]
-        self.assertIn("python3 -c", ups)
-        self.assertIn("py -3 -c", ups, "the interpreter chain must be intact")
-        self.assertIn(" context-inject ", ups)
+        self.assertIn('[ -f "$s" ] || exit 0', ups)
+        self.assertIn("for c in python3 python py", ups,
+                      "the interpreter chain must be intact")
+        self.assertIn(" context-inject;", ups)
 
     def test_pretooluse_guard_is_untouched(self):
         pre = self.data.get("hooks", {}).get("PreToolUse", [])
         self.assertEqual(len(pre), 1)
-        self.assertIn(" lock-conflict ", pre[0]["hooks"][0]["command"])
+        self.assertIn(" lock-conflict;", pre[0]["hooks"][0]["command"])
 
 
 class TestBaselineDiffers(unittest.TestCase):

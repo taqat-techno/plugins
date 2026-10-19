@@ -16,7 +16,8 @@ TEXT_STDIN = re.compile(r"sys\.stdin\.read\(|json\.load\(sys\.stdin\)")
 
 class StdinUtf8Tests(unittest.TestCase):
     def test_no_hook_reads_text_stdin(self):
-        scripts = [p for p in HOOKS.rglob("*.py") if not p.name.startswith("test_")]
+        scripts = [p for p in HOOKS.rglob("*.py")
+                   if not p.name.startswith("test_") and "_vendor" not in p.parts]
         self.assertTrue(scripts)
         for script in scripts:
             with self.subTest(script=script.name):

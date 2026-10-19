@@ -98,7 +98,7 @@ Each eval is **PASS**, **FAIL**, or **N/A** (precondition unavailable — never 
 
 ## Reading the hook log as corroboration
 
-E1, E5, E8 and E10 leave evidence in `~/.claude/rag-plugin/hook-decisions.log`:
+E1, E5, E8 and E10 leave evidence in `${CLAUDE_PLUGIN_DATA}/hook-decisions.log`:
 
 ```bash
 python scripts/analyze_hook_decisions.py

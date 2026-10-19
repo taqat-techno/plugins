@@ -1,7 +1,10 @@
 ---
 name: markdown-authoring
-description: Use this skill when Claude is creating or drafting Markdown files — READMEs, runbooks, SOPs, architecture pages, reference docs, troubleshooting guides, concept pages, design notes, or any .md content that will be indexed into a ragtools knowledge base.
-version: 0.7.0
+description: Use when writing or restructuring Markdown that a ragtools knowledge base will index - the target folder belongs to a ragtools project, or the user says the page is going into their RAG or knowledge-base search index - so it chunks and retrieves well (heading wording, section length, where tags and keywords go, frontmatter that the chunker drops). Not for ordinary READMEs, wiki pages or docs with no ragtools index behind them.
+version: 0.8.0
+metadata:
+  defers_to:
+    - docs-wiki:wiki-authoring (if the docs-wiki plugin is installed, it owns wiki page templates and wiki conventions; this skill adds only the chunking rules)
 ---
 
 # markdown-authoring
@@ -12,18 +15,21 @@ The skill does not save files. It shapes what Claude writes.
 
 ## When the skill activates
 
-On any Markdown creation or drafting intent:
+Only when the Markdown will be indexed by ragtools:
 
-- "Write a README for X" / "Document component Y"
-- "Create a runbook for incident Z"
-- "Draft an SOP for the deploy process"
-- "Add an architecture page"
-- "Write up the decision record"
-- "Make this markdown RAG-friendly"
-- "Optimize for retrieval"
-- "Create a concept page about N"
+- the file goes into a folder that a ragtools project covers (`list_projects()` shows a
+  project whose path contains it), or
+- the user says it is for the knowledge base, the RAG index, or "so search finds it", or
+- the user asks to make Markdown RAG-friendly or optimise it for retrieval.
 
-Does not activate on code, config, shell, or non-Markdown files.
+Examples: "Write a runbook for the deploy failure; it goes into our knowledge base",
+"Make this architecture page RAG-friendly", "Draft an SOP that our local search will
+index".
+
+It does not activate for a README, wiki page or design note with no ragtools index
+behind it, and never on code, config or shell files. When the docs-wiki plugin is
+installed and the page is a wiki page, its `wiki-authoring` skill owns the template and
+conventions; apply only the chunking rules below on top.
 
 ## Phase 1 — Detect page type
 
@@ -106,5 +112,5 @@ Before showing the Markdown to the user, verify:
 - `references/page-templates.md` — the 5 copy-paste scaffolds.
 - `references/anti-patterns.md` — detailed rationale per anti-pattern.
 - `/md-rag-enhance` (sibling command) — scans existing Markdown and safely enhances it.
-- `docs/decisions.md` D-023 — the binding decision for this skill + command pair.
+- `../../docs/decisions.md` D-023 — the binding decision for this skill + command pair.
 - `ragtools_mcp_doc.md` at the workspace root — MCP v2.5.0 contract the retrieval layer uses.

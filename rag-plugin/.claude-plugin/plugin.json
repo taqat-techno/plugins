@@ -1,11 +1,37 @@
 {
   "name": "rag",
-  "version": "0.19.0",
+  "version": "0.20.0",
   "license": "MIT",
   "description": "Operational console AND retrieval guide for the ragtools local RAG product. Install, configure, diagnose, repair, upgrade, and run the local knowledge base \u2014 and teach Claude to use it correctly: scope every search (ragtools refuses unscoped calls), check a project indexing mode before code questions, resolve the right service among several, and validate citation paths. Does NOT re-implement search.",
   "author": {
     "name": "TaqaTechno",
     "email": "info@taqatechno.com",
     "url": "https://github.com/taqat-techno"
+  },
+  "homepage": "https://github.com/taqat-techno/plugins/tree/main/rag-plugin",
+  "repository": "https://github.com/taqat-techno/plugins",
+  "keywords": [
+    "ragtools",
+    "rag",
+    "knowledge-base",
+    "mcp",
+    "qdrant",
+    "retrieval"
+  ],
+  "userConfig": {
+    "service_port": {
+      "type": "number",
+      "title": "ragtools service port",
+      "description": "Port the hooks use to reach ragtools. 0 probes 21420 (installed) then 21421 (source install). RAG_PLUGIN_SERVICE_PORT is the fallback.",
+      "default": 0,
+      "min": 0,
+      "max": 65535
+    },
+    "hook_decision_log": {
+      "type": "boolean",
+      "title": "Hook decision log",
+      "description": "Record one line of decision metadata (no prompt text) per prompt in the plugin data directory. Rotates at 1 MB.",
+      "default": true
+    }
   }
 }

@@ -47,7 +47,7 @@ Per decision **D-011** and the v2.4.1 failure mode (`F-001` in `known-failures.m
 - **Block destructive operations** (`/reset`, project removal) on pre-v2.4.1 unless the user explicitly confirms they understand the risk.
 - **Recommend immediate upgrade** to ≥ v2.4.1 as the first step in any repair flow on those versions.
 
-This is implemented in Phase 7 (`/rag-upgrade`).
+This is implemented in Phase 7 (`/setup --upgrade`).
 
 ## Detecting the installed version
 

@@ -47,7 +47,7 @@ Parse the first positional argument:
 ## Step 2 — Run the engine
 
 ```bash
-python "${CLAUDE_PLUGIN_ROOT}/scripts/project_focus.py" <subcommand> [<name>] [--auto]
+CLAUDE_PLUGIN_DATA="${CLAUDE_PLUGIN_DATA}" python "${CLAUDE_PLUGIN_ROOT}/scripts/project_focus.py" <subcommand> [<name>] [--auto]
 ```
 
 The script returns a JSON object on stdout. Render the relevant fields to the user — never dump the raw JSON.
@@ -62,7 +62,7 @@ The script:
    - **exact-path** (highest score)
    - **ancestor-path** (project path is an ancestor of CWD or git_root)
    - **descendant-path** (project path is below CWD; lower score)
-4. If a single best match exists, writes `~/.claude/rag-plugin/state/project-focus.json` and returns `{ok: true, set: {...}, alternatives: [...]}`.
+4. If a single best match exists, writes `${CLAUDE_PLUGIN_DATA}/state/project-focus.json` and returns `{ok: true, set: {...}, alternatives: [...]}`.
 5. If multiple candidates are equally specific, returns `{ok: false, reason: "ambiguous", candidates: [...]}` — the user must rerun with an explicit name.
 6. If no match, returns `{ok: false, reason: "no-match", candidates: [...]}` — the user can pass an explicit name or run `/rag:projects add` first.
 
@@ -160,11 +160,11 @@ In v0.9.x, focus was a single global record. Setting focus in workspace A meant 
 - Migration key = `_norm(git_root_at_set)` → fallback `_norm(cwd_at_set)`.
 - If neither is usable (empty or non-existent), focus is **disabled** and the user is asked to rerun `/rag:project-focus`.
 - v1 records are NEVER auto-promoted to global.
-- Before migration, the original v1 file is copied once to `~/.claude/rag-plugin/state/project-focus.v1.bak.json` for manual rollback.
+- Before migration, the original v1 file is copied once to `${CLAUDE_PLUGIN_DATA}/state/project-focus.v1.bak.json` for manual rollback.
 
 ## Machine-local state (do not Syncthing this directory)
 
-The state file lives at `~/.claude/rag-plugin/state/project-focus.json`. It encodes per-machine workspace paths (e.g. `c:/users/<you>/workspace/...` on Windows, `/home/<you>/workspace/...` on WSL) which **do not normalize to the same key across machines**. Add the directory to Syncthing's `.stignore` (or your sync tool's equivalent) so machine-A's workspace keys do not appear on machine-B as ghost entries that the hook silent-passes on.
+The state file lives at `${CLAUDE_PLUGIN_DATA}/state/project-focus.json` (0.19.x and earlier: `~/.claude/rag-plugin/state/project-focus.json`, which is read as a fallback and copied forward once). It encodes per-machine workspace paths (e.g. `c:/users/<you>/workspace/...` on Windows, `/home/<you>/workspace/...` on WSL) which **do not normalize to the same key across machines**. Add the directory to Syncthing's `.stignore` (or your sync tool's equivalent) so machine-A's workspace keys do not appear on machine-B as ghost entries that the hook silent-passes on.
 
 If you do hit ghost entries from another machine after a sync, list them with `/rag:project-focus status` (the `all_workspaces` field) and remove specific stale keys with `/rag:project-focus clear --all` — there is no `clear --workspace <key>` in v0.13.0; that is potential Phase 2 work.
 
@@ -197,7 +197,7 @@ Tell the user what to run (do not run it):
 7. `/project-focus clear --global` → global removed; workspaces map remains.
 8. `/project-focus clear --all` → both removed.
 9. `/project-focus nonexistent-name` → `no-match` with candidate list.
-10. **v1 migration smoke:** with the live state file backed up, manually write a v1 single-record file and run `/project-focus status` — confirm v2 schema, `migrated_from_v1_at` populated, `~/.claude/rag-plugin/state/project-focus.v1.bak.json` exists.
+10. **v1 migration smoke:** with the live state file backed up, manually write a v1 single-record file and run `/project-focus status` — confirm v2 schema, `migrated_from_v1_at` populated, `${CLAUDE_PLUGIN_DATA}/state/project-focus.v1.bak.json` exists.
 
 ## See also
 

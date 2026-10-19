@@ -7,7 +7,7 @@ disable-model-invocation: false
 
 # /setup
 
-Smart state-aware entry point for "get ragtools working." Replaces the former `/setup + /rag-upgrade` split. One command handles install, start-service, upgrade, and idempotent post-install verification. Branches on the detected state — the user does not need to know which sub-flow they are in.
+Smart state-aware entry point for "get ragtools working." One command handles install, start-service, upgrade, and idempotent post-install verification. Branches on the detected state — the user does not need to know which sub-flow they are in.
 
 ## Behavior by state (routing table)
 
@@ -17,7 +17,7 @@ Smart state-aware entry point for "get ragtools working." Replaces the former `/
 | **installed, service DOWN** | **Branch B — Start the service.** Offer `rag service start`, wait, re-probe, fall through to Branch D. |
 | **installed, service STARTING** | Wait, re-probe once. If still starting, ask the user to re-run `/setup` in 10 seconds. |
 | **installed, service BROKEN** | Refuse. Print `service is broken. run /doctor --full --fix first.` |
-| **installed, service UP, old version** | **Branch C — Upgrade walkthrough.** Show version diff + changelog highlights, offer in-place upgrade, walk it. After upgrade, fall through to Branch D. This replaces the former `/rag-upgrade`. |
+| **installed, service UP, old version** | **Branch C — Upgrade walkthrough.** Show version diff + changelog highlights, offer in-place upgrade, walk it. After upgrade, fall through to Branch D. |
 | **installed, service UP, current version** | **Branch D — Verify + summary.** Idempotent checks: MCP wiring, CLAUDE.md rule, dedupe. Fix any gaps inline. Print post-install summary. |
 | **--upgrade flag** | Forces Branch C regardless of detected version (useful for testing or forced re-check against GitHub). |
 | **--verify flag** | Forces Branch D regardless of state (idempotent re-check of plugin-layer wiring). |
@@ -174,7 +174,7 @@ The simplest branch. Binary is present, service is not running.
 
 ## BRANCH C — Upgrade walkthrough (installed, service UP, version < latest — or --upgrade forced)
 
-This branch absorbs the former `/rag-upgrade` command. Same in-place upgrade flow, same D-005 URL-only discipline, same D-008 compact output.
+This branch uses the in-place upgrade flow, same D-005 URL-only discipline, same D-008 compact output.
 
 ### C.0 — Fetch latest release from GitHub
 
@@ -408,7 +408,7 @@ setup complete.
 
 ## See also
 
-- `/doctor` — smart diagnose+status+repair (absorbs former `/rag-status` and `/rag-repair`)
+- `/doctor` — smart diagnose+status+repair
 - `/projects` — project CRUD via HTTP API
 - `/reset` — destructive reset with three escalation levels
 - `/config` — plugin-layer config

@@ -9,7 +9,7 @@ managed-by: /config claude-md install
 
 # CLAUDE.md Retrieval Rule
 
-This file is the **single source of truth** for the instruction block that tells Claude to use the ragtools MCP server as a knowledge base. It is injected into the user's `~/.claude/CLAUDE.md` (or a project-level CLAUDE.md) by `/config claude-md install` and kept in sync by `/setup`, `/doctor`, and `/rag-repair`.
+This file is the **single source of truth** for the instruction block that tells Claude to use the ragtools MCP server as a knowledge base. It is injected into the user's `~/.claude/CLAUDE.md` (or a project-level CLAUDE.md) by `/config claude-md install` and kept in sync by `/setup` and `/doctor`.
 
 ## How it is managed
 
