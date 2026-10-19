@@ -3,6 +3,11 @@
 All notable changes to the `agent-safety-guards` plugin are documented here.
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.2] - 2026-10-19
+
+### Added
+- MIT LICENSE file shipped in the plugin directory. Installed plugins are cached standalone, so the repo-root LICENSE never reached them.
+
 ## [0.4.1] - 2026-10-19
 
 ### Fixed
