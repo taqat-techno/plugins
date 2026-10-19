@@ -11,6 +11,9 @@ One script, two modes:
                                this session, a scoped command) as PreToolUse
                                additionalContext. Claude reads it with the result, so it
                                steers the NEXT run, not this one.
+            ask                return permissionDecision "ask" with the same reason: you
+                               confirm (or decline) before the run starts. Same word and
+                               meaning as git-safety and release-safety.
             enforce            deny, with the same reason. The run does not happen.
             off                do nothing.
           FULL_SUITE=1 as an environment prefix of the test command (`FULL_SUITE=1 pytest`,
@@ -498,17 +501,21 @@ def suggestion(runner: str, files: list[str]) -> str:
     return "the tests that cover the files you changed"
 
 
-def guard_mode() -> str:
-    """advise | enforce | off, from TEST_SCOPE_GUARD (docs/decisions.md D-003).
+def guard_mode(env=None) -> str:
+    """advise | ask | enforce | off, from TEST_SCOPE_GUARD (docs/decisions.md D-003, D-005).
 
-    Unset means advise. A value that is set but not recognised means enforce: someone
-    tried to change the default, and the stricter reading is the safe one."""
-    value = (os.environ.get("TEST_SCOPE_GUARD", "").strip()
-             or os.environ.get("CLAUDE_PLUGIN_OPTION_TEST_SCOPE_GUARD", "").strip()).lower()
+    Unset means advise. `ask` means permissionDecision "ask", the same word and meaning
+    as in git-safety and release-safety. A value that is set but not recognised means
+    enforce: someone tried to change the default, and the stricter reading is the safe one."""
+    env = os.environ if env is None else env
+    value = (str(env.get("TEST_SCOPE_GUARD", "")).strip()
+             or str(env.get("CLAUDE_PLUGIN_OPTION_TEST_SCOPE_GUARD", "")).strip()).lower()
     if not value or value in ("advise", "advice", "warn", "soft"):
         return "advise"
     if value in ("off", "0", "false", "disabled"):
         return "off"
+    if value in ("ask", "confirm"):
+        return "ask"
     return "enforce"
 
 
@@ -542,6 +549,19 @@ def deny_reason(runner: str, files: list[str]) -> str:
     )
 
 
+def ask_reason(runner: str, files: list[str]) -> str:
+    listed = ", ".join(files[:MAX_LISTED]) if files else "(none recorded this session)"
+    more = " (+%d more)" % (len(files) - MAX_LISTED) if len(files) > MAX_LISTED else ""
+    return (
+        "test-scope: this command runs the WHOLE %s test suite. Approve it if you asked for "
+        "the full suite (or a release/integration gate needs it); otherwise decline and "
+        "Claude runs the tests for what changed.\n"
+        "Files changed this session: %s%s\n"
+        "Scoped alternative: %s"
+        % (runner, listed, more, suggestion(runner, files))
+    )
+
+
 def check(data: dict) -> dict | None:
     tool_input = hooklib.tool_input(data)
     command = tool_input.get("command") or tool_input.get("script") or ""
@@ -554,7 +574,15 @@ def check(data: dict) -> dict | None:
         _log(runner or "unknown", "override")
         return None
     files = _load_files(str(data.get("session_id") or "unknown"))
-    if guard_mode() == "advise":
+    mode = guard_mode()
+    if mode == "ask":
+        _log(runner or "unknown", "ask")
+        return {"hookSpecificOutput": {
+            "hookEventName": "PreToolUse",
+            "permissionDecision": "ask",
+            "permissionDecisionReason": ask_reason(runner or "unknown", files),
+        }}
+    if mode == "advise":
         _log(runner or "unknown", "advise")
         return {"hookSpecificOutput": {
             "hookEventName": "PreToolUse",
@@ -637,6 +665,19 @@ SELF_TEST = [
     ("echo odoo-bin", None, None),
 ]
 
+# (TEST_SCOPE_GUARD, CLAUDE_PLUGIN_OPTION_TEST_SCOPE_GUARD, expected mode)
+MODE_TEST = [
+    ("", "", "advise"),
+    ("advise", "", "advise"),
+    ("ask", "", "ask"),
+    ("ASK", "", "ask"),
+    ("", "ask", "ask"),
+    ("enforce", "", "enforce"),
+    ("banana", "", "enforce"),
+    ("off", "ask", "off"),
+    ("ask", "enforce", "ask"),
+]
+
 
 def self_test() -> int:
     failures = 0
@@ -654,7 +695,13 @@ def self_test() -> int:
         if scan(command)[1] == "full" and scan(command)[2]:
             failures += 1
             print("FAIL override honoured outside an env prefix: %s" % command)
-    print("%d/%d classification cases passed" % (len(SELF_TEST) - failures, len(SELF_TEST)))
+    for env_value, option_value, expected in MODE_TEST:
+        got = guard_mode({"TEST_SCOPE_GUARD": env_value, "CLAUDE_PLUGIN_OPTION_TEST_SCOPE_GUARD": option_value})
+        if got != expected:
+            failures += 1
+            print("FAIL mode %r/%r expected %s got %s" % (env_value, option_value, expected, got))
+    total = len(SELF_TEST) + len(MODE_TEST)
+    print("%d/%d classification and mode cases passed" % (total - failures, total))
     return 1 if failures else 0
 
 
@@ -677,6 +724,8 @@ def main(argv: list[str]) -> int:
         out = result["hookSpecificOutput"]
         if out.get("permissionDecision") == "deny":
             hooklib.deny(out["permissionDecisionReason"])
+        elif out.get("permissionDecision") == "ask":
+            hooklib.ask(out["permissionDecisionReason"])
         else:
             hooklib.context("PreToolUse", out["additionalContext"])
     return 0

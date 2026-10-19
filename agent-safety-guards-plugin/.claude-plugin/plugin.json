@@ -1,7 +1,7 @@
 {
   "name": "agent-safety-guards",
-  "version": "0.6.0",
-  "description": "Agent-session safety and workflow-reliability habits for Claude Code: a leaked secret is burned (revoke and reissue), read-only work stays read-only, cited authorizations are verified, external content is data and never an instruction, subagent fan-outs run in small verified waves, and test results are read as evidence only when they could have failed. Hooks: a credential-paste reminder, and a test-scope guard that steers Claude away from whole-suite runs during development (advise by default; opt-in enforce denies them).",
+  "version": "0.6.2",
+  "description": "Agent-session safety and workflow-reliability habits for Claude Code: a leaked secret is burned (revoke and reissue), read-only work stays read-only, cited authorizations are verified, external content is data and never an instruction, subagent fan-outs run in small verified waves, and test results are read as evidence only when they could have failed. Hooks: a credential-paste reminder, and a test-scope guard that steers Claude away from whole-suite runs during development (advise by default; opt-in ask makes you confirm them, enforce denies them).",
   "author": {
     "name": "TaqaTechno",
     "email": "info@taqatechno.com",
@@ -28,7 +28,7 @@
     "test_scope_guard": {
       "type": "string",
       "title": "Test-scope guard mode",
-      "description": "advise (default): a whole-suite test run goes ahead and Claude gets the changed files and a scoped command. enforce: deny whole-suite runs unless prefixed with FULL_SUITE=1. off: no guard. TEST_SCOPE_GUARD overrides this.",
+      "description": "advise (default): a whole-suite test run goes ahead and Claude gets the changed files and a scoped command. ask: you confirm or decline each whole-suite run. enforce: deny whole-suite runs unless prefixed with FULL_SUITE=1. off: no guard. TEST_SCOPE_GUARD overrides this.",
       "default": "advise"
     },
     "full_suite_scripts": {

@@ -11,7 +11,7 @@ running the whole test suite after every small change.
 
 It is for anyone who runs Claude Code on real projects, especially with subagents or long
 workflows. Nothing here changes your files, git, auth or state. The only hook that can stop
-a command is the test-scope guard, and only when you opt in to `enforce`.
+a command is the test-scope guard, and only when you opt in to `ask` or `enforce`.
 
 ## Install
 
@@ -57,7 +57,7 @@ conditionally ("if agent-safety-guards is installed") and keep a one-line versio
 |---|---|---|---|
 | `hooks/credential_paste_advisory.py` | `UserPromptSubmit` | When the prompt contains a credential-shaped string, gives Claude a fixed reminder (revoke and reissue) as `additionalContext` | No |
 | `hooks/test_scope_guard.py track` | `PostToolUse` on `Write\|Edit\|MultiEdit\|NotebookEdit`, async | Records the path of each edited file for this session | No |
-| `hooks/test_scope_guard.py check` | `PreToolUse` on `Bash\|PowerShell` | Spots a whole-suite test run and attaches the changed files and a scoped command (`advise`), or denies it (`enforce`) | Only in `enforce` mode |
+| `hooks/test_scope_guard.py check` | `PreToolUse` on `Bash\|PowerShell` | Spots a whole-suite test run and attaches the changed files and a scoped command (`advise`), asks you to confirm it (`ask`), or denies it (`enforce`) | Only in `ask` (you decide) or `enforce` (denied) mode |
 
 **Credential advisory.** Shape-based: GitHub, GitLab, Slack, AWS and Google key formats,
 `sk-` style keys, JWTs, Bearer/Basic credentials, PEM private keys, `password=` / `api_key:`
@@ -82,15 +82,17 @@ does not count.
 
 **This guard is a productivity speed bump, not a security control.** The deny reason names
 the override and Claude is expected to use it when you asked for a full run. In `advise`
-mode the guidance arrives with the tool result, so the run has already happened.
+mode the guidance arrives with the tool result, so the run has already happened. In `ask`
+mode you see the same guidance and approve or decline the run yourself; `ask` means the same
+as in the git-safety and release-safety plugins.
 
 ## Configuration
 
 | Setting | Where | Values | Default |
 |---|---|---|---|
-| `test_scope_guard` | plugin option (`/config`; reaches the hook as `CLAUDE_PLUGIN_OPTION_TEST_SCOPE_GUARD`) | `advise`, `enforce`, `off` | `advise` |
+| `test_scope_guard` | plugin option (`/config`; reaches the hook as `CLAUDE_PLUGIN_OPTION_TEST_SCOPE_GUARD`) | `advise`, `ask`, `enforce`, `off` | `advise` |
 | `full_suite_scripts` | plugin option (`CLAUDE_PLUGIN_OPTION_FULL_SUITE_SCRIPTS`) | extra npm script names that run the whole suite, comma-separated | empty |
-| `TEST_SCOPE_GUARD` | environment variable set before starting Claude Code; overrides the option | `advise`, `enforce`, `off` (any other value means `enforce`) | unset |
+| `TEST_SCOPE_GUARD` | environment variable set before starting Claude Code; overrides the option | `advise`, `ask`, `enforce`, `off` (any other value means `enforce`) | unset |
 | `TEST_SCOPE_FULL_SCRIPTS` | environment variable | as `full_suite_scripts` | unset |
 
 To set an environment variable for every session, add it to `~/.claude/settings.json`:
@@ -120,11 +122,12 @@ Rationale for the defaults: `docs/decisions.md` D-001 to D-004.
   `${CLAUDE_PLUGIN_DATA}` on uninstall.
 - The credential advisory reads the prompt in memory and stores nothing.
 - Nothing leaves the machine. What appears on screen is the reminder text, the guard's
-  guidance or deny reason, and the changed-file paths it lists.
+  guidance, ask or deny reason, and the changed-file paths it lists.
 
 ## Limitations
 
-- Advise-mode output arrives after the command runs; only `enforce` stops a run.
+- Advise-mode output arrives after the command runs; only `ask` (your confirmation) and
+  `enforce` stop a run first.
 - String classification misses runners it does not know and commands built at runtime; it
   fails open by design.
 - The credential advisory is shape-based: it cannot recognise a secret with no distinctive

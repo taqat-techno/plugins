@@ -1,6 +1,16 @@
 ---
 name: workflow-reliability
-description: Use when planning or running a subagent fan-out, an orchestrated multi-step pipeline, a parallel audit or any long workflow that must resume and be verified; when a subagent reports "done" or "no issues"; when a subagent was killed or a session limit stopped a run; when a background job reports an exit code; or when a concurrent session may share ports, databases or servers. Covers small sequential waves, null-safe reduce, journaled and idempotent runs, disjoint file ownership with one shared vocabulary, treating a subagent's completion as a claim to check with deterministic scans, trusting an all-clear only when every producer completed, treating a killed subagent's state as unknown, the investigation-first audit shape, the recon-subagent prompt contract, and workflow-script footguns.
+description: >-
+  Use when deciding whether a fan-out's all-clear can be reported - some subagents errored, hit rate
+  limits, were killed or returned nothing while the rest reported no findings, and the reduce step
+  says zero issues - or when planning or running a subagent fan-out, an orchestrated multi-step
+  pipeline, a parallel audit or any long workflow that must resume and be verified; when a subagent
+  reports "done" or "no issues"; when a session limit stopped a run; when a background job reports
+  an exit code; or when a concurrent session may share ports, databases or servers. Covers small
+  sequential waves, null-safe reduce, journaled and idempotent runs, disjoint file ownership,
+  treating a subagent's completion as a claim to check with deterministic scans, trusting an
+  all-clear only when every producer completed, treating a killed subagent's state as unknown, the
+  investigation-first audit shape, the recon-subagent prompt contract, and workflow-script footguns.
 version: 0.2.0
 user-invocable: false
 metadata:

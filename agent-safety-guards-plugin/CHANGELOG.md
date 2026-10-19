@@ -3,6 +3,22 @@
 All notable changes to the `agent-safety-guards` plugin are documented here.
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.2] - 2026-10-19
+
+Skill triggering tuned against real eval results. Measured with `claude plugin eval --runs 1 --model claude-sonnet-5-5`; the no-plugin baseline is the 2026-10-19 run, and Δ counts the criteria grader only.
+
+### Changed
+- `workflow-reliability` description opens with the all-clear decision: some subagents errored, hit rate limits or returned nothing, the rest reported no findings, and the reduce step says zero issues.
+
+### Eval results
+- Must-fire: 6/7 -> 7/7. Must-not-fire: 3/3 quiet before and after. Mean Δ: +0.30 -> +0.30.
+
+## [0.6.1] - 2026-10-19
+
+### Changed
+- **`ask` is now a real test-scope guard mode (RA-ASG-01, D-005).** `TEST_SCOPE_GUARD=ask` (or the `test_scope_guard` option set to `ask`) returns `permissionDecision: "ask"` for a whole-suite run, with the changed files and a scoped command, so you approve or decline it. Before, `ask` was an unrecognised value and silently meant `enforce` (deny). The vocabulary now matches git-safety and release-safety (`advise|ask|off`, plus `enforce` here). Other unrecognised values still mean `enforce`.
+- README, `test-scope` skill, userConfig description and `docs/decisions.md` (new D-005) document the mode. `--self-test` adds 9 mode-resolution rows (73 cases); new offline tests cover ask output, silence for scoped/info/override runs, and the content-free `ask` log entry.
+
 ## [0.6.0] - 2026-10-19
 
 ### Added

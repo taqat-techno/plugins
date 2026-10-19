@@ -96,6 +96,29 @@ class TestScopeGuard(unittest.TestCase):
         out = self.decision(run_hook("check", bash("pytest"), self.data, {"TEST_SCOPE_GUARD": "banana"}))
         self.assertEqual(out["permissionDecision"], "deny")
 
+    def test_ask_mode_asks_instead_of_denying(self):
+        """D-005: `ask` is its own mode (as in git-safety / release-safety), not enforce."""
+        for key in ("TEST_SCOPE_GUARD", "CLAUDE_PLUGIN_OPTION_TEST_SCOPE_GUARD"):
+            out = self.decision(run_hook("check", bash("pytest"), self.data,
+                                         {"TEST_SCOPE_GUARD": "", "CLAUDE_PLUGIN_OPTION_TEST_SCOPE_GUARD": "",
+                                          key: "ask"}))
+            self.assertEqual(out["hookEventName"], "PreToolUse")
+            self.assertEqual(out["permissionDecision"], "ask", key)
+            self.assertIn("WHOLE pytest test suite", out["permissionDecisionReason"])
+            self.assertIn("Scoped alternative", out["permissionDecisionReason"])
+
+    def test_ask_mode_is_silent_for_scoped_info_and_override_runs(self):
+        for command in ("pytest tests/test_a.py", "pytest --help", "FULL_SUITE=1 pytest", "git status"):
+            proc = run_hook("check", bash(command), self.data, {"TEST_SCOPE_GUARD": "ask"})
+            self.assertIsNone(self.decision(proc), command)
+
+    def test_ask_mode_logs_ask_without_command_text(self):
+        run_hook("check", bash("pytest --token=abc123"), self.data, {"TEST_SCOPE_GUARD": "ask"})
+        with open(os.path.join(self.data, "test-scope", "decisions.jsonl"), encoding="utf-8") as fh:
+            content = fh.read()
+        self.assertIn("\"ask\"", content)
+        self.assertNotIn("abc123", content)
+
     def test_fails_open_on_garbage(self):
         for raw in ("", "not json", "[1,2]", "{\"tool_input\": 5}"):
             proc = run_hook("check", None, self.data, raw=raw)

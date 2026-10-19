@@ -174,3 +174,26 @@ Decision:
 
 The guard stays a productivity speed bump, not a security control: the deny reason still
 names the override, because the model is expected to use it when the user asked for a full run.
+
+
+## D-005 - `ask` is a mode of its own
+
+Date: 2026-10-19 · Status: accepted · Amends: D-003 (point 3, for the value `ask` only)
+
+Context:
+
+The 2026-10-19 re-audit (RA-ASG-01) found that the sibling guards in git-safety and
+release-safety use `advise|ask|off`, where `ask` returns `permissionDecision: "ask"`. Here,
+`TEST_SCOPE_GUARD=ask` fell under D-003 point 3 (an unrecognised value means `enforce`) and
+silently denied. A user configuring all three plugins the same way got a deny where they
+expected a question. PLUGIN_STANDARDS 1.6 prefers ask over deny.
+
+Decision:
+
+1. `ask` (alias `confirm`) is recognised. For a whole-suite run the hook returns
+   `permissionDecision: "ask"` with the changed files and a scoped command, so the user
+   approves or declines before the run starts.
+2. Scoped runs, info commands and the `FULL_SUITE=1` prefix pass untouched, as in every mode.
+3. The decision log records `ask`, still without command text.
+4. Every other unrecognised value still means `enforce` (D-003 point 3 is otherwise unchanged).
+   The default stays `advise`.
