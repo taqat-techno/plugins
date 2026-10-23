@@ -133,7 +133,7 @@ def build_plan(v1, scan_roots: list) -> dict:
 
     def add(pname: str, paths: list, iname: str, spec: dict):
         key = (_url(spec["url"]).lower(), spec.get("db") or "")
-        if key in seen and key[1] != "auto":
+        if key in seen:
             plan["notes"].append("merged %s into %s (same url and db)" % (spec["from"], seen[key]))
             return
         project = plan["projects"].setdefault(pname, {"paths": [], "default": None, "instances": {}})

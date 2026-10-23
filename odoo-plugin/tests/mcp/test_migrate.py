@@ -63,6 +63,21 @@ def test_scan_finds_project_servers_in_env_and_bash_forms(tmp_path):
     assert "INLINE" not in json.dumps(plan) and "FILE-KEY" not in json.dumps(plan)
 
 
+def test_same_odoo_sh_stage_from_v1_and_a_project_server_is_merged(tmp_path):
+    """Two rebuild-stamped databases on one url both become "auto": the same instance."""
+    p = tmp_path / "taqat_refactoring"
+    p.mkdir()
+    (p / ".mcp.json").write_text(json.dumps({"mcpServers": {"odoo-cluster2-odoosh": {
+        "command": "python", "args": ["odoo_xmlrpc_mcp.py"], "env": {
+            "ODOO_URL": "https://cluster2-stage.odoo.com", "ODOO_DB": "cluster2-stage-37914291",
+            "ODOO_USERNAME": "admin", "ODOO_PASSWORD": "x"}}}}))
+    plan = M.build_plan(V1, [tmp_path])
+    stages = [(pn, i) for pn, pr in plan["projects"].items() for i, s in pr["instances"].items()
+              if s["url"] == "https://cluster2-stage.odoo.com"]
+    assert stages == [("cluster2", "cluster2-stage")]
+    assert any("merged" in n and "odoo-cluster2-odoosh" in n for n in plan["notes"])
+
+
 def test_apply_needs_approval_then_writes_backs_up_and_retires(tmp_path, monkeypatch):
     home = tmp_path / "home"
     home.mkdir()
