@@ -33,6 +33,9 @@ _V1_TIER = {"staging": "stage", "stage": "stage", "production": "prod", "prod": 
             "local": "local"}
 _V1_CEILING = {"write+unlink": "full", "write": "write", "read": "read"}
 _PROD_NAME = re.compile(r"(?i)(prod|production|-ro$)")
+_STAGE_NAME = re.compile(r"(?i)(^|[-_.])(stage|staging|uat|dev|test|demo|qa)([-_.]|$)")
+_V1_OPTIONAL = ("lang", "tz", "timeout", "verify_ssl", "companies", "allowed_company_ids",
+                "allow_write_models", "db_pattern")
 _REBUILD_DB = re.compile(r"-\d+$")
 _EXPORT = re.compile(r"export\s+((?:[A-Za-z_][A-Za-z0-9_]*=\S+\s*)+)")
 _SKIP_DIRS = ("/.claude/worktrees/", "/node_modules/", "/.git/")
@@ -57,27 +60,65 @@ def _odoo_sh_stage_db(url: str, db: str) -> bool:
 # --------------------------------------------------------------------------
 
 
-def _v1_tier(name: str, raw: dict) -> str:
+def _v1_tier(name: str, raw: dict):
+    """(tier, guessed). A remote profile that neither says its tier nor carries a
+    staging name is proposed prod - and the developer is asked to confirm."""
     tier = _V1_TIER.get(str(raw.get("tier") or "").strip().lower())
     if tier:
-        return tier
+        return tier, False
     if str(raw.get("production") or "").lower() in ("1", "true", "yes", "on") or raw.get("production") is True:
-        return "prod"
+        return "prod", False
     if _PROD_NAME.search(name):
-        return "prod"
+        return "prod", False
     if C.is_loopback(_url(raw.get("url"))):
-        return "local"
-    return "stage"
+        return "local", False
+    if _STAGE_NAME.search(name):
+        return "stage", False
+    return "prod", True
 
 
 def _v1_stage_access(raw: dict) -> str:
     ceiling = str(raw.get("ceiling") or "").strip().lower()
     if ceiling in _V1_CEILING:
         return _V1_CEILING[ceiling]
+    if str(raw.get("mode") or "").strip().lower() == "read":
+        return "read"
     allow = raw.get("allow_unlink")
     if allow is True or str(allow).lower() in ("1", "true", "yes", "on"):
         return "full"
     return "write"
+
+
+def _v1_spec(name: str, raw: dict, source: str):
+    """(plan spec, tier guessed?) for one old-format profile."""
+    url = _url(raw.get("url"))
+    tier, guessed = _v1_tier(name, raw)
+    db = str(raw.get("db") or raw.get("database") or "").strip()
+    if tier == "stage" and _odoo_sh_stage_db(url, db):
+        db = "auto"
+    access = {"prod": "read", "local": "full"}.get(tier) or _v1_stage_access(raw)
+    return {"from": source, "url": url, "db": db, "tier": tier, "access": access}, guessed
+
+
+def _v1_values(raw: dict) -> dict:
+    out = {"url": _url(raw.get("url")), "db": str(raw.get("db") or raw.get("database") or ""),
+           "username": str(raw.get("username") or raw.get("login") or ""),
+           "api_key": str(raw.get("api_key") or raw.get("password") or "")}
+    out.update({k: raw[k] for k in _V1_OPTIONAL if k in raw})
+    return out
+
+
+def _pin_profiles(doc) -> dict:
+    """name -> raw profile in an old <project>/.odoo-mcp.json (full or one-profile form)."""
+    if not isinstance(doc, dict):
+        return {}
+    profiles = doc.get("profiles")
+    if isinstance(profiles, dict):
+        return {str(n): r for n, r in profiles.items()
+                if not str(n).startswith("//") and isinstance(r, dict)}
+    if doc.get("url"):
+        return {str(doc.get("name") or "default"): doc}
+    return {}
 
 
 def _server_settings(spec: dict) -> dict:
@@ -153,24 +194,25 @@ def build_plan(v1, scan_roots: list) -> dict:
         project["instances"][iname] = spec
         seen[key] = "%s/%s" % (pname, iname)
 
+    guessed: list = []
+
+    def add_v1(pname, paths, name, raw, source):
+        spec, was_guessed = _v1_spec(name, raw, source)
+        add(pname, paths, _safe_name(str(name)), spec)
+        if was_guessed:
+            guessed.append((pname, _safe_name(str(name)), spec["from"]))
+
     profiles = (v1 or {}).get("profiles") or {}
     project_map = (v1 or {}).get("project_map") or {}
     for name, raw in profiles.items():
         if str(name).startswith("//") or not isinstance(raw, dict):
             continue
-        url = _url(raw.get("url"))
-        tier = _v1_tier(name, raw)
-        db = str(raw.get("db") or raw.get("database") or "").strip()
-        if tier == "stage" and _odoo_sh_stage_db(url, db):
-            db = "auto"
-        access = {"prod": "read", "local": "full"}.get(tier) or _v1_stage_access(raw)
         paths = list(raw.get("projects") or [])
         if isinstance(raw.get("projects"), str):
             paths = [raw["projects"]]
         paths += [str(k) for k, v in project_map.items() if v == name and not str(k).startswith("//")]
         stem = _safe_name(str(name).split("-", 1)[0].lower())
-        add(stem, paths, _safe_name(str(name)),
-            {"from": "v1:%s" % name, "url": url, "db": db, "tier": tier, "access": access})
+        add_v1(stem, paths, name, raw, "v1:%s" % name)
 
     for mcp_json in _find(scan_roots, ".mcp.json"):
         try:
@@ -209,7 +251,23 @@ def build_plan(v1, scan_roots: list) -> dict:
             "mcp_dir": str(mcp_dir) if mcp_dir.is_dir() else None,
         })
 
-    plan["remove_pins"] = [str(p) for p in _find(scan_roots, ".odoo-mcp.json")]
+    for pin in _find(scan_roots, ".odoo-mcp.json"):
+        plan["remove_pins"].append(str(pin))
+        try:
+            pin_doc = json.loads(pin.read_text(encoding="utf-8-sig"))
+        except (OSError, ValueError):
+            plan["notes"].append("could not read %s" % pin)
+            continue
+        # A pin could hold whole profiles in 3.x: fold them in, never drop them.
+        for name, raw in _pin_profiles(pin_doc).items():
+            add_v1(_safe_name(pin.parent.name), [str(pin.parent)], name, raw,
+                   "pin:%s#%s" % (pin, name))
+
+    for pname, iname, source in guessed:
+        if iname in plan["projects"].get(pname, {}).get("instances", {}):
+            plan["unresolved"].append(
+                "instance %s/%s (%s) states no tier in the old file - proposed prod/read; "
+                "confirm it, or set \"tier\": \"stage\" and its \"access\"" % (pname, iname, source))
 
     prod_dbs: dict = {}
     for pname, project in plan["projects"].items():
@@ -241,10 +299,6 @@ def build_plan(v1, scan_roots: list) -> dict:
 # --------------------------------------------------------------------------
 
 
-_V1_OPTIONAL = ("lang", "tz", "timeout", "verify_ssl", "companies", "allowed_company_ids",
-                "allow_write_models", "db_pattern")
-
-
 def _source_values(source: str, v1) -> dict:
     """username + api_key (and optional keys) from where an instance came from."""
     kind, _, ref = source.partition(":")
@@ -252,11 +306,18 @@ def _source_values(source: str, v1) -> dict:
         raw = ((v1 or {}).get("profiles") or {}).get(ref)
         if not isinstance(raw, dict):
             _die("plan source %s is not in the version-1 file" % source, 2)
-        out = {"url": _url(raw.get("url")), "db": str(raw.get("db") or raw.get("database") or ""),
-               "username": str(raw.get("username") or raw.get("login") or ""),
-               "api_key": str(raw.get("api_key") or raw.get("password") or "")}
-        out.update({k: raw[k] for k in _V1_OPTIONAL if k in raw})
-        return out
+        return _v1_values(raw)
+    if kind == "pin":
+        path, _, name = ref.rpartition("#")
+        if Path(path).name != ".odoo-mcp.json":
+            _die("plan source %s is not a .odoo-mcp.json pin" % source, 2)
+        try:
+            raw = _pin_profiles(json.loads(Path(path).read_text(encoding="utf-8-sig"))).get(name)
+        except (OSError, ValueError):
+            raw = None
+        if not isinstance(raw, dict):
+            _die("plan source %s cannot be read" % source, 2)
+        return _v1_values(raw)
     if kind == "mcp":
         path, _, server = ref.rpartition("#")
         if Path(path).name != ".mcp.json":
@@ -307,38 +368,53 @@ def _write_json(path: Path, doc: dict) -> None:
 
 
 def _retire(entry: dict, bdir: Path, stamp: str) -> dict:
+    """Each step stands alone: a locked folder (a project server still running from
+    .claude/mcp) is reported in "errors" and the rest still happens."""
     done: dict = {"mcp_json": entry["mcp_json"]}
+    errors: list = []
     mj = Path(entry["mcp_json"])
     remaining = set()
-    if mj.is_file():
-        tag = _safe_name(mj.parent.name)
-        _copy(mj, bdir / ("mcp-json-%s-%s.json" % (tag, stamp)))
-        doc = json.loads(mj.read_text(encoding="utf-8-sig"))
-        servers = doc.get("mcpServers") or {}
-        for name in entry["servers"]:
-            servers.pop(name, None)
-        remaining = set(servers)
-        _write_json(mj, doc)
-        done["removed_servers"] = entry["servers"]
+    try:
+        if mj.is_file():
+            tag = _safe_name(mj.parent.name)
+            _copy(mj, bdir / ("mcp-json-%s-%s.json" % (tag, stamp)))
+            doc = json.loads(mj.read_text(encoding="utf-8-sig"))
+            servers = doc.get("mcpServers") or {}
+            for name in entry["servers"]:
+                servers.pop(name, None)
+            remaining = set(servers)
+            _write_json(mj, doc)
+            done["removed_servers"] = entry["servers"]
+    except (OSError, ValueError) as exc:
+        errors.append("%s not edited: %s" % (mj, exc))
     sl = entry.get("settings_local")
-    if sl and Path(sl).is_file():
-        p = Path(sl)
-        _copy(p, bdir / ("settings-local-%s-%s.json" % (_safe_name(mj.parent.name), stamp)))
-        doc = json.loads(p.read_text(encoding="utf-8-sig"))
-        enabled = doc.get("enabledMcpjsonServers")
-        if isinstance(enabled, list):
-            doc["enabledMcpjsonServers"] = [n for n in enabled
-                                            if n not in entry["servers"] and n in remaining]
-            _write_json(p, doc)
+    try:
+        if sl and Path(sl).is_file():
+            p = Path(sl)
+            _copy(p, bdir / ("settings-local-%s-%s.json" % (_safe_name(mj.parent.name), stamp)))
+            doc = json.loads(p.read_text(encoding="utf-8-sig"))
+            enabled = doc.get("enabledMcpjsonServers")
+            if isinstance(enabled, list):
+                doc["enabledMcpjsonServers"] = [n for n in enabled
+                                                if n not in entry["servers"] and n in remaining]
+                _write_json(p, doc)
+    except (OSError, ValueError) as exc:
+        errors.append("%s not edited: %s" % (sl, exc))
     md = entry.get("mcp_dir")
-    if md and Path(md).is_dir():
-        target = Path(md).with_name("mcp.retired-%s" % stamp[:8])
-        n = 2
-        while target.exists():
-            target = Path(md).with_name("mcp.retired-%s-%d" % (stamp[:8], n))
-            n += 1
-        Path(md).rename(target)
-        done["mcp_dir_renamed_to"] = str(target)
+    try:
+        if md and Path(md).is_dir():
+            target = Path(md).with_name("mcp.retired-%s" % stamp[:8])
+            n = 2
+            while target.exists():
+                target = Path(md).with_name("mcp.retired-%s-%d" % (stamp[:8], n))
+                n += 1
+            Path(md).rename(target)
+            done["mcp_dir_renamed_to"] = str(target)
+    except OSError as exc:
+        errors.append("%s not renamed (close the sessions that run its server, then rename it "
+                      "by hand): %s" % (md, exc))
+    if errors:
+        done["errors"] = errors
     return done
 
 
@@ -400,30 +476,40 @@ def apply_plan(plan: dict, v1, approved_by) -> dict:
                 _die(inst.error, 2)
             reasons += C.widenings(None, inst)
     given = (approved_by or "").strip()
-    if reasons and len(given) < 2 and not sys.stdin.isatty():
+    # Always an explicit yes: on Windows the NUL stdin of a tool shell reports a tty.
+    if reasons and len(given) < 2:
         _die("these instances can write once migrated - the developer's yes is needed "
              "(--approved-by \"<their answer>\"):\n  - %s" % "\n  - ".join(reasons), 3)
 
     bdir = _backup_dir()
     stamp = time.strftime("%Y%m%d-%H%M%S")
     current = C.config_path()
-    if current.is_file() and not (bdir / "profiles-v1.json").exists():
-        _copy(current, bdir / "profiles-v1.json")
+    for old, keep in ((current, "profiles-v1.json"),
+                      (current.with_name("servers.json"), "servers-v1.json")):
+        if old.is_file() and not (bdir / keep).exists():
+            _copy(old, bdir / keep)
     try:
         C.save(doc)
     except C.ConfigError as exc:
         _die(str(exc), 2)
 
     retired = [_retire(entry, bdir, stamp) for entry in plan.get("retire") or []]
-    pins = []
+    pins, pin_errors = [], []
     for pin in plan.get("remove_pins") or []:
         p = Path(pin)
-        if p.is_file():
-            _copy(p, bdir / ("pin-%s-%s.json" % (_safe_name(p.parent.name), stamp)))
-            p.unlink()
-            pins.append(str(p))
+        try:
+            if p.is_file():
+                _copy(p, bdir / ("pin-%s-%s.json" % (_safe_name(p.parent.name), stamp)))
+                p.unlink()
+                pins.append(str(p))
+        except OSError as exc:
+            pin_errors.append("%s not removed: %s" % (p, exc))
+    errors = [e for r in retired for e in r.get("errors", [])] + pin_errors
     audit({"action": "migrate", "projects": sorted(doc["projects"]),
            "retired": [r["mcp_json"] for r in retired], "pins_removed": pins,
-           "widenings": reasons, "approved_by": (given or "terminal")[:200]})
-    return {"migrated": sorted(doc["projects"]), "file": str(current), "retired": retired,
-            "pins_removed": pins, "backups": str(bdir)}
+           "errors": errors, "widenings": reasons, "approved_by": given[:200]})
+    out = {"migrated": sorted(doc["projects"]), "file": str(current), "retired": retired,
+           "pins_removed": pins, "backups": str(bdir)}
+    if errors:
+        out["errors"] = errors
+    return out

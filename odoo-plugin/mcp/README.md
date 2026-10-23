@@ -77,8 +77,8 @@ The developer-side CLI lives outside this package, in `scripts/mcp/`. That keeps
 free of any process-execution path, and the tests enforce it. `odoo_mcp.py` provides
 `check | add | bind | remove | local | migrate` and is the only writer of the file:
 - every write is validated, backed up to `~/.odoo-mcp/backups/` and replaced atomically;
-- a change that widens a remote instance needs the developer's yes (`--approved-by`, or their
-  own terminal) and is written to `audit.log`;
+- a change that widens a remote instance needs the developer's yes, always passed explicitly as
+  `--approved-by`, and is written to `audit.log`;
 - a hook blocks direct edits of the file.
 
 ### What the limits do and do not guarantee

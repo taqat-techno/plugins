@@ -97,6 +97,17 @@ def test_unlock_is_per_instance(env):
     assert s.target("c2-prod")[0].mode == "write" and s.target("taqat-prod")[0].mode == "read"
 
 
+def test_unlock_ends_when_the_instance_is_repointed(env):
+    write, make, _, _ = env
+    write(stage=dict(R, tier="stage", db="s"), prod=dict(R, tier="prod", db="p", access="write"))
+    s = make()
+    s.unlock("prod", "yes")
+    assert s.target("prod")[0].mode == "write"
+    write(stage=dict(R, tier="stage", db="s"), prod=dict(R, tier="prod", db="other-client",
+                                                        access="write"))
+    assert s.target("prod")[0].mode == "read" and any("changed" in n for n in s.notices)
+
+
 def test_client_cache_survives_unrelated_edits_and_resets_on_change(env):
     write, make, _, _ = env
     write(stage=dict(R, tier="stage", db="s"), other=dict(R, tier="stage", db="o"))

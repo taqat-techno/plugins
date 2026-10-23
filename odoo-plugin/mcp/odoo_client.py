@@ -360,7 +360,8 @@ class OdooClient:
             # Odoo.sh - and report it so the session can drop the stale name.
             if self.p.db and "X-Odoo-Database" in headers and str(exc).startswith("404"):
                 raise DatabaseMissing(
-                    "database %r was not found on %s via JSON-2 (HTTP 404)" % (self.p.db, self.p.url)
+                    "database %r was not found on %s via JSON-2 (HTTP 404): %s"
+                    % (self.p.db, self.p.url, exc)
                 )
             raise
         if isinstance(result, dict) and result.get("error") and "result" not in result:

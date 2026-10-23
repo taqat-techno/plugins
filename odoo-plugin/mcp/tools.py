@@ -406,6 +406,16 @@ def _retrying(sess, fn):
         if cur is None:
             raise
         inst, client = cur
+        # JSON-2 answers 404 for a mistyped model too: only a database that is really
+        # gone from the url counts as moved.
+        try:
+            found = client.list_databases() if client is not None else None
+        except Exception:
+            found = None
+        db = getattr(getattr(client, "p", None), "db", "")
+        if found and db and db in found:
+            raise OdooError("%s\nThe database %r still exists on %s, so nothing moved - check "
+                            "the model and method names." % (exc, db, inst.url))
         if inst.db_auto:
             sess.drop_client(inst)
             return fn()

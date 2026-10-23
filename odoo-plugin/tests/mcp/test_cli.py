@@ -15,10 +15,14 @@ from pathlib import Path
 CLI = Path(__file__).resolve().parents[2] / "scripts" / "mcp" / "odoo_mcp.py"
 
 
-def run(home, *args, stdin=""):
-    p = subprocess.run([sys.executable, str(CLI), *args], input=stdin, capture_output=True,
-                       text=True, encoding="utf-8",
-                       env={**os.environ, "ODOO_MCP_HOME": str(home), "PYTHONIOENCODING": "utf-8"})
+def run(home, *args, stdin="", cwd=None, devnull=False):
+    """devnull=True runs like Claude's shell tools: stdin on NUL, which Windows reports
+    as a terminal."""
+    io = {"stdin": subprocess.DEVNULL} if devnull else {"input": stdin}
+    p = subprocess.run([sys.executable, str(CLI), *args], capture_output=True, text=True,
+                       encoding="utf-8", timeout=60, cwd=cwd,
+                       env={**os.environ, "ODOO_MCP_HOME": str(home), "PYTHONIOENCODING": "utf-8"},
+                       **io)
     return p.returncode, p.stdout, p.stderr
 
 
@@ -103,6 +107,47 @@ def test_migrate_plan_from_the_cli_is_keyless_and_refuses_a_v2_file(tmp_path):
     assert "acme" in json.loads(out)["projects"] and "K-SECRET" not in out
     (tmp_path / "profiles.json").write_text('{"version": 2, "projects": {}}', encoding="utf-8")
     assert run(tmp_path, "migrate", "--plan")[0] == 2
+
+
+def test_widening_from_a_tool_shell_needs_a_yes_and_never_waits_for_a_key(tmp_path):
+    run(tmp_path, "add", "acme", "stage", "--url", "https://s.example.com", "--tier", "stage",
+        "--db", "auto", "--access", "read", *KEY, "--path", str(tmp_path), stdin="k\n")
+    code, _, err = run(tmp_path, "add", "acme", "stage", "--access", "write", devnull=True)
+    assert code == 3 and "--approved-by" in err
+    assert doc(tmp_path)["projects"]["acme"]["instances"]["stage"]["access"] == "read"
+    code, _, err = run(tmp_path, "add", "acme", "stage", "--access", "write",
+                       "--approved-by", "yes widen", devnull=True)
+    assert code == 0, err
+
+
+def test_removing_a_project_with_prod_from_a_tool_shell_needs_a_yes(tmp_path):
+    run(tmp_path, "add", "acme", "prod", "--url", "https://p.example.com", "--tier", "prod",
+        "--db", "p", *KEY, "--path", str(tmp_path), stdin="k\n")
+    assert run(tmp_path, "remove", "acme", devnull=True)[0] == 3
+
+
+def test_add_from_a_worktree_binds_the_main_checkout(tmp_path):
+    main = tmp_path / "Nafla-19"
+    admin = main / ".git" / "worktrees" / "w"
+    admin.mkdir(parents=True)
+    wt = tmp_path / "wt"
+    wt.mkdir()
+    (wt / ".git").write_text("gitdir: %s" % admin.as_posix())
+    (admin / "gitdir").write_text((wt / ".git").as_posix())
+    home = tmp_path / "home"
+    code, _, err = run(home, "add", "nafla", "local", "--url", "http://127.0.0.1:1", "--db", "d",
+                       *KEY, stdin="k\n", cwd=str(wt))
+    assert code == 0, err
+    assert doc(home)["projects"]["nafla"]["paths"] == [os.path.abspath(str(main))]
+
+
+def test_servers_json_from_3x_is_planned_for_migration(tmp_path):
+    (tmp_path / "servers.json").write_text(json.dumps({"profiles": {"acme-stage": {
+        "url": "https://acme-stage.odoo.com", "db": "acme-stage-1", "username": "a",
+        "api_key": "K"}}}), encoding="utf-8")
+    code, out, err = run(tmp_path, "migrate", "--plan")
+    assert code == 0, err
+    assert "acme" in json.loads(out)["projects"]
 
 
 def test_local_refuses_a_remote_url(tmp_path):

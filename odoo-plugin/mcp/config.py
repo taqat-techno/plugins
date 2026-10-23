@@ -590,18 +590,27 @@ class Loader:
         self._good = None           # (Config, "HH:MM:SS")
         self._error = None
 
+    def _source(self) -> Path:
+        """profiles.json, or a 3.x servers.json beside it (loaded read-only as v1)."""
+        if not self.path.exists() and self.path.name == CONFIG_FILE:
+            legacy = self.path.with_name("servers.json")
+            if legacy.is_file():
+                return legacy
+        return self.path
+
     def get(self):
+        source = self._source()
         try:
-            st = self.path.stat()
+            st = source.stat()
         except OSError:
             self._stamp, self._error = None, None
             return None, []
-        stamp = (st.st_mtime_ns, st.st_size)
+        stamp = (str(source), st.st_mtime_ns, st.st_size)
         if stamp != self._stamp:
             self._stamp = stamp
             try:
-                cfg = load_text(self.path.read_bytes().decode("utf-8-sig", errors="replace"),
-                                self.path)
+                cfg = load_text(source.read_bytes().decode("utf-8-sig", errors="replace"),
+                                source)
                 self._good, self._error = (cfg, time.strftime("%H:%M:%S")), None
             except ConfigError as exc:
                 self._error = str(exc)

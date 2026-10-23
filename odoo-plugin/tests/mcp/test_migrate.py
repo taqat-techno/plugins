@@ -217,6 +217,66 @@ def test_plan_can_only_touch_the_files_migration_owns(tmp_path, monkeypatch, fie
     assert e.value.code == 2 and victim.read_text() == "keep me" and folder.is_dir()
 
 
+def test_apply_needs_a_yes_even_when_stdin_reports_a_terminal(tmp_path, monkeypatch):
+    monkeypatch.setenv("ODOO_MCP_HOME", str(tmp_path))
+    monkeypatch.setattr(M.sys.stdin, "isatty", lambda: True, raising=False)
+    plan = M.build_plan(V1, [])
+    for p in plan["projects"].values():
+        p["paths"] = p["paths"] or [str(tmp_path / p["instances"].__iter__().__next__())]
+    plan["unresolved"] = []
+    with pytest.raises(SystemExit) as e:
+        M.apply_plan(plan, V1, approved_by=None)
+    assert e.value.code == 3
+
+
+def test_untiered_remote_is_proposed_prod_read_and_asked():
+    plan = M.build_plan({"profiles": {"acme-main": {"url": "https://acme.odoo.com", "db": "m",
+                                                    "username": "a", "api_key": "k", "mode": "write"},
+                                      "acme-stage": {"url": "https://acme-stage.odoo.com",
+                                                     "db": "s", "username": "a", "api_key": "k",
+                                                     "mode": "read"}}}, [])
+    inst = plan["projects"]["acme"]["instances"]
+    assert (inst["acme-main"]["tier"], inst["acme-main"]["access"]) == ("prod", "read")
+    assert any("acme-main" in u and "tier" in u for u in plan["unresolved"])
+    assert (inst["acme-stage"]["tier"], inst["acme-stage"]["access"]) == ("stage", "read")
+
+
+def test_pin_defined_profiles_are_folded_in_not_dropped(tmp_path, monkeypatch):
+    monkeypatch.setenv("ODOO_MCP_HOME", str(tmp_path / "home"))
+    proj = tmp_path / "scan" / "Acme"
+    proj.mkdir(parents=True)
+    (proj / ".odoo-mcp.json").write_text(json.dumps({"default": "loc", "profiles": {"loc": {
+        "url": "http://127.0.0.1:8069", "db": "acme", "username": "admin", "api_key": "PIN-KEY"}}}))
+    plan = M.build_plan(None, [tmp_path / "scan"])
+    assert plan["projects"]["Acme"]["instances"]["loc"]["tier"] == "local"
+    assert "PIN-KEY" not in json.dumps(plan)
+    M.apply_plan(plan, None, approved_by=None)
+    written = json.loads((tmp_path / "home" / "profiles.json").read_text())
+    assert written["projects"]["Acme"]["instances"]["loc"]["api_key"] == "PIN-KEY"
+    assert not (proj / ".odoo-mcp.json").exists()
+
+
+def test_a_retire_step_that_fails_is_reported_and_audited(tmp_path, monkeypatch):
+    import pathlib
+
+    monkeypatch.setenv("ODOO_MCP_HOME", str(tmp_path / "home"))
+    proj = tmp_path / "scan" / "p"
+    (proj / ".claude" / "mcp").mkdir(parents=True)
+    (proj / ".mcp.json").write_text(json.dumps({"mcpServers": {"odoo-l": {
+        "command": "python", "args": ["odoo_xmlrpc_mcp.py"], "env": {
+            "ODOO_URL": "http://127.0.0.1:8069", "ODOO_DB": "d", "ODOO_USERNAME": "a",
+            "ODOO_PASSWORD": "pw"}}}}))
+    plan = M.build_plan(None, [tmp_path / "scan"])
+
+    def locked(self, target):
+        raise PermissionError("[WinError 5] Access is denied")
+
+    monkeypatch.setattr(pathlib.Path, "rename", locked)
+    result = M.apply_plan(plan, None, approved_by=None)
+    assert result["retired"][0]["errors"]
+    assert '"migrate"' in (tmp_path / "home" / "audit.log").read_text(encoding="utf-8")
+
+
 def test_prod_without_db_and_shared_prod_db_are_unresolved():
     v1 = {"profiles": {
         "nafla-production": {"url": "https://nafla.odoo.com", "username": "a", "api_key": "k",

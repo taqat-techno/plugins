@@ -32,8 +32,9 @@ Why: six sources decided which instance a session used, so the outcome felt rand
   - every write is validated, backed up (last 10, `0600`) and replaced atomically;
   - keys are read from stdin or a hidden prompt, never from argv, and never printed;
   - widening a remote instance (more access, another host, prod relabelled stage, TLS checks
-    off, protected models) needs `--approved-by "<the developer's answer>"` or their
-    terminal, and is audited;
+    off, protected models) always needs an explicit `--approved-by "<the developer's
+    answer>"`, and is audited. There is no terminal exemption: on Windows the NUL device
+    that tool shells use reports itself as a terminal;
   - an instance moved to another host never keeps its key.
 - **`db: "auto"`** for local/stage instances: the one database the url serves. It is
   re-resolved in memory after an Odoo.sh rebuild, also mid-session, because object calls
@@ -69,7 +70,7 @@ Why: six sources decided which instance a session used, so the outcome felt rand
 - Store folders are `0700` and files `0600` (POSIX).
 
 ### Migrating
-1. Update the plugin and restart Claude Code. Every existing profile is now read-only.
+1. Update the plugin and restart Claude Code. Every existing profile (`profiles.json`, or a 3.x `servers.json`) is now read-only; profiles inside `<project>/.odoo-mcp.json` pins are folded in by `migrate --scan`.
 2. `python <plugin>/scripts/mcp/odoo_mcp.py migrate --plan --scan <projects root> > plan.json`
 3. Review the plan: fill `paths`, group the instances, set `access`, answer every
    `unresolved` item, then empty the list.
@@ -77,7 +78,7 @@ Why: six sources decided which instance a session used, so the outcome felt rand
    `odoo_mcp.py check --ping`.
 
 ### Tests
-- `python -m pytest tests -q`: 568 passed (baseline 504).
+- `python -m pytest tests -q`: 581 passed (baseline 504).
 - New: `test_config.py`, `test_session.py`, `test_mcp_routing.py`, `test_cli.py`,
   `test_migrate.py` and the shared `fake_odoo.py`.
 - `test_mcp_connections.py` is replaced.

@@ -306,8 +306,17 @@ def test_missing_file_is_not_an_error(tmp_path):
 
 def test_bom_and_crlf_file_loads(tmp_path):
     f = tmp_path / "profiles.json"
-    f.write_bytes(b"\xef\xbb\xbf" + doc(a=proj("C:/a", s=inst())).replace("\n", "\r\n").encode())
+    text = json.dumps(json.loads(doc(a=proj("C:/a", s=inst()))), indent=2)
+    f.write_bytes(b"\xef\xbb\xbf" + text.replace("\n", "\r\n").encode())
     assert "a" in C.Loader(f).get()[0].projects
+
+
+def test_servers_json_from_3x_loads_read_only_when_profiles_json_is_absent(tmp_path):
+    (tmp_path / "servers.json").write_text(json.dumps({"profiles": {"acme-prod": {
+        "url": "https://acme.example.com", "db": "a", "username": "u", "api_key": "k"}}}))
+    cfg, warn = C.Loader(tmp_path / "profiles.json").get()
+    assert cfg.version == 1 and cfg.projects["legacy"].instances["acme-prod"].access == "read"
+    assert any("migrate" in w for w in warn)
 
 
 def test_v1_file_loads_read_only_and_never_guesses_staging(tmp_path):

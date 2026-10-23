@@ -131,6 +131,37 @@ def test_edit_applies_on_the_next_call(tmp_path, servers):
         assert purl in c.text("odoo_status")[0]
 
 
+def test_a_404_while_the_database_still_exists_is_not_called_a_rename():
+    """JSON-2 answers 404 for a mistyped model too; that is not a moved database."""
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "mcp"))
+    import tools
+    from config import Instance
+    from odoo_client import DatabaseMissing, OdooError
+
+    inst = Instance(project="a", name="p", url="https://x.example.com", db="acme", db_auto=False,
+                    username="u", api_key="k", tier="prod", access="read")
+
+    class Client:
+        p = inst
+
+        def list_databases(self):
+            return ["acme"]
+
+    class Sess:
+        current = (inst, Client())
+
+        def drop_client(self, i):
+            pass
+
+    def fn():
+        raise DatabaseMissing("database 'acme' was not found on https://x.example.com via "
+                              "JSON-2 (HTTP 404): 404 Not Found res.partnerr")
+
+    with pytest.raises(OdooError) as e:
+        tools._retrying(Sess(), fn)
+    assert "Not followed" not in str(e.value) and "res.partnerr" in str(e.value)
+
+
 def test_every_tool_takes_instance_and_count_is_eleven():
     with Client() as c:
         c.handshake()

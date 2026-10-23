@@ -89,7 +89,7 @@ class Session:
         self._factory = client_factory
         self._clock = clock
         self._clients: dict = {}       # qualified -> (fingerprint, client)
-        self._unlocks: dict = {}       # qualified -> expiry (epoch seconds)
+        self._unlocks: dict = {}       # qualified -> (expiry, (url, db) it was granted for)
         self._warnings: list = []
         self.notices: list = []
         self.current = None            # (instance, client or None) of the call in progress
@@ -116,7 +116,15 @@ class Session:
     # ---- effective mode --------------------------------------------------------
 
     def unlocked_until(self, inst: "C.Instance") -> float:
-        until = self._unlocks.get(inst.qualified, 0.0)
+        until, target = self._unlocks.get(inst.qualified, (0.0, None))
+        if until and target != (inst.url, inst.db):
+            # The developer approved writes to THAT url and database, not wherever the
+            # instance points after an edit.
+            del self._unlocks[inst.qualified]
+            self.notices.append("production unlock of %s ended: its url or database changed in "
+                                "profiles.json; it is read-only again." % inst.qualified)
+            audit({"action": "lock", "instance": inst.qualified, "why": "url or db changed"})
+            return 0.0
         if until and until <= self._clock():
             del self._unlocks[inst.qualified]
             self.notices.append("production unlock of %s expired; it is read-only again."
@@ -189,7 +197,7 @@ class Session:
             raise ApprovalError("minutes must be a whole number")
         m = max(1, min(m, UNLOCK_MAX_MIN))
         until = self._clock() + m * 60
-        self._unlocks[q] = until
+        self._unlocks[q] = (until, (inst.url, inst.db))
         audit({"action": "unlock", "instance": q, "url": inst.url, "db": inst.db,
                "minutes": m, "approved_by_user": answer[:200]})
         return {"unlocked": q, "until": _hhmm(until), "minutes": m,

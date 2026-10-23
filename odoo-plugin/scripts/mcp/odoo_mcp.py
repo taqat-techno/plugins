@@ -10,7 +10,7 @@
 
 Every write is validated, backed up and replaced atomically. A change that WIDENS a
 remote instance - a new remote instance above read, more access, prod relabelled
-stage - needs the developer's yes: run it in their own terminal, or pass
+stage - needs the developer's yes, passed as
 --approved-by "<their answer>". It is recorded in ~/.odoo-mcp/audit.log. Keys are
 never taken from arguments and never printed. Standard library only.
 """
@@ -87,25 +87,41 @@ def save(doc: dict):
         die(str(exc))
 
 
+def interactive() -> bool:
+    """A person at a real console. Windows reports NUL - where Claude's shell tools put
+    stdin - as a tty, so on Windows the console mode is checked too."""
+    if not sys.stdin.isatty():
+        return False
+    if os.name != "nt":
+        return True
+    try:
+        import ctypes
+        import msvcrt
+
+        mode = ctypes.c_uint32()
+        handle = msvcrt.get_osfhandle(sys.stdin.fileno())
+        return bool(ctypes.windll.kernel32.GetConsoleMode(handle, ctypes.byref(mode)))
+    except Exception:
+        return False
+
+
 def approval(args, reasons: list) -> str:
-    """The developer's yes for a widening, or exit 3 saying how to get it."""
+    """The developer's yes for a widening, or exit 3 saying how to get it. Always an
+    explicit --approved-by: who is at the keyboard cannot be told from stdin."""
     if not reasons:
         return ""
     given = (getattr(args, "approved_by", None) or "").strip()
     if len(given) >= 2:
         return given
-    if sys.stdin.isatty() and not getattr(args, "key_stdin", False):
-        return "terminal"
     die("this change widens what a remote instance may do:\n  - %s\n"
         "Ask the developer - name the instance, its url and the new access - then rerun with "
-        "--approved-by \"<their answer, verbatim>\" (or let them run it in their own terminal)."
-        % "\n  - ".join(reasons), EXIT_WIDEN)
+        "--approved-by \"<their answer, verbatim>\"." % "\n  - ".join(reasons), EXIT_WIDEN)
 
 
 def read_key(args, required: bool) -> str:
     if getattr(args, "key_stdin", False):
         key = sys.stdin.readline().strip()
-    elif sys.stdin.isatty():
+    elif required and interactive():
         key = getpass.getpass("API key for %s/%s (input hidden): " % (args.project, args.instance))
     else:
         key = ""
@@ -180,7 +196,10 @@ def cmd_add(args) -> int:
     proj = projects.get(args.project)
     created = proj is None
     if created:
-        proj = {"paths": [str(Path(args.path or os.getcwd()).resolve())], "instances": {}}
+        # Never resolve(): junctions, subst and mapped drives would stop matching. From a
+        # worktree, the project is its main checkout.
+        folder = args.path or str(C.session_folders(Path(os.getcwd()))[-1])
+        proj = {"paths": [os.path.abspath(folder)], "instances": {}}
     elif args.path:
         bind_folder(doc, args.project, proj, Path(args.path))
     instances = proj.setdefault("instances", {})
@@ -218,7 +237,7 @@ def cmd_add(args) -> int:
 
 def bind_folder(doc: dict, name: str, proj: dict, folder: Path) -> bool:
     """Add `folder` to project `name`; refuse a folder another project owns."""
-    folder = folder.resolve()
+    folder = Path(os.path.abspath(str(folder)))
     n = C.norm_path(folder)
     for other, p in doc["projects"].items():
         if other != name and n in [C.norm_path(x) for x in (p.get("paths") or [])]:
@@ -314,14 +333,17 @@ def cmd_migrate(args) -> int:
 
     path = C.config_path()
     v1 = None
-    if path.is_file():
+    # 3.x read servers.json first and profiles.json second; migrate the one it used.
+    for source in (path.with_name("servers.json"), path):
+        if not source.is_file():
+            continue
         try:
-            doc = json.loads(path.read_bytes().decode("utf-8-sig"))
+            doc = json.loads(source.read_bytes().decode("utf-8-sig"))
         except ValueError as exc:
-            die("%s is not valid JSON (%s) - fix it first" % (path, exc))
-        if isinstance(doc, dict) and doc.get("version") == 2:
+            die("%s is not valid JSON (%s) - fix it first" % (source, exc))
+        if source == path and isinstance(doc, dict) and doc.get("version") == 2:
             die("%s is already version 2 - use add / bind / local to change it" % path)
-        if isinstance(doc, dict) and isinstance(doc.get("profiles"), dict):
+        if v1 is None and isinstance(doc, dict) and isinstance(doc.get("profiles"), dict):
             v1 = doc
     if args.apply:
         try:
