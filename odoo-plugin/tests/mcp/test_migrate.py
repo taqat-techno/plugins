@@ -146,6 +146,31 @@ def test_key_files_outside_the_project_folder_are_not_read(tmp_path, monkeypatch
     assert e.value.code == 2 and not (tmp_path / "home" / "profiles.json").exists()
 
 
+def test_key_file_symlinked_out_of_the_project_is_not_read(tmp_path, monkeypatch):
+    import os
+
+    monkeypatch.setenv("ODOO_MCP_HOME", str(tmp_path / "home"))
+    secret = tmp_path / "elsewhere" / "credentials"
+    secret.parent.mkdir()
+    secret.write_text("NOT-AN-ODOO-KEY")
+    proj = tmp_path / "scan" / "cloned"
+    (proj / ".claude" / "mcp").mkdir(parents=True)
+    link = proj / ".claude" / "mcp" / "k"
+    try:
+        os.symlink(secret, link)
+    except (OSError, NotImplementedError):
+        pytest.skip("this machine does not allow creating symlinks")
+    (proj / ".mcp.json").write_text(json.dumps({"mcpServers": {"odoo-x": {
+        "command": "python", "args": ["odoo_xmlrpc_mcp.py"], "env": {
+            "ODOO_URL": "http://127.0.0.1:8069", "ODOO_DB": "d", "ODOO_USERNAME": "a",
+            "ODOO_PASSWORD_FILE": str(link)}}}}))
+    plan = M.build_plan(None, [tmp_path / "scan"])
+    plan["retire"] = []
+    with pytest.raises(SystemExit) as e:
+        M.apply_plan(plan, None, approved_by="yes")
+    assert e.value.code == 2 and not (tmp_path / "home" / "profiles.json").exists()
+
+
 @pytest.mark.parametrize("field", ["pin", "mcp_json", "mcp_dir"])
 def test_plan_can_only_touch_the_files_migration_owns(tmp_path, monkeypatch, field):
     monkeypatch.setenv("ODOO_MCP_HOME", str(tmp_path / "home"))

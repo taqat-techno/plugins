@@ -117,6 +117,16 @@ def _find(roots: list, filename: str) -> list:
     return found
 
 
+def _inside(child: Path, parent: Path) -> bool:
+    """True when `child`, with every symlink resolved, lies inside `parent`."""
+    try:
+        real = child.resolve(strict=True)
+        root = parent.resolve(strict=True)
+    except (OSError, RuntimeError):
+        return False
+    return real == root or root in real.parents
+
+
 def _safe_name(name: str) -> str:
     return re.sub(r"[^A-Za-z0-9_.-]", "_", name) or "project"
 
@@ -257,13 +267,12 @@ def _source_values(source: str, v1) -> dict:
             _die("plan source %s cannot be read" % source, 2)
         s = _server_settings(spec)
         key = s.get("ODOO_API_KEY") or s.get("ODOO_PASSWORD") or ""
-        project = C.norm_path(Path(path).parent)
         for var in ("ODOO_API_KEY_FILE", "ODOO_PASSWORD_FILE"):
             if not key and s.get(var):
                 key_file = Path(_windows_path(s[var]))
                 # A cloned repo's .mcp.json must not turn any file on this machine into
-                # the password sent to the url it names.
-                if not C.norm_path(key_file).startswith(project + "/"):
+                # the password sent to the url it names - not by path, not by symlink.
+                if not _inside(key_file, Path(path).parent):
                     _die("%s names key file %s, outside its project folder - not read. Add this "
                          "instance's key with odoo_mcp.py add after migrating." % (source, key_file), 2)
                 try:
@@ -346,6 +355,9 @@ def _check_plan_paths(plan: dict) -> None:
             _die("retire may only edit .mcp.json files, not %s" % mj, 2)
         claude = mj.parent / ".claude"
         sl, md = entry.get("settings_local"), entry.get("mcp_dir")
+        for edited in (mj, Path(sl) if sl else None):
+            if edited is not None and edited.is_symlink():
+                _die("%s is a symlink - not edited; retire it by hand" % edited, 2)
         if sl and C.norm_path(sl) != C.norm_path(claude / "settings.local.json"):
             _die("retire may only edit %s, not %s" % (claude / "settings.local.json", sl), 2)
         if md and C.norm_path(md) != C.norm_path(claude / "mcp"):
