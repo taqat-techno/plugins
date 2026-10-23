@@ -344,12 +344,18 @@ def test_core_files_denied(path):
 
 
 @pytest.mark.parametrize("path", [
-    "/home/jane/.odoo-mcp/grants/prod.json",
-    "C:\\Users\\jane\\.odoo-mcp\\grant.key",
+    "/home/jane/.odoo-mcp/profiles.json",
+    "C:\\Users\\jane\\.odoo-mcp\\profiles.json",
+    "C:\\Users\\jane\\.odoo-mcp\\backups\\profiles-20261023-101010.json",
 ])
-def test_grant_files_denied(path):
+def test_connection_file_edits_denied(path):
     _, out = run_hook("upgrade/guard_core_odoo.py", _write(path, "{}"))
-    assert out["permissionDecision"] == "deny" and "odoo_mcp_ctl.py" in out["permissionDecisionReason"]
+    assert out["permissionDecision"] == "deny" and "odoo_mcp.py" in out["permissionDecisionReason"]
+
+
+def test_project_files_named_profiles_json_pass():
+    assert run_hook("upgrade/guard_core_odoo.py",
+                    _write("/work/acme/config/profiles.json", "{}")) == (0, None)
 
 
 def test_custom_module_write_passes():

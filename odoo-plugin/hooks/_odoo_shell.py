@@ -243,7 +243,7 @@ def python_script(argv: list):
 # --------------------------------------------------------------------------- scope
 
 _COMPOSE_NAMES = ("docker-compose.yml", "docker-compose.yaml", "compose.yml", "compose.yaml")
-_MARKERS = ("odoo-bin", "__manifest__.py", "odoo.conf", ".odoo-mcp.json", "odoo-service.local.md")
+_MARKERS = ("odoo-bin", "__manifest__.py", "odoo.conf", "odoo-service.local.md")
 _ODOO_DIR_RE = re.compile(r"^odoo-?\d{2}(\.\d)?$", re.IGNORECASE)
 
 
