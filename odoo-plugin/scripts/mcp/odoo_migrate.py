@@ -249,16 +249,25 @@ def _source_values(source: str, v1) -> dict:
         return out
     if kind == "mcp":
         path, _, server = ref.rpartition("#")
+        if Path(path).name != ".mcp.json":
+            _die("plan source %s is not a .mcp.json server" % source, 2)
         try:
             spec = json.loads(Path(path).read_text(encoding="utf-8-sig"))["mcpServers"][server]
         except (OSError, ValueError, KeyError, TypeError):
             _die("plan source %s cannot be read" % source, 2)
         s = _server_settings(spec)
         key = s.get("ODOO_API_KEY") or s.get("ODOO_PASSWORD") or ""
+        project = C.norm_path(Path(path).parent)
         for var in ("ODOO_API_KEY_FILE", "ODOO_PASSWORD_FILE"):
             if not key and s.get(var):
+                key_file = Path(_windows_path(s[var]))
+                # A cloned repo's .mcp.json must not turn any file on this machine into
+                # the password sent to the url it names.
+                if not C.norm_path(key_file).startswith(project + "/"):
+                    _die("%s names key file %s, outside its project folder - not read. Add this "
+                         "instance's key with odoo_mcp.py add after migrating." % (source, key_file), 2)
                 try:
-                    key = Path(_windows_path(s[var])).read_text(encoding="utf-8").strip()
+                    key = key_file.read_text(encoding="utf-8").strip()
                 except OSError:
                     _die("cannot read %s for %s" % (s[var], source), 2)
         return {"url": _url(s.get("ODOO_URL")), "db": s.get("ODOO_DB", ""),
@@ -324,10 +333,30 @@ def _retire(entry: dict, bdir: Path, stamp: str) -> dict:
     return done
 
 
+def _check_plan_paths(plan: dict) -> None:
+    """A plan is a file anyone can edit: it may only touch what migration owns -
+    .odoo-mcp.json pins, .mcp.json files, and the .claude/settings.local.json and
+    .claude/mcp beside them."""
+    for pin in plan.get("remove_pins") or []:
+        if Path(pin).name != ".odoo-mcp.json":
+            _die("remove_pins may only name .odoo-mcp.json files, not %s" % pin, 2)
+    for entry in plan.get("retire") or []:
+        mj = Path(entry.get("mcp_json") or "")
+        if mj.name != ".mcp.json":
+            _die("retire may only edit .mcp.json files, not %s" % mj, 2)
+        claude = mj.parent / ".claude"
+        sl, md = entry.get("settings_local"), entry.get("mcp_dir")
+        if sl and C.norm_path(sl) != C.norm_path(claude / "settings.local.json"):
+            _die("retire may only edit %s, not %s" % (claude / "settings.local.json", sl), 2)
+        if md and C.norm_path(md) != C.norm_path(claude / "mcp"):
+            _die("retire may only rename %s, not %s" % (claude / "mcp", md), 2)
+
+
 def apply_plan(plan: dict, v1, approved_by) -> dict:
     if plan.get("unresolved"):
         _die("the plan still has open questions - answer them in the plan, empty "
              "\"unresolved\", then apply:\n  - %s" % "\n  - ".join(plan["unresolved"]), 2)
+    _check_plan_paths(plan)
 
     doc: dict = {"version": 2, "projects": {}}
     for pname, project in (plan.get("projects") or {}).items():
@@ -336,6 +365,10 @@ def apply_plan(plan: dict, v1, approved_by) -> dict:
             out["default"] = project["default"]
         for iname, spec in (project.get("instances") or {}).items():
             raw = _source_values(spec["from"], v1)
+            if spec.get("url") and C.origin(_url(spec["url"])) != C.origin(raw["url"]):
+                _die("the plan moves %s/%s from %s to %s. A key is only ever sent where it came "
+                     "from: migrate it unchanged, then point it elsewhere with odoo_mcp.py add "
+                     "and that host's key." % (pname, iname, raw["url"], spec["url"]), 2)
             raw.update({k: spec[k] for k in ("url", "db", "tier", "access", "db_pattern")
                         if spec.get(k) not in (None, "")})
             out["instances"][iname] = raw

@@ -117,6 +117,58 @@ def test_apply_refuses_while_anything_is_unresolved(tmp_path, monkeypatch):
     assert e.value.code == 2 and not (tmp_path / "profiles.json").exists()
 
 
+def test_apply_never_moves_a_source_key_to_another_host(tmp_path, monkeypatch):
+    monkeypatch.setenv("ODOO_MCP_HOME", str(tmp_path))
+    plan = M.build_plan(V1, [])
+    for p in plan["projects"].values():
+        p["paths"] = p["paths"] or [str(tmp_path / "x")]
+    plan["unresolved"] = []
+    plan["projects"]["cluster2"]["instances"]["cluster2-stage"]["url"] = "https://attacker.example.com"
+    with pytest.raises(SystemExit) as e:
+        M.apply_plan(plan, V1, approved_by="yes")
+    assert e.value.code == 2 and not (tmp_path / "profiles.json").exists()
+
+
+def test_key_files_outside_the_project_folder_are_not_read(tmp_path, monkeypatch):
+    monkeypatch.setenv("ODOO_MCP_HOME", str(tmp_path / "home"))
+    secret = tmp_path / "elsewhere" / "credentials"
+    secret.parent.mkdir()
+    secret.write_text("NOT-AN-ODOO-KEY")
+    proj = tmp_path / "scan" / "cloned"
+    proj.mkdir(parents=True)
+    (proj / ".mcp.json").write_text(json.dumps({"mcpServers": {"odoo-x": {
+        "command": "python", "args": ["odoo_xmlrpc_mcp.py"], "env": {
+            "ODOO_URL": "http://127.0.0.1:8069", "ODOO_DB": "d", "ODOO_USERNAME": "a",
+            "ODOO_PASSWORD_FILE": str(secret)}}}}))
+    plan = M.build_plan(None, [tmp_path / "scan"])
+    with pytest.raises(SystemExit) as e:
+        M.apply_plan(plan, None, approved_by="yes")
+    assert e.value.code == 2 and not (tmp_path / "home" / "profiles.json").exists()
+
+
+@pytest.mark.parametrize("field", ["pin", "mcp_json", "mcp_dir"])
+def test_plan_can_only_touch_the_files_migration_owns(tmp_path, monkeypatch, field):
+    monkeypatch.setenv("ODOO_MCP_HOME", str(tmp_path / "home"))
+    victim = tmp_path / "important.txt"
+    victim.write_text("keep me")
+    folder = tmp_path / "victim-dir"
+    folder.mkdir()
+    plan = {"version": 2, "projects": {}, "notes": [], "unresolved": [], "remove_pins": [],
+            "retire": []}
+    if field == "pin":
+        plan["remove_pins"] = [str(victim)]
+    elif field == "mcp_json":
+        plan["retire"] = [{"mcp_json": str(victim), "servers": [], "settings_local": None,
+                           "mcp_dir": None}]
+    else:
+        (tmp_path / ".mcp.json").write_text('{"mcpServers": {}}')
+        plan["retire"] = [{"mcp_json": str(tmp_path / ".mcp.json"), "servers": [],
+                           "settings_local": None, "mcp_dir": str(folder)}]
+    with pytest.raises(SystemExit) as e:
+        M.apply_plan(plan, None, approved_by="yes")
+    assert e.value.code == 2 and victim.read_text() == "keep me" and folder.is_dir()
+
+
 def test_prod_without_db_and_shared_prod_db_are_unresolved():
     v1 = {"profiles": {
         "nafla-production": {"url": "https://nafla.odoo.com", "username": "a", "api_key": "k",
