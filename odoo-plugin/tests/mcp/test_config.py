@@ -151,6 +151,12 @@ def test_moving_tls_and_protected_models_are_widenings():
     assert C.widenings(old, _one(access="read", username="other")) == []
 
 
+def test_shipped_example_is_a_valid_v2_file():
+    example = Path(__file__).resolve().parents[2] / "config" / "odoo-mcp.profiles.json.example"
+    cfg = C.parse(example.read_text(encoding="utf-8"), example)
+    assert all(isinstance(i, C.Instance) for p in cfg.projects.values() for i in p.instances.values())
+
+
 def test_describe_never_contains_the_key():
     i = parse(acme=proj(s=inst())).projects["acme"].instances["s"]
     assert "k-123456" not in json.dumps(i.describe()) and i.describe()["api_key_set"] is True

@@ -2,6 +2,86 @@
 
 All notable changes to `odoo-plugin` are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/). Versioning follows [SemVer](https://semver.org/).
 
+## [4.0.0] - 2026-10-23
+
+**Breaking: MCP connections redesigned around one file.** Design:
+`.claude/docs/2026-10-23_odoo-mcp-one-file-design.md` (marketplace repo). Decision **D-003**
+supersedes D-001.
+
+Why: six sources decided which instance a session used, so the outcome felt random.
+- Legacy keys were inferred into tiers: every remote production profile ran as "staging",
+  and a `-ro` profile took 34 production writes.
+- The database auto-follow moved one production profile onto another client's database.
+- Sessions switched profiles 192 times instead of naming a target.
+
+### Added
+- **`~/.odoo-mcp/profiles.json` version 2**, one per Windows account.
+  - It holds **projects**, each with its folders (`paths`) and **instances**.
+  - Each instance has an explicit `tier` (`local` / `stage` / `prod`) and `access`
+    (`read` / `write` / `full`).
+  - The session folder picks the project. A git worktree counts as its main checkout, but
+    only when git's back-pointer confirms it.
+- **Per-call routing.** Every tool takes an optional `instance` (`"prod"` or
+  `"project/instance"`). Every result starts with `[project/instance · database · access]`.
+  Comparing staging and production takes two calls and no switching.
+- **Production unlock.** Call `odoo_session action=unlock` with the developer's verbatim yes.
+  It stays in memory for this session, lasts 30 minutes by default (120 at most) and is
+  audited. Use `action=lock` to end it.
+- **`scripts/mcp/odoo_mcp.py`** with `check [--ping]`, `add`, `bind`, `remove`, `local` and
+  `migrate --plan | --apply`. It is the only writer of the file:
+  - every write is validated, backed up (last 10, `0600`) and replaced atomically;
+  - keys are read from stdin or a hidden prompt, never from argv, and never printed;
+  - widening a remote instance (more access, another host, prod relabelled stage, TLS checks
+    off, protected models) needs `--approved-by "<the developer's answer>"` or their
+    terminal, and is audited;
+  - an instance moved to another host never keeps its key.
+- **`db: "auto"`** for local/stage instances: the one database the url serves. It is
+  re-resolved in memory after an Odoo.sh rebuild, also mid-session, because object calls
+  now report a dropped database.
+- **Live reload.** Each call re-reads a changed file. A broken edit keeps the last valid
+  version serving, with a warning. A broken instance fails alone.
+- **Migration.** `migrate` turns a v1 file, plus project `.mcp.json` Odoo servers found with
+  `--scan`, into a keyless plan to review.
+  - `--apply` refuses while questions are open.
+  - It never moves a key to another host, and reads key files only from inside the project
+    (symlinks resolved).
+  - It renames retired `.claude/mcp` folders and never deletes them.
+
+### Changed
+- **v1 files load read-only**, as `legacy/<name>`, until `migrate`.
+- **Guard messages** name the instance, its access, and the exact widen or unlock step.
+- **The `guard_core_odoo` hook** now blocks direct Write/Edit of `~/.odoo-mcp/profiles.json`
+  and `backups/`, and points at the CLI. It no longer covers grant files, which are removed.
+- **`odoo_session`** actions are `list | unlock | lock`. The tool count stays at 11.
+
+### Removed
+- `servers.json`, `<project>/.odoo-mcp.json` pins, `~/.odoo-mcp/local/`,
+  `state/learned.json`, `ODOO_MCP_PROFILE` and the `ODOO_URL`/`ODOO_DB`/... environment profile.
+- `ceiling` / `start` / `approval` and the legacy-key inference.
+- HMAC grants, `grant.key` and `grants/`.
+- `scripts/mcp/odoo_mcp_ctl.py`, `scripts/mcp/local_profile.py`, `mcp/profiles.py` and
+  `mcp/session_state.py`.
+- `odoo_session use / mode / reset`, and the literal-key hygiene warning.
+
+### Security
+- `*.test` and names merely starting with `127.` no longer count as loopback, so they can
+  never be tier `local`.
+- Store folders are `0700` and files `0600` (POSIX).
+
+### Migrating
+1. Update the plugin and restart Claude Code. Every existing profile is now read-only.
+2. `python <plugin>/scripts/mcp/odoo_mcp.py migrate --plan --scan <projects root> > plan.json`
+3. Review the plan: fill `paths`, group the instances, set `access`, answer every
+   `unresolved` item, then empty the list.
+4. `odoo_mcp.py migrate --apply plan.json --approved-by "<your yes>"`, then
+   `odoo_mcp.py check --ping`.
+
+### Tests
+- `python -m pytest tests -q`: 568 passed (baseline 504).
+- New: `test_config.py`, `test_session.py`, `test_mcp_routing.py`, `test_cli.py`,
+  `test_migrate.py` and the shared `fake_odoo.py`.
+- `test_mcp_connections.py` is replaced.
+
 ## [3.0.2] - 2026-10-19
 
 Skill triggering, from the 2026-10-19 eval run (`claude plugin eval`, sonnet-5-5, 1 run

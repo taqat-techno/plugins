@@ -142,3 +142,67 @@ Reverse-only criteria:
 Supersede if Odoo publishes skills on a 14-19 branch (install those per branch), or ships
 them as a Claude Code plugin in a marketplace (then depend on it rather than fetching).
 
+## D-003 - MCP connections: one file, project-scoped, per-call instance routing (supersedes D-001)
+
+Date: 2026-10-23
+Phase: 4.0
+Status: binding
+Ships in: v4.0.0
+Supersedes: D-001
+Design: `.claude/docs/2026-10-23_odoo-mcp-one-file-design.md` (marketplace repo)
+
+Why D-001 is superseded (evidence, 2026-09-29 -> 2026-10-22):
+
+- **Six sources decided the connection**: env profile, project pin, local store, `projects`,
+  local-only default, `ODOO_*`. On top came a learned-db overlay, two file names and, on
+  the developer's machine, a second per-project MCP server system.
+- **Legacy keys were inferred into tiers.** Every remote production profile ran as
+  "staging". A `-ro` profile allowed 34 production writes. The db auto-follow re-pointed one
+  production profile at another client's database.
+- **Sessions switched instead of naming targets.** There were 192 `use` and 115 `mode` calls,
+  and the shared default was rewritten 61 times.
+
+Decision:
+
+1. **One file per Windows account:** `~/.odoo-mcp/profiles.json`, `"version": 2`.
+   - **Projects** own their folders (`paths`) and their **instances**.
+   - Nothing else selects a connection: no pins, no local store, no learned overlay, no
+     environment profile, no global default.
+2. **The session folder picks the project.** A worktree counts as its main checkout, but only
+   when the checkout's back-pointer confirms it. Two projects may not claim one folder.
+3. **No switching.** Every tool takes an optional `instance` (`"name"` or
+   `"project/instance"`), else the project default. A prod instance is the default only when
+   written so. Every result is tagged `[project/instance · database · access]`.
+4. **Explicit tier, single limit.**
+   - A remote instance must state `tier: stage|prod`; it is never inferred.
+   - `local` needs a loopback IP literal, `localhost` or `*.localhost`.
+   - `access` (`read` / `write` / `full`) is the limit.
+   - Production writes also need an in-memory, expiring session unlock on the developer's
+     verbatim yes.
+5. **Widening is the developer's call, recorded.** The developer decided on 2026-10-23 that
+   Claude may widen a remote instance after their verbatim yes (`--approved-by`). Widening
+   means more access, another host, prod relabelled stage, TLS checks off, or protected
+   models allowed. Every widening is audited. A key never follows an instance to another host.
+6. **`db: "auto"`** (local/stage) follows an Odoo.sh rebuild in memory, including mid-session.
+   Fixed and production databases are never followed.
+7. **The file is written only by `scripts/mcp/odoo_mcp.py`**: validated, backed up (last 10),
+   atomic, `0600`. A hook blocks direct edits. Edits apply on the next call, and an invalid
+   file keeps the last valid version serving.
+8. **Old files load read-only** as `legacy/<name>` until `odoo_mcp.py migrate`.
+   - `migrate` folds in project `.mcp.json` Odoo servers through a keyless, reviewed plan.
+   - It never moves a key to another host, and reads key files only from inside the project.
+9. **Removed:** `servers.json`, `.odoo-mcp.json` pins, `local/`, `learned.json`,
+   `ODOO_MCP_PROFILE`, the `ODOO_URL` environment profile, `ceiling` / `start` / `approval`,
+   HMAC grants, `odoo_mcp_ctl.py`, and `odoo_session use/mode/reset`.
+
+Known limits, stated plainly:
+
+- The unlock and `--approved-by` are procedural: they record an answer, they cannot prove
+  who gave it.
+- A session can read another project's instances by naming them.
+
+Reverse-only criteria:
+
+Supersede if Claude Code offers an approval channel the model cannot answer (for example MCP
+elicitation answered by the user). Production unlocks and widenings should then move to it.
+

@@ -27,10 +27,10 @@ replacement for it.
 | File | Responsibility |
 |---|---|
 | `server.py` | MCP stdio transport: JSON-RPC framing, lifecycle, dispatch |
-| `tools.py` | The eleven tool schemas and their handlers, database auto-follow |
+| `tools.py` | The eleven tool schemas, their handlers, per-call routing and the result tag |
 | `odoo_client.py` | Version-adaptive transport — JSON-2 on Odoo 19+, XML-RPC on 18 and older |
-| `profiles.py` | Profile schema (tier / ceiling / start / approval), the three stores, resolution order, learned database renames |
-| `session_state.py` | Per-session active profile, mode, expiry and write scope; approval checks; grants; audit log |
+| `config.py` | `profiles.json` schema v2, folder → project matching (git worktrees included), live reload with last-good fallback, v1 read-only loading, validated `save()` |
+| `session.py` | Per-session routing: instance → effective mode → cached client, `db: "auto"`, production unlock and expiry, audit log |
 | `guards.py` | Single owner of every access decision, plus credential redaction |
 
 Each concern has one owner. Tools ask `guards` for permission; they never re-implement a
@@ -38,52 +38,59 @@ rule locally.
 
 ## Configuration
 
-Three owners, so the configuration never becomes a mess:
+**One file:** `~/.odoo-mcp/profiles.json`, one per Windows account. `ODOO_MCP_HOME` relocates
+the store (tests use it). Full reference: `../config/odoo-mcp.profiles.json.example`.
 
-| Store | Owner | Holds |
-|---|---|---|
-| `~/.odoo-mcp/servers.json` (legacy `profiles.json`) | developer | staging / production / shared servers |
-| `<project>/.odoo-mcp.json` | developer | optional pin for one checkout |
-| `~/.odoo-mcp/local/<project>.json` | `scripts/mcp/local_profile.py` | local instances, one file per checkout, expiring keys |
-| `~/.odoo-mcp/state/learned.json` | the server | staging databases renamed by a rebuild |
-| `~/.odoo-mcp/grants/`, `grant.key`, `audit.log` | `scripts/mcp/odoo_mcp_ctl.py` / the server | signed human approvals, their signing key, the audit trail |
+```json
+{"version": 2,
+ "projects": {
+   "acme": {"paths": ["C:/work/acme"], "default": "stage",
+            "instances": {
+              "stage": {"url": "https://acme-stage.odoo.com", "db": "auto", "username": "admin",
+                        "api_key": "...", "tier": "stage", "access": "write"},
+              "prod":  {"url": "https://acme.odoo.com", "db": "acme-main-1", "username": "mcp_readonly",
+                        "api_key": "...", "tier": "prod", "access": "read"}}}}}
+```
 
-`ODOO_MCP_HOME` relocates the whole store (tests use it).
+- **Project.** The one whose `paths` contain the session folder (`ODOO_MCP_PROJECT_DIR`, else
+  the working directory). The longest path wins. A git worktree also counts as its main
+  checkout, but only when git's back-pointer confirms it. Nothing else selects a connection:
+  no pins, no environment profile, no global default.
+- **Instance.** Every tool takes `instance` (`"prod"` or `"project/instance"`), else the
+  project's `default`. The first line of every result is
+  `[project/instance · database · access]`.
+- **Limits.**
+  - `access` (`read` / `write` / `full`) is the limit. Local and stage instances work at it.
+  - A `prod` instance stays read-only until `odoo_session action=unlock`. The unlock needs the
+    developer's verbatim yes, lasts 30 minutes by default (120 at most), stays in memory for
+    this session and is audited.
+  - `tier` must be written for any remote url. `local` needs a loopback url.
+- **Databases.** `db: "auto"` (local/stage) uses the one database the url serves, and re-checks
+  it after an Odoo.sh rebuild without storing anything. A fixed database is never followed; a
+  missing one is reported with what the url now serves.
+- **Reload.** The file is re-read whenever it changes. A broken edit keeps the last valid
+  version serving, with a warning. A broken instance fails alone.
+- **Old files.** A version-1 file loads **read-only**, as `legacy/<name>`, until
+  `odoo_mcp.py migrate`.
 
-Resolution order, first match wins (`odoo_status` reports which rule chose the profile):
+The developer-side CLI lives outside this package, in `scripts/mcp/`. That keeps the server
+free of any process-execution path, and the tests enforce it. `odoo_mcp.py` provides
+`check | add | bind | remove | local | migrate` and is the only writer of the file:
+- every write is validated, backed up to `~/.odoo-mcp/backups/` and replaced atomically;
+- a change that widens a remote instance needs the developer's yes (`--approved-by`, or their
+  own terminal) and is written to `audit.log`;
+- a hook blocks direct edits of the file.
 
-1. `ODOO_MCP_PROFILE`, or the session's `odoo_session action=use`
-2. `<project>/.odoo-mcp.json`
-3. the local profile for this checkout
-4. a server profile bound to this checkout (`"projects"`, or legacy `"project_map"`)
-5. the servers file `default`, **only if it is local-tier**; a remote default is never auto-selected
-6. `ODOO_URL` / `ODOO_DB` / `ODOO_USERNAME` / `ODOO_API_KEY`
+### What the limits do and do not guarantee
 
-Each profile carries a `tier` (local / staging / production; local requires a loopback url),
-a `ceiling` (the most a session may do), a `start` mode and the `approval` needed to raise
-the mode (local none, staging chat, production human). Sessions switch profile and mode
-in memory with `odoo_session`, never by editing a file, so one session cannot change another.
-Legacy `mode` / `production` / `allow_unlink` / `allow_production_writes` keys still load.
+`access` in the file is the hard limit: no call, unlock or session action exceeds it. The
+production unlock and `--approved-by` are procedural: they record the developer's verbatim
+answer, and Claude is instructed never to supply one itself. A process that runs as you could
+still edit the file through a shell. Keep production at `access: read` unless you need writes,
+and use a dedicated least-privilege Odoo user for every remote instance.
 
-The developer-side CLIs live outside this package, in `scripts/mcp/`. That keeps the server
-free of any process-execution path, and the tests enforce it:
-- `local_profile.py provision | list | prune` sets up local connections without questions;
-- `odoo_mcp_ctl.py approve | revoke | grants | audit` handles production approvals, and
-  `approve` needs an interactive terminal.
-
-### What "human" approval does and does not guarantee
-
-A grant is HMAC-SHA256 signed with `~/.odoo-mcp/grant.key` (created by the first
-`approve`) and bound to the profile's url and database; the server ignores an unsigned,
-edited or re-targeted grant and any grant that outlives the tier's maximum TTL. That
-stops a hand-written grant file and an injected "create this grant" instruction.
-It does not stop a process running as you from reading `grant.key` and signing its own
-grant, so never let an agent read that file. **The profile's `ceiling` is the only hard
-limit**: no grant, approval or session action can exceed it, and only you can raise it
-by editing the profile. Keep production at `ceiling: read` unless you need writes.
-
-Any string value may reference an environment variable as `${VAR}`, so a profile file can
-be kept free of secrets. Full reference: `../config/odoo-mcp.profiles.json.example`.
+Keys may be written directly in the file, which lives in your user profile. `"${VAR}"` also
+works; an unset variable is reported for that instance, never sent as an empty key.
 
 Run `/mcp-setup` for a guided walkthrough.
 
@@ -118,13 +125,17 @@ message per line with no embedded newlines. On Windows the streams are reconfigu
 ## Tests
 
 ```
-python tests/mcp/test_mcp_server.py     # standalone
-pytest tests/mcp/test_mcp_server.py     # or under pytest
+python -m pytest tests/mcp
 ```
 
-20 tests drive the real process over stdio. No Odoo instance and no network are needed:
-protocol behaviour, profile resolution and every safety guard resolve before a socket is
-opened.
+| File | Covers |
+|---|---|
+| `test_config.py`, `test_session.py` | Schema rules, folder and worktree matching, reload, v1 read-only, unlock and expiry, `db: "auto"` |
+| `test_mcp_server.py`, `test_mcp_routing.py` | The real process over stdio; routing, the result tag, the prod gate, rebuild follow-up, against fake Odoo servers on 127.0.0.1 |
+| `test_call_guard.py`, `test_nested_commands.py` | Every write gate, including `odoo_call` and nested x2many commands |
+| `test_cli.py`, `test_migrate.py` | `odoo_mcp.py`: the widening gate, key handling, local provisioning, migration |
+
+No real Odoo instance is needed. Guards resolve before a socket is opened.
 
 ## Troubleshooting
 
