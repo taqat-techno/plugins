@@ -24,6 +24,7 @@ CLI_SCRIPTS = [
     "frontend/bootstrap_mapper.py", "frontend/version_detector.py",
     "i18n/i18n_converter.py", "i18n/i18n_extractor.py", "i18n/i18n_reporter.py",
     "i18n/i18n_validator.py",
+    "mcp/odoo_mcp.py",
     "official_skills.py",
     "owl/owl_lint.py", "owl/owl_scaffold.py",
     "security/access_checker.py", "security/route_auditor.py", "security/security_auditor.py",

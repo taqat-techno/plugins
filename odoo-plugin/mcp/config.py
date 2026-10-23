@@ -608,6 +608,24 @@ class Loader:
         return cfg, list(cfg.warnings)
 
 
+def widenings(old, new: Instance) -> list:
+    """Why changing `old` into `new` lets a REMOTE instance do more - each reason
+    needs the developer's yes. Local instances are loopback and never widen."""
+    if new.tier == "local":
+        return []
+    reasons = []
+    if not isinstance(old, Instance) or old.tier == "local":
+        if ACCESS_RANK[new.access] > ACCESS_RANK["read"]:
+            reasons.append("new remote instance %s with access %r" % (new.qualified, new.access))
+        return reasons
+    if ACCESS_RANK[new.access] > ACCESS_RANK[old.access]:
+        reasons.append("access of %s raised from %r to %r" % (new.qualified, old.access, new.access))
+    if old.tier == "prod" and new.tier == "stage":
+        reasons.append("%s re-labelled from prod to stage (no unlock needed for writes)"
+                       % new.qualified)
+    return reasons
+
+
 _BACKUP_RE = re.compile(r"^profiles-(\d{8}-\d{6})(?:-(\d+))?\.json$")
 
 
