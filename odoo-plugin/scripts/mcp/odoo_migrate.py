@@ -355,9 +355,12 @@ def _check_plan_paths(plan: dict) -> None:
             _die("retire may only edit .mcp.json files, not %s" % mj, 2)
         claude = mj.parent / ".claude"
         sl, md = entry.get("settings_local"), entry.get("mcp_dir")
-        for edited in (mj, Path(sl) if sl else None):
-            if edited is not None and edited.is_symlink():
-                _die("%s is a symlink - not edited; retire it by hand" % edited, 2)
+        if mj.is_symlink() or claude.is_symlink():
+            _die("%s or its .claude folder is a symlink - not edited; retire it by hand" % mj, 2)
+        for touched in (Path(sl) if sl else None, Path(md) if md else None):
+            if touched is not None and (touched.is_symlink() or not _inside(touched, mj.parent)):
+                _die("%s resolves outside %s - not edited; retire it by hand"
+                     % (touched, mj.parent), 2)
         if sl and C.norm_path(sl) != C.norm_path(claude / "settings.local.json"):
             _die("retire may only edit %s, not %s" % (claude / "settings.local.json", sl), 2)
         if md and C.norm_path(md) != C.norm_path(claude / "mcp"):

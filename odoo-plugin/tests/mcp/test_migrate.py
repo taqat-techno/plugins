@@ -171,6 +171,29 @@ def test_key_file_symlinked_out_of_the_project_is_not_read(tmp_path, monkeypatch
     assert e.value.code == 2 and not (tmp_path / "home" / "profiles.json").exists()
 
 
+def test_symlinked_claude_folder_is_not_edited_or_renamed(tmp_path, monkeypatch):
+    import os
+
+    monkeypatch.setenv("ODOO_MCP_HOME", str(tmp_path / "home"))
+    outside = tmp_path / "outside"
+    (outside / "mcp").mkdir(parents=True)
+    (outside / "settings.local.json").write_text('{"enabledMcpjsonServers": ["a"]}')
+    proj = tmp_path / "scan" / "cloned"
+    proj.mkdir(parents=True)
+    try:
+        os.symlink(outside, proj / ".claude", target_is_directory=True)
+    except (OSError, NotImplementedError):
+        pytest.skip("this machine does not allow creating symlinks")
+    (proj / ".mcp.json").write_text('{"mcpServers": {}}')
+    plan = {"version": 2, "projects": {}, "notes": [], "unresolved": [], "remove_pins": [],
+            "retire": [{"mcp_json": str(proj / ".mcp.json"), "servers": [],
+                        "settings_local": str(proj / ".claude" / "settings.local.json"),
+                        "mcp_dir": str(proj / ".claude" / "mcp")}]}
+    with pytest.raises(SystemExit) as e:
+        M.apply_plan(plan, None, approved_by="yes")
+    assert e.value.code == 2 and (outside / "mcp").is_dir()
+
+
 @pytest.mark.parametrize("field", ["pin", "mcp_json", "mcp_dir"])
 def test_plan_can_only_touch_the_files_migration_owns(tmp_path, monkeypatch, field):
     monkeypatch.setenv("ODOO_MCP_HOME", str(tmp_path / "home"))
