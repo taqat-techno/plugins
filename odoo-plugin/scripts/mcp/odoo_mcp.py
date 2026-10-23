@@ -309,6 +309,31 @@ def cmd_local(args) -> int:
     return 0
 
 
+def cmd_migrate(args) -> int:
+    import odoo_migrate as M
+
+    path = C.config_path()
+    v1 = None
+    if path.is_file():
+        try:
+            doc = json.loads(path.read_bytes().decode("utf-8-sig"))
+        except ValueError as exc:
+            die("%s is not valid JSON (%s) - fix it first" % (path, exc))
+        if isinstance(doc, dict) and doc.get("version") == 2:
+            die("%s is already version 2 - use add / bind / local to change it" % path)
+        if isinstance(doc, dict) and isinstance(doc.get("profiles"), dict):
+            v1 = doc
+    if args.apply:
+        try:
+            plan = json.loads(Path(args.apply).read_text(encoding="utf-8-sig"))
+        except (OSError, ValueError) as exc:
+            die("cannot read the plan %s: %s" % (args.apply, exc))
+        emit(M.apply_plan(plan, v1, args.approved_by))
+        return 0
+    emit(M.build_plan(v1, [Path(r) for r in args.scan or []]))
+    return 0
+
+
 # --------------------------------------------------------------------------
 # Entry
 # --------------------------------------------------------------------------
@@ -358,11 +383,20 @@ def build_parser() -> argparse.ArgumentParser:
     lc.add_argument("--expire-days", type=int, default=30)
     lc.add_argument("--timeout", type=int, default=300)
     lc.add_argument("--dry-run", action="store_true")
+
+    mg = sub.add_parser("migrate", help="plan (default) or apply the move to version 2")
+    mode = mg.add_mutually_exclusive_group()
+    mode.add_argument("--plan", action="store_true", help="print a reviewable plan (no keys)")
+    mode.add_argument("--apply", metavar="PLAN", help="apply a reviewed plan file")
+    mg.add_argument("--scan", nargs="*", metavar="ROOT",
+                    help="also fold in project .mcp.json Odoo servers found under these folders")
+    mg.add_argument("--approved-by", dest="approved_by",
+                    help="the developer's verbatim yes to the plan")
     return ap
 
 
 COMMANDS = {"check": cmd_check, "add": cmd_add, "bind": cmd_bind, "remove": cmd_remove,
-            "local": cmd_local}
+            "local": cmd_local, "migrate": cmd_migrate}
 
 
 def main(argv=None) -> int:

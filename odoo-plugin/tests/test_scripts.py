@@ -56,6 +56,7 @@ def test_every_cli_script_is_listed():
     for py in SCRIPTS.rglob("*.py"):
         rel = py.relative_to(SCRIPTS).as_posix()
         if py.name.startswith("_") or "transforms/" in rel or rel in (
+                "mcp/odoo_migrate.py",
                 "service/shared.py", "upgrade/utils.py", "upgrade/precheck.py",
                 "upgrade/upgrade.py", "upgrade/validate.py"):
             continue  # library modules, exercised through their CLI

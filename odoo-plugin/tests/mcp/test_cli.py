@@ -94,6 +94,17 @@ def test_moving_an_instance_to_another_host_never_carries_its_key(tmp_path):
     assert doc(tmp_path)["projects"]["acme"]["instances"]["prod"]["api_key"] == "k-new"
 
 
+def test_migrate_plan_from_the_cli_is_keyless_and_refuses_a_v2_file(tmp_path):
+    (tmp_path / "profiles.json").write_text(json.dumps({"profiles": {"acme-stage": {
+        "url": "https://acme-stage.odoo.com", "db": "acme-stage-1", "username": "a",
+        "api_key": "K-SECRET"}}}), encoding="utf-8")
+    code, out, err = run(tmp_path, "migrate", "--plan")
+    assert code == 0, err
+    assert "acme" in json.loads(out)["projects"] and "K-SECRET" not in out
+    (tmp_path / "profiles.json").write_text('{"version": 2, "projects": {}}', encoding="utf-8")
+    assert run(tmp_path, "migrate", "--plan")[0] == 2
+
+
 def test_local_refuses_a_remote_url(tmp_path):
     code, _, err = run(tmp_path, "local", "--url", "https://x.example.com", "--dry-run")
     assert code == 2 and "loopback" in err
