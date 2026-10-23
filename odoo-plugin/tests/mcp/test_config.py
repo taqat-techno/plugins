@@ -166,13 +166,23 @@ def test_tilde_path_matches(tmp_path, monkeypatch):
     assert cfg.match([tmp_path / "acme" / "x"]).name == "acme"
 
 
+def make_worktree(main, wt, name="wt1", gitdir_text=None, back_pointer=True):
+    """A git worktree as git lays it out: <wt>/.git is a file naming the admin dir,
+    and <main>/.git/worktrees/<name>/gitdir points back at <wt>/.git."""
+    admin = main / ".git" / "worktrees" / name
+    admin.mkdir(parents=True)
+    wt.mkdir(parents=True, exist_ok=True)
+    (wt / ".git").write_text("gitdir: %s\n" % (gitdir_text or admin.as_posix()), encoding="utf-8")
+    if back_pointer:
+        (admin / "gitdir").write_text((wt / ".git").as_posix() + "\n", encoding="utf-8")
+    return admin
+
+
 def test_worktree_outside_the_project_resolves_to_its_main_checkout(tmp_path):
     main = tmp_path / "projects" / "taqat" / "Cluster2"
-    (main / ".git" / "worktrees" / "wt1").mkdir(parents=True)
     wt = tmp_path / "wt" / "c2_paymail"
-    (wt / "src").mkdir(parents=True)
-    (wt / ".git").write_text("gitdir: %s\n" % (main / ".git" / "worktrees" / "wt1").as_posix(),
-                             encoding="utf-8")
+    make_worktree(main, wt)
+    (wt / "src").mkdir()
     folders = C.session_folders(wt / "src")
     assert C.norm_path(folders[-1]) == C.norm_path(main)
     assert _cfg_paths(taqat=[str(tmp_path / "projects" / "taqat")]).match(folders).name == "taqat"
@@ -180,11 +190,25 @@ def test_worktree_outside_the_project_resolves_to_its_main_checkout(tmp_path):
 
 def test_relative_gitdir_is_resolved_against_the_worktree(tmp_path):
     main = tmp_path / "main"
-    (main / ".git" / "worktrees" / "w").mkdir(parents=True)
-    wt = tmp_path / "w"
-    wt.mkdir()
-    (wt / ".git").write_text("gitdir: ../main/.git/worktrees/w", encoding="utf-8")
-    assert C.norm_path(C.session_folders(wt)[-1]) == C.norm_path(main)
+    make_worktree(main, tmp_path / "w", name="w", gitdir_text="../main/.git/worktrees/w")
+    assert C.norm_path(C.session_folders(tmp_path / "w")[-1]) == C.norm_path(main)
+
+
+def test_forged_git_file_without_back_pointer_is_ignored(tmp_path):
+    """A cloned folder whose .git file merely names another project's worktree dir
+    must not inherit that project (and its production instances)."""
+    main = tmp_path / "projects" / "taqat"
+    make_worktree(main, tmp_path / "wt", back_pointer=False)
+    assert C.session_folders(tmp_path / "wt") == [tmp_path / "wt"]
+
+
+def test_git_file_whose_back_pointer_names_another_folder_is_ignored(tmp_path):
+    main = tmp_path / "projects" / "taqat"
+    admin = make_worktree(main, tmp_path / "real-wt")
+    forged = tmp_path / "forged"
+    forged.mkdir()
+    (forged / ".git").write_text("gitdir: %s\n" % admin.as_posix(), encoding="utf-8")
+    assert C.session_folders(forged) == [forged]
 
 
 def test_lookup_rules():
@@ -286,3 +310,18 @@ def test_save_validates_backs_up_and_writes_lf(tmp_path, monkeypatch):
         C.save({"version": 2, "projects": {"a": {"paths": [], "instances": {}}}})
     with pytest.raises(C.ConfigError, match="tier"):
         C.save(json.loads(doc(a=proj("C:/a", s=inst(tier=None)))))
+
+
+def test_save_keeps_the_store_private(tmp_path, monkeypatch):
+    """Keys live in profiles.json and its backups: folders 0700, files 0600 (POSIX
+    meaning; on Windows the user-profile ACL already restricts them)."""
+    home = tmp_path / "store"
+    monkeypatch.setenv("ODOO_MCP_HOME", str(home))
+    modes = {}
+    real_chmod = os.chmod
+    monkeypatch.setattr(C.os, "chmod", lambda p, m: (modes.__setitem__(Path(p).name, m), real_chmod(p, m)))
+    good = json.loads(doc(a=proj("C:/a", s=inst())))
+    C.save(good)
+    backup = C.save(good)
+    assert modes["store"] == 0o700 and modes["backups"] == 0o700
+    assert modes[backup.name] == 0o600 and modes["profiles.json.tmp"] == 0o600

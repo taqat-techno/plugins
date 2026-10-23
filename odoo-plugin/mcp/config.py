@@ -263,8 +263,11 @@ class Config:
 def session_folders(start) -> list:
     """[start] - plus the main checkout when `start` is inside a git worktree.
 
-    A worktree's `.git` is a FILE: "gitdir: <main>/.git/worktrees/<name>". Reading
-    it is a file read, not a process, so the server's no-process guarantee holds."""
+    A worktree's `.git` is a FILE: "gitdir: <main>/.git/worktrees/<name>". It is
+    trusted only when git's own back-pointer, <main>/.git/worktrees/<name>/gitdir,
+    names this `.git` file - so a cloned folder cannot claim another project (and its
+    production instances) by writing a `.git` file. Reading files only: the server's
+    no-process guarantee holds."""
     start = Path(start)
     folder = start
     while True:
@@ -276,12 +279,23 @@ def session_folders(start) -> list:
                 return [start]
             if line.startswith("gitdir:"):
                 gitdir = Path(os.path.normpath(os.path.join(str(folder), line[7:].strip())))
-                if gitdir.parent.name == "worktrees" and gitdir.parent.parent.name == ".git":
+                if (gitdir.parent.name == "worktrees" and gitdir.parent.parent.name == ".git"
+                        and _points_back(gitdir, dot_git)):
                     return [start, gitdir.parent.parent.parent]
             return [start]
         if dot_git.is_dir() or folder.parent == folder:
             return [start]
         folder = folder.parent
+
+
+def _points_back(admin_dir: Path, dot_git: Path) -> bool:
+    """git's consistency check: the worktree admin dir's `gitdir` file names this
+    worktree's `.git` file."""
+    try:
+        target = (admin_dir / "gitdir").read_text(encoding="utf-8", errors="replace").strip()
+    except OSError:
+        return False
+    return bool(target) and norm_path(os.path.join(str(admin_dir), target)) == norm_path(dot_git)
 
 
 # --------------------------------------------------------------------------
@@ -601,15 +615,16 @@ def save(doc: dict, path: Optional[Path] = None, keep: int = 10) -> Optional[Pat
         raise ConfigError("refusing to write %s:\n  %s" % (path, "\n  ".join(broken)))
 
     backup = None
-    path.parent.mkdir(parents=True, exist_ok=True)
+    _private(path.parent, 0o700, folder=True)
     if path.is_file():
         bdir = path.parent / "backups"
-        bdir.mkdir(exist_ok=True)
+        _private(bdir, 0o700, folder=True)
         stamp = time.strftime("%Y%m%d-%H%M%S")
         backup, n = bdir / ("profiles-%s.json" % stamp), 1
         while backup.exists():
             backup, n = bdir / ("profiles-%s-%d.json" % (stamp, n)), n + 1
         shutil.copyfile(path, backup)
+        _private(backup, 0o600)
         ordered = sorted(
             (p for p in bdir.iterdir() if _BACKUP_RE.match(p.name)),
             key=lambda p: (_BACKUP_RE.match(p.name).group(1),
@@ -619,12 +634,20 @@ def save(doc: dict, path: Optional[Path] = None, keep: int = 10) -> Optional[Pat
 
     tmp = path.with_name(path.name + ".tmp")
     tmp.write_bytes(text.encode("utf-8"))
-    try:
-        os.chmod(tmp, 0o600)
-    except OSError:
-        pass
+    _private(tmp, 0o600)
     os.replace(tmp, path)
     return backup
+
+
+def _private(p: Path, mode: int, folder: bool = False) -> None:
+    """Keys live here: folders 0700, files 0600. On Windows chmod only toggles the
+    read-only flag; the user-profile ACL is what keeps the store private there."""
+    if folder:
+        p.mkdir(parents=True, exist_ok=True)
+    try:
+        os.chmod(p, mode)
+    except OSError:
+        pass
 
 
 # --------------------------------------------------------------------------
