@@ -24,7 +24,7 @@ CLI_SCRIPTS = [
     "frontend/bootstrap_mapper.py", "frontend/version_detector.py",
     "i18n/i18n_converter.py", "i18n/i18n_extractor.py", "i18n/i18n_reporter.py",
     "i18n/i18n_validator.py",
-    "mcp/odoo_mcp.py",
+    "mcp/odoo_local.py", "mcp/odoo_mcp.py",
     "official_skills.py",
     "owl/owl_lint.py", "owl/owl_scaffold.py",
     "security/access_checker.py", "security/route_auditor.py", "security/security_auditor.py",
@@ -71,7 +71,7 @@ def test_cli_help_runs_isolated(script):
 
 
 def test_self_tests_pass():
-    for script in ("official_skills.py",):
+    for script in ("official_skills.py", "mcp/odoo_local.py"):
         code, out, err = run(script, "--self-test")
         assert code == 0 and "FAIL" not in out, (script, out, err)
 

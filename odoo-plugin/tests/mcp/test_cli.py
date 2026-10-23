@@ -82,6 +82,39 @@ def test_changing_an_instance_keeps_its_key_and_lowering_needs_no_approval(tmp_p
     assert inst["access"] == "read" and inst["api_key"] == "k-keep-me"
 
 
+def test_moving_an_instance_to_another_host_never_carries_its_key(tmp_path):
+    base = ("add", "acme", "prod", "--tier", "prod", "--db", "p", "--path", str(tmp_path))
+    assert run(tmp_path, *base, "--url", "https://p.example.com", *KEY, stdin="k-prod-secret\n")[0] == 0
+    moved = (*base, "--url", "https://elsewhere.example.com")
+    code, _, err = run(tmp_path, *moved)
+    assert code == 2 and "key" in err
+    code, _, err = run(tmp_path, *moved, "--key-stdin", stdin="k-new\n")
+    assert code == 3 and "elsewhere" in err
+    assert run(tmp_path, *moved, "--key-stdin", "--approved-by", "yes move it", stdin="k-new\n")[0] == 0
+    assert doc(tmp_path)["projects"]["acme"]["instances"]["prod"]["api_key"] == "k-new"
+
+
+def test_local_refuses_a_remote_url(tmp_path):
+    code, _, err = run(tmp_path, "local", "--url", "https://x.example.com", "--dry-run")
+    assert code == 2 and "loopback" in err
+
+
+def test_project_for_unbound_worktree_uses_main_checkout(tmp_path):
+    sys.path.insert(0, str(CLI.parent))
+    sys.path.insert(0, str(CLI.parents[2] / "mcp"))
+    import odoo_local
+
+    main = tmp_path / "Nafla-19"
+    admin = main / ".git" / "worktrees" / "w"
+    admin.mkdir(parents=True)
+    wt = tmp_path / "wt"
+    wt.mkdir()
+    (wt / ".git").write_text("gitdir: %s" % admin.as_posix())
+    (admin / "gitdir").write_text((wt / ".git").as_posix())
+    name, paths, created = odoo_local.project_for(wt, None)
+    assert (name, created) == ("Nafla-19", True) and paths == [str(main)]
+
+
 def test_remove_a_project_with_prod_needs_approval(tmp_path):
     run(tmp_path, "add", "acme", "prod", "--url", "https://p.example.com", "--tier", "prod",
         "--db", "p", *KEY, "--path", str(tmp_path), stdin="k\n")

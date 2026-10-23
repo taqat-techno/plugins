@@ -186,6 +186,9 @@ def cmd_add(args) -> int:
     instances = proj.setdefault("instances", {})
     old = instance_in(doc, args.project, args.instance) if not created else None
     raw = dict(instances.get(args.instance) or {})
+    if args.url and raw.get("url") and C.origin(args.url) != C.origin(str(raw["url"])):
+        # A key is only ever sent where it was issued: a new host needs its own key.
+        raw.pop("api_key", None)
     for key in ("url", "tier", "db", "username", "access", "db_pattern"):
         value = getattr(args, key, None)
         if value is not None:
@@ -268,6 +271,44 @@ def cmd_remove(args) -> int:
     return 0
 
 
+def cmd_local(args) -> int:
+    import odoo_local as L
+
+    folder = Path(args.folder or os.getcwd())
+    doc = load_doc()
+    try:
+        cfg = C.parse(json.dumps(doc), C.config_path())
+    except C.ConfigError as exc:
+        die(str(exc))
+    if args.project:
+        proj = doc["projects"].get(args.project)
+        name, created = args.project, proj is None
+        paths = list(proj.get("paths") or []) if proj else L.project_for(folder, None)[1]
+    else:
+        name, paths, created = L.project_for(folder, cfg)
+
+    values = L.provision(folder, args)
+    if values.get("dry_run"):
+        values.update({"project": name, "project_created": created, "paths": paths})
+        emit(values)
+        return 0
+
+    proj = doc["projects"].setdefault(name, {"paths": paths, "instances": {}})
+    proj.setdefault("instances", {})["local"] = values
+    pruned = L.prune_expired(doc, keep="%s/local" % name)
+    backup = save(doc)
+    audit({"action": "config", "op": "local", "instance": "%s/local" % name, "pruned": pruned})
+    emit({
+        "provisioned": "%s/local" % name,
+        "project_created": created,
+        "url": values["url"], "database": values["db"], "login": values["username"],
+        "odoo_version": values["odoo_version"], "key_expires_at": values["expires_at"],
+        "pruned_expired": pruned, "backup": str(backup) if backup else None,
+        "next": "call odoo_status - the server picks this up on the next call, no restart",
+    })
+    return 0
+
+
 # --------------------------------------------------------------------------
 # Entry
 # --------------------------------------------------------------------------
@@ -302,10 +343,26 @@ def build_parser() -> argparse.ArgumentParser:
     rm = sub.add_parser("remove", help="remove PROJECT/INSTANCE or a whole PROJECT")
     rm.add_argument("target")
     rm.add_argument("--approved-by", dest="approved_by")
+
+    lc = sub.add_parser("local", help="key this project's LOCAL Odoo and add it as instance local")
+    lc.add_argument("--project", help="project name (default: the folder's project, or a new "
+                                      "one named after the main checkout)")
+    lc.add_argument("--folder", help="project folder (default: the current directory)")
+    lc.add_argument("--conf", help="Odoo conf file (default: discovered in the folder)")
+    lc.add_argument("--url", help="override url; must be loopback (default http://127.0.0.1:<http_port>)")
+    lc.add_argument("--db", help="database (default: conf db_name, or the single listed database)")
+    lc.add_argument("--login", help="Odoo login to key (default: the local admin, base.user_admin)")
+    lc.add_argument("--odoo-cmd", help="how to launch Odoo, e.g. \"/venv/bin/python /src/odoo-bin\"")
+    lc.add_argument("--python", help="python used with the discovered odoo-bin (default: this one)")
+    lc.add_argument("--shell-conf", help="conf path as seen by the odoo command (containers)")
+    lc.add_argument("--expire-days", type=int, default=30)
+    lc.add_argument("--timeout", type=int, default=300)
+    lc.add_argument("--dry-run", action="store_true")
     return ap
 
 
-COMMANDS = {"check": cmd_check, "add": cmd_add, "bind": cmd_bind, "remove": cmd_remove}
+COMMANDS = {"check": cmd_check, "add": cmd_add, "bind": cmd_bind, "remove": cmd_remove,
+            "local": cmd_local}
 
 
 def main(argv=None) -> int:

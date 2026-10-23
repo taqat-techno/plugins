@@ -30,6 +30,7 @@ Design: .claude/docs/2026-10-23_odoo-mcp-one-file-design.md
 from __future__ import annotations
 
 import hashlib
+import ipaddress
 import json
 import os
 import re
@@ -97,14 +98,22 @@ def norm_path(p) -> str:
 
 
 def is_loopback(url: str) -> bool:
-    """True only for hosts that cannot be another machine."""
+    """True only for hosts that cannot be another machine: a loopback IP literal,
+    `localhost`, or `*.localhost` (RFC 6761). A name that merely starts with "127."
+    or ends in ".test" can resolve anywhere, so it is not local."""
     host = (urlparse(url).hostname or "").lower().strip("[]")
-    return (
-        host in ("localhost", "::1")
-        or host.startswith("127.")
-        or host.endswith(".localhost")
-        or host.endswith(".test")
-    )
+    if host == "localhost" or host.endswith(".localhost"):
+        return True
+    try:
+        return ipaddress.ip_address(host).is_loopback
+    except ValueError:
+        return False
+
+
+def origin(url: str) -> tuple:
+    """(scheme, host, port) - where a key is sent."""
+    u = urlparse(url)
+    return (u.scheme.lower(), (u.hostname or "").lower(), u.port)
 
 
 # --------------------------------------------------------------------------
@@ -366,8 +375,8 @@ def _build_instance(project: str, name: str, raw: Any) -> Instance:
         raise _InstanceError('"tier" %r is not one of local, stage, prod' % tier)
     if tier == "local" and not loopback:
         raise _InstanceError(
-            '"tier": "local" needs a loopback url (localhost, 127.x, ::1, *.localhost, '
-            "*.test); %s is not one. Use \"stage\" or \"prod\"." % url)
+            '"tier": "local" needs a loopback url (localhost, *.localhost, 127.x.x.x, ::1); '
+            "%s is not one. Use \"stage\" or \"prod\"." % url)
 
     access = str(raw.get("access") or DEFAULT_ACCESS[tier]).strip().lower()
     if access not in ACCESS:
@@ -618,11 +627,18 @@ def widenings(old, new: Instance) -> list:
         if ACCESS_RANK[new.access] > ACCESS_RANK["read"]:
             reasons.append("new remote instance %s with access %r" % (new.qualified, new.access))
         return reasons
+    q = new.qualified
     if ACCESS_RANK[new.access] > ACCESS_RANK[old.access]:
-        reasons.append("access of %s raised from %r to %r" % (new.qualified, old.access, new.access))
+        reasons.append("access of %s raised from %r to %r" % (q, old.access, new.access))
     if old.tier == "prod" and new.tier == "stage":
-        reasons.append("%s re-labelled from prod to stage (no unlock needed for writes)"
-                       % new.qualified)
+        reasons.append("%s re-labelled from prod to stage (no unlock needed for writes)" % q)
+    if origin(old.url) != origin(new.url):
+        reasons.append("%s now points at %s (was %s)" % (q, new.url, old.url))
+    if old.verify_ssl and not new.verify_ssl:
+        reasons.append("TLS certificate checks turned off on %s" % q)
+    added = sorted(new.allow_write_models - old.allow_write_models)
+    if added:
+        reasons.append("%s may now write protected models: %s" % (q, ", ".join(added)))
     return reasons
 
 

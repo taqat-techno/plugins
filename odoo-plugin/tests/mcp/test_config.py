@@ -129,6 +129,28 @@ def test_default_name_prefers_single_local_then_single_stage():
     assert cfg.projects["c"].default_name() == "s"
 
 
+@pytest.mark.parametrize("url,ok", [
+    ("http://localhost:8069", True), ("http://odoo.localhost", True),
+    ("http://127.0.0.2:8069", True), ("http://[::1]:8069", True),
+    ("http://127.evil.example.com", False), ("http://dev-box.test:8069", False),
+    ("http://localhost.evil.example.com", False), ("https://acme.odoo.com", False),
+])
+def test_loopback_is_proven_not_spelled(url, ok):
+    assert C.is_loopback(url) is ok
+
+
+def _one(**kw):
+    return parse(acme=proj(s=inst(**kw))).projects["acme"].instances["s"]
+
+
+def test_moving_tls_and_protected_models_are_widenings():
+    old = _one(access="read")
+    assert C.widenings(old, _one(access="read", url="https://elsewhere.example.com"))
+    assert C.widenings(old, _one(access="read", verify_ssl=False))
+    assert C.widenings(old, _one(access="read", allow_write_models=["res.users"]))
+    assert C.widenings(old, _one(access="read", username="other")) == []
+
+
 def test_describe_never_contains_the_key():
     i = parse(acme=proj(s=inst())).projects["acme"].instances["s"]
     assert "k-123456" not in json.dumps(i.describe()) and i.describe()["api_key_set"] is True
