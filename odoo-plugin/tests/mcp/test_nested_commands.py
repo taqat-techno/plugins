@@ -20,7 +20,7 @@ sys.path.insert(0, str(MCP_DIR))
 import guards  # noqa: E402
 import tools  # noqa: E402
 from guards import GuardError  # noqa: E402
-from profiles import Profile  # noqa: E402
+from config import Instance  # noqa: E402
 
 META = {
     "res.partner": {
@@ -51,9 +51,9 @@ def fields_of(model):
     return META[model]
 
 
-def _prof(mode="write", **kw):
-    return Profile(name="local", url="http://127.0.0.1:1", db="t",
-                   ceiling="write+unlink", mode=mode, **kw)
+def _prof(mode="write", tier="local", access="full", **kw):
+    return Instance(project="t", name="local", url="http://127.0.0.1:1", db="t", db_auto=False,
+                    username="u", api_key="k", tier=tier, access=access, mode=mode, **kw)
 
 
 def check(values, model="res.partner", op="write", mode="write", **kw):
@@ -180,18 +180,21 @@ class FakeClient:
 
 
 class FakeSession:
+    """The slice of session.Session the handlers use: resolve -> effective -> client."""
+
     def __init__(self, mode="write"):
         self.prof = _prof(mode)
         self.c = FakeClient()
+        self.current = None
 
-    def client(self):
+    def resolve(self, ref):
+        return self.prof
+
+    def effective(self, inst):
+        return inst
+
+    def client(self, inst):
         return self.c
-
-    def load(self, force=False):
-        return self.prof, None
-
-    def secrets(self):
-        return ()
 
 
 def test_odoo_write_refuses_and_sends_nothing():

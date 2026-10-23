@@ -36,7 +36,10 @@ LOCAL Odoo on this machine - connect without asking; from the project folder run
   python "<odoo-plugin>/scripts/mcp/odoo_mcp.py" local
 STAGING / PRODUCTION - add an instance (the key is read from a prompt or stdin):
   python "<odoo-plugin>/scripts/mcp/odoo_mcp.py" add <project> <instance> --url <url> --tier stage|prod --db <db|auto> --username <login> --key-stdin
-No restart is needed: the next call sees the file. Details: /mcp-setup."""
+No restart is needed: the next call sees the file. Details: /mcp-setup.
+
+API keys: Odoo > Preferences > Account Security > Developer API Keys. For Odoo.sh staging,
+create the key in PRODUCTION so it survives staging rebuilds."""
 
 
 class ApprovalError(Exception):
@@ -89,6 +92,7 @@ class Session:
         self._unlocks: dict = {}       # qualified -> expiry (epoch seconds)
         self._warnings: list = []
         self.notices: list = []
+        self.current = None            # (instance, client or None) of the call in progress
 
     # ---- configuration -------------------------------------------------------
 

@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import sys
 import tempfile
-from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -22,13 +21,13 @@ sys.path.insert(0, str(HERE))
 
 import guards  # noqa: E402
 from guards import GuardError  # noqa: E402
-from profiles import Profile  # noqa: E402
+from config import Instance  # noqa: E402
 from test_mcp_server import Client, _profile_dir  # noqa: E402
 
 
-def _prof(mode="write", **kw):
-    return Profile(name="local", url="http://127.0.0.1:1", db="t",
-                   ceiling="write+unlink", mode=mode, **kw)
+def _prof(mode="write", tier="local", access="full", **kw):
+    return Instance(project="t", name="local", url="http://127.0.0.1:1", db="t", db_auto=False,
+                    username="u", api_key="k", tier=tier, access=access, mode=mode, **kw)
 
 
 # ---------------------------------------------------------------- unit level
@@ -80,10 +79,14 @@ def test_ordinary_business_methods_still_pass_in_write_mode():
     guards.check_call_allowed(_prof("write"), "res.partner", "action_archive")
 
 
-def test_write_scope_still_applies():
-    prof = replace(_prof("write"), write_scope=frozenset({"sale.order"}))
-    with pytest.raises(GuardError, match="scoped"):
-        guards.check_call_allowed(prof, "res.partner", "action_archive")
+def test_stage_read_access_hint_names_the_cli_and_approval():
+    with pytest.raises(GuardError, match=r"access 'read'.*--approved-by"):
+        guards.check_write_allowed(_prof("read", tier="stage", access="read"), "res.partner", "write")
+
+
+def test_locked_prod_hint_names_the_unlock():
+    with pytest.raises(GuardError, match="odoo_session action=unlock instance=t/local"):
+        guards.check_write_allowed(_prof("read", tier="prod", access="write"), "res.partner", "write")
 
 
 def test_read_methods_on_hard_deny_models_still_pass_in_read_mode():
@@ -107,7 +110,7 @@ def _call(c, model, method, **extra):
 
 def test_acceptance_odoo_call_refusals_in_write_mode():
     with tempfile.TemporaryDirectory() as td:
-        env = _profile_dir(Path(td), mode="write")
+        env = _profile_dir(Path(td), access="write")
         with Client(env_extra=env) as c:
             c.handshake()
             text, is_error = _call(c, "res.users", "write", kwargs={"vals": {"groups_id": [4]}})
@@ -123,7 +126,7 @@ def test_acceptance_odoo_call_refusals_in_write_mode():
 
 def test_hard_deny_holds_through_call_even_with_unlink_allowed():
     with tempfile.TemporaryDirectory() as td:
-        env = _profile_dir(Path(td), mode="write", allow_unlink=True)
+        env = _profile_dir(Path(td), access="full")
         with Client(env_extra=env) as c:
             c.handshake()
             text, is_error = _call(c, "res.users", "unlink")
@@ -134,7 +137,7 @@ def test_hard_deny_holds_through_call_even_with_unlink_allowed():
 
 def test_kwargs_context_denied_key_is_refused_end_to_end():
     with tempfile.TemporaryDirectory() as td:
-        env = _profile_dir(Path(td), mode="write")
+        env = _profile_dir(Path(td), access="write")
         with Client(env_extra=env) as c:
             c.handshake()
             text, is_error = _call(c, "sale.order", "action_confirm",
@@ -144,7 +147,7 @@ def test_kwargs_context_denied_key_is_refused_end_to_end():
 
 def test_kwargs_context_must_be_an_object():
     with tempfile.TemporaryDirectory() as td:
-        env = _profile_dir(Path(td), mode="write")
+        env = _profile_dir(Path(td), access="write")
         with Client(env_extra=env) as c:
             c.handshake()
             text, is_error = _call(c, "sale.order", "action_confirm",
@@ -155,7 +158,7 @@ def test_kwargs_context_must_be_an_object():
 def test_client_folds_kwargs_context_into_the_merged_context():
     import odoo_client
 
-    prof = Profile(name="local", url="http://127.0.0.1:1", db="t", lang="ar_001")
+    prof = _prof(lang="ar_001")
     client = odoo_client.OdooClient(prof)
     client._flavor = "json2"
     seen = {}

@@ -153,58 +153,58 @@ def check_method_name(method: Any) -> str:
 
 
 _RANK = {"read": 0, "write": 1, "write+unlink": 2}
+_ACCESS_FOR = {"write": "write", "write+unlink": "full"}
+_MODE_OF = {"read": "read", "write": "write", "full": "write+unlink"}
 
 
-def _raise_hint(profile: Any, needed: str) -> str:
-    """How this session could get `needed`, within what the developer allows."""
-    ceiling = getattr(profile, "ceiling", "read")
-    if _RANK.get(needed, 9) > _RANK.get(ceiling, 0):
+def _raise_hint(inst: Any, needed: str) -> str:
+    """How `needed` (a mode) could be reached, within what the developer allows.
+
+    `access` in profiles.json is the limit. Widening it needs the developer's yes;
+    a prod instance additionally needs this session's unlock."""
+    access = getattr(inst, "access", "read")
+    if _RANK.get(needed, 9) > _RANK.get(_MODE_OF.get(access, "read"), 0):
         return (
-            "Its ceiling is %r, set by the developer in %s - only they can raise it."
-            % (ceiling, getattr(profile, "source", "the profile"))
+            "%s allows only access %r (profiles.json). Widening it needs the developer's yes: "
+            "odoo_mcp.py add %s %s --access %s --approved-by \"<their answer>\"."
+            % (inst.qualified, access, getattr(inst, "project", "<project>"),
+               getattr(inst, "name", "<instance>"), _ACCESS_FOR.get(needed, "write"))
         )
-    approval = getattr(profile, "approval", "chat")
-    how = {
-        "none": "no approval needed",
-        "chat": "ask the developer first and pass their answer as approved_by_user",
-        "human": "needs the developer's terminal grant (odoo_mcp_ctl.py approve)",
-    }.get(approval, approval)
-    return "Raise it with odoo_session action=mode mode=%s (%s)." % (needed, how)
+    if getattr(inst, "tier", "") == "prod":
+        return (
+            "Production writes need an unlock: ask the developer (name the instance and url), "
+            "then odoo_session action=unlock instance=%s approved_by_user=\"<their answer>\"."
+            % inst.qualified
+        )
+    return "Its access in profiles.json is %r." % access
 
 
-def check_write_allowed(profile: Any, model: str, op: str) -> None:
+def check_write_allowed(inst: Any, model: str, op: str) -> None:
     """Gate every state-changing operation. `op` is create|write|unlink.
 
-    `profile` is the EFFECTIVE profile: its `mode` is this session's current mode,
-    already clamped to the developer's ceiling (see session_state)."""
-    mode = getattr(profile, "mode", "read")
-    tier = getattr(profile, "tier", "staging")
+    `inst` is the EFFECTIVE instance: its `mode` is what this session may do now -
+    its access, except a prod instance, which is read-only until unlocked."""
+    mode = getattr(inst, "mode", "read")
+    tier = getattr(inst, "tier", "prod")
     if _RANK.get(mode, 0) < _RANK["write"]:
         raise GuardError(
-            "profile %r (%s) is read-only in this session (mode=%s), so %s on %s was refused.\n%s"
-            % (profile.name, tier, mode, op, model, _raise_hint(profile, "write"))
+            "instance %s (%s) is read-only in this session (mode=%s), so %s on %s was refused.\n%s"
+            % (inst.qualified, tier, mode, op, model, _raise_hint(inst, "write"))
         )
 
-    if model in HARD_DENY_WRITE_MODELS and model not in profile.allow_write_models:
+    if model in HARD_DENY_WRITE_MODELS and model not in inst.allow_write_models:
         raise GuardError(
             "writing to %s is blocked: this model can escalate privilege, execute "
             "code, or alter schema/secrets.\n"
-            "If you genuinely need it, the developer adds it to \"allow_write_models\" in the "
-            "profile." % model
-        )
-
-    scope = getattr(profile, "write_scope", frozenset())
-    if scope and model not in scope:
-        raise GuardError(
-            "this session's write access on %r is scoped to %s; %s on %s was refused."
-            % (profile.name, ", ".join(sorted(scope)), op, model)
+            "If you genuinely need it, the developer adds it to \"allow_write_models\" on the "
+            "instance in profiles.json." % model
         )
 
     if op == "unlink" and _RANK.get(mode, 0) < _RANK["write+unlink"]:
         raise GuardError(
-            "delete (unlink) needs mode write+unlink (legacy: \"allow_unlink\"); profile %r is "
-            "at %s.\n%s Consider archiving (active=False) instead - it is reversible."
-            % (profile.name, mode, _raise_hint(profile, "write+unlink"))
+            "delete (unlink) needs mode write+unlink (access 'full'); instance %s is at %s.\n%s "
+            "Consider archiving (active=False) instead - it is reversible."
+            % (inst.qualified, mode, _raise_hint(inst, "write+unlink"))
         )
 
 
@@ -233,9 +233,9 @@ def check_call_allowed(profile: Any, model: str, method: str) -> None:
     if _RANK.get(mode, 0) < _RANK["write"]:
         raise GuardError(
             "%s.%s is not on the read-only method list, so it may change state.\n"
-            "Profile %r (%s) is read-only in this session. %s Or use odoo_search / "
+            "Instance %s (%s) is read-only in this session. %s Or use odoo_search / "
             "odoo_read_group for reads."
-            % (model, method, profile.name, getattr(profile, "tier", "staging"),
+            % (model, method, profile.qualified, getattr(profile, "tier", "prod"),
                _raise_hint(profile, "write"))
         )
     op = CALL_METHOD_OPS.get(method, "%s()" % method)
@@ -291,8 +291,8 @@ def _relational_value(value: Any):
 def _deny_unlink_msg(profile: Any, model: str, field: str, comodel: str, code: int) -> str:
     return (
         "%s.%s command %d can delete %s records, which needs mode write+unlink; "
-        "profile %r is at %s.\n%s"
-        % (model, field, code, comodel, profile.name, getattr(profile, "mode", "read"),
+        "instance %s is at %s.\n%s"
+        % (model, field, code, comodel, profile.qualified, getattr(profile, "mode", "read"),
            _raise_hint(profile, "write+unlink"))
     )
 

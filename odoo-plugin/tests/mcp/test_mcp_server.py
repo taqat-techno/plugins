@@ -185,25 +185,31 @@ def test_status_without_configuration_explains_setup():
         assert is_error is False
         data = json.loads(text)
         assert data["connected"] is False
-        assert ".odoo-mcp.json" in data["help"]
+        assert "odoo_mcp.py" in data["help"]
         assert "Developer API Keys" in data["help"]
-        # It must say where it looked, so a user can fix it.
-        assert any(".odoo-mcp.json" in s for s in data["searched"])
+        # It must say which file it reads, so a user can fix it.
+        assert data["file"].endswith("profiles.json")
 
 
-def _profile_dir(tmp, **overrides):
-    prof = {
-        "url": "http://127.0.0.1:1",   # deliberately dead: guards must fire first
+def _profile_dir(tmp, access="read", tier=None, **overrides):
+    """A v2 profiles.json in <tmp>/home with project "t" bound to <tmp> and one
+    instance "local" (the default) on a deliberately dead url: guards must fire first."""
+    inst = {
+        "url": "http://127.0.0.1:1",
         "db": "testdb",
         "username": "mcp_user",
         "api_key": "test-key-value-123456",
-        "mode": "read",
+        "access": access,
     }
-    prof.update(overrides)
-    (tmp / ".odoo-mcp.json").write_text(
-        json.dumps({"profiles": {"local": prof}, "default": "local"}), encoding="utf-8"
-    )
-    return {"ODOO_MCP_PROJECT_DIR": str(tmp)}
+    if tier:
+        inst["tier"] = tier
+    inst.update(overrides)
+    home = tmp / "home"
+    home.mkdir(exist_ok=True)
+    (home / "profiles.json").write_text(json.dumps({"version": 2, "projects": {
+        "t": {"paths": [str(tmp)], "default": "local", "instances": {"local": inst}}}}),
+        encoding="utf-8")
+    return {"ODOO_MCP_HOME": str(home), "ODOO_MCP_PROJECT_DIR": str(tmp)}
 
 
 def test_project_profile_is_discovered_and_key_never_leaks():
@@ -215,9 +221,11 @@ def test_project_profile_is_discovered_and_key_never_leaks():
             text, _ = c.text("odoo_status")
             assert "test-key-value-123456" not in text, "API key leaked into tool output"
             data = json.loads(text)
-            assert data["profile"]["database"] == "testdb"
-            assert data["profile"]["api_key_set"] is True
-            assert data["profile"]["mode"] == "read"
+            row = data["instances"][0]
+            assert data["project"] == "t" and data["target"] == "t/local"
+            assert row["database"] == "testdb"
+            assert row["api_key_set"] is True
+            assert row["mode"] == "read"
             # url is dead, so connecting fails - that is expected and must be graceful
             assert data["connected"] is False
 
@@ -237,11 +245,13 @@ def test_db_is_optional_when_the_host_selects_the_database():
             text, is_error = c.text("odoo_status")
             assert is_error is False
             data = json.loads(text)
-            # The profile must LOAD. Before the fix this was a configuration_error.
+            # The instance must LOAD. Before the fix this was a configuration_error.
             assert "configuration_error" not in data, data.get("configuration_error")
-            assert data["profile"]["url"] == "http://127.0.0.1:1"
-            # and it must say plainly that the host picks the database
-            assert data["profile"]["database"] == "(selected by host)"
+            row = data["instances"][0]
+            assert row["url"] == "http://127.0.0.1:1"
+            # an omitted db on a non-prod instance means "auto": the one database the
+            # url serves, or the host's choice when listing is disabled
+            assert row["database"] == "auto"
 
 
 def test_missing_db_is_still_refused_where_xmlrpc_needs_it():
@@ -276,7 +286,7 @@ def test_read_mode_refuses_every_write_verb():
 def test_write_mode_still_blocks_privilege_escalation_models():
     with tempfile.TemporaryDirectory() as td:
         tmp = Path(td)
-        with Client(env_extra=_profile_dir(tmp, mode="write", allow_unlink=True)) as c:
+        with Client(env_extra=_profile_dir(tmp, access="full")) as c:
             c.handshake()
             for model in ("res.users", "ir.actions.server", "ir.config_parameter", "ir.cron"):
                 text, is_error = c.text(
@@ -289,17 +299,17 @@ def test_write_mode_still_blocks_privilege_escalation_models():
 def test_unlink_needs_its_own_switch_even_in_write_mode():
     with tempfile.TemporaryDirectory() as td:
         tmp = Path(td)
-        with Client(env_extra=_profile_dir(tmp, mode="write")) as c:
+        with Client(env_extra=_profile_dir(tmp, access="write")) as c:
             c.handshake()
             text, is_error = c.text("odoo_unlink", {"model": "res.partner", "ids": [1]})
             assert is_error is True
-            assert "allow_unlink" in text
+            assert "full" in text
 
 
 def test_production_profile_refuses_writes():
     with tempfile.TemporaryDirectory() as td:
         tmp = Path(td)
-        env = _profile_dir(tmp, mode="write", production=True)
+        env = _profile_dir(tmp, access="write", tier="prod", url="https://prod.example.com", db="p")
         with Client(env_extra=env) as c:
             c.handshake()
             text, is_error = c.text(
@@ -312,7 +322,7 @@ def test_production_profile_refuses_writes():
 def test_private_and_dangerous_methods_are_refused():
     with tempfile.TemporaryDirectory() as td:
         tmp = Path(td)
-        with Client(env_extra=_profile_dir(tmp, mode="write")) as c:
+        with Client(env_extra=_profile_dir(tmp, access="write")) as c:
             c.handshake()
             text, is_error = c.text(
                 "odoo_call", {"model": "res.partner", "method": "_compute_display_name"}
@@ -328,7 +338,7 @@ def test_private_and_dangerous_methods_are_refused():
 def test_audit_suppressing_context_keys_are_refused():
     with tempfile.TemporaryDirectory() as td:
         tmp = Path(td)
-        with Client(env_extra=_profile_dir(tmp, mode="write")) as c:
+        with Client(env_extra=_profile_dir(tmp, access="write")) as c:
             c.handshake()
             text, is_error = c.text("odoo_search", {
                 "model": "res.partner", "context": {"tracking_disable": True},
@@ -352,26 +362,20 @@ def test_string_domain_is_rejected_as_injection_vector():
 def test_env_var_expansion_in_profile():
     with tempfile.TemporaryDirectory() as td:
         tmp = Path(td)
-        (tmp / ".odoo-mcp.json").write_text(json.dumps({
-            "profiles": {"local": {
-                "url": "http://127.0.0.1:1", "db": "d", "username": "u",
-                "api_key": "${MY_SECRET_KEY}", "mode": "read",
-            }},
-            "default": "local",
-        }), encoding="utf-8")
-        env = {"ODOO_MCP_PROJECT_DIR": str(tmp), "MY_SECRET_KEY": "expanded-secret-999"}
+        env = _profile_dir(tmp, api_key="${MY_SECRET_KEY}")
+        env["MY_SECRET_KEY"] = "expanded-secret-999"
         with Client(env_extra=env) as c:
             c.handshake()
             text, _ = c.text("odoo_status")
             assert "expanded-secret-999" not in text
-            assert json.loads(text)["profile"]["api_key_set"] is True
+            assert json.loads(text)["instances"][0]["api_key_set"] is True
 
 
 def test_broken_profile_json_reports_clearly():
     with tempfile.TemporaryDirectory() as td:
         tmp = Path(td)
-        (tmp / ".odoo-mcp.json").write_text("{ oops, not json }", encoding="utf-8")
-        with Client(env_extra={"ODOO_MCP_PROJECT_DIR": str(tmp)}) as c:
+        (tmp / "profiles.json").write_text("{ oops, not json }", encoding="utf-8")
+        with Client(env_extra={"ODOO_MCP_HOME": str(tmp), "ODOO_MCP_PROJECT_DIR": str(tmp)}) as c:
             c.handshake()
             text, _ = c.text("odoo_status")
             assert "not valid JSON" in text
@@ -380,7 +384,8 @@ def test_broken_profile_json_reports_clearly():
 def test_production_plus_disabled_tls_is_refused():
     with tempfile.TemporaryDirectory() as td:
         tmp = Path(td)
-        env = _profile_dir(tmp, production=True, verify_ssl=False)
+        env = _profile_dir(tmp, tier="prod", url="https://prod.example.com", db="p",
+                           verify_ssl=False)
         with Client(env_extra=env) as c:
             c.handshake()
             text, _ = c.text("odoo_status")
@@ -401,8 +406,10 @@ def test_guards_module_has_no_sql_or_shell_paths():
         assert banned not in blob, "MCP server contains %r" % banned
     # The developer-side CLIs (local provisioning runs odoo-bin shell) live in
     # scripts/mcp/ and must never be imported by the server package.
-    for cli in ("import local_profile", "import odoo_mcp_ctl"):
-        assert cli not in blob, "MCP server imports a CLI: %r" % cli
+    for cli in ("import local_profile", "import odoo_mcp_ctl", "import odoo_mcp",
+                "import odoo_local", "import odoo_migrate", "import profiles",
+                "import session_state"):
+        assert cli not in blob, "MCP server imports a CLI or a removed module: %r" % cli
 
 
 # --------------------------------------------------------------------------

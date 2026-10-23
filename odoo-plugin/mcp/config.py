@@ -78,6 +78,17 @@ def config_path() -> Path:
     return home() / CONFIG_FILE
 
 
+def project_folder() -> Path:
+    """The folder Claude Code works in (forwarded as ODOO_MCP_PROJECT_DIR)."""
+    for var in ("ODOO_MCP_PROJECT_DIR", "CLAUDE_PROJECT_DIR"):
+        val = os.environ.get(var, "").strip()
+        if val and not val.startswith("${"):
+            p = Path(val)
+            if p.is_dir():
+                return p
+    return Path.cwd()
+
+
 def norm_path(p) -> str:
     """Comparable spelling of a folder: absolute, `/`-separated, no trailing `/`,
     lowercase. Not resolve()d, so a mapped or network drive is never touched."""

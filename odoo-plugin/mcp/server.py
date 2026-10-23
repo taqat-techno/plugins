@@ -26,8 +26,9 @@ import traceback
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+import config  # noqa: E402
 import tools  # noqa: E402
-from tools import Session  # noqa: E402
+from session import Session  # noqa: E402
 
 SERVER_NAME = "odoo"
 SERVER_VERSION = "1.0.0"
@@ -167,19 +168,17 @@ def handle(session: Session, msg: dict) -> None:
 
 def main() -> int:
     _setup_streams()
-    session = Session()
+    session = Session(config.project_folder(), config.Loader())
     log("started (pid %d, python %s)" % (os.getpid(), sys.version.split()[0]))
 
     try:
-        prof, err = session.load()
-        if err:
-            log("configuration problem: %s" % err.splitlines()[0])
-        elif prof is not None and getattr(prof, "configured", False):
-            log("profile %r -> %s [%s]" % (prof.name, prof.url, prof.mode))
+        project = session.project()
+        if project is not None:
+            log("project %s (default %s)" % (project.name, project.default_name() or "none"))
         else:
-            log("no connection profile found yet; call odoo_status for setup help")
+            log("no project for %s; calls must name project/instance" % session.folder)
     except Exception as exc:  # never prevent startup
-        log("profile resolution failed: %s" % exc)
+        log("configuration: %s" % str(exc).splitlines()[0])
 
     for raw in sys.stdin:
         raw = raw.strip()

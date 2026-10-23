@@ -24,7 +24,6 @@ CLI_SCRIPTS = [
     "frontend/bootstrap_mapper.py", "frontend/version_detector.py",
     "i18n/i18n_converter.py", "i18n/i18n_extractor.py", "i18n/i18n_reporter.py",
     "i18n/i18n_validator.py",
-    "mcp/local_profile.py", "mcp/odoo_mcp_ctl.py",
     "official_skills.py",
     "owl/owl_lint.py", "owl/owl_scaffold.py",
     "security/access_checker.py", "security/route_auditor.py", "security/security_auditor.py",
@@ -71,7 +70,7 @@ def test_cli_help_runs_isolated(script):
 
 
 def test_self_tests_pass():
-    for script in ("official_skills.py", "mcp/local_profile.py"):
+    for script in ("official_skills.py",):
         code, out, err = run(script, "--self-test")
         assert code == 0 and "FAIL" not in out, (script, out, err)
 
@@ -342,24 +341,3 @@ def test_official_refuses_on_odoo_17(official, tmp_path, capsys):
     assert mod.main(["--project", str(project)]) == 0
     assert json.loads(capsys.readouterr().out)["applicable"] is False
     assert not (project / ".claude").exists()
-
-
-# ------------------------------------------------------------------ MCP control CLI
-
-
-def test_odoo_mcp_ctl_refuses_approve_without_a_terminal(tmp_path):
-    code, out, err = run("mcp/odoo_mcp_ctl.py", "approve", "prod", "write", ODOO_MCP_HOME=str(tmp_path))
-    assert code == 3 and "interactive terminal" in err
-    assert not (tmp_path / "grant.key").exists()
-
-
-def test_odoo_mcp_ctl_lists_grants_and_audit(tmp_path):
-    code, out, err = run("mcp/odoo_mcp_ctl.py", "grants", ODOO_MCP_HOME=str(tmp_path))
-    assert code == 0 and json.loads(out) == {"grants": []}
-    code, out, err = run("mcp/odoo_mcp_ctl.py", "audit", ODOO_MCP_HOME=str(tmp_path))
-    assert code == 0
-
-
-def test_local_profile_list_empty(tmp_path):
-    code, out, err = run("mcp/local_profile.py", "list", ODOO_MCP_HOME=str(tmp_path))
-    assert code == 0, err

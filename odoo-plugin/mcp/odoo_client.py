@@ -56,6 +56,10 @@ _DB_GONE = re.compile(
     r"KeyError: ['\"]?[\w.-]+['\"]?$|no such database",
     re.I,
 )
+# On an object call a bare KeyError is usually the business method's own bug, so
+# only the database server's own wording counts as "the database is gone".
+_DB_GONE_ON_CALL = re.compile(
+    r"database \S+ does not exist|FATAL:\s+database|no such database", re.I)
 
 
 def _ssl_context(verify: bool):
@@ -373,6 +377,11 @@ class OdooClient:
                 self.p.db, uid, self.p.api_key, model, method, positional, kwargs
             )
         except xmlrpc.client.Fault as exc:
+            if _DB_GONE_ON_CALL.search(exc.faultString or ""):
+                # A session that connected before an Odoo.sh rebuild keeps its uid; the
+                # first sign of the rename is here, not at authenticate.
+                raise DatabaseMissing("database %r does not exist on %s (%s)"
+                                      % (self.p.db, self.p.url, _clean_fault(exc.faultString)))
             raise OdooError(
                 "%s.%s failed: %s" % (model, method, _clean_fault(exc.faultString))
             )

@@ -6,8 +6,14 @@ surface is a permanent tax on unrelated work. Servers in the wild range from 3
 to 138 tools; this one stays near the low end and pushes breadth into
 parameters instead of new tool names.
 
-Every state-changing path goes through guards.check_write_allowed. No tool here
-offers SQL, shell, filesystem or module-installation access.
+Routing: every tool takes an optional `instance` - a name in this folder's
+project ("prod") or "project/instance" - and otherwise goes to the project's
+default. Every result starts with a tag naming where it went, so staging and
+production can be compared call by call with no switching state in between.
+
+Every state-changing path goes through guards.check_write_allowed, and every
+guard runs before a connection is opened. No tool here offers raw database,
+process, filesystem or module-installation access.
 """
 
 from __future__ import annotations
@@ -16,12 +22,12 @@ import json
 import re
 from typing import Any
 
+import config
 import guards
-import profiles as profiles_mod
+from config import BrokenInstance, ConfigError
 from guards import GuardError
-from odoo_client import DatabaseMissing, OdooClient, OdooError
-from profiles import NoProfile, ProfileError, discover
-from session_state import ApprovalError, SessionState, audit
+from odoo_client import DatabaseMissing, OdooError
+from session import SETUP_HELP, ApprovalError, _hhmm, audit
 
 DEFAULT_LIMIT = 50
 MAX_LIMIT = 500
@@ -49,59 +55,55 @@ _CONTEXT = {
     "description": "Odoo context overrides, e.g. {\"allowed_company_ids\":[1,2]}, "
                    "{\"lang\":\"fr_FR\"}, {\"active_test\":false} to include archived records.",
 }
+_INSTANCE = {
+    "type": "string",
+    "description": "Which instance: a name in this project (e.g. \"prod\") or "
+                   "\"project/instance\". Omit for the project's default.",
+}
+_WRITE_NOTE = ("Needs access write on the instance; a prod instance also needs "
+               "odoo_session unlock.")
 
 TOOLS = [
     {
         "name": "odoo_status",
-        "description": "Show which Odoo instance is connected: profile, URL, database, "
-                       "server version, which API is in use (JSON-2 or XML-RPC), the "
-                       "authenticated user, company context and read/write mode. "
-                       "Call this first, and whenever a call fails unexpectedly. "
-                       "If nothing is configured it explains exactly how to set it up.",
+        "description": "Show this folder's Odoo connections: its project, every instance "
+                       "(tier, access, database, unlock state) and the default. Then connect "
+                       "to one (the default, or `instance`) and report the Odoo version, the "
+                       "API in use (JSON-2 or XML-RPC), the authenticated user and companies. "
+                       "Call this first, and whenever a call fails unexpectedly. If nothing "
+                       "is configured it explains exactly how to set it up.",
         "inputSchema": {
             "type": "object",
             "properties": {
+                "instance": _INSTANCE,
                 "suggest_config": {
                     "type": "boolean",
-                    "description": "Also scan the project directory for Odoo config hints "
-                                   "and propose a starter profile.",
-                }
+                    "description": "Also scan the project folder for Odoo config hints.",
+                },
             },
         },
     },
     {
         "name": "odoo_session",
-        "description": "Switch THIS session's Odoo connection or its read/write mode, within "
-                       "the limits the developer set in each profile. action=list shows every "
-                       "profile (tier, ceiling, approval) and which is active and why; "
-                       "use <profile> switches the connection; mode raises or lowers "
-                       "read | write | write+unlink up to the profile's ceiling; reset returns to "
-                       "the resolved profile. Raising a local profile needs nothing; a staging "
-                       "profile needs the developer's explicit yes passed verbatim as "
-                       "approved_by_user (ask first - never assume it); a production profile "
-                       "needs the developer's own terminal grant. Other sessions are unaffected.",
+        "description": "Production write unlock for THIS session. action=list shows this "
+                       "project's instances with tier, access and unlock state; unlock lets a "
+                       "prod instance write, up to its access, for `minutes` (default 30, max "
+                       "120) and needs the developer's explicit yes passed verbatim as "
+                       "approved_by_user - ask first, never assume it; lock ends it (every "
+                       "unlock when no instance is named). Local and stage instances need no "
+                       "unlock: their access in profiles.json decides. Other sessions are "
+                       "unaffected.",
         "inputSchema": {
             "type": "object",
             "properties": {
-                "action": {"type": "string", "enum": ["list", "use", "mode", "reset"]},
-                "profile": {"type": "string", "description": "Profile name for action=use."},
-                "mode": {"type": "string", "enum": ["read", "write", "write+unlink"]},
-                "ttl_minutes": {
-                    "type": "integer",
-                    "description": "How long an elevation lasts (staging default 60, max 480; "
-                                   "production default 30, max 120; local: whole session).",
-                },
-                "models": {
-                    "type": "array", "items": {"type": "string"},
-                    "description": "Optional: restrict writes in this elevation to these models.",
-                },
-                "reason": {"type": "string", "description": "Why - recorded in the audit log."},
+                "action": {"type": "string", "enum": ["list", "unlock", "lock"]},
+                "instance": _INSTANCE,
                 "approved_by_user": {
                     "type": "string",
-                    "description": "The developer's answer, verbatim, when the profile needs chat "
-                                   "approval. Only fill this from an explicit reply to a question "
-                                   "that named the profile and the mode.",
+                    "description": "The developer's answer, verbatim, to a question that "
+                                   "named the instance and its url. Never reuse an earlier yes.",
                 },
+                "minutes": {"type": "integer", "description": "Unlock length (default 30, max 120)."},
             },
             "required": ["action"],
         },
@@ -113,6 +115,7 @@ TOOLS = [
         "inputSchema": {
             "type": "object",
             "properties": {
+                "instance": _INSTANCE,
                 "pattern": {
                     "type": "string",
                     "description": "Substring matched against model name and description, "
@@ -135,6 +138,7 @@ TOOLS = [
         "inputSchema": {
             "type": "object",
             "properties": {
+                "instance": _INSTANCE,
                 "model": {"type": "string", "description": "e.g. res.partner"},
                 "fields": {
                     "type": "array",
@@ -156,6 +160,7 @@ TOOLS = [
         "inputSchema": {
             "type": "object",
             "properties": {
+                "instance": _INSTANCE,
                 "model": {"type": "string"},
                 "domain": _DOMAIN,
                 "fields": _FIELDS,
@@ -174,6 +179,7 @@ TOOLS = [
         "inputSchema": {
             "type": "object",
             "properties": {
+                "instance": _INSTANCE,
                 "model": {"type": "string"},
                 "domain": _DOMAIN,
                 "context": _CONTEXT,
@@ -189,6 +195,7 @@ TOOLS = [
         "inputSchema": {
             "type": "object",
             "properties": {
+                "instance": _INSTANCE,
                 "model": {"type": "string"},
                 "domain": _DOMAIN,
                 "fields": {
@@ -218,11 +225,12 @@ TOOLS = [
         "description": "Call a public model method not covered by the other tools "
                        "(e.g. default_get, name_search, get_views, onchange, or a business "
                        "method). Private methods (leading underscore) and code-execution / "
-                       "module-install methods are refused. Methods that are not known to be "
-                       "read-only require the session to be in write mode (odoo_session).",
+                       "module-install methods are refused. A method not known to be "
+                       "read-only is a write: " + _WRITE_NOTE,
         "inputSchema": {
             "type": "object",
             "properties": {
+                "instance": _INSTANCE,
                 "model": {"type": "string"},
                 "method": {"type": "string"},
                 "ids": {
@@ -241,11 +249,11 @@ TOOLS = [
     },
     {
         "name": "odoo_create",
-        "description": "Create one or more records. Requires the session to be in write "
-                       "mode (see odoo_session). Returns the new ids.",
+        "description": "Create one or more records. " + _WRITE_NOTE + " Returns the new ids.",
         "inputSchema": {
             "type": "object",
             "properties": {
+                "instance": _INSTANCE,
                 "model": {"type": "string"},
                 "values": {
                     "type": "array",
@@ -259,12 +267,13 @@ TOOLS = [
     },
     {
         "name": "odoo_write",
-        "description": "Update existing records. Requires write mode. Always confirm the "
+        "description": "Update existing records. " + _WRITE_NOTE + " Always confirm the "
                        "target ids with odoo_search first - a wrong domain can update far "
                        "more rows than intended.",
         "inputSchema": {
             "type": "object",
             "properties": {
+                "instance": _INSTANCE,
                 "model": {"type": "string"},
                 "ids": {"type": "array", "items": {"type": "integer"}},
                 "values": {"type": "object", "description": "Field -> new value."},
@@ -275,12 +284,13 @@ TOOLS = [
     },
     {
         "name": "odoo_unlink",
-        "description": "Delete records permanently. Requires the session mode "
-                       "write+unlink (see odoo_session). Prefer archiving "
+        "description": "Delete records permanently. Needs access full on the instance; a "
+                       "prod instance also needs odoo_session unlock. Prefer archiving "
                        "(odoo_write active=false), which is reversible.",
         "inputSchema": {
             "type": "object",
             "properties": {
+                "instance": _INSTANCE,
                 "model": {"type": "string"},
                 "ids": {"type": "array", "items": {"type": "integer"}},
                 "context": _CONTEXT,
@@ -321,252 +331,206 @@ def _dump(payload: Any, secrets=()) -> str:
     return text
 
 
-SETUP_HELP = """No Odoo connection is configured for this project.
-
-LOCAL instance: connect without asking - from the project directory run
-  python "<odoo-plugin>/scripts/mcp/local_profile.py" provision
-then call odoo_status again (no restart).
-
-STAGING / PRODUCTION: the developer defines profiles in ~/.odoo-mcp/servers.json
-(url, username, api_key as "${ENV_VAR}", tier, ceiling, projects), or pins one
-checkout with <project>/.odoo-mcp.json. A remote profile is never a global default.
-
-API keys: Preferences > Account Security > Developer API Keys. For Odoo.sh staging
-create the key in PRODUCTION so it survives staging rebuilds. Details: the odoo
-plugin's mcp skill and /mcp-setup."""
-
-
-# --------------------------------------------------------------------------
-# Dispatch
-# --------------------------------------------------------------------------
-
-
-class Session:
-    """Resolved catalog + in-memory session state (active profile, mode, expiry)."""
-
-    def __init__(self):
-        self.state = SessionState()
-        self._catalog = None
-        self._base = None
-        self._client = None
-        self._error = None
-
-    def load(self, force=False):
-        """Return (effective profile or NoProfile, error)."""
-        if force:
-            self._catalog = self._base = self._client = self._error = None
-        if self._catalog is None and self._error is None:
-            try:
-                wanted = self.state.override or profiles_mod.wanted_from_env()
-                cat = profiles_mod.load_catalog(wanted)
-                self._catalog = cat
-                self._base = cat.profiles[cat.chosen] if cat.chosen else NoProfile(
-                    searched=cat.searched, problem=cat.problem)
-            except ProfileError as exc:
-                self._error = str(exc)
-        if self._error:
-            return None, self._error
-        if self._base is not None and self._base.configured:
-            return self.state.effective(self._base), None
-        return self._base, None
-
-    @property
-    def catalog(self):
-        self.load()
-        return self._catalog
-
-    def base_profile(self):
-        prof, err = self.load()
-        if err:
-            raise OdooError("configuration problem:\n%s" % err)
-        if prof is None or not prof.configured:
-            raise OdooError(SETUP_HELP)
-        return self._base
-
-    def client(self):
-        prof, err = self.load()
-        if err:
-            raise OdooError("configuration problem:\n%s" % err)
-        if prof is None or not prof.configured:
-            raise OdooError(SETUP_HELP)
-        if self._client is None:
-            self._client = OdooClient(self._base)
-        return self._client
-
-    def secrets(self):
-        prof = self._base
-        return prof.secrets() if prof is not None else ()
-
-    # ---- database follow ---------------------------------------------------
-
-    def follow_database(self, exc: DatabaseMissing) -> str:
-        """The configured database vanished (staging rebuild / restore renamed it).
-
-        Non-production: discover the database now behind this URL, record it in the
-        learned-state file (never in the developer's file) and return a notice.
-        Production: report the candidate and change nothing."""
-        base = self.base_profile()
-        client = self.client()
-        found = client.list_databases()
-        old = base.db
-        if found is not None and old in found:
-            raise exc  # the database exists; this was something else
-        new = _pick_database(old, found or [], base.db_pattern)
-        if new is None and found is None and client.flavor == "json2":
-            new = ""  # listing disabled, but JSON-2 lets the host select the database
-        if new is None:
-            raise OdooError(
-                "%s\nThe server lists %s. Could not pick the new database unambiguously - set "
-                "\"db_pattern\" (a regex) on profile %r, or update \"db\"."
-                % (exc, ", ".join(found) if found else "no databases (listing disabled)", base.name)
-            )
-        if base.kind == "local":
-            raise OdooError(
-                "%s\nThis is a local profile: re-run local_profile.py provision to connect to %r."
-                % (exc, new or "the host-selected database")
-            )
-        if base.tier == "production":
-            audit({"action": "db-changed-not-followed", "profile": base.name,
-                   "from": old, "candidate": new})
-            raise OdooError(
-                "%s\nThe server now serves %r. Production profiles are not re-pointed "
-                "automatically - the developer updates \"db\" for %r."
-                % (exc, new or "(host-selected)", base.name)
-            )
-        entry = profiles_mod.remember_db(base, new)
-        audit({"action": "db-followed", "profile": base.name, "tier": base.tier,
-               "from": old, "to": new or "(host-selected)"})
-        self.load(force=True)
-        return (
-            "NOTE: the database for profile %r changed: %r -> %r. Updated automatically "
-            "(recorded %s in %s; the developer's servers file is unchanged)."
-            % (base.name, old, new or "(host-selected)", entry["learned_at"],
-               profiles_mod.state_dir() / "learned.json")
-        )
-
-
-def _pick_database(old: str, found: list, pattern: str):
-    cands = [d for d in found if d != old]
-    if pattern:
-        cands = [d for d in cands if re.search(pattern, d)]
-    if len(cands) == 1:
-        return cands[0]
-    stem = re.sub(r"[-_]?\d+$", "", old or "")
-    if stem:
-        same = [d for d in cands if d.startswith(stem)]
-        if len(same) == 1:
-            return same[0]
-    return None
-
-
 KEY_AFTER_REBUILD_HINT = (
-    "\nThe database was renamed, and the API key was rejected: a key created inside a "
-    "staging build is deleted with that build. Fix once: create the MCP user and its API "
-    "key in PRODUCTION - every staging build is a copy of production, so the key then "
-    "survives every rebuild. Put the new key in the developer's servers file (or the env "
-    "variable it references)."
+    "\nIf this staging was rebuilt, an API key created inside the old build died with it. "
+    "Fix once: create the MCP user and its API key in PRODUCTION - every staging build is a "
+    "copy of production, so the key then survives every rebuild - and update the key with "
+    "odoo_mcp.py add."
 )
 
-
-def _write_audit(prof, op, model, count):
-    if getattr(prof, "tier", "local") != "local":
-        audit({"action": "write", "op": op, "model": model, "count": count,
-               "profile": prof.name, "tier": prof.tier, "mode": prof.mode})
+_AUTH_RE = re.compile(r"401|no usable uid|Access Denied|authentication failed")
+_MODE_LABEL = {"read": "read", "write": "write", "write+unlink": "full"}
 
 
-def _status(sess: Session, args: dict) -> str:
-    prof, err = sess.load(force=True)
-    out: dict = {}
+# --------------------------------------------------------------------------
+# Routing
+# --------------------------------------------------------------------------
 
-    if err:
-        out["configuration_error"] = err
-        out["help"] = SETUP_HELP
-        return _dump(out)
 
-    if prof is None or not prof.configured:
-        searched = getattr(prof, "searched", [])
-        problem = getattr(prof, "problem", "")
-        out["connected"] = False
-        if problem:
-            out["problem"] = problem
-        out["searched"] = searched
-        out["help"] = SETUP_HELP
-        cat = sess.catalog
-        if cat is not None and cat.warnings:
-            out["warnings"] = list(cat.warnings)
-        disc = discover()
-        if disc.get("conf_files") or disc.get("compose_files"):
-            out["local_candidate"] = disc
-        elif args.get("suggest_config"):
-            out["discovered"] = disc
-        return _dump(out)
+def _instance(sess, args: dict):
+    """The effective instance for this call. Resolved without any network access,
+    so a refusal never waits on a connection."""
+    inst = sess.effective(sess.resolve(args.get("instance")))
+    sess.current = (inst, None)
+    return inst
 
-    cat = sess.catalog
-    out["profile"] = prof.describe()
-    out["selected_because"] = cat.reason
-    if sess.state.describe():
-        out["session"] = sess.state.describe()
-    others = sorted(n for n in cat.profiles if n != prof.name)
-    if others:
-        out["other_profiles"] = others
+
+def _client(sess, inst):
+    c = sess.client(inst)
+    sess.current = (inst, c)
+    return c
+
+
+def _secrets(sess) -> tuple:
+    cur = getattr(sess, "current", None)
+    return cur[0].secrets() if cur else ()
+
+
+def _tag(sess, inst, client=None) -> str:
+    """[project/instance · database · mode], plus the unlock and legacy markers."""
+    db = getattr(getattr(client, "p", None), "db", "") if client is not None else ""
+    if not db:
+        db = inst.db or ("auto" if inst.db_auto and client is None else "host-selected")
+    tag = "[%s · %s · %s" % (inst.qualified, db, _MODE_LABEL.get(inst.mode, inst.mode))
+    if inst.tier == "prod":
+        until = sess.unlocked_until(inst)
+        if until:
+            tag += " · unlocked until %s" % _hhmm(until)
+    if inst.legacy:
+        tag += " · legacy"
+    return tag + "]"
+
+
+def _not_followed(inst, client, exc) -> str:
     try:
-        out["connection"] = sess.client().whoami()
-        out["connected"] = True
+        found = client.list_databases() if client is not None else None
+    except Exception:
+        found = None
+    return (
+        "%s\ndatabase %r no longer exists on %s; it serves: %s. Not followed - update \"db\" "
+        "with odoo_mcp.py add %s %s --db <name>%s."
+        % (exc, inst.db, inst.url, ", ".join(found) if found else "(listing disabled)",
+           inst.project, inst.name,
+           " (a staging instance can use --db auto)" if inst.tier != "prod" else "")
+    )
+
+
+def _retrying(sess, fn):
+    """Run fn() once more after the two failures a fresh client can fix:
+    a "db": "auto" database that moved, and a rejected login. A fixed database
+    that moved is reported and never followed."""
+    try:
+        return fn()
     except DatabaseMissing as exc:
-        try:
-            out["notice"] = sess.follow_database(exc)
-            prof, _ = sess.load()
-            out["profile"] = prof.describe()
-            out["connection"] = sess.client().whoami()
-            out["connected"] = True
-        except OdooError as exc2:
-            out["connected"] = False
-            out["error"] = str(exc2)
+        cur = getattr(sess, "current", None)
+        if cur is None:
+            raise
+        inst, client = cur
+        if inst.db_auto:
+            sess.drop_client(inst)
+            return fn()
+        raise OdooError(_not_followed(inst, client, exc))
     except OdooError as exc:
+        cur = getattr(sess, "current", None)
+        if cur is None or not _AUTH_RE.search(str(exc)):
+            raise
+        inst = cur[0]
+        sess.drop_client(inst)
+        try:
+            return fn()
+        except OdooError as exc2:
+            msg = str(exc2)
+            if inst.tier == "stage" and _AUTH_RE.search(msg):
+                msg += KEY_AFTER_REBUILD_HINT
+            raise OdooError(msg)
+
+
+def _write_audit(inst, op, model, count):
+    if inst.tier != "local":
+        audit({"action": "write", "op": op, "model": model, "count": count,
+               "instance": inst.qualified, "tier": inst.tier, "mode": inst.mode})
+
+
+# --------------------------------------------------------------------------
+# Status and session
+# --------------------------------------------------------------------------
+
+
+def _row(sess, i) -> dict:
+    if isinstance(i, BrokenInstance):
+        return {"instance": i.qualified, "error": i.error}
+    d = sess.effective(i).describe()
+    until = sess.unlocked_until(i) if i.tier == "prod" else 0.0
+    d["unlocked_until"] = _hhmm(until) if until else None
+    return d
+
+
+def _local_candidate(out: dict, folder) -> None:
+    disc = config.discover(folder)
+    if disc.get("conf_files") or disc.get("compose_files"):
+        out["local_candidate"] = disc
+
+
+def _status(sess, args: dict) -> str:
+    out: dict = {"folder": str(sess.folder), "file": str(sess.loader.path)}
+    try:
+        cfg = sess.config()
+    except ConfigError as exc:
+        out["connected"] = False
+        if sess.loader.path.exists():
+            out["configuration_error"] = str(exc)
+        out["help"] = SETUP_HELP
+        _local_candidate(out, sess.folder)
+        return _dump(out)
+
+    project = cfg.match(sess.folders)
+    out["version"] = cfg.version
+    out["project"] = project.name if project else None
+    if project is not None:
+        out["default"] = project.default_name()
+        out["instances"] = [_row(sess, i) for i in project.instances.values()]
+    else:
+        out["projects"] = {p.name: list(p.paths) for p in cfg.projects.values()}
+        _local_candidate(out, sess.folder)
+
+    def connect():
+        inst = _instance(sess, args)
+        c = _client(sess, inst)
+        return inst, c, c.whoami()
+
+    try:
+        inst, client, who = _retrying(sess, connect)
+        out["target"] = inst.qualified
+        out["tag"] = _tag(sess, inst, client)
+        out["connected"] = True
+        out["connection"] = who
+    except (ConfigError, GuardError, OdooError) as exc:
+        cur = getattr(sess, "current", None)
+        if cur is not None:
+            out["target"] = cur[0].qualified
+            out["tag"] = _tag(sess, cur[0], cur[1])
         out["connected"] = False
         out["error"] = str(exc)
-    warnings = list(cat.warnings)
-    warnings += _hygiene_warnings(cat)
+    if args.get("suggest_config"):
+        out["discovered"] = config.discover(sess.folder)
+    warnings = sess.warnings()
     if warnings:
         out["warnings"] = warnings
-    if sess.state.notices:
-        out["notices"] = sess.state.notices[:]
-        sess.state.notices.clear()
-    if args.get("suggest_config"):
-        out["discovered"] = discover()
-    return _dump(out, sess.secrets())
+    if sess.notices:
+        out["notices"] = sess.notices[:]
+        sess.notices.clear()
+    return _dump(out, _secrets(sess))
 
 
-def _hygiene_warnings(cat) -> list:
-    """Keep ~/.odoo-mcp tidy: flag the patterns that turn it into a mess."""
-    out = []
-    try:
-        sfile = profiles_mod.user_file()
-        if sfile.is_file():
-            raw = json.loads(sfile.read_text(encoding="utf-8"))
-            for name, p in (raw.get("profiles") or {}).items():
-                if isinstance(p, dict) and p.get("api_key") and "${" not in str(p.get("api_key")):
-                    out.append("profile %r stores its API key literally in %s - prefer "
-                               "\"${SOME_ENV_VAR}\"." % (name, sfile.name))
-        known = {"servers.json", "profiles.json", "local", "state", "grants", "audit.log"}
-        home = profiles_mod.home()
-        if home.is_dir():
-            stray = sorted(x.name for x in home.iterdir() if x.name not in known
-                           and not x.name.endswith((".bak", ".tmp")))
-            if stray:
-                out.append("non-config files in %s: %s - project data belongs in the project "
-                           "(e.g. .claude/docs), not the connection store." % (home, ", ".join(stray)))
-    except Exception:
-        pass
-    for prof in cat.profiles.values():
-        if prof.tier == "production" and prof.ceiling != "read":
-            out.append("production profile %r allows %s (ceiling). Confirm that is intended."
-                       % (prof.name, prof.ceiling))
-    return out
+def _session(sess, args: dict) -> str:
+    action = (args.get("action") or "list").strip().lower()
+    if action == "list":
+        cfg = sess.config()
+        project = cfg.match(sess.folders)
+        out = {
+            "project": project.name if project else None,
+            "default": project.default_name() if project else None,
+            "instances": [_row(sess, i) for i in project.instances.values()] if project else [],
+            "projects": sorted(cfg.projects),
+        }
+        if sess.warnings():
+            out["warnings"] = sess.warnings()
+        return _dump(out)
+    if action == "unlock":
+        return _dump(sess.unlock(args.get("instance"), args.get("approved_by_user"),
+                                 args.get("minutes")))
+    if action == "lock":
+        return _dump(sess.lock(args.get("instance")))
+    raise GuardError("action must be one of list, unlock, lock")
 
 
-def _list_models(sess: Session, args: dict) -> str:
-    c = sess.client()
+# --------------------------------------------------------------------------
+# Data tools
+# --------------------------------------------------------------------------
+
+
+def _list_models(sess, args: dict) -> str:
+    inst = _instance(sess, args)
     limit = guards.clamp_limit(args.get("limit"), DEFAULT_LIMIT, MAX_LIMIT)
     domain: list = []
     pattern = (args.get("pattern") or "").strip()
@@ -574,15 +538,17 @@ def _list_models(sess: Session, args: dict) -> str:
         domain = ["|", ["model", "ilike", pattern], ["name", "ilike", pattern]]
     if not args.get("transient"):
         domain = domain + [["transient", "=", False]]
+    c = _client(sess, inst)
     rows = c.search_read(
         "ir.model", domain, fields=["model", "name", "transient"], limit=limit, order="model"
     )
-    return _dump({"count": len(rows), "models": rows}, sess.secrets())
+    return _dump({"count": len(rows), "models": rows}, inst.secrets())
 
 
-def _inspect_model(sess: Session, args: dict) -> str:
-    c = sess.client()
+def _inspect_model(sess, args: dict) -> str:
+    inst = _instance(sess, args)
     model = guards.check_model_name(args.get("model"))
+    c = _client(sess, inst)
 
     meta = c.fields_get(
         model,
@@ -627,17 +593,18 @@ def _inspect_model(sess: Session, args: dict) -> str:
             "your_access": access,
             "fields": fields,
         },
-        sess.secrets(),
+        inst.secrets(),
     )
 
 
-def _search(sess: Session, args: dict) -> str:
-    c = sess.client()
+def _search(sess, args: dict) -> str:
+    inst = _instance(sess, args)
     model = guards.check_model_name(args.get("model"))
     domain = guards.check_domain(args.get("domain"))
     ctx = guards.check_context(args.get("context"))
     limit = guards.clamp_limit(args.get("limit"), DEFAULT_LIMIT, MAX_LIMIT)
     fields = args.get("fields") or None
+    c = _client(sess, inst)
 
     rows = c.search_read(
         model, domain, fields=fields, limit=limit,
@@ -655,26 +622,28 @@ def _search(sess: Session, args: dict) -> str:
             )
     if not fields:
         out["hint"] = "No `fields` given, so every field was returned. Pass `fields` to save context."
-    return _dump(out, sess.secrets())
+    return _dump(out, inst.secrets())
 
 
-def _count(sess: Session, args: dict) -> str:
-    c = sess.client()
+def _count(sess, args: dict) -> str:
+    inst = _instance(sess, args)
     model = guards.check_model_name(args.get("model"))
     domain = guards.check_domain(args.get("domain"))
     ctx = guards.check_context(args.get("context"))
+    c = _client(sess, inst)
     return _dump({"model": model, "count": c.search_count(model, domain, context=ctx)},
-                 sess.secrets())
+                 inst.secrets())
 
 
-def _read_group(sess: Session, args: dict) -> str:
-    c = sess.client()
+def _read_group(sess, args: dict) -> str:
+    inst = _instance(sess, args)
     model = guards.check_model_name(args.get("model"))
     domain = guards.check_domain(args.get("domain"))
     ctx = guards.check_context(args.get("context"))
     groupby = args.get("groupby") or []
     if not isinstance(groupby, list) or not groupby:
         raise GuardError("groupby must be a non-empty list, e.g. [\"partner_id\"]")
+    c = _client(sess, inst)
     rows = c.read_group(
         model, domain, args.get("fields") or [], groupby,
         limit=guards.clamp_limit(args.get("limit"), DEFAULT_LIMIT, MAX_LIMIT),
@@ -682,7 +651,7 @@ def _read_group(sess: Session, args: dict) -> str:
         lazy=args.get("lazy", True) is not False,
         context=ctx,
     )
-    return _dump({"model": model, "groups": rows}, sess.secrets())
+    return _dump({"model": model, "groups": rows}, inst.secrets())
 
 
 def _fields_resolver(c):
@@ -698,12 +667,11 @@ def _fields_resolver(c):
     return fields_of
 
 
-def _call(sess: Session, args: dict) -> str:
-    c = sess.client()
-    prof, _ = sess.load()
+def _call(sess, args: dict) -> str:
+    inst = _instance(sess, args)
     model = guards.check_model_name(args.get("model"))
     method = guards.check_method_name(args.get("method"))
-    guards.check_call_allowed(prof, model, method)
+    guards.check_call_allowed(inst, model, method)
     ids = guards.check_ids(args.get("ids"))
     kwargs = args.get("kwargs") or {}
     if not isinstance(kwargs, dict):
@@ -721,41 +689,41 @@ def _call(sess: Session, args: dict) -> str:
         raise GuardError("context must be an object/dict")
     merged.update(top or {})
     ctx = guards.check_context(merged)
+    c = _client(sess, inst)
     if method not in guards.READ_ONLY_METHODS:
         # vals / vals_list / default (or any dict argument of a business method)
         # can carry x2many commands that reach other models.
         op = "create" if guards.CALL_METHOD_OPS.get(method) == "create" else "write"
         fields_of = _fields_resolver(c)
         for value in kwargs.values():
-            guards.check_nested_values(prof, model, value, op, fields_of)
+            guards.check_nested_values(inst, model, value, op, fields_of)
     result = c.call(model, method, ids=ids, kwargs=kwargs, context=ctx)
     if method not in guards.READ_ONLY_METHODS:
-        _write_audit(prof, method, model, len(ids))
-    return _dump({"model": model, "method": method, "result": result}, sess.secrets())
+        _write_audit(inst, method, model, len(ids))
+    return _dump({"model": model, "method": method, "result": result}, inst.secrets())
 
 
-def _create(sess: Session, args: dict) -> str:
-    c = sess.client()
-    prof, _ = sess.load()
+def _create(sess, args: dict) -> str:
+    inst = _instance(sess, args)
     model = guards.check_model_name(args.get("model"))
-    guards.check_write_allowed(prof, model, "create")
+    guards.check_write_allowed(inst, model, "create")
     ctx = guards.check_context(args.get("context"))
     values = args.get("values")
     if isinstance(values, dict):
         values = [values]
     if not isinstance(values, list) or not values or not all(isinstance(v, dict) for v in values):
         raise GuardError("values must be a non-empty list of objects")
-    guards.check_nested_values(prof, model, values, "create", _fields_resolver(c))
+    c = _client(sess, inst)
+    guards.check_nested_values(inst, model, values, "create", _fields_resolver(c))
     ids = c.create(model, values, context=ctx)
-    _write_audit(prof, "create", model, len(values))
-    return _dump({"model": model, "created_ids": ids, "count": len(values)}, sess.secrets())
+    _write_audit(inst, "create", model, len(values))
+    return _dump({"model": model, "created_ids": ids, "count": len(values)}, inst.secrets())
 
 
-def _write(sess: Session, args: dict) -> str:
-    c = sess.client()
-    prof, _ = sess.load()
+def _write(sess, args: dict) -> str:
+    inst = _instance(sess, args)
     model = guards.check_model_name(args.get("model"))
-    guards.check_write_allowed(prof, model, "write")
+    guards.check_write_allowed(inst, model, "write")
     ctx = guards.check_context(args.get("context"))
     ids = guards.check_ids(args.get("ids"))
     if not ids:
@@ -763,76 +731,27 @@ def _write(sess: Session, args: dict) -> str:
     values = args.get("values")
     if not isinstance(values, dict) or not values:
         raise GuardError("values must be a non-empty object of field -> value")
-    guards.check_nested_values(prof, model, values, "write", _fields_resolver(c))
+    c = _client(sess, inst)
+    guards.check_nested_values(inst, model, values, "write", _fields_resolver(c))
     ok = c.write(model, ids, values, context=ctx)
-    _write_audit(prof, "write", model, len(ids))
+    _write_audit(inst, "write", model, len(ids))
     return _dump(
-        {"model": model, "updated_ids": ids, "count": len(ids), "result": ok}, sess.secrets()
+        {"model": model, "updated_ids": ids, "count": len(ids), "result": ok}, inst.secrets()
     )
 
 
-def _unlink(sess: Session, args: dict) -> str:
-    c = sess.client()
-    prof, _ = sess.load()
+def _unlink(sess, args: dict) -> str:
+    inst = _instance(sess, args)
     model = guards.check_model_name(args.get("model"))
-    guards.check_write_allowed(prof, model, "unlink")
+    guards.check_write_allowed(inst, model, "unlink")
     ctx = guards.check_context(args.get("context"))
     ids = guards.check_ids(args.get("ids"))
     if not ids:
         raise GuardError("ids must contain at least one record id")
+    c = _client(sess, inst)
     ok = c.unlink(model, ids, context=ctx)
-    _write_audit(prof, "unlink", model, len(ids))
-    return _dump({"model": model, "deleted_ids": ids, "result": ok}, sess.secrets())
-
-
-def _session(sess: Session, args: dict) -> str:
-    action = (args.get("action") or "list").strip().lower()
-    if action == "reset":
-        sess.state.reset()
-        sess.load(force=True)
-        prof, _ = sess.load()
-        return _dump({"reset": True, "active": getattr(prof, "name", None),
-                      "mode": getattr(prof, "mode", None)}, sess.secrets())
-
-    cat = sess.catalog
-    if cat is None:
-        raise ProfileError(sess._error or "configuration could not be loaded")
-
-    if action == "list":
-        active = cat.chosen
-        rows = []
-        for name in sorted(cat.profiles):
-            p = cat.profiles[name]
-            view = sess.state.effective(p) if name == active else p
-            d = view.describe()
-            rows.append({k: d[k] for k in ("profile", "kind", "tier", "url", "database", "mode",
-                                           "ceiling", "approval_to_raise", "source") if k in d})
-        return _dump({"active": active, "selected_because": cat.reason,
-                      "session": sess.state.describe() or None,
-                      "profiles": rows, "warnings": cat.warnings or None}, sess.secrets())
-
-    if action == "use":
-        name = (args.get("profile") or "").strip()
-        if name not in cat.profiles:
-            raise ApprovalError("unknown profile %r. Available: %s"
-                                % (name, ", ".join(sorted(cat.profiles)) or "(none)"))
-        out = sess.state.use(cat.profiles[name], args.get("approved_by_user"))
-        sess.load(force=True)
-        prof, _ = sess.load()
-        out["profile"] = prof.describe()
-        return _dump(out, sess.secrets())
-
-    if action == "mode":
-        target = (args.get("mode") or "").strip().lower()
-        base = sess.base_profile()
-        models = args.get("models") or []
-        if not isinstance(models, list):
-            raise GuardError("models must be a list of model names")
-        out = sess.state.set_mode(base, target, args.get("ttl_minutes"), models,
-                                  args.get("reason") or "", args.get("approved_by_user"))
-        return _dump(out, sess.secrets())
-
-    raise GuardError("action must be one of list, use, mode, reset")
+    _write_audit(inst, "unlink", model, len(ids))
+    return _dump({"model": model, "deleted_ids": ids, "result": ok}, inst.secrets())
 
 
 HANDLERS = {
@@ -849,40 +768,39 @@ HANDLERS = {
     "odoo_unlink": _unlink,
 }
 
-
-def _with_notices(sess: Session, text: str) -> str:
-    if sess.state.notices:
-        notes = "\n".join("NOTE: %s" % n for n in sess.state.notices)
-        sess.state.notices.clear()
-        return notes + "\n\n" + text
-    return text
+# These answer with one JSON document that already carries the target, warnings
+# and notices, so callers can parse it; every other result is framed by _frame.
+_JSON_TOOLS = ("odoo_status", "odoo_session")
 
 
-def dispatch(sess: Session, name: str, args: dict):
+def _frame(sess, body: str) -> str:
+    lines = []
+    cur = getattr(sess, "current", None)
+    if cur is not None:
+        lines.append(_tag(sess, cur[0], cur[1]))
+    lines += ["WARNING: %s" % w for w in sess.warnings()]
+    lines += ["NOTE: %s" % n for n in sess.notices]
+    sess.notices.clear()
+    lines.append(body)
+    return "\n".join(lines)
+
+
+def dispatch(sess, name: str, args: dict):
     """Return (text, is_error). Never raises."""
     handler = HANDLERS.get(name)
     if handler is None:
         return ("Unknown tool %r. Available: %s" % (name, ", ".join(sorted(HANDLERS))), True)
+    args = args or {}
+    sess.current = None
     try:
-        return _with_notices(sess, handler(sess, args or {})), False
-    except DatabaseMissing as exc:
-        try:
-            notice = sess.follow_database(exc)
-        except (GuardError, ProfileError, ApprovalError, OdooError) as exc2:
-            return ("Odoo error: %s" % guards.redact(str(exc2), sess.secrets()), True)
-        try:
-            return notice + "\n\n" + handler(sess, args or {}), False
-        except OdooError as exc2:
-            msg = str(exc2)
-            if re.search(r"401|no usable uid|Access Denied|authentication failed", msg):
-                msg += KEY_AFTER_REBUILD_HINT
-            return (notice + "\n\nOdoo error: %s" % guards.redact(msg, sess.secrets()), True)
-    except (GuardError, ProfileError, ApprovalError) as exc:
-        return ("Refused: %s" % guards.redact(str(exc), sess.secrets()), True)
+        body, is_error = _retrying(sess, lambda: handler(sess, args)), False
+    except (GuardError, ConfigError, ApprovalError) as exc:
+        body, is_error = "Refused: %s" % guards.redact(str(exc), _secrets(sess)), True
     except OdooError as exc:
-        return ("Odoo error: %s" % guards.redact(str(exc), sess.secrets()), True)
+        body, is_error = "Odoo error: %s" % guards.redact(str(exc), _secrets(sess)), True
     except Exception as exc:  # never kill the server on a bad tool call
-        return (
-            "Unexpected %s: %s" % (type(exc).__name__, guards.redact(str(exc), sess.secrets())),
-            True,
-        )
+        body, is_error = ("Unexpected %s: %s"
+                          % (type(exc).__name__, guards.redact(str(exc), _secrets(sess)))), True
+    if name in _JSON_TOOLS and not is_error:
+        return body, False
+    return _frame(sess, body), is_error
