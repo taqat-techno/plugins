@@ -3,7 +3,7 @@ name: devops
 description: "Use when the user works with Azure DevOps: work items (create, update state, comment with @mentions, link, log hours), pull requests, sprints, standups, builds and pipelines, wiki, test plans, the az devops CLI, or the azure-devops MCP server. Also use when an Azure DevOps call fails: TF401320 on Completed Work (set Original Estimate first, never drop it), MCP auth or unknown-tool errors, an empty work item search, or a denied branch or push."
 license: "MIT"
 metadata:
-  version: "8.0.1"
+  version: "8.1.0"
   last_reviewed: "2026-10-19"
   author: "TAQAT Techno"
   mode: "hybrid"
@@ -21,7 +21,7 @@ user-invocable: false
 - **MCP Server**: `@azure-devops/mcp@2.8.0` (pinned on purpose; 2.9.0 renames every tool), started by `${CLAUDE_PLUGIN_ROOT}/scripts/ado-mcp-launch.js`
 - **CLI Extension**: `azure-devops` (via Azure CLI 2.30.0+)
 - **Auth CLI**: `AZURE_DEVOPS_EXT_PAT` env var
-- **Auth MCP**: plugin option `ado_token` (OS credential store), else the `ADO_MCP_AUTH_TOKEN` env var
+- **Auth MCP**: `ado_auth_mode` (default `auto`): browser sign-in with the company account, `az login` (`azcli`), or a PAT (`ado_token`, else `ADO_MCP_AUTH_TOKEN` / `ADO_MCP_AUTH_TOKEN_FILE`). `ado_read_only` removes every write tool
 - **Tools**: 90 MCP tools + full CLI
 - **MCP Failures**: If MCP server is unavailable, see `${CLAUDE_PLUGIN_ROOT}/skills/devops/MCP_FAILURE_MODES.md` for recovery and CLI fallback matrix.
 
@@ -41,7 +41,7 @@ The official `@azure-devops/mcp` server in `--authentication envvar` mode reads 
 | Organization | plugin option `ado_organization`, or env `ADO_ORGANIZATION` (name only, no URL) | a full URL with a project path |
 | Auth mode | `--authentication envvar` (set by the launcher) | mismatched mode vs. the var you set |
 
-Never ask the user to paste a PAT into the chat; point them to `/config`.
+Never ask the user to paste a PAT into the chat; point them to `/config`. Prefer browser sign-in (no PAT) where it is available.
 
 ### Tool names drift across MCP versions
 

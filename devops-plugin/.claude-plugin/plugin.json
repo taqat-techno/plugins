@@ -1,8 +1,8 @@
 {
   "name": "devops",
-  "version": "8.0.1",
+  "version": "8.1.0",
   "license": "MIT",
-  "description": "Azure DevOps for Claude Code: work items, pull requests, sprints, standups and time logging through the pinned @azure-devops/mcp 2.8.0 server and the az CLI, with stock Basic/Agile/Scrum/CMMI process presets, a hook that asks before 26 MCP write tools and Azure DevOps CLI writes, and process validation on the other five write tools.",
+  "description": "Azure DevOps for Claude Code: work items, pull requests, sprints, standups and time logging through the pinned @azure-devops/mcp 2.8.0 server and the az CLI (browser sign-in, az login or PAT; optional read-only mode), with stock Basic/Agile/Scrum/CMMI process presets, a hook that asks before 26 MCP write tools and Azure DevOps CLI writes, and process validation on the other five write tools.",
   "author": {
     "name": "TaqaTechno",
     "email": "info@taqatechno.com",
@@ -10,7 +10,13 @@
   },
   "homepage": "https://github.com/taqat-techno/plugins/tree/main/devops-plugin",
   "repository": "https://github.com/taqat-techno/plugins",
-  "keywords": ["azure-devops", "work-items", "pull-requests", "sprint", "mcp"],
+  "keywords": [
+    "azure-devops",
+    "work-items",
+    "pull-requests",
+    "sprint",
+    "mcp"
+  ],
   "userConfig": {
     "ado_organization": {
       "type": "string",
@@ -20,8 +26,8 @@
     },
     "ado_token": {
       "type": "string",
-      "title": "Azure DevOps Personal Access Token",
-      "description": "PAT used by the Azure DevOps MCP server. Stored in the OS credential store. Leave empty to use the ADO_MCP_AUTH_TOKEN environment variable.",
+      "title": "Azure DevOps Personal Access Token (optional)",
+      "description": "Only needed for PAT sign-in. Leave empty to sign in with your company account in the browser (no PAT, no admin rights). Stored in the OS credential store. Falls back to the ADO_MCP_AUTH_TOKEN environment variable.",
       "sensitive": true
     },
     "ado_project": {
@@ -35,6 +41,24 @@
       "title": "Default team (optional)",
       "description": "Team the MCP server uses when a tool call names none. Leave empty to use ADO_MCP_TEAM.",
       "default": ""
+    },
+    "ado_auth_mode": {
+      "type": "string",
+      "title": "Sign-in method",
+      "description": "auto (default): PAT if one is set, otherwise browser sign-in. interactive: browser sign-in with your company account. azcli: reuse an existing 'az login'. pat: Personal Access Token.",
+      "default": "auto"
+    },
+    "ado_tenant": {
+      "type": "string",
+      "title": "Tenant (optional)",
+      "description": "Entra tenant id or domain, only if your company has more than one tenant. Leave empty otherwise.",
+      "default": ""
+    },
+    "ado_read_only": {
+      "type": "boolean",
+      "title": "Read-only mode",
+      "description": "When on, every Azure DevOps write tool is removed and blocked, so nothing can be created or changed. Useful for a safe first run or a shared machine.",
+      "default": false
     },
     "daily_hours_target": {
       "type": "number",

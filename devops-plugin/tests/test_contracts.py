@@ -293,9 +293,10 @@ class TestLauncher:
         r = _resolve({"ADO_ORGANIZATION": "https://dev.azure.com/contoso/Project", "ADO_MCP_AUTH_TOKEN": "t"})
         assert r["cfg"]["organization"] == "contoso"
 
-    def test_missing_values_are_errors(self):
+    def test_only_the_organization_is_required_without_a_token(self):
+        # No token is fine: auto falls back to browser sign-in (tests/test_auth_and_readonly.py).
         r = _resolve({})
-        assert len(r["errors"]) == 2
+        assert len(r["errors"]) == 1 and "organization" in r["errors"][0]
 
     def test_shell_metacharacters_in_org_are_refused(self):
         r = _resolve({"ADO_ORGANIZATION": "contoso&calc", "ADO_MCP_AUTH_TOKEN": "t"}, "win32")

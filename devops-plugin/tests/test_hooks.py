@@ -428,7 +428,8 @@ SESSION_HOOK = HOOK.parent / "session_start_check.py"
 MCP_JSON = HOOK.parent.parent / ".mcp.json"
 _CONFIG_VARS = ("ADO_ORGANIZATION", "ADO_MCP_AUTH_TOKEN", "ADO_MCP_PROJECT", "ADO_MCP_TEAM",
                 "CLAUDE_PLUGIN_DATA", "CLAUDE_PLUGIN_OPTION_ADO_ORGANIZATION",
-                "CLAUDE_PLUGIN_OPTION_ADO_TOKEN", "CLAUDE_PLUGIN_OPTION_PROFILE_STALE_DAYS")
+                "CLAUDE_PLUGIN_OPTION_ADO_TOKEN", "CLAUDE_PLUGIN_OPTION_PROFILE_STALE_DAYS",
+                "CLAUDE_PLUGIN_OPTION_ADO_AUTH_MODE", "ADO_AUTH_MODE", "ADO_MCP_AUTH_TOKEN_FILE")
 
 
 def run_session_raw(tmp_path, legacy_profile=None, data_profile=None, **env_overrides):
@@ -485,13 +486,14 @@ class TestMcpConfig:
 
     def test_unset_config_gets_clear_session_warning(self, tmp_path):
         ctx = run_session_hook(tmp_path)
-        assert "no organization or token is set" in ctx
-        assert "/config" in ctx and "ADO_MCP_AUTH_TOKEN" in ctx
+        assert "no organization is set" in ctx
+        assert "/config" in ctx and "ADO_ORGANIZATION" in ctx
+        assert "ADO_MCP_AUTH_TOKEN" not in ctx  # a token is optional now
 
     def test_empty_and_placeholder_values_count_as_unset(self, tmp_path):
         ctx = run_session_hook(tmp_path, ADO_ORGANIZATION="", ADO_MCP_AUTH_TOKEN="  ",
                                CLAUDE_PLUGIN_OPTION_ADO_TOKEN="${user_config.ado_token}")
-        assert "no organization or token is set" in ctx
+        assert "no organization is set" in ctx
 
     def test_env_fallback_counts_as_configured(self, tmp_path):
         ctx = run_session_hook(tmp_path, **CONFIGURED)
@@ -502,9 +504,19 @@ class TestMcpConfig:
                                CLAUDE_PLUGIN_OPTION_ADO_TOKEN="x")
         assert "MCP is not configured" not in ctx
 
-    def test_only_token_missing_names_the_token(self, tmp_path):
+    def test_missing_token_is_not_a_warning_unless_pat_mode(self, tmp_path):
         ctx = run_session_hook(tmp_path, CLAUDE_PLUGIN_OPTION_ADO_ORGANIZATION="contoso")
+        assert "MCP is not configured" not in ctx  # auto = browser sign-in
+
+    def test_pat_mode_without_token_names_the_token(self, tmp_path):
+        ctx = run_session_hook(tmp_path, CLAUDE_PLUGIN_OPTION_ADO_ORGANIZATION="contoso",
+                               CLAUDE_PLUGIN_OPTION_ADO_AUTH_MODE="pat")
         assert "no token is set" in ctx
+
+    def test_pat_mode_with_token_file_is_configured(self, tmp_path):
+        ctx = run_session_hook(tmp_path, CLAUDE_PLUGIN_OPTION_ADO_ORGANIZATION="contoso",
+                               CLAUDE_PLUGIN_OPTION_ADO_AUTH_MODE="pat", ADO_MCP_AUTH_TOKEN_FILE="C:/x/pat.txt")
+        assert "MCP is not configured" not in ctx
 
     def test_placeholder_text_is_never_echoed(self, tmp_path):
         out = run_session_raw(tmp_path, ADO_ORGANIZATION="contoso",

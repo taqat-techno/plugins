@@ -97,7 +97,8 @@ environment variables (`${CLAUDE_PLUGIN_ROOT}/scripts/ado-mcp-launch.js`):
 | Setting | Plugin option (preferred) | Fallback environment variable |
 |---------|---------------------------|-------------------------------|
 | Organization | `ado_organization` | `ADO_ORGANIZATION` |
-| Personal Access Token | `ado_token` (sensitive: kept in the OS credential store) | `ADO_MCP_AUTH_TOKEN` |
+| Sign-in method | `ado_auth_mode`: `auto` (default; browser sign-in with the company account when no PAT is set), `interactive`, `azcli`, `pat` | `ADO_AUTH_MODE` |
+| Personal Access Token (only for PAT sign-in) | `ado_token` (sensitive: kept in the OS credential store) | `ADO_MCP_AUTH_TOKEN`, or `ADO_MCP_AUTH_TOKEN_FILE` |
 | Default project (optional) | `ado_project` | `ADO_MCP_PROJECT` |
 | Default team (optional) | `ado_team` | `ADO_MCP_TEAM` |
 

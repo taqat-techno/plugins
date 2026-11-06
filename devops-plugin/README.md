@@ -30,10 +30,10 @@ Access Token among them). You can change them later in `/config`. Then run `/ini
 |-------------|----------|-------|
 | Node.js with `npx` (current LTS, 20 or later) | Runs the MCP server launcher and `@azure-devops/mcp@2.8.0` (downloaded from npm on first start) | `node --version`, `npx --version` |
 | Python 3.8+ as `python3`, `python` or `py -3` | The three hooks | `python3 --version` |
-| An Azure DevOps organization and a Personal Access Token | Every MCP call | `/init status` |
+| An Azure DevOps organization, and a way to sign in: your company account in the browser (default), `az login`, or a Personal Access Token | Every MCP call | `/init status` |
 | Azure CLI 2.30+ with the `azure-devops` extension (optional) | `/cli-run`, team members during `/init profile`, CLI fallbacks | `az --version`, `az extension show --name azure-devops` |
 
-**PAT scopes:** grant the narrowest set you need, typically Work Items (Read & Write),
+**PAT scopes (only if you use a PAT):** grant the narrowest set you need, typically Work Items (Read & Write),
 Code (Read & Write) and Build (Read). Add Build (Read & Execute) only to run pipelines.
 Use a short expiry.
 
@@ -87,7 +87,10 @@ normal Claude Code permission flow.
 | Option | Meaning | Fallback environment variable |
 |--------|---------|-------------------------------|
 | `ado_organization` | Organization name (e.g. `contoso` for `https://dev.azure.com/contoso`) | `ADO_ORGANIZATION` |
-| `ado_token` | Personal Access Token. Sensitive: kept in the OS credential store, never in `settings.json` | `ADO_MCP_AUTH_TOKEN` |
+| `ado_token` | Optional. Personal Access Token for PAT sign-in. Sensitive: kept in the OS credential store, never in `settings.json` | `ADO_MCP_AUTH_TOKEN` or `ADO_MCP_AUTH_TOKEN_FILE` (path to a file whose first line is the PAT) |
+| `ado_auth_mode` | `auto` (default), `interactive`, `azcli` or `pat` | `ADO_AUTH_MODE` |
+| `ado_tenant` | Entra tenant id or domain, only for companies with several tenants | `ADO_TENANT` |
+| `ado_read_only` | `true` removes and blocks every write tool | `ADO_MCP_READONLY` |
 | `ado_project` | Default project, so the server never stops to ask which project | `ADO_MCP_PROJECT` |
 | `ado_team` | Default team | `ADO_MCP_TEAM` |
 | `daily_hours_target` | Hours per working day for `/workday` and `/timesheet` (default 6) | — |
@@ -99,6 +102,23 @@ set and from the environment variable otherwise, then runs `npx -y @azure-devops
 <org> --authentication envvar`. If neither is set the server does not start and `/mcp`
 shows which value is missing. Existing setups that use only the environment variables keep
 working unchanged.
+
+**Signing in without a PAT (recommended for company laptops).** Leave `ado_token` empty. In
+`auto` mode the first MCP call opens a browser sign-in with your normal company account
+(Entra ID, MFA included) and the server caches the session; nothing is stored in a system
+variable and no admin right is needed. If you already use `az login`, set `ado_auth_mode` to
+`azcli`. Use a PAT only where no browser is available (bots, CI, SSH sessions). The launcher
+prints the method it chose to stderr, for example `authentication: interactive (no token is
+configured)`. Node.js can be installed per user, without admin rights.
+
+**Read-only mode.** With `ado_read_only` on, `scripts/ado-mcp-launch.js` sits between Claude
+and the server and drops every write tool (`data/write_tools.json`). This holds even if a
+prompt is subverted, and it is the same mechanism the agent package uses.
+
+**Other agent hosts (OpenClaw and similar).** Build a lean package with
+`python scripts/build_agent_plugin.py --out <dir>` (then, for OpenClaw, `openclaw plugins install <dir>`).
+It holds only the launcher and one bot-facing skill and starts read-only. Hooks, commands and
+subagents are Claude Code features and are not part of it. It is built on demand, not committed.
 
 Other environment variables: `AZURE_DEVOPS_EXT_PAT` (the Azure CLI's own PAT variable).
 

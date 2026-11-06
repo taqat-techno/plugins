@@ -44,6 +44,9 @@ HOOKS (4)       hooks/session_start_check.py  SessionStart: config + profile hea
      |
 MCP (1)         .mcp.json -> scripts/ado-mcp-launch.js -> npx @azure-devops/mcp@2.8.0
                 launcher resolves userConfig first, then ADO_* env vars
+                launcher picks the sign-in (auto: PAT if set, else browser; azcli; pat), reads a PAT
+                file, and in read-only mode proxies stdio, allowing only data/write_tools.json "read"
+                scripts/build_agent_plugin.py --out <dir> -> lean package for non-Claude hosts
 ```
 
 ## State and configuration

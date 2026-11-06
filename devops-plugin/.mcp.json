@@ -2,12 +2,17 @@
   "azure-devops": {
     "type": "stdio",
     "command": "node",
-    "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/ado-mcp-launch.js"],
+    "args": [
+      "${CLAUDE_PLUGIN_ROOT}/scripts/ado-mcp-launch.js"
+    ],
     "env": {
       "ADO_PLUGIN_ORGANIZATION": "${user_config.ado_organization}",
       "ADO_PLUGIN_TOKEN": "${user_config.ado_token}",
       "ADO_PLUGIN_PROJECT": "${user_config.ado_project}",
       "ADO_PLUGIN_TEAM": "${user_config.ado_team}",
+      "ADO_PLUGIN_AUTH_MODE": "${user_config.ado_auth_mode}",
+      "ADO_PLUGIN_TENANT": "${user_config.ado_tenant}",
+      "ADO_PLUGIN_READONLY": "${user_config.ado_read_only}",
       "ADO_ORGANIZATION": "${ADO_ORGANIZATION:-}",
       "ADO_MCP_AUTH_TOKEN": "${ADO_MCP_AUTH_TOKEN:-}",
       "ADO_MCP_PROJECT": "${ADO_MCP_PROJECT:-}",

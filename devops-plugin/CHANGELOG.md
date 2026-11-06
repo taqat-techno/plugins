@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [8.1.0] - 2026-11-05
+
+### Added
+- **No PAT needed by default.** The launcher now chooses how the Azure DevOps MCP server signs in:
+  `auto` (default: PAT if one is configured, otherwise browser sign-in with the user's company
+  account), `interactive`, `azcli` (reuse `az login`) or `pat`. Browser sign-in and `az login`
+  need no system variable, no admin right and no token to rotate, which is what locked-down
+  company laptops need. New plugin options: `ado_auth_mode`, `ado_tenant`. `ado_token` is now
+  optional and only used for PAT sign-in.
+- **PAT from a file.** `ADO_MCP_AUTH_TOKEN_FILE` names a file whose first line is the PAT, so a
+  bot host can keep the token out of config files. The file's content is never printed; errors
+  name only the path.
+- **Read-only mode that does not depend on the model or on hooks.** `ado_read_only` (or
+  `ADO_MCP_READONLY=true`) makes the launcher a stdio proxy: write tools are removed from
+  `tools/list` and any `tools/call` outside the allowlist is refused before it reaches the
+  server. Fail-closed: a tool not listed in `data/write_tools.json` is blocked, and the
+  launcher refuses to start if the allowlist cannot be read.
+- **`data/write_tools.json`**: one classification of every 2.8.0 tool as read or write. Tests
+  require it to match `hooks/hooks.json` and the captured tool surface.
+- **Agent package builder** `scripts/build_agent_plugin.py --out <dir>`: writes a lean package in
+  the vendor-neutral Agent Plugins layout (launcher, one bot-facing skill from
+  `data/agent_skill.md`, `mcp.json`) for hosts that cannot run Claude Code hooks, commands or
+  subagents (for example OpenClaw bots). It starts in read-only mode. Built on demand and not
+  committed, so it cannot drift and does not trip the marketplace skill-discovery check.
+
+### Changed
+- The session-start check no longer warns about a missing token unless the sign-in method is
+  `pat`.
+- The launcher prints the chosen sign-in method (never a secret) to stderr at start.
+- The Node.js error message notes that a per-user install needs no admin rights.
+
 ## [8.0.1] - 2026-10-19
 
 ### Security

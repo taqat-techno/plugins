@@ -115,15 +115,22 @@ def _mcp_env_messages() -> list:
     this is the clear error.
     """
     out = []
-    missing = [label for opt, env, label in _REQUIRED if not (_value(opt) or _value(env))]
+    # The token is needed only for PAT sign-in. The default (auto) signs in through the
+    # browser when no token is set, and azcli reuses `az login`, so neither needs one.
+    mode = (_value("CLAUDE_PLUGIN_OPTION_ADO_AUTH_MODE") or _value("ADO_AUTH_MODE") or "auto").lower()
+    required = [r for r in _REQUIRED if r[2] != "token" or mode == "pat"]
+    missing = [label for opt, env, label in required
+               if not (_value(opt) or _value(env) or (label == "token" and _value("ADO_MCP_AUTH_TOKEN_FILE")))]
     if missing:
         out.append(
             "[DevOps] Azure DevOps MCP is not configured: no "
             + " or ".join(missing)
             + " is set. Every azure-devops tool call will fail until it is. Set it in "
-            "/config (plugin options for devops: ado_organization, ado_token), or set the "
-            "ADO_ORGANIZATION / ADO_MCP_AUTH_TOKEN environment variables. Run /init for "
-            "guided setup."
+            "/config (plugin options for devops: ado_organization"
+            + (", ado_token" if "token" in missing else "")
+            + "), or set the ADO_ORGANIZATION"
+            + (" / ADO_MCP_AUTH_TOKEN" if "token" in missing else "")
+            + " environment variables. Run /init for guided setup."
         )
     for var in ("ADO_ORGANIZATION", "ADO_MCP_AUTH_TOKEN", "ADO_MCP_PROJECT", "ADO_MCP_TEAM"):
         val = os.environ.get(var, "").strip()

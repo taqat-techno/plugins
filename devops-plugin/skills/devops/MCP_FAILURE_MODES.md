@@ -36,6 +36,8 @@ When the Azure DevOps MCP server (`@azure-devops/mcp`, pinned at 2.8.0) is unava
 
 **CLI Fallback**: `az login` uses device code authentication (no PAT needed).
 
+**No PAT needed**: set `ado_auth_mode` to `interactive` (browser sign-in) or `azcli` (existing `az login`); nothing expires or needs rotating.
+
 **Prevention**: PAT expires after 1 year max. Set a calendar reminder to regenerate before expiry.
 
 ---
