@@ -23,7 +23,7 @@ _WHAT = {
     "calendar_commit": "CREATE the staged calendar event {stage_id}. Invitations are sent to the attendees.",
     "teams_commit": "SEND the staged Teams message {stage_id} now. It is delivered at once and cannot be unsent.",
     "email_discard_draft": "DELETE the draft {draft_id} from your Drafts folder.",
-    "m365_setup_save": "SAVE the Microsoft 365 setup: client id {client_id}, tenant {tenant}, permissions mode {scope_mode}, sign-in method {auth_mode} (a dash means unchanged). Approve only values your admin gave you.",
+    "m365_setup_save": "SAVE the Microsoft 365 setup: client id {client_id}, tenant {tenant}, permissions mode {scope_mode}, sign-in method {auth_mode}, sign-in redirect {redirect_uri} (a dash means unchanged). Approve only values your admin gave you.",
     "email_delete": "MOVE message {message_id} to Deleted Items (recoverable from there).",
     "onedrive_share_link": "CREATE an organization-wide view link for OneDrive item {item_id}.",
 }
@@ -52,7 +52,7 @@ def main():
     except Exception:
         pass
     template = _WHAT.get(name, "make a change in Microsoft 365 that others can see or that cannot be undone.")
-    keys = ("draft_id", "stage_id", "message_id", "item_id", "client_id", "tenant", "scope_mode", "auth_mode")
+    keys = ("draft_id", "stage_id", "message_id", "item_id", "client_id", "tenant", "scope_mode", "auth_mode", "redirect_uri")
     values = {k: tool_input.get(k, "-") for k in keys}
     if any(len(str(v)) > _LIMIT for v in values.values()):
         # A value too long to show in full could hide what the call really does: do not offer a prompt, refuse.

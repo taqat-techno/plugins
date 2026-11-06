@@ -48,6 +48,10 @@ let the user pick the situation that fits them:
    it. No new admin approval is needed, because that tool's sign-in was already approved. Then call `m365_auth_status`:
    it picks the change up without a restart. The plugin writes a renewed token back to the same file, as its owner does.
    Skip step 3.
+   If the app registration allows only one exact redirect address (common for an app made for a bot, for example
+   `http://localhost:8400/callback`), also save it: `m365_setup_save` with `redirect_uri`, then sign in with
+   `m365_sign_in` `mode: "interactive"`. An app with a secret also needs the secret's file, which the user sets
+   themselves (`cli.mjs setup --secret-file <path>`).
 4. **"An approved app exists, but sign-in still asks for approval"** -> `m365_setup_save` with `scope_mode: "app"`
    (use the permissions already approved for the app) and go to step 3.
 

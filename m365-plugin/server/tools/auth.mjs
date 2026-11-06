@@ -42,6 +42,7 @@ export const tools = [
       tenant: { type: "string", description: "Tenant id or domain; default organizations." },
       scope_mode: { type: "string", description: "requested (default) or app." },
       auth_mode: { type: "string", description: "auto, interactive or device-code." },
+      redirect_uri: { type: "string", description: "Only if the app registration allows one exact sign-in redirect, e.g. http://localhost:8400/callback (must be http on localhost with a port)." },
       refresh_token_file: { type: "string", description: "Not accepted here (the user sets it themselves)." },
       client_secret_file: { type: "string", description: "Not accepted here (the user sets it themselves)." } } },
     async handler(a, ctx) {

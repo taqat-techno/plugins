@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.4.1] - 2026-11-06
+
+### Added
+- **A fixed sign-in redirect for apps that allow only one address** (first Teqo trial blocker, F-mw5fbnz8). Some apps, often a
+  bot's confidential app with a secret, register exactly one redirect such as `http://localhost:8400/callback` and cannot be
+  changed. `M365_REDIRECT_URI` (plugin setting "Sign-in redirect address", `settings.json` key `redirect_uri`,
+  `cli.mjs setup --redirect-uri`) makes the browser sign-in listen on that port, accept only that path, and send exactly that
+  `redirect_uri` in the authorize and token requests (with the secret from `M365_CLIENT_SECRET_FILE`). Only
+  `http://localhost|127.0.0.1:<port 1024-65535>[/path]` is accepted. With it set, `auto` no longer falls back to a device code
+  (which only fails with a misleading AADSTS7000218 for such apps); a port in use is `REDIRECT_PORT_BUSY`. Unset, nothing changes.
+- `node server/cli.mjs sign-in --interactive`: browser only, and prints the address in case no browser opens.
+
+### Fixed
+- The `AADSTS7000218` hint no longer says only "allow public client flows": it explains that an app with a secret needs the browser
+  flow with its registered redirect (`M365_REDIRECT_URI`). The `AADSTS50011` hint points to the same setting.
+- An error Microsoft sends back to the redirect (for example consent needed) is classified like a token error, with its hint.
+
 ## [0.4.0] - 2026-11-06
 
 Phase A of the review in `.claude/docs/2026-11-06_m365-plugin-review.md`: fixes and small additions, no new permissions.

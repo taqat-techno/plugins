@@ -15,6 +15,13 @@ Users register nothing and need no admin rights; they only sign in. The app carr
 If your company already has an app that signs a bot in with a client secret, you can reuse it: turn on
 "Allow public client flows" and add the `http://localhost` redirect. Its existing secret use is unaffected.
 
+**No admin change possible?** If that app allows only one exact redirect (for example `http://localhost:8400/callback`)
+and has a secret, the plugin can sign in with it as it is: set `M365_REDIRECT_URI` (plugin setting "Sign-in redirect
+address") to exactly that address and `M365_CLIENT_SECRET_FILE` to the file holding the secret, then sign in with the
+browser (`node server/cli.mjs sign-in --interactive`, or `m365_sign_in` with `mode: "interactive"`). The device code
+flow often fails for such an app with AADSTS7000218 even when the secret is sent; use the browser flow instead.
+Add `M365_SCOPE_MODE=app` so only the app's already-approved permissions are requested.
+
 ## API permissions (Microsoft Graph, **Delegated**)
 
 Read permissions are requested for the modules a user enables. The write permissions are added unless the user turns
@@ -64,8 +71,9 @@ A browser opens. On a machine without a browser use `node server/cli.mjs sign-in
 | Code | Meaning | Fix |
 |---|---|---|
 | `CONSENT_NEEDED` | A permission needs admin consent | Grant consent (above) |
-| `PUBLIC_CLIENT_NOT_ENABLED` | Public client flows are off | Step 4 |
-| `REDIRECT_URI_MISMATCH` | No `http://localhost` redirect | Step 3 |
+| `PUBLIC_CLIENT_NOT_ENABLED` | Public client flows are off, or the app has a secret and the device code flow is refused | Step 4, or the browser flow with `M365_REDIRECT_URI` (above) |
+| `REDIRECT_URI_MISMATCH` | The redirect address is not registered | Step 3, or set `M365_REDIRECT_URI` to the app's exact registered address |
+| `REDIRECT_PORT_BUSY` | Another program uses the redirect's port | Close it (often a sign-in still waiting) and retry |
 | `CLIENT_ID_INVALID` | Wrong id or tenant | Check the id and the Tenant setting |
 | `PERMISSIONS_CHANGED` | The saved sign-in lacks newly requested permissions | Sign in again, or enable read-only mode |
 | `ACCESS_NEEDED` | A call was refused for a missing permission | The message names it; grant it for the app |

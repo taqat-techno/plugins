@@ -7,7 +7,7 @@
 import { mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from "node:fs";
 import { isAbsolute, join } from "node:path";
 import { randomUUID } from "node:crypto";
-import { SETTINGS_KEYS, settingsPath } from "./config.mjs";
+import { SETTINGS_KEYS, parseRedirectUri, settingsPath } from "./config.mjs";
 import { M365Error } from "./util.mjs";
 
 export const CREDENTIAL_KEYS = ["refresh_token_file", "client_secret_file"];
@@ -52,6 +52,7 @@ export function saveSettings(cfg, input, { viaTool }) {
     if (k === "tenant" && !TENANT.test(v)) throw new M365Error("INVALID_ARGUMENT", "tenant must be a tenant id, a domain such as contoso.com, or organizations");
     if (k === "scope_mode" && !["requested", "app"].includes(v.toLowerCase())) throw new M365Error("INVALID_ARGUMENT", "scope_mode must be requested or app");
     if (k === "auth_mode" && !["auto", "interactive", "device-code"].includes(v.toLowerCase())) throw new M365Error("INVALID_ARGUMENT", "auth_mode must be auto, interactive or device-code");
+    if (k === "redirect_uri") { try { parseRedirectUri(v); } catch (e) { throw new M365Error("INVALID_ARGUMENT", e.message); } }
     if (CREDENTIAL_KEYS.includes(k)) checkSecretFile(v, k);
     next[k] = k === "scope_mode" || k === "auth_mode" ? v.toLowerCase() : v;
     changed.push(k);

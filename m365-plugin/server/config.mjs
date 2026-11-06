@@ -41,7 +41,23 @@ export const WRITE_SCOPES = {
 export const ADMIN_CONSENT_SCOPES = ["Team.ReadBasic.All", "Channel.ReadBasic.All", "ChannelMessage.Read.All"];
 
 /** What /m365:init may save: ids and file PATHS only. Read-only mode and modules are deliberately not here. */
-export const SETTINGS_KEYS = ["client_id", "tenant", "auth_mode", "scope_mode", "refresh_token_file", "client_secret_file"];
+export const SETTINGS_KEYS = ["client_id", "tenant", "auth_mode", "scope_mode", "refresh_token_file", "client_secret_file", "redirect_uri"];
+
+/** A sign-in redirect the plugin can listen on itself: http on localhost/127.0.0.1, a fixed port, an optional path.
+ *  Returns { uri, host, port, path } (uri exactly as given, minus a trailing space) or throws INVALID_ARGUMENT. */
+export function parseRedirectUri(v) {
+  const uri = String(v ?? "").trim();
+  let u;
+  try { u = new URL(uri); } catch { u = null; }
+  const ok = u && u.protocol === "http:" && ["localhost", "127.0.0.1"].includes(u.hostname) && u.port && !u.search && !u.hash && !u.username && !u.password
+    && Number(u.port) >= 1024 && Number(u.port) <= 65535;
+  if (!ok) {
+    const err = new Error(`redirect_uri must be an http://localhost:<port>[/path] address the plugin can listen on (got "${uri.slice(0, 120)}")`);
+    err.code = "INVALID_ARGUMENT";
+    throw err;
+  }
+  return { uri, host: u.hostname, port: Number(u.port), path: u.pathname || "/" };
+}
 export const settingsPath = (home) => join(home, "settings.json");
 
 function readSettings(home) {
@@ -86,6 +102,10 @@ export function resolveConfig(env = process.env) {
     scopeMode,
     refreshTokenFile,
     clientSecretFile,
+    // The app's registered sign-in redirect, for an app (often a bot's) that allows only one exact address such as
+    // http://localhost:8400/callback. Empty: a free port on http://localhost, which a "Mobile and desktop" http://localhost
+    // registration accepts.
+    redirectUri: get("redirect_uri", "M365_PLUGIN_REDIRECT_URI", "M365_REDIRECT_URI"),
     // A rotated refresh token is written back to the shared file (atomically), exactly as the tool that owns it does,
     // so the other tool never holds a stale one. Turn off only to leave the file strictly untouched.
     refreshTokenWriteback: !/^(0|false|no|off)$/i.test(pick(env, "M365_REFRESH_TOKEN_WRITEBACK")),

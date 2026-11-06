@@ -1,14 +1,17 @@
 // auth.mjs - delegated Microsoft sign-in with no dependencies and no admin rights.
 //
-//   interactive  - browser sign-in: authorization code + PKCE, redirect to http://localhost:<port>
+//   interactive  - browser sign-in: authorization code + PKCE, redirect to http://localhost:<free port>, or to the
+//                  app's one registered address when M365_REDIRECT_URI is set (e.g. http://localhost:8400/callback)
 //   device-code  - for machines with no usable browser (and first sign-in of a bot): a code to type
 //   auto         - interactive; falls back to device code if a browser cannot be opened
 //
-// The app registration must be a PUBLIC client (no secret): docs/APP_REGISTRATION.md.
+// Normally the app is a PUBLIC client (no secret): docs/APP_REGISTRATION.md. An app with a secret (M365_CLIENT_SECRET_FILE)
+// also works with the browser flow; the secret is sent with every token request.
 // The refresh token is cached per user in <M365_HOME>/token-cache.json (default ~/.m365-plugin),
 // written atomically because several processes (agent, bot, poller) may share it. The access
 // token is kept in memory only. No token is ever returned to a caller or put in an error message.
 import { createServer } from "node:http";
+import { parseRedirectUri } from "./config.mjs";
 import { spawn } from "node:child_process";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
@@ -27,6 +30,11 @@ export function scopeString(scopes) {
   return list.join(" ");
 }
 
+const redirectOf = (v) => {
+  try { return parseRedirectUri(v); }
+  catch (e) { throw new M365Error("INVALID_ARGUMENT", e.message, { hint: "Fix the sign-in redirect setting (M365_REDIRECT_URI): it must match the app registration exactly, e.g. http://localhost:8400/callback." }); }
+};
+
 /** Maps Microsoft's token errors to a code and a one-line action. */
 export function classifyTokenError(j, status) {
   const code = String(j?.error ?? "unknown");
@@ -38,14 +46,17 @@ export function classifyTokenError(j, status) {
   }
   if (aadsts === "700016") return new M365Error("CLIENT_ID_INVALID", "The client id is not an app in this tenant (AADSTS700016).", { hint: "Check the Client ID and Tenant settings." });
   if (aadsts === "7000218" || aadsts === "7000215") {
-    return new M365Error("PUBLIC_CLIENT_NOT_ENABLED", "The app is not set up as a public client (AADSTS" + aadsts + ").",
-      { hint: "In the app registration: Authentication > Allow public client flows = Yes, and add the redirect URI http://localhost." });
+    return new M365Error("PUBLIC_CLIENT_NOT_ENABLED", "Microsoft wants a client secret or a different sign-in flow for this app (AADSTS" + aadsts + ").",
+      { hint: "If the app has a secret (a confidential app, often one a bot uses), the device code flow may not work for it even with the secret: " +
+        "use the browser sign-in (mode interactive) with the app's registered redirect, by setting M365_REDIRECT_URI (plugin setting 'Sign-in redirect address') " +
+        "to that exact address, for example http://localhost:8400/callback, and M365_CLIENT_SECRET_FILE to the secret's file. " +
+        "If the app is meant to be public (no secret): App registration > Authentication > Allow public client flows = Yes, with the Mobile and desktop redirect http://localhost." });
   }
   if (code === "authorization_declined" || aadsts === "700171" || aadsts === "90135") {
     return new M365Error("SIGN_IN_DECLINED", "The sign-in was cancelled or refused on the Microsoft page.",
       { hint: "If the page said 'Need admin approval', the app's permissions are not approved yet: call m365_access_request for the message to send to your admin. Otherwise run m365_sign_in again and do not press Cancel." });
   }
-  if (aadsts === "50011") return new M365Error("REDIRECT_URI_MISMATCH", "The app has no http://localhost redirect URI (AADSTS50011).", { hint: "Add the Mobile and desktop redirect URI http://localhost to the app registration." });
+  if (aadsts === "50011") return new M365Error("REDIRECT_URI_MISMATCH", "The sign-in redirect address is not registered for this app (AADSTS50011).", { hint: "If the app registration lists one exact redirect (for example http://localhost:8400/callback), set M365_REDIRECT_URI (plugin setting 'Sign-in redirect address') to exactly that. Otherwise add the Mobile and desktop redirect URI http://localhost to the app registration." });
   if (code === "invalid_grant" || code === "interaction_required" || aadsts === "70043" || aadsts === "50173") {
     return new M365Error("SIGN_IN_EXPIRED", "The saved sign-in is no longer valid.", { hint: "Run m365_sign_in again." });
   }
@@ -177,9 +188,14 @@ export function createAuth(cfg, { fetch: fetchImpl = globalThis.fetch, open = op
     const verifier = b64url(randomBytes(32));
     const challenge = b64url(createHash("sha256").update(verifier).digest());
     const state = b64url(randomBytes(16));
+    // A fixed redirect (the app registration allows only that exact address) or a free port on http://localhost.
+    const fixed = cfg.redirectUri ? redirectOf(cfg.redirectUri) : null;
     const srv = createServer();
-    await new Promise((ok, bad) => { srv.once("error", bad); srv.listen(0, "127.0.0.1", ok); });
-    const redirect = `http://localhost:${srv.address().port}`;
+    await new Promise((ok, bad) => { srv.once("error", bad); srv.listen(fixed ? fixed.port : 0, "127.0.0.1", ok); }).catch((e) => {
+      if (e?.code === "EADDRINUSE") throw new M365Error("REDIRECT_PORT_BUSY", `Port ${fixed?.port} for the sign-in redirect is in use by another program.`, { hint: "Close the program using it (for example another sign-in that is still waiting), then sign in again." });
+      throw e;
+    });
+    const redirect = fixed ? fixed.uri : `http://localhost:${srv.address().port}`;
     const url = `${LOGIN}/${encodeURIComponent(cfg.tenant)}/oauth2/v2.0/authorize?` + new URLSearchParams({
       client_id: cfg.clientId, response_type: "code", redirect_uri: redirect, response_mode: "query",
       scope, state, code_challenge: challenge, code_challenge_method: "S256", prompt: "select_account",
@@ -187,14 +203,19 @@ export function createAuth(cfg, { fetch: fetchImpl = globalThis.fetch, open = op
     const code = new Promise((resolve, reject) => {
       const timer = setTimeout(() => reject(new M365Error("SIGN_IN_TIMEOUT", "No sign-in was completed within 5 minutes.")), 300_000);
       srv.on("request", (req, resp) => {
-        const q = new URL(req.url, redirect).searchParams;
+        const u = new URL(req.url, redirect);
+        const q = u.searchParams;
+        if (fixed && u.pathname !== fixed.path) { resp.writeHead(404).end(); return; }
         if (!q.has("code") && !q.has("error")) { resp.writeHead(404).end(); return; }
         const okState = q.get("state") === state;
         resp.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
         resp.end(`<!doctype html><meta charset="utf-8"><title>Signed in</title><p style="font:16px sans-serif">${okState && q.get("code") ? "Signed in. You can close this tab and return to your agent." : "Sign-in was not completed. You can close this tab."}</p>`);
         clearTimeout(timer);
         if (!okState) reject(new M365Error("AUTH_FAILED", "Sign-in response did not match the request."));
-        else if (q.get("error")) reject(new M365Error("AUTH_FAILED", `Sign-in refused: ${String(q.get("error_description") || q.get("error")).slice(0, 160)}`));
+        else if (q.get("error")) {
+          const known = classifyTokenError({ error: q.get("error"), error_description: q.get("error_description") ?? "" });
+          reject(known.code !== "AUTH_FAILED" ? known : new M365Error("AUTH_FAILED", `Sign-in refused: ${String(q.get("error_description") || q.get("error")).slice(0, 160)}`));
+        }
         else resolve(q.get("code"));
       });
     }).finally(() => srv.close());
@@ -260,7 +281,9 @@ export function createAuth(cfg, { fetch: fetchImpl = globalThis.fetch, open = op
       if (want === "device-code") { await startDeviceCode(); pending.mode = "device-code"; }
       else {
         try { await startInteractive(); pending.mode = "interactive"; }
-        catch (e) { if (want === "interactive") throw e; await startDeviceCode(); pending.mode = "device-code"; }
+        // With a fixed redirect the app is one that needs the browser flow, so falling back to a device code would only
+        // produce a misleading AADSTS7000218; report the real problem instead.
+        catch (e) { if (want === "interactive" || cfg.redirectUri) throw e; await startDeviceCode(); pending.mode = "device-code"; }
       }
     } catch (e) { pending = null; throw e; }
     return { status: "pending", mode: pending.mode, message: pending.message, url: pending.url, ...(pending.code ? { code: pending.code } : {}) };
@@ -286,6 +309,7 @@ export function createAuth(cfg, { fetch: fetchImpl = globalThis.fetch, open = op
       read_only: cfg.readOnly,
       permissions: cfg.scopeMode,
       modules: cfg.modules,
+      ...(cfg.redirectUri ? { redirect_uri: cfg.redirectUri } : {}),
     };
     if (pending) {
       out.sign_in = { state: pending.state, mode: pending.mode };
