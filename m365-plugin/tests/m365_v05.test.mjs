@@ -160,14 +160,27 @@ test("signature: text is escaped (only **bold** becomes <b>), so a model can nev
   const h = textToHtml('Hi <a href="https://evil">x</a> & **ship it**\n\nLine1\nLine2 <img src=x onerror=alert(1)>');
   assert.ok(!/<a |<img /i.test(h));
   assert.match(h, /&lt;a href=&quot;https:\/\/evil&quot;&gt;/); assert.match(h, /<b>ship it<\/b>/); assert.match(h, /Line1<br>Line2/);
-  assert.deepEqual(extractLinks(h), [], "no live link or image in what the model wrote");
+  assert.ok(!/<(a|img)\b/i.test(h), "no live link or image tag in what the model wrote");
 });
 
-test("links: attributes count only inside real tags, and a '>' inside a quoted value cannot hide a later one", () => {
-  assert.deepEqual(extractLinks('<p>text href=&quot;https://inert&quot;</p>'), []);
+test("links: the whole body is scanned, so odd markup cannot hide a link (over-reporting inert text is fine)", () => {
   assert.deepEqual(extractLinks('<a title="a>b" href="https://hidden.example">x</a>'), ["https://hidden.example"]);
   assert.deepEqual(extractLinks("<img alt='1>2' src=https://img.example/x.png>"), ["https://img.example/x.png"]);
+  assert.ok(extractLinks('<a x=y"z href="https://stray-quote.example">t</a>').includes("https://stray-quote.example"), "a stray quote in an unquoted value");
+  assert.ok(extractLinks('<a x=\'y href="https://single.example">').includes("https://single.example"));
   assert.deepEqual(extractLinks('<div style="background:url(https://css.example/b.png)">'), ["https://css.example/b.png"]);
+});
+
+test("attachments: network, device, drive-relative and stream paths are refused before the disk is touched", async () => {
+  const root = dir("m365-allowed-");
+  const c = attachCtx({ M365_ATTACH_DIRS: root });
+  const bad = ["\\\\attacker.example\\share\\x.txt", "//attacker.example/share/x.txt", "\\\\?\\C:\\Windows\\win.ini", "\\\\.\\PhysicalDrive0"];
+  if (process.platform === "win32") bad.push(`${root}\\a.txt:secret`, "C:Windows\\win.ini");
+  for (const p of bad) await assert.rejects(call(c, "email_add_attachment", { draft_id: "d1", path: p }), (e) => ["PATH_NOT_ALLOWED", "INVALID_ARGUMENT"].includes(e.code), p);
+  if (process.platform === "win32") {
+    writeFileSync(join(root, "Case.txt"), "x");
+    assert.equal((await call(c, "email_add_attachment", { draft_id: "d1", path: join(root.toUpperCase(), "Case.txt") })).attached, true, "folder match ignores case on Windows");
+  }
 });
 
 test("signature: an unsafe signature file is refused; local images become inline attachments", () => {

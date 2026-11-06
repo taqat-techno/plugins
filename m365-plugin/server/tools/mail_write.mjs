@@ -23,11 +23,10 @@ const MAX_LINKS = 200;
 export function extractLinks(raw) {
   const out = new Set();
   const add = (v) => { const t = decodeEntities(v ?? "").trim(); if (t) out.add(clean(t, 300)); };
-  // Attributes only count inside real tags (escaped text such as "&lt;a href=...&gt;" is inert). The tag pattern
-  // honours quotes, so a '>' inside a quoted value cannot end the tag early and hide a later attribute.
-  const tags = [...raw.matchAll(/<[a-zA-Z][^>"']*(?:(?:"[^"]*"|'[^']*')[^>"']*)*>/g)].map((m) => m[0]).join("\n");
-  for (const x of tags.matchAll(/\b(?:href|src|background|action|formaction|poster|data|cite|longdesc|ping|manifest|xlink:href)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>]+))/gi)) add(x[1] ?? x[2] ?? x[3]);
-  for (const x of tags.matchAll(/\b(?:srcset|imagesrcset)\s*=\s*(?:"([^"]*)"|'([^']*)')/gi)) for (const part of (x[1] ?? x[2]).split(",")) add(part.trim().split(/\s+/)[0]);
+  // The whole body is scanned, not just what a regex thinks are tags: a tag splitter can disagree with how a mail client
+  // tokenizes odd markup and so hide a link. Listing an inert one (escaped text) is harmless; missing a live one is not.
+  for (const x of raw.matchAll(/\b(?:href|src|background|action|formaction|poster|data|cite|longdesc|ping|manifest|xlink:href)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>]+))/gi)) add(x[1] ?? x[2] ?? x[3]);
+  for (const x of raw.matchAll(/\b(?:srcset|imagesrcset)\s*=\s*(?:"([^"]*)"|'([^']*)')/gi)) for (const part of (x[1] ?? x[2]).split(",")) add(part.trim().split(/\s+/)[0]);
   for (const x of raw.matchAll(/url\(\s*(?:"([^"]*)"|'([^']*)'|([^)\s]+))\s*\)/gi)) add(x[1] ?? x[2] ?? x[3]);
   for (const x of raw.matchAll(/@import\s+(?:url\(\s*)?["']([^"']+)["']/gi)) add(x[1]);
   for (const x of raw.matchAll(/http-equiv\s*=\s*["']?refresh["']?[^>]*content\s*=\s*["'][^"']*url\s*=\s*([^"']+)/gi)) add(x[1]);

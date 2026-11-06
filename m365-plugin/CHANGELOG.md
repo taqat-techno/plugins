@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.5.1] - 2026-11-06
+
+### Security
+- **`email_add_attachment` no longer touches the disk before the path is checked.** Resolving a path such as
+  `\\host\share\x` makes Windows connect to that host and offer the user's login (an NTLM leak), and that happened before the
+  allowed-folder check. The path text is now checked first: network, device and extended-length paths (`\\`, `//`, `\\?\`,
+  `\\.\`), drive-relative forms and alternate data streams are refused, and the path must lie inside an allowed folder
+  (case-insensitive on Windows). Only then is the real path resolved and checked again against the real folders (links).
+- **The preview's link list scans the whole body again.** 0.5.0 counted attributes only inside what a regex took for tags; markup
+  a mail client tokenizes differently (a stray quote in an unquoted value) could hide a link from the list. Listing an inert,
+  escaped one is harmless; missing a live one is not.
+
 ## [0.5.0] - 2026-11-06
 
 From Teqo's first trial notes (F-mw5gmowd, F-mw5gmwnw).

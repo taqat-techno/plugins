@@ -36,10 +36,19 @@ export function allowedFile(cfg, path) {
   }
   const p = String(path ?? "").trim();
   if (!p || !isAbsolute(p)) throw new M365Error("INVALID_ARGUMENT", "path must be an absolute file path");
+  const refuse = () => new M365Error("PATH_NOT_ALLOWED", "That file is outside the folders the user allowed for attachments.", { hint: "Ask the user to put the file in an allowed folder, or to add a folder themselves (M365_ATTACH_DIRS)." });
+  // 1) Text only, before ANY file-system call: on Windows even resolving \\host\share\x makes the machine connect to that
+  //    host and offer its login (an NTLM leak). Network, device and extended-length paths, drive-relative forms and
+  //    alternate data streams (a ':' after the drive) are refused, and the path must lie inside an allowed folder.
+  if (/^[\\/]{2}/.test(p) || (process.platform === "win32" && (/^[a-z]:(?![\\/])/i.test(p) || p.indexOf(":", 2) !== -1))) throw refuse();
+  const lexical = resolve(p);
+  const fold = (s) => (process.platform === "win32" ? s.toLowerCase() : s);
+  if (!roots.some((r) => inside(fold(resolve(r)), fold(lexical)))) throw refuse();
+  // 2) Only now touch the disk, and check the real path (links resolved) against the real folders as well.
   let real;
-  try { real = realpathSync(resolve(p)); } catch { throw new M365Error("NOT_FOUND", "No such file."); }
-  const ok = roots.some((r) => { try { return inside(realpathSync(r), real); } catch { return false; } });
-  if (!ok) throw new M365Error("PATH_NOT_ALLOWED", "That file is outside the folders the user allowed for attachments.", { hint: "Ask the user to put the file in an allowed folder, or to add a folder themselves (M365_ATTACH_DIRS)." });
+  try { real = realpathSync(lexical); } catch { throw new M365Error("NOT_FOUND", "No such file."); }
+  const ok = roots.some((r) => { try { return inside(fold(realpathSync(r)), fold(real)); } catch { return false; } });
+  if (!ok) throw refuse();
   const st = statSync(real);
   if (!st.isFile()) throw new M365Error("INVALID_ARGUMENT", "That is not a file.");
   if (st.size === 0) throw new M365Error("INVALID_ARGUMENT", "That file is empty.");
