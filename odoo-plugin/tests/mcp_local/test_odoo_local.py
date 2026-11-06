@@ -355,3 +355,126 @@ def test_mcp_json_declares_both_servers():
     cfg = json.loads((ROOT / ".mcp.json").read_text(encoding="utf-8"))
     assert cfg["odoo"]["args"][0].endswith("mcp/server.py")
     assert cfg["odoo-local"]["args"][0].endswith("mcp_local/server.py")
+
+
+# ------------------------------------------- 4.1.1: main-DB filters, backups, summary
+
+def test_conf_with_misspelled_db_filter_records_the_filter(tmp_path):
+    conf_dir = tmp_path / "proj" / "conf"
+    conf_dir.mkdir(parents=True)
+    (conf_dir / "cluster1.conf").write_text("[options]\ndb_host = 127.0.0.1\ndb_port = 5433\n"
+                                            "db_filter = ^cluster1.*$\n")
+    s, _ = agent.describe_conf(str(conf_dir / "cluster1.conf"), [], "wsl", "Ubuntu")
+    assert s["main_db"] is None and s["dbfilter"] == "^cluster1.*$"
+    assert any("db_filter" in w for w in s["warnings"])  # the typo warning stays
+
+
+def test_rails_from_filters_and_unknown_main():
+    rails = T._rails([svc(id="cluster1", main_db=None, dbfilter="^cluster1.*$", db_port=5433),
+                      svc(id="hub", main_db=None, dbfilter="^hub.*$", db_port=5433),
+                      svc(id="mystery", main_db=None, dbfilter=None, db_port=5435),
+                      svc(id="named", main_db="named")])
+    assert ["cluster1", "^cluster1.*$"] in rails["main_filters"] and ["hub", "^hub.*$"] in rails["main_filters"]
+    assert rails["unknown_main"] == {"Ubuntu:5435": ["mystery"]}
+
+
+def test_filter_matched_dbs_are_kept_and_never_dropped(monkeypatch):
+    rails = T._rails([svc(id="cluster1", main_db=None, dbfilter="^cluster1.*$", db_port=5433),
+                      svc(id="hub", main_db=None, dbfilter="^hub.*$", db_port=5433)])
+    for name in ("hub_default", "cluster1_default"):
+        assert "main_db of service" in agent.keep_reason(row(name=name), {}, {}, rails=rails,
+                                                          cluster_label="Ubuntu:5433")
+    assert agent.keep_reason(row(name="other_db"), {}, {}, rails=rails, cluster_label="Ubuntu:5433") is None
+    sent = []
+    monkeypatch.setattr(agent, "_db_rows", lambda cl: [row(name="hub_default")])
+    monkeypatch.setattr(agent, "_last_activity", lambda cl, db, dd: (True, time.time() - 90 * 86400))
+    monkeypatch.setattr(agent, "_psql", lambda *a, **k: sent.append(a) or (0, "", ""))
+    monkeypatch.setattr(agent, "tool_state_templates", lambda: set())
+    with pytest.raises(agent.Refused, match="keep-list"):
+        agent.op_db_drop({"cluster": {"label": "Ubuntu:5433", "port": 5433}, "db": "hub_default", "rails": rails})
+    assert sent == []
+
+
+def test_unknown_main_keeps_non_scratch_dbs_on_its_cluster():
+    rails = T._rails([svc(id="mystery", main_db=None, dbfilter=None, db_port=5435)])
+    keep = agent.keep_reason(row(name="company_live"), {}, {}, rails=rails, cluster_label="Ubuntu:5435")
+    assert keep and "main DB of mystery unknown" in keep
+    assert agent.keep_reason(row(name="test_tmp1"), {}, {}, rails=rails, cluster_label="Ubuntu:5435") is None
+    assert agent.keep_reason(row(name="company_live"), {}, {}, rails=rails, cluster_label="Ubuntu:5432") is None
+
+
+def _scan_with(dbs):
+    return scan(databases=[{"cluster": "Ubuntu:5434", "databases": dbs}], filestores=[], confs=[], logs=[])
+
+
+def test_inactivity_only_drop_is_always_backed_up():
+    old = time.time() - 90 * 86400
+    plan, _ = T.build_plan(_scan_with([row(name="acme_work", size_bytes=90 * 1024 * 1024, last_activity=old),
+                                       row(name="test_small", size_bytes=10, last_activity=old)]), "Ubuntu", {})
+    by = {i["target"].rsplit("/", 1)[1]: i for i in plan["items"]}
+    assert by["acme_work"]["backup"] is True and by["acme_work"]["reason"].startswith("inactive")
+    assert by["test_small"]["backup"] is False  # scratch-named and small: disposable
+
+
+@pytest.mark.parametrize("name", ["acme_bk_prod", "acme_baseline_main", "golden_17", "e2e_seed", "vanilla19"])
+def test_reference_copy_names_are_not_dropped_for_inactivity(name):
+    old = time.time() - 400 * 86400
+    plan, _ = T.build_plan(_scan_with([row(name=name, last_activity=old)]), "Ubuntu", {})
+    assert plan["items"] == []
+    assert "reference-copy name" in plan["keep"][0]["reason"]
+
+
+def test_reference_copy_with_scratch_name_is_dropped_only_with_backup():
+    plan, _ = T.build_plan(_scan_with([row(name="test_baseline_x", size_bytes=5,
+                                           last_activity=time.time() - 90 * 86400)]), "Ubuntu", {})
+    assert len(plan["items"]) == 1 and plan["items"][0]["backup"] is True
+
+
+def test_every_inactivity_only_item_has_backup():
+    old = time.time() - 60 * 86400
+    dbs = [row(name="db%03d_%s" % (i, "x"), size_bytes=(i % 7 + 1) * 20 * 1024 * 1024, last_activity=old)
+           for i in range(50)]
+    plan, _ = T.build_plan(_scan_with(dbs), "Ubuntu", {})
+    assert plan["items"] and all(i["backup"] for i in plan["items"] if "scratch-style" not in i["reason"])
+
+
+def _big_plan(n=600):
+    old = time.time() - 90 * 86400
+    dbs = [row(name="%s_%03d_scratch" % (("medline", "kg", "taqat")[i % 3], i), size_bytes=(i + 1) * 1_000_000,
+               last_activity=old) for i in range(n)]
+    dbs += [row(name="keep%d" % i, keep="main_db of service svc-%d" % i) for i in range(150)]
+    return T.build_plan(_scan_with(dbs), "Ubuntu", {})[0]
+
+
+def test_summary_is_small_and_keeps_contract_keys():
+    plan = _big_plan()
+    view = T.plan_view(plan, "/tmp/p.json", {})
+    text = json.dumps(view, indent=1)
+    assert len(text) < 10_000, len(text)
+    assert view["plan_id"] == plan["plan_id"] and view["view"] == "summary"
+    assert view["items_total"] == 600 and len(view["items"]) == T.SUMMARY_TOP
+    assert view["items"][0]["size_bytes"] == max(i["size_bytes"] for i in plan["items"])
+    for item in view["items"]:
+        assert set(item) == {"kind", "target", "size_bytes", "reason", "action", "backup"}
+    assert view["summary"]["by_kind"]["scratch_db"]["count"] == 600
+    assert view["summary"]["keep_reasons"]["main_db"] == 150
+    assert view["plan_file"] == "/tmp/p.json"
+
+
+def test_detail_pages_cover_every_item(home):
+    plan = _big_plan(250)
+    seen, off = [], 0
+    while off is not None:
+        page = T.plan_view(plan, "f", {"detail": True, "offset": off, "limit": 100})
+        seen += page["items"]
+        off = page.get("next_offset")
+    assert seen == plan["items"]
+
+
+def test_plan_id_rereads_stored_plan(home):
+    plan, private = T.build_plan(scan(), "Ubuntu", {})
+    _store_plan(home, plan, private)
+    view = T.t_cleanup_plan({"plan_id": plan["plan_id"], "detail": True})
+    assert view["items"] == plan["items"]
+    with pytest.raises(T.ToolError):
+        T.t_cleanup_plan({"plan_id": "plan-missing"})

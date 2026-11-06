@@ -25,7 +25,7 @@ KEEP_BACKUPS = 10
 SERVICE_KEYS = (
     "id", "project", "odoo_version", "runtime", "wsl_distro", "cwd", "python", "odoo_bin", "conf",
     "http_port", "gevent_port", "db_host", "db_port", "main_db", "systemd_unit", "logfile", "data_dir",
-    "created_by", "created_at", "discovered_at", "warnings", "pinned",
+    "created_by", "created_at", "discovered_at", "warnings", "pinned", "dbfilter",
 )
 RUNTIMES = ("wsl", "linux", "windows", "docker")
 ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,62}$")

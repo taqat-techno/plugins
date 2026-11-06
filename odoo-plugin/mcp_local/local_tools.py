@@ -31,6 +31,10 @@ import runner
 
 PLAN_TTL_S = 24 * 3600
 BACKUP_THRESHOLD = 200 * 1024 * 1024
+# A DB whose name says it is a reference copy is never dropped for inactivity alone.
+PROTECTED_NAME = r"(prod|bk|backup|baseline|golden|reference|vanilla|e2e)"
+SUMMARY_TOP = 20
+PAGE_DEFAULT, PAGE_MAX = 100, 500
 DEFAULT_SCRATCH = (r"^(test|tmp|temp|scratch|odoo_local_test|ft|qc|copy|bak|old|demo|try)[_-]"
                    r"|[_-](test|tmp|temp|copy|bak|old|scratch|clone|\d{8}(_?\d{4,6})?)$")
 
@@ -109,12 +113,17 @@ TOOLS = [
     {"name": "local_cleanup_plan",
      "description": "Plan (never execute) cleanup of local Odoo leftovers: scratch DBs by name/age, orphan "
                     "filestores whose DB is gone, dead confs (archived, never deleted), stale logs. Returns "
-                    "{plan_id, items:[{kind,target,size_bytes,reason,action,backup}], keep:[{target,reason}]}. "
+                    "{plan_id, items:[{kind,target,size_bytes,reason,action,backup}], keep:[{target,reason}]} - by default a "
+                    "summary (totals per kind, groups, largest 20 items); detail=true pages the full lists. "
                     "Show it to the user; only local_cleanup_apply with this plan_id executes it.",
      "inputSchema": {"type": "object", "additionalProperties": False, "properties": {
          "distro": {"type": "string"}, "min_age_days": {"type": "integer", "minimum": 7},
          "log_age_days": {"type": "integer", "minimum": 7},
-         "scratch_pattern": {"type": "string", "description": "Regex for scratch DB names (has a default)"}}}},
+         "scratch_pattern": {"type": "string", "description": "Regex for scratch DB names (has a default)"},
+         "plan_id": {"type": "string", "description": "Re-read a stored plan instead of scanning"},
+         "detail": {"type": "boolean", "description": "Return a page of the full items/keep lists (default: summary)"},
+         "offset": {"type": "integer", "minimum": 0},
+         "limit": {"type": "integer", "minimum": 1, "maximum": 500}}}},
     {"name": "local_cleanup_apply",
      "description": "Execute a plan from local_cleanup_plan that the user has seen. Every item is re-checked "
                     "against live state (keep-list, connections, path allow-list) before acting; DB drops dump "
@@ -188,6 +197,31 @@ def _clusters(services, sid=None) -> dict:
 
 def _main_dbs(services) -> dict:
     return {s["main_db"]: s["id"] for s in services if s.get("main_db")}
+
+
+def _cluster_label(s) -> str:
+    return "%s:%s" % (s.get("wsl_distro") or s.get("runtime"), s.get("db_port") or 5432)
+
+
+def _rails(services, scratch_pattern=None) -> dict:
+    """Keep-list inputs beyond main_db names, sent to the agent with every list/drop/scan.
+
+    * main_filters: a service without db_name protects every DB its filter matches. Both
+      spellings count: Odoo ignores `db_filter`, but the developer meant it.
+    * unknown_main: a service with neither db_name nor a filter keeps every non-scratch DB
+      on its cluster - we cannot tell which one is its main DB.
+    """
+    filters, unknown = [], {}
+    for s in services:
+        if s.get("main_db"):
+            continue
+        flt = s.get("dbfilter")
+        if flt and str(flt).strip().lower() not in ("false", "none", ".*", "^.*$"):
+            filters.append([s["id"], flt])
+        else:
+            unknown.setdefault(_cluster_label(s), []).append(s["id"])
+    return {"main_filters": filters, "unknown_main": unknown,
+            "scratch_pattern": scratch_pattern or DEFAULT_SCRATCH}
 
 
 def _data_dirs(services, runtime, distro) -> list:
@@ -381,6 +415,7 @@ def t_db(args):
             try:
                 res = _call((c["runtime"], c["distro"]), {
                     "op": "db_list", "clusters": [c["cluster"]], "main_dbs": _main_dbs(svcs),
+                    "rails": _rails(svcs),
                     "data_dirs": _data_dirs(svcs, c["runtime"], c["distro"]),
                     "activity": args.get("activity", True)}, timeout=300)
                 out += res["clusters"]
@@ -410,6 +445,7 @@ def t_db(args):
     if action == "drop":
         c = next(iter(_clusters([svc]).values()))
         return _call(svc, {"op": "db_drop", "cluster": c["cluster"], "db": name, "main_dbs": _main_dbs(svcs),
+                           "rails": _rails(svcs),
                            "data_dirs": _data_dirs(svcs, c["runtime"], c["distro"]),
                            "allow_roots": [_P(c["runtime"]).join(d, "filestore") for d in _data_dirs(svcs, c["runtime"], c["distro"])],
                            "backup_threshold_bytes": BACKUP_THRESHOLD}, timeout=1800)
@@ -428,6 +464,7 @@ def build_plan(scan: dict, distro, args) -> tuple:
     min_age = max(7, int(args.get("min_age_days", 30))) * 86400
     log_age = max(7, int(args.get("log_age_days", 30))) * 86400
     scratch = re.compile(args.get("scratch_pattern") or DEFAULT_SCRATCH, re.IGNORECASE)
+    protected_name = re.compile(PROTECTED_NAME, re.IGNORECASE)
     where = distro or "local"
     items, keep, private = [], [], []
     for c in scan["databases"]:
@@ -443,17 +480,25 @@ def build_plan(scan: dict, distro, args) -> tuple:
                 continue
             age = (now - r["last_activity"]) if r.get("last_activity") else None
             why = []
-            if scratch.search(r["name"]):
+            is_scratch = bool(scratch.search(r["name"]))
+            ref_name = protected_name.search(r["name"])
+            if is_scratch:
                 why.append("scratch-style name")
             if age is not None and age >= min_age:
                 why.append("inactive %d days" % (age // 86400))
+            if ref_name and not is_scratch:
+                keep.append({"target": target, "reason": "reference-copy name (%s): never dropped for inactivity alone"
+                             % ref_name.group(1).lower()})
+                continue
             if not why:
                 keep.append({"target": target, "reason": "recent or not scratch (inactive %s days)"
                              % ("?" if age is None else int(age // 86400))})
                 continue
+            # Only a scratch-style name makes a DB disposable; one proposed for inactivity
+            # alone, or carrying a reference-copy word, is always dumped first.
+            backup = (not is_scratch) or bool(ref_name) or r["size_bytes"] >= BACKUP_THRESHOLD
             items.append({"kind": "scratch_db", "target": target, "size_bytes": r["size_bytes"],
-                          "reason": ", ".join(why), "action": "drop",
-                          "backup": r["size_bytes"] >= BACKUP_THRESHOLD})
+                          "reason": ", ".join(why), "action": "drop", "backup": backup})
             private.append({"cluster_label": c["cluster"], "db": r["name"]})
     if scan.get("cluster_errors"):
         keep.append({"target": "%s:filestores" % where,
@@ -499,7 +544,71 @@ def _running(scan, sid):
     return any(c["service"] == sid and c["running"] for c in scan["confs"])
 
 
+def _keep_group(reason: str) -> str:
+    r = re.sub(r"\d+(\.\d+)?", "N", reason)
+    return re.split(r" of service | \(| - |: ", r, maxsplit=1)[0].strip()
+
+
+def _prefix(name: str) -> str:
+    return re.split(r"[_\-.]|\d", name, maxsplit=1)[0].lower() or name.lower()
+
+
+def plan_view(plan: dict, plan_file: str, args: dict) -> dict:
+    """What the tool returns. Default: a summary small enough to show a user, with the
+    contract keys present (items / keep are the largest SUMMARY_TOP of each). detail=true
+    returns one page of the full lists (offset / limit)."""
+    items, keep = plan["items"], plan["keep"]
+    head = {k: plan[k] for k in ("plan_id", "created_at", "expires_at", "distro", "total_bytes")}
+    head.update({"items_total": len(items), "keep_total": len(keep), "plan_file": plan_file})
+    if args.get("detail"):
+        off = max(0, int(args.get("offset", 0)))
+        lim = max(1, min(int(args.get("limit", PAGE_DEFAULT)), PAGE_MAX))
+        head.update({"view": "page", "offset": off, "limit": lim,
+                     "items": items[off:off + lim], "keep": keep[off:off + lim]})
+        if off + lim < max(len(items), len(keep)):
+            head["next_offset"] = off + lim
+        return head
+    by_kind, groups, reasons = {}, {}, {}
+    for i in items:
+        k = by_kind.setdefault(i["kind"], {"count": 0, "bytes": 0, "with_backup": 0})
+        k["count"] += 1
+        k["bytes"] += i["size_bytes"] or 0
+        k["with_backup"] += 1 if i["backup"] else 0
+        if i["kind"] == "scratch_db":
+            cluster, _, name = i["target"].rpartition("/")
+            g = groups.setdefault("%s %s*" % (cluster, _prefix(name)), {"count": 0, "bytes": 0})
+            g["count"] += 1
+            g["bytes"] += i["size_bytes"] or 0
+    for k in keep:
+        g = _keep_group(k["reason"])
+        reasons[g] = reasons.get(g, 0) + 1
+    top_groups = sorted(groups.items(), key=lambda kv: -kv[1]["bytes"])[:15]
+    head.update({
+        "view": "summary",
+        "summary": {"by_kind": by_kind,
+                    "scratch_db_groups": [dict(group=g, **v) for g, v in top_groups],
+                    "scratch_db_groups_total": len(groups),
+                    "keep_reasons": dict(sorted(reasons.items(), key=lambda kv: -kv[1]))},
+        "items": sorted(items, key=lambda i: -(i["size_bytes"] or 0))[:SUMMARY_TOP],
+        "keep": [k for k in keep if k["reason"].startswith(("main", "reference", "protected"))][:SUMMARY_TOP],
+        "more": "items/keep above are the largest %d drops and the first protected keeps; call "
+                "local_cleanup_plan with plan_id=%s detail=true offset=0 for every item (paged), "
+                "or read plan_file" % (SUMMARY_TOP, plan["plan_id"]),
+    })
+    return head
+
+
+def _plan_file(plan_id: str) -> str:
+    return os.path.join(_plans_dir(), os.path.basename(plan_id) + ".json")
+
+
 def t_cleanup_plan(args):
+    if args.get("plan_id"):
+        try:
+            stored = json.load(open(_plan_file(args["plan_id"]), encoding="utf-8"))
+        except (OSError, ValueError):
+            raise ToolError("unknown plan %s" % args["plan_id"])
+        return plan_view(stored["plan"], _plan_file(args["plan_id"]), args)
     svcs_all = registry.services()
     plans = []
     for d in _distros(args):
@@ -509,16 +618,18 @@ def t_cleanup_plan(args):
             continue
         clusters = [c["cluster"] for c in _clusters(svcs).values()]
         scan = _call((rt, d), {"op": "cleanup_scan", "services": svcs, "clusters": clusters,
-                               "main_dbs": _main_dbs(svcs_all)}, timeout=600)
+                               "main_dbs": _main_dbs(svcs_all),
+                               "rails": _rails(svcs_all, args.get("scratch_pattern"))}, timeout=600)
         plan, private = build_plan(scan, d, args)
         os.makedirs(_plans_dir(), exist_ok=True)
         stored = {"plan": plan, "private": private, "runtime": rt, "distro": d,
+                  "scratch_pattern": args.get("scratch_pattern"),
                   "data_dirs": scan["data_dirs"],
                   "log_dirs": sorted({_P(rt).dirname(s["logfile"]) for s in svcs if s.get("logfile")}),
                   "clusters": {c["label"]: c for c in clusters}}
-        with open(os.path.join(_plans_dir(), plan["plan_id"] + ".json"), "w", encoding="utf-8") as fh:
+        with open(_plan_file(plan["plan_id"]), "w", encoding="utf-8") as fh:
             json.dump(stored, fh, indent=1)
-        plans.append(plan)
+        plans.append(plan_view(plan, _plan_file(plan["plan_id"]), args))
     if not plans:
         return {"plan_id": None, "items": [], "keep": [], "note": "no registered services - run local_discover"}
     if len(plans) == 1:
@@ -553,7 +664,8 @@ def t_cleanup_apply(args):
                "allow_roots": allow, "clusters": list(stored["clusters"].values())}
         if item["kind"] == "scratch_db":
             req["drop"] = {"cluster": stored["clusters"][priv["cluster_label"]], "db": priv["db"],
-                           "main_dbs": _main_dbs(svcs), "data_dirs": stored["data_dirs"], "allow_roots": allow,
+                           "main_dbs": _main_dbs(svcs), "rails": _rails(svcs, stored.get("scratch_pattern")),
+                           "data_dirs": stored["data_dirs"], "allow_roots": allow,
                            "backup_threshold_bytes": BACKUP_THRESHOLD}
         res = runner.call(rt, d, req, timeout=1800)
         results.append({"target": item["target"], "ok": res.get("ok", False),

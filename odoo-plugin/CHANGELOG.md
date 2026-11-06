@@ -2,6 +2,41 @@
 
 All notable changes to `odoo-plugin` are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/). Versioning follows [SemVer](https://semver.org/).
 
+## [4.1.1] - 2026-11-06
+
+**Security fix: `local_cleanup_plan` proposed dropping canonical databases, backed up nothing,
+and returned output too large to show.** Found in a live plan run (nothing was applied).
+
+### Security
+- **Main-DB protection now follows the conf's filter.** A conf without `db_name` protected
+  nothing, so DBs such as `<project>_default` matched by `dbfilter` / `db_filter = ^hub.*$` were
+  proposed for drop. Discovery now records the filter (both spellings: Odoo ignores `db_filter`,
+  the developer meant it; the typo warning stays) and the keep-list keeps every DB it matches.
+  A service with neither `db_name` nor a filter keeps every non-scratch-named DB on its cluster
+  ("main DB of <service> unknown"). Applies to `local_db drop`, `local_db list`, the plan and
+  apply-time re-validation.
+- **Inactivity alone never drops without a dump.** The 200 MB threshold left every local DB
+  (30-160 MB) at `backup: false`. Now any DB proposed only because it is inactive gets
+  `backup: true` regardless of size, and names containing
+  `prod|bk|backup|baseline|golden|reference|vanilla|e2e` are kept unless also scratch-named (then
+  still backed up). Only small scratch-named DBs drop without a dump.
+
+### Fixed
+- **Plan output is a summary by default** (totals and bytes per kind, `with_backup` counts, the
+  15 largest cluster/name-prefix groups, keep reasons grouped, the 20 largest items, protected
+  keeps, `plan_file`). A 600-item plan went from 129,041 characters to about 7,500. `detail: true`
+  with `offset`/`limit` pages the full lists; `plan_id` re-reads a stored plan without scanning.
+  The item and keep shapes are unchanged; the contract in `mcp_local/README.md` documents the
+  new top level for env-doctor's consumer.
+
+### Verified
+- Live re-run on WSL Ubuntu, plan only: `Ubuntu:5433/hub_default` and
+  `Ubuntu:5433/cluster1_default` are in `keep` (matched by their services' filters); all 529
+  inactivity-only drops have `backup: true`; `medline`-style `*_bk_prod` / `*_baseline_main` are
+  kept as reference copies; summary 7,453 characters for 586 items / 186 keeps.
+- 15 new tests (filters incl. `db_filter`, unknown-main rule, drop refusal, backup policy,
+  reference-copy names, 600-item summary under 10,000 characters, paging, stored-plan re-read).
+
 ## [4.1.0] - 2026-11-06
 
 **Additive: design standard-first, absorb ~100 field lessons, and manage local services through

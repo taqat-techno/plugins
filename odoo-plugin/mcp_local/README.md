@@ -33,11 +33,17 @@ until the developer allows `mcp__plugin_odoo_odoo-local__*` in their settings.)
 
 Destructive DB work keeps two rails with **no override argument**:
 
-1. **Keep-list** — never dropped: any service's `main_db`, a DB with open connections, a DB
-   active in the last 7 days (last login / attachment / module write, or filestore mtime),
-   a DB whose activity cannot be read, and template DBs named in fast-test state files
-   (`~/.config/*/fast/*.env`).
-2. **Dump before drop** — a DB of 200 MB or more (or a plan item with `backup: true`) is
+1. **Keep-list** — never dropped: any service's `main_db`; for a service without `db_name`,
+   every DB its filter matches (`dbfilter`, and the misspelled `db_filter` that Odoo ignores
+   but the developer meant); for a service with neither, every non-scratch-named DB on its
+   cluster ("main DB of <service> unknown"); a DB with open connections; a DB active in the
+   last 7 days (last login / attachment / module write, or filestore mtime); a DB whose
+   activity cannot be read; and template DBs named in fast-test state files
+   (`~/.config/*/fast/*.env`). The cleanup plan also keeps any DB whose name contains
+   `prod|bk|backup|baseline|golden|reference|vanilla|e2e` unless the name is also
+   scratch-style.
+2. **Dump before drop** — a DB of 200 MB or more, every plan item with `backup: true` (always
+   set for a DB proposed for inactivity alone, or one with a reference-copy word), is
    `pg_dump -Fc`'d to `~/odoo-backups/odoo-local_<date>/<db>.dump` and its TOC checked (one
    `TABLE DATA` entry per table) before `DROP DATABASE` — without `FORCE`, so a DB in use fails
    rather than breaking a session. The result carries the `pg_restore` line.
@@ -85,32 +91,53 @@ Path removal goes through one guard: absolute path, strictly below an allowed ro
 
 ## Contract: `local_cleanup_plan` (consumed by env-doctor's cleaning skill)
 
-Stable. Consumers must ignore keys they don't know.
+Stable. Consumers must ignore keys they don't know. Changed in 4.1.1: the default response is a
+**summary**; full lists are paged.
 
-```json
-{
-  "plan_id": "plan-20261106194104-e013e90862",
-  "items": [
-    {"kind": "scratch_db", "target": "Ubuntu:5434/kg_qa", "size_bytes": 90479639,
-     "reason": "inactive 83 days", "action": "drop", "backup": false}
-  ],
-  "keep": [{"target": "Ubuntu:5434/PearlPixels", "reason": "main_db of service pearl-pixels-18"}],
-  "created_at": "...", "expires_at": "...", "distro": "Ubuntu", "total_bytes": 0
-}
-```
+**Item and keep shapes (unchanged):**
+`item = {kind, target, size_bytes, reason, action, backup}`, `keep = {target, reason}`.
 
 - `kind`: `scratch_db` (action `drop`), `orphan_filestore` (`delete`), `dead_conf` (`archive`:
   moved to `<conf dir>/_archive_<YYYYMMDD>/`, never deleted), `stale_log` (`delete`).
 - `target`: a database is `<distro>:<pg port>/<db name>`; a path is `<distro>:<absolute path
   inside that runtime>` (`local:` on a Linux host).
-- `backup`: `true` means the DB is dumped and TOC-verified before the drop.
-- With several distros the tool returns `{"plans": [<plan>, ...]}`.
-- Orphan filestores are proposed only when every cluster could be listed; otherwise `keep` says
-  why they were not judged.
+- `backup`: `true` means the DB is dumped and TOC-verified before the drop. It is `true` for
+  every DB proposed only because it is inactive; `false` only for a small scratch-named DB.
+
+**Default response (`view: "summary"`)** — sized to show a user (~7 KB for ~600 items):
+
+```json
+{
+  "plan_id": "plan-20261106201420-220afb6530", "view": "summary",
+  "created_at": "...", "expires_at": "...", "distro": "Ubuntu", "total_bytes": 41304705958,
+  "items_total": 586, "keep_total": 186,
+  "plan_file": "C:\\Users\\<you>\\.odoo-mcp\\local-plans\\plan-....json",
+  "summary": {
+    "by_kind": {"scratch_db": {"count": 533, "bytes": 40779269995, "with_backup": 529}, "...": {}},
+    "scratch_db_groups": [{"group": "Ubuntu:5434 medline*", "count": 120, "bytes": 0}],
+    "scratch_db_groups_total": 40,
+    "keep_reasons": {"recent or not scratch": 133, "main_db": 35, "reference-copy name": 4}
+  },
+  "items": ["... the 20 largest items, item shape ..."],
+  "keep": ["... up to 20 main-DB / reference-copy keeps, keep shape ..."],
+  "more": "how to page"
+}
+```
+
+**Full lists (`detail: true`)** — `{..., "view": "page", "offset", "limit", "items": [...],
+"keep": [...], "next_offset"?}`: `items[offset:offset+limit]` and `keep[offset:offset+limit]`
+(limit default 100, max 500); `next_offset` is present while either list has more. Pass
+`plan_id` to page a stored plan without scanning again. The stored plan file (`plan_file`,
+JSON `{"plan": {plan_id, items, keep, ...}, ...}`) always holds the complete lists.
+
+With several distros the tool returns `{"plans": [<view>, ...]}`. Orphan filestores are
+proposed only when every cluster could be listed; otherwise `keep` says why they were not
+judged.
 
 `local_cleanup_apply {plan_id, only?: [target, ...]}` executes only items of that stored,
-unexpired (24 h), not-yet-applied plan, re-validating each against live state (the keep-list and
-path guard run again at apply time). A refused item is reported and skipped; an unexpected error
-stops the run.
+unexpired (24 h), not-yet-applied plan, re-validating each against live state (the keep-list,
+filters and path guard run again at apply time). A refused item is reported and skipped; an
+unexpected error stops the run. Applying a whole plan applies every stored item, not only the
+20 shown in the summary — show the summary totals to the user before applying.
 
 When `odoo-local` is not available, a consumer should fall back to a generic Postgres inventory.

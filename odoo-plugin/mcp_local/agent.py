@@ -439,6 +439,7 @@ def describe_conf(path: str, procs: list, runtime: str, distro):
         "db_host": db_host or "",
         "db_port": conf_int(conf, "db_port", default=5432),
         "main_db": main_db,
+        "dbfilter": (dbf or conf.get("db_filter") or None),
         "data_dir": os.path.expanduser(conf.get("data_dir") or (os.path.join(HOME, "AppData", "Local", "OpenERP S.A", "Odoo") if IS_WINDOWS else os.path.join(HOME, ".local", "share", "Odoo"))),
         "systemd_unit": "odoo-%s" % sid if runtime == "wsl" or (runtime == "linux") else None,
         "logfile": conf.get("logfile") or None,
@@ -845,9 +846,36 @@ def tool_state_templates() -> set:
     return names
 
 
-def keep_reason(row, main_dbs, protected, active_days=7.0):
-    if row["name"] in main_dbs:
-        return "main_db of service %s" % main_dbs[row["name"]]
+def filter_regex(value):
+    """An Odoo dbfilter as a regex: %h / %d (host / first host label) match anything here."""
+    if not value or str(value).strip().lower() in ("false", "none"):
+        return None
+    try:
+        return re.compile(str(value).replace("%h", ".*").replace("%d", ".*"))
+    except re.error:
+        return re.compile(r"(?!x)x")  # unparsable filter: matches nothing; caught by the unknown-main rule
+
+
+def keep_reason(row, main_dbs, protected, active_days=7.0, rails=None, cluster_label=None):
+    """Why a DB must be kept, or None. `rails` (from the server):
+      main_filters  [[service, filter]]   - DBs matching a service's dbfilter/db_filter are its main DBs
+      unknown_main  {cluster_label: [service]} - services with neither db_name nor a filter: keep every
+                                             non-scratch DB on that cluster
+      scratch_pattern regex string
+    """
+    rails = rails or {}
+    name = row["name"]
+    if name in main_dbs:
+        return "main_db of service %s" % main_dbs[name]
+    for sid, flt in rails.get("main_filters") or []:
+        rx = filter_regex(flt)
+        if rx is not None and rx.match(name):
+            return "main_db of service %s (matches its dbfilter %s)" % (sid, flt)
+    unknown = (rails.get("unknown_main") or {}).get(cluster_label) or []
+    if unknown:
+        scratch = re.compile(rails.get("scratch_pattern") or r"(?!x)x", re.IGNORECASE)
+        if not scratch.search(name):
+            return "main DB of %s unknown (no db_name or dbfilter); non-scratch DBs on this cluster are kept" % unknown[0]
     if row["name"] in protected:
         return "protected: %s" % protected[row["name"]]
     if row["connections"] > 0:
@@ -876,7 +904,8 @@ def op_db_list(req):
         for r in rows:
             r["is_odoo"], r["last_activity"] = _last_activity(cl, r["name"], data_dirs) if req.get("activity", True) else (None, None)
             r["cluster"] = cl["label"]
-            r["keep"] = keep_reason(r, req.get("main_dbs") or {}, protected)
+            r["keep"] = keep_reason(r, req.get("main_dbs") or {}, protected, rails=req.get("rails"),
+                                    cluster_label=cl["label"])
         out.append({"cluster": cl["label"], "databases": rows})
     return {"clusters": out}
 
@@ -916,7 +945,8 @@ def op_db_drop(req):
     protected = dict(req.get("protected") or {})
     for t in tool_state_templates():
         protected.setdefault(t, "referenced by a fast-test tool state file")
-    reason = keep_reason(row, req.get("main_dbs") or {}, protected)
+    reason = keep_reason(row, req.get("main_dbs") or {}, protected, rails=req.get("rails"),
+                         cluster_label=cl.get("label"))
     if reason:
         raise Refused("keep-list: %s is kept (%s)" % (db, reason))
     result = {"db": db, "size_bytes": row["size_bytes"]}
@@ -976,7 +1006,7 @@ def op_cleanup_scan(req):
                        ({os.path.join(HOME, ".local", "share", "Odoo"), os.path.join(HOME, ".local", "share", "odoo")}
                         if not IS_WINDOWS else set()))
     dbl = op_db_list({"clusters": req["clusters"], "data_dirs": data_dirs, "main_dbs": req.get("main_dbs"),
-                      "protected": req.get("protected")})
+                      "protected": req.get("protected"), "rails": req.get("rails")})
     all_dbs, cluster_errors = set(), []
     for c in dbl["clusters"]:
         if "error" in c:
