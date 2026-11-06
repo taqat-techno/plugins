@@ -23,10 +23,19 @@ _WHAT = {
     "calendar_commit": "CREATE the staged calendar event {stage_id}. Invitations are sent to the attendees.",
     "teams_commit": "SEND the staged Teams message {stage_id} now. It is delivered at once and cannot be unsent.",
     "email_discard_draft": "DELETE the draft {draft_id} from your Drafts folder.",
-    "m365_setup_save": "SAVE the Microsoft 365 setup (client id {client_id}; token file {refresh_token_file}; secret file {client_secret_file}). Approve only paths you recognise: the plugin will read those files.",
+    "m365_setup_save": "SAVE the Microsoft 365 setup: client id {client_id}, tenant {tenant}, permissions mode {scope_mode}, sign-in method {auth_mode} (a dash means unchanged). Approve only values your admin gave you.",
     "email_delete": "MOVE message {message_id} to Deleted Items (recoverable from there).",
     "onedrive_share_link": "CREATE an organization-wide view link for OneDrive item {item_id}.",
 }
+
+
+_LIMIT = 200
+
+
+def _show(value):
+    """The value exactly as it will act, with control characters made visible (no newline can fake a second line)."""
+    text = str(value)
+    return "".join(ch if ch.isprintable() else "?" for ch in text)
 
 
 def _tool_name(raw_name):
@@ -43,8 +52,15 @@ def main():
     except Exception:
         pass
     template = _WHAT.get(name, "make a change in Microsoft 365 that others can see or that cannot be undone.")
+    keys = ("draft_id", "stage_id", "message_id", "item_id", "client_id", "tenant", "scope_mode", "auth_mode")
+    values = {k: tool_input.get(k, "-") for k in keys}
+    if any(len(str(v)) > _LIMIT for v in values.values()):
+        # A value too long to show in full could hide what the call really does: do not offer a prompt, refuse.
+        print(json.dumps({"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny",
+                                                  "permissionDecisionReason": "Microsoft 365: refused, an argument is too long to show you in full."}}, ensure_ascii=False))
+        return 0
     try:
-        reason = "Microsoft 365: " + template.format(**{k: str(tool_input.get(k, "-"))[:120] for k in ("draft_id", "stage_id", "message_id", "item_id", "client_id", "refresh_token_file", "client_secret_file")})
+        reason = "Microsoft 365: " + template.format(**{k: _show(v) for k, v in values.items()})
     except Exception:
         reason = "Microsoft 365: " + template
     print(json.dumps({"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "ask", "permissionDecisionReason": reason}}, ensure_ascii=False))

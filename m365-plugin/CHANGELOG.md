@@ -15,6 +15,12 @@
   `m365_access_request` (a ready-to-send admin message built from the enabled modules, each permission explained, admin-consent
   ones marked). The settings file has the lowest priority, never holds a secret, and cannot change read-only mode or modules.
   A cancelled or refused sign-in (AADSTS700171 / AADSTS90135) is now `SIGN_IN_DECLINED` with a hint to ask the admin.
+- **Credential files can only be chosen by the person.** The model-callable `m365_setup_save` refuses `refresh_token_file` and
+  `client_secret_file` (`CREDENTIAL_SETTING_NOT_ALLOWED`) and refuses to change the client ID or tenant once an app is configured
+  (`ALREADY_CONFIGURED`), so injected text cannot redirect the sign-in or point the plugin at a file. The person sets them in the
+  plugin settings, in the environment, or by running `node server/cli.mjs setup ...` in their own terminal; a running agent picks
+  the change up without a restart. The confirmation prompt shows the exact client ID, tenant and modes with control characters made
+  visible, and is refused outright if an argument is too long to show in full.
 - **Reuse another tool's saved sign-in.** `M365_REFRESH_TOKEN_FILE` (plugin setting "Shared token file") points at a file holding
   a refresh token that another tool, such as a bot, already obtained; `M365_CLIENT_SECRET_FILE` ("App secret file") points at
   the app's secret if the app has one. The plugin redeems that token (always with the app's approved permissions), so no

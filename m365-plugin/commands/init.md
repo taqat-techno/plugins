@@ -39,11 +39,15 @@ let the user pick the situation that fits them:
    lists exactly the permissions needed for the features they enabled, and nothing more.
 3. **"My own bot or another tool already signs in as me, and I want to reuse it (on my own computer)"** -> ask for:
    the client ID and tenant that tool uses, the PATH of the file holding its refresh token, and the PATH of the file
-   holding the app's secret (if the app has one). Explain that only the paths are given, never paste a token or a
-   secret into the chat. Call `m365_setup_save` with `client_id`, `tenant`, `refresh_token_file`, `client_secret_file`
-   (the plugin checks each file looks like a token or secret and never shows it; Claude Code asks the user to confirm
-   the paths). No new admin approval is needed, because that tool's sign-in was already approved. The plugin then uses
-   that sign-in and writes a renewed token back to the same file, as its owner does. Skip step 3.
+   holding the app's secret (if the app has one). **You cannot save file paths yourself, on purpose: only the person
+   at the keyboard may point the plugin at a credential file.** Give the user this command to run in their own terminal
+   (replace the placeholders; never paste a token or secret into the chat):
+   `node "<plugin folder>/server/cli.mjs" setup --client-id <id> --tenant <id> --token-file <path> --secret-file <path>`
+   (the plugin folder is where this plugin is installed; the same values can instead go in the plugin settings
+   "Shared token file" and "App secret file"). The command checks each file looks like a token or secret and never shows
+   it. No new admin approval is needed, because that tool's sign-in was already approved. Then call `m365_auth_status`:
+   it picks the change up without a restart. The plugin writes a renewed token back to the same file, as its owner does.
+   Skip step 3.
 4. **"An approved app exists, but sign-in still asks for approval"** -> `m365_setup_save` with `scope_mode: "app"`
    (use the permissions already approved for the app) and go to step 3.
 

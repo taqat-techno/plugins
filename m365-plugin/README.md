@@ -26,7 +26,7 @@ No browser on the machine? Use the sign-in method `device-code`: you get a short
 
 | Area | Tools |
 |---|---|
-| Sign-in and setup | `m365_sign_in`, `m365_auth_status`, `m365_sign_out`, `m365_setup_save` (asks you first: it points the plugin at files), `m365_access_request` (writes the message for your admin) |
+| Sign-in and setup | `m365_sign_in`, `m365_auth_status`, `m365_sign_out`, `m365_setup_save` (first setup of the app's ids only; asks you first), `m365_access_request` (writes the message for your admin) |
 | Mail (read) | `email_list_recent`, `email_search`, `email_read`, `email_read_thread`, `email_list_attachments`, `email_read_attachment` |
 | Mail (write) | `email_create_draft`, `email_create_reply_draft`, `email_update_draft`, `email_preview_draft`, **`email_discard_draft`**, **`email_send_draft`**, `email_move` (inbox or archive), `email_mark_read`, `email_set_flag`, **`email_delete`** (to Deleted Items) |
 | Calendar | `calendar_list_events`, `calendar_get_event`, `calendar_find_free_slots`; write: `calendar_stage`, **`calendar_commit`**, `calendar_discard` |
@@ -68,7 +68,8 @@ pick; nothing is ever guessed. A name or alias that already points at one addres
 
 If a bot already signs in as you with an app an admin approved, point the plugin at that sign-in instead of asking for new
 approval: set `M365_CLIENT_ID` and `M365_TENANT` to the bot's, `M365_REFRESH_TOKEN_FILE` to the file holding its refresh token and
-`M365_CLIENT_SECRET_FILE` to the file holding the app's secret. The plugin then uses the app's approved permissions, never
+`M365_CLIENT_SECRET_FILE` to the file holding the app's secret, or let `/m365:init` give you the one command to type in your own terminal:
+`node server/cli.mjs setup --client-id <id> --tenant <id> --token-file <path> --secret-file <path>` (an agent cannot run it for you, on purpose). The plugin then uses the app's approved permissions, never
 shows the sign-in prompt, and writes a renewed token back to the same file atomically (the same protocol the bot follows), so
 neither side holds a stale token. `m365_sign_out` never deletes that file, and `m365_sign_in` is not available in this mode: if
 access stops, sign in again with the tool that owns the file. This is meant for your own machine; new users should sign in
@@ -96,7 +97,7 @@ owner). If `more` is true, call again. A failing detector is listed in `errors` 
 | Permissions to request | `M365_SCOPE_MODE` | `requested` (default) or `app`: use the permissions already approved for the app, so an app an admin approved earlier for a bot needs no new request |
 | (none) | `M365_HOME` | Folder for the profile, sign-in cache and staged items, default `~/.m365-plugin` |
 
-Plugin settings win over environment variables, which win over `~/.m365-plugin/settings.json` (written by `/m365:init`: ids and file paths only, never a secret; it cannot change read-only mode or modules). An unexpanded `${...}` counts as unset.
+Plugin settings win over environment variables, which win over `~/.m365-plugin/settings.json` (written by `/m365:init` or by `node server/cli.mjs setup`: ids and file paths only, never a secret; it cannot change read-only mode or modules). An unexpanded `${...}` counts as unset.
 
 ## For bots and other hosts (OpenClaw and similar)
 
