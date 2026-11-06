@@ -8,6 +8,17 @@ argument-hint: '[<module_name>] [<project>] [--version N]'
 
 # /scaffold — Scaffold New Module
 
+## Fit-gap gate (before any file is generated)
+
+Scaffolding a module that duplicates standard Odoo is the failure this gate prevents. Before
+generating, the conversation must contain a **fit-gap verdict** from the `odoo-solution-design`
+skill (standard → configuration → OCA → Apps store → custom) whose `CUSTOM` rows this module
+implements, or the user's explicit "skip the fit-gap" for this module.
+
+- Verdict present: name the `CUSTOM` rows this module covers in the confirmation summary.
+- Verdict absent: route to the `odoo-solution-design` skill first, then return here.
+- User says skip: proceed, and record "fit-gap skipped by user" in the confirmation summary.
+
 ## Bare-invocation behavior (no args)
 
 Module scaffolding requires a name — there is no sensible filesystem-derived default. So when invoked with no arguments, the command does **not** error: it prompts.
@@ -59,8 +70,9 @@ projects/<project>/<module_name>/
 
 | Odoo | List View Tag | Visibility Syntax |
 |------|---------------|-------------------|
-| 19 | `<list>` | Inline `invisible="expr"` |
-| 17-18 | `<tree>` | `attrs="{'invisible': [(...)]}"` |
+| 18-19 | `<list>` | Inline `invisible="expr"` |
+| 17 | `<tree>` | Inline `invisible="expr"` (`attrs`/`states` were removed in 17) |
+| 14-16 | `<tree>` | `attrs="{'invisible': [(...)]}"` |
 
 ## Manifest
 
@@ -75,5 +87,4 @@ Author, website, and license values are read from `odoo-service.local.md` if pre
 ## Post-Scaffold
 
 1. Verify `projects/<project>` is in the config's `addons_path`
-2. Refresh module list: `python -m odoo -c conf/<CONFIG>.conf -d <DB> --update-list`
-3. Install: `python -m odoo -c conf/<CONFIG>.conf -d <DB> -i <module_name> --stop-after-init`
+2. Install: `python -m odoo -c conf/<CONFIG>.conf -d <DB> -i <module_name> --stop-after-init` (`-i` refreshes the module list itself; judge success by `ir_module_module.state` and the log's ERROR count, not the exit code). With the `odoo-local` MCP server available, use `local_module` instead — it runs in the background and returns a job id.

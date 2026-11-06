@@ -153,6 +153,17 @@ export function graphUtcMs(dateTime) {
 
 const ENT = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " " };
 
+/** Decodes named and numeric HTML entities (so "&#104;ttps" and "&amp;" read as a browser would read them). */
+export function decodeEntities(s) {
+  return String(s ?? "").replace(/&(#x?[0-9a-f]+|[a-z]+);/gi, (m, e) => {
+    if (e[0] === "#") {
+      const n = e[1].toLowerCase() === "x" ? parseInt(e.slice(2), 16) : parseInt(e.slice(1), 10);
+      return Number.isFinite(n) && n > 0 && n <= 0x10ffff ? String.fromCodePoint(n) : m;
+    }
+    return ENT[e.toLowerCase()] ?? m;
+  });
+}
+
 /** HTML to readable text: block tags become newlines, entities decoded. */
 export function htmlToText(html) {
   return String(html ?? "")
@@ -160,13 +171,7 @@ export function htmlToText(html) {
     .replace(/<br\s*\/?>/gi, "\n")
     .replace(/<\/(p|div|li|tr|h[1-6]|blockquote)>/gi, "\n")
     .replace(/<[^>]+>/g, "")
-    .replace(/&(#x?[0-9a-f]+|[a-z]+);/gi, (m, e) => {
-      if (e[0] === "#") {
-        const n = e[1].toLowerCase() === "x" ? parseInt(e.slice(2), 16) : parseInt(e.slice(1), 10);
-        return Number.isFinite(n) ? String.fromCodePoint(n) : m;
-      }
-      return ENT[e.toLowerCase()] ?? m;
-    })
+    .replace(/&(?:#x?[0-9a-f]+|[a-z]+);/gi, decodeEntities)
     .replace(/[ \t]+\n/g, "\n")
     .replace(/\n{3,}/g, "\n\n")
     .trim();

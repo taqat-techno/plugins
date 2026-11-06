@@ -2,9 +2,21 @@
   "odoo": {
     "type": "stdio",
     "command": "${ODOO_MCP_PYTHON:-python}",
-    "args": ["${CLAUDE_PLUGIN_ROOT}/mcp/server.py"],
+    "args": [
+      "${CLAUDE_PLUGIN_ROOT}/mcp/server.py"
+    ],
     "env": {
       "ODOO_MCP_PROJECT_DIR": "${CLAUDE_PROJECT_DIR:-}"
+    }
+  },
+  "odoo-local": {
+    "type": "stdio",
+    "command": "${ODOO_MCP_PYTHON:-python}",
+    "args": [
+      "${CLAUDE_PLUGIN_ROOT}/mcp_local/server.py"
+    ],
+    "env": {
+      "ODOO_LOCAL_PROJECT_DIR": "${CLAUDE_PROJECT_DIR:-}"
     }
   }
 }

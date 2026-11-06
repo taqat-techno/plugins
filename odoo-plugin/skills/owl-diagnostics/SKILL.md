@@ -80,6 +80,24 @@ session can be in debug while the client is not.
 
 Navigate with `?debug=assets` explicitly and confirm with `odoo.debug` in the console.
 
+Two prop and registration failures that pass in production and fail in tests or new branches:
+
+- **`optional: true` accepts `undefined`, not `null`.** Prop validation runs in every test
+  run (tests are in debug), so a nullable value passed straight from state or a record fails
+  there. Coerce at the call site (`value or ''` in the template, `?? undefined` in JS).
+- **An undeclared component in a newly reachable branch blanks the app.** A component used
+  in a `t-if` branch that never rendered before is resolved only when it first renders; if
+  it is missing from `static components`, the render throws and the whole app goes blank.
+  When you change a visibility or loading condition, list the components in every branch it
+  makes reachable and check each against `static components`.
+
+## A blank client in a hidden window
+
+Owl renders on `requestAnimationFrame`, which browsers pause for hidden or background
+windows. A hidden browser pane or minimised automation window shows an empty `<body>` and
+drops hovers and clicks, which looks like a broken app. Check `document.hidden` (or
+`document.visibilityState`) before debugging; read text with `textContent`, not `innerText`.
+
 ## Match the rebuild to the edit
 
 Most edits need neither a module upgrade nor a restart. Picking the wrong row is the main time
@@ -89,9 +107,15 @@ sink in OWL work.
 |---|---|
 | Python code | **restart** (`sys.modules` is never reloaded) |
 | Manifest / views / new fields / security | `-u <module> --stop-after-init` |
+| **New entry** in the manifest `assets` | **restart** (the manifest is cached per process; an upgrade from the Apps menu is not enough) |
 | Existing file under `static/src` | clear the assets cache + hard reload |
 | **New** file matching an existing glob | regenerate assets (see below) |
 | `.po` used by JS translations | restart |
+
+Hash-only navigation (`/web#action=...`) keeps the page and therefore the old bundle; force a
+fresh load with a query string, e.g. `/web?cb=<n>#...`. A SCSS compile error can also leave
+the bundle "unchanged": see the `theme-scss` skill for libsass math errors that replace a
+whole bundle silently.
 
 ### The new-file trap
 

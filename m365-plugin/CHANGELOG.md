@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.2.2] - 2026-11-06
+
+### Security
+- The HTML-draft preview now lists every address the body can point at or load, not just quoted `href`/`src`: unquoted
+  attributes, `srcset`, `formaction`, `poster`, `xlink:href`, CSS `url()` and `@import`, meta refresh; entities are decoded
+  first (`&#104;ttps://...`). The preview reports `link_count` and `links_truncated`, and a draft with more than 200 links
+  cannot be sent from here (`PREVIEW_TRUNCATED`) instead of silently listing only some.
+
 ## [0.2.1] - 2026-11-06
 
 Fixes from an automated security review of 0.2.0.

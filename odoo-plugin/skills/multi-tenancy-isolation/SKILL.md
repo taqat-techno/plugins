@@ -127,6 +127,10 @@ breaks in **four independent, non-raising** places:
 
 None of the four raises. All four are reachable from the same single NULL.
 
+A tenancy column that exists is not one that is enforced or even filled. Before building a rule on
+an existing anchor, confirm some write path populates it (`SELECT count(<anchor>), count(*) FROM
+<table>`) and name that path; a rule on an always-NULL column is rule 2.1 for every row.
+
 ### 3. If a refactor can null the anchor, re-anchor it in the SAME change
 
 A stored-related or computed anchor (`tenant_id = fields.Many2one(related='parent_id.tenant_id',
@@ -180,6 +184,16 @@ Design requirements for any host-keyed gate:
   platform's build-host wildcards. Derive the reserved host from `web.base.url` rather than a
   second dedicated setting, because two settings drift: whoever moves the instance updates the one
   the framework already forces them to update, and the gate then defends a hostname nobody uses.
+- **Know which reserved-host sources replace and which accumulate.** `website.domain` is not a
+  reserved-host source unless the gate reads it, even though core routes on it. `web.base.url` is
+  rewritten from the request on every `base.group_system` login unless `web.base.url.freeze` is set,
+  so a fix made by editing it alone rolls back; set the freeze. An auth override that *records*
+  hosts seen at admin login can permanently reserve a tenant's own address: refuse to record a host
+  that a tenant claims. Diagnose by probing the host's public root and a backend path: root 200 but
+  backend refused means reserved; root refused means genuinely unknown.
+- **Host/Origin checks on a multi-hostname site accept the union** of the host the browser actually
+  reached and the configured domain, exact match only (no substring). A check that accepts only
+  `website.domain` rejects the hosting platform's own hostname for the same site.
 - **Carve the backend out by path**, not by inference: `/web` and `/odoo` must be excluded from any
   `is_frontend`-style deny logic explicitly. `is_frontend` is per-route metadata declared by the
   route itself, so a gate that infers "frontend" from anything else (a missing marker, a path

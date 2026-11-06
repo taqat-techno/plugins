@@ -61,6 +61,10 @@ Baseline **Odoo 17**; version changes live in `references/v19_deltas.md` and
    cross-module pattern? Which Odoo version (17, 19, 20)? Per cluster in a fleet.
    On 20.0+ with Odoo's official skills installed (`.claude/skills/odoo-review/
    .odoo-official.json`), they are the rule floor: `references/official_odoo_skills.md`.
+   **Establish ownership**: read each module's manifest `author` and repo before calling it
+   "vendor" (branding is not ownership). For imported code, find the module that owns the business
+   rule, sort findings into security vulnerability / wrong integration with that owner / missing
+   configuration / expected behaviour, and fix in the imported module, not the owner.
 2. **Walk the checklist below in order**, then the merits pass and the consumers the
    diff never shows (`references/change_impact.md`).
 3. **Cross-check the version deltas** (`v19_deltas.md`, `v20_deltas.md`: `<list>`,
@@ -80,6 +84,8 @@ reviewer/
 └── references/
     ├── coding_guidelines.md              ← module layout, file naming, Python/XML/JS/SCSS
     ├── orm_patterns.md                   ← _inherit / computed / related / depends / batch ops
+    ├── integration_patterns.md           ← outbound sync, cron loops, check_company, overrides
+    ├── views_and_templates.md            ← modifiers, button groups, portal QWeb traps
     ├── security_pitfalls.md              ← sudo / SQL / t-raw / public methods / Markup
     ├── performance.md                    ← N+1, prefetch, store=True, profiling
     ├── module_manifest.md                ← manifest keys + versioning rules
@@ -334,6 +340,12 @@ Common ORM anti-patterns to flag:
   mid-`write()`, degrades into an `InFailedSqlTransaction` that `retrying()`
   does not catch, and ships as a 500. See `references/orm_patterns.md` →
   Concurrency.
+- **Reuse check.** Custom code that re-implements a feature standard Odoo already ships for the
+  module's target version and edition, or that an available OCA module provides, = MAJOR. Name the
+  standard feature or module, and route the redesign through the `odoo-solution-design` skill's
+  fit-gap ladder (standard → configuration → OCA → Apps store → custom).
+- Remote calls in workflow buttons, cron loops, `check_company` + `domain=`, form helper fields,
+  terminal overrides: `references/integration_patterns.md`.
 
 **Odoo 19 ORM deltas** (apply only on v19 code; details in
 `references/v19_deltas.md`):
@@ -432,6 +444,8 @@ Use `odoo.tools.profiler.Profiler` (Python) or the developer-mode profiler
   domains when possible; both are evaluated server-side.
 - Don't put presentation logic in models — use `widget=` attributes,
   `attrs`/`invisible`/`readonly`, or QWeb in templates.
+- Modifier fields present in the view, `groups` on object buttons, list search vs
+  `_rec_names_search`, portal datetimes and quantity checks: `references/views_and_templates.md`.
 
 ### 10. JS / Owl / assets
 

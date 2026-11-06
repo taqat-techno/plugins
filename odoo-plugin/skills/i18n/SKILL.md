@@ -49,8 +49,14 @@ Provides deep expertise in Odoo internationalization (i18n) and localization (l1
 5. **Save `.po` files as UTF-8** without BOM
 6. **Arabic** `.po` files must have `nplurals=6` in Plural-Forms header
 7. **Always update the module** after editing `.po` files: `-u module --stop-after-init`
-8. **NEVER export a language onto the module's own `i18n/<lang>.po`** -- the exporter truncates its output file before it lazily reads code translations from that same file, so they export empty. Export to a fresh `--output` path, then merge back by `msgid`
-9. **Restart the server after editing a `.po`** -- code translations are cached per process, keyed `(module, lang)`, and a registry reload does not drop that cache
+8. **NEVER export a language onto the module's own `i18n/<lang>.po`** -- the exporter truncates its output file before it lazily reads code translations from that same file, so they export empty. Export to a fresh file (`--i18n-export=/tmp/fresh.po` -- the filename is the option's value; there is no `--output` option on 14-18), then merge back by `msgid`
+9. **Restart the server after editing a `.po`** -- code translations are cached per process, keyed `(module, lang)`, and a registry reload does not drop that cache. Then re-test in a fresh browser context: `/web/webclient/translations` is HTTP-cached and survives a normal reload
+10. **Scripted `.po` edits keep the file's newline convention** -- write in binary mode with the detected `\r\n` / `\n`, then check `git diff --stat` (see i18n-audit rule 6)
+11. **A coverage % is not evidence** -- a string with no entry is never counted. Verify the rendered screen or the extracted terms (see i18n-audit rule 7)
+
+Runtime traps that look like "the translation is in the file but the screen is English"
+(Owl component props, multi-line QWeb text, `html_translate` writes over RPC, theme
+catalogues): [references/runtime-traps.md](references/runtime-traps.md).
 
 ---
 
@@ -95,6 +101,14 @@ const msg = _t("Save Changes");   // extracted
 const msg = _t(someVariable);     // NOT extracted
 ```
 
+**Owl templates -- two extractor traps** (detail in `references/runtime-traps.md`):
+- An attribute on a **component** tag (uppercase, e.g. `<FormField label="'Name'"/>`) is
+  extracted and translated **only** when its name ends in `.translate`:
+  `<FormField label.translate="Name"/>` (raw text, no inner quotes). On a plain element the
+  suffix does nothing; plain elements translate `title`, `placeholder`, `alt`, `aria-label`, `label`.
+- A multi-line text node is stripped, not whitespace-normalised: the msgid keeps its newlines
+  and source indentation. Never hand-type such a msgid -- take it from the export.
+
 ### Generated File Structure
 
 ```po
@@ -113,11 +127,20 @@ msgstr ""
 ### Alternative: Odoo's Built-in Extractor
 
 ```bash
-# Export to a FRESH file — never onto the module's own i18n/<lang>.po
+# Odoo 14-18. Export to a FRESH file -- never onto the module's own i18n/<lang>.po.
+# The filename is the VALUE of --i18n-export; there is no --output option (exit 2).
 python odoo-bin -c conf/myproject.conf -d mydb \
-    --i18n-export --modules=my_module --language=ar \
-    --output=/tmp/my_module_ar_fresh.po --stop-after-init
+    --i18n-export=/tmp/my_module_ar_fresh.po --modules=my_module -l ar \
+    --stop-after-init
+
+# Odoo 19: the --i18n-* options are gone; use the i18n subcommand.
+# -l takes several values, so put the modules BEFORE it (check `odoo-bin i18n export --help`).
+python odoo-bin i18n export -c conf/myproject.conf -d mydb my_module \
+    -o /tmp/my_module_ar_fresh.po -l ar
 ```
+
+Check the exit code and the log, not the output file's existence: a stale file from an
+earlier run looks exactly like a successful export.
 
 The Odoo CLI extractor includes database strings (model names, action names) that the plugin extractor does not. For production, the built-in extractor is more complete.
 
@@ -131,7 +154,8 @@ plausible — a large share of a catalogue can disappear in one command that rep
 
 The safe loop:
 
-1. Export to a **fresh** `-o` / `--output` path outside the module.
+1. Export to a **fresh** file outside the module (`--i18n-export=FILE` on 14-18, `-o FILE`
+   on the Odoo 19 `i18n export` subcommand).
 2. Merge translations from the old file into the fresh one — match by `msgid`, fill only
    empty `msgstr` — then replace the module's file with the merged result.
 3. That merge is also the correct way to refresh a **stale** catalogue: the fresh export
@@ -276,20 +300,22 @@ Requires PostgreSQL and a valid database.
 ### Exporting Translations
 
 ```bash
-# Single module — output to a fresh path, then merge back (see Workflow 1:
+# Odoo 14-18: the output file is the VALUE of --i18n-export (no --output option).
+# Single module -- export to a fresh file, then merge back (see Workflow 1:
 # the exporter truncates its output file before reading code translations from it)
 python odoo-bin -c conf/myproject.conf -d mydb \
-    --i18n-export --modules=my_module --language=ar \
-    --output=/tmp/my_module_ar_fresh.po --stop-after-init
+    --i18n-export=/tmp/my_module_ar_fresh.po --modules=my_module -l ar --stop-after-init
 
-# Export .pot template (no --language = empty msgstr)
+# Export .pot template (no -l = empty msgstr; the extension picks the format)
 python odoo-bin -c conf/myproject.conf -d mydb \
-    --i18n-export --modules=my_module \
-    --output=my_module/i18n/my_module.pot --stop-after-init
+    --i18n-export=my_module/i18n/my_module.pot --modules=my_module --stop-after-init
 
-# Multiple modules / all installed
+# Multiple modules
 python odoo-bin -c conf/myproject.conf -d mydb \
-    --i18n-export --modules=mod1,mod2 --language=ar --output=combined_ar.po --stop-after-init
+    --i18n-export=/tmp/combined_ar.po --modules=mod1,mod2 -l ar --stop-after-init
+
+# Odoo 19: subcommand form (modules first, -l last)
+python odoo-bin i18n export -c conf/myproject.conf -d mydb mod1 mod2 -o /tmp/x.po -l ar
 ```
 
 ### Importing Translations
@@ -340,20 +366,21 @@ python -m odoo -c conf/myproject.conf -d mydb -u my_module --stop-after-init
 
 ### Odoo 17+ Specifics
 
-Translations stored as JSON terms internally; export format still `.po`. Clear cache:
-```python
-# python odoo-bin shell -d mydb
-self.env['ir.translation'].clear_caches()
-self.env.cr.commit()
-```
+Translations stored as JSON terms internally (`ir.translation` no longer exists from 16);
+export format still `.po`. Code terms are read from the `.po` on disk through a per-process
+cache, so **restart** the server after a `.po` edit; model terms need an import or `-u`.
 
-### Website Translations
+### Website and Theme Translations
 
 ```bash
 python odoo-bin -c conf/myproject.conf -d mydb \
-    --i18n-export --modules=website,my_theme_module --language=ar \
-    --output=website_ar.po --stop-after-init
+    --i18n-export=/tmp/website_ar_fresh.po --modules=website,my_theme_module -l ar \
+    --stop-after-init
 ```
+
+Theme catalogues have their own reference shape, a `--load-language` trap and a render
+trap under `--dev=xml`: follow the theme workflow in
+[references/runtime-traps.md](references/runtime-traps.md#theme-translations).
 
 ### Translation File Locations
 

@@ -23,7 +23,10 @@ metadata:
     - the explicit-UTF-8 decode rule for PO bytes (no latin-1 / unicode_escape)
     - the one-arch / one-.pot / one-.po-per-language bilingual pipeline (no forked _<lang> views)
     - the "#. module:" occurrence-comment requirement (a programmatically appended entry without one 500s every page in that language; msgfmt and PO libraries both pass it)
+    - the newline-convention rule for scripted .po edits (binary mode, git diff --stat)
+    - the "coverage percentage is not evidence" rule
   defers_to:
+    - skills/i18n/references/runtime-traps.md (Owl .translate props, multi-line QWeb msgids, caches, html_translate over RPC, theme workflow)
     - skills/i18n/references/po-gettext-discipline.md (full per-rule detail and commands)
     - skills/i18n/SKILL.md (extract / validate / report / import-export workflows)
     - skills/upgrade/references/theme-load-and-cli-upgrade.md (theme-translated-fields mapping; reload via CLI)
@@ -198,6 +201,29 @@ bad = [e for e in polib.pofile(path)
   last green run predates these files. Run the whole estate only when the user
   asks, or in CI.
 
+### 6. Scripted edits keep the catalogue's newline convention
+
+A text-mode rewrite of a CRLF catalogue re-terminates **every** line (on Windows, or with a
+library that normalises newlines), so a 100-line change becomes a whole-file diff that hides
+the real change and conflicts with every parallel branch. Nothing errors.
+
+**Audit action:**
+
+- Detect the convention first: count `b"\r\n"` vs bare `b"\n"` in the file's bytes.
+- Read and write in **binary mode**, encoding UTF-8 and joining with that convention.
+- Check `git diff --stat`: insertions should be close to the lines added, deletions near 0.
+  A whole-file diff means restore the file from `HEAD` byte for byte and redo the edit.
+
+### 7. A coverage percentage is not evidence
+
+"Translated entries / entries" can read 100% while screens render the source language: a
+string with **no entry** (never extracted, an Owl component prop without `.translate`, a bare
+JS literal, a raw enum value) is never counted and cannot lower the number.
+
+**Audit action:** measure the **source**, not the file: extract the terms the screens use
+and compare against the catalogue, then check the rendered screen in the target language.
+The extraction traps are listed in `skills/i18n/references/runtime-traps.md`.
+
 ## Version-aware notes (Odoo 14-19)
 
 | Concern | 14-15 | 16-17 | 18-19 |
@@ -205,7 +231,7 @@ bad = [e for e in polib.pofile(path)
 | Translation storage | `ir.translation` table | JSON terms (internal) | JSON terms |
 | JS translation import | `from "web.core"` | `from "@web/core/l10n/translation"` | same as 16 |
 | View root tag (affects `arch_db` term ids) | `<tree>` | `<tree>` | `<list>` (19) |
-| Clear translation cache | `ir.translation.clear_caches()` | `clear_caches()` | registry reload on `-u` |
+| Clear translation cache | `ir.translation.clear_caches()` | code terms: restart; model terms: `-u` / import | same as 16-17 |
 
 Export format is `.po` on every version even where storage is JSON internally —
 the typed-reference and msgid rules above are identical across 14-19. Only the
@@ -225,6 +251,10 @@ export emits) differ.
 - [ ] After any programmatic `.po` edit, every entry was verified to carry a
       `#. module: <name>` comment (Odoo's reader requires it; `msgfmt` does not),
       and every catalogue in the estate was swept — not only the file edited.
+- [ ] Scripted edits were written in binary mode with the file's own newline
+      convention; `git diff --stat` shows no whole-file rewrite.
+- [ ] "Done" rests on the source and the rendered screen, not on a catalogue
+      coverage percentage.
 - [ ] For theme-backed models, every translatable field is in the
       theme-translated-fields mapping (see upgrade reference) before reload.
 - [ ] Reload was done so the refreshed `.po` actually applied (module upgrade /
@@ -239,6 +269,8 @@ export emits) differ.
 | `raw.decode("unicode_escape")` / `latin-1` on PO bytes | Silently corrupts every non-ASCII char | `open(..., encoding="utf-8")`; PO-aware unescape separately |
 | Forking `view_form_ar.xml` for the Arabic copy | Trees drift; loader never sees it; IDs collide | One arch, translate via `arch_db` terms in `ar.po` |
 | Treating a `fuzzy` entry as done | Fuzzy is not applied at load — counts as untranslated | Confirm and drop the `fuzzy` flag |
+| Rewriting a CRLF `.po` in text mode | Every line is re-terminated; a small change becomes a whole-file diff | Binary mode with the detected newline; check `git diff --stat` |
+| Reporting "100% translated" from the catalogue | Missing terms are never counted | Measure extracted source terms and the rendered screen |
 | Appending entries with a PO library and shipping after `msgfmt` passes | Odoo's reader requires a `#. module:` comment per entry and raises `AttributeError` without it — every page in that language 500s, while `msgfmt`/polib accept the file | Assert every entry has `#. module: <name>` (or re-parse with Odoo's own reader) and sweep every catalogue after a scripted edit |
 
 ## Cross-references

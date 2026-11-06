@@ -3,7 +3,7 @@
 //   email_preview_draft                            -> exactly what will be sent, plus a digest
 //   email_send_draft(draft_id, digest)             -> refuses unless the draft is unchanged since that preview
 // Recipients must be email addresses (resolve names with people_resolve); nothing is guessed from a name.
-import { EMAIL_RE, M365Error, clean, fence, htmlToText, safeId, safeStr, seg, truncate } from "../util.mjs";
+import { EMAIL_RE, M365Error, clean, decodeEntities, fence, htmlToText, safeId, safeStr, seg, truncate } from "../util.mjs";
 import { digestOf } from "../staging.mjs";
 
 const FOLDERS = ["inbox", "archive"]; // deleting goes through email_delete, which asks the human
@@ -11,6 +11,20 @@ const FLAGS = { flagged: "flagged", complete: "complete", none: "notFlagged" };
 const DRAFT_SELECT = "id,subject,toRecipients,ccRecipients,bccRecipients,body,hasAttachments,isDraft,conversationId";
 const ATTACH_PROMISE = /\b(attached|attachment|attachments|attaching|enclosed)\b|مرفق|المرفق|مرفقات|ارفقت|أرفقت|إرفاق|ارفاق/i;
 const MAX_PREVIEW = 20_000;
+const MAX_LINKS = 200;
+
+/** Every address an HTML body can point at or load: quoted and unquoted attributes, srcset, CSS url() and @import,
+ *  meta refresh. Entities are decoded first, as a mail client would. Callers must check the count against MAX_LINKS. */
+export function extractLinks(raw) {
+  const out = new Set();
+  const add = (v) => { const t = decodeEntities(v ?? "").trim(); if (t) out.add(clean(t, 300)); };
+  for (const x of raw.matchAll(/\b(?:href|src|background|action|formaction|poster|data|cite|longdesc|ping|manifest|xlink:href)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>]+))/gi)) add(x[1] ?? x[2] ?? x[3]);
+  for (const x of raw.matchAll(/\b(?:srcset|imagesrcset)\s*=\s*(?:"([^"]*)"|'([^']*)')/gi)) for (const part of (x[1] ?? x[2]).split(",")) add(part.trim().split(/\s+/)[0]);
+  for (const x of raw.matchAll(/url\(\s*(?:"([^"]*)"|'([^']*)'|([^)\s]+))\s*\)/gi)) add(x[1] ?? x[2] ?? x[3]);
+  for (const x of raw.matchAll(/@import\s+(?:url\(\s*)?["']([^"']+)["']/gi)) add(x[1]);
+  for (const x of raw.matchAll(/http-equiv\s*=\s*["']?refresh["']?[^>]*content\s*=\s*["'][^"']*url\s*=\s*([^"']+)/gi)) add(x[1]);
+  return [...out];
+}
 const HIDDEN_MARKUP = /display\s*:\s*none|visibility\s*:\s*hidden|font-size\s*:\s*0|opacity\s*:\s*0|mso-hide\s*:\s*all/i;
 const QUOTE_START = /\n\s*(From:|On .{5,120} wrote:|-{3,}\s*Original Message|De\s?:|من:)/i;
 
@@ -110,17 +124,18 @@ export const tools = [
       const raw = String(m.body?.content ?? "");
       const { text, truncated } = truncate(html ? htmlToText(raw) : raw, MAX_PREVIEW);
       // A reply or a draft edited in Outlook is HTML: the text below is only a rendering of it, so say what else is in it.
-      const links = html ? [...new Set([...raw.matchAll(/(?:href|src|background|action|poster|data)\s*=\s*["']([^"']+)["']|url\(\s*["']?([^)"']+)/gi)].map((x) => clean(x[1] ?? x[2], 300)))].slice(0, 50) : [];
+      const all = html ? extractLinks(raw) : [];
+      const links = all.slice(0, MAX_LINKS);
       const hidden = html && HIDDEN_MARKUP.test(raw);
       return {
         draft_id: id, to: addrs(m.toRecipients), cc: addrs(m.ccRecipients), bcc: addrs(m.bccRecipients),
         subject: clean(m.subject, 300), has_attachments: !!m.hasAttachments,
         body: fence(text, "draft body (may quote other people)", id), body_truncated: truncated,
-        ...(html ? { html_draft: true, links_and_images: links, hidden_markup_found: hidden,
+        ...(html ? { html_draft: true, links_and_images: links, link_count: all.length, links_truncated: all.length > MAX_LINKS, hidden_markup_found: hidden,
           html_warning: "This draft is HTML; the body above is a plain-text rendering. Show the user every link and image address listed and say if hidden_markup_found is true." } : {}),
         digest,
-        next_step: truncated
-          ? "The body is too long to preview in full, so it cannot be sent from here. Shorten it or send it from Outlook."
+        next_step: truncated || all.length > MAX_LINKS
+          ? "This draft is too long or has too many links to preview in full, so it cannot be sent from here. Shorten it or send it from Outlook."
           : "Show the user the recipients, subject and body. Send only after they approve: email_send_draft with this draft_id and digest.",
       };
     },
@@ -156,6 +171,7 @@ export const tools = [
       const isHtml = (m.body?.contentType ?? "").toLowerCase() === "html";
       const full = isHtml ? htmlToText(m.body?.content) : String(m.body?.content ?? "");
       if (full.length > MAX_PREVIEW) throw new M365Error("PREVIEW_TRUNCATED", "The body is longer than what a preview can show in full, so it cannot be sent from here.", { hint: "Shorten the draft, or send it from Outlook." });
+      if (isHtml && extractLinks(String(m.body?.content ?? "")).length > MAX_LINKS) throw new M365Error("PREVIEW_TRUNCATED", `The draft has more than ${MAX_LINKS} links or images, more than a preview can list in full, so it cannot be sent from here.`, { hint: "Shorten the draft, or send it from Outlook." });
       if (!m.hasAttachments && !a.confirm_no_attachment) {
         const mine = full.split(QUOTE_START)[0];
         if (ATTACH_PROMISE.test(mine)) throw new M365Error("ATTACHMENT_PROMISE", "The text mentions an attachment but the draft has none.", { hint: "Ask the user: remove the wording, or confirm sending without an attachment (confirm_no_attachment: true)." });

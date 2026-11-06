@@ -56,8 +56,9 @@ python -m odoo -c conf/project17.conf -d project17 \
 
 ### Test-invocation traps
 
-Four ways a run reports success without running your tests. All four are environment, none
-of them are code.
+Six ways a run reports the wrong result: traps 1-4 report success without running your
+tests, traps 5-6 report failures the code did not cause. All six are environment, none of
+them are code.
 
 **1. Pin `--db-filter` to the exact test database.** With `--db-filter='.*'` (or none) and a
 second database visible, every `HttpCase` request 303s to `/web/database/selector` and the
@@ -94,6 +95,17 @@ def setUp(self):
     super().setUp()
     self.url_open('/web/login', timeout=600)   # throwaway: builds the routing map
 ```
+
+**5. `url_open` has a short default timeout (10 s on older versions, 12 s on Odoo 19).** A cold
+render on a slow filesystem exceeds it; the client gives up, the server-side cursor is
+aborted, and the failure surfaces as a core traceback that looks like a product bug. Pass an
+explicit `timeout=` on heavy pages. `url_open` also routes by the conf `dbfilter`, not `-d`
+(trap 1).
+
+**6. Tours hit a hard 20 s `Page.navigate` limit.** `start_tour` errors on `Page.navigate`
+before step 1 when headless Chrome cannot load `/web` in 20 s, which happens when the core
+sits on a slow mount. That is an environment limit, not a tour bug: move the core to a
+native disk, or validate the flow in a live browser and say so in the report.
 
 Related: with `website` installed, `/web/login` becomes a **frontend** route
 (`is_frontend=True`), so any is_frontend-based deny logic must carve out `/web` and `/odoo`

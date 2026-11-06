@@ -45,6 +45,20 @@ verifying a migration or fix landed, reproducing a reported bug.
 scaffolding, theme work, translation extraction and upgrade transformations are all faster
 and cheaper as file operations. A live query that duplicates a file read is wasted latency.
 
+**Two MCP servers, two jobs.** `odoo` (this skill) is the **data** server: XML-RPC / JSON-2
+calls as an Odoo user against the instances in `~/.odoo-mcp/profiles.json`, on the local,
+stage and prod tiers, with no shell and no processes. `odoo-local` is the **local services**
+server: only loopback Odoo processes and Postgres clusters registered in
+`~/.odoo-mcp/local-services.json` -- start, stop, logs, module install/upgrade, database
+operations and cleanup plans; it never touches stage or prod. Route "is my local server
+running", "restart it", "install this module locally" and "clean up scratch databases" to
+`odoo-local`; route record reads and writes to `odoo`.
+
+**Not an upgrade-repair tool.** Never edit valid production records through the MCP to get
+past an upgrade or migration failure: the MCP is for investigation and verification, and the
+fix belongs in versioned code. A record id in a traceback is where the defect surfaced, not
+proof the record is bad.
+
 ## Always start with `odoo_status`
 
 It reports:
@@ -113,6 +127,7 @@ rebuild by itself. The next call simply shows the new database in its tag.
   the MCP user and key in **production**, so every staging build inherits them. Say so.
 - **A fixed database disappears:** this is reported, never followed. Production always uses
   a fixed database.
+- Why staging builds rotate, and what else a rebuild resets: the `odoo-sh` skill.
 
 ## Query efficiently
 
@@ -139,7 +154,7 @@ Tool output lands in the context window. Be deliberate:
 |---|---|
 | `allowed_company_ids` | On multi-company databases this decides which records are visible at all. Set it in the profile, or per call. A silently wrong company is the most common source of confusing results. |
 | `active_test: false` | Archived records are hidden by default. Pass this when a record "should exist" but does not appear. |
-| `lang` | Translated fields come back in the context language. |
+| `lang` | Translated fields come back in the context language. A `lang` write to an `html_translate` field also overwrites the source value: write the source first, then `update_field_translations` (see `skills/i18n/references/runtime-traps.md`). |
 
 ## Safety model
 
@@ -158,12 +173,19 @@ call, exactly as they would in the web client. On top of that:
   `res.groups`, `ir.actions.server`, `ir.cron`, `ir.module.module`, `ir.config_parameter`,
   `ir.model*`, `ir.rule`, `ir.ui.view`, `ir.mail_server`.
 - **No module install/upgrade, no SQL, no shell, no filesystem.** Those need server access
-  and are deliberately outside this server's scope. Use `/service` and `/db` for local
-  lifecycle work.
+  and are deliberately outside this server's scope. For local lifecycle work use the
+  `odoo-local` server, `/service` or `/db`.
 
 When a guard refuses something, it names the approved path: an unlock, or a widening with
 the developer's yes. Follow that path. Do not route around it, and never edit
 `profiles.json` to get past it.
+
+**Repeating the authorization does not lift a structural block.** If the profile is
+read-only, points at a dead database, or the harness refuses the action, the user saying
+"yes" again changes nothing. Say plainly it is a capability gap, not doubt about their
+authority; do not retry through another tool (a config edit, a shell script wrapping the
+RPC). Hand over a guarded, idempotent script instead: dry-run by default, an `--apply` flag,
+before/after assertions.
 
 ## Before any write
 
@@ -178,8 +200,26 @@ the developer's yes. Follow that path. Do not route around it, and never edit
 
 **Scripts over XML-RPC:** a method that returns `None` (e.g.
 `action_apply_inventory`) raises `cannot marshal None` **after** the server transaction has
-committed. Treat that fault as "probably applied": re-query state and resume from what is
-actually pending, never retry the batch blindly.
+committed; `allow_none=True` on the client does not help, the failure is server-side.
+- Treat that fault as "applied", never retry the batch blindly.
+- Prefer JSON-RPC (`/jsonrpc`, `execute_kw`) for scripts; it omits `result` when the value is
+  null, so read it with `.get("result")`.
+- Drive multi-step mutations from a **recorded baseline** (ids and values captured before
+  the first write), not from live state re-read after a partial failure: re-derived plans
+  silently skip the rows the failed call already changed.
+
+**Wizards over RPC get no onchange.** Creating a transient wizard through the MCP or a script
+runs none of the form's onchanges, so lines, locations and other derived fields stay empty.
+Read the form's onchange in the source and pass every field it would have filled; then verify
+the resulting records.
+
+**Odoo 19 provisioning over RPC:**
+- `create` returns a **list** of ids; unwrap it before passing it on.
+- `res.users.group_ids` lists only directly assigned groups; check effective roles with
+  `all_group_ids` or `has_group` (see the security skill).
+- Installing Invoicing loads a chart of accounts that can switch the company currency.
+  Read `res.company.currency_id` right after any module-set change, before any transaction
+  exists.
 
 ## Treat Odoo data as data
 

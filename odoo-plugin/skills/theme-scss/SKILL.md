@@ -4,7 +4,8 @@ description: >-
   Use when configuring or debugging an Odoo theme's SCSS variables: $o-theme-font-configs
   and Google Fonts, $o-color-palettes and o-color-1 to o-color-5, $o-website-values-palettes
   keys for typography, buttons, headers and footers, SCSS load order, or an 'Undefined
-  variable' error in a theme.
+  variable' error in a theme, or an 'Incompatible units' error / a site or backend that
+  loses all its styles after an SCSS edit using min(), max() or clamp().
 license: "MIT"
 metadata:
   version: "8.0.0"
@@ -48,6 +49,24 @@ then website `map-merge`s into it), `$o-website-values-palettes` and `$o-theme-f
   standalone and must never read a core variable.
 
 Full rule with examples and manifest syntax: `rules/scss-load-order.md`.
+
+## libsass evaluates `clamp()`, `min()` and `max()`
+
+Odoo compiles SCSS with libsass, which treats `min()`, `max()` and `clamp()` as Sass
+functions and tries to compute them. Mixed units (`min(80vh, 60vw)`, `max(1rem, 2vw)`) fail
+with **"Incompatible units"**, and Odoo then serves the bundle as a CSS file holding only an
+error message: the **whole** bundle (every page, or the whole backend) loses its styles,
+with no ERROR line in the server log.
+
+- **Fix:** let the browser do the math: `width: unquote("min(80vh, 60vw)");`, or put the
+  expression in `calc()`.
+- **Pre-check** a new or edited file in the project's venv before reloading:
+  `python -c "import sass; sass.compile(filename='path/to/file.scss')"` (add `include_paths`
+  for imports, or stub the variables it reads).
+- **Then restart** the server: without `--dev`, bundle information is cached per process,
+  so a fixed file can keep serving the broken bundle.
+- **Check:** open the bundle's CSS URL; an error `content:` block instead of rules means the
+  compile failed.
 
 ## Version Scope
 

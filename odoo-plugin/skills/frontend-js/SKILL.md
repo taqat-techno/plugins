@@ -128,7 +128,7 @@ export default publicWidget.registry.MyWidget;
 
 ## Owl Component Pattern
 
-### Odoo 17 (Owl v1)
+### Odoo 17 (Owl 2, template assigned after the class)
 
 ```javascript
 /** @odoo-module **/
@@ -272,6 +272,10 @@ translateLabel(key) {
 | Error messages in JS constants | Dynamic variables passed at runtime |
 | User-facing strings defined in JS | Hardcoded strings in .xml files |
 
+"Auto-translated" covers text nodes and standard attributes only. A string prop on an Owl
+**component** tag translates only as `prop.translate="Text"`; see
+`skills/i18n/references/runtime-traps.md`.
+
 ---
 
 ## Bootstrap 4 → 5 Migration (Odoo 14/15 → 16+)
@@ -329,13 +333,26 @@ $box-shadow: 0 .5rem 1rem rgba(0, 0, 0, .15) !default;
 
 Use `!default` flag on all overrides.
 
+### Bootstrap 5.1.3 has no component CSS variables
+
+Odoo 16-17 bundle **Bootstrap 5.1.3** (check the header of
+`web/static/lib/bootstrap/scss/bootstrap.scss` on any version before relying on a 5.3 feature).
+- `--bs-btn-bg`, `--bs-btn-color`, `--bs-btn-hover-bg` and the other component variables
+  arrived in **5.3**: in 5.1.3 they compile, pass review and have **no effect**. Override the
+  real properties (`color`, `background-color`, `border-color`) with enough specificity, e.g.
+  `.wrapper .btn.my_btn` beats `.btn-dark` and `.btn-dark:hover`, and define `:hover`,
+  `:focus`, `:active` and `:disabled` explicitly or they fall back to the base variant.
+- `badge-primary`, `badge-danger` and the other `badge-*` colour classes are **Bootstrap 4**
+  and inert in 5.x markup; use `.bg-*` with a text colour class (`.text-bg-*` arrived in
+  5.2). A 5.1.3 `.badge` sets no background of its own.
+
 ---
 
 ## Version-Specific Notes
 
 ### Odoo 17
 
-- Owl v1: template as separate property
+- Owl 2 (Odoo ships Owl 2 since 16.0); this pattern assigns the template after the class
 - Snippet registration: simple XPath
 - Import: `@web/legacy/js/public/public_widget`
 

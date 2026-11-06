@@ -51,7 +51,7 @@ attachments are all broken.
 # GOOD — copies SQL AND filestore:
 python <odoo-root>/odoo-bin db duplicate <src> <dst>
 #   or, programmatically, the same call the web DB-manager uses:
-#   env['ir.module.module']  ... or service db.exp_duplicate_database(<src>, <dst>)
+#   odoo.service.db.exp_duplicate_database(<src>, <dst>)
 
 # GOOD — full portable dump (zip contains manifest.json, dump.sql, filestore/):
 python <odoo-root>/odoo-bin db -c <config> dump <db> "<db>.zip"
@@ -62,6 +62,7 @@ python <odoo-root>/odoo-bin db -c <config> load <dst> "<db>.zip"
 # BAD — copies SQL ONLY; the filestore is NOT copied -> every attachment breaks:
 psql -c "CREATE DATABASE <dst> TEMPLATE <src>"
 createdb -T <src> <dst>
+pg_dump <src> | psql <dst>
 ```
 
 > The `pre_odoo_restart_guard.py` advisory hook nudges on `CREATE DATABASE ... TEMPLATE`

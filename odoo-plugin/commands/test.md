@@ -26,6 +26,15 @@ With no arguments, test **what changed**, not the whole module:
    module's whole suite, once.
 5. Report per the `test-scope` report block, and say that the full suite was not run.
 
+**Foreground or background (3-minute rule).** A run expected to take 3 minutes or less (T0,
+or a narrow T1 `--test-tags /<module>:<Class>.<method>` on a warm DB) runs in the
+foreground. Anything longer (T2, `--all`, `run` on a whole module, any `-i` on a fresh DB)
+starts in the background (`run_in_background`, or `local_module` + `local_job` from the
+`odoo-local` MCP when available); continue with other work and act on the completion
+notification. Never poll in a loop, never `sleep`, never kill a silent but healthy run, and
+judge the result by the test summary line, not the wrapper's exit code. Full rule: the
+`test` skill, "Long runs are background jobs".
+
 If nothing changed and no module can be detected from `$CWD`, list the direct-child
 modules and ask which one to test. Bare `/test` never generates test files and never
 runs every installed module.

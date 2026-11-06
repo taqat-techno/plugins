@@ -178,12 +178,24 @@ XML entity encoding - use numeric references:
 
 ## Data Migration Scripts
 
-Place migration scripts under `module/migrations/VERSION/`:
-- `pre-migrate.py` - Before ORM update (use raw SQL only)
-- `post-migrate.py` - After ORM update (can use env/ORM)
-- `end-migrate.py` - After all modules updated (cleanup)
+**Policy first.** A migration is for schema evolution and deterministic technical backfills that
+a module-version transition requires, and only when normal ORM initialization provably cannot
+handle it. Never use one for business-data fixes, master-data corrections, configuration, one-off
+cleanup, or to mask a code defect. Make it idempotent and test it on a fresh production-scale
+clone with before/after evidence.
+
+Place migration scripts under `module/migrations/VERSION/`. Odoo selects files by the stage
+prefix, so any `pre-*.py` / `post-*.py` / `end-*.py` name loads; follow the repository's existing
+convention (OCA uses `pre-migration.py` / `post-migration.py`):
+- `pre-*.py` - Before ORM update (use raw SQL only)
+- `post-*.py` - After ORM update (can use env/ORM)
+- `end-*.py` - After all modules updated (cleanup)
 
 Each must define `def migrate(cr, version):` and guard with `if not version: return`.
+
+Write the manifest version in full (`19.0.1.0.0`): `adapt_version()` prefixes the series only onto
+versions of three parts or fewer, so `1.0.0` is stored as `19.0.1.0.0` while a four-part `1.0.0.1`
+is rejected. Compare folders against the stored value, not the typed one.
 
 Common patterns:
 
@@ -324,9 +336,27 @@ migration that can never be selected.
   before reading the script. A skipped script and a script that ran and did
   nothing are indistinguishable from the log.
 
+**A migration folder is a watermark.** The gate is `installed < folder <= manifest`
+(`installed` = `ir_module_module.latest_version`), strict at the lower end, and
+fresh installs run no migrations at all. Editing a script inside a folder that a
+database has already passed delivers nothing to that database. Ship a fix in a
+**new** folder above every deployed stamp (check with one `SELECT latest_version`)
+and at or below the manifest version, or in `migrations/0.0.0/`, which runs on
+every version change. Anything a fresh install also needs belongs in data or a
+hook, not only in a migration.
+
+### A `<record>` on a noupdate core record does nothing; use `<function>`
+
+Records such as `base.main_company` carry `noupdate=True` in `ir_model_data`, so
+a `<record>` that writes to them from your module is skipped without error. Call a
+model method with `<function>` instead. If another module's `post_init_hook` (or
+data) writes the same field, add that module to your `depends`: the dependency
+graph is the only deterministic load-order lever. Assert the final value in a test,
+or a reverted change ships unnoticed.
+
 ### Removing a field without a cleanup migration wedges the next upgrade
 
-Bumping a module's version after **removing** a field, with no migration that
+Bumping a module's version (your own, or a vendored OCA/third-party copy) after **removing** a field, with no migration that
 drops what the field left behind, leaves the database holding an
 `ir_model_fields` row plus everything that references it — views that name the
 field, `res_groups` rows, ACL rows. Re-validating the affected settings/views
@@ -351,6 +381,12 @@ or a targeted `unlink()` in the right order) in the version's `pre-migrate.py`.
 | Cannot import slug | Import moved | Use compatibility wrapper |
 | website.snippet_options not found | System redesigned | Remove the template |
 | active_id not found | Context change | Replace with id |
+
+An upgrade that fails or logs warnings needs triage before any fix: data versus code,
+the owner-classified definition of a clean log, renamed modules, orphan tables,
+fields that survive through addons, per-website view copies and `t-value` versus
+`t-valuef` are in [upgrade-failure-triage.md](./references/upgrade-failure-triage.md).
+Read it before you call a failure "bad data" or a log "clean".
 
 ## Version-Specific Notes
 
@@ -379,6 +415,20 @@ on a database at that version, or read that version's source tree — before
 asserting either its absence or its presence. When correcting a recorded
 finding, say which part of it survives: the observations here were right and only
 the conclusion was wrong, which is a different repair from discarding the finding.
+
+Odoo 19 removed or renamed models and fields that older code, docs and OCA ports
+still assume. Grep the 19.0 source tree before designing on them or shortlisting
+an OCA module; a zero-hit grep is the evidence:
+
+| Pre-19 | Odoo 19 |
+|---|---|
+| `product.packaging` | gone: hierarchical `uom.uom` (`relative_uom_id` + `relative_factor`, "Contains") |
+| `uom.category` | gone |
+| `hr.expense.sheet` | gone (OCA modules built on it cannot be ported, only rebuilt) |
+| `stock.quant.package` | `stock.package` |
+| `res.users.groups_id` | `group_ids` (and `res.groups.users` → `user_ids`) |
+| `stock.valuation.layer` | gone: the move carries `value` |
+| `_sql_constraints` | `models.Constraint` / `models.UniqueIndex` |
 
 ### Odoo 18 to 19
 **Major frontend overhaul**: RPC service removed, snippet system overhauled, kanban-box->card, search <group> banned, tree->list, portal templates restructured, mail template helpers changed, cron numbercall removed

@@ -193,6 +193,23 @@ $o-theme-h6-font-size-multiplier: (16 / 16); // 16px (FIXED)
 </template>
 ```
 
+### Overriding a standard `website.page` (e.g. the contact thank-you page)
+
+Some stock pages are `website.page` records with an inline arch; their xmlid is on the
+**page**, not the view. `inherit_id="website.contactus_thanks"` then fails the theme load
+with `Wrong value for theme.ir.ui.view.inherit_id`. Inherit the delegated view's xmlid,
+`<module>.<name>_ir_ui_view`:
+
+```xml
+<template id="contactus_thanks_custom" inherit_id="website.contactus_thanks_ir_ui_view">
+    <xpath expr="//div[@id='wrap']" position="replace">...</xpath>
+</template>
+```
+
+Find it with `SELECT module, name, model FROM ir_model_data WHERE name LIKE '<name>%';`.
+Plain views such as `website.homepage` need no suffix. A **new** view record loads only on
+`-u <theme>`; `--dev=xml` hot-reloads edits to views that already exist.
+
 ### Custom Pages (theme.website.page)
 ```xml
 <template id="view_about" name="About">
@@ -294,6 +311,11 @@ python -m odoo -c conf/<PROJECT>.conf -d <DB> -i theme_<name> --stop-after-init
 | `SyntaxError in SCSS` | Parse error location, fix syntax |
 | `Module not found` | Add dependency to manifest |
 | `Malformed Google Fonts @import` | Remove ir.asset, use $o-theme-font-configs |
+| `Incompatible units` / whole site unstyled | libsass computed `min()`/`max()`/`clamp()`; wrap in `unquote(...)` (theme-scss) |
+| `Wrong value for theme.ir.ui.view.inherit_id` | Inherit `<xmlid>_ir_ui_view`, not the `website.page` xmlid |
+
+Translating a theme (catalogue references, `--load-language` trap, rendering in normal
+mode): `skills/i18n/references/runtime-traps.md#theme-translations`.
 
 ### Testing Checklist
 

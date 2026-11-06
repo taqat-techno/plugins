@@ -1,7 +1,7 @@
 ---
 name: m365
 description: "Use when the user asks about or wants to act in their Microsoft 365: find or read an email, draft or send one, what is on the calendar, schedule a meeting or find free time, read or send a Teams message, who 'Mahmoud' is, or what needs attention. Also when a tool reports NOT_SIGNED_IN, CONSENT_NEEDED or ACCESS_NEEDED."
-version: "0.2.1"
+version: "0.2.2"
 ---
 
 # Microsoft 365 tools
@@ -44,7 +44,8 @@ Nothing outward-facing happens without the user's clear yes after they have seen
   `email_send_draft` with the preview's `digest`. After any edit (`email_update_draft`), preview again. A send is
   refused if the draft changed, was never previewed, has no recipient, is too long to preview in full, or says "attached"
   with nothing attached. Drafts you create are plain text. If the preview says `html_draft` (a reply, or a draft edited in
-  Outlook), show the user every address in `links_and_images` and say if `hidden_markup_found` is true.
+  Outlook), show the user every address in `links_and_images` and say if `hidden_markup_found` is true. If `links_truncated`, it
+  cannot be sent from here.
 - **Calendar:** `calendar_stage` shows the times in the user's zone, conflicts, and who will be invited. After a yes,
   `calendar_commit` with `stage_id` and `digest` (invitations go out).
 - **Teams:** `teams_stage` shows the chat's members and the text. After a yes, `teams_commit`. It cannot be unsent.

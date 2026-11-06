@@ -5,7 +5,8 @@ description: >-
   rules, route auth, sudo() usage, SQL injection, field-level write security, imports that
   bypass record rules, /web/image returning 200 on denied access, public QWeb templates
   traversing relations, group changes made in odoo shell, or create()/write() overrides that
-  provision portal users. Runs the bundled access checker. For design-time tenant isolation,
+  provision portal users. Also when a user's groups or OCA base_user_role roles change or
+  vanish, or an access complaint needs triage. Runs the bundled access checker. For design-time tenant isolation,
   use multi-tenancy-isolation.
 version: "2.1.0"
 license: "MIT"
@@ -395,6 +396,43 @@ that one term: `('id', 'in', self.sudo()._search([...]))` — the pattern core
 whole model. To revoke such a grant, delete the CSV rows — the upgrade then
 removes the database rows.
 
+### An `any` sub-domain inside an `ir.rule` is evaluated as superuser
+
+`_apply_ir_rules` compiles rule domains against `self.sudo()`, so a nested
+`('parent_id', 'any', [...])` in a rule skips the comodel's own rules and degrades to "has a
+parent at all". The identical domain in `search()` does filter, so it passes a manual check and
+leaks in production. Write the rule with dotted paths (`parent_id.owner_id`) and test it
+`with_user` as the restricted persona.
+
+### Triage an "access" complaint before granting anything
+
+- **Read the dialog title.** "Access Error" is a permission block; "Odoo Error" is a server
+  fault: get the traceback ("See details") and the login used, and do not widen access on a guess.
+- **"The field doesn't show"** is usually a `groups=` on that field in the core view, not a model
+  ACL. Inherit the view and re-declare the field with `groups="<core group>,<your group>"`; a
+  UI-created group needs an xmlid first (e.g. `__export__.<name>`) so the view survives upgrades.
+- **Check the premise**: can that user do the base action at all (company switcher, duplicate job in
+  another company)? Reproduce as that user on a staging copy, then classify the blocker with the
+  `has_group()` table above.
+
+### OCA `base_user_role`: never change groups through `res.users`
+
+On a database with `base_user_role`, any `res.users.write()` (any field) rebuilds that user's
+groups from their role lines, silently removing groups the roles do not carry. Change membership
+from the `res.groups` side and keep `res.users` out of every write allow-list. Sync semantics,
+upgrade resets, the role-vs-group xmlid trap and revocation are in
+`references/roles-and-group-membership.md`: read it before any group or role change on such a
+database.
+
+### OCA `auditlog` rules shipped as module data on core models
+
+An `auditlog.rule` loaded from data patches the model's `create`/`write` as the class stands at
+that point in the load, so overrides from modules loading later in the same process are skipped
+(install-and-test runs fail, a fresh server start looks fine). Do not ship auditlog rules on core
+models other modules extend (`res.users`, `res.groups`, `res.partner`); log those changes natively
+(a chatter note in a `write` override). Suspect this when tests pass after `-u <leaf>` but fail
+after `-u` of the rule's module.
+
 ## Configuration
 
 Users can create `.odoo-security.json` in the module root to customize:
@@ -417,6 +455,8 @@ For detailed remediation patterns and code examples, read these files:
 - **memories/access_rules.md** — Complete ir.model.access.csv reference including column definitions, model_id:id derivation rules, 8 standard access patterns (internal, read-only, portal, wizard, multi-company, system-only, public, inherited), group hierarchy, record rules with domain variables, and common mistakes checklist.
 
 - **memories/odoo_vulnerabilities.md** — Top 9 Odoo vulnerability types with CWE categories, unsafe vs safe code examples, and production remediation: SQL injection, IDOR, mass assignment, privilege escalation via sudo(), SSTI in QWeb, attachment IDOR, missing CSRF, information disclosure, and editable fields as public-page injection sinks (raw iframe `src`, `sanitize_attributes=False` / `sanitize_form=False`).
+
+- **references/roles-and-group-membership.md** — OCA `base_user_role` mechanics (write-triggered group rebuild, when the sync runs, code-defined roles reset on upgrade, role xmlid vs group xmlid), revoking a `(4, ref())` link, and settings that imply a group for every internal user. Read before changing any user's groups or roles.
 
 Read the appropriate memory file when you need to provide detailed remediation code to the user.
 

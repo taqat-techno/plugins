@@ -2,6 +2,101 @@
 
 All notable changes to `odoo-plugin` are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/). Versioning follows [SemVer](https://semver.org/).
 
+## [4.1.0] - 2026-11-06
+
+**Additive: design standard-first, absorb ~100 field lessons, and manage local services through
+a second, isolated MCP server.** Why: sessions kept building custom modules for what standard
+Odoo, configuration or OCA already did; ~110 lessons from past sessions were missing or only
+half-present in the skills; and agents re-derived local start/stop/test/cleanup commands every
+session (527 ad-hoc test invocations, `wsl -- bash -lc "..."` one-liners, one empty-variable
+`rm -rf` that wiped every local filestore). No 4.0.0 contract changes.
+
+### Added
+- **`solution-design` skill** (`odoo-solution-design`): business narrative → numbered process
+  steps → per-step search of the target version's core tree (Community, then Enterprise), then
+  configuration, then OCA on the version branch, then the Apps store; custom code only for the
+  residual gap. Mandatory fit-gap verdict table (STANDARD / CONFIG / OCA / APPS / CUSTOM, reason,
+  risk) and module/config/custom-scope lists. References: `reuse-ladder.md` (override criteria,
+  OCA behaviour check, 14 generic evidence cases), `standard-module-map.md` (process → apps,
+  removed/renamed per version, verified against local 17/18/19 trees), `oca-search.md`,
+  `business-fit-gotchas.md`, `custom-module-design.md`.
+- **`solution-analyst` agent** (sonnet, read-only): runs the search for many process steps and
+  returns the verdict table, marking anything it could not verify.
+- **`odoo-sh` skill**: upgrades only on version change, no daemons, disposable stage builds that
+  inherit production integration settings, DB name changes per rebuild, deploy proof beyond
+  HTTP 200, Enterprise builds vs GitHub Actions, OCA vendoring module by module, reverted history,
+  auto-installed notification bridges.
+- **`odoo-local` MCP server** (`mcp_local/`, second `.mcp.json` entry, stdlib only) with 13 tools:
+  `local_discover`, `local_services`, `local_start`, `local_stop`, `local_restart`, `local_logs`,
+  `local_module`, `local_job`, `local_db`, `local_cleanup_plan`, `local_cleanup_apply`,
+  `local_snapshot`, `local_relaunch`.
+  - Own file `~/.odoo-mcp/local-services.json` (never `profiles.json`); the writer refuses any
+    non-loopback db host / url, writes atomically with a lock and keeps 10 backups in
+    `~/.odoo-mcp/local-backups/`.
+  - Full access inside that scope; destructive DB work keeps two rails with no override: the
+    keep-list (main DBs, open connections, active < 7 days, unknown activity, fast-test template
+    DBs) and pg_dump -Fc + TOC check before dropping DBs ≥ 200 MB; `DROP DATABASE` without FORCE.
+  - WSL execution through one helper: `wsl.exe -d <distro> -- bash -s` with the script on stdin,
+    the request as base64 JSON, the agent as a quoted heredoc; every inner subprocess is an argv
+    list; path removal only strictly below an allowed root.
+  - Servers start as `systemd-run --user` units with the venv on PATH; stop by listening-port
+    PID verified as Odoo with this conf (never `pkill -f`); bounded readiness.
+  - `-i`/`-u`, DB create and DB clone (`exp_duplicate_database`, filestore included) run as
+    background jobs; `local_job` judges by module state + ERROR/CRITICAL count + test summary,
+    not the exit code.
+  - **Cleanup contract** for env-doctor: `local_cleanup_plan` returns
+    `{plan_id, items:[{kind, target, size_bytes, reason, action, backup}], keep:[{target, reason}]}`;
+    `local_cleanup_apply` executes only a stored, unexpired, unapplied plan and re-validates each
+    item. Documented in `mcp_local/README.md`.
+  - Discovery flags conf traps: `db_filter` typo, `db_name` + `dbfilter`, conf `dev_mode`,
+    shared ports, and `Linger=no` (units stop when the last WSL session closes).
+- **Scaffold fit-gap gate**: `/odoo:scaffold` requires a fit-gap verdict from
+  `odoo-solution-design` (or the user's explicit skip) before generating files.
+- **Reviewer reuse check**: flags custom code that re-implements a standard or OCA feature.
+- **Long tests never block** (`test` skill + `/odoo:test`): ≤ 3 min may run in the foreground;
+  longer runs go to the background (`run_in_background` or `local_module`/`local_job`), work
+  continues, the result is handled on completion; no wait loops, no `sleep`, never kill a healthy
+  run; template-DB fast loop with resource caps.
+- **Lessons absorbed** (generic rewrites, no client names), by skill: stack-doctor 11, test 12
+  (+ the long-test rule), docker 1, upgrade 14, reviewer 14, security 9, multi-tenancy 3,
+  i18n/i18n-audit 8, mcp 5, frontend-js/owl 7, theme 2, odoo-sh 10 (new), solution-design
+  business-fit 14 (new). New references: `stack-doctor/references/process-and-config-traps.md`,
+  `test/references/test-traps-field-notes.md`, `upgrade/references/upgrade-failure-triage.md`,
+  `reviewer/references/integration_patterns.md`, `reviewer/references/views_and_templates.md`,
+  `security/references/roles-and-group-membership.md`, `i18n/references/runtime-traps.md`.
+- `skills/service`, `skills/stack-doctor` and `skills/mcp` route local-service work to
+  `odoo-local` and record work to `odoo`.
+- Evals: `fires-on-factory-narrative-to-odoo`, `fires-on-build-module-for-approval-feature`,
+  `ignores-erpnext-manufacturing-blueprint`, `fires-on-odoo-sh-version-bump-not-upgraded`,
+  `ignores-heroku-dyno-restart`.
+
+### Fixed
+- `skills/i18n/SKILL.md` and `commands/i18n.md` used `--i18n-export --output=...`; Odoo has no
+  `--output` option (exit 2). The file is the option value: `--i18n-export=FILE`, exported to a
+  fresh file and merged.
+- `commands/scaffold.md` said Odoo 17-18 use `attrs`; 17 removed `attrs`/`states` and 18 renamed
+  `<tree>` to `<list>`. Also dropped a non-existent `--update-list` flag (`-i` refreshes the list).
+- `skills/frontend-js` called Odoo 17's Owl "v1"; Odoo ships Owl 2 since 16.0.
+- `skills/i18n` cleared translations through `ir.translation`, which no longer exists from 16.
+
+### Evals
+- **Not piloted in this release session**: every `claude plugin eval` child exited with
+  "Not logged in" (no credential in the eval subprocess), so no fire rates or Δ are recorded.
+  Run before relying on the new descriptions:
+  `claude plugin eval ./odoo-plugin --case "*odoo-sh*|*factory*|*approval*|*erpnext*|*heroku*"`
+  (one `--case` glob per run if alternation is unsupported), then record WITH / W/OUT / Δ here.
+
+### Verified
+- Live on WSL Ubuntu (this machine): discovery found 55 confs and 3 Postgres clusters (two
+  managed, one unmanaged on :5433); start → HTTP 200 / server 19.0 → logs → stop on an idle
+  project; a background DB-create job reported `verdict: ok`; the keep-list refused to drop that
+  fresh DB; `local_cleanup_plan` returned a plan (601 items, 171 kept) without touching data.
+  `local_cleanup_apply` was **not** run against real data.
+- `tests/mcp_local/test_odoo_local.py` (36 tests): loopback refusal, profiles.json isolation,
+  atomic writes and backups, stdin/base64 transport, guarded removal (empty, relative, outside,
+  traversal), keep-list and dump-before-drop rails, plan contract, apply-only-stored-plan,
+  background module jobs, protocol handshake.
+
 ## [4.0.0] - 2026-10-23
 
 **Breaking: MCP connections redesigned around one file.** Design:

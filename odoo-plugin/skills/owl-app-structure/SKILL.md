@@ -82,7 +82,9 @@ Four layout rules that pay for themselves:
 1. **`static/src/app/` is the app; everything else is not.** Directory placement, not manifest
    editing, routes a file to a bundle. Keep the glob broad and subtract by directory.
 2. **Co-locate `.js` + `.xml` + `.scss` per component.** There is no central `xml/` directory.
-   `static/src/scss/` holds global files only.
+   `static/src/scss/` holds global files only. A convention that scales well (a team
+   preference, stricter than core POS, not a framework rule): **one folder per component**,
+   even when it has no template yet; services, hooks and registries stay flat files.
 3. **`screens/` = routable; `components/` = everything else.** Screens self-register; components
    never do.
 4. **`overrides/` is for changing *webclient* behaviour**, not your own. Anything patching your

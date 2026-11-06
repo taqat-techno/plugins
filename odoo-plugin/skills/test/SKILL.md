@@ -155,6 +155,59 @@ Both are T1 reasons to add `-u`, not reasons to run everything.
 Check `N tests` in the summary on every scoped run: a selector that matches nothing reports
 `of 0 tests` with exit 0 (traps 2 and 3).
 
+### Long runs are background jobs (the 3-minute rule)
+
+Waiting on a test run blocks the whole session. Decide foreground or background from the
+expected duration before you start it:
+
+- **Expected ≤ 3 min** (T0, or T1 with a narrow `--test-tags /<module>:<Class>.<method>` on a
+  warm DB): run it in the foreground.
+- **Expected > 3 min** (T2, T3, a full module, any `-i` on a fresh DB): start it in the
+  background — the Bash tool's `run_in_background`, or the `odoo-local` MCP tool
+  `local_module` (runs it as a systemd user unit, returns a job id you read with `local_job`).
+  Move on to the next task and handle the result when the completion notification arrives:
+  fix on failure, confirm on success.
+- **Never** wait in a loop, poll the output file, or `sleep`. If you must watch for a
+  condition, the pattern must not match its own command line (a `pgrep -f <name>` check
+  finds itself and never ends); watch a PID or a log line instead.
+- **Never kill a healthy long run.** Silence is not a hang: asset builds and HttpCase setup
+  can log nothing for many minutes. Prove death first with `ps -p <pid>` and a stale
+  `pg_stat_activity.state_change` for its connections.
+- **A background notification reports the wrapper's exit code, not Odoo's.** Judge the run by
+  the `N failed, N error(s) of N tests` summary line (and, for `-i`/`-u`, the module state in
+  `ir_module_module`).
+- **Prefer a small targeted test that finishes in under 3 min** over re-running a long suite;
+  keep the full suite as a release gate.
+
+**Template-DB fast loop.** Warm a template DB once (modules installed, neutralized), clone it
+per run through Odoo so the filestore comes along (or with hardlinked filestores), and run
+tagged tests on the clone. Cap a heavy run so it does not starve the machine:
+`systemd-run --user --scope -p CPUQuota=200% -p MemoryMax=6G nice -n 19 <odoo command>`.
+The generic waiting and resource rules live in the `env-doctor` plugin; this section owns
+only the Odoo specifics.
+
+### Traps that produce a wrong verdict
+
+- **Cron code: call the model method directly.** `cron.method_direct_trigger()` runs in a
+  separate cursor that cannot see the test's uncommitted data, and `_trigger()` only queues a
+  row. The send is not suppressed under test, so mock the gateway (SMS, mail, HTTP). Pin the
+  cron's xmlid, `active` state and `code` in a separate assertion.
+- **Raw SQL against a stored compute:** `self.env.flush_all()` → `cr.execute(...)` →
+  `self.env.invalidate_all()`. Without the flush, a pending recompute overwrites your write;
+  without the invalidate, the ORM serves the old cached value.
+- **Never test record rules on a server started with `--dev=xml`.** That mode disables the
+  `ir.rule` domain ormcache, so every check recomputes the domain and cache-staleness bugs
+  (a rule or group change the running server never picks up) cannot show. Test access in a
+  normal run.
+- **HttpCase `url_open` defaults to a 10-12 s timeout** (version-dependent) and tour `Page.navigate` has a hard 20 s
+  limit; both fail on cold renders over a slow filesystem. Details and fixes: traps 5 and 6
+  in `references/running-and-coverage.md`.
+
+More field-tested traps (MRO-blind override tests, `cr.commit()` inside business methods,
+`Form` saving on context exit, monetary widgets splitting amounts, the POS session lifecycle,
+Pillow formats, the boot gate): read `references/test-traps-field-notes.md` when a test passes
+or fails for a reason the code does not explain.
+
 ### Workflows
 
 - **Generate** — classify → pick base/tags → **extend the module's existing test file for that model first**; create a new `test_*.py` only when none covers it, and wire it in `tests/__init__.py` → cover happy + negative + edge + (bugfix) the exact regression → run T1 → report the new file and why.
@@ -315,3 +368,4 @@ Load the one the task needs; none is required for a routine run.
 | `references/custom-module-test-blueprint.md` | `tests/` layout and per-file skeletons |
 | `references/review-checklist.md` | Review checklist and anti-pattern catalogue |
 | `references/odoo-version-matrix.md` | Version-specific API differences |
+| `references/test-traps-field-notes.md` | Field-tested traps: MRO-blind tests, commits inside methods, `Form` save on exit, monetary widgets, POS lifecycle, Pillow, boot gate |

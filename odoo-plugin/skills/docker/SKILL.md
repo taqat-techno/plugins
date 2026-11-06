@@ -291,6 +291,9 @@ If the Odoo image declares `VOLUME [/var/lib/odoo /etc/odoo]` and the compose fi
 ### Diagnosis: use volume timestamps
 `docker volume inspect <vol> --format '{{.CreatedAt}}'` reveals when each volume was created. Comparing timestamps across volumes reveals exactly when volume name drift occurred.
 
+### Moving a project off Docker
+Archive the compose files before deleting them (they are the only record of the named volumes) and delete the compose generator command too, or the next run regenerates the Docker layer. Full checklist: `skills/stack-doctor/references/db-safety.md` §7.
+
 ---
 
 ## Performance: DEV_MODE is the #1 Killer (CRITICAL)

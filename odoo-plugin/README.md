@@ -80,6 +80,7 @@ Skills load on their own when the request matches; each can also be invoked as
 | `i18n` | Extracting, creating, validating, exporting or loading translations; Arabic/RTL layout |
 | `i18n-audit` | A filled msgstr still shows the source language, a language 500s after a `.po` edit, or a `.po` diff needs review |
 | `mcp` | The question is about what is in the live database: records, stored values, effective access, whether a migration landed |
+| `odoo-sh` | An Odoo.sh project: a pushed module that did not upgrade, a rebuilt staging database, stage builds calling production integrations, daemons, OCA vendoring, deploy proof |
 | `multi-tenancy-isolation` | Designing tenant anchors, record rules, uniqueness, host gates and ACLs for several tenants or brands on one instance |
 | `owl-app-structure` | Building a standalone full-page OWL app (POS or kiosk style): layout, bundles, boot, stores, data loading |
 | `owl-architecture` | Choosing between a backend view, a client action and a self-rooted OWL app |
@@ -91,6 +92,7 @@ Skills load on their own when the request matches; each can also be invoked as
 | `security` | Auditing access rules, record rules, routes, `sudo()` and SQL in a module |
 | `service` | Starting, stopping and setting up a local project; databases; module scaffolds; IDE setup |
 | `spreadsheet-dashboards` | Building, restyling or auditing `spreadsheet.dashboard` workbooks |
+| `solution-design` | Turning a business process or feature request into an Odoo design: standard → configuration → OCA → Apps store → custom, with a fit-gap verdict table, before any module is scaffolded |
 | `stack-doctor` | A stack that starts but is wrong: orphaned volumes, Postgres that will not boot, upgrades that changed nothing, blank themes, unsafe restarts or DB clones |
 | `test` | Planning, writing, reviewing, running or debugging tests, including CI |
 | `theme-create` | Creating a new website theme module |
@@ -107,6 +109,7 @@ Skills load on their own when the request matches; each can also be invoked as
 | `test-analyzer` | Read, Glob, Grep, Bash | Read-only test-coverage gap analysis |
 | `upgrade-analyzer` | Read, Glob, Grep, Bash | Read-only version-compatibility analysis |
 | `theme-generator` | Read, Write, Bash, Glob, Grep | Generates a theme module for `/create-theme` |
+| `solution-analyst` | Read, Grep, Glob, Bash, WebFetch, WebSearch | Read-only fit-gap search (core source, OCA branch, Apps store) for a list of process steps; returns the verdict table |
 
 ## MCP server
 
@@ -167,6 +170,18 @@ Gating, in short:
 
 Setup and the full configuration reference: `/odoo:mcp-setup` and
 [`mcp/README.md`](mcp/README.md).
+
+### Second MCP server: `odoo-local` (local services)
+
+`odoo-local` (`mcp_local/server.py`) manages **local** Odoo services only — loopback processes
+and Postgres clusters recorded in its own file `~/.odoo-mcp/local-services.json` (never
+`profiles.json`). Tools: `local_discover`, `local_services`, `local_start` / `local_stop` /
+`local_restart`, `local_logs`, `local_module` + `local_job` (background `-i`/`-u`), `local_db`
+(list / create / clone with filestore / drop), `local_cleanup_plan` / `local_cleanup_apply`,
+`local_snapshot` / `local_relaunch`. WSL actions run as `wsl.exe -d <distro> -- bash -s` with
+the script on stdin; servers start as `systemd-run --user` units. Drops pass a keep-list and a
+dump-before-drop rail that no argument can switch off; cleanup is plan-first. Details and the
+`local_cleanup_plan` contract: [`mcp_local/README.md`](mcp_local/README.md).
 
 ## Hooks
 

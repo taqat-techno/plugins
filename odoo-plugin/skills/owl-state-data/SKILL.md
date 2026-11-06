@@ -67,6 +67,12 @@ Before calling something a rendering bug, rule these out:
    exactly what the `Reactive` base class exists to prevent.
 4. **Not re-reading** — the subscription is created *by the read*, and every notification clears
    all subscriptions. Reading outside a render never subscribes.
+   **The read must go through the component's own proxy.** `useState(shared)` returns a proxy
+   bound to *that* component; the same object read inside a service function or a module
+   import subscribes nobody, even though it returns the same value. Put every reactive read
+   in the component (`void this.state.version; return this.svc.hasGuide();`) and comment it so
+   nobody tidies it away. The bug hides whenever another tracked field re-renders the
+   component, so it shows only when the untracked value changes on its own.
 
 Diagnose: `__OWL_DEVTOOLS__.toRaw(obj) === obj` being true means you hold the raw object.
 

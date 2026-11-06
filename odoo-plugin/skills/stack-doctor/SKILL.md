@@ -30,8 +30,12 @@ metadata:
     - the addons_path-vs-DB rule (Enterprise first / Community last; a DB-installed module absent from addons_path is only logged as "not installable, skipped" while its stored views still apply)
     - the filestore-aware clone rule (`odoo-bin db duplicate`, never `psql TEMPLATE`)
     - the separate-local-config rule (never mutate the Docker conf for local debugging)
+    - the kill-by-listening-port and restart-after-field-removal rules
+    - the dev-mode-is-CLI-only rule (conf `dev_mode` ignored; no `--dev=all` headless)
   defers_to:
     - skills/stack-doctor/references/db-safety.md (snapshot backup, filestore-aware clone, multi-instance isolation, local-vs-docker config)
+    - skills/stack-doctor/references/process-and-config-traps.md (stale listener, self-matching patterns, durable launch, dev mode, db_name vs dbfilter, addons_path roots, install aborts)
+    - skills/service/SKILL.md (odoo-local MCP tools for loopback services; venv re-exec rule)
     - skills/docker/references/volume-and-pg-safety.md (volume/PG detail, copy-forward + PG_VERSION commands)
     - skills/upgrade/references/theme-load-and-cli-upgrade.md (theme-load + CLI-upgrade + mapping detail)
     - skills/docker/SKILL.md (compose generation, deployment, container debugging)
@@ -256,7 +260,12 @@ down**. Commands in `references/db-safety.md`.
 
 ### Restart hygiene
 
-- Resolve the target **PID** and kill by PID (or a bracketed pattern).
+- **Kill by the process holding the listening port** (`ss -ltnp | grep ":<port> "`), not by
+  a name pattern: a stale listener that a pattern misses keeps the port, the new server fails
+  to bind but stays alive, and requests are answered by the **old registry** ("Invalid field"
+  right after a clean `-u`). Confirm the port owner is your new PID before trusting results.
+- **Restart the process after a `-u` that drops or renames a field.** A registry reload
+  re-imports no Python, so the old code keeps selecting the dropped column and every request 500s.
 - **Never** combine stop + start in one chain:
   `pkill -f "<config>" && odoo-bin -c <config>` self-matches — the `pkill` pattern is
   present in the chain's own command line (including the `odoo-bin` part), so it SIGTERMs
@@ -267,6 +276,19 @@ down**. Commands in `references/db-safety.md`.
   installed, diagnoses this).
 - A config defines its **own** logfile; a launch redirected elsewhere looks "silent" —
   tail the config's logfile, not the redirect.
+- **Dev mode is CLI-only**: a conf `dev_mode =` key is ignored; pass `--dev=...` on argv and
+  never `--dev=all` on a headless server (its `pdb` hangs it).
+- A server that dies at its first reload with `No module named 'psycopg2'` lost its venv on
+  re-exec: activate the venv before launch (detail in `skills/service/SKILL.md`).
+
+Process, launch and config traps in depth (durable launch under WSL, `db_name` vs `dbfilter`,
+log-line attribution by PID, install aborts, empty security groups after a fresh install):
+read `references/process-and-config-traps.md` when a restart or config change misbehaves.
+
+**Local services through the `odoo-local` MCP.** When the `mcp__plugin_odoo_odoo-local__*`
+tools are available, start, stop, restart, read logs, run background `-i`/`-u` and clone or
+drop databases on loopback servers through them instead of hand-written shell; the tool list
+and its limits are in `skills/service/SKILL.md` ("Local services via the odoo-local MCP").
 
 ### Bounded readiness polling only
 
@@ -327,6 +349,10 @@ overlays that expect them) and the Community entry only supplies the modules Ent
 not ship. Putting Community first re-introduces core version skew between a base module and
 its Enterprise overlay — the shape that ParseErrors on a field an overlay renamed.
 
+**One entry per repository root.** An entry that holds no manifests directly (a parent of
+several repos) is skipped with only an `invalid addons directory ... skipped` warning; boot
+once and check the `addons paths:` line lists every root you meant.
+
 The silent half: if a module is **installed in the database** but its code is no longer on
 `addons_path`, Odoo does not fail. It logs one dismissible line —
 
@@ -353,8 +379,10 @@ Fix by putting the missing tree back on `addons_path` (in the correct order), or
 
 ### Clone with the filestore; keep configs separate
 
-Clone an Odoo DB with `odoo-bin db duplicate` (or a full dump/load) — **never**
-`psql ... TEMPLATE`, which copies SQL only and breaks the filestore. Use a **separate
+Clone an Odoo DB through Odoo — `odoo-bin db duplicate <src> <dst>`, the
+`exp_duplicate_database` service call, or `odoo-bin db dump`/`load` — **never**
+`createdb -T`, `psql ... TEMPLATE` or `pg_dump | psql`, which copy SQL only and break the
+filestore. Duplicate an evidence DB before any interactive or destructive testing on it. Use a **separate
 local config**; never mutate the Docker/container conf to debug locally. Full detail,
 multi-instance isolation (own hostname / port pair / `dbfilter` / filestore / log /
 addons_path), and snapshot backup+checksum are in `references/db-safety.md`.
@@ -396,7 +424,8 @@ from the live volume rather than trusting the template default.
 - [ ] Before dropping/restoring a DB on a shared instance: re-listed DBs and
       checked `pg_stat_activity` for live connections.
 - [ ] Restart issued stop and start as SEPARATE calls (no `pkill … && … odoo-bin`),
-      killed by PID, confirmed the port free, tailed the config's own logfile.
+      killed the PID that owns the listening port, confirmed the port free, tailed the
+      config's own logfile; restarted (not just reloaded) after a field removal.
 - [ ] Readiness polled with a BOUNDED loop (`--max-time` + fixed count/delay) or
       a log grep — never an unbounded `curl --retry-connrefused`.
 - [ ] Install/upgrade result verified from the LOG (no ERROR/CRITICAL/Traceback),
@@ -429,7 +458,9 @@ from the live volume rather than trusting the template default.
 | Gating a run on `grep -E "Traceback\|Error"` alone | A benign recurring traceback makes every successful run read as a failure | Assert the log-LEVEL field (`(ERROR\|CRITICAL) ` count 0) plus `Modules loaded` count 1 |
 | Treating "the process is gone" as a failed `--stop-after-init` run | The process exiting is the expected end state; the marker may land between polls | Check the success marker in the log first, then the death/error branches |
 | Chasing an Owl "field is undefined" into the frontend | A module installed in the DB but off `addons_path` is only "skipped" in the log while its stored views still render | Grep for "not installable, skipped"; restore the path entry or uninstall the orphan cleanly |
-| `psql … TEMPLATE` / `createdb -T` to clone an Odoo DB | Copies SQL only; the filestore/attachments break | `odoo-bin db duplicate` (or full dump/load) |
+| `psql … TEMPLATE` / `createdb -T` / `pg_dump \| psql` to clone an Odoo DB | Copies SQL only; the filestore/attachments break | `odoo-bin db duplicate` / `exp_duplicate_database` (or `odoo-bin db dump`/`load`) |
+| Killing a server by `pkill -f <name>` before a restart | Misses a stale listener (old registry keeps answering) and can match its own shell | Kill the PID that owns the listening port; verify the port is free |
+| `dev_mode = ...` in the conf, or `--dev=all` headless | The conf key is ignored; `all` enables `pdb`, which hangs a server with no tty | `--dev=reload,qweb,xml` on the command line |
 | Editing the Docker/container conf to run locally | Breaks the container setup and the local run (wrong host/paths) | A separate local config; leave the Docker conf untouched |
 
 ## Cross-references

@@ -82,7 +82,7 @@ Override with `--env venv`, `--env docker`, or `--docker`.
 
 | Task | Command |
 |------|---------|
-| Start (dev) | `python -m odoo -c conf/PROJECT.conf --dev=all` |
+| Start (dev) | `python -m odoo -c conf/PROJECT.conf --dev=reload,qweb,xml` (dev mode is CLI-only; avoid `--dev=all` headless, see `skills/stack-doctor/references/process-and-config-traps.md`) |
 | Start (prod) | `python -m odoo -c conf/PROJECT.conf --workers=4` |
 | Stop (any OS) | `python ${CLAUDE_PLUGIN_ROOT}/scripts/service/server_manager.py stop --port 8069`: SIGTERM first, a forced kill only if the port is still busy, and only for a real Odoo server process |
 | Install module | `python -m odoo -c conf/PROJECT.conf -d DB -i MODULE --stop-after-init` |
@@ -120,6 +120,27 @@ source <venv>/bin/activate     # NOT: <venv>/bin/python odoo-bin -c ...
 logfile — so the log shows a clean run right up to the moment the server disappeared.
 "The server is gone but the log has no ERROR" is a shebang/re-exec suspect; check that the
 interpreter that would be re-exec'd reports the packages before rebuilding anything.
+
+## Local services via the odoo-local MCP
+
+When the `odoo-local` MCP tools (`mcp__plugin_odoo_odoo-local__*`) are available, prefer them
+over hand-written shell for loopback services:
+
+| Tool | Use |
+|---|---|
+| `local_discover` | Find confs, venvs, ports and Postgres clusters; writes `~/.odoo-mcp/local-services.json` |
+| `local_services` | Status of every discovered service |
+| `local_start` / `local_stop` / `local_restart` | Kill by listening port, start under WSL as a `systemd-run --user` unit, bounded readiness check |
+| `local_logs` | Read a service's log |
+| `local_module` + `local_job` | Run `-i`/`-u` in the background; `local_module` returns a job id, read the result with `local_job` |
+| `local_db` | List, create, clone through Odoo (filestore included) and drop, with a keep-list and dump-before-drop |
+| `local_cleanup_plan` / `local_cleanup_apply` | Plan first; apply only a plan the user has seen |
+| `local_snapshot` / `local_relaunch` | Save running servers before a WSL restart, bring them back after |
+
+These tools act only on the loopback services listed in `local-services.json`, never on
+stage or production (those live in `~/.odoo-mcp/profiles.json` and are reached through the
+data MCP `odoo`). When the server is absent, use the scripts below and the manual steps in
+the stack-doctor skill.
 
 ## Scripts Reference
 
