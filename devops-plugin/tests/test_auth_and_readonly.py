@@ -276,6 +276,8 @@ class TestAgentPackage:
         src = LAUNCHER.read_bytes().replace(b"\r\n", b"\n")
         assert (pkg / "scripts" / "ado-mcp-launch.js").read_bytes() == src
         assert (pkg / "data" / "write_tools.json").is_file()  # read-only mode needs it next to the launcher
+        # the poller requires the launcher from the same folder, so both must ship together
+        assert (pkg / "scripts" / "ado-events.js").read_bytes() == (PLUGIN / "scripts" / "ado-events.js").read_bytes().replace(b"\r\n", b"\n")
 
     def test_skill_names_only_read_tools(self, pkg):
         skill = (pkg / "skills" / "azure-devops" / "SKILL.md").read_text(encoding="utf-8")

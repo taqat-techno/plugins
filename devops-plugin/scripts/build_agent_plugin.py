@@ -48,6 +48,11 @@ def build() -> dict:
         "A bot has no browser, so it signs in with a PAT. Give it a PAT with read-only scopes only\n"
         "(Work Items: Read, Code: Read, Build: Read). The package also starts the server in read-only\n"
         "mode, which removes and blocks every write tool whatever the PAT can do.\n\n"
+        "## Alerts (what concerns me)\n\n"
+        "`node scripts/ado-events.js --since now` prints a cursor; `--since <cursor>` prints the new events\n"
+        "(assignments, @mentions, review requests, comments on your pull requests, failed builds) as JSON.\n"
+        "It is read-only and keeps no state: store the cursor and deliver the events yourself. It uses the\n"
+        "same organization and PAT variables as above.\n\n"
         "## Allow writes (deliberately)\n\n"
         "Remove `ADO_PLUGIN_READONLY` from `mcp.json`. Only do this for an agent that has its own\n"
         "confirmation step for writes.\n"
@@ -72,6 +77,7 @@ def build() -> dict:
         }),
         "skills/azure-devops/SKILL.md": _lf((ROOT / "data" / "agent_skill.md").read_bytes()),
         "scripts/ado-mcp-launch.js": _lf((ROOT / "scripts" / "ado-mcp-launch.js").read_bytes()),
+        "scripts/ado-events.js": _lf((ROOT / "scripts" / "ado-events.js").read_bytes()),
         "data/write_tools.json": _lf((ROOT / "data" / "write_tools.json").read_bytes()),
         "README.md": readme.encode("utf-8"),
         "LICENSE": _lf((ROOT / "LICENSE").read_bytes()),

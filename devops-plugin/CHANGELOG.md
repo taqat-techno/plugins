@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [8.2.0] - 2026-11-06
+
+### Added
+- **`scripts/ado-events.js`: "what concerns me?" poller.** `--since now` prints a cursor;
+  `--since <cursor>` prints the events since then as JSON: `assignment` (a work item assigned to
+  you by someone else), `mention` (work item comments and pull request threads), `review-requested`,
+  `pr-comment` (someone else commented on your active pull request) and `build-failed` (a build
+  requested for you). It is read-only, stateless (the caller stores the cursor and delivers the
+  events), needs only a read-scope PAT, de-duplicates by event id across polls, reports a failing
+  detector in `errors` and holds the cursor time so that detector's events are retried. Flags:
+  `--project` (repeatable), `--types`, `--all-prs` (scan every active pull request for mentions),
+  `--include-self`. `title` and `summary` are third-party text and are marked as data.
+  Built for bot monitors (OpenClaw) where Azure DevOps service hooks cannot reach the machine.
+- The agent package (`build_agent_plugin.py`) ships the poller next to the launcher.
+- Tests: a `node:test` suite with a fake Azure DevOps (`tests/ado_events.test.js`) run from
+  `tests/test_ado_events.py`.
+
 ## [8.1.0] - 2026-11-05
 
 ### Added

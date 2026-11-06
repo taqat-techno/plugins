@@ -115,6 +115,14 @@ configured)`. Node.js can be installed per user, without admin rights.
 and the server and drops every write tool (`data/write_tools.json`). This holds even if a
 prompt is subverted, and it is the same mechanism the agent package uses.
 
+**Alerts: what concerns me.** `node scripts/ado-events.js --since now` prints a cursor; later
+`--since <cursor>` prints new events as JSON (assignments to you, @mentions in work item comments
+and pull request threads, review requests, comments on your pull requests, failed builds). It is
+read-only and keeps no state: the caller stores the cursor and delivers the events. Needs
+`ADO_ORGANIZATION` and a PAT (`ADO_MCP_AUTH_TOKEN` or `ADO_MCP_AUTH_TOKEN_FILE`) with read scopes.
+Mentions are found in work items changed since the cursor and in pull requests you own or review
+(`--all-prs` scans every active pull request). Event `title` and `summary` are third-party text.
+
 **Other agent hosts (OpenClaw and similar).** Build a lean package with
 `python scripts/build_agent_plugin.py --out <dir>` (then, for OpenClaw, `openclaw plugins install <dir>`).
 It holds only the launcher and one bot-facing skill and starts read-only. Hooks, commands and
