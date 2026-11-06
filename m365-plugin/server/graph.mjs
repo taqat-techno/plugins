@@ -20,6 +20,7 @@ const NEEDS = [
   [/^\/(me\/joinedTeams|teams)/, "Team.ReadBasic.All / Channel.ReadBasic.All"],
   [/^\/me\/people/, "People.Read"],
   [/^\/users/, "User.ReadBasic.All"],
+  [/^\/search\/query/, "Files.Read.All"],
 ];
 
 const NEEDS_WRITE = [

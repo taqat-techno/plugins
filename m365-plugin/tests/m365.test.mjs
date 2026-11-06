@@ -14,6 +14,8 @@ import { createHandler } from "../server/mcp.mjs";
 import { ALL_TOOLS } from "../server/tools/index.mjs";
 import { buildKql } from "../server/tools/mail.mjs";
 import { zonedToUtcMs, wallClock, normName, htmlToText, fence, parseBound } from "../server/util.mjs";
+// Never read the real ~/.m365-plugin of the person running the tests.
+const ISOLATED_HOME = (await import("node:fs")).mkdtempSync((await import("node:path")).join((await import("node:os")).tmpdir(), "m365-cfg-"));
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const home = () => mkdtempSync(join(tmpdir(), "m365-test-"));
@@ -63,19 +65,19 @@ test("config: unexpanded placeholders are unset and plugin settings win over env
   const c = resolveConfig({ M365_PLUGIN_CLIENT_ID: "${user_config.m365_client_id}", M365_CLIENT_ID: "from-env", M365_PLUGIN_TENANT: "", M365_HOME: "C:/x" });
   assert.equal(c.clientId, "from-env");
   assert.equal(c.tenant, "organizations");
-  assert.equal(resolveConfig({ M365_PLUGIN_CLIENT_ID: "a", M365_CLIENT_ID: "b" }).clientId, "a");
+  assert.equal(resolveConfig({ M365_HOME: ISOLATED_HOME, M365_PLUGIN_CLIENT_ID: "a", M365_CLIENT_ID: "b" }).clientId, "a");
 });
 
 test("config: default modules exclude channels, and channels scopes are only requested when enabled", () => {
-  const d = resolveConfig({});
+  const d = resolveConfig({ M365_HOME: ISOLATED_HOME });
   assert.deepEqual(d.modules, ["mail", "calendar", "teams", "people", "files"]);
   assert.ok(!d.scopes.includes("ChannelMessage.Read.All"));
-  const w = resolveConfig({ M365_MODULES: "mail, channels, bogus" });
+  const w = resolveConfig({ M365_HOME: ISOLATED_HOME, M365_MODULES: "mail, channels, bogus" });
   assert.deepEqual(w.modules, ["mail", "channels"]);
   assert.ok(w.scopes.includes("ChannelMessage.Read.All") && !w.scopes.includes("Calendars.Read"));
   for (const s of Object.values(READ_SCOPES).flat()) assert.ok(!/ReadWrite|Send/.test(s), "read scopes are read only");
   assert.ok(d.scopes.includes("Mail.Send") && d.scopes.includes("Calendars.ReadWrite"), "write scopes are requested when writes are on");
-  const ro = resolveConfig({ M365_READONLY: "true" });
+  const ro = resolveConfig({ M365_HOME: ISOLATED_HOME, M365_READONLY: "true" });
   assert.ok(ro.scopes.every((s) => !/ReadWrite|Send/.test(s)), "read-only mode requests read permissions only");
 });
 

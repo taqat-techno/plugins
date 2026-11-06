@@ -42,6 +42,7 @@
   "write": [
     "email_create_draft",
     "email_create_reply_draft",
+    "email_create_forward_draft",
     "email_update_draft",
     "email_preview_draft",
     "email_discard_draft",

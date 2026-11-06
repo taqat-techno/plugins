@@ -54,7 +54,7 @@ export const tools = [
     description: "Create the event prepared by calendar_stage. Sends invitations to the attendees. Needs the stage_id and digest the user saw; refuses if the stage is unknown, already committed, or the digest differs. Only call it after the user approved the preview.",
     inputSchema: { type: "object", properties: { stage_id: { type: "string" }, digest: { type: "string" } }, required: ["stage_id", "digest"] },
     async handler(a, ctx) {
-      const st = ctx.staging.require(a.stage_id, "calendar", a.digest);
+      const st = ctx.staging.transition(a.stage_id, "calendar", a.digest, "committing");
       const p = st.payload;
       const body = {
         subject: p.subject, start: { dateTime: p.start, timeZone: "UTC" }, end: { dateTime: p.end, timeZone: "UTC" },
@@ -64,7 +64,9 @@ export const tools = [
       if (p.location) body.location = { displayName: p.location };
       if (p.body) body.body = { contentType: "Text", content: p.body };
       if (p.teams_meeting) { body.isOnlineMeeting = true; body.onlineMeetingProvider = "teamsForBusiness"; }
-      const ev = await ctx.graph.post("/me/events", body);
+      let ev;
+      // A failed or timed-out create goes back to 'staged': retrying is safe because Microsoft matches the transactionId.
+      try { ev = await ctx.graph.post("/me/events", body); } catch (e) { ctx.staging.set(st.id, { state: "staged" }); throw e; }
       ctx.staging.set(st.id, { state: "committed", event_id: ev.id });
       return { created: true, event_id: ev.id, join_url: ev.onlineMeeting?.joinUrl ?? null, web_link: ev.webLink ?? null, invitations_sent_to: p.attendees };
     },
@@ -74,10 +76,7 @@ export const tools = [
     description: "Cancel a staged calendar event that has not been committed. Nothing was created, so nothing is sent.",
     inputSchema: { type: "object", properties: { stage_id: { type: "string" } }, required: ["stage_id"] },
     async handler(a, ctx) {
-      const st = ctx.staging.get(a.stage_id);
-      if (!st || st.kind !== "calendar") throw new M365Error("STAGE_NOT_FOUND", "No staged event with that id.");
-      if (st.state !== "staged") throw new M365Error("ALREADY_DONE", `This event is already ${st.state}; it cannot be discarded here.`);
-      ctx.staging.set(st.id, { state: "discarded" });
+      const st = ctx.staging.move(a.stage_id, "calendar", "staged", "discarded");
       return { discarded: true, stage_id: st.id };
     },
   },

@@ -4,16 +4,18 @@ import assert from "node:assert/strict";
 import { resolveConfig } from "../server/config.mjs";
 import { createAuth, scopeString } from "../server/auth.mjs";
 import { fakeFetch, home, env, json } from "./_helpers.mjs";
+// Never read the real ~/.m365-plugin of the person running the tests.
+const ISOLATED_HOME = (await import("node:fs")).mkdtempSync((await import("node:path")).join((await import("node:os")).tmpdir(), "m365-cfg-"));
 
 test("scope mode: default asks for the module list, 'app' asks for the app's approved permissions only", () => {
-  assert.equal(resolveConfig({}).scopeMode, "requested");
-  assert.ok(resolveConfig({}).scopes.includes("Mail.Send"));
-  const app = resolveConfig({ M365_SCOPE_MODE: "App" });
+  assert.equal(resolveConfig({ M365_HOME: ISOLATED_HOME }).scopeMode, "requested");
+  assert.ok(resolveConfig({ M365_HOME: ISOLATED_HOME }).scopes.includes("Mail.Send"));
+  const app = resolveConfig({ M365_HOME: ISOLATED_HOME, M365_SCOPE_MODE: "App" });
   assert.equal(app.scopeMode, "app"); assert.deepEqual(app.scopes, [".default"]);
-  assert.equal(resolveConfig({ M365_PLUGIN_SCOPE_MODE: "app", M365_SCOPE_MODE: "requested" }).scopeMode, "app", "plugin setting wins");
-  assert.equal(resolveConfig({ M365_SCOPE_MODE: "bogus" }).scopeMode, "requested");
-  assert.equal(resolveConfig({ M365_SCOPE_MODE: "app", M365_SCOPES: "Mail.Read" }).scopeMode, "app");
-  assert.deepEqual(resolveConfig({ M365_SCOPE_MODE: "app", M365_SCOPES: "Mail.Read" }).scopes, ["Mail.Read"], "an explicit list still wins");
+  assert.equal(resolveConfig({ M365_HOME: ISOLATED_HOME, M365_PLUGIN_SCOPE_MODE: "app", M365_SCOPE_MODE: "requested" }).scopeMode, "app", "plugin setting wins");
+  assert.equal(resolveConfig({ M365_HOME: ISOLATED_HOME, M365_SCOPE_MODE: "bogus" }).scopeMode, "requested");
+  assert.equal(resolveConfig({ M365_HOME: ISOLATED_HOME, M365_SCOPE_MODE: "app", M365_SCOPES: "Mail.Read" }).scopeMode, "app");
+  assert.deepEqual(resolveConfig({ M365_HOME: ISOLATED_HOME, M365_SCOPE_MODE: "app", M365_SCOPES: "Mail.Read" }).scopes, ["Mail.Read"], "an explicit list still wins");
   assert.equal(scopeString([".default"]), "https://graph.microsoft.com/.default offline_access openid profile");
 });
 

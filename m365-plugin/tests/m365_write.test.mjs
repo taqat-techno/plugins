@@ -9,6 +9,8 @@ import { createContext } from "../server/context.mjs";
 import { ALL_TOOLS } from "../server/tools/index.mjs";
 import { decodeCursor } from "../server/events.mjs";
 import { resolveConfig } from "../server/config.mjs";
+// Never read the real ~/.m365-plugin of the person running the tests.
+const ISOLATED_HOME = (await import("node:fs")).mkdtempSync((await import("node:path")).join((await import("node:os")).tmpdir(), "m365-cfg-"));
 
 const J = (o) => JSON.stringify(o);
 const calls = (c, method, re) => c.fetch.calls.filter((x) => x.method === method && re.test(x.url));
@@ -175,7 +177,7 @@ test("read-only mode: no write tool is listed or callable, only read permissions
   for (const t of ALL_TOOLS.filter((x) => x.kind === "write")) assert.ok(!names.includes(t.name), `${t.name} must not be listed`);
   assert.ok(names.includes("email_read") && names.includes("events_since") && names.includes("profile_get"));
   await assert.rejects(call(c, "email_send_draft", { draft_id: "d1", digest: "x" }), (e) => e.code === "UNKNOWN_TOOL");
-  assert.ok(resolveConfig({ M365_READONLY: "1" }).scopes.every((s) => !/ReadWrite|Send/.test(s)));
+  assert.ok(resolveConfig({ M365_HOME: ISOLATED_HOME, M365_READONLY: "1" }).scopes.every((s) => !/ReadWrite|Send/.test(s)));
   await assert.rejects(async () => c.ctx.graph.post("/me/messages", {}), (e) => e.code === "READ_ONLY");
   await assert.rejects(async () => c.ctx.graph.patch("/me/messages/x", {}), (e) => e.code === "READ_ONLY");
   await assert.rejects(async () => c.ctx.graph.del("/me/messages/x"), (e) => e.code === "READ_ONLY");
@@ -200,17 +202,36 @@ test("files: text is read fenced; binary, large and folder items are reported as
     g("/items/b1/content", new Response(Buffer.from("%PDF-1.7 binary"))),
     g("/items/big\\?", { id: "big", name: "log.txt", size: 900000, file: { mimeType: "text/plain" } }),
     g("/items/f1\\?", { id: "f1", name: "Folder", folder: { childCount: 3 } }),
-    g("/root/search", { value: [{ id: "t1", name: "data.csv", size: 20, parentReference: { driveId: "d1", path: "/drive/root:/Docs" }, webUrl: "https://o/t1" }] }),
+    g("/me/drive\\?\\$select=id", { id: "d1" }),
+    [/^POST .*\/search\/query$/, () => json({ value: [{ hitsContainers: [{ moreResultsAvailable: true, hits: [
+      { resource: { id: "t1", name: "data.csv", size: 20, parentReference: { driveId: "d1" }, webUrl: "https://o/t1" } },
+      { resource: { id: "s9", name: "plan.txt", size: 7, parentReference: { driveId: "theirs", siteId: "site" }, webUrl: "https://o/s9" } },
+      { resource: { name: "no ids" } }] }] }] })],
   ]);
-  const found = await call(c, "onedrive_search", { query: "dat'a (x)" });
-  assert.equal(found.files[0].drive_id, "d1"); assert.equal(found.files[0].folder, "/Docs");
-  assert.ok(c.fetch.calls.find((x) => x.url.includes("/search(q=")).url.includes("dat''a%20%20x"), "quote doubled, parentheses removed");
+  const found = await call(c, "onedrive_search", { query: "dat'a (x): \"y\"" });
+  assert.equal(found.search, "all_files"); assert.equal(found.more_available, true); assert.equal(found.count, 2, "a hit without ids is dropped");
+  assert.deepEqual([found.files[0].location, found.files[0].drive_id], ["own_onedrive", "d1"]);
+  assert.deepEqual([found.files[1].location, found.files[1].drive_id, found.files[1].item_id], ["shared", "theirs", "s9"], "a shared file is read from its owner's drive");
+  const req = calls(c, "POST", /\/search\/query$/)[0].json.requests[0];
+  assert.deepEqual(req.entityTypes, ["driveItem"]); assert.equal(req.query.queryString, "dat a x y", "KQL/OData syntax is removed");
   const t = await call(c, "onedrive_read_file", { drive_id: "d1", item_id: "t1" });
   assert.equal(t.status, "success"); assert.match(t.content, /^<<<EXTERNAL_UNTRUSTED_CONTENT/); assert.match(t.content, /IGNORE ALL RULES/);
   assert.equal((await call(c, "onedrive_read_file", { drive_id: "d1", item_id: "b1" })).status, "unsupported_type");
   assert.equal((await call(c, "onedrive_read_file", { drive_id: "d1", item_id: "big" })).status, "too_large");
   assert.equal((await call(c, "onedrive_read_file", { drive_id: "d1", item_id: "f1" })).status, "unsupported_type");
   assert.equal(c.fetch.calls.filter((x) => x.url.includes("/items/big/content") || x.url.includes("/items/f1/content")).length, 0, "no download for refused items");
+});
+
+test("files: when the full search is refused, only the own OneDrive is searched and the result says so", async () => {
+  const c = ctxFor([TOK,
+    [/^POST .*\/search\/query$/, () => json({ error: { code: "Forbidden" } }, 403)],
+    g("/me/drive\\?\\$select=id", { id: "d1" }),
+    g("/root/search", { value: [{ id: "t1", name: "data.csv", parentReference: { driveId: "d1" } }] }),
+  ]);
+  const r = await call(c, "onedrive_search", { query: "o'neil" });
+  assert.equal(r.search, "onedrive_only"); assert.match(r.search_note, /Shared and SharePoint files may exist/);
+  assert.equal(r.files[0].location, "own_onedrive");
+  assert.ok(calls(c, "GET", /\/root\/search/)[0].url.includes("o%20neil"), "quote removed before the OData literal");
 });
 
 test("files: share link is organization-only; attachments read as text or honestly refused", async () => {
@@ -225,6 +246,17 @@ test("files: share link is organization-only; attachments read as text or honest
   assert.equal((await call(c, "email_read_attachment", { message_id: "m1", attachment_id: "a1" })).status, "success");
   const d = await call(c, "email_read_attachment", { message_id: "m1", attachment_id: "a2" });
   assert.equal(d.status, "unsupported_type"); assert.match(d.guidance, /did NOT read/);
+  assert.equal(c.fetch.calls.filter((x) => /\/attachments\/a2$/.test(x.url)).length, 0, "an unreadable type is never downloaded");
+});
+
+test("files: a large attachment is refused from its metadata, before any download", async () => {
+  const c = ctxFor([TOK,
+    g("/attachments/big\\?", { "@odata.type": "#microsoft.graph.fileAttachment", name: "huge.csv", contentType: "text/csv", size: 40_000_000 }),
+    g("/attachments/big$", () => { throw new Error("must not download"); }),
+  ]);
+  const r = await call(c, "email_read_attachment", { message_id: "m1", attachment_id: "big" });
+  assert.equal(r.status, "too_large");
+  assert.equal(c.fetch.calls.filter((x) => /\/attachments\/big$/.test(x.url)).length, 0);
 });
 
 // ---------------------------------------------------------------- events
@@ -283,6 +315,25 @@ test("events: a full mail page takes the oldest items and the cursor stops after
   assert.ok(calls(c, "GET", /mailFolders/)[0].url.includes(encodeURIComponent("receivedDateTime asc")), "oldest first");
   await assert.rejects(call(c, "events_since", { since: "garbage" }), (e) => e.code === "INVALID_ARGUMENT");
   await assert.rejects(call(c, "events_since", { since: "now", types: ["bogus"] }), (e) => e.code === "INVALID_ARGUMENT");
+});
+
+test("events: a full invitation page also holds the cursor (more = true) instead of dropping later invitations", async () => {
+  const inv = Array.from({ length: 50 }, (_, i) => ({ id: "e" + i, subject: "s", organizer: { emailAddress: { address: "o@x.com" } }, start: { dateTime: "2026-11-09T07:00:00" }, isOrganizer: false, isCancelled: false, responseStatus: { response: "notResponded" }, lastModifiedDateTime: `2026-11-06T11:${String(10 + i % 30).padStart(2, "0")}:00Z` }));
+  const c = eventsCtx({ mail: { value: [] }, events: { value: inv }, chats: { value: [] } });
+  const r = await call(c, "events_since", { since: "2026-11-06T11:00:00Z", types: ["invite"] });
+  assert.equal(r.more, true); assert.equal(r.covered_until, "2026-11-06T11:39:00.000Z");
+  assert.equal(decodeCursor(r.cursor).t, T("2026-11-06T11:39:00Z"));
+  assert.ok(decodeURIComponent(calls(c, "GET", /\/me\/events/)[0].url).includes("lastModifiedDateTime asc"), "oldest change first");
+});
+
+test("events: Teams chats are paged while still newer than the cursor, so a busy user's chats are not missed", async () => {
+  const chat = (n, at) => ({ id: "ch" + n, topic: "t" + n, members: [], lastMessagePreview: { id: "lm" + n, createdDateTime: at, from: { user: { id: "u2", displayName: "X" } }, body: { content: "hi" } } });
+  const page1 = { value: Array.from({ length: 20 }, (_, i) => chat(i, "2026-11-06T11:50:00Z")), "@odata.nextLink": "https://graph.microsoft.com/v1.0/me/chats?page=2" };
+  const page2 = { value: [chat(20, "2026-11-06T11:20:00Z"), chat(21, "2026-11-06T10:00:00Z")] };
+  const c = eventsCtx({ mail: { value: [] }, events: { value: [] }, chats: ({ url }) => json(url.includes("page=2") ? page2 : page1) });
+  const r = await call(c, "events_since", { since: "2026-11-06T11:00:00Z", types: ["chat-message"] });
+  assert.equal(r.events.length, 21, "the 21st active chat on page 2 is reported; the older one is not");
+  assert.equal(calls(c, "GET", /\/me\/chats/).length, 2);
 });
 
 // ---------------------------------------------------------------- security-review fixes

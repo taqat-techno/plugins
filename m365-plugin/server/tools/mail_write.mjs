@@ -11,6 +11,9 @@ const FLAGS = { flagged: "flagged", complete: "complete", none: "notFlagged" };
 const DRAFT_SELECT = "id,subject,toRecipients,ccRecipients,bccRecipients,body,hasAttachments,isDraft,conversationId";
 const ATTACH_PROMISE = /\b(attached|attachment|attachments|attaching|enclosed)\b|مرفق|المرفق|مرفقات|ارفقت|أرفقت|إرفاق|ارفاق/i;
 const MAX_PREVIEW = 20_000;
+// Statuses that mean Microsoft did not accept the send. Anything else (408, 409, 5xx, a timeout) is an unknown outcome.
+const REFUSED = new Set([400, 401, 403, 404, 405, 422, 429]);
+const SENT_HINT = "Look in Sent Items (email_list_recent with folder sentitems) before doing anything else. This draft will not be sent a second time from here.";
 const MAX_LINKS = 200;
 
 /** Every address an HTML body can point at or load: quoted and unquoted attributes, srcset, CSS url() and @import,
@@ -95,6 +98,21 @@ export const tools = [
     },
   },
   {
+    name: "email_create_forward_draft", kind: "write", module: "mail",
+    description: "Create a forward of a message as a DRAFT, with your note above the original and its attachments kept. Nothing is sent. Recipients must be email addresses (resolve names with people_resolve first). Then email_preview_draft, show the user, and send only after approval.",
+    inputSchema: { type: "object", properties: {
+      message_id: { type: "string" }, to: draftProps.to, cc: draftProps.cc,
+      comment: { type: "string", description: "Your note above the forwarded message (plain text)." } }, required: ["message_id", "to"] },
+    async handler(a, ctx) {
+      const id = safeId(a.message_id, "message_id");
+      const to = rcpts(a.to, "to");
+      if (!to.length) throw new M365Error("INVALID_ARGUMENT", "to needs at least one email address");
+      const cc = rcpts(a.cc, "cc");
+      const m = await ctx.graph.post(`/me/messages/${seg(id)}/createForward`, { comment: safeBody(a.comment), toRecipients: to, ...(cc.length ? { ccRecipients: cc } : {}) });
+      return { draft_id: m.id, created: true, forward: true, next_step: "Call email_preview_draft with this draft_id and show the user the preview (including has_attachments) before sending." };
+    },
+  },
+  {
     name: "email_update_draft", kind: "write", module: "mail",
     description: "Change a draft: only the fields you pass are replaced (subject, body, to, cc, bcc). Any earlier preview becomes invalid, so preview it again before sending. Refuses a message that is not a draft.",
     inputSchema: { type: "object", properties: { draft_id: { type: "string" }, ...draftProps }, required: ["draft_id"] },
@@ -160,7 +178,9 @@ export const tools = [
       confirm_no_attachment: { type: "boolean", description: "Only if the user confirmed sending without an attachment although the text mentions one." } }, required: ["draft_id", "digest"] },
     async handler(a, ctx) {
       const id = safeId(a.draft_id, "draft_id");
-      if (ctx.staging.wasMailSent(id)) throw new M365Error("ALREADY_DONE", "This draft was already sent. Nothing was repeated.");
+      const sendState = ctx.staging.mailSendState(id);
+      if (sendState === "sent") throw new M365Error("ALREADY_DONE", "This draft was already sent. Nothing was repeated.");
+      if (sendState === "sending") throw new M365Error("SEND_UNCERTAIN", "An earlier attempt to send this draft may or may not have gone through.", { hint: SENT_HINT });
       const prev = ctx.staging.getPreview(id);
       if (!prev) throw new M365Error("NOT_PREVIEWED", "This draft has not been previewed (or it changed since). Call email_preview_draft, show the user, then send.");
       const m = await loadDraft(ctx, id);
@@ -176,7 +196,13 @@ export const tools = [
         const mine = full.split(QUOTE_START)[0];
         if (ATTACH_PROMISE.test(mine)) throw new M365Error("ATTACHMENT_PROMISE", "The text mentions an attachment but the draft has none.", { hint: "Ask the user: remove the wording, or confirm sending without an attachment (confirm_no_attachment: true)." });
       }
-      await ctx.graph.post(`/me/messages/${seg(id)}/send`);
+      ctx.staging.claimMailSend(id, prev.digest); // refuses if another process is already sending it
+      try {
+        await ctx.graph.post(`/me/messages/${seg(id)}/send`);
+      } catch (e) {
+        if (REFUSED.has(e.status)) { ctx.staging.releaseMailSend(id); throw e; } // a definite refusal: nothing was sent
+        throw new M365Error("SEND_UNCERTAIN", "Could not confirm whether the email was sent.", { hint: SENT_HINT });
+      }
       ctx.staging.markMailSent(id);
       return { sent: true, draft_id: id, to: addrs(m.toRecipients), subject: clean(m.subject, 300) };
     },

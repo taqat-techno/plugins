@@ -35,8 +35,7 @@ export const tools = [
     description: "SEND the Teams message prepared by teams_stage. It is delivered at once and cannot be unsent. Needs the stage_id and digest the user saw. Refuses a repeat: if an earlier attempt may or may not have gone through, check teams_read_chat instead of retrying. Only call it after the user approved the preview.",
     inputSchema: { type: "object", properties: { stage_id: { type: "string" }, digest: { type: "string" } }, required: ["stage_id", "digest"] },
     async handler(a, ctx) {
-      const st = ctx.staging.require(a.stage_id, "teams", a.digest);
-      ctx.staging.set(st.id, { state: "sending" });
+      const st = ctx.staging.transition(a.stage_id, "teams", a.digest, "sending"); // check + claim in one locked step
       let r;
       try {
         r = await ctx.graph.post(`/chats/${seg(st.payload.chat_id)}/messages`, { body: { contentType: "text", content: st.payload.text } });
@@ -53,10 +52,7 @@ export const tools = [
     description: "Cancel a staged Teams message that has not been sent.",
     inputSchema: { type: "object", properties: { stage_id: { type: "string" } }, required: ["stage_id"] },
     async handler(a, ctx) {
-      const st = ctx.staging.get(a.stage_id);
-      if (!st || st.kind !== "teams") throw new M365Error("STAGE_NOT_FOUND", "No staged message with that id.");
-      if (st.state !== "staged") throw new M365Error("ALREADY_DONE", `This message is ${st.state}; it cannot be cancelled here.`);
-      ctx.staging.set(st.id, { state: "cancelled" });
+      const st = ctx.staging.move(a.stage_id, "teams", "staged", "cancelled");
       return { cancelled: true, stage_id: st.id };
     },
   },

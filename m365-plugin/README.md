@@ -27,8 +27,8 @@ No browser on the machine? Use the sign-in method `device-code`: you get a short
 | Area | Tools |
 |---|---|
 | Sign-in and setup | `m365_sign_in`, `m365_auth_status`, `m365_sign_out`, `m365_setup_save` (first setup of the app's ids only; asks you first), `m365_access_request` (writes the message for your admin) |
-| Mail (read) | `email_list_recent`, `email_search`, `email_read`, `email_read_thread`, `email_list_attachments`, `email_read_attachment` |
-| Mail (write) | `email_create_draft`, `email_create_reply_draft`, `email_update_draft`, `email_preview_draft`, **`email_discard_draft`**, **`email_send_draft`**, `email_move` (inbox or archive), `email_mark_read`, `email_set_flag`, **`email_delete`** (to Deleted Items) |
+| Mail (read) | `email_list_recent` (optionally unread only), `email_search`, `email_read`, `email_read_thread`, `email_list_attachments`, `email_read_attachment` |
+| Mail (write) | `email_create_draft`, `email_create_reply_draft`, `email_create_forward_draft`, `email_update_draft`, `email_preview_draft`, **`email_discard_draft`**, **`email_send_draft`**, `email_move` (inbox or archive), `email_mark_read`, `email_set_flag`, **`email_delete`** (to Deleted Items) |
 | Calendar | `calendar_list_events`, `calendar_get_event`, `calendar_find_free_slots`; write: `calendar_stage`, **`calendar_commit`**, `calendar_discard` |
 | Teams chats | `teams_list_chats`, `teams_find_chat`, `teams_read_chat`, `teams_chat_members`; write: `teams_stage`, **`teams_commit`**, `teams_cancel` |
 | Team channels (module `channels`, needs admin consent) | `teams_list_teams`, `teams_list_channels`, `teams_read_channel` |

@@ -12,6 +12,9 @@ function chatOut(c) {
     last_activity: c.lastMessagePreview?.createdDateTime ?? c.lastUpdatedDateTime ?? null,
   };
 }
+const MEMBER_CAP = 10;
+/** List and search output: at most MEMBER_CAP members, plus the total. teams_chat_members has the full list. */
+const slim = (c) => c.members.length > MEMBER_CAP ? { ...c, members: c.members.slice(0, MEMBER_CAP), members_total: c.members.length } : c;
 function messageOut(m, source) {
   const html = (m.body?.contentType ?? "").toLowerCase() === "html";
   const { text, truncated } = truncate(html ? htmlToText(m.body?.content) : String(m.body?.content ?? ""), 4000);
@@ -39,7 +42,7 @@ async function listChats(ctx, want) {
 export const tools = [
   {
     name: "teams_list_chats", kind: "read", module: "teams",
-    description: "List the signed-in user's most recent Teams chats (1:1, group and meeting chats), newest activity first, with topic and members. Use teams_find_chat to locate a chat with a particular person or topic.",
+    description: "List the signed-in user's most recent Teams chats (1:1, group and meeting chats), newest activity first, with topic and members (first 10 shown, members_total gives the count; teams_chat_members lists all). Use teams_find_chat to locate a chat with a particular person or topic.",
     inputSchema: { type: "object", properties: {
       limit: { type: "number", description: "1-50, default 20." },
       kind: { type: "string", description: "Optional filter: oneOnOne, group or meeting." } } },
@@ -47,7 +50,7 @@ export const tools = [
       const n = clampLimit(a.limit, 20, 50);
       let chats = (await listChats(ctx, 50)).map(chatOut);
       if (a.kind) chats = chats.filter((c) => c.kind === a.kind);
-      return { count: Math.min(n, chats.length), chats: chats.slice(0, n), note: UNTRUSTED_FIELDS };
+      return { count: Math.min(n, chats.length), chats: chats.slice(0, n).map(slim), note: UNTRUSTED_FIELDS };
     },
   },
   {
@@ -63,7 +66,7 @@ export const tools = [
       const hits = all.filter((c) =>
         normName(c.topic ?? "").includes(n) ||
         c.members.some((m) => normName(m.name ?? "").includes(n) || (m.email ?? "").includes(q.toLowerCase())));
-      return { query: q, from_profile: remembered, count: hits.length, chats: hits.slice(0, 15), scanned: all.length, note: UNTRUSTED_FIELDS };
+      return { query: q, from_profile: remembered, count: hits.length, chats: hits.slice(0, 15).map(slim), scanned: all.length, note: UNTRUSTED_FIELDS };
     },
   },
   {

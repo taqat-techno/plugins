@@ -6,6 +6,8 @@ import { join } from "node:path";
 import { createContext } from "../server/context.mjs";
 import { resolveConfig } from "../server/config.mjs";
 import { fakeFetch, home, json, TOKEN } from "./_helpers.mjs";
+// Never read the real ~/.m365-plugin of the person running the tests.
+const ISOLATED_HOME = (await import("node:fs")).mkdtempSync((await import("node:path")).join((await import("node:os")).tmpdir(), "m365-cfg-"));
 
 function setup(over = {}, routes = null) {
   const h = home();
@@ -72,7 +74,7 @@ test("shared mode: neither the token nor the secret can leak through an error", 
 });
 
 test("without a shared token file nothing changes: the normal sign-in mode and its own cache apply", () => {
-  const cfg = resolveConfig({ M365_CLIENT_ID: "c" });
+  const cfg = resolveConfig({ M365_HOME: ISOLATED_HOME, M365_CLIENT_ID: "c" });
   assert.equal(cfg.refreshTokenFile, ""); assert.equal(cfg.scopeMode, "requested"); assert.equal(cfg.refreshTokenWriteback, true);
-  assert.equal(resolveConfig({ M365_PLUGIN_REFRESH_TOKEN_FILE: "a", M365_REFRESH_TOKEN_FILE: "b" }).refreshTokenFile, "a", "plugin setting wins");
+  assert.equal(resolveConfig({ M365_HOME: ISOLATED_HOME, M365_PLUGIN_REFRESH_TOKEN_FILE: "a", M365_REFRESH_TOKEN_FILE: "b" }).refreshTokenFile, "a", "plugin setting wins");
 });

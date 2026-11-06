@@ -1,5 +1,37 @@
 # Changelog
 
+## [0.4.0] - 2026-11-06
+
+Phase A of the review in `.claude/docs/2026-11-06_m365-plugin-review.md`: fixes and small additions, no new permissions.
+
+### Fixed
+- **Shared state is locked.** `staged.json` is used by every process on the computer (Claude Code and a bot such as OpenClaw share
+  `~/.m365-plugin`). Every change now runs under a lock file, and "check the stage, then mark it sending/committing" is one locked
+  step, so two processes can never both send the same Teams message, email or event, and one cannot overwrite the other's state.
+- **Email send can no longer go out twice after a timeout.** Like Teams, a send is marked `sending` before the request. A definite
+  refusal (400/401/403/404/405/422/429) makes the draft sendable again; anything else (a timeout, 5xx) is `SEND_UNCERTAIN` and points to
+  Sent Items, and the draft is not sent a second time from here.
+- **`onedrive_search` finds shared and SharePoint files.** It searched only the user's own OneDrive (`/root/search`) while promising
+  shared files (live: `/me/drive/search` returned no shared items either). It now uses the Microsoft Search API (`/search/query`,
+  `driveItem`, same `Files.Read.All` permission): each result says `location: own_onedrive | shared` and carries its owner's drive and
+  item ids, so `onedrive_read_file` opens it (verified on a real tenant). If that search is refused, it falls back to the own OneDrive
+  and says `search: onedrive_only`, so the model does not claim a file does not exist. KQL/OData syntax is stripped from the query.
+- **`email_read_attachment` checks size and type before downloading.** A large or unreadable attachment is refused from its metadata,
+  without pulling its bytes into memory.
+- **`events_since` no longer drops events on a busy day.** A full calendar page now holds the cursor like a full mail page
+  (`more: true`, invitations read oldest change first), and Teams chats are paged (up to 100) while they are still newer than the cursor,
+  instead of only the 20 most recent.
+- Config tests no longer read the real `~/.m365-plugin` of the person running them.
+
+### Added
+- `email_create_forward_draft`: forward a message as a draft (note on top, attachments kept), through the same preview and send gate.
+- `email_list_recent` `unread_only`.
+- `calendar_get_event` returns the event's description/agenda as fenced plain text.
+
+### Changed
+- `calendar_list_events`, `teams_list_chats` and `teams_find_chat` show at most 10 attendees/members per item, plus `attendees_total` /
+  `members_total`; `calendar_get_event` and `teams_chat_members` still give the full list.
+
 ## [0.3.0] - 2026-11-06
 
 ### Fixed (found by a live run against a real tenant)

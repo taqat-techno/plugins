@@ -71,11 +71,14 @@ export const tools = [
     description: "List the newest messages in a mail folder, newest first. Returns envelopes only (sender, recipients, subject, received time, conversation_id, flags), not bodies. Use it for 'what came in recently'. To read one, call email_read with its message_id. Listing never marks anything as read.",
     inputSchema: { type: "object", properties: {
       folder: { type: "string", description: "Well-known folder: inbox (default), sentitems, drafts, archive, deleteditems." },
+      unread_only: { type: "boolean", description: "Only unread messages. Default false." },
       limit: { type: "number", description: "1-50, default 15." } } },
     async handler(a, ctx) {
       const f = folderOf(a.folder), n = clampLimit(a.limit, 15, MAX);
-      const j = await ctx.graph.get(`/me/mailFolders/${f}/messages?$top=${n}&$select=${ENVELOPE}&$orderby=${encodeURIComponent("receivedDateTime desc")}`);
-      return { folder: f, count: (j.value ?? []).length, messages: (j.value ?? []).map(envelope), note: UNTRUSTED_FIELDS };
+      // Graph needs the $orderby property to lead the $filter, hence the always-true date clause.
+      const filter = a.unread_only === true ? `&$filter=${encodeURIComponent("receivedDateTime ge 1900-01-01T00:00:00Z and isRead eq false")}` : "";
+      const j = await ctx.graph.get(`/me/mailFolders/${f}/messages?$top=${n}&$select=${ENVELOPE}${filter}&$orderby=${encodeURIComponent("receivedDateTime desc")}`);
+      return { folder: f, unread_only: a.unread_only === true, count: (j.value ?? []).length, messages: (j.value ?? []).map(envelope), note: UNTRUSTED_FIELDS };
     },
   },
   {

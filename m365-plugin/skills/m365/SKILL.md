@@ -1,7 +1,7 @@
 ---
 name: m365
 description: "Use when the user asks about or wants to act in their Microsoft 365: find or read an email, draft or send one, what is on the calendar, schedule a meeting or find free time, read or send a Teams message, who 'Mahmoud' is, or what needs attention. Also when a tool reports NOT_SIGNED_IN, CONSENT_NEEDED or ACCESS_NEEDED."
-version: "0.3.0"
+version: "0.4.0"
 ---
 
 # Microsoft 365 tools
@@ -39,7 +39,7 @@ none passes through you. First-time setup is `/m365:init`.
 
 Nothing outward-facing happens without the user's clear yes after they have seen exactly what will happen.
 
-- **Email:** `email_create_draft` (or `email_create_reply_draft`) makes a draft; nothing is sent. Then
+- **Email:** `email_create_draft` (or `email_create_reply_draft` / `email_create_forward_draft`) makes a draft; nothing is sent. Then
   `email_preview_draft`: show the user the recipients, subject and body. Only after they approve, call
   `email_send_draft` with the preview's `digest`. After any edit (`email_update_draft`), preview again. A send is
   refused if the draft changed, was never previewed, has no recipient, is too long to preview in full, or says "attached"
