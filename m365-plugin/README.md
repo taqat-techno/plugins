@@ -15,8 +15,10 @@ remembers your contacts and chats so "email Mahmoud" resolves to the right addre
 1. One time per company: an admin registers a Microsoft app and gives you its **client ID**
    ([docs/APP_REGISTRATION.md](docs/APP_REGISTRATION.md)). It is not a secret.
 2. Enable the plugin and enter the client ID in its settings (leave the rest at their defaults).
-3. Run `/m365:init`. A browser opens, you sign in with your work account, then it builds your profile and offers
-   the people you email most so you can keep the ones you want.
+3. Run `/m365:init`. The first run asks which situation fits you: you have a client ID from your admin, you do not have
+   one yet (it writes the message to send to your admin, listing exactly the permissions needed), or you reuse a sign-in
+   another tool of yours already holds. Then a browser opens, you sign in with your work account, and it builds your profile
+   and offers the people you email most so you can keep the ones you want.
 
 No browser on the machine? Use the sign-in method `device-code`: you get a short code to type at a Microsoft page.
 
@@ -24,7 +26,7 @@ No browser on the machine? Use the sign-in method `device-code`: you get a short
 
 | Area | Tools |
 |---|---|
-| Sign-in | `m365_sign_in`, `m365_auth_status`, `m365_sign_out` |
+| Sign-in and setup | `m365_sign_in`, `m365_auth_status`, `m365_sign_out`, `m365_setup_save` (asks you first: it points the plugin at files), `m365_access_request` (writes the message for your admin) |
 | Mail (read) | `email_list_recent`, `email_search`, `email_read`, `email_read_thread`, `email_list_attachments`, `email_read_attachment` |
 | Mail (write) | `email_create_draft`, `email_create_reply_draft`, `email_update_draft`, `email_preview_draft`, **`email_discard_draft`**, **`email_send_draft`**, `email_move` (inbox or archive), `email_mark_read`, `email_set_flag`, **`email_delete`** (to Deleted Items) |
 | Calendar | `calendar_list_events`, `calendar_get_event`, `calendar_find_free_slots`; write: `calendar_stage`, **`calendar_commit`**, `calendar_discard` |
@@ -62,10 +64,20 @@ per machine, never shared.
 `people_resolve` checks it first, then the directory. A single exact match is used; several are returned for you to
 pick; nothing is ever guessed. A name or alias that already points at one address is not silently re-pointed at another.
 
+## Reusing another tool's sign-in (for example your own bot)
+
+If a bot already signs in as you with an app an admin approved, point the plugin at that sign-in instead of asking for new
+approval: set `M365_CLIENT_ID` and `M365_TENANT` to the bot's, `M365_REFRESH_TOKEN_FILE` to the file holding its refresh token and
+`M365_CLIENT_SECRET_FILE` to the file holding the app's secret. The plugin then uses the app's approved permissions, never
+shows the sign-in prompt, and writes a renewed token back to the same file atomically (the same protocol the bot follows), so
+neither side holds a stale token. `m365_sign_out` never deletes that file, and `m365_sign_in` is not available in this mode: if
+access stops, sign in again with the tool that owns the file. This is meant for your own machine; new users should sign in
+normally. Both files are read each time and are never shown, logged or returned by a tool.
+
 ## Alerts
 
 `events_since` (or `node server/cli.mjs events --since now`, later `--since <cursor>`) lists what concerns you since the
-cursor: new mail from others, mail that mentions you, Teams messages and @mentions, calendar invitations and
+cursor: new mail from others, mail with an @mention of you in its first lines (approximate: Microsoft's stable Graph has no mention flag on mail), Teams messages and @mentions, calendar invitations and
 cancellations. It stores nothing and sends nothing: keep the cursor and deliver the events yourself (a bot messages its
 owner). If `more` is true, call again. A failing detector is listed in `errors` and its events are retried next time.
 
@@ -78,9 +90,13 @@ owner). If `more` is true, call again. A failing detector is listed in `errors` 
 | Sign-in method | `M365_AUTH_MODE` | `auto` (default), `interactive`, `device-code` |
 | Modules | `M365_MODULES` | `mail,calendar,teams,channels,people,files`; default without `channels` |
 | Read-only mode | `M365_READONLY` | No write tools, read permissions only |
+| Shared token file | `M365_REFRESH_TOKEN_FILE` | Use an existing sign-in held by another tool (a bot): a file with its refresh token |
+| App secret file | `M365_CLIENT_SECRET_FILE` | A file with the app's secret, if the app has one (a shared token usually needs it) |
+| (none) | `M365_REFRESH_TOKEN_WRITEBACK` | `false` leaves the shared token file strictly untouched; default writes a renewed token back, as the owner does |
+| Permissions to request | `M365_SCOPE_MODE` | `requested` (default) or `app`: use the permissions already approved for the app, so an app an admin approved earlier for a bot needs no new request |
 | (none) | `M365_HOME` | Folder for the profile, sign-in cache and staged items, default `~/.m365-plugin` |
 
-Plugin settings win over environment variables, and an unexpanded `${...}` counts as unset.
+Plugin settings win over environment variables, which win over `~/.m365-plugin/settings.json` (written by `/m365:init`: ids and file paths only, never a secret; it cannot change read-only mode or modules). An unexpanded `${...}` counts as unset.
 
 ## For bots and other hosts (OpenClaw and similar)
 

@@ -232,10 +232,10 @@ test("files: share link is organization-only; attachments read as text or honest
 const T = (s) => Date.parse(s);
 function eventsCtx(over = {}) {
   const c = ctxFor([TOK,
-    g("/me\\?\\$select=id", { id: "me-id", mail: "me@contoso.com" }),
+    g("/me\\?\\$select=id", { id: "me-id", mail: "me@contoso.com", displayName: "Mona Test" }),
     g("mailFolders/inbox/messages", over.mail ?? { value: [
-      { id: "a", subject: "Budget", from: { emailAddress: { name: "Sara", address: "sara@x.com" } }, receivedDateTime: "2026-11-06T11:10:00Z", bodyPreview: "numbers", mentionsPreview: { isMentioned: false } },
-      { id: "b", subject: "Review please", from: { emailAddress: { address: "m@x.com" } }, receivedDateTime: "2026-11-06T11:20:00Z", bodyPreview: "@you", mentionsPreview: { isMentioned: true } },
+      { id: "a", subject: "Budget", from: { emailAddress: { name: "Sara", address: "sara@x.com" } }, receivedDateTime: "2026-11-06T11:10:00Z", bodyPreview: "numbers" },
+      { id: "b", subject: "Review please", from: { emailAddress: { address: "m@x.com" } }, receivedDateTime: "2026-11-06T11:20:00Z", bodyPreview: "Hi @Mona Test, can you review?" },
       { id: "c", subject: "My own", from: { emailAddress: { address: "ME@contoso.com" } }, receivedDateTime: "2026-11-06T11:30:00Z" },
     ] }),
     g("/me/events", over.events ?? { value: [
@@ -252,6 +252,7 @@ test("events: 'now' is a baseline; the next poll returns what concerns the user,
   const c = eventsCtx();
   const base = await call(c, "events_since", { since: "now" });
   assert.deepEqual(base.events, []); assert.equal(base.baseline, true);
+  c.fetch.calls.length = 0;
   assert.equal(decodeCursor(base.cursor).t, T("2026-11-06T12:00:00Z"));
   const r = await call(c, "events_since", { since: "2026-11-06T11:00:00Z" });
   const types = r.events.map((e) => e.type + ":" + (e.message_id ?? e.event_id ?? e.chat_id));
@@ -260,6 +261,7 @@ test("events: 'now' is a baseline; the next poll returns what concerns the user,
   assert.ok(r.events.every((e) => /^\d{4}-\d\d-\d\dT.*Z$/.test(e.at)) && r.events[0].from);
   assert.equal(r.events.filter((e) => e.type === "chat-message").length, 0, "a mention is not reported twice");
   assert.deepEqual(r.errors, []); assert.equal(r.more, false);
+  assert.ok(!c.fetch.calls.some((x) => /mentionsPreview/.test(decodeURIComponent(x.url))), "mentionsPreview does not exist in Microsoft's stable Graph (a live 400)");
   const again = await call(c, "events_since", { since: r.cursor });
   assert.deepEqual(again.events, [], "the same events are not delivered twice");
 });
@@ -309,8 +311,8 @@ test("a contact name or alias that already belongs to another address is refused
   assert.equal((await call(c, "profile_remember_contact", { name: "Mahmoud A.", email: "M.ALI@x.com" })).saved.email, "m.ali@x.com", "same address, updated, no conflict");
 });
 
-test("the confirm list is exactly the tools flagged confirm, and every confirm tool is a write", () => {
+test("the confirm list is exactly the tools flagged confirm, and every confirm tool is a write or a credential-pointing setup tool", () => {
   const cls = JSON.parse(readFileSync(join(dirname(fileURLToPath(import.meta.url)), "..", "data", "tools.json"), "utf8"));
   assert.deepEqual(ALL_TOOLS.filter((t) => t.confirm).map((t) => t.name).sort(), [...cls.confirm].sort());
-  for (const n of cls.confirm) assert.ok(cls.write.includes(n), n);
+  for (const n of cls.confirm) assert.ok(cls.write.includes(n) || cls.local.includes(n), n);
 });

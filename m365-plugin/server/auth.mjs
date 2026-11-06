@@ -41,6 +41,10 @@ export function classifyTokenError(j, status) {
     return new M365Error("PUBLIC_CLIENT_NOT_ENABLED", "The app is not set up as a public client (AADSTS" + aadsts + ").",
       { hint: "In the app registration: Authentication > Allow public client flows = Yes, and add the redirect URI http://localhost." });
   }
+  if (code === "authorization_declined" || aadsts === "700171" || aadsts === "90135") {
+    return new M365Error("SIGN_IN_DECLINED", "The sign-in was cancelled or refused on the Microsoft page.",
+      { hint: "If the page said 'Need admin approval', the app's permissions are not approved yet: call m365_access_request for the message to send to your admin. Otherwise run m365_sign_in again and do not press Cancel." });
+  }
   if (aadsts === "50011") return new M365Error("REDIRECT_URI_MISMATCH", "The app has no http://localhost redirect URI (AADSTS50011).", { hint: "Add the Mobile and desktop redirect URI http://localhost to the app registration." });
   if (code === "invalid_grant" || code === "interaction_required" || aadsts === "70043" || aadsts === "50173") {
     return new M365Error("SIGN_IN_EXPIRED", "The saved sign-in is no longer valid.", { hint: "Run m365_sign_in again." });
@@ -83,11 +87,18 @@ export function createAuth(cfg, { fetch: fetchImpl = globalThis.fetch, open = op
     renameSync(tmp, cachePath);
   };
 
+  // The app's secret, only for an app registered as confidential. Read from a file each time, never kept, never shown.
+  const secret = () => {
+    if (!cfg.clientSecretFile) return undefined;
+    try { return readFileSync(cfg.clientSecretFile, "utf8").trim() || undefined; }
+    catch { throw new M365Error("NOT_CONFIGURED", "The client secret file cannot be read.", { hint: "Check the client secret file setting (M365_CLIENT_SECRET_FILE)." }); }
+  };
+
   async function tokenRequest(params) {
     const res = await fetchImpl(`${LOGIN}/${encodeURIComponent(cfg.tenant)}/oauth2/v2.0/token`, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({ client_id: cfg.clientId, ...params }),
+      body: new URLSearchParams({ client_id: cfg.clientId, ...(secret() ? { client_secret: secret() } : {}), ...params }),
       signal: AbortSignal.timeout(cfg.timeoutMs),
     });
     const j = await res.json().catch(() => ({}));
@@ -113,9 +124,34 @@ export function createAuth(cfg, { fetch: fetchImpl = globalThis.fetch, open = op
     return account;
   }
 
+  // ---------------------------------------------------------------- shared token file (another tool owns the sign-in)
+
+  const readShared = () => { try { return readFileSync(cfg.refreshTokenFile, "utf8").trim(); } catch { return ""; } };
+  const writeShared = (token) => {
+    const tmp = `${cfg.refreshTokenFile}.${process.pid}.${randomUUID()}.tmp`;
+    try { writeFileSync(tmp, token, { mode: 0o600 }); renameSync(tmp, cfg.refreshTokenFile); }
+    catch { try { rmSync(tmp, { force: true }); } catch { /* nothing to clean */ } } // non-fatal: the old token is still on file
+  };
+
+  async function sharedAccessToken() {
+    const used = readShared();
+    if (!used) throw new M365Error("NOT_SIGNED_IN", "The shared token file is missing or empty.", { hint: "Sign in with the tool that owns that file, then retry." });
+    let { res, j } = await tokenRequest({ grant_type: "refresh_token", refresh_token: used, scope });
+    // The owner may have redeemed and rotated the token between our read and our request: retry once with the newer one.
+    if ((!res.ok || !j.access_token) && j.error === "invalid_grant") {
+      const latest = readShared();
+      if (latest && latest !== used) ({ res, j } = await tokenRequest({ grant_type: "refresh_token", refresh_token: latest, scope }));
+    }
+    if (!res.ok || !j.access_token) throw classifyTokenError(j, res.status);
+    if (j.refresh_token && cfg.refreshTokenWriteback) writeShared(j.refresh_token);
+    mem = { token: j.access_token, expiresAt: now() + (j.expires_in ?? 3600) * 1000 };
+    return mem.token;
+  }
+
   async function getAccessToken() {
     needClientId();
     if (mem.token && now() < mem.expiresAt - 120_000) return mem.token;
+    if (cfg.refreshTokenFile) return sharedAccessToken();
     const cache = readCache();
     if (!cache || cache.client_id !== cfg.clientId || cache.tenant !== cfg.tenant) {
       throw new M365Error("NOT_SIGNED_IN", "Not signed in to Microsoft 365.", { hint: "Call m365_sign_in, or run: node server/cli.mjs sign-in" });
@@ -211,6 +247,9 @@ export function createAuth(cfg, { fetch: fetchImpl = globalThis.fetch, open = op
 
   async function startSignIn({ mode } = {}) {
     needClientId();
+    if (cfg.refreshTokenFile) {
+      throw new M365Error("MANAGED_EXTERNALLY", "Sign-in here is managed by a shared token file, so there is nothing to sign in to.", { hint: "If access stopped working, sign in again with the tool that owns the token file." });
+    }
     const want = (mode || cfg.authMode || "auto").toLowerCase();
     if (!["auto", "interactive", "device-code"].includes(want)) {
       throw new M365Error("INVALID_ARGUMENT", "mode must be auto, interactive or device-code");
@@ -228,6 +267,14 @@ export function createAuth(cfg, { fetch: fetchImpl = globalThis.fetch, open = op
   }
 
   function status() {
+    if (cfg.refreshTokenFile) {
+      const ok = Boolean(readShared());
+      return {
+        configured: Boolean(cfg.clientId), signed_in: ok, account: null, auth_source: "shared token file",
+        tenant: cfg.tenant, read_only: cfg.readOnly, permissions: cfg.scopeMode, modules: cfg.modules,
+        ...(cfg.clientId ? (ok ? {} : { hint: "The shared token file is missing or empty. Sign in with the tool that owns it." }) : { hint: NEEDS_CLIENT_ID }),
+      };
+    }
     const cache = readCache();
     const valid = cache && cache.client_id === cfg.clientId && cache.tenant === cfg.tenant;
     /** @type {any} */
@@ -237,6 +284,7 @@ export function createAuth(cfg, { fetch: fetchImpl = globalThis.fetch, open = op
       account: valid ? { name: cache.account?.name ?? null, username: cache.account?.username ?? null } : null,
       tenant: cfg.tenant,
       read_only: cfg.readOnly,
+      permissions: cfg.scopeMode,
       modules: cfg.modules,
     };
     if (pending) {
@@ -250,6 +298,7 @@ export function createAuth(cfg, { fetch: fetchImpl = globalThis.fetch, open = op
   }
 
   function signOut() {
+    if (cfg.refreshTokenFile) { mem = { token: null, expiresAt: 0 }; return { signed_out: true, note: "The shared token file belongs to another tool and was left untouched." }; }
     mem = { token: null, expiresAt: 0 };
     pending = null;
     try { rmSync(cachePath, { force: true }); } catch { /* nothing to remove */ }

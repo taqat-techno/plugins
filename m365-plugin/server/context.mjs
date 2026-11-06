@@ -1,4 +1,5 @@
 // context.mjs - wires config, auth, Graph and the profile into one object the tools receive.
+// `ctx.reload()` rebuilds it from the current settings (used after /m365:init saves a setup), so no restart is needed.
 import { resolveConfig } from "./config.mjs";
 import { createAuth } from "./auth.mjs";
 import { createGraph } from "./graph.mjs";
@@ -8,18 +9,24 @@ import { activeTools } from "./tools/index.mjs";
 import { M365Error } from "./util.mjs";
 
 export function createContext(env = process.env, deps = {}) {
-  const cfg = resolveConfig(env);
-  const auth = createAuth(cfg, deps);
-  const graph = createGraph(cfg, auth, deps);
-  const profile = createProfile(cfg);
   const now = deps.now ?? (() => Date.now());
-  const staging = createStaging(cfg, { now });
-  const ctx = { cfg, auth, graph, profile, staging, now };
-  const tools = activeTools(cfg);
-  const byName = new Map(tools.map((t) => [t.name, t]));
+  const ctx = {};
+  let tools = [];
+  let byName = new Map();
+
+  const build = () => {
+    const cfg = resolveConfig(env);
+    const auth = createAuth(cfg, deps);
+    const graph = createGraph(cfg, auth, deps);
+    Object.assign(ctx, { cfg, auth, graph, profile: createProfile(cfg), staging: createStaging(cfg, { now }), now, reload: build });
+    tools = activeTools(cfg);
+    byName = new Map(tools.map((t) => [t.name, t]));
+  };
+  build();
+
   return {
     ctx,
-    tools,
+    get tools() { return tools; },
     listTools: () => tools.map(({ name, description, inputSchema }) => ({ name, description, inputSchema })),
     async callTool(name, args) {
       const t = byName.get(name);

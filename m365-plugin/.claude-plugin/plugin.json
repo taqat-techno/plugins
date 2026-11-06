@@ -1,6 +1,6 @@
 {
   "name": "m365",
-  "version": "0.2.2",
+  "version": "0.3.0",
   "license": "MIT",
   "description": "Microsoft 365 for Claude Code and agent bots: read and search Outlook mail, calendar and free slots, Teams chats, OneDrive and people; draft, preview and send mail, schedule meetings and message Teams with a preview-digest-confirm flow and a human confirmation hook; an events poll for alerts; and a local profile that remembers your contacts and chats so 'email Mahmoud' resolves. Self-contained (no npm packages, no admin rights), browser or device-code sign-in, least-privilege scopes, optional read-only mode, OpenClaw package builder.",
   "author": {
@@ -36,6 +36,24 @@
       "title": "Sign-in method",
       "description": "auto (default): browser sign-in, falling back to a device code. interactive: browser only. device-code: type a short code at a Microsoft page (no browser needed on this machine).",
       "default": "auto"
+    },
+    "m365_permissions": {
+      "type": "string",
+      "title": "Permissions to request (optional)",
+      "description": "requested (default): ask only for what the enabled modules need; an admin may have to approve new permissions. app: use the permissions already approved for the app, for example one a bot already uses, so no new admin request is needed.",
+      "default": ""
+    },
+    "m365_refresh_token_file": {
+      "type": "string",
+      "title": "Shared token file (optional)",
+      "description": "Path to a file that holds an existing refresh token from another tool's sign-in (for example a bot's). The plugin then uses that sign-in instead of asking you to sign in. Leave empty for the normal sign-in. Only a path: the token itself is never entered here.",
+      "default": ""
+    },
+    "m365_client_secret_file": {
+      "type": "string",
+      "title": "App secret file (optional)",
+      "description": "Path to a file holding the app's client secret, only if the app is registered with a secret (a shared token file usually needs it). Leave empty otherwise. Only a path: the secret itself is never entered here.",
+      "default": ""
     },
     "m365_modules": {
       "type": "string",

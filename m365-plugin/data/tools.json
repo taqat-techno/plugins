@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "note": "Single classification of every tool. read = reads Microsoft 365 only. local = changes only this user's local profile, staging or sign-in cache. write = changes Microsoft 365 (removed in read-only mode). confirm = the outward-facing writes that a host should ask the human about (the Claude Code hook does). Tests keep this in step with server/tools/*.mjs.",
+  "note": "Single classification of every tool. read = reads Microsoft 365 only. local = changes only this user's local profile, staging or sign-in cache. write = changes Microsoft 365 (removed in read-only mode). confirm = the outward-facing writes, and the setup save that points the plugin at credential files, that a host should ask the human about (the Claude Code hook does). Tests keep this in step with server/tools/*.mjs.",
   "read": [
     "email_list_recent",
     "email_search",
@@ -35,7 +35,9 @@
     "profile_remember_contact",
     "profile_forget_contact",
     "profile_remember_chat",
-    "profile_forget_chat"
+    "profile_forget_chat",
+    "m365_setup_save",
+    "m365_access_request"
   ],
   "write": [
     "email_create_draft",
@@ -62,6 +64,7 @@
     "calendar_commit",
     "teams_commit",
     "email_delete",
-    "onedrive_share_link"
+    "onedrive_share_link",
+    "m365_setup_save"
   ]
 }

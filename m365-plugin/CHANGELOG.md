@@ -1,5 +1,35 @@
 # Changelog
 
+## [0.3.0] - 2026-11-06
+
+### Fixed (found by a live run against a real tenant)
+- **Mail alerts always failed**: the query asked for a `mentionsPreview` property that does not exist in Microsoft's stable Graph (HTTP 400),
+  which the offline fake could not reveal. Mail now arrives without it, and a mail mention is detected as an `@name` in the first part of the
+  body (approximate, and documented as such). Tool results that mention a missing `People.Read` permission still work through the directory.
+
+### Added
+- **`/m365:init` is the first-run setup for every kind of user.** It asks one question: (1) "my admin gave me a client ID",
+  (2) "I don't have one" (writes the message to send to the admin), (3) "reuse a sign-in another tool of mine holds", or
+  (4) "an approved app exists". New tools: `m365_setup_save` (saves ids and file paths to `~/.m365-plugin/settings.json`, applies
+  them without a restart; refuses a file that does not look like a token or secret; Claude Code asks the user first) and
+  `m365_access_request` (a ready-to-send admin message built from the enabled modules, each permission explained, admin-consent
+  ones marked). The settings file has the lowest priority, never holds a secret, and cannot change read-only mode or modules.
+  A cancelled or refused sign-in (AADSTS700171 / AADSTS90135) is now `SIGN_IN_DECLINED` with a hint to ask the admin.
+- **Reuse another tool's saved sign-in.** `M365_REFRESH_TOKEN_FILE` (plugin setting "Shared token file") points at a file holding
+  a refresh token that another tool, such as a bot, already obtained; `M365_CLIENT_SECRET_FILE` ("App secret file") points at
+  the app's secret if the app has one. The plugin redeems that token (always with the app's approved permissions), so no
+  new admin approval is needed, and writes a renewed token back to the same file atomically, as its owner does. `m365_sign_out`
+  never deletes the file, `m365_sign_in` reports `MANAGED_EXTERNALLY`, and neither the token nor the secret is ever returned,
+  logged or put in an error. `M365_REFRESH_TOKEN_WRITEBACK=false` leaves the file strictly untouched.
+
+## [0.2.3] - 2026-11-06
+
+### Added
+- **Use an app's existing approved permissions.** The plugin setting "Permissions to request" (`M365_SCOPE_MODE=app`)
+  asks Microsoft for the app's already-approved permissions (Graph `.default`) instead of the plugin's own list. An app an
+  admin approved earlier for a bot then needs no new request; a tool whose permission the app lacks reports `ACCESS_NEEDED`.
+  The default (`requested`) is unchanged. `m365_auth_status` shows `permissions`.
+
 ## [0.2.2] - 2026-11-06
 
 ### Security

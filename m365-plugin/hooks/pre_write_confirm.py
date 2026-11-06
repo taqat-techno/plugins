@@ -23,6 +23,7 @@ _WHAT = {
     "calendar_commit": "CREATE the staged calendar event {stage_id}. Invitations are sent to the attendees.",
     "teams_commit": "SEND the staged Teams message {stage_id} now. It is delivered at once and cannot be unsent.",
     "email_discard_draft": "DELETE the draft {draft_id} from your Drafts folder.",
+    "m365_setup_save": "SAVE the Microsoft 365 setup (client id {client_id}; token file {refresh_token_file}; secret file {client_secret_file}). Approve only paths you recognise: the plugin will read those files.",
     "email_delete": "MOVE message {message_id} to Deleted Items (recoverable from there).",
     "onedrive_share_link": "CREATE an organization-wide view link for OneDrive item {item_id}.",
 }
@@ -43,7 +44,7 @@ def main():
         pass
     template = _WHAT.get(name, "make a change in Microsoft 365 that others can see or that cannot be undone.")
     try:
-        reason = "Microsoft 365: " + template.format(**{k: str(tool_input.get(k, "?"))[:80] for k in ("draft_id", "stage_id", "message_id", "item_id")})
+        reason = "Microsoft 365: " + template.format(**{k: str(tool_input.get(k, "-"))[:120] for k in ("draft_id", "stage_id", "message_id", "item_id", "client_id", "refresh_token_file", "client_secret_file")})
     except Exception:
         reason = "Microsoft 365: " + template
     print(json.dumps({"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "ask", "permissionDecisionReason": reason}}, ensure_ascii=False))

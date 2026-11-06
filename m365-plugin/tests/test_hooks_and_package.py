@@ -21,7 +21,7 @@ def _matcher_names():
     hooks = json.loads((PLUGIN / "hooks" / "hooks.json").read_text(encoding="utf-8"))
     entries = hooks["hooks"]["PreToolUse"]
     assert len(entries) == 1
-    m = re.fullmatch(r"\^mcp__\(plugin_m365_\)\?m365__\(([a-z_|]+)\)\$", entries[0]["matcher"])
+    m = re.fullmatch(r"\^mcp__\(plugin_m365_\)\?m365__\(([a-z0-9_|]+)\)\$", entries[0]["matcher"])
     assert m, entries[0]["matcher"]
     return entries[0]["matcher"], set(m.group(1).split("|"))
 
@@ -29,7 +29,8 @@ def _matcher_names():
 def test_hook_matcher_is_exactly_the_confirm_list():
     _, names = _matcher_names()
     assert names == set(TOOLS["confirm"])
-    assert set(TOOLS["confirm"]) <= set(TOOLS["write"])
+    assert set(TOOLS["confirm"]) <= set(TOOLS["write"]) | set(TOOLS["local"])
+    assert set(TOOLS["confirm"]) - set(TOOLS["write"]) == {"m365_setup_save"}
 
 
 def test_matcher_matches_namespaced_and_bare_tool_names_only():
@@ -37,7 +38,7 @@ def test_matcher_matches_namespaced_and_bare_tool_names_only():
     rx = re.compile(matcher)
     for n in TOOLS["confirm"]:
         assert rx.match(f"mcp__plugin_m365_m365__{n}") and rx.match(f"mcp__m365__{n}")
-    for n in ("email_preview_draft", "email_create_draft", "calendar_stage", "teams_stage", "email_read"):
+    for n in ("email_preview_draft", "email_create_draft", "calendar_stage", "teams_stage", "email_read", "m365_access_request", "m365_sign_in"):
         assert not rx.match(f"mcp__plugin_m365_m365__{n}"), n
     assert not rx.match("mcp__plugin_m365_m365__email_send_draft_extra")
 
@@ -54,6 +55,7 @@ def _run_hook(stdin_bytes):
     ("teams_commit", {"stage_id": "teams_ab12cd34"}, "cannot be unsent"),
     ("email_delete", {"message_id": "MSG1"}, "Deleted Items"),
     ("onedrive_share_link", {"item_id": "ITEM1"}, "ITEM1"),
+    ("m365_setup_save", {"client_id": "CID-1", "refresh_token_file": "C:/x/rt.txt"}, "C:/x/rt.txt"),
 ])
 def test_hook_asks_with_a_plain_reason(tool, inp, expect):
     out = _run_hook(json.dumps({"tool_name": f"mcp__plugin_m365_m365__{tool}", "tool_input": inp}).encode("utf-8"))

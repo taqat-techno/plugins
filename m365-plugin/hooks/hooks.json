@@ -1,9 +1,9 @@
 {
-  "description": "Microsoft 365 hooks: a permissionDecision 'ask' gate on the outward-facing writes (send an email draft, discard a draft, create a calendar event with invitations, send a Teams message, delete a message, create a sharing link). The list lives in data/tools.json under 'confirm'; a test keeps this matcher in step with it. The wrapper fails closed: if the check script or Python is missing it asks the human instead of allowing silently.",
+  "description": "Microsoft 365 hooks: a permissionDecision 'ask' gate on the outward-facing writes (send an email draft, discard a draft, create a calendar event with invitations, send a Teams message, delete a message, create a sharing link, point the plugin at credential files). The list lives in data/tools.json under 'confirm'; a test keeps this matcher in step with it. The wrapper fails closed: if the check script or Python is missing it asks the human instead of allowing silently.",
   "hooks": {
     "PreToolUse": [
       {
-        "matcher": "^mcp__(plugin_m365_)?m365__(email_send_draft|email_discard_draft|calendar_commit|teams_commit|email_delete|onedrive_share_link)$",
+        "matcher": "^mcp__(plugin_m365_)?m365__(email_send_draft|email_discard_draft|calendar_commit|teams_commit|email_delete|onedrive_share_link|m365_setup_save)$",
         "hooks": [
           {
             "type": "command",

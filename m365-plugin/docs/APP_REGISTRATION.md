@@ -36,6 +36,21 @@ may consent to, grant these for the app up front.
 After upgrading from a version that only read, each user is told `PERMISSIONS_CHANGED` and runs `m365_sign_in` again to
 approve the added permissions.
 
+## Reusing an app that is already approved (no new admin request)
+
+If an admin already approved an app for another purpose (a bot, for example), the plugin can use exactly those
+permissions instead of asking for its own list: set the plugin setting "Permissions to request" to `app`
+(or `M365_SCOPE_MODE=app`). It then asks Microsoft for the app's existing approved permissions (Graph's `.default`),
+so no new approval is needed. Tools whose permission the app does not have return `ACCESS_NEEDED` naming it; the rest work.
+The app still needs "Allow public client flows" and the `http://localhost` redirect (above). Read-only mode still removes the
+write tools, but in this mode it cannot narrow what the app is allowed to do, so it is a tool-level guard only.
+
+## Reusing another tool's saved sign-in
+
+If a bot already holds a refresh token for the app, the plugin can use it (`M365_REFRESH_TOKEN_FILE`, and
+`M365_CLIENT_SECRET_FILE` if the app has a secret) instead of a new sign-in. No new approval is needed because that sign-in
+was already approved. See the README section "Reusing another tool's sign-in".
+
 ## Test it
 
 ```

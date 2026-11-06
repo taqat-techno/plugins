@@ -9,10 +9,17 @@
       "M365_PLUGIN_CLIENT_ID": "${user_config.m365_client_id}",
       "M365_PLUGIN_TENANT": "${user_config.m365_tenant}",
       "M365_PLUGIN_AUTH_MODE": "${user_config.m365_auth_mode}",
+      "M365_PLUGIN_SCOPE_MODE": "${user_config.m365_permissions}",
+      "M365_PLUGIN_REFRESH_TOKEN_FILE": "${user_config.m365_refresh_token_file}",
+      "M365_PLUGIN_CLIENT_SECRET_FILE": "${user_config.m365_client_secret_file}",
       "M365_PLUGIN_MODULES": "${user_config.m365_modules}",
       "M365_PLUGIN_READONLY": "${user_config.m365_read_only}",
       "M365_CLIENT_ID": "${M365_CLIENT_ID:-}",
       "M365_TENANT": "${M365_TENANT:-}",
+      "M365_SCOPE_MODE": "${M365_SCOPE_MODE:-}",
+      "M365_REFRESH_TOKEN_FILE": "${M365_REFRESH_TOKEN_FILE:-}",
+      "M365_CLIENT_SECRET_FILE": "${M365_CLIENT_SECRET_FILE:-}",
+      "M365_REFRESH_TOKEN_WRITEBACK": "${M365_REFRESH_TOKEN_WRITEBACK:-}",
       "M365_HOME": "${M365_HOME:-}"
     }
   }

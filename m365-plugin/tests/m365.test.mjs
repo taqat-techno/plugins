@@ -118,6 +118,8 @@ test("auth: Microsoft errors map to a code and a fix", () => {
   assert.equal(c("invalid_client", "AADSTS65001 consent"), "CONSENT_NEEDED");
   assert.equal(c("invalid_client", "AADSTS7000218 secret"), "PUBLIC_CLIENT_NOT_ENABLED");
   assert.equal(c("x", "AADSTS50011 reply url"), "REDIRECT_URI_MISMATCH");
+  assert.equal(c("authorization_declined", "AADSTS700171 declined"), "SIGN_IN_DECLINED");
+  assert.equal(c("x", "AADSTS90135 The user decided not to continue"), "SIGN_IN_DECLINED");
   assert.equal(c("x", "AADSTS700016 app not found"), "CLIENT_ID_INVALID");
   assert.equal(classifyTokenError({ error: "weird" }, 500).code, "AUTH_FAILED");
 });

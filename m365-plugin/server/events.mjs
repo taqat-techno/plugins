@@ -4,11 +4,12 @@
 //   events_since(since)  ->  { cursor, events: [...], errors, truncated, more, baseline, note }
 //   since = "now" (baseline: no events, returns a cursor) | a cursor from an earlier call | an ISO time
 //
-// Detectors (each only runs if its module is enabled): new mail from someone else, mail that @mentions the user,
+// Detectors (each only runs if its module is enabled): new mail from someone else, mail that @mentions the user
+// (approximate: an @name in the first part of the body), 
 // Teams chat messages from others and @mentions, calendar invitations and cancellations.
 // A failing detector goes into `errors` and holds the cursor time, so its events are retried next poll.
 // When a page is full the OLDEST items are taken and the cursor stops after them: poll again until `more` is false.
-import { M365Error, clean } from "./util.mjs";
+import { M365Error, clean, normName } from "./util.mjs";
 
 export const TYPES = ["mail", "mail-mention", "chat-message", "chat-mention", "invite", "invite-cancelled"];
 const MAIL_PAGE = 50, EVENT_PAGE = 50, CHATS = 20, MSGS = 10, OVERLAP_MS = 60_000, KEEP_IDS = 300;
@@ -36,7 +37,9 @@ export async function collectEvents(ctx, { since, types, nowMs = ctx.now() } = {
 
   const from = Math.max(0, cursor.t - OVERLAP_MS);
   const fromIso = new Date(from).toISOString().replace(/\.\d{3}Z$/, "Z");
-  const me = await ctx.graph.get("/me?$select=id,mail,userPrincipalName");
+  const me = await ctx.graph.get("/me?$select=id,mail,userPrincipalName,displayName");
+  // Microsoft's stable Graph has no "is mentioned" flag on a message, so a mail mention is an @name in the first part of the body.
+  const myNames = [me.displayName, String(me.displayName ?? "").split(/\s+/)[0]].map((n) => normName(n)).filter((n, i, a) => n.length >= 3 && a.indexOf(n) === i);
   const mine = new Set([me.mail, me.userPrincipalName].filter(Boolean).map((s) => s.toLowerCase()));
   const events = [], errors = [];
   let allOk = true, truncated = false, coveredUntil = 0;
@@ -45,13 +48,14 @@ export async function collectEvents(ctx, { since, types, nowMs = ctx.now() } = {
   // ---- mail (oldest first, so a full page means everything up to its newest item was examined)
   if (has("mail") && (want.has("mail") || want.has("mail-mention"))) {
     try {
-      const j = await ctx.graph.get(`/me/mailFolders/inbox/messages?$filter=${encodeURIComponent(`receivedDateTime ge ${fromIso}`)}&$orderby=${encodeURIComponent("receivedDateTime asc")}&$top=${MAIL_PAGE}&$select=id,subject,from,receivedDateTime,bodyPreview,conversationId,importance,mentionsPreview`);
+      const j = await ctx.graph.get(`/me/mailFolders/inbox/messages?$filter=${encodeURIComponent(`receivedDateTime ge ${fromIso}`)}&$orderby=${encodeURIComponent("receivedDateTime asc")}&$top=${MAIL_PAGE}&$select=id,subject,from,receivedDateTime,bodyPreview,conversationId,importance`);
       const items = j.value ?? [];
       if (items.length >= MAIL_PAGE) { truncated = true; coveredUntil = Math.max(coveredUntil, ...items.map((m) => ms(m.receivedDateTime))); }
       for (const m of items) {
         const f = who(m.from);
         if (f.email && mine.has(f.email)) continue;
-        const mention = m.mentionsPreview?.isMentioned === true;
+        const preview = normName(m.bodyPreview);
+        const mention = myNames.some((n) => preview.includes(`@${n}`));
         const type = mention ? "mail-mention" : "mail";
         if (!want.has(type)) continue;
         events.push({ id: `mail:${m.id}`, type, at: m.receivedDateTime, title: clean(m.subject, 200) ?? "(no subject)", from: f, summary: clean(m.bodyPreview, 200), message_id: m.id, conversation_id: m.conversationId ?? null, importance: m.importance ?? null });
