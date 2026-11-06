@@ -163,6 +163,31 @@ test("an ISO --since has no reviewer baseline, and a failing PR detector keeps i
   assert.deepStrictEqual(types(ok), [], "existing review requests are not announced without a baseline");
 });
 
+test("a full work item page is read oldest first and the cursor resumes after it, skipping nothing", async () => {
+  const ids = Array.from({ length: 200 }, (_, i) => ({ id: i + 1 }));
+  const day = (n) => "2026-11-06T10:" + n + "0:00.000Z"; // after the cursor time T0 (10:00)
+  const items = ids.map((w, i) => ({ id: w.id, fields: { "System.Title": "t", "System.AssignedTo": OTHER, "System.TeamProject": "Alpha",
+    "System.CommentCount": 0, "System.ChangedDate": i === 199 ? day(5) : day(4) } }));
+  const routes = base([
+    [/_apis\/wit\/wiql/, { workItems: ids }],
+    [/_apis\/wit\/workitems\?ids/, { value: items }],
+  ]);
+  const r = await run(routes, cur(), undefined, Date.parse("2026-11-06T12:00:00.000Z"));
+  assert.strictEqual(r.truncated, true);
+  assert.strictEqual(r.more, true);
+  assert.strictEqual(r.covered_until, day(5));
+  assert.strictEqual(ev.decodeCursor(r.cursor).t, Date.parse(day(5)), "cursor stops at what was examined, not at now");
+  assert.ok(r.calls.find((x) => /wiql/.test(x.url)).body.query.endsWith("ORDER BY [System.ChangedDate] ASC"));
+});
+
+test("a short work item page is not truncated and the cursor moves to now", async () => {
+  const r = await run(base(), cur(), undefined, T0 + 3600e3);
+  assert.strictEqual(r.truncated, false);
+  assert.strictEqual(r.more, false);
+  assert.strictEqual(r.covered_until, null);
+  assert.strictEqual(ev.decodeCursor(r.cursor).t, T0 + 3600e3);
+});
+
 test("types filter limits what is read and returned", async () => {
   const routes = base([[/_apis\/build\/builds/, { value: [{ id: 70, buildNumber: "1", definition: { name: "CI" }, finishTime: LATER }] }],
     [/searchCriteria\.reviewerId/, { value: [pr(8)] }]]);

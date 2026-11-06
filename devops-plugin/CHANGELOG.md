@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [8.2.1] - 2026-11-06
+
+### Fixed
+- **`ado-events.js` no longer drops events when more than 200 work items changed since the cursor.**
+  It read the newest 200 and still moved the cursor to now, so older changes in the window were
+  lost (found in a live run against a busy organization). It now reads the OLDEST 200, reports
+  `truncated`, `more` and `covered_until`, and the cursor stops at `covered_until`; poll again until
+  `more` is false and nothing is skipped.
+
 ## [8.2.0] - 2026-11-06
 
 ### Added
