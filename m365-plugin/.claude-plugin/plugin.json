@@ -1,6 +1,6 @@
 {
   "name": "m365",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "license": "MIT",
   "description": "Microsoft 365 for Claude Code and agent bots: read and search Outlook mail, calendar and free slots, Teams chats, OneDrive and people; draft, preview and send mail, schedule meetings and message Teams with a preview-digest-confirm flow and a human confirmation hook; an events poll for alerts; and a local profile that remembers your contacts and chats so 'email Mahmoud' resolves. Self-contained (no npm packages, no admin rights), browser or device-code sign-in, least-privilege scopes, optional read-only mode, OpenClaw package builder.",
   "author": {

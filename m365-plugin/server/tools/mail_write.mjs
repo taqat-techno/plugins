@@ -6,10 +6,12 @@
 import { EMAIL_RE, M365Error, clean, fence, htmlToText, safeId, safeStr, seg, truncate } from "../util.mjs";
 import { digestOf } from "../staging.mjs";
 
-const FOLDERS = ["inbox", "archive", "deleteditems", "junkemail"];
+const FOLDERS = ["inbox", "archive"]; // deleting goes through email_delete, which asks the human
 const FLAGS = { flagged: "flagged", complete: "complete", none: "notFlagged" };
 const DRAFT_SELECT = "id,subject,toRecipients,ccRecipients,bccRecipients,body,hasAttachments,isDraft,conversationId";
 const ATTACH_PROMISE = /\b(attached|attachment|attachments|attaching|enclosed)\b|مرفق|المرفق|مرفقات|ارفقت|أرفقت|إرفاق|ارفاق/i;
+const MAX_PREVIEW = 20_000;
+const HIDDEN_MARKUP = /display\s*:\s*none|visibility\s*:\s*hidden|font-size\s*:\s*0|opacity\s*:\s*0|mso-hide\s*:\s*all/i;
 const QUOTE_START = /\n\s*(From:|On .{5,120} wrote:|-{3,}\s*Original Message|De\s?:|من:)/i;
 
 function rcpts(list, field) {
@@ -26,10 +28,9 @@ function rcpts(list, field) {
 const addrs = (l) => (l ?? []).map((r) => (r.emailAddress?.address ?? "").toLowerCase()).filter(Boolean);
 
 function bodyOf(a) {
-  const fmt = String(a.body_format || "text").toLowerCase();
-  if (!["text", "html"].includes(fmt)) throw new M365Error("INVALID_ARGUMENT", "body_format must be text or html");
-  const content = safeBody(a.body);
-  return { contentType: fmt === "html" ? "HTML" : "Text", content };
+  // Plain text only: HTML written by a model can hide links or text the human never sees in a preview.
+  if (a.body_format !== undefined && String(a.body_format).toLowerCase() !== "text") throw new M365Error("INVALID_ARGUMENT", "only plain-text bodies are supported (body_format must be text)");
+  return { contentType: "Text", content: safeBody(a.body) };
 }
 function safeBody(v) {
   const s = String(v ?? "");
@@ -51,8 +52,7 @@ const draftDigest = (m) => digestOf({
 const draftProps = {
   to: { type: "array", items: { type: "string" }, description: "Recipient email addresses." },
   cc: { type: "array", items: { type: "string" } }, bcc: { type: "array", items: { type: "string" } },
-  subject: { type: "string" }, body: { type: "string" },
-  body_format: { type: "string", description: "text (default) or html." },
+  subject: { type: "string" }, body: { type: "string", description: "Plain text." },
 };
 
 export const tools = [
@@ -107,18 +107,27 @@ export const tools = [
       const digest = draftDigest(m);
       ctx.staging.setPreview(id, digest);
       const html = (m.body?.contentType ?? "").toLowerCase() === "html";
-      const { text, truncated } = truncate(html ? htmlToText(m.body?.content) : String(m.body?.content ?? ""), 20_000);
+      const raw = String(m.body?.content ?? "");
+      const { text, truncated } = truncate(html ? htmlToText(raw) : raw, MAX_PREVIEW);
+      // A reply or a draft edited in Outlook is HTML: the text below is only a rendering of it, so say what else is in it.
+      const links = html ? [...new Set([...raw.matchAll(/(?:href|src|background|action|poster|data)\s*=\s*["']([^"']+)["']|url\(\s*["']?([^)"']+)/gi)].map((x) => clean(x[1] ?? x[2], 300)))].slice(0, 50) : [];
+      const hidden = html && HIDDEN_MARKUP.test(raw);
       return {
         draft_id: id, to: addrs(m.toRecipients), cc: addrs(m.ccRecipients), bcc: addrs(m.bccRecipients),
         subject: clean(m.subject, 300), has_attachments: !!m.hasAttachments,
-        body: fence(text, "draft body (may quote other people)", id), body_truncated: truncated, digest,
-        next_step: "Show the user the recipients, subject and body. Send only after they approve: email_send_draft with this draft_id and digest.",
+        body: fence(text, "draft body (may quote other people)", id), body_truncated: truncated,
+        ...(html ? { html_draft: true, links_and_images: links, hidden_markup_found: hidden,
+          html_warning: "This draft is HTML; the body above is a plain-text rendering. Show the user every link and image address listed and say if hidden_markup_found is true." } : {}),
+        digest,
+        next_step: truncated
+          ? "The body is too long to preview in full, so it cannot be sent from here. Shorten it or send it from Outlook."
+          : "Show the user the recipients, subject and body. Send only after they approve: email_send_draft with this draft_id and digest.",
       };
     },
   },
   {
-    name: "email_discard_draft", kind: "write", module: "mail",
-    description: "Delete a draft from Outlook Drafts. Refuses a message that is not a draft.",
+    name: "email_discard_draft", kind: "write", module: "mail", confirm: true,
+    description: "Delete a draft from Outlook Drafts (it may be one the user wrote by hand, so Claude Code asks for confirmation). Refuses a message that is not a draft.",
     inputSchema: { type: "object", properties: { draft_id: { type: "string" } }, required: ["draft_id"] },
     async handler(a, ctx) {
       const id = safeId(a.draft_id, "draft_id");
@@ -144,9 +153,10 @@ export const tools = [
       if (String(a.digest ?? "") !== prev.digest) throw new M365Error("DIGEST_MISMATCH", "The digest is not the one from the last preview. Preview again and show the user.");
       if (now !== prev.digest) throw new M365Error("DRAFT_CHANGED", "The draft changed after it was previewed (for example in Outlook). Preview it again and show the user.");
       if (!addrs(m.toRecipients).length && !addrs(m.ccRecipients).length && !addrs(m.bccRecipients).length) throw new M365Error("NO_RECIPIENT", "The draft has no recipient.");
+      const isHtml = (m.body?.contentType ?? "").toLowerCase() === "html";
+      const full = isHtml ? htmlToText(m.body?.content) : String(m.body?.content ?? "");
+      if (full.length > MAX_PREVIEW) throw new M365Error("PREVIEW_TRUNCATED", "The body is longer than what a preview can show in full, so it cannot be sent from here.", { hint: "Shorten the draft, or send it from Outlook." });
       if (!m.hasAttachments && !a.confirm_no_attachment) {
-        const html = (m.body?.contentType ?? "").toLowerCase() === "html";
-        const full = html ? htmlToText(m.body?.content) : String(m.body?.content ?? "");
         const mine = full.split(QUOTE_START)[0];
         if (ATTACH_PROMISE.test(mine)) throw new M365Error("ATTACHMENT_PROMISE", "The text mentions an attachment but the draft has none.", { hint: "Ask the user: remove the wording, or confirm sending without an attachment (confirm_no_attachment: true)." });
       }
@@ -157,8 +167,8 @@ export const tools = [
   },
   {
     name: "email_move", kind: "write", module: "mail",
-    description: "Move a message to inbox, archive, deleteditems or junkemail.",
-    inputSchema: { type: "object", properties: { message_id: { type: "string" }, folder: { type: "string", description: "inbox, archive, deleteditems or junkemail." } }, required: ["message_id", "folder"] },
+    description: "Move a message to the inbox or archive. To delete a message use email_delete, which asks for confirmation.",
+    inputSchema: { type: "object", properties: { message_id: { type: "string" }, folder: { type: "string", description: "inbox or archive." } }, required: ["message_id", "folder"] },
     async handler(a, ctx) {
       const id = safeId(a.message_id, "message_id");
       const f = String(a.folder ?? "").toLowerCase();

@@ -22,6 +22,7 @@ _WHAT = {
     "email_send_draft": "SEND the email draft {draft_id}. It leaves your mailbox for real and cannot be undone. Check that the recipients, subject and body shown by the preview are right.",
     "calendar_commit": "CREATE the staged calendar event {stage_id}. Invitations are sent to the attendees.",
     "teams_commit": "SEND the staged Teams message {stage_id} now. It is delivered at once and cannot be unsent.",
+    "email_discard_draft": "DELETE the draft {draft_id} from your Drafts folder.",
     "email_delete": "MOVE message {message_id} to Deleted Items (recoverable from there).",
     "onedrive_share_link": "CREATE an organization-wide view link for OneDrive item {item_id}.",
 }

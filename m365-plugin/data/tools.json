@@ -58,6 +58,7 @@
   ],
   "confirm": [
     "email_send_draft",
+    "email_discard_draft",
     "calendar_commit",
     "teams_commit",
     "email_delete",

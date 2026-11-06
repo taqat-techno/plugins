@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.2.1] - 2026-11-06
+
+Fixes from an automated security review of 0.2.0.
+
+### Security
+- **The confirmation hook now fails closed.** If the check script or Python is missing, or the script fails, the wrapper
+  asks the human instead of allowing the call silently.
+- **`email_move` can no longer delete.** It accepts only inbox and archive; deleting goes through `email_delete`, which asks.
+  `email_discard_draft` (it can delete a draft the user wrote by hand) is now confirmation-gated as well.
+- **What the user previews is what is sent.** Drafts created by the plugin are plain text only (HTML is refused). For an HTML
+  draft (a reply, or one edited in Outlook) the preview lists every link and image address and flags hidden markup, and a
+  draft too long to preview in full cannot be sent (`PREVIEW_TRUNCATED`).
+- **Teams double-send guard is stricter.** Only definite refusals (400, 401, 403, 404, 405, 422, 429) make a message sendable
+  again; 408, 409, 5xx and timeouts are an unknown outcome (`SEND_UNCERTAIN`) and are never repeated.
+
+### Tests
+- 60 offline Node tests and 30 Python checks, including regression tests for each fix and a test that runs the hook's shell
+  command with the script missing, with no Python, and with failing interpreters (it must ask every time).
+
 ## [0.2.0] - 2026-11-06
 
 Write path, files, alerts and the OpenClaw package. Because the plugin now asks for write permissions

@@ -26,7 +26,7 @@ No browser on the machine? Use the sign-in method `device-code`: you get a short
 |---|---|
 | Sign-in | `m365_sign_in`, `m365_auth_status`, `m365_sign_out` |
 | Mail (read) | `email_list_recent`, `email_search`, `email_read`, `email_read_thread`, `email_list_attachments`, `email_read_attachment` |
-| Mail (write) | `email_create_draft`, `email_create_reply_draft`, `email_update_draft`, `email_preview_draft`, `email_discard_draft`, **`email_send_draft`**, `email_move`, `email_mark_read`, `email_set_flag`, **`email_delete`** (to Deleted Items) |
+| Mail (write) | `email_create_draft`, `email_create_reply_draft`, `email_update_draft`, `email_preview_draft`, **`email_discard_draft`**, **`email_send_draft`**, `email_move` (inbox or archive), `email_mark_read`, `email_set_flag`, **`email_delete`** (to Deleted Items) |
 | Calendar | `calendar_list_events`, `calendar_get_event`, `calendar_find_free_slots`; write: `calendar_stage`, **`calendar_commit`**, `calendar_discard` |
 | Teams chats | `teams_list_chats`, `teams_find_chat`, `teams_read_chat`, `teams_chat_members`; write: `teams_stage`, **`teams_commit`**, `teams_cancel` |
 | Team channels (module `channels`, needs admin consent) | `teams_list_teams`, `teams_list_channels`, `teams_read_channel` |
@@ -100,8 +100,10 @@ before every send, because the confirmation hook is a Claude Code feature. `data
   Subjects, names, locations and topics are cleaned (control and bidirectional characters, forged markers) and flagged.
 - Every Graph request is fixed per tool. There is no generic Graph tool, and no tool accepts a URL, a mailbox or
   another user's id. POST, PATCH and DELETE are never retried.
-- In Claude Code a hook asks you before `email_send_draft`, `calendar_commit`, `teams_commit`, `email_delete` and
-  `onedrive_share_link`. The server enforces the preview and digest either way.
+- In Claude Code a hook asks you before `email_send_draft`, `email_discard_draft`, `calendar_commit`, `teams_commit`,
+  `email_delete` and `onedrive_share_link`; if the hook script or Python is missing it asks too (it fails closed).
+  The server enforces the preview and digest either way. Drafts the plugin creates are plain text; for an HTML draft
+  (a reply) the preview lists every link and image address and flags hidden markup.
 - Read-only mode removes the write tools, never requests write permissions, and the Graph client refuses writes.
 - Colleagues' calendars are reduced to free/busy in code; meeting titles are discarded before the model sees them.
 - No token is returned to a tool caller or written into an error message. The refresh token file lives in your profile
@@ -116,7 +118,7 @@ before every send, because the confirmation hook is a Claude Code feature. `data
 ## Tests
 
 ```
-node --test tests/m365.test.mjs tests/m365_write.test.mjs     # offline, against a fake Microsoft
+node --test tests/*.test.mjs                                   # offline, against a fake Microsoft
 python -m pytest tests -q                                     # also: stdio smoke test, hook, package, contracts
 ```
 

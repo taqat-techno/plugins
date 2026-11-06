@@ -2,6 +2,9 @@
 // outcome is unknown (timeout, 5xx) a repeat is refused and the user is told to look at the chat instead.
 import { M365Error, UNTRUSTED_FIELDS, clean, safeId, safeStr, seg } from "../util.mjs";
 
+// Statuses that mean Microsoft did not accept the request. Anything else (408, 409, 5xx, a timeout) is an unknown outcome.
+const REFUSED = new Set([400, 401, 403, 404, 405, 422, 429]);
+
 export const tools = [
   {
     name: "teams_stage", kind: "write", module: "teams",
@@ -38,7 +41,7 @@ export const tools = [
       try {
         r = await ctx.graph.post(`/chats/${seg(st.payload.chat_id)}/messages`, { body: { contentType: "text", content: st.payload.text } });
       } catch (e) {
-        if (typeof e.status === "number" && e.status >= 400 && e.status < 500) { ctx.staging.set(st.id, { state: "staged" }); throw e; } // refused: nothing was sent
+        if (REFUSED.has(e.status)) { ctx.staging.set(st.id, { state: "staged" }); throw e; } // a definite refusal: nothing was sent
         throw new M365Error("SEND_UNCERTAIN", "Could not confirm whether the message was sent.", { hint: "Check the chat with teams_read_chat before trying again. This stage will not be sent a second time automatically." });
       }
       ctx.staging.set(st.id, { state: "sent", message_id: r.id });
