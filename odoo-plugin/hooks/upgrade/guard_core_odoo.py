@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """PreToolUse hook (Write|Edit|MultiEdit): refuse writes to core Odoo framework files and to the
-MCP server's approval files.
+MCP server's connection file.
 
 1. Core framework files (odoo/addons/, odoo/*.py, a pip-installed site-packages/odoo,
    ...) must be changed by inheritance in a custom module, never in place. Patterns
    come from odoo-upgrade.config.json: the project's copy at $CLAUDE_PROJECT_DIR, then
    the plugin default (see config_loader.py).
-2. `~/.odoo-mcp/grant.key` and `~/.odoo-mcp/grants/` hold the developer's signed
-   production approvals. Only scripts/mcp/odoo_mcp_ctl.py, run by the developer in a
-   terminal, writes them; Claude must not.
+2. `~/.odoo-mcp/profiles.json` (and its backups) holds every connection, key and access
+   level. It is changed only through scripts/mcp/odoo_mcp.py, which validates, backs up
+   and audits each change and needs the developer's yes to widen access.
 
 Refusals go out as `permissionDecision: "deny"` with the reason. Fails open: bad
 input, an exception or the 5 s watchdog all end in exit 0.
@@ -30,7 +30,7 @@ try:  # hooklib writes JSON with non-ASCII text; a cp1252 console stdout would c
 except Exception:
     pass
 
-_GRANT_RE = re.compile(r"(^|/)\.odoo-mcp/(grant\.key|grants/)", re.IGNORECASE)
+_GUARD_RE = re.compile(r"(^|/)\.odoo-mcp/(profiles\.json|backups/)", re.IGNORECASE)
 
 
 def _core_patterns():
@@ -52,11 +52,12 @@ def main() -> int:
         return 0
     normalized = file_path.replace("\\", "/")
 
-    if _GRANT_RE.search(normalized):
+    if _GUARD_RE.search(normalized):
         hooklib.deny(
-            "BLOCKED: %s is an Odoo MCP approval file. Grants are signed and written only by "
-            "the developer running scripts/mcp/odoo_mcp_ctl.py in their own terminal. Ask the "
-            "developer to run it; do not create or edit grant files." % file_path)
+            "BLOCKED: %s is the Odoo MCP connection file. Change it with python "
+            "<plugin>/scripts/mcp/odoo_mcp.py (add / bind / remove / migrate), which validates, "
+            "backs up and logs every change; widening access needs the developer's yes passed "
+            "as --approved-by." % file_path)
         return 0
 
     for pattern in _core_patterns():

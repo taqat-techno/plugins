@@ -1,18 +1,12 @@
 #!/usr/bin/env python3
-"""Create, list and prune LOCAL Odoo MCP connection profiles - no questions asked.
+"""Local Odoo provisioning for `odoo_mcp.py local` - no questions asked.
 
-Local profiles are tool-owned: one file per project checkout in
-~/.odoo-mcp/local/<project-key>.json. Claude runs this script itself when it needs
-a live local instance; nothing here touches the developer's servers file.
+Finds the project's Odoo conf, confirms Odoo answers on a LOOPBACK url, creates an
+expiring API key for the local admin through the project's own `odoo-bin shell`,
+and verifies the key authenticates. odoo_mcp.py then writes the result as instance
+"local" of the folder's project in ~/.odoo-mcp/profiles.json.
 
-  provision  Find the project's Odoo conf, confirm Odoo answers on a LOOPBACK url,
-             create an API key for the local admin through the project's own
-             `odoo-bin shell`, verify the key authenticates, then write the profile.
-  list       Show local profiles (never the keys).
-  prune      Remove profiles whose project is gone, whose key expired, or whose
-             database no longer exists; delete files left empty.
-
-Refuses any non-loopback target: only localhost / 127.x / ::1 / *.localhost / *.test.
+Refuses any non-loopback target: only localhost / *.localhost / 127.x.x.x / ::1.
 Standard library only. `--self-test` checks the pure helpers.
 """
 
@@ -22,6 +16,7 @@ import argparse
 import configparser
 import json
 import os
+import re
 import shlex
 import subprocess
 import sys
@@ -35,7 +30,7 @@ from pathlib import Path
 # itself contains no process-execution path (tests/mcp enforce that).
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "mcp"))
 
-import profiles as P  # noqa: E402
+import config as C  # noqa: E402
 
 for _stream in (sys.stdout, sys.stderr):
     try:
@@ -64,7 +59,7 @@ print('MCP_KEY=' + key)
 
 
 def _die(msg: str, code: int = 2) -> None:
-    print("local_profile: %s" % msg, file=sys.stderr)
+    print("odoo_mcp local: %s" % msg, file=sys.stderr)
     raise SystemExit(code)
 
 
@@ -128,7 +123,7 @@ def verify_key(url: str, db: str, login: str, key: str, major: int) -> bool:
 
 
 # --------------------------------------------------------------------------
-# Conf + store helpers
+# Conf helpers
 # --------------------------------------------------------------------------
 
 
@@ -143,29 +138,6 @@ def read_conf(path: Path) -> dict:
         "db": "" if db.strip() in ("", "False", "false") else db.strip(),
         "dbfilter": (opt.get("dbfilter") or "").strip(),
     }
-
-
-def store_path(project: Path) -> Path:
-    return P.local_dir() / (P.project_key(project) + ".json")
-
-
-def load_store(path: Path) -> dict:
-    try:
-        doc = json.loads(path.read_text(encoding="utf-8"))
-        return doc if isinstance(doc, dict) else {}
-    except (OSError, ValueError):
-        return {}
-
-
-def save_store(path: Path, doc: dict) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix(".tmp")
-    tmp.write_text(json.dumps(doc, indent=2), encoding="utf-8")
-    try:
-        os.chmod(tmp, 0o600)
-    except OSError:
-        pass
-    os.replace(tmp, path)
 
 
 def find_odoo_bin(*roots: Path):
@@ -185,8 +157,6 @@ def pick_database(conf: dict, found):
     cands = list(found)
     flt = conf.get("dbfilter") or ""
     if flt and "%" not in flt:
-        import re
-
         try:
             cands = [d for d in cands if re.match(flt, d)]
         except re.error:
@@ -197,30 +167,58 @@ def pick_database(conf: dict, found):
         ", ".join(cands))
 
 
+def _expired(raw: dict) -> bool:
+    exp = raw.get("expires_at")
+    if not exp:
+        return False
+    try:
+        return datetime.strptime(exp, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc) \
+            <= datetime.now(timezone.utc)
+    except ValueError:
+        return False
+
+
 # --------------------------------------------------------------------------
-# Commands
+# Project and provisioning
 # --------------------------------------------------------------------------
 
 
-def cmd_provision(args) -> int:
-    project = Path(args.project or os.getcwd()).resolve()
+def project_for(folder: Path, cfg):
+    """(project name, paths, created) for a local instance in `folder`.
 
+    A bound folder keeps its project. An unbound one gets a new project named after
+    its MAIN checkout (never a worktree path), so every worktree of it matches later."""
+    folders = C.session_folders(folder)
+    if cfg is not None:
+        project = cfg.match(folders)
+        if project is not None:
+            return project.name, list(project.paths), False
+    main = Path(os.path.abspath(str(folders[-1])))
+    name = re.sub(r"[^A-Za-z0-9_.-]", "_", main.name) or "project"
+    if cfg is not None and name in cfg.projects:
+        _die("project %s exists for other folders; pass --project" % name)
+    return name, [str(main)], True
+
+
+def provision(project: Path, args) -> dict:
+    """Create and verify a key on the local Odoo. Returns the instance values (with the
+    key), or with --dry-run what it would connect to (no key)."""
     conf_path = Path(args.conf).resolve() if args.conf else None
     if conf_path is None and not args.url:
-        confs = P.discover(project).get("conf_files") or []
+        confs = C.discover(project).get("conf_files") or []
         if not confs:
             _die("no Odoo conf found under %s - pass --conf, or --url and --db" % project)
         conf_path = Path(confs[0]).resolve()
     conf = read_conf(conf_path) if conf_path else {"port": "8069", "db": "", "dbfilter": ""}
 
     url = (args.url or "http://127.0.0.1:%s" % conf["port"]).rstrip("/")
-    if not P.is_loopback(url):
-        _die("%s is not a loopback address. Local provisioning only connects to this machine; "
-             "remote instances are defined by the developer in servers.json." % url)
+    if not C.is_loopback(url):
+        _die("%s is not a loopback address. `local` only connects to this machine; add remote "
+             "instances with `odoo_mcp.py add`." % url)
 
     info = server_version(url)
     if not info:
-        _die("Odoo is not answering at %s. Start the local server first, then re-run." % url, 3)
+        _die("Odoo is not answering at %s. Start the local server first, then re-run." % url, 4)
     ver = str(info.get("server_version") or "")
     try:
         major = int((info.get("server_version_info") or [0])[0])
@@ -235,10 +233,8 @@ def cmd_provision(args) -> int:
         _die(why)
 
     if args.dry_run:
-        print(json.dumps({"would_connect": url, "db": db, "odoo_version": ver,
-                          "conf": str(conf_path) if conf_path else None,
-                          "store": str(store_path(project))}, indent=2))
-        return 0
+        return {"dry_run": True, "would_connect": url, "db": db, "odoo_version": ver,
+                "conf": str(conf_path) if conf_path else None}
 
     if args.odoo_cmd:
         base_cmd = shlex.split(args.odoo_cmd, posix=os.name != "nt")
@@ -273,104 +269,37 @@ def cmd_provision(args) -> int:
     login = values.get("MCP_LOGIN", "admin")
 
     if not verify_key(url, db, login, key, major):
-        _die("the new key did not authenticate against %s / %s - nothing was written." % (url, db), 5)
+        _die("the new key did not authenticate against %s / %s - nothing was written." % (url, db), 4)
 
-    path = store_path(project)
-    doc = load_store(path)
-    doc["version"] = 1
-    doc["project_dir"] = str(project)
-    doc["active"] = db
-    doc.setdefault("profiles", {})[db] = {
+    return {
         "url": url,
         "db": db,
         "username": login,
         "api_key": key,
         "tier": "local",
+        "access": "full",
         "conf": str(conf_path) if conf_path else None,
         "odoo_version": values.get("MCP_VERSION", ver),
         "created_at": _now_iso(),
         "expires_at": _now_iso(args.expire_days),
     }
-    save_store(path, doc)
-    print(json.dumps({
-        "provisioned": "local:%s/%s" % (project.name, db),
-        "url": url, "database": db, "login": login,
-        "odoo_version": values.get("MCP_VERSION", ver),
-        "key_expires_at": doc["profiles"][db]["expires_at"],
-        "store": str(path),
-        "next": "call odoo_status - the MCP server picks this up without a restart",
-    }, indent=2))
-    return 0
 
 
-def _iter_stores():
-    folder = P.local_dir()
-    if folder.is_dir():
-        for path in sorted(folder.glob("*.json")):
-            yield path, load_store(path)
-
-
-def cmd_list(args) -> int:
-    project = Path(args.project or os.getcwd()).resolve()
-    rows = []
-    for path, doc in _iter_stores():
-        pdir = doc.get("project_dir")
-        if not args.all and not (pdir and P._under(project, Path(pdir))):
-            continue
-        for db, prof in (doc.get("profiles") or {}).items():
-            rows.append({"profile": "local:%s/%s" % (Path(str(pdir)).name, db),
-                         "active": db == doc.get("active"), "url": prof.get("url"),
-                         "login": prof.get("username"), "odoo_version": prof.get("odoo_version"),
-                         "expires_at": prof.get("expires_at"), "project_dir": pdir,
-                         "file": str(path)})
-    print(json.dumps({"local_profiles": rows}, indent=2))
-    return 0
-
-
-def _expired(prof: dict) -> bool:
-    exp = prof.get("expires_at")
-    if not exp:
-        return False
-    try:
-        return datetime.strptime(exp, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc) \
-            <= datetime.now(timezone.utc)
-    except ValueError:
-        return False
-
-
-def cmd_prune(args) -> int:
-    removed, kept = [], 0
-    for path, doc in _iter_stores():
-        pdir = doc.get("project_dir")
-        if not pdir or not Path(pdir).is_dir():
-            if not args.dry_run:
-                path.unlink(missing_ok=True)
-            removed.append({"file": str(path), "why": "project directory is gone"})
-            continue
-        profiles = doc.get("profiles") or {}
-        live = {}
-        for db, prof in profiles.items():
-            if _expired(prof):
-                removed.append({"profile": db, "project": pdir, "why": "key expired"})
-                continue
-            if args.check_db:
-                found = list_databases(str(prof.get("url", "")).rstrip("/"))
-                if found is not None and db not in found:
-                    removed.append({"profile": db, "project": pdir, "why": "database no longer exists"})
-                    continue
-            live[db] = prof
-        if not live:
-            if not args.dry_run:
-                path.unlink(missing_ok=True)
-            continue
-        kept += len(live)
-        if len(live) != len(profiles) and not args.dry_run:
-            doc["profiles"] = live
-            if doc.get("active") not in live:
-                doc["active"] = sorted(live, key=lambda d: live[d].get("created_at", ""))[-1]
-            save_store(path, doc)
-    print(json.dumps({"removed": removed, "kept": kept, "dry_run": bool(args.dry_run)}, indent=2))
-    return 0
+def prune_expired(doc: dict, keep: str = "") -> list:
+    """Drop local instances whose key has expired, in every project. Returns their names."""
+    removed = []
+    for pname, proj in (doc.get("projects") or {}).items():
+        instances = proj.get("instances") or {}
+        for iname in list(instances):
+            raw = instances[iname]
+            q = "%s/%s" % (pname, iname)
+            if q != keep and isinstance(raw, dict) and str(raw.get("tier") or "local") == "local" \
+                    and C.is_loopback(str(raw.get("url") or "")) and _expired(raw):
+                del instances[iname]
+                if proj.get("default") == iname:
+                    del proj["default"]
+                removed.append(q)
+    return removed
 
 
 def self_test() -> int:
@@ -381,54 +310,27 @@ def self_test() -> int:
         print(("PASS " if ok else "FAIL ") + name)
         fails += 0 if ok else 1
 
-    check("loopback ok", P.is_loopback("http://127.0.0.1:8069") and P.is_loopback("http://acme.localhost"))
-    check("remote refused", not P.is_loopback("https://acme-stage.example.com"))
+    check("loopback ok", C.is_loopback("http://127.0.0.1:8069") and C.is_loopback("http://acme.localhost"))
+    check("remote refused", not C.is_loopback("https://acme-stage.example.com"))
     check("conf db wins", pick_database({"db": "x"}, ["a", "b"]) == ("x", None))
     check("single db picked", pick_database({"db": ""}, ["only"]) == ("only", None))
     check("dbfilter narrows", pick_database({"db": "", "dbfilter": "^c2_.*$"}, ["c1_a", "c2_b"])[0] == "c2_b")
     check("ambiguous refuses", pick_database({"db": ""}, ["a", "b"])[0] is None)
     check("expired detects", _expired({"expires_at": "2000-01-01T00:00:00Z"}))
+    doc = {"projects": {"p": {"default": "local", "instances": {
+        "local": {"url": "http://127.0.0.1:1", "expires_at": "2000-01-01T00:00:00Z"},
+        "stage": {"url": "https://s.example.com", "tier": "stage", "expires_at": "2000-01-01T00:00:00Z"}}}}}
+    check("prune drops only expired locals", prune_expired(doc) == ["p/local"]
+          and list(doc["projects"]["p"]["instances"]) == ["stage"])
     return 1 if fails else 0
 
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--self-test", action="store_true")
-    sub = ap.add_subparsers(dest="cmd")
-
-    pv = sub.add_parser("provision", help="create a local profile for this project")
-    pv.add_argument("--project", help="project checkout (default: current directory)")
-    pv.add_argument("--conf", help="Odoo conf file (default: discovered in the project)")
-    pv.add_argument("--url", help="override url; must be loopback (default http://127.0.0.1:<http_port>)")
-    pv.add_argument("--db", help="database (default: conf db_name, or the single listed database)")
-    pv.add_argument("--login", help="Odoo login to key (default: the local admin, base.user_admin)")
-    pv.add_argument("--odoo-cmd", help="how to launch Odoo, e.g. \"/venv/bin/python /src/odoo-bin\"")
-    pv.add_argument("--python", help="python used with the discovered odoo-bin (default: this one)")
-    pv.add_argument("--shell-conf", help="conf path as seen by the odoo command (containers)")
-    pv.add_argument("--expire-days", type=int, default=30)
-    pv.add_argument("--timeout", type=int, default=300)
-    pv.add_argument("--dry-run", action="store_true")
-
-    ls = sub.add_parser("list", help="show local profiles (no keys)")
-    ls.add_argument("--project")
-    ls.add_argument("--all", action="store_true")
-
-    pr = sub.add_parser("prune", help="remove stale local profiles")
-    pr.add_argument("--check-db", action="store_true", help="also drop databases the server no longer lists")
-    pr.add_argument("--dry-run", action="store_true")
-
+    ap.add_argument("--self-test", action="store_true", help="check the pure helpers")
     args = ap.parse_args(argv)
     if args.self_test:
         return self_test()
-    if args.cmd == "provision":
-        rc = cmd_provision(args)
-        if rc == 0:
-            cmd_prune(argparse.Namespace(check_db=False, dry_run=False))
-        return rc
-    if args.cmd == "list":
-        return cmd_list(args)
-    if args.cmd == "prune":
-        return cmd_prune(args)
     ap.print_help()
     return 0
 
