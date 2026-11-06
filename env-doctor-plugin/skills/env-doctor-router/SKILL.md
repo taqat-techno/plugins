@@ -1,31 +1,33 @@
 ---
 name: env-doctor-router
 description: >-
-  Use when the local environment is broken: an MCP server that was just added or edited never shows
-  up in the Claude Code session and its tools are missing while other servers work, or every tool
-  from one server vanishes; a tool fails with spawn, ENOENT or encoding errors; Claude Code login
-  loops on a 401; a language server or LSP is missing; Playwright or a browser tool cannot find a
-  browser; a plugin hook never fires or force-ends the turn; an agent starts without its MCP tools;
-  a long-running process vanishes with no crash artifact; a hand-edit to a running app's config is
-  rejected or reverted; WSL networking, PowerShell argument mangling or Syncthing conflicts get in
-  the way; or the user says "my environment is broken". Routes the symptom to one diagnostic branch,
-  runs read-only probes, classifies the failure, and proposes one safe next action without changing
-  config or printing secrets. Works on Windows, macOS, Linux and WSL.
-version: 0.4.0
+  Use when the local environment is broken: an MCP server just added or edited never shows up
+  in the session while other servers work, or every tool from one server vanishes; a tool fails
+  with spawn, ENOENT or encoding errors; login loops on a 401; an LSP is missing; Playwright
+  cannot find a browser; a plugin hook never fires or force-ends the turn; an agent starts
+  without its MCP tools; a long-running process vanishes with no crash artifact; a hand-edit to
+  a running app's config is reverted; a dev server (Odoo, Django, node) is slow in WSL or hits
+  PoolError, or WSL is laggy, out of memory or will not boot (0x8007000e); WSL networking,
+  PowerShell argument mangling or Syncthing conflicts get in the way; or "my environment is
+  broken". Routes the symptom to one branch, runs read-only probes, classifies the failure and
+  proposes one safe next action without changing config or printing secrets.
+version: 0.5.0
 user-invocable: false
 metadata:
-  last_reviewed: 2026-07-23
+  last_reviewed: 2026-11-06
   owns:
     - the diagnose-don't-mutate discipline (probe before recommend, recommend before apply)
     - the symptom -> diagnostic-branch router
-    - the seven-class failure taxonomy (spawn / auth / missing-binary / wrong-version / network-DNS / encoding / config-shadowing)
+    - the eight-class failure taxonomy (spawn / auth / missing-binary / wrong-version / network-DNS / encoding / config-shadowing / performance-resource-pressure)
     - the Claude Code plugin & MCP gotchas (tool-name namespacing, plugin-cache staleness, checking hook event names against the official reference, Stop-hook `additionalContext` blocking the turn regardless of exit code, gate hooks that no-op on a missing dependency, settings.json strict-JSON, auto-invoke = SKILL+hooks not a command, wiki write-gate false positives, hook-process env isolation, local-source plugins that cannot update remotely)
     - the freshness rule for environment findings (re-probe a blocker before restating it)
     - the live-application config-ownership rule (a running app owns its own config files, so hand-editing one either fails or is clobbered; hand the user UI steps instead)
     - the ENVIRONMENT REPORT output contract
     - secret redaction by key-name and JWT/opaque shape
   defers_to:
-    - the eleven reference files for per-branch platform specifics (references/*.md)
+    - the twelve reference files for per-branch platform specifics (references/*.md), and the read-only measured probes in scripts/ (wsl_perf_probe.sh, windows_perf_probe.ps1)
+    - dev-env-cleanup skill (anything that deletes: disk bloat, old databases, VHDX compaction)
+    - long-running-jobs skill (how a long command runs without blocking the session)
     - env-probe-reporter agent (runs the probes and drafts the report)
     - diagnose command (/env-doctor:diagnose; entry point, optional free-text symptom)
     - each consuming plugin, when installed, for its own product internals (for example rag, odoo, qa-browser, ui-ux-mechanics)
@@ -58,6 +60,7 @@ Activate when any of these symptoms appear:
 - A daemon ignores the port or address in its own config, a config test fails on a missing runtime directory, or a background process survives a kill that reported no error.
 - A write to a desktop application's own config file is rejected as "has been modified since read", or lands and is silently reverted the next time that application saves.
 - Every tool from one server disappears at once immediately after a file move, reorganization, or migration.
+- A local dev server (Odoo, Django, node) is slow inside WSL, its first login or page takes minutes, it throws `PoolError: The Connection Pool Is Full`, `vmmem` eats the RAM, the OOM killer takes the terminal or IDE backend, WSL will not boot with `Wsl/0x8007000e`, or `wsl.exe` crashes with `0xc00000fd`.
 - Any vague "my local environment is broken" report where the failing branch is not yet known.
 
 Do NOT activate for application logic bugs, test assertions, or product-internal issues — those belong to the owning project, not the environment layer.
@@ -80,7 +83,7 @@ If an adapter value is unknown, the first probe is to discover it read-only (e.g
 2. **Resolve the adapter.** Determine `os_family`, `shell`, and `wsl_involved` by inspection if not supplied.
 3. **Route to one branch** using the table below. Pick the single best-matching symptom class.
 4. **Open the matching reference file** and run only the read-only probes it lists (existence checks, `--version`, config reads, connectivity tests). Never a write.
-5. **Classify each finding** into exactly one of the seven failure classes.
+5. **Classify each finding** into exactly one of the eight failure classes.
 6. **Assemble the ENVIRONMENT REPORT** (see Output format). Redact every secret.
 7. **Propose one safe next action** — the smallest explicit change — and stop. The user applies it.
 
@@ -101,8 +104,11 @@ If an adapter value is unknown, the first probe is to discover it read-only (e.g
 | Syncthing sync operations | `.sync-conflict-*` files, a folder parked <100% with 0 B pending, a delete that never completes, errors that persist after a rescan, a peer whose need count climbs for minutes without clearing, a device that drops after an encryption change (every folder to that peer offline at once) | `references/syncthing.md` |
 | Windows shell / native-exe arg mangling | a native exe gets stripped quotes or a BOM-prefixed pipe, `Copy-Item -Exclude` copies an excluded dir, Git-Bash breaks a `node`/`git` path arg, `kubectl exec`/`port-forward` flakiness, `--parallel` tests pickle on Windows, a bare command name keeps resolving to the wrong binary after a `PATH` edit | `references/windows-powershell.md` |
 | Mermaid / SVG not rendering | a Mermaid block shows as raw text in an IDE/editor preview, or an SVG-rasterizing script fails on `getBBox` | `references/ide-mermaid-rendering.md` |
+| WSL / local-service performance, host pressure | a dev server slow only in WSL, first login/page in minutes, `PoolError` / connection pool full, `vmmem` using all RAM, OOM kills inside the distro, `Wsl/0x8007000e` at boot, `wsl.exe` `0xc00000fd` crashes, low system-drive space | `references/wsl-performance.md` (run its `scripts/` probes) |
 
-When two branches seem to match, pick the one matching the *first* failure in the chain (a spawn failure that surfaces as MCP-not-loading is a spawn failure — start at the binary, then revisit MCP wiring). A remote-dev "connection" symptom whose network probes all pass belongs to the IDE-backend branch (a backend heap OOM), not the networking branch.
+When two branches seem to match, pick the one matching the *first* failure in the chain (a spawn failure that surfaces as MCP-not-loading is a spawn failure — start at the binary, then revisit MCP wiring). A remote-dev "connection" symptom whose network probes all pass belongs to the IDE-backend branch (a backend heap OOM), not the networking branch. A `PoolError` or a timeout on a slow local server belongs to the performance branch: the pool fills because requests are slow, so measure the file-I/O cost before touching pool or timeout settings.
+
+Two neighbours are separate skills, because they act rather than diagnose: freeing disk (old databases, orphaned filestores, caches, an oversized WSL disk image) is `dev-env-cleanup` (`/env-doctor:clean`), and running a long test suite, install or dump without blocking the session is `long-running-jobs`. This skill may point to them; it never deletes or restarts anything itself.
 
 ### Which branches apply on which OS
 
@@ -114,6 +120,7 @@ through Windows-only probes (and the reverse).
 | MCP not loading, Login / 401, LSP / Node spawn, Playwright / browser, IDE remote-dev, `/doctor` ambiguity, Syncthing, Mermaid / SVG | yes | yes | yes | yes |
 | Python encoding | yes (cp1252 consoles and stdin are the usual cause) | rare (check `LANG`/`LC_ALL`) | rare (check the locale) | yes, at the Windows boundary |
 | Windows / WSL networking | yes | no | no | yes |
+| WSL / local-service performance | yes (host side: drive, pagefile, Defender) | memory/CPU/disk probes only | memory/CPU/disk probes only | yes |
 | Windows shell / native-exe arg mangling | yes (PowerShell 5.1, Git Bash/MSYS) | no | no | only when calling Windows binaries |
 
 Reference files mark their platform-specific probes. When a reference shows only a Windows
@@ -131,9 +138,10 @@ for `Get-Process`, `ss -ltnp` or `lsof -i` for `netstat -ano`); say which one yo
 | network / DNS | connectivity, port, or name resolution fails | test reachability; fix the boundary (see windows-wsl) |
 | encoding | byte<->text decoding mismatch | set the encoding env/locale for the subprocess |
 | config-shadowing | a higher-precedence config overrides the expected one | identify which file wins; edit the right one only after confirmation |
+| performance / resource pressure | everything works, but slowly, or the host runs out of memory, CPU or disk: per-file I/O cost through `/mnt/c` and on-access scanning, a memory cap hit, too many heavy jobs, a full system drive | quote the measured probe lines; propose the first rung of the `wsl-performance.md` fix ladder |
 
 ```
-symptom --> [router] --> branch --> read-only probes --> [classify: 1 of 7]
+symptom --> [router] --> branch --> read-only probes --> [classify: 1 of 8]
                                                               |
                                             ENVIRONMENT REPORT + ONE safe action
                                                               |
@@ -186,7 +194,7 @@ Fixes (propose, don't apply):
 - [ ] Adapter values resolved or probed (`os_family`, `shell`, `wsl_involved`).
 - [ ] Exactly one diagnostic branch selected via the router.
 - [ ] Only read-only probes were run — zero writes, zero mutations.
-- [ ] Each finding classified into exactly one of the seven classes.
+- [ ] Each finding classified into exactly one of the eight classes.
 - [ ] All secrets redacted by key-name + shape; no raw token anywhere.
 - [ ] Exactly one safe next action proposed (not applied).
 - [ ] Any blocker restated from an earlier turn was re-probed **this** turn before repeating it.
@@ -206,7 +214,8 @@ ENVIRONMENT REPORT
                       - <probe 1> -> <read-only result>
                       - <probe 2> -> <read-only result>
   Classification:     <one of: spawn failure | auth failure | missing binary |
-                       wrong version | network/DNS | encoding | config-shadowing>
+                       wrong version | network/DNS | encoding | config-shadowing |
+                       performance/resource pressure>
   Safe next action:   <single explicit change for the USER to apply>
   Not tested or blocked:
                       - <anything that could not be probed read-only, and why>
@@ -239,7 +248,7 @@ ENVIRONMENT REPORT
 
 ## Portability rationale
 
-The router, taxonomy, safety gates, and report contract are OS- and shell-agnostic — they describe *how to reason*, not *what to type*. Every platform-specific command, path, and quirk lives in the eleven reference files, selected by the `os_family`/`shell`/`wsl_involved` adapter. Adding support for a new platform means adding probe variants to a reference file, not changing this skill.
+The router, taxonomy, safety gates, and report contract are OS- and shell-agnostic — they describe *how to reason*, not *what to type*. Every platform-specific command, path, and quirk lives in the twelve reference files, selected by the `os_family`/`shell`/`wsl_involved` adapter. Adding support for a new platform means adding probe variants to a reference file, not changing this skill.
 
 Example (illustrative — not required): on `os_family=windows`, `shell=powershell`, a missing-binary probe might use `Get-Command`; on `linux`/`bash` it might use `command -v`. The skill picks the variant from the adapter; neither command is baked into the routing logic.
 
@@ -256,6 +265,9 @@ Example (illustrative — not required): on `os_family=windows`, `shell=powershe
 - `references/syncthing.md` — Syncthing dev-folder sync operations: conflict resolution (diff by content first; receive-only + revert as the only "prefer remote"), the venv/`node_modules` delete-deadlock (`(?d)` ignore), `.stignore` locality, cached error lists (pause/resume, then judge on the status counters), the `sequence` vs `remoteSequence` gap that separates a busy peer from a wedged one, the encryption-mismatch device drop (read `/rest/system/log`, not `/rest/system/error`), and REST-API (`/rest/db/status`, `/rest/db/file`, `/rest/db/remoteneed`) diagnosis.
 - `references/windows-powershell.md` — Windows shell & native-exe argument traps: PowerShell 5.1 quote-strip / pipe BOM, `Copy-Item -Exclude`, `kubectl exec`/`port-forward` (the `NameError`/`U+FEFF` signatures, the quote-free-or-file payload, and TCP-listen polling with a deterministic teardown), `head`/`tail` SIGPIPE + exit-0 mask, Git-Bash path mangling, `--parallel` test pickling, and binary resolution (Machine-before-User `PATH` shadowing, the stale in-process `PATH`, and the `REG_EXPAND_SZ`→`REG_SZ` downgrade).
 - `references/ide-mermaid-rendering.md` — a missing Mermaid renderer in an IDE/editor (JetBrains Marketplace plugin / VS Code extension / native web rendering) and jsdom's missing SVG layout (`getBBox`) → headless Chrome. If the `docs-wiki` plugin is installed, its `wiki-mermaid` skill covers authoring.
+- `references/wsl-performance.md` — measured probes for a slow local service or host pressure (per-file read cost on `/mnt/c` vs ext4 vs Windows-native, Defender / Defender for Endpoint state, code location, memory/OOM, CPU oversubscription, drive/pagefile/commit, WSL version, `.wslconfig` key placement) and the fix ladder: ext4 mirror of read-only trees with a stale-mirror-safe selector, Defender exclusion request for IT, memory/CPU caps, pagefile, `wsl --update`. Probe scripts: `scripts/wsl_perf_probe.sh`, `scripts/windows_perf_probe.ps1`.
+- `dev-env-cleanup` (skill, `/env-doctor:clean`) — the one place that deletes: inventory, keep-list, plan, approved apply, VHDX compaction.
+- `long-running-jobs` (skill) — the rule that a job over ~3 minutes runs in the background while work continues, and the durable WSL launch and wait patterns.
 - `env-probe-reporter` (agent) — runs the read-only probes and drafts the ENVIRONMENT REPORT.
 - `diagnose` (command, `/env-doctor:diagnose`) — user entry point; passes an optional free-text symptom and invokes this skill.
 - Other plugins (for example `rag`, `odoo`, `qa-browser`, `ui-ux-mechanics`) should reference this skill conditionally ("if env-doctor is installed") for generic environment issues instead of duplicating its probes or taxonomy.

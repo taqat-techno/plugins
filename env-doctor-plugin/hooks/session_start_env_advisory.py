@@ -11,6 +11,16 @@ Checks (project directory only, no network, no subprocesses, well under a second
                    and has node_modules / .venv / venv at its root that .stignore does not
                    ignore, which is the classic delete-deadlock and conflict source
 
+Host-pressure checks (Windows only, via host_pressure.py; registry and stat reads, plus
+at most two short wsl.exe calls that never boot the VM):
+
+  low-system-drive the system drive has less than 10% free (Windows shrinks the pagefile,
+                   WSL can then fail to boot with Wsl/0x8007000e)
+  vhdx-bloat       a RUNNING distro's ext4.vhdx is over 1.5x what the distro uses and at
+                   least 10 GiB larger (the image never shrinks by itself). Skipped when
+                   WSL is not running: the check must not start the VM.
+  wsl-known-bad    the installed WSL version has a known crash (data in KNOWN_BAD_WSL)
+
 Only when a check finds something does it print, as SessionStart additionalContext
 JSON, one short line per finding pointing at /env-doctor:diagnose. It never prints
 a variable's value, only names.
@@ -28,6 +38,7 @@ import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "_vendor"))
 import hooklib  # noqa: E402
+import host_pressure  # noqa: E402
 
 OFF = ("0", "false", "off", "no")
 _VAR = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)(:-[^}]*)?\}")
@@ -143,9 +154,36 @@ def check_syncthing(root: str) -> list[str]:
             + unignored[0] + "."]
 
 
+def check_host(env, hp=host_pressure) -> list[str]:
+    """Host-pressure findings; silent unless a threshold is crossed. Windows only."""
+    if not hp.is_windows() or str(env.get("ENV_DOCTOR_HOST_CHECKS", "")).strip().lower() in OFF:
+        return []
+    out: list[str] = []
+    usage = hp.drive_usage()
+    if usage and usage[1] and usage[0] / usage[1] < 0.10:
+        out.append(f"The system drive has {usage[0] / hp.GIB:.1f} GiB free ({100 * usage[0] / usage[1]:.0f}%). "
+                   "Below 10% Windows shrinks the pagefile and WSL can refuse to boot (Wsl/0x8007000e); "
+                   "/env-doctor:clean lists what can go.")
+    bad = hp.known_bad_wsl(hp.wsl_version())
+    if bad:
+        out.append(bad)
+    distros = [(n, v) for n, v in hp.wsl_distros() if v]
+    if distros:
+        running = hp.running_distros()
+        for name, vhdx in distros:
+            if not running or name not in running:
+                continue
+            size, used = hp.file_size(vhdx), hp.wsl_used_bytes(name, running=running)
+            if hp.vhdx_bloat(size, used):
+                out.append(f"WSL distro '{name}' disk image is {size / hp.GIB:.0f} GiB but the distro uses "
+                           f"{used / hp.GIB:.0f} GiB; it never shrinks by itself. /env-doctor:clean --scope wsl-disk "
+                           "plans a compaction (you run it elevated, when WSL is idle).")
+    return out
+
+
 def findings(root: str, env) -> list[str]:
     out: list[str] = []
-    for check in (lambda: check_mcp(root, env), lambda: check_syncthing(root)):
+    for check in (lambda: check_mcp(root, env), lambda: check_syncthing(root), lambda: check_host(env)):
         try:
             out.extend(check())
         except Exception:
@@ -163,7 +201,7 @@ def main() -> int:
     found = findings(root, os.environ)
     if not found:
         return 0
-    text = "[env-doctor] " + " ".join(found[:3]) + " Run /env-doctor:diagnose for a read-only diagnosis."
+    text = "[env-doctor] " + " ".join(found[:4]) + " Run /env-doctor:diagnose for a read-only diagnosis."
     hooklib.context("SessionStart", text)
     return 0
 

@@ -1,6 +1,6 @@
 ---
 name: env-probe-reporter
-description: Use for a bounded, READ-ONLY sweep of the local environment that returns a structured diagnostic report (configured MCP servers, OS/shell/WSL, relevant tool versions, PATH/binary resolution, login/credential SHAPE only) without changing anything.
+description: Use for a bounded, READ-ONLY sweep of the local environment that returns a structured diagnostic report (configured MCP servers, OS/shell/WSL, relevant tool versions, PATH/binary resolution, login/credential SHAPE only, and on request WSL/host performance and disk-pressure measurements) without changing anything.
 tools: Read, Bash, Glob, Grep
 model: sonnet
 color: cyan
@@ -131,6 +131,23 @@ combined, guarded command per area so a missing tool degrades gracefully (e.g.
    - For credential files, follow the redaction protocol: existence + key names
      + shape, never values.
 
+6. **Performance and disk pressure** (when the symptom is slowness, memory, a full
+   disk or WSL boot/crash, or on a general sweep where these are cheap)
+   - Windows host, no elevation: `powershell -NoProfile -ExecutionPolicy Bypass -File
+     <plugin>/skills/env-doctor-router/scripts/windows_perf_probe.ps1 [-Path <project>]`
+     (system-drive free %, pagefile, commit, Defender / Defender for Endpoint state and
+     whether exclusions are readable, Windows-native ms per file read, WSL version,
+     `.wslconfig` keys and their section).
+   - Disk images vs use, Windows: `python <plugin>/skills/dev-env-cleanup/scripts/host_probe.py`
+     (registry + file sizes; `wsl --list --running`, which does not start the VM).
+   - Inside WSL: `wsl.exe -d <distro> -- bash -s -- [/mnt/c/<project>] < <plugin>/skills/env-doctor-router/scripts/wsl_perf_probe.sh`
+     (code location, ms per file on `/mnt/c` vs ext4, memory/OOM, CPU and test-process
+     count, root filesystem use). **Run it only if the distro is already running** (it is
+     listed by `wsl --list --running`) or the parent asked for the performance branch:
+     any `wsl.exe -d` starts a stopped VM. Never `wsl --shutdown`.
+   - Quote the `PROBE …` lines as they print. Do not walk `/mnt/c` with `find`/`git status`
+     yourself; the scripts bound the sample.
+
 ## Probe discipline
 
 - Always make commands non-interactive and timeout-guarded. Example (illustrative
@@ -169,6 +186,10 @@ Generated: <timestamp>  |  Scope: read-only probe  |  Mutations: none
 - gh -> ...
 - claude -> ...
 - <other relevant> -> ...
+
+## Performance / Disk Pressure (only if probed)
+- PROBE <name>: <measurement> -> <verdict>   (verbatim from the probe scripts)
+- vhdx <distro>: <allocated> vs <used inside>
 
 ## PATH / Binary Resolution
 - <tool> -> <home-normalized path>  [flag: <anomaly> | ok]

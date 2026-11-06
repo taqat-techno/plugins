@@ -1,5 +1,5 @@
 {
-  "description": "env-doctor: one SessionStart hook that runs cheap read-only checks (project .mcp.json, Syncthing ignores) and gives Claude a note only when a check finds a problem. Never blocks.",
+  "description": "env-doctor: a SessionStart hook that runs cheap read-only checks (project .mcp.json, Syncthing ignores, host disk / WSL pressure) and speaks only on a problem, and a PreToolUse advisory on Bash/PowerShell that reminds Claude to background jobs longer than ~3 minutes. Neither ever blocks.",
   "hooks": {
     "SessionStart": [
       {
@@ -8,6 +8,18 @@
             "type": "command",
             "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/session_start_env_advisory.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\"; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0",
             "timeout": 8
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash|PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/long_job_advisory.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\"; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0",
+            "timeout": 5
           }
         ]
       }

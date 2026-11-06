@@ -2,6 +2,81 @@
 
 All notable changes to this plugin are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.0] - 2026-11-06
+
+Three new capabilities for WSL-based development, from measured pain on a real machine: services
+that are slow because code is read through `/mnt/c`, disks filled by forgotten databases and a WSL
+image that never shrinks, and sessions blocked for 20-40 minutes on test runs.
+
+**Identity change:** env-doctor's *diagnosis* stays read-only. Deleting lives in one separate skill,
+`dev-env-cleanup`, behind its own inventory -> keep-list -> plan -> approved-plan-id gate.
+
+### Added
+- **WSL / local-service performance branch** (`env-doctor-router` -> `references/wsl-performance.md`).
+  New router row and an eighth failure class, *performance / resource pressure*. Two read-only probe
+  scripts print measured `PROBE <name>: <value> -> <verdict>` lines: `scripts/wsl_perf_probe.sh`
+  (inside the distro: code location, ms per file on `/mnt/c` vs ext4, memory/OOM, CPU and test-process
+  count, root filesystem) and `scripts/windows_perf_probe.ps1` (system drive, pagefile, commit,
+  Defender / Defender for Endpoint and whether exclusions are readable, Windows-native ms per file,
+  WSL version, `.wslconfig` keys and their section). Fix ladder: ext4 git mirror of read-only trees
+  with a stale-mirror-safe selector, Defender exclusion request text for IT, memory/CPU caps,
+  pagefile, `wsl --update`. `PoolError` is explained as a consequence of slow requests.
+- **`dev-env-cleanup` skill + `/env-doctor:clean` command.** No arguments: a read-only inventory and
+  a plan; nothing is deleted. `scripts/inventory.sh` (Postgres clusters and every database with size,
+  connections and last activity; confs, data dirs, filestores, `~/tmp`, caches, logs, journal, Docker,
+  running servers, tool state files, keep file; never prints a password), `scripts/host_probe.py`
+  (Windows: drive free, `ext4.vhdx` per distro, WSL version; does not start WSL), `scripts/plan.py`
+  (keep-list: open connections, canonical conf databases and their `dbfilter`, running servers,
+  activity < 7 days, tool state files, `~/.config/env-doctor/keep.txt`; orphan detection only when
+  every cluster was listed; content-hash plan id; `emit` refuses another id, an edited plan or one
+  older than 24 h), `scripts/apply_files.sh` and `scripts/apply_dbs.sh` (`dry|run`; path allow-list,
+  empty/relative/`..`/glob/prefix-root refusal, symlink-escape check, live `data_dir` protection,
+  `rm -rf -- "${p:?}"`; `DROP DATABASE` without FORCE after a re-check for connections, name passed
+  as a psql variable, `pg_dump -Fc` + TOC verification + filestore tarball first; confs archived,
+  never deleted; every action logged), `scripts/idle_gate.sh` (IDLE / BUSY with reasons) and
+  `scripts/compact-wsl.ps1` (dry by default; run mode is elevated and user-run: idle gate twice,
+  no other `wsl.exe` clients, `wsl --shutdown`, wait for `vmmem`, diskpart readonly attach + compact;
+  never `--set-sparse`). Merges the odoo plugin's `odoo-local` `local_cleanup_plan` output when that
+  tool is present (its published contract: `<distro>:<port>/<db>` targets, `scratch_db` /
+  `orphan_filestore` / `dead_conf` / `stale_log`, `{"plans": [...]}`); env-doctor's keep-list wins.
+- **`long-running-jobs` skill** — the 3-minute rule (longer jobs go to the background while work
+  continues; act on the completion notification), durable launches inside WSL (`systemd-run --user`,
+  not `nohup`/`setsid` under `wsl --`), waiting without polling or `pgrep -f`, wrapper vs job exit
+  codes, concurrency and CPU/memory caps.
+- **PreToolUse advisory hook** `hooks/long_job_advisory.py` on `Bash|PowerShell`: when a command is
+  a long-job shape (`--test-enable`/`--test-tags` wider than one method, `-i`/`-u --stop-after-init`,
+  whole-tree `pytest`, label-less `manage.py test`, `test:e2e`, full `playwright test`,
+  `pg_dump`/`pg_restore`, including inside `wsl ... bash -lc "..."`) and would run in the foreground
+  (no `run_in_background`, timeout above 180000 ms or none), it adds a reminder. Also flags foreground
+  `while/until … sleep` loops and `pgrep -f`/`pkill -f`. Never blocks (exit 0, `additionalContext`
+  only). UTF-8 stdin. Off with `ENV_DOCTOR_LONG_JOBS=off` or the new `long_job_advice` option.
+- **SessionStart host-pressure checks** (`hooks/host_pressure.py`, Windows only, ~0.2 s): system drive
+  under 10% free, a *running* distro's `ext4.vhdx` over 1.5x its used space and 10 GiB larger, and a
+  WSL version with a known crash (2.6.3). Never starts the VM: the image check runs only for distros
+  `wsl --list --running` reports. Off with `ENV_DOCTOR_HOST_CHECKS=off`.
+- `references/windows-wsl.md`: WSL restart protocol (user decides, other sessions told, idle gate
+  twice, no attached clients, snapshot/relaunch servers), `Wsl/0x8007000e` = memory pressure (drive ->
+  pagefile -> commit chain), WSL version / `wsl --update` semantics, VM stop after the last client.
+- `env-probe-reporter`: performance and disk-pressure probes in its sweep (WSL probe only when the
+  distro is already running, or when asked).
+- Evals: `fires-on-odoo-slow-in-wsl` (router), `fires-on-wsl-disk-full-cleanup`
+  (`dev-env-cleanup`), `fires-on-long-test-suite-blocking` (`long-running-jobs`), and
+  `ignores-slow-sql-query-tuning`, `ignores-git-clean-flags-question`, `ignores-write-small-unit-test`.
+- Tests: `test_long_job_advisory.py` (matcher shapes, timeouts, background, UTF-8, opt-outs),
+  `test_cleanup_plan.py` (every keep rule, orphan brake, odoo-local merge incl. the published
+  shape, plan-id tamper/age, emit), `test_cleanup_scripts.py` (apply_files guards on a throwaway HOME;
+  opt-in integration that creates, dumps and drops an `envdoc_test_*` database), host-check cases
+  in `test_session_start_env_advisory.py`.
+
+### Changed
+- `env-doctor-router` 0.5.0: description names the slow-WSL / PoolError / `0x8007000e` symptoms;
+  taxonomy has eight classes; cross-references to the two new skills.
+
+### Eval results
+- Not measured yet. The six new cases pass `validate_evals.py`. The pilot
+  (`claude plugin eval --runs 2 --model claude-sonnet-5-5`) stopped before any model call because
+  the eval CLI was not logged in, so it gives no fire rates or Δ. Re-run after `claude /login`.
+
 ## [0.8.2] - 2026-10-19
 
 Skill triggering tuned against real eval results. Measured with `claude plugin eval --runs 1 --model claude-sonnet-5-5`; the no-plugin baseline is the 2026-10-19 run, and Δ counts the criteria grader only.

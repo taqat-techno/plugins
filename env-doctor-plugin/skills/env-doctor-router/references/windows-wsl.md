@@ -620,6 +620,76 @@ from the Windows known-folder API (above) instead of hard-coding `Users\<you>\De
 path-resolution fix, not a permissions change to apply — never `chmod`/`icacls` the drive root to
 force a write through.
 
+## WSL restart protocol — never `wsl --shutdown` under someone's feet
+
+`wsl --shutdown` (and a VHDX compaction, a `.wslconfig` change, a `wsl --update` that
+restarts the service) stops **every** distro: database clusters, dev servers, test runs, IDE
+backends, other Claude sessions' MCP processes. One session's shutdown for a compaction has
+stopped a user's server, both Postgres clusters and two Odoo MCP processes at once, and
+starting WSL again mid-compaction aborts the compaction. So a restart is the user's action,
+taken through a gate, never a diagnostic step.
+
+1. **Ask, and tell the other sessions.** The user decides when; other sessions that use the
+   distro are told "all WSL work paused until all-clear" before anything happens.
+2. **Idle gate, twice, 60 s apart.** `dev-env-cleanup/scripts/idle_gate.sh` prints `IDLE` or
+   `BUSY:<reason>`: busy while any long job runs (`--stop-after-init`, `--test-enable`,
+   `pg_dump`, `pg_restore`, `odoo-bin shell`, pytest, `manage.py test`), while any server log
+   a conf names was written in the last 10 minutes, or while a Postgres cluster has an active
+   client query. Wait with the harness (a `Monitor` until-condition or a background job's
+   completion), never a foreground sleep loop.
+3. **No other attached clients.** Another `wsl.exe` process on the Windows side is another
+   terminal or session working in the VM.
+4. **Snapshot running servers** before (`<cwd>` + command line of each long-running server
+   process, skipping one-shot `--stop-after-init` runs); **relaunch** them after as durable
+   user units (`systemd-run --user --unit=<name>-restored-N --collect --working-directory=<cwd> …`).
+   If the odoo plugin is installed, its `local_snapshot` / `local_relaunch` tools own this.
+5. **Then** the restart, and confirm afterwards: `wsl -l -v`, `pg_lsclusters`,
+   `pg_isready -h 127.0.0.1 -p <port>`, each relaunched server's port answering.
+
+`compact-wsl.ps1 -Mode run` (in `dev-env-cleanup/scripts/`) implements steps 2-3 and the
+shutdown + `vmmem` wait; the user runs it elevated.
+
+Related: the VM also stops on its own about 30-60 s after the last attached `wsl.exe`
+session exits, whatever `vmIdleTimeout` says (observed with `vmIdleTimeout=-1`). A service
+that "runs for a minute then goes offline" needs a VM pin (a held-open
+`wslg.exe -d <distro> -- /usr/bin/sleep infinity` from a logon Scheduled Task), not a unit
+setting; see the session-0 section below.
+
+## `Wsl/0x8007000e` at boot = memory pressure, not a broken disk
+
+`E_OUTOFMEMORY`. WSL could not reserve the memory `.wslconfig` asks for. The usual chain on a
+busy developer machine: the system drive fills (≥ 98 %) → Windows shrinks `pagefile.sys`
+(measured 2.5 GB) → the commit limit drops to about RAM + pagefile → with many apps open
+(several Claude sessions, browsers) the committed total is near that limit → the VM cannot
+commit its `memory=`. The VHDX is fine; do not repair or recreate it.
+
+Probe (read-only): `windows_perf_probe.ps1` prints `system drive`, `pagefile` and `commit`
+lines; or `Get-CimInstance Win32_PageFileUsage` and `Win32_OperatingSystem`
+(`TotalVirtualMemorySize` vs `FreeVirtualMemory`).
+
+Fix, one at a time, user-applied: free the system drive (`/env-doctor:clean`, then compact the
+VHDX); set an explicit pagefile (elevated: e.g. initial 16384 MB, maximum 40960 MB through
+System Properties or `Win32_PageFileSetting`), which raised one machine's commit limit from
+42.2 to 49.2 GB; close memory-heavy apps; lower `memory=` only as a last resort (too small a
+cap makes the OOM killer take the terminal and the IDE backend inside the distro).
+
+## WSL version: `wsl.exe` crashes `0xc00000fd`, and how `wsl --update` applies
+
+`wsl --version` (or the `Version` value under `HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Lxss\MSI`,
+readable without starting anything). WSL 2.6.3's `wsl.exe` crashed twice in one day with
+`0xc00000fd` (stack overflow), taking the VM down mid-run with 20 GB of RAM free, so it was not
+memory. `wsl --update` to 3.0.3 fixed it.
+
+`wsl --update` replaces the WSL package and restarts the WSL **service**; it does not boot a
+distro, and the new version applies at the next WSL start. Running distros stop when the
+service restarts, so it goes through the restart protocol above. The SessionStart check
+names a known-bad version once per session; it never updates anything.
+
+Also on WSL 2.6.x: `wsl --manage <distro> --set-sparse` is gated behind `--allow-unsafe`
+over corruption reports. Never use it to reclaim disk; compact with diskpart
+(`dev-env-cleanup`). And `autoMemoryReclaim` belongs under `[experimental]`, not `[wsl2]`,
+in `.wslconfig` (a key in the wrong section is silently ignored).
+
 ## Summary
 
 | Symptom | Section | First safe move |
@@ -646,3 +716,7 @@ force a write through.
 | sshd ignores `Port`/`ListenAddress`, or bind `EADDRINUSE` | WSL2 sshd | edit the socket unit (disable **and stop** `ssh.socket`); free the Windows-side port |
 | `sshd -t`: "Missing privilege separation directory: /run/sshd" | WSL2 sshd | the config may be fine — `/run/sshd` appears on first service start |
 | `mkdir /mnt/c/<x>` denied; Desktop file missing | `/mnt/c` root + OneDrive | write under a user subtree; resolve the real Desktop path |
+| About to run `wsl --shutdown` / compact / update | WSL restart protocol | user decides; idle gate twice; snapshot servers; relaunch after |
+| WSL will not boot: `Wsl/0x8007000e` | 0x8007000e = memory pressure | check drive free, pagefile, commit; the VHDX is fine |
+| `wsl.exe` crashes `0xc00000fd` | WSL version | `wsl --update` when idle; applies on next WSL start |
+| Dev server slow only in WSL | (performance branch) | see `wsl-performance.md` |
