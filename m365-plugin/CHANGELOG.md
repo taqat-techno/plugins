@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.6.0] - 2026-11-06
+
+The last Microsoft 365 gaps Teqo still used his old tools for.
+
+### Added
+- **Mail folders.** `email_list_folders` (the tree with id, path such as `Inbox/Projects/NAFLA`, counts). `email_move` now takes
+  `inbox`, `archive`, a folder path (case-insensitive; folder names containing `/` resolve as listed) or a folder id. Unknown paths
+  are refused and nothing is created implicitly. Deleted Items, Junk, Recoverable Items, Outbox and Drafts, and every folder inside
+  them (checked by walking the path, or by climbing an id's parents), are refused, so deleting still goes through `email_delete`.
+  `email_create_folder` (class write) creates a folder under a path, id or the top level.
+- **Teams meetings** (module `meetings`, off by default; transcripts need `OnlineMeetingTranscript.Read.All`, admin consent):
+  `teams_meeting_find` (calendar meetings by subject word or attendee, each with its meeting `chat_id` taken from the join link, so
+  `teams_read_chat` reads the chat), `teams_meeting_transcript` (VTT turned into `[hh:mm:ss] Speaker: text`, paged on line
+  boundaries, fenced; several transcripts selectable) and `teams_meeting_files` (files shared in the meeting chat, resolved through
+  Graph `/shares` to drive and item ids for `onedrive_read_file` / `onedrive_save_file`). The online-meeting id is derived from the
+  chat (organizer + thread), so `OnlineMeetings.Read` is not needed. A refused transcript is `ACCESS_NEEDED` naming who can help.
+- **Saving files to this computer:** `email_save_attachment` and `onedrive_save_file` (class local) write a NEW file, under a
+  cleaned name, into the one folder the person chose (`M365_DOWNLOAD_DIR`, plugin setting "Folder to save files into",
+  `cli.mjs setup --download-dir`; never through a tool), up to 50 MB, and return its path, so a host can use files through the
+  plugin's own sign-in.
+
 ## [0.5.2] - 2026-11-06
 
 ### Security

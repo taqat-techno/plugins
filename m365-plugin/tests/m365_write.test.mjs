@@ -88,14 +88,12 @@ test("mail: a name instead of an address is refused, and a message that is not a
   await assert.rejects(call(none, "email_send_draft", { draft_id: "d1", digest: p.digest }), (e) => e.code === "NO_RECIPIENT");
 });
 
-test("mail: delete only moves to Deleted Items; moves are limited to known folders", async () => {
+test("mail: delete only moves to Deleted Items (folder moves: m365_v06.test.mjs)", async () => {
   const c = mailCtx();
   const r = await call(c, "email_delete", { message_id: "m1" });
   assert.equal(r.recoverable, "in Deleted Items");
   assert.equal(calls(c, "POST", /\/move$/)[0].json.destinationId, "deleteditems");
   assert.equal(calls(c, "DELETE", /./).length, 0, "no permanent delete call exists");
-  await assert.rejects(call(c, "email_move", { message_id: "m1", folder: "../x" }), (e) => e.code === "INVALID_ARGUMENT");
-  assert.equal((await call(c, "email_move", { message_id: "m1", folder: "archive" })).moved, true);
 });
 
 // ---------------------------------------------------------------- calendar: stage -> commit

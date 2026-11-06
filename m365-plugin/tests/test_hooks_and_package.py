@@ -121,7 +121,9 @@ def test_packaged_server_runs_read_only_and_lists_no_write_tool(pkg, tmp_path):
         p.kill()
     assert not names & set(TOOLS["write"]), names & set(TOOLS["write"])
     assert {"email_read", "events_since", "people_resolve", "m365_sign_in"} <= names
-    channels = {"teams_list_teams", "teams_list_channels", "teams_read_channel"}  # off unless the channels module is enabled
+    # off unless the channels / meetings modules are enabled
+    channels = {"teams_list_teams", "teams_list_channels", "teams_read_channel",
+                "teams_meeting_find", "teams_meeting_transcript", "teams_meeting_files"}
     assert names == (set(TOOLS["read"]) | set(TOOLS["local"])) - channels
 
 

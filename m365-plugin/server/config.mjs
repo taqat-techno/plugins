@@ -14,17 +14,18 @@ const pick = (env, ...names) => {
 };
 const bool = (v) => /^(1|true|yes|on)$/i.test(String(v ?? "").trim());
 
-export const MODULES = ["mail", "calendar", "teams", "channels", "people", "files"];
+export const MODULES = ["mail", "calendar", "teams", "channels", "meetings", "people", "files"];
 export const DEFAULT_MODULES = ["mail", "calendar", "teams", "people", "files"];
 
 // Delegated Microsoft Graph permissions each module needs. Read-only mode asks for these only.
-// `channels` is separate and off by default: reading channel messages needs admin consent.
+// `channels` and `meetings` are separate and off by default: channel messages and meeting transcripts need admin consent.
 export const READ_SCOPES = {
   base: ["User.Read", "MailboxSettings.Read"],
   mail: ["Mail.Read"],
   calendar: ["Calendars.Read"],
   teams: ["Chat.Read"],
   channels: ["Team.ReadBasic.All", "Channel.ReadBasic.All", "ChannelMessage.Read.All"],
+  meetings: ["Calendars.Read", "Chat.Read", "OnlineMeetingTranscript.Read.All", "Files.Read.All"],
   people: ["People.Read", "User.ReadBasic.All"],
   files: ["Files.Read.All"],
 };
@@ -38,10 +39,10 @@ export const WRITE_SCOPES = {
 };
 
 /** Permissions that always need a tenant admin's consent. */
-export const ADMIN_CONSENT_SCOPES = ["Team.ReadBasic.All", "Channel.ReadBasic.All", "ChannelMessage.Read.All"];
+export const ADMIN_CONSENT_SCOPES = ["Team.ReadBasic.All", "Channel.ReadBasic.All", "ChannelMessage.Read.All", "OnlineMeetingTranscript.Read.All"];
 
 /** What /m365:init may save: ids and file PATHS only. Read-only mode and modules are deliberately not here. */
-export const SETTINGS_KEYS = ["client_id", "tenant", "auth_mode", "scope_mode", "refresh_token_file", "client_secret_file", "redirect_uri", "attach_dirs", "signature_file"];
+export const SETTINGS_KEYS = ["client_id", "tenant", "auth_mode", "scope_mode", "refresh_token_file", "client_secret_file", "redirect_uri", "attach_dirs", "signature_file", "download_dir"];
 
 /** A sign-in redirect the plugin can listen on itself: http on localhost/127.0.0.1, a fixed port, an optional path.
  *  Returns { uri, host, port, path } (uri exactly as given, minus a trailing space) or throws INVALID_ARGUMENT. */
@@ -110,6 +111,8 @@ export function resolveConfig(env = process.env) {
     attachDirs: get("attach_dirs", "M365_PLUGIN_ATTACH_DIRS", "M365_ATTACH_DIRS").split(delimiter).map((s) => s.trim()).filter(Boolean),
     // The user's HTML email signature (a file only the person chooses). Set: drafts are HTML built by the plugin.
     signatureFile: get("signature_file", "M365_PLUGIN_SIGNATURE_FILE", "M365_SIGNATURE_FILE"),
+    // The one folder files may be saved into (email_save_attachment, onedrive_save_file). Set only by the person.
+    downloadDir: get("download_dir", "M365_PLUGIN_DOWNLOAD_DIR", "M365_DOWNLOAD_DIR"),
     // A rotated refresh token is written back to the shared file (atomically), exactly as the tool that owns it does,
     // so the other tool never holds a stale one. Turn off only to leave the file strictly untouched.
     refreshTokenWriteback: !/^(0|false|no|off)$/i.test(pick(env, "M365_REFRESH_TOKEN_WRITEBACK")),

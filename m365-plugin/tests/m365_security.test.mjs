@@ -20,10 +20,10 @@ function draftCtx(draft) {
 test("email_move cannot delete: Deleted Items and Junk are refused, deleting goes through email_delete", async () => {
   const c = draftCtx();
   for (const f of ["deleteditems", "junkemail", "recoverableitemsdeletions"]) {
-    await assert.rejects(call(c, "email_move", { message_id: "m1", folder: f }), (e) => e.code === "INVALID_ARGUMENT", f);
+    await assert.rejects(call(c, "email_move", { message_id: "m1", folder: f }), (e) => e.code === "FOLDER_NOT_ALLOWED", f);
   }
   assert.equal(posts(c, /move/).length, 0, "no move request reached Microsoft");
-  assert.equal((await call(c, "email_move", { message_id: "m1", folder: "archive" })).moved, true);
+  // moving into ordinary folders (paths, ids, sub-folders of Deleted Items) is covered in m365_v06.test.mjs
   assert.equal((await call(c, "email_delete", { message_id: "m1" })).deleted, true);
 });
 

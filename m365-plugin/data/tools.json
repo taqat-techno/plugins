@@ -24,7 +24,11 @@
     "email_read_attachment",
     "onedrive_search",
     "onedrive_read_file",
-    "events_since"
+    "events_since",
+    "email_list_folders",
+    "teams_meeting_find",
+    "teams_meeting_transcript",
+    "teams_meeting_files"
   ],
   "local": [
     "m365_sign_in",
@@ -38,7 +42,9 @@
     "profile_remember_chat",
     "profile_forget_chat",
     "m365_setup_save",
-    "m365_access_request"
+    "m365_access_request",
+    "email_save_attachment",
+    "onedrive_save_file"
   ],
   "write": [
     "email_create_draft",
@@ -49,6 +55,7 @@
     "email_discard_draft",
     "email_send_draft",
     "email_move",
+    "email_create_folder",
     "email_mark_read",
     "email_set_flag",
     "email_add_attachment",

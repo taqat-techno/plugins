@@ -28,11 +28,12 @@ No browser on the machine? Use the sign-in method `device-code`: you get a short
 |---|---|
 | Sign-in and setup | `m365_sign_in`, `m365_auth_status`, `m365_sign_out`, `m365_setup_save` (first setup of the app's ids only; asks you first), `m365_access_request` (writes the message for your admin) |
 | Mail (read) | `email_list_recent` (optionally unread only), `email_search`, `email_read`, `email_read_thread`, `email_list_attachments`, `email_list_categories`, `email_read_attachment` |
-| Mail (write) | `email_create_draft`, `email_create_reply_draft`, `email_create_forward_draft`, `email_update_draft`, `email_preview_draft`, **`email_discard_draft`**, **`email_send_draft`**, `email_move` (inbox or archive), `email_mark_read`, `email_set_flag`, `email_set_categories`, `email_add_attachment` (only from folders you allow), `email_remove_attachment`, **`email_delete`** (to Deleted Items) |
+| Mail (write) | `email_create_draft`, `email_create_reply_draft`, `email_create_forward_draft`, `email_update_draft`, `email_preview_draft`, **`email_discard_draft`**, **`email_send_draft`**, `email_move` (any ordinary folder by path or id; never Deleted Items/Junk), `email_create_folder`, `email_list_folders`, `email_save_attachment` (into the folder you chose), `email_mark_read`, `email_set_flag`, `email_set_categories`, `email_add_attachment` (only from folders you allow), `email_remove_attachment`, **`email_delete`** (to Deleted Items) |
 | Calendar | `calendar_list_events`, `calendar_get_event`, `calendar_find_free_slots`; write: `calendar_stage`, **`calendar_commit`**, `calendar_discard` |
 | Teams chats | `teams_list_chats`, `teams_find_chat`, `teams_read_chat`, `teams_chat_members`; write: `teams_stage`, **`teams_commit`**, `teams_cancel` |
 | Team channels (module `channels`, needs admin consent) | `teams_list_teams`, `teams_list_channels`, `teams_read_channel` |
-| OneDrive | `onedrive_search`, `onedrive_read_file`; write: **`onedrive_share_link`** (organization-only) |
+| Teams meetings (module `meetings`, transcripts need admin consent) | `teams_meeting_find`, `teams_meeting_transcript`, `teams_meeting_files` (then `onedrive_read_file` / `onedrive_save_file`) |
+| OneDrive | `onedrive_search`, `onedrive_read_file`, `onedrive_save_file` (into the folder you chose); write: **`onedrive_share_link`** (organization-only) |
 | People | `people_find`, `people_resolve` |
 | Alerts | `events_since` |
 | Local profile | `profile_get`, `profile_refresh_me`, `profile_set`, `profile_remember_contact`, `profile_forget_contact`, `profile_remember_chat`, `profile_forget_chat`, `profile_suggest_contacts` |
@@ -89,7 +90,7 @@ owner). If `more` is true, call again. A failing detector is listed in `errors` 
 | Microsoft app (client) ID | `M365_CLIENT_ID` | Required |
 | Tenant | `M365_TENANT` | Default `organizations` |
 | Sign-in method | `M365_AUTH_MODE` | `auto` (default), `interactive`, `device-code` |
-| Modules | `M365_MODULES` | `mail,calendar,teams,channels,people,files`; default without `channels` |
+| Modules | `M365_MODULES` | `mail,calendar,teams,channels,meetings,people,files`; default without `channels` and `meetings` |
 | Read-only mode | `M365_READONLY` | No write tools, read permissions only |
 | Shared token file | `M365_REFRESH_TOKEN_FILE` | Use an existing sign-in held by another tool (a bot): a file with its refresh token |
 | App secret file | `M365_CLIENT_SECRET_FILE` | A file with the app's secret, if the app has one (a shared token usually needs it) |

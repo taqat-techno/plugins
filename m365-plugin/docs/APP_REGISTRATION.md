@@ -36,6 +36,7 @@ Read permissions are requested for the modules a user enables. The write permiss
 | people | `People.Read`, `User.ReadBasic.All` | | no (some tenants require it) |
 | files | `Files.Read.All` | `Files.ReadWrite` | no |
 | channels (optional) | `Team.ReadBasic.All`, `Channel.ReadBasic.All`, `ChannelMessage.Read.All` | | **yes** |
+| meetings (optional) | `Calendars.Read`, `Chat.Read`, `OnlineMeetingTranscript.Read.All`, `Files.Read.All` | | **yes** (transcripts) |
 
 Use "Grant admin consent for <tenant>" once so users are not asked individually. If your company restricts what users
 may consent to, grant these for the app up front.

@@ -8,7 +8,6 @@ import { digestOf } from "../staging.mjs";
 import { allowedFile, attachBytes, readAllowed, contentTypeOf } from "../attach.mjs";
 import { composeHtml, loadSignature, prependToReply } from "../signature.mjs";
 
-const FOLDERS = ["inbox", "archive"]; // deleting goes through email_delete, which asks the human
 const FLAGS = { flagged: "flagged", complete: "complete", none: "notFlagged" };
 const DRAFT_SELECT = "id,subject,toRecipients,ccRecipients,bccRecipients,body,hasAttachments,isDraft,conversationId";
 const ATTACH_PROMISE = /\b(attached|attachment|attachments|attaching|enclosed)\b|مرفق|المرفق|مرفقات|ارفقت|أرفقت|إرفاق|ارفاق/i;
@@ -295,18 +294,7 @@ export const tools = [
       return { sent: true, draft_id: id, to: addrs(m.toRecipients), subject: clean(m.subject, 300) };
     },
   },
-  {
-    name: "email_move", kind: "write", module: "mail",
-    description: "Move a message to the inbox or archive. To delete a message use email_delete, which asks for confirmation.",
-    inputSchema: { type: "object", properties: { message_id: { type: "string" }, folder: { type: "string", description: "inbox or archive." } }, required: ["message_id", "folder"] },
-    async handler(a, ctx) {
-      const id = safeId(a.message_id, "message_id");
-      const f = String(a.folder ?? "").toLowerCase();
-      if (!FOLDERS.includes(f)) throw new M365Error("INVALID_ARGUMENT", `folder must be one of ${FOLDERS.join(", ")}`);
-      const m = await ctx.graph.post(`/me/messages/${seg(id)}/move`, { destinationId: f });
-      return { moved: true, folder: f, message_id: m.id ?? id };
-    },
-  },
+  // email_move lives in mail_folders.mjs (any ordinary folder by path or id; deleting folders excluded).
   {
     name: "email_mark_read", kind: "write", module: "mail",
     description: "Mark a message read or unread.",

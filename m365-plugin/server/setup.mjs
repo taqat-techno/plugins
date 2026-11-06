@@ -12,7 +12,7 @@ import { M365Error, replaceFile } from "./util.mjs";
 
 export const CREDENTIAL_KEYS = ["refresh_token_file", "client_secret_file"];
 // Settings only the person may choose: credential files, the folders files may be mailed out from, the signature file.
-export const HUMAN_ONLY_KEYS = [...CREDENTIAL_KEYS, "attach_dirs", "signature_file"];
+export const HUMAN_ONLY_KEYS = [...CREDENTIAL_KEYS, "attach_dirs", "signature_file", "download_dir"];
 const GUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const TENANT = /^([0-9a-f-]{36}|[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+|organizations|common|consumers)$/i;
 
@@ -41,7 +41,7 @@ export function saveSettings(cfg, input, { viaTool }) {
   for (const k of SETTINGS_KEYS) {
     if (input[k] === undefined) continue;
     if (viaTool && HUMAN_ONLY_KEYS.includes(k)) {
-      throw new M365Error("CREDENTIAL_SETTING_NOT_ALLOWED", `${k} cannot be set through a tool: only the person at the keyboard may choose credential files, the folders files may be attached from, and the signature file.`,
+      throw new M365Error("CREDENTIAL_SETTING_NOT_ALLOWED", `${k} cannot be set through a tool: only the person at the keyboard may choose credential files, the folders files may be attached from or saved into, and the signature file.`,
         { hint: "Ask the user to run, in their own terminal: node server/cli.mjs setup --token-file <path> --secret-file <path>   (or to fill in the plugin settings 'Shared token file' / 'App secret file'). Never ask them to paste a token or secret." });
     }
     if (viaTool && (k === "client_id" || k === "tenant") && currentId && String(input[k]).trim().toLowerCase() !== (k === "client_id" ? currentId : currentTenant).toLowerCase()) {
@@ -61,6 +61,11 @@ export function saveSettings(cfg, input, { viaTool }) {
       let st; try { st = statSync(d); } catch { st = null; }
       if (!st?.isDirectory()) throw new M365Error("INVALID_ARGUMENT", `attach_dirs: ${d} is not a folder`);
       if (/^([a-z]:\\?|\/)$/i.test(d)) throw new M365Error("INVALID_ARGUMENT", "attach_dirs cannot be a whole drive or the root folder");
+    }
+    if (k === "download_dir") {
+      if (!isAbsolute(v)) throw new M365Error("INVALID_ARGUMENT", "download_dir must be an absolute folder path");
+      let st; try { st = statSync(v); } catch { st = null; }
+      if (!st?.isDirectory()) throw new M365Error("INVALID_ARGUMENT", `download_dir: ${v} is not a folder`);
     }
     if (k === "signature_file") {
       if (!isAbsolute(v)) throw new M365Error("INVALID_ARGUMENT", "signature_file must be an absolute path");
