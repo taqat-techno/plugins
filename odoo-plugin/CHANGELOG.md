@@ -2,6 +2,21 @@
 
 All notable changes to `odoo-plugin` are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/). Versioning follows [SemVer](https://semver.org/).
 
+## [4.1.2] - 2026-11-06
+
+**Security fix: a caller's `scratch_pattern` could lift odoo-local's keep rails.** Found by an
+automated security review of 4.1.1; nothing was applied.
+
+### Security
+- `scratch_pattern` now only adds drop candidates. The unknown-main keep (a service with neither
+  `db_name` nor a filter keeps every non-scratch DB on its cluster), the reference-copy-name keep
+  and the forced backup are judged against the built-in pattern, so a broad pattern such as `.*`
+  can no longer make every database disposable or skip the dump.
+
+### Tests
+- `tests/mcp_local`: the rails carry the built-in pattern; reference copies stay kept and
+  inactivity-only drops stay backed up under `scratch_pattern: ".*"`.
+
 ## [4.1.1] - 2026-11-06
 
 **Security fix: `local_cleanup_plan` proposed dropping canonical databases, backed up nothing,

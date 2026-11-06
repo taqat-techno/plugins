@@ -37,6 +37,7 @@ SUMMARY_TOP = 20
 PAGE_DEFAULT, PAGE_MAX = 100, 500
 DEFAULT_SCRATCH = (r"^(test|tmp|temp|scratch|odoo_local_test|ft|qc|copy|bak|old|demo|try)[_-]"
                    r"|[_-](test|tmp|temp|copy|bak|old|scratch|clone|\d{8}(_?\d{4,6})?)$")
+DEFAULT_SCRATCH_RE = re.compile(DEFAULT_SCRATCH, re.IGNORECASE)
 
 _svc = {"type": "string", "description": "Service id from local_services / local-services.json"}
 
@@ -119,7 +120,7 @@ TOOLS = [
      "inputSchema": {"type": "object", "additionalProperties": False, "properties": {
          "distro": {"type": "string"}, "min_age_days": {"type": "integer", "minimum": 7},
          "log_age_days": {"type": "integer", "minimum": 7},
-         "scratch_pattern": {"type": "string", "description": "Regex for scratch DB names (has a default)"},
+         "scratch_pattern": {"type": "string", "description": "Extra regex for scratch DB names; adds drop candidates only (keeps and backups always use the built-in pattern)"},
          "plan_id": {"type": "string", "description": "Re-read a stored plan instead of scanning"},
          "detail": {"type": "boolean", "description": "Return a page of the full items/keep lists (default: summary)"},
          "offset": {"type": "integer", "minimum": 0},
@@ -203,7 +204,7 @@ def _cluster_label(s) -> str:
     return "%s:%s" % (s.get("wsl_distro") or s.get("runtime"), s.get("db_port") or 5432)
 
 
-def _rails(services, scratch_pattern=None) -> dict:
+def _rails(services) -> dict:
     """Keep-list inputs beyond main_db names, sent to the agent with every list/drop/scan.
 
     * main_filters: a service without db_name protects every DB its filter matches. Both
@@ -220,8 +221,9 @@ def _rails(services, scratch_pattern=None) -> dict:
             filters.append([s["id"], flt])
         else:
             unknown.setdefault(_cluster_label(s), []).append(s["id"])
-    return {"main_filters": filters, "unknown_main": unknown,
-            "scratch_pattern": scratch_pattern or DEFAULT_SCRATCH}
+    # Always the built-in pattern: the unknown_main keep must not be widened by a caller's
+    # scratch_pattern (".*" would otherwise make every DB on the cluster disposable).
+    return {"main_filters": filters, "unknown_main": unknown, "scratch_pattern": DEFAULT_SCRATCH}
 
 
 def _data_dirs(services, runtime, distro) -> list:
@@ -480,13 +482,17 @@ def build_plan(scan: dict, distro, args) -> tuple:
                 continue
             age = (now - r["last_activity"]) if r.get("last_activity") else None
             why = []
-            is_scratch = bool(scratch.search(r["name"]))
+            # A caller's scratch_pattern may only ADD drop candidates. Every protection below
+            # is judged against the built-in DEFAULT_SCRATCH, so a broad pattern such as ".*"
+            # cannot lift the reference-name keep or skip the backup.
+            default_scratch = bool(DEFAULT_SCRATCH_RE.search(r["name"]))
+            is_scratch = default_scratch or bool(scratch.search(r["name"]))
             ref_name = protected_name.search(r["name"])
             if is_scratch:
                 why.append("scratch-style name")
             if age is not None and age >= min_age:
                 why.append("inactive %d days" % (age // 86400))
-            if ref_name and not is_scratch:
+            if ref_name and not default_scratch:
                 keep.append({"target": target, "reason": "reference-copy name (%s): never dropped for inactivity alone"
                              % ref_name.group(1).lower()})
                 continue
@@ -496,7 +502,7 @@ def build_plan(scan: dict, distro, args) -> tuple:
                 continue
             # Only a scratch-style name makes a DB disposable; one proposed for inactivity
             # alone, or carrying a reference-copy word, is always dumped first.
-            backup = (not is_scratch) or bool(ref_name) or r["size_bytes"] >= BACKUP_THRESHOLD
+            backup = (not default_scratch) or bool(ref_name) or r["size_bytes"] >= BACKUP_THRESHOLD
             items.append({"kind": "scratch_db", "target": target, "size_bytes": r["size_bytes"],
                           "reason": ", ".join(why), "action": "drop", "backup": backup})
             private.append({"cluster_label": c["cluster"], "db": r["name"]})
@@ -619,7 +625,7 @@ def t_cleanup_plan(args):
         clusters = [c["cluster"] for c in _clusters(svcs).values()]
         scan = _call((rt, d), {"op": "cleanup_scan", "services": svcs, "clusters": clusters,
                                "main_dbs": _main_dbs(svcs_all),
-                               "rails": _rails(svcs_all, args.get("scratch_pattern"))}, timeout=600)
+                               "rails": _rails(svcs_all)}, timeout=600)
         plan, private = build_plan(scan, d, args)
         os.makedirs(_plans_dir(), exist_ok=True)
         stored = {"plan": plan, "private": private, "runtime": rt, "distro": d,
@@ -664,7 +670,7 @@ def t_cleanup_apply(args):
                "allow_roots": allow, "clusters": list(stored["clusters"].values())}
         if item["kind"] == "scratch_db":
             req["drop"] = {"cluster": stored["clusters"][priv["cluster_label"]], "db": priv["db"],
-                           "main_dbs": _main_dbs(svcs), "rails": _rails(svcs, stored.get("scratch_pattern")),
+                           "main_dbs": _main_dbs(svcs), "rails": _rails(svcs),
                            "data_dirs": stored["data_dirs"], "allow_roots": allow,
                            "backup_threshold_bytes": BACKUP_THRESHOLD}
         res = runner.call(rt, d, req, timeout=1800)

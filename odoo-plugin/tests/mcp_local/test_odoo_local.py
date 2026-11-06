@@ -403,6 +403,29 @@ def test_unknown_main_keeps_non_scratch_dbs_on_its_cluster():
     assert agent.keep_reason(row(name="company_live"), {}, {}, rails=rails, cluster_label="Ubuntu:5432") is None
 
 
+def test_caller_scratch_pattern_cannot_widen_unknown_main_keep():
+    # The rails always carry the built-in pattern; T._rails takes no caller pattern at all.
+    rails = T._rails([svc(id="mystery", main_db=None, dbfilter=None, db_port=5435)])
+    assert rails["scratch_pattern"] == T.DEFAULT_SCRATCH
+    keep = agent.keep_reason(row(name="company_live"), {}, {}, rails=rails, cluster_label="Ubuntu:5435")
+    assert keep and "main DB of mystery unknown" in keep
+
+
+@pytest.mark.parametrize("name", ["acme_bk_prod", "acme_baseline_main", "golden_17"])
+def test_broad_caller_pattern_keeps_reference_copies(name):
+    old = time.time() - 400 * 86400
+    plan, _ = T.build_plan(_scan_with([row(name=name, last_activity=old)]), "Ubuntu", {"scratch_pattern": ".*"})
+    assert plan["items"] == []
+    assert "reference-copy name" in plan["keep"][0]["reason"]
+
+
+def test_broad_caller_pattern_still_forces_backup():
+    old = time.time() - 90 * 86400
+    plan, _ = T.build_plan(_scan_with([row(name="acme_work", size_bytes=5, last_activity=old)]), "Ubuntu",
+                           {"scratch_pattern": ".*"})
+    assert len(plan["items"]) == 1 and plan["items"][0]["backup"] is True
+
+
 def _scan_with(dbs):
     return scan(databases=[{"cluster": "Ubuntu:5434", "databases": dbs}], filestores=[], confs=[], logs=[])
 
