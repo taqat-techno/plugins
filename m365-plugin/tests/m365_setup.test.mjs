@@ -92,6 +92,22 @@ test("the person's own command (viaTool: false) can set credential files; files 
   assert.equal(resolveConfig({ M365_HOME: h }).refreshTokenFile, rt, "a refused save changes nothing");
 });
 
+test("stale state: a setup made in the terminal after start-up still locks the app, whatever tool is called next", async () => {
+  const { saveSettings } = await import("../server/setup.mjs");
+  const attacker = "99999999-9999-9999-9999-999999999999";
+  const { c } = mk();
+  const staleCfg = { ...c.ctx.cfg };                    // what this process knew at start-up: nothing configured
+  await new Promise((r) => setTimeout(r, 20));
+  saveSettings(c.ctx.cfg, { client_id: CID, tenant: TID }, { viaTool: false });   // the person, in their own terminal
+  // 1) through the tool, with no auth_status call in between: the plugin reloads and refuses
+  await assert.rejects(c.callTool("m365_setup_save", { client_id: attacker }), (e) => e.code === "ALREADY_CONFIGURED");
+  // 2) even with a stale in-memory config handed straight to the validator, the saved file decides
+  assert.throws(() => saveSettings(staleCfg, { client_id: attacker }, { viaTool: true }), (e) => e.code === "ALREADY_CONFIGURED");
+  assert.throws(() => saveSettings(staleCfg, { tenant: "evil.example.com" }, { viaTool: true }), (e) => e.code === "ALREADY_CONFIGURED");
+  assert.equal(resolveConfig({ M365_HOME: c.ctx.cfg.home }).clientId, CID, "the person's setup is intact");
+  assert.equal(saveSettings(staleCfg, { client_id: CID.toUpperCase(), scope_mode: "app" }, { viaTool: true }).saved.length, 2, "re-saving the same app is fine");
+});
+
 test("a running agent picks up a setup the person made in their terminal, without a restart", async () => {
   const { saveSettings } = await import("../server/setup.mjs");
   const { c, h } = mk();

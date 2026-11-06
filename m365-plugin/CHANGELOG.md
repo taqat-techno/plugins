@@ -20,7 +20,8 @@
   (`ALREADY_CONFIGURED`), so injected text cannot redirect the sign-in or point the plugin at a file. The person sets them in the
   plugin settings, in the environment, or by running `node server/cli.mjs setup ...` in their own terminal; a running agent picks
   the change up without a restart. The confirmation prompt shows the exact client ID, tenant and modes with control characters made
-  visible, and is refused outright if an argument is too long to show in full.
+  visible, and is refused outright if an argument is too long to show in full. The "first setup only" lock is decided on the saved
+  file as it is now (not what the process read at start-up), and every tool call reloads the settings if the file changed.
 - **Reuse another tool's saved sign-in.** `M365_REFRESH_TOKEN_FILE` (plugin setting "Shared token file") points at a file holding
   a refresh token that another tool, such as a bot, already obtained; `M365_CLIENT_SECRET_FILE` ("App secret file") points at
   the app's secret if the app has one. The plugin redeems that token (always with the app's approved permissions), so no

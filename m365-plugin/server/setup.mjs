@@ -29,7 +29,12 @@ function readSaved(home) {
 }
 
 export function saveSettings(cfg, input, { viaTool }) {
-  const next = { ...readSaved(cfg.home) };
+  const saved = readSaved(cfg.home);
+  const next = { ...saved };
+  // "Already configured" is judged on what is on disk right now plus what this process was started with, so a setup the
+  // person made in their terminal after start-up is never overwritten by a stale view.
+  const currentId = cfg.clientId || (typeof saved.client_id === "string" ? saved.client_id.trim() : "");
+  const currentTenant = (typeof saved.tenant === "string" && saved.tenant.trim()) || cfg.tenant;
   const changed = [];
   for (const k of SETTINGS_KEYS) {
     if (input[k] === undefined) continue;
@@ -37,7 +42,7 @@ export function saveSettings(cfg, input, { viaTool }) {
       throw new M365Error("CREDENTIAL_SETTING_NOT_ALLOWED", `${k} cannot be set through a tool: only the person at the keyboard may point the plugin at a credential file.`,
         { hint: "Ask the user to run, in their own terminal: node server/cli.mjs setup --token-file <path> --secret-file <path>   (or to fill in the plugin settings 'Shared token file' / 'App secret file'). Never ask them to paste a token or secret." });
     }
-    if (viaTool && (k === "client_id" || k === "tenant") && cfg.clientId && String(input[k]).trim() !== (k === "client_id" ? cfg.clientId : cfg.tenant)) {
+    if (viaTool && (k === "client_id" || k === "tenant") && currentId && String(input[k]).trim().toLowerCase() !== (k === "client_id" ? currentId : currentTenant).toLowerCase()) {
       throw new M365Error("ALREADY_CONFIGURED", `The Microsoft app is already set up, so ${k} cannot be changed from here.`,
         { hint: "To switch to a different app, the user changes it in the plugin settings, or runs in their own terminal: node server/cli.mjs setup --client-id <id> [--tenant <id>]" });
     }

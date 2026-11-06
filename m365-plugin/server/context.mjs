@@ -34,8 +34,8 @@ export function createContext(env = process.env, deps = {}) {
     get tools() { return tools; },
     listTools: () => tools.map(({ name, description, inputSchema }) => ({ name, description, inputSchema })),
     async callTool(name, args) {
-      // the user may have run `cli.mjs setup` or edited settings.json since this process started
-      if ((name === "m365_auth_status" || name === "m365_sign_in") && stampOf() !== stamp) build();
+      // the user may have run `cli.mjs setup` or edited settings.json since this process started: always act on current settings
+      if (stampOf() !== stamp) build();
       const t = byName.get(name);
       if (!t) throw new M365Error("UNKNOWN_TOOL", `unknown tool: ${name}`);
       return t.handler(args ?? {}, ctx);
