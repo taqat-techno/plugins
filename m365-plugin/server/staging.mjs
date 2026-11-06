@@ -10,9 +10,9 @@
 // read-modify-write runs under a lock file, and the "check, then move to sending" step is one locked operation:
 // two processes can never both claim the same send.
 import { createHash, randomUUID } from "node:crypto";
-import { closeSync, mkdirSync, openSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync } from "node:fs";
+import { closeSync, mkdirSync, openSync, readFileSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { M365Error } from "./util.mjs";
+import { M365Error, replaceFile } from "./util.mjs";
 
 const TTL_MS = 24 * 3600 * 1000;
 const LOCK_WAIT_MS = 5000, LOCK_STALE_MS = 10_000, LOCK_STEP_MS = 15;
@@ -30,9 +30,16 @@ export function withFileLock(file, fn) {
   while (fd === null) {
     try { fd = openSync(lock, "wx"); }
     catch (e) {
-      if (e.code !== "EEXIST") throw e;
-      try { if (Date.now() - statSync(lock).mtimeMs > LOCK_STALE_MS) { unlinkSync(lock); continue; } } catch { continue; }
-      if (Date.now() > deadline) throw new M365Error("BUSY", "Another Microsoft 365 action is in progress. Try again in a moment.");
+      // EEXIST: someone holds it. On Windows, EPERM/EACCES also mean "held": the previous holder's lock file is still
+      // being deleted. Anything else (a missing folder, a real permission problem) is a real error.
+      if (!["EEXIST", "EPERM", "EACCES"].includes(e.code)) throw e;
+      if (Date.now() > deadline) {
+        if (e.code !== "EEXIST") throw e;
+        throw new M365Error("BUSY", "Another Microsoft 365 action is in progress. Try again in a moment.");
+      }
+      let age = 0;
+      try { age = Date.now() - statSync(lock).mtimeMs; } catch { /* vanished: just try again */ }
+      if (age > LOCK_STALE_MS) { try { unlinkSync(lock); } catch { /* someone else took it over */ } continue; }
       pause(LOCK_STEP_MS);
     }
   }
@@ -56,7 +63,7 @@ export function createStaging(cfg, { now = () => Date.now() } = {}) {
     for (const [k, v] of Object.entries(all)) if (now() - v.created > TTL_MS) delete all[k];
     const tmp = `${path}.${process.pid}.${randomUUID()}.tmp`;
     writeFileSync(tmp, JSON.stringify(all, null, 2), { mode: 0o600 });
-    renameSync(tmp, path);
+    replaceFile(tmp, path);
   };
   /** Locked read-modify-write. fn may change `all` and return a value; the file is saved afterwards. */
   const update = (fn) => {

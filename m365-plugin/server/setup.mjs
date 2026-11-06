@@ -4,13 +4,15 @@
 //   viaTool: false  the command line (`node server/cli.mjs setup`), typed by the person themselves. May also point the
 //                   plugin at another tool's token and secret files.
 // Credential files can therefore only be chosen by the human: in the plugin settings, in the environment, or here.
-import { mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from "node:fs";
-import { isAbsolute, join } from "node:path";
+import { mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { delimiter, isAbsolute, join } from "node:path";
 import { randomUUID } from "node:crypto";
 import { SETTINGS_KEYS, parseRedirectUri, settingsPath } from "./config.mjs";
-import { M365Error } from "./util.mjs";
+import { M365Error, replaceFile } from "./util.mjs";
 
 export const CREDENTIAL_KEYS = ["refresh_token_file", "client_secret_file"];
+// Settings only the person may choose: credential files, the folders files may be mailed out from, the signature file.
+export const HUMAN_ONLY_KEYS = [...CREDENTIAL_KEYS, "attach_dirs", "signature_file"];
 const GUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const TENANT = /^([0-9a-f-]{36}|[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+|organizations|common|consumers)$/i;
 
@@ -38,8 +40,8 @@ export function saveSettings(cfg, input, { viaTool }) {
   const changed = [];
   for (const k of SETTINGS_KEYS) {
     if (input[k] === undefined) continue;
-    if (viaTool && CREDENTIAL_KEYS.includes(k)) {
-      throw new M365Error("CREDENTIAL_SETTING_NOT_ALLOWED", `${k} cannot be set through a tool: only the person at the keyboard may point the plugin at a credential file.`,
+    if (viaTool && HUMAN_ONLY_KEYS.includes(k)) {
+      throw new M365Error("CREDENTIAL_SETTING_NOT_ALLOWED", `${k} cannot be set through a tool: only the person at the keyboard may choose credential files, the folders files may be attached from, and the signature file.`,
         { hint: "Ask the user to run, in their own terminal: node server/cli.mjs setup --token-file <path> --secret-file <path>   (or to fill in the plugin settings 'Shared token file' / 'App secret file'). Never ask them to paste a token or secret." });
     }
     if (viaTool && (k === "client_id" || k === "tenant") && currentId && String(input[k]).trim().toLowerCase() !== (k === "client_id" ? currentId : currentTenant).toLowerCase()) {
@@ -54,16 +56,27 @@ export function saveSettings(cfg, input, { viaTool }) {
     if (k === "auth_mode" && !["auto", "interactive", "device-code"].includes(v.toLowerCase())) throw new M365Error("INVALID_ARGUMENT", "auth_mode must be auto, interactive or device-code");
     if (k === "redirect_uri") { try { parseRedirectUri(v); } catch (e) { throw new M365Error("INVALID_ARGUMENT", e.message); } }
     if (CREDENTIAL_KEYS.includes(k)) checkSecretFile(v, k);
+    if (k === "attach_dirs") for (const d of v.split(delimiter).map((x) => x.trim()).filter(Boolean)) {
+      if (!isAbsolute(d)) throw new M365Error("INVALID_ARGUMENT", "attach_dirs must be absolute folder paths");
+      let st; try { st = statSync(d); } catch { st = null; }
+      if (!st?.isDirectory()) throw new M365Error("INVALID_ARGUMENT", `attach_dirs: ${d} is not a folder`);
+      if (/^([a-z]:\\?|\/)$/i.test(d)) throw new M365Error("INVALID_ARGUMENT", "attach_dirs cannot be a whole drive or the root folder");
+    }
+    if (k === "signature_file") {
+      if (!isAbsolute(v)) throw new M365Error("INVALID_ARGUMENT", "signature_file must be an absolute path");
+      let st; try { st = statSync(v); } catch { st = null; }
+      if (!st?.isFile() || st.size > 100 * 1024) throw new M365Error("INVALID_ARGUMENT", "signature_file must be an HTML file under 100 KB");
+    }
     next[k] = k === "scope_mode" || k === "auth_mode" ? v.toLowerCase() : v;
     changed.push(k);
   }
-  if (!changed.length) throw new M365Error("INVALID_ARGUMENT", `give at least one of: ${(viaTool ? SETTINGS_KEYS.filter((k) => !CREDENTIAL_KEYS.includes(k)) : SETTINGS_KEYS).join(", ")}`);
+  if (!changed.length) throw new M365Error("INVALID_ARGUMENT", `give at least one of: ${(viaTool ? SETTINGS_KEYS.filter((k) => !HUMAN_ONLY_KEYS.includes(k)) : SETTINGS_KEYS).join(", ")}`);
   const out = {};
   for (const k of SETTINGS_KEYS) if (next[k]) out[k] = next[k];
   const path = settingsPath(cfg.home);
   mkdirSync(cfg.home, { recursive: true });
   const tmp = `${path}.${process.pid}.${randomUUID()}.tmp`;
   writeFileSync(tmp, JSON.stringify(out, null, 2) + "\n", { mode: 0o600 });
-  renameSync(tmp, path);
+  replaceFile(tmp, path);
   return { saved: changed, settings_file: join(cfg.home, "settings.json") };
 }

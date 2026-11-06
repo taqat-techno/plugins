@@ -75,10 +75,15 @@ On a failure show `sign_in.error.message` and its `hint` as they are, and offer 
 
 ## 4. Build the profile
 
-1. Call `profile_refresh_me`. It fills name, email and language from the account and sets the time zone to this
-   computer's zone. Show the user the time zone it chose and ask whether it is right; if not, call `profile_set` with the correct IANA name (for example `Africa/Cairo`).
-2. Ask which days and hours they work (many users work Sunday to Thursday). Call `profile_set` with
-   `working_days`, `work_start`, `work_end`. Ask their usual meeting length and set `meeting_minutes`.
+1. Call `profile_refresh_me`. It fills name, email, language, time zone and working days/hours from the account and
+   from Outlook's own settings. Show the user the time zone and working hours it found, and any `notes` (for example
+   when Outlook's display zone and working-hours zone disagree). Ask whether they are right; correct them with
+   `profile_set` (an IANA zone such as `Africa/Cairo`, `working_days`, `work_start`, `work_end`). Values set that way are
+   the user's own and are never overwritten by Outlook later. Ask their usual meeting length and set `meeting_minutes`.
+2. Optional, only the user can set these (plugin settings, or `cli.mjs setup` in their own terminal):
+   **"Email signature file"** (an HTML file; drafts then go out as HTML with that signature) and
+   **"Folders files may be attached from"** (so files can be attached to drafts). Mention them once; never ask for a
+   path to set yourself.
 
 ## 5. Choose people to remember
 

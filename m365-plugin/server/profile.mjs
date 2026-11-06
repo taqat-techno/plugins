@@ -1,10 +1,10 @@
 // profile.mjs - the user's local memory: who they are, the people they email, the Teams chats they use.
 // A plain JSON file the user can read and edit (<M365_HOME>/profile.json, default ~/.m365-plugin).
 // It holds no tokens or secrets. Per user and per machine; never shared between users.
-import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
-import { EMAIL_RE, M365Error, isValidZone, normName } from "./util.mjs";
+import { EMAIL_RE, M365Error, isValidZone, normName, replaceFile } from "./util.mjs";
 
 const empty = () => ({
   version: 1,
@@ -13,10 +13,24 @@ const empty = () => ({
   defaults: { meeting_minutes: 30, working_hours: { days: ["monday", "tuesday", "wednesday", "thursday", "friday"], start: "09:00", end: "17:00" } },
   contacts: [],
   chats: [],
+  // Where each value came from: user (profile_set: never overwritten automatically), outlook, account, computer.
+  sources: {},
 });
 
 const DAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
 const HHMM = /^([01]\d|2[0-3]):[0-5]\d$/;
+const SAME = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+
+/** Source of a value, also for profiles written before sources were recorded. */
+export function sourceOf(p, key) {
+  const s = p.sources?.[key];
+  if (s) return s;
+  if (key === "working_hours") return SAME(p.defaults.working_hours, empty().defaults.working_hours) ? "default" : "user";
+  if (key === "meeting_minutes") return p.defaults.meeting_minutes === 30 ? "default" : "user";
+  const v = p.me?.[key];
+  if (v === null || v === undefined || v === "") return "none";
+  return key === "timezone" ? "user" : "account"; // an older saved time zone may be the user's correction: keep it
+}
 const aliasesOf = (a) => [...new Set((Array.isArray(a) ? a : a ? [a] : []).map((s) => String(s).trim()).filter(Boolean))];
 
 export function createProfile(cfg, { now = () => new Date() } = {}) {
@@ -32,6 +46,7 @@ export function createProfile(cfg, { now = () => new Date() } = {}) {
         defaults: { ...e.defaults, ...(p.defaults ?? {}), working_hours: { ...e.defaults.working_hours, ...(p.defaults?.working_hours ?? {}) } },
         contacts: Array.isArray(p.contacts) ? p.contacts : [],
         chats: Array.isArray(p.chats) ? p.chats : [],
+        sources: p.sources && typeof p.sources === "object" && !Array.isArray(p.sources) ? p.sources : {},
       };
     } catch { return empty(); }
   }
@@ -41,7 +56,7 @@ export function createProfile(cfg, { now = () => new Date() } = {}) {
     mkdirSync(cfg.home, { recursive: true });
     const tmp = `${path}.${process.pid}.${randomUUID()}.tmp`;
     writeFileSync(tmp, JSON.stringify(p, null, 2) + "\n", "utf8");
-    renameSync(tmp, path);
+    replaceFile(tmp, path);
     return p;
   }
 
@@ -72,9 +87,31 @@ export function createProfile(cfg, { now = () => new Date() } = {}) {
       return exact.length ? exact : p.chats.filter((c) => looseName(c, q));
     },
 
+    /** Fill values found automatically. A value whose source is "user" is kept. Returns what was filled and kept. */
+    fillAuto(values, sources = {}) {
+      const p = load();
+      const filled = [], kept = [];
+      for (const [k, v] of Object.entries(values)) {
+        if (v === null || v === undefined) continue;
+        if (sourceOf(p, k) === "user") { kept.push(k); continue; }
+        if (k === "timezone" && !isValidZone(v)) continue;
+        if (k === "working_hours") {
+          if (!Array.isArray(v.days) || !v.days.length || v.days.some((d) => !DAYS.includes(d)) || !HHMM.test(v.start) || !HHMM.test(v.end)) continue;
+          p.defaults.working_hours = { days: v.days, start: v.start, end: v.end };
+        } else p.me[k] = v;
+        p.sources[k] = sources[k] ?? "account";
+        filled.push(k);
+      }
+      save(p);
+      return { me: p.me, defaults: p.defaults, sources: p.sources, filled, kept };
+    },
+
+    /** Values set by the user (profile_set). They are marked so automatic filling never overwrites them. */
     set(fields) {
       const p = load();
       const m = p.me;
+      for (const k of ["name", "email", "language", "timezone", "meeting_minutes"]) if (fields[k] !== undefined) p.sources[k] = "user";
+      if (["working_days", "work_start", "work_end"].some((k) => fields[k] !== undefined)) p.sources.working_hours = "user";
       for (const k of ["name", "email", "language"]) if (fields[k] !== undefined) m[k] = fields[k] === null ? null : String(fields[k]).trim();
       if (fields.email) {
         if (!EMAIL_RE.test(m.email)) throw new M365Error("INVALID_ARGUMENT", "email is not a valid address");

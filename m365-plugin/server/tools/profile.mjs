@@ -1,6 +1,7 @@
 // profile tools: the user's local memory (contacts, chats, defaults). These change only a local
 // JSON file, never Microsoft 365, so they are 'local' tools: allowed in read-only mode, no confirmation.
-import { M365Error, clampLimit, systemZone } from "../util.mjs";
+import { M365Error, clampLimit } from "../util.mjs";
+import { fillFromAccount } from "../me.mjs";
 
 export const tools = [
   {
@@ -11,22 +12,16 @@ export const tools = [
   },
   {
     name: "profile_refresh_me", kind: "local", module: "profile",
-    description: "Fill the profile's identity from the signed-in account (name, email, id, preferred language) and set the time zone to this computer's zone if none is saved. Run once after sign-in; safe to repeat. Tell the user the time zone it chose so they can correct it with profile_set.",
+    description: "Fill the profile from the signed-in account and from Outlook's own settings: name, email, id, language, time zone and working days/hours. Values the user set with profile_set are kept. It also runs by itself on the first call after sign-in. Tell the user the time zone and working hours it found, and any notes, so they can correct them with profile_set.",
     inputSchema: { type: "object", properties: {} },
     async handler(_a, ctx) {
-      const me = await ctx.graph.get("/me?$select=id,displayName,mail,userPrincipalName,preferredLanguage");
-      const p = ctx.profile.load();
-      const fields = { name: me.displayName ?? p.me.name, email: (me.mail || me.userPrincipalName || p.me.email || "").toLowerCase() || undefined };
-      if (me.preferredLanguage) fields.language = me.preferredLanguage;
-      if (!p.me.timezone) fields.timezone = systemZone();
-      const saved = ctx.profile.set(fields);
-      const withId = { ...saved }; withId.me.id = me.id; ctx.profile.save(withId);
-      return { me: withId.me, note: p.me.timezone ? "Time zone kept." : `Time zone set to ${fields.timezone} (this computer's zone). Correct it with profile_set if wrong.` };
+      const r = await fillFromAccount(ctx);
+      return { me: r.me, working_hours: r.defaults.working_hours, sources: r.sources, filled: r.filled, kept_because_user_set: r.kept, notes: r.notes };
     },
   },
   {
     name: "profile_set", kind: "local", module: "profile",
-    description: "Change profile fields: name, email, timezone (IANA, e.g. Africa/Cairo), language, meeting_minutes (default meeting length), working_days (e.g. sunday,monday,tuesday,wednesday,thursday) and work_start / work_end (HH:MM). Only the fields you pass change.",
+    description: "Change profile fields: name, email, timezone (IANA, e.g. Africa/Cairo), language, meeting_minutes (default meeting length), working_days (e.g. sunday,monday,tuesday,wednesday,thursday) and work_start / work_end (HH:MM). Only the fields you pass change, and they are marked as the user's own: automatic filling from Outlook never overwrites them.",
     inputSchema: { type: "object", properties: {
       name: { type: "string" }, email: { type: "string" }, timezone: { type: "string" }, language: { type: "string" },
       meeting_minutes: { type: "number" }, working_days: { type: "array", items: { type: "string" } },

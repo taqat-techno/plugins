@@ -47,6 +47,8 @@ No npm packages and no admin rights: it needs only Node 18+.
 | `M365_HOME` | Where the profile and sign-in cache live, default `~/.m365-plugin`. Give each bot or person its own |
 | `M365_MODULES` | Optional: `mail,calendar,teams,channels,people,files` |
 | `M365_REFRESH_TOKEN_FILE`, `M365_CLIENT_SECRET_FILE` | Optional: reuse another tool's saved sign-in (a file with its refresh token, and one with the app's secret) |
+| `M365_ATTACH_DIRS` | Optional: folders local files may be attached to drafts from (`;`-separated on Windows). Set by the person only |
+| `M365_SIGNATURE_FILE` | Optional: an HTML email signature file; drafts become HTML built by the plugin with that signature |
 | `M365_REDIRECT_URI` | Optional: the app's one registered redirect, e.g. `http://localhost:8400/callback`, when the app allows no other (often an app with a secret; then also set `M365_CLIENT_SECRET_FILE` and sign in with `cli.mjs sign-in --interactive`) |
 | `M365_SCOPE_MODE` | Optional: `app` uses the permissions already approved for the app (no new admin request) |
 

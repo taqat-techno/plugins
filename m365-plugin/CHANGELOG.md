@@ -1,5 +1,35 @@
 # Changelog
 
+## [0.5.0] - 2026-11-06
+
+From Teqo's first trial notes (F-mw5gmowd, F-mw5gmwnw).
+
+### Added
+- **The profile fills itself from Outlook.** On the first tool call after sign-in (and with `profile_refresh_me`), name, email,
+  id, language, **time zone and working days/hours come from Outlook's own settings** (`/me/mailboxSettings`), not from the
+  computer and a Monday-Friday default. Windows zone names are converted to IANA (a built-in table, then Outlook's own zone list by
+  city name). When Outlook's display zone and working-hours zone disagree, the one matching this computer wins and the result says
+  so. Every value records its source; a value the user set with `profile_set` is never overwritten. Without the
+  MailboxSettings permission it falls back to the computer's zone and says so. Status polls never trigger it.
+- **`email_set_categories`** (set or clear a message's Outlook categories, reversible, no confirmation) and **`email_list_categories`**.
+- **`email_add_attachment` / `email_remove_attachment`**: attach a local file to a draft, only from folders the **person** allowed
+  (`M365_ATTACH_DIRS`, plugin setting "Folders files may be attached from", `cli.mjs setup --attach-dirs`; never through a tool).
+  The file's real path is checked (links and `..` resolved), up to 25 MB, over 3 MB through an Outlook upload session (the upload URL
+  must be Microsoft's Outlook host and gets no Graph token). The preview now lists every file and inline image, the digest covers
+  them, and adding or removing one invalidates the preview.
+- **HTML drafts with the user's signature, built by the plugin.** With `M365_SIGNATURE_FILE` (plugin setting "Email signature file",
+  `cli.mjs setup --signature-file`, person only), new drafts, replies and forwards become HTML: the model's plain text is escaped
+  (only `**bold**` becomes bold), the user's signature follows, and images next to the signature file are embedded inline. Replies
+  and forwards keep Outlook's quoted original below. A signature with scripts, forms or event handlers is refused. The model can
+  still never supply HTML. `signature: false` leaves it out.
+
+### Fixed
+- **Windows: atomic file replacement no longer fails while another process or a virus scanner has the file open**
+  (EPERM/EACCES/EBUSY are retried briefly), and the shared-state lock treats Windows' EPERM on a lock being deleted as "held".
+  Seen as a rare failure with Claude Code and a bot using the same `~/.m365-plugin`.
+- The preview's link list counts attributes only inside real HTML tags (escaped text is inert), with a quote-aware tag match so a
+  `>` inside a quoted value cannot hide a later link.
+
 ## [0.4.1] - 2026-11-06
 
 ### Added

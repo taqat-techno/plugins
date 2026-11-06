@@ -14,9 +14,9 @@ import { createServer } from "node:http";
 import { parseRedirectUri } from "./config.mjs";
 import { spawn } from "node:child_process";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
-import { mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { M365Error } from "./util.mjs";
+import { M365Error, replaceFile } from "./util.mjs";
 import { NEEDS_CLIENT_ID } from "./config.mjs";
 
 const LOGIN = "https://login.microsoftonline.com";
@@ -95,7 +95,7 @@ export function createAuth(cfg, { fetch: fetchImpl = globalThis.fetch, open = op
     mkdirSync(cfg.home, { recursive: true });
     const tmp = `${cachePath}.${process.pid}.${randomUUID()}.tmp`;
     writeFileSync(tmp, JSON.stringify(c, null, 2), { mode: 0o600 });
-    renameSync(tmp, cachePath);
+    replaceFile(tmp, cachePath);
   };
 
   // The app's secret, only for an app registered as confidential. Read from a file each time, never kept, never shown.
@@ -140,7 +140,7 @@ export function createAuth(cfg, { fetch: fetchImpl = globalThis.fetch, open = op
   const readShared = () => { try { return readFileSync(cfg.refreshTokenFile, "utf8").trim(); } catch { return ""; } };
   const writeShared = (token) => {
     const tmp = `${cfg.refreshTokenFile}.${process.pid}.${randomUUID()}.tmp`;
-    try { writeFileSync(tmp, token, { mode: 0o600 }); renameSync(tmp, cfg.refreshTokenFile); }
+    try { writeFileSync(tmp, token, { mode: 0o600 }); replaceFile(tmp, cfg.refreshTokenFile); }
     catch { try { rmSync(tmp, { force: true }); } catch { /* nothing to clean */ } } // non-fatal: the old token is still on file
   };
 

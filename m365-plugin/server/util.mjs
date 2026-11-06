@@ -1,6 +1,19 @@
 // util.mjs - small helpers shared by the tools: errors, fencing of untrusted text, validation,
 // time-zone arithmetic (Intl only, no dependencies) and text clean-up.
 import { createHash } from "node:crypto";
+import { renameSync, unlinkSync } from "node:fs";
+
+/** Atomically replace dest with tmp. On Windows a rename fails for a moment (EPERM/EACCES/EBUSY) while another
+ *  process or a virus scanner has dest open, so it is retried briefly instead of failing the user's action. */
+export function replaceFile(tmp, dest) {
+  for (let i = 0; ; i++) {
+    try { renameSync(tmp, dest); return; }
+    catch (e) {
+      if (!["EPERM", "EACCES", "EBUSY"].includes(e.code) || i >= 40) { try { unlinkSync(tmp); } catch { /* gone */ } throw e; }
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 10 + i * 5);
+    }
+  }
+}
 
 /** A failure with a stable code and a short, secret-free hint the model can act on. */
 export class M365Error extends Error {

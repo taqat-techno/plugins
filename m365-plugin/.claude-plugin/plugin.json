@@ -1,6 +1,6 @@
 {
   "name": "m365",
-  "version": "0.4.1",
+  "version": "0.5.0",
   "license": "MIT",
   "description": "Microsoft 365 for Claude Code and agent bots: read and search Outlook mail, calendar and free slots, Teams chats, OneDrive and people; draft, preview and send mail, schedule meetings and message Teams with a preview-digest-confirm flow and a human confirmation hook; an events poll for alerts; and a local profile that remembers your contacts and chats so 'email Mahmoud' resolves. Self-contained (no npm packages, no admin rights), browser or device-code sign-in, least-privilege scopes, optional read-only mode, OpenClaw package builder.",
   "author": {
@@ -59,6 +59,18 @@
       "type": "string",
       "title": "Sign-in redirect address (optional)",
       "description": "Only if the app registration allows one exact redirect address, e.g. http://localhost:8400/callback (common for an app made for a bot). The browser sign-in then uses exactly that address. Leave empty for the usual http://localhost.",
+      "default": ""
+    },
+    "m365_attach_dirs": {
+      "type": "string",
+      "title": "Folders files may be attached from (optional)",
+      "description": "Only files inside these folders can be attached to an email draft (separate several with ; on Windows). Leave empty to allow no local attachments. Pick a dedicated folder, never your whole user folder.",
+      "default": ""
+    },
+    "m365_signature_file": {
+      "type": "string",
+      "title": "Email signature file (optional)",
+      "description": "Path to an HTML file with your email signature. When set, drafts are sent as HTML with your signature (images next to the file are embedded). Leave empty for plain-text drafts.",
       "default": ""
     },
     "m365_modules": {

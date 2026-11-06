@@ -177,4 +177,13 @@ export const tools = [
       };
     },
   },
+  {
+    name: "email_list_categories", kind: "read", module: "mail",
+    description: "List the user's Outlook categories (name and colour), for email_set_categories.",
+    inputSchema: { type: "object", properties: {} },
+    async handler(_a, ctx) {
+      const j = await ctx.graph.get("/me/outlook/masterCategories?$select=displayName,color");
+      return { count: (j.value ?? []).length, categories: (j.value ?? []).map((c) => ({ name: clean(c.displayName, 255), color: c.color ?? null })), note: UNTRUSTED_FIELDS };
+    },
+  },
 ];

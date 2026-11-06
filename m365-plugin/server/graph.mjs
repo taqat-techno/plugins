@@ -85,5 +85,20 @@ export function createGraph(cfg, auth, { fetch: fetchImpl = globalThis.fetch, sl
     post: mutate("POST"), patch: mutate("PATCH"), del: (path, opts) => mutate("DELETE")(path, undefined, opts),
     /** POST for lookups that change nothing. Callers pass fixed paths only. */
     postRead: (path, body, opts) => call("POST", path, body, opts),
+    /** PUT one chunk to an Outlook attachment upload session. The upload URL carries its own short-lived
+     *  authorization, so the Graph token is NOT sent; only Microsoft's Outlook hosts are accepted. */
+    async uploadChunk(uploadUrl, chunk, start, total) {
+      if (cfg.readOnly) throw new M365Error("READ_ONLY", "Read-only mode is on; nothing can be changed.");
+      let u;
+      try { u = new URL(uploadUrl); } catch { u = null; }
+      if (!u || u.protocol !== "https:" || !/(^|\.)outlook\.office(365)?\.com$/i.test(u.hostname)) throw new M365Error("INVALID_ARGUMENT", "refusing an upload address that is not Microsoft's Outlook service");
+      let res;
+      try {
+        res = await fetchImpl(u.href, { method: "PUT", body: chunk, signal: AbortSignal.timeout(Math.max(cfg.timeoutMs, 60_000)),
+          headers: { "Content-Type": "application/octet-stream", "Content-Length": String(chunk.length), "Content-Range": `bytes ${start}-${start + chunk.length - 1}/${total}` } });
+      } catch (e) { throw new M365Error(e?.name === "TimeoutError" ? "TIMEOUT" : "NETWORK_ERROR", "the attachment upload did not complete"); }
+      if (!res.ok) throw new M365Error("GRAPH_ERROR", `attachment upload refused (${res.status})`, { status: res.status });
+      return res.status === 204 ? {} : res.json().catch(() => ({}));
+    },
   };
 }

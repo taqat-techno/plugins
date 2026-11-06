@@ -446,7 +446,10 @@ test("every tool: description under 1024 chars, object schema, classified exactl
 });
 
 test("no tool takes a URL, path, mailbox or user-id argument", () => {
+  // The one local path: email_add_attachment, confined to the folders the person allowed (tests/m365_attach.test.mjs).
+  const ALLOWED = new Set(["email_add_attachment.path"]);
   for (const t of ALL_TOOLS) for (const k of Object.keys(t.inputSchema.properties ?? {})) {
+    if (ALLOWED.has(`${t.name}.${k}`)) continue;
     assert.ok(!/^(url|path|mailbox|user_id|user|odata|filter|select)$/i.test(k), `${t.name}.${k}`);
   }
 });
