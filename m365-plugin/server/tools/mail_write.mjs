@@ -20,11 +20,52 @@ const MAX_LINKS = 200;
 
 /** Every address an HTML body can point at or load: quoted and unquoted attributes, srcset, CSS url() and @import,
  *  meta refresh. Entities are decoded first, as a mail client would. Callers must check the count against MAX_LINKS. */
+const LINK_ATTRS = new Set(["href", "src", "background", "action", "formaction", "poster", "data", "cite", "longdesc", "ping", "manifest", "xlink:href", "srcset", "imagesrcset", "lowsrc", "dynsrc"]);
+
+/** Attribute values the way an HTML tokenizer reads them: a value only starts right after '=', a quoted value runs to the
+ *  matching quote, an unquoted one to whitespace or '>'. Comments are skipped, as a mail client does. */
+export function tagAttributes(raw) {
+  const out = [];
+  const s = String(raw);
+  let i = 0;
+  while ((i = s.indexOf("<", i)) !== -1) {
+    if (s.startsWith("<!--", i)) { const e = s.indexOf("-->", i + 4); i = e === -1 ? s.length : e + 3; continue; }
+    if (!/[a-zA-Z]/.test(s[i + 1] ?? "")) { i++; continue; }
+    i++;
+    while (i < s.length && !/[\s/>]/.test(s[i])) i++;            // tag name
+    for (;;) {
+      while (i < s.length && /[\s/]/.test(s[i])) i++;
+      if (i >= s.length || s[i] === ">") { i++; break; }
+      let n = i;
+      while (i < s.length && !/[\s/>=]/.test(s[i])) i++;
+      const name = s.slice(n, i).toLowerCase();
+      while (i < s.length && /\s/.test(s[i])) i++;
+      if (s[i] !== "=") continue;                                 // attribute without a value
+      i++;
+      while (i < s.length && /\s/.test(s[i])) i++;
+      let value;
+      if (s[i] === '"' || s[i] === "'") { const q = s[i]; const e = s.indexOf(q, i + 1); value = s.slice(i + 1, e === -1 ? s.length : e); i = e === -1 ? s.length : e + 1; }
+      else { n = i; while (i < s.length && !/[\s>]/.test(s[i])) i++; value = s.slice(n, i); }
+      out.push([name, value]);
+    }
+  }
+  return out;
+}
+
 export function extractLinks(raw) {
   const out = new Set();
   const add = (v) => { const t = decodeEntities(v ?? "").trim(); if (t) out.add(clean(t, 300)); };
-  // The whole body is scanned, not just what a regex thinks are tags: a tag splitter can disagree with how a mail client
-  // tokenizes odd markup and so hide a link. Listing an inert one (escaped text) is harmless; missing a live one is not.
+  // Three scans, and the union is listed: no single parser can be trusted to read odd markup exactly as a mail client
+  // does, and listing an inert address is harmless while missing a live one is not.
+  // 1) A tokenizer that follows HTML's quoting rules.
+  for (const [name, value] of tagAttributes(raw)) {
+    if (!LINK_ATTRS.has(name)) continue;
+    if (name.endsWith("srcset")) for (const part of value.split(",")) add(part.trim().split(/\s+/)[0]);
+    else add(value);
+  }
+  // 2) Every URL-looking string anywhere in the body, attribute or not, entities decoded first.
+  for (const x of decodeEntities(raw).matchAll(/(?:\b(?:https?|ftp|file|javascript|vbscript|data|mailto|cid|ms-[a-z-]+):|(?<![:\w])\/\/[a-z0-9.-]+\.[a-z]{2,})[^\s"'<>()`]*/gi)) add(x[0]);
+  // 3) The whole-body attribute scan of earlier versions.
   for (const x of raw.matchAll(/\b(?:href|src|background|action|formaction|poster|data|cite|longdesc|ping|manifest|xlink:href)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>]+))/gi)) add(x[1] ?? x[2] ?? x[3]);
   for (const x of raw.matchAll(/\b(?:srcset|imagesrcset)\s*=\s*(?:"([^"]*)"|'([^']*)')/gi)) for (const part of (x[1] ?? x[2]).split(",")) add(part.trim().split(/\s+/)[0]);
   for (const x of raw.matchAll(/url\(\s*(?:"([^"]*)"|'([^']*)'|([^)\s]+))\s*\)/gi)) add(x[1] ?? x[2] ?? x[3]);

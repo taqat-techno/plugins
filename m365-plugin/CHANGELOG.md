@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.5.2] - 2026-11-06
+
+### Security
+- **The preview's link list can no longer be fooled by a fake attribute inside another value.** In
+  `<a title="x href=" href="https://evil">`, the whole-body scan used the fake `href=` and its match swallowed the real one,
+  so the live link was not listed. The list is now the union of three scans: an attribute tokenizer that follows HTML's
+  quoting rules (comments skipped), every URL-looking string anywhere in the body with entities decoded (`https:`, `javascript:`,
+  `data:`, `mailto:`, `cid:`, `//host` ...), and the earlier whole-body scan. Over-reporting is harmless; missing a live link is not.
+
 ## [0.5.1] - 2026-11-06
 
 ### Security

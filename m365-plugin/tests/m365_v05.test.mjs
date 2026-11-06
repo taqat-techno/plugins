@@ -168,7 +168,24 @@ test("links: the whole body is scanned, so odd markup cannot hide a link (over-r
   assert.deepEqual(extractLinks("<img alt='1>2' src=https://img.example/x.png>"), ["https://img.example/x.png"]);
   assert.ok(extractLinks('<a x=y"z href="https://stray-quote.example">t</a>').includes("https://stray-quote.example"), "a stray quote in an unquoted value");
   assert.ok(extractLinks('<a x=\'y href="https://single.example">').includes("https://single.example"));
-  assert.deepEqual(extractLinks('<div style="background:url(https://css.example/b.png)">'), ["https://css.example/b.png"]);
+  assert.ok(extractLinks('<div style="background:url(https://css.example/b.png)">').includes("https://css.example/b.png"));
+});
+
+test("links: a fake attribute inside another attribute's value cannot swallow the real link", () => {
+  const has = (html, url) => assert.ok(extractLinks(html).includes(url), `${url} in ${html}`);
+  has('<a title="x href=" href="https://evil.example/1">t</a>', "https://evil.example/1");
+  has("<a title='src=' src='https://evil.example/2'>", "https://evil.example/2");
+  has('<a data-x="href=\'" href=https://evil.example/3>t</a>', "https://evil.example/3");
+  has('<a href="&#104;ttps://evil.example/4">t</a>', "https://evil.example/4");
+  has('<a href="&#x6A;avascript:alert(1)">t</a>', "javascript:alert(1)");
+  has('<!-- <a href="x"> --><a href="https://evil.example/5">t</a>', "https://evil.example/5");
+  has('<img srcset="https://a.example/1x.png 1x, https://a.example/2x.png 2x">', "https://a.example/2x.png");
+  has("<p>visit //evil.example/path now</p>", "//evil.example/path");
+});
+
+test("links: the tokenizer reads attributes as HTML does", async () => {
+  const { tagAttributes } = await import("../server/tools/mail_write.mjs");
+  assert.deepEqual(tagAttributes('<a title="x href=" href="https://e/1" disabled data=y>'), [["title", "x href="], ["href", "https://e/1"], ["data", "y"]]);
 });
 
 test("attachments: network, device, drive-relative and stream paths are refused before the disk is touched", async () => {
