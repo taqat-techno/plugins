@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "note": "Single classification of every tool. read = reads Microsoft 365 only. local = changes only this user's local profile or sign-in cache, never Microsoft 365. write = changes Microsoft 365 (none yet; phase 2). Tests keep this in step with server/tools/*.mjs.",
+  "read": [
+    "email_list_recent", "email_search", "email_read", "email_read_thread", "email_list_attachments",
+    "calendar_list_events", "calendar_get_event", "calendar_find_free_slots",
+    "teams_list_chats", "teams_find_chat", "teams_read_chat", "teams_chat_members",
+    "teams_list_teams", "teams_list_channels", "teams_read_channel",
+    "people_find", "people_resolve", "profile_suggest_contacts"
+  ],
+  "local": [
+    "m365_sign_in", "m365_auth_status", "m365_sign_out",
+    "profile_get", "profile_refresh_me", "profile_set",
+    "profile_remember_contact", "profile_forget_contact", "profile_remember_chat", "profile_forget_chat"
+  ],
+  "write": []
+}

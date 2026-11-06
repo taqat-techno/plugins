@@ -1,0 +1,46 @@
+{
+  "name": "m365",
+  "version": "0.1.0",
+  "license": "MIT",
+  "description": "Microsoft 365 tools for Claude Code and agent bots: read and search mail, calendar and free-slot lookup, Teams chats, people lookup, with a local profile that remembers your contacts and chats. Self-contained (no npm packages, no admin rights), browser or device-code sign-in, optional read-only mode.",
+  "author": {
+    "name": "TaqaTechno",
+    "email": "info@taqatechno.com",
+    "url": "https://github.com/taqat-techno"
+  },
+  "homepage": "https://github.com/taqat-techno/plugins/tree/main/m365-plugin",
+  "repository": "https://github.com/taqat-techno/plugins",
+  "keywords": ["microsoft-365", "outlook", "teams", "calendar", "graph", "mcp"],
+  "userConfig": {
+    "m365_client_id": {
+      "type": "string",
+      "title": "Microsoft app (client) ID",
+      "description": "The Application (client) ID of your company's Microsoft Entra app registration for this plugin (one-time admin setup, see docs/APP_REGISTRATION.md). Not a secret. Falls back to the M365_CLIENT_ID environment variable.",
+      "default": ""
+    },
+    "m365_tenant": {
+      "type": "string",
+      "title": "Tenant (optional)",
+      "description": "Entra tenant id or domain. Leave empty to use 'organizations' (any work account), which is right for most companies.",
+      "default": ""
+    },
+    "m365_auth_mode": {
+      "type": "string",
+      "title": "Sign-in method",
+      "description": "auto (default): browser sign-in, falling back to a device code. interactive: browser only. device-code: type a short code at a Microsoft page (no browser needed on this machine).",
+      "default": "auto"
+    },
+    "m365_modules": {
+      "type": "string",
+      "title": "Modules (optional)",
+      "description": "Comma-separated: mail, calendar, teams, channels, people. Leave empty for mail, calendar, teams, people. 'channels' (team channel messages) needs admin consent, so it is off by default.",
+      "default": ""
+    },
+    "m365_read_only": {
+      "type": "boolean",
+      "title": "Read-only mode",
+      "description": "When on, only read permissions are requested and no tool can change Microsoft 365.",
+      "default": false
+    }
+  }
+}
