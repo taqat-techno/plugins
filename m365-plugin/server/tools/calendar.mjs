@@ -1,6 +1,6 @@
 // calendar tools (read). Everything targets /me: there is no mailbox, calendar-id or URL argument.
 // Graph is asked for UTC and converted here with Intl, so no Windows/IANA zone mapping is needed.
-import { EMAIL_RE, M365Error, graphUtcMs, parseBound, safeId, seg, systemZone, wallClock, isValidZone } from "../util.mjs";
+import { EMAIL_RE, M365Error, UNTRUSTED_FIELDS, clean, graphUtcMs, parseBound, safeId, seg, systemZone, wallClock, isValidZone } from "../util.mjs";
 
 export const MAX_RANGE_DAYS = 62;
 const INTERVALS = [5, 10, 15, 30, 60];
@@ -16,15 +16,15 @@ function zoneFor(a, ctx) {
 }
 
 const local = (dt, iana) => { const ms = graphUtcMs(dt); return Number.isFinite(ms) ? wallClock(ms, iana) : null; };
-const person = (a) => ({ name: a?.emailAddress?.name ?? null, email: (a?.emailAddress?.address ?? "").toLowerCase() || null });
+const person = (a) => ({ name: clean(a?.emailAddress?.name, 120), email: (a?.emailAddress?.address ?? "").toLowerCase() || null });
 
 function eventOut(e, iana) {
   return {
-    event_id: e.id, subject: e.subject ?? "(no subject)",
+    event_id: e.id, subject: clean(e.subject, 300) ?? "(no subject)",
     start: local(e.start?.dateTime, iana), end: local(e.end?.dateTime, iana), timezone: iana,
     is_cancelled: !!e.isCancelled, is_organizer: !!e.isOrganizer,
     organizer: e.organizer?.emailAddress ? person(e.organizer) : null,
-    location: e.location?.displayName || null,
+    location: clean(e.location?.displayName, 200) || null,
     is_online_meeting: !!e.isOnlineMeeting, join_url: e.onlineMeeting?.joinUrl ?? null,
     my_response: e.responseStatus?.response ?? null, show_as: e.showAs ?? null, sensitivity: e.sensitivity ?? null,
     recurrence_type: e.type ?? null, series_master_id: e.seriesMasterId ?? null,
@@ -56,7 +56,7 @@ export const tools = [
       if (e - s > MAX_RANGE_DAYS * 864e5) throw new M365Error("INVALID_ARGUMENT", `range must be under ${MAX_RANGE_DAYS} days`);
       const j = await ctx.graph.get(`/me/calendarView?startDateTime=${new Date(s).toISOString()}&endDateTime=${new Date(e).toISOString()}&$select=${SELECT}&$top=100&$orderby=${encodeURIComponent("start/dateTime")}`, UTC);
       const events = (j.value ?? []).map((x) => eventOut(x, iana));
-      return { timezone: iana, count: events.length, truncated: events.length >= 100, events };
+      return { timezone: iana, count: events.length, truncated: events.length >= 100, events, note: UNTRUSTED_FIELDS };
     },
   },
   {
@@ -66,7 +66,7 @@ export const tools = [
     async handler(a, ctx) {
       const iana = zoneFor(a, ctx);
       const id = safeId(a.event_id, "event_id");
-      return { event: eventOut(await ctx.graph.get(`/me/events/${seg(id)}?$select=${SELECT}`, UTC), iana) };
+      return { event: eventOut(await ctx.graph.get(`/me/events/${seg(id)}?$select=${SELECT}`, UTC), iana), note: UNTRUSTED_FIELDS };
     },
   },
   {

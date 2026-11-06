@@ -1,0 +1,17 @@
+{
+  "description": "Microsoft 365 hooks: a permissionDecision 'ask' gate on the outward-facing writes (send an email draft, create a calendar event with invitations, send a Teams message, delete a message, create a sharing link). The list lives in data/tools.json under 'confirm'; a test keeps this matcher in step with it.",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "^mcp__(plugin_m365_)?m365__(email_send_draft|calendar_commit|teams_commit|email_delete|onedrive_share_link)$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/pre_write_confirm.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\"; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

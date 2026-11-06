@@ -1,17 +1,66 @@
 {
   "version": 1,
-  "note": "Single classification of every tool. read = reads Microsoft 365 only. local = changes only this user's local profile or sign-in cache, never Microsoft 365. write = changes Microsoft 365 (none yet; phase 2). Tests keep this in step with server/tools/*.mjs.",
+  "note": "Single classification of every tool. read = reads Microsoft 365 only. local = changes only this user's local profile, staging or sign-in cache. write = changes Microsoft 365 (removed in read-only mode). confirm = the outward-facing writes that a host should ask the human about (the Claude Code hook does). Tests keep this in step with server/tools/*.mjs.",
   "read": [
-    "email_list_recent", "email_search", "email_read", "email_read_thread", "email_list_attachments",
-    "calendar_list_events", "calendar_get_event", "calendar_find_free_slots",
-    "teams_list_chats", "teams_find_chat", "teams_read_chat", "teams_chat_members",
-    "teams_list_teams", "teams_list_channels", "teams_read_channel",
-    "people_find", "people_resolve", "profile_suggest_contacts"
+    "email_list_recent",
+    "email_search",
+    "email_read",
+    "email_read_thread",
+    "email_list_attachments",
+    "calendar_list_events",
+    "calendar_get_event",
+    "calendar_find_free_slots",
+    "teams_list_chats",
+    "teams_find_chat",
+    "teams_read_chat",
+    "teams_chat_members",
+    "teams_list_teams",
+    "teams_list_channels",
+    "teams_read_channel",
+    "people_find",
+    "people_resolve",
+    "profile_suggest_contacts",
+    "email_read_attachment",
+    "onedrive_search",
+    "onedrive_read_file",
+    "events_since"
   ],
   "local": [
-    "m365_sign_in", "m365_auth_status", "m365_sign_out",
-    "profile_get", "profile_refresh_me", "profile_set",
-    "profile_remember_contact", "profile_forget_contact", "profile_remember_chat", "profile_forget_chat"
+    "m365_sign_in",
+    "m365_auth_status",
+    "m365_sign_out",
+    "profile_get",
+    "profile_refresh_me",
+    "profile_set",
+    "profile_remember_contact",
+    "profile_forget_contact",
+    "profile_remember_chat",
+    "profile_forget_chat"
   ],
-  "write": []
+  "write": [
+    "email_create_draft",
+    "email_create_reply_draft",
+    "email_update_draft",
+    "email_preview_draft",
+    "email_discard_draft",
+    "email_send_draft",
+    "email_move",
+    "email_mark_read",
+    "email_set_flag",
+    "email_delete",
+    "calendar_stage",
+    "calendar_commit",
+    "calendar_discard",
+    "teams_stage",
+    "teams_commit",
+    "teams_cancel",
+    "onedrive_share_link"
+  ],
+  "confirm": [
+    "email_send_draft",
+    "calendar_commit",
+    "teams_commit",
+    "email_delete",
+    "onedrive_share_link"
+  ]
 }

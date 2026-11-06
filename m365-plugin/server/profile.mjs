@@ -104,13 +104,22 @@ export function createProfile(cfg, { now = () => new Date() } = {}) {
       return save(p);
     },
 
-    rememberContact({ name, email, aliases, note, source = "user" }) {
+    rememberContact({ name, email, aliases, note, source = "user", allow_same_name = false }) {
       const nm = String(name ?? "").trim();
       const em = String(email ?? "").trim().toLowerCase();
       if (!nm) throw new M365Error("INVALID_ARGUMENT", "name is required");
       if (!EMAIL_RE.test(em)) throw new M365Error("INVALID_ARGUMENT", "email is not a valid address");
       const p = load();
       let c = p.contacts.find((x) => (x.email ?? "").toLowerCase() === em);
+      if (!allow_same_name) {
+        // A name or alias that already points at another address must not be silently re-pointed: that is how a
+        // poisoned contact would redirect mail. The user confirms two people really share a name.
+        for (const label of [nm, ...aliasesOf(aliases)]) {
+          const clash = p.contacts.find((x) => (x.email ?? "").toLowerCase() !== em && matchesName(x, label));
+          if (clash) throw new M365Error("CONTACT_CONFLICT", `"${label}" already belongs to ${clash.name} <${clash.email}>.`,
+            { hint: "Ask the user. If two different people really share it, repeat with allow_same_name: true; otherwise forget the old contact first." });
+        }
+      }
       if (c) {
         c.name = nm;
         c.aliases = aliasesOf([...(c.aliases ?? []), ...aliasesOf(aliases)]);

@@ -10,12 +10,20 @@ from pathlib import Path
 import pytest
 
 PLUGIN = Path(__file__).resolve().parent.parent
+
+
+def clean_env(**extra):
+    """The real environment minus any M365_* the developer has set, so tests never see a real setup."""
+    import os
+    return {**{k: v for k, v in os.environ.items() if not k.startswith("M365_")}, **extra}
 NODE = shutil.which("node")
 pytestmark = pytest.mark.skipif(NODE is None, reason="node is not installed")
 
 
 def test_node_suite_passes():
-    r = subprocess.run([NODE, "--test", str(PLUGIN / "tests" / "m365.test.mjs")], capture_output=True, text=True, timeout=180)
+    files = sorted(str(f) for f in (PLUGIN / "tests").glob("*.test.mjs"))
+    assert len(files) >= 2
+    r = subprocess.run([NODE, "--test", *files], capture_output=True, text=True, timeout=300, env=clean_env(), cwd=str(PLUGIN / "tests"))
     assert r.returncode == 0, r.stdout[-3000:] + r.stderr[-1500:]
 
 
@@ -26,15 +34,15 @@ def _rpc(proc, msg):
 
 
 def test_server_speaks_mcp_over_stdio_with_no_install_step(tmp_path):
-    env = {"PATH": __import__("os").environ["PATH"], "M365_HOME": str(tmp_path), "SYSTEMROOT": __import__("os").environ.get("SYSTEMROOT", "")}
-    p = subprocess.Popen([NODE, str(PLUGIN / "server" / "index.mjs")], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=env, encoding="utf-8")
+    env = clean_env(M365_HOME=str(tmp_path))
+    p = subprocess.Popen([NODE, str(PLUGIN / "server" / "index.mjs")], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=env, encoding="utf-8", cwd=str(tmp_path))
     try:
         init = _rpc(p, {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVersion": "2024-11-05"}})
         assert init["result"]["serverInfo"]["name"] == "m365"
         p.stdin.write(json.dumps({"jsonrpc": "2.0", "method": "notifications/initialized"}) + "\n")
         tools = _rpc(p, {"jsonrpc": "2.0", "id": 2, "method": "tools/list"})["result"]["tools"]
         names = {t["name"] for t in tools}
-        assert {"m365_sign_in", "email_search", "calendar_find_free_slots", "people_resolve", "profile_remember_contact"} <= names
+        assert {"m365_sign_in", "email_search", "calendar_find_free_slots", "people_resolve", "profile_remember_contact", "email_send_draft", "events_since"} <= names
         status = _rpc(p, {"jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": {"name": "m365_auth_status", "arguments": {}}})
         body = json.loads(status["result"]["content"][0]["text"])
         assert body["configured"] is False and "APP_REGISTRATION" in body["hint"]
@@ -46,7 +54,7 @@ def test_server_speaks_mcp_over_stdio_with_no_install_step(tmp_path):
 
 
 def test_cli_status_runs_without_a_client_id(tmp_path):
-    r = subprocess.run([NODE, str(PLUGIN / "server" / "cli.mjs"), "status"], capture_output=True, text=True, env={"PATH": __import__("os").environ["PATH"], "M365_HOME": str(tmp_path), "SYSTEMROOT": __import__("os").environ.get("SYSTEMROOT", "")}, timeout=30)
+    r = subprocess.run([NODE, str(PLUGIN / "server" / "cli.mjs"), "status"], capture_output=True, text=True, env=clean_env(M365_HOME=str(tmp_path)), cwd=str(tmp_path), timeout=30)
     assert r.returncode == 0 and json.loads(r.stdout)["configured"] is False
 
 

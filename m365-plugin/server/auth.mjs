@@ -120,6 +120,10 @@ export function createAuth(cfg, { fetch: fetchImpl = globalThis.fetch, open = op
     if (!cache || cache.client_id !== cfg.clientId || cache.tenant !== cfg.tenant) {
       throw new M365Error("NOT_SIGNED_IN", "Not signed in to Microsoft 365.", { hint: "Call m365_sign_in, or run: node server/cli.mjs sign-in" });
     }
+    const have = new Set(String(cache.scope ?? "").split(" "));
+    if (scope.split(" ").some((s) => !have.has(s))) {
+      throw new M365Error("PERMISSIONS_CHANGED", "This version asks for permissions the saved sign-in does not cover.", { hint: "Call m365_sign_in again to approve them, or enable read-only mode." });
+    }
     let { res, j } = await tokenRequest({ grant_type: "refresh_token", refresh_token: cache.refresh_token, scope });
     // Another process may have rotated the token between our read and our request.
     if ((!res.ok || !j.access_token) && j.error === "invalid_grant") {

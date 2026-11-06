@@ -1,8 +1,8 @@
 {
   "name": "m365",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "license": "MIT",
-  "description": "Microsoft 365 tools for Claude Code and agent bots: read and search mail, calendar and free-slot lookup, Teams chats, people lookup, with a local profile that remembers your contacts and chats. Self-contained (no npm packages, no admin rights), browser or device-code sign-in, optional read-only mode.",
+  "description": "Microsoft 365 for Claude Code and agent bots: read and search Outlook mail, calendar and free slots, Teams chats, OneDrive and people; draft, preview and send mail, schedule meetings and message Teams with a preview-digest-confirm flow and a human confirmation hook; an events poll for alerts; and a local profile that remembers your contacts and chats so 'email Mahmoud' resolves. Self-contained (no npm packages, no admin rights), browser or device-code sign-in, least-privilege scopes, optional read-only mode, OpenClaw package builder.",
   "author": {
     "name": "TaqaTechno",
     "email": "info@taqatechno.com",
@@ -10,7 +10,14 @@
   },
   "homepage": "https://github.com/taqat-techno/plugins/tree/main/m365-plugin",
   "repository": "https://github.com/taqat-techno/plugins",
-  "keywords": ["microsoft-365", "outlook", "teams", "calendar", "graph", "mcp"],
+  "keywords": [
+    "microsoft-365",
+    "outlook",
+    "teams",
+    "calendar",
+    "graph",
+    "mcp"
+  ],
   "userConfig": {
     "m365_client_id": {
       "type": "string",
@@ -33,13 +40,13 @@
     "m365_modules": {
       "type": "string",
       "title": "Modules (optional)",
-      "description": "Comma-separated: mail, calendar, teams, channels, people. Leave empty for mail, calendar, teams, people. 'channels' (team channel messages) needs admin consent, so it is off by default.",
+      "description": "Comma-separated: mail, calendar, teams, channels, people, files. Leave empty for mail, calendar, teams, people, files. 'channels' (team channel messages) needs admin consent, so it is off by default.",
       "default": ""
     },
     "m365_read_only": {
       "type": "boolean",
       "title": "Read-only mode",
-      "description": "When on, only read permissions are requested and no tool can change Microsoft 365.",
+      "description": "When on, only read permissions are requested and no tool can change Microsoft 365 (no sending, scheduling or messaging).",
       "default": false
     }
   }

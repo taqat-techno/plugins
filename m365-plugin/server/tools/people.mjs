@@ -1,16 +1,16 @@
 // people tools: turn a name into a verified email address. The local profile is consulted first,
 // then the organization directory and the user's frequent contacts. An address is never invented.
-import { M365Error, clampLimit, normName, safeStr } from "../util.mjs";
+import { M365Error, UNTRUSTED_FIELDS, clampLimit, clean, normName, safeStr } from "../util.mjs";
 
 const USER_SELECT = "id,displayName,mail,userPrincipalName,jobTitle,department";
 
 function viaUser(u) {
   const email = (u.mail || u.userPrincipalName || "").toLowerCase();
-  return { name: u.displayName ?? null, email: email || null, title: u.jobTitle ?? null, department: u.department ?? null, source: "directory" };
+  return { name: clean(u.displayName, 120), email: email || null, title: clean(u.jobTitle, 120), department: clean(u.department, 120), source: "directory" };
 }
 function viaPerson(p) {
   const email = (p.scoredEmailAddresses?.[0]?.address || p.userPrincipalName || "").toLowerCase();
-  return { name: p.displayName ?? null, email: email || null, title: p.jobTitle ?? null, department: p.department ?? null, source: "people" };
+  return { name: clean(p.displayName, 120), email: email || null, title: clean(p.jobTitle, 120), department: clean(p.department, 120), source: "people" };
 }
 
 /** Directory + relevance search; partial failures are reported, not fatal. */
@@ -38,7 +38,7 @@ export const tools = [
       query: { type: "string", description: "Name or part of an email." }, limit: { type: "number", description: "1-20, default 10." } }, required: ["query"] },
     async handler(a, ctx) {
       const r = await searchPeople(ctx, a.query, clampLimit(a.limit, 10, 20));
-      return { query: a.query, count: r.candidates.length, people: r.candidates, notes: r.notes };
+      return { query: a.query, count: r.candidates.length, people: r.candidates, notes: r.notes, note: UNTRUSTED_FIELDS };
     },
   },
   {

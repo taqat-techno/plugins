@@ -22,8 +22,16 @@ const NEEDS = [
   [/^\/users/, "User.ReadBasic.All"],
 ];
 
-function accessNeeded(path) {
-  const need = NEEDS.find(([re]) => re.test(path))?.[1] ?? "the matching delegated Graph permission";
+const NEEDS_WRITE = [
+  [/^\/me\/(messages|mailFolders)/, "Mail.ReadWrite / Mail.Send"],
+  [/^\/me\/(calendar|events)/, "Calendars.ReadWrite"],
+  [/^\/chats/, "Chat.ReadWrite"],
+  [/^\/drives/, "Files.ReadWrite"],
+];
+
+function accessNeeded(path, method = "GET") {
+  const table = method === "GET" ? NEEDS : NEEDS_WRITE;
+  const need = table.find(([re]) => re.test(path))?.[1] ?? "the matching delegated Graph permission";
   return new M365Error("ACCESS_NEEDED", `Microsoft refused this request: missing permission ${need}.`, {
     hint: "Do not work around it. Ask a tenant admin to grant that delegated permission to the app (or sign in again to approve it), then retry. A forwardable request: 'Please grant the delegated Microsoft Graph permission " + need + " to the Microsoft 365 plugin app.'",
   });
@@ -54,18 +62,26 @@ export function createGraph(cfg, auth, { fetch: fetchImpl = globalThis.fetch, sl
         await sleep(Number.isFinite(ra) && ra > 0 ? Math.min(ra * 1000, 30_000) : Math.min(1000 * 2 ** (attempt - 1), 8000));
         continue;
       }
+      if (opts.raw && res.ok) return Buffer.from(await res.arrayBuffer());
       if (res.status === 204) return {};
       const j = await res.json().catch(() => ({}));
       if (res.ok) return j;
       const gcode = String(j?.error?.code ?? res.status);
-      if (res.status === 403 || /AccessDenied|Authorization_RequestDenied|Forbidden/i.test(gcode)) throw accessNeeded(path);
-      if (res.status === 404) throw new M365Error("NOT_FOUND", `Not found: ${path.split("?")[0].replace(/\/[A-Za-z0-9_\-=+%.:@]{30,}/g, "/<id>")}`);
-      if (res.status === 429) throw new M365Error("THROTTLED", "Microsoft is throttling requests. Wait a minute and retry.");
-      throw new M365Error("GRAPH_ERROR", `Graph ${res.status} ${gcode}: ${String(j?.error?.message ?? "request failed").slice(0, 200)}`);
+      if (res.status === 403 || /AccessDenied|Authorization_RequestDenied|Forbidden/i.test(gcode)) throw Object.assign(accessNeeded(path, method), { status: res.status });
+      if (res.status === 404) throw new M365Error("NOT_FOUND", `Not found: ${path.split("?")[0].replace(/\/[A-Za-z0-9_\-=+%.:@]{30,}/g, "/<id>")}`, { status: 404 });
+      if (res.status === 429) throw new M365Error("THROTTLED", "Microsoft is throttling requests. Wait a minute and retry.", { status: 429 });
+      throw new M365Error("GRAPH_ERROR", `Graph ${res.status} ${gcode}: ${String(j?.error?.message ?? "request failed").slice(0, 200)}`, { status: res.status });
     }
   }
+  const mutate = (method) => (path, body, opts) => {
+    // Defense in depth: read-only mode already removes the write tools; this stops a bug from writing.
+    if (cfg.readOnly) throw new M365Error("READ_ONLY", "Read-only mode is on; nothing can be changed.");
+    return call(method, path, body, opts);
+  };
   return {
     get: (path, opts) => call("GET", path, undefined, opts),
+    /** Changes Microsoft 365. Never retried: a timed-out POST may already have happened. */
+    post: mutate("POST"), patch: mutate("PATCH"), del: (path, opts) => mutate("DELETE")(path, undefined, opts),
     /** POST for lookups that change nothing. Callers pass fixed paths only. */
     postRead: (path, body, opts) => call("POST", path, body, opts),
   };

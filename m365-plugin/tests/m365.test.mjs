@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { resolveConfig, READ_SCOPES } from "../server/config.mjs";
+import { resolveConfig, READ_SCOPES, WRITE_SCOPES } from "../server/config.mjs";
 import { createAuth, scopeString, classifyTokenError } from "../server/auth.mjs";
 import { createGraph } from "../server/graph.mjs";
 import { createContext } from "../server/context.mjs";
@@ -41,8 +41,9 @@ function fakeFetch(routes) {
 const TOKEN = /^POST https:\/\/login\.microsoftonline\.com\/.+\/oauth2\/v2\.0\/token/;
 const tokenOk = (extra = {}) => [TOKEN, () => json({ access_token: "at-1", refresh_token: "rt-2", expires_in: 3600, ...extra })];
 
+const ALL_SCOPES = scopeString([...Object.values(READ_SCOPES).flat(), ...Object.values(WRITE_SCOPES).flat()]);
 function seedCache(h, over = {}) {
-  writeFileSync(join(h, "token-cache.json"), JSON.stringify({ v: 1, client_id: "cid-123", tenant: "contoso.com", scope: "x", refresh_token: "rt-1", account: { name: "Ahmed", username: "a@contoso.com" }, ...over }));
+  writeFileSync(join(h, "token-cache.json"), JSON.stringify({ v: 1, client_id: "cid-123", tenant: "contoso.com", scope: ALL_SCOPES, refresh_token: "rt-1", account: { name: "Ahmed", username: "a@contoso.com" }, ...over }));
 }
 const ctxFor = (routes, extraEnv = {}, deps = {}) => {
   const h = deps.home ?? home();
@@ -67,12 +68,15 @@ test("config: unexpanded placeholders are unset and plugin settings win over env
 
 test("config: default modules exclude channels, and channels scopes are only requested when enabled", () => {
   const d = resolveConfig({});
-  assert.deepEqual(d.modules, ["mail", "calendar", "teams", "people"]);
+  assert.deepEqual(d.modules, ["mail", "calendar", "teams", "people", "files"]);
   assert.ok(!d.scopes.includes("ChannelMessage.Read.All"));
   const w = resolveConfig({ M365_MODULES: "mail, channels, bogus" });
   assert.deepEqual(w.modules, ["mail", "channels"]);
   assert.ok(w.scopes.includes("ChannelMessage.Read.All") && !w.scopes.includes("Calendars.Read"));
-  for (const s of Object.values(READ_SCOPES).flat()) assert.ok(!/ReadWrite|Send/.test(s), "phase 1 asks for read scopes only");
+  for (const s of Object.values(READ_SCOPES).flat()) assert.ok(!/ReadWrite|Send/.test(s), "read scopes are read only");
+  assert.ok(d.scopes.includes("Mail.Send") && d.scopes.includes("Calendars.ReadWrite"), "write scopes are requested when writes are on");
+  const ro = resolveConfig({ M365_READONLY: "true" });
+  assert.ok(ro.scopes.every((s) => !/ReadWrite|Send/.test(s)), "read-only mode requests read permissions only");
 });
 
 test("scopeString prefixes Graph scopes and always adds offline_access", () => {
@@ -434,7 +438,7 @@ test("every tool: description under 1024 chars, object schema, classified exactl
     assert.ok(cls[t.kind].includes(t.name), `${t.name} is in the wrong list`);
     assert.ok(!/graph_request|passthrough/i.test(t.name), "no generic Graph tool");
   }
-  assert.deepEqual(cls.write, [], "phase 1 has no write tools");
+  for (const w of ALL_TOOLS.filter((x) => x.kind === "write")) assert.ok(cls.write.includes(w.name), `${w.name} must be listed as write`);
 });
 
 test("no tool takes a URL, path, mailbox or user-id argument", () => {

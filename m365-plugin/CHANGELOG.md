@@ -1,8 +1,52 @@
 # Changelog
 
+## [0.2.0] - 2026-11-06
+
+Write path, files, alerts and the OpenClaw package. Because the plugin now asks for write permissions
+(`Mail.ReadWrite`, `Mail.Send`, `Calendars.ReadWrite`, `Chat.ReadWrite`, `Files.ReadWrite`) unless read-only mode is on,
+an existing sign-in reports `PERMISSIONS_CHANGED`: run `m365_sign_in` again to approve them (or turn read-only on).
+
+### Added
+- **Mail writes:** `email_create_draft`, `email_create_reply_draft`, `email_update_draft`, `email_preview_draft`,
+  `email_discard_draft`, `email_send_draft`, `email_move`, `email_mark_read`, `email_set_flag`, `email_delete`
+  (to Deleted Items only). Sending is draft -> preview -> `email_send_draft(draft_id, digest)`: refused if never
+  previewed, if the digest is wrong, if the draft changed since the preview, if there is no recipient, or if the
+  user's text says "attached" (English or Arabic) with nothing attached. A sent draft cannot be sent again.
+  Recipients must be email addresses; a name is refused.
+- **Calendar writes:** `calendar_stage` (validates, shows local times and conflicts, creates nothing),
+  `calendar_commit` (creates the event; the stage id is the Graph `transactionId`, so a retry cannot create it twice),
+  `calendar_discard`.
+- **Teams writes:** `teams_stage`, `teams_commit`, `teams_cancel`, with a double-send guard: `sending` is saved
+  before the request, a refusal (4xx) can be retried, an unknown outcome is never repeated (`SEND_UNCERTAIN`).
+- **OneDrive:** `onedrive_search`, `onedrive_read_file` (text-like files up to 200 KB, fenced), `onedrive_share_link`
+  (view-only, organization-only). `email_read_attachment` reads text-like attachments; other types are reported as
+  not read.
+- **Alerts:** `events_since` and `node server/cli.mjs events --since now|<cursor>`: new mail from others, mail that
+  mentions the user, Teams messages and @mentions, calendar invitations and cancellations. Stateless (the caller keeps
+  the cursor), de-duplicated by id, oldest-first paging with `more`, a failing detector is reported in `errors` and
+  holds the cursor time.
+- **Confirmation hook** (`hooks/`): Claude Code asks the human before `email_send_draft`, `calendar_commit`,
+  `teams_commit`, `email_delete` and `onedrive_share_link`. `data/tools.json` classifies every tool (`read`, `local`,
+  `write`, `confirm`); a test keeps the hook matcher in step with it.
+- **Read-only mode** is structural: write tools are not listed or callable, only read permissions are requested,
+  and the Graph client refuses POST/PATCH/DELETE.
+- **OpenClaw / agent package:** `python scripts/build_agent_plugin.py --out <dir>` builds a lean Agent Plugins package
+  (read-only by default, bot-facing skill with write rules). Built on demand, not committed.
+- `docs/APP_REGISTRATION.md` lists the write permissions.
+
+### Security
+- Third-party text in envelopes (subjects, sender and attendee names, locations, chat topics, previews) has control
+  and bidirectional characters and forged fence markers removed, is length-capped, and every such result carries a
+  note that it is data, never instructions.
+- `profile_remember_contact` refuses a name or alias that already belongs to a different address (a poisoned contact
+  could otherwise redirect mail); two people sharing a name need the user's explicit `allow_same_name`.
+
+### Tests
+- 54 offline Node tests (fake Microsoft) and Python checks for the hook, the package, and cross-file contracts.
+
 ## [0.1.0] - 2026-11-06
 
-First release (phase 1: read-only). Self-contained: no npm packages, no system variables, no admin rights.
+First release (read-only). Self-contained: no npm packages, no system variables, no admin rights.
 
 ### Added
 - **MCP server** (`server/index.mjs`), a minimal stdio JSON-RPC implementation on Node 18+ built-ins only.
@@ -19,12 +63,5 @@ First release (phase 1: read-only). Self-contained: no npm packages, no system v
   contacts with aliases (Arabic-aware matching), remembered Teams chats. `profile_*` tools, `/m365:init` and `/m365:profile`.
 - Message and chat text is returned fenced as untrusted data. Every Graph path is fixed per tool; there is no generic
   Graph request tool and no URL, mailbox or id-of-another-user argument. GET is retried on throttling, POST never.
-- Least-privilege scopes: only the modules enabled are requested; phase 1 asks for read permissions only.
-- `data/tools.json` classifies every tool as read, local or write (checked by tests); `docs/APP_REGISTRATION.md`
-  is the one-time admin setup.
-- Tests: 34 offline Node tests against a fake Microsoft, plus Python checks (stdio smoke test, no dependencies,
-  nothing personal baked in, manifest and MCP config in step).
-
-### Not yet (planned)
-- Write tools (draft, send, calendar, Teams) with confirmation hooks and a read-only proxy; attachment contents;
-  OneDrive; the OpenClaw package build; an events poller.
+- Least-privilege scopes: only the modules enabled are requested.
+- `data/tools.json` classifies every tool; `docs/APP_REGISTRATION.md` is the one-time admin setup.

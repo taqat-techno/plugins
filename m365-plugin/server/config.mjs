@@ -11,8 +11,8 @@ const pick = (env, ...names) => {
 };
 const bool = (v) => /^(1|true|yes|on)$/i.test(String(v ?? "").trim());
 
-export const MODULES = ["mail", "calendar", "teams", "channels", "people"];
-export const DEFAULT_MODULES = ["mail", "calendar", "teams", "people"];
+export const MODULES = ["mail", "calendar", "teams", "channels", "people", "files"];
+export const DEFAULT_MODULES = ["mail", "calendar", "teams", "people", "files"];
 
 // Delegated Microsoft Graph permissions each module needs. Read-only mode asks for these only.
 // `channels` is separate and off by default: reading channel messages needs admin consent.
@@ -23,6 +23,15 @@ export const READ_SCOPES = {
   teams: ["Chat.Read"],
   channels: ["Team.ReadBasic.All", "Channel.ReadBasic.All", "ChannelMessage.Read.All"],
   people: ["People.Read", "User.ReadBasic.All"],
+  files: ["Files.Read.All"],
+};
+
+// Added only when read-only mode is off. All are user-consentable in a default tenant.
+export const WRITE_SCOPES = {
+  mail: ["Mail.ReadWrite", "Mail.Send"],
+  calendar: ["Calendars.ReadWrite"],
+  teams: ["Chat.ReadWrite"],
+  files: ["Files.ReadWrite"],
 };
 
 export function resolveConfig(env = process.env) {
@@ -33,7 +42,11 @@ export function resolveConfig(env = process.env) {
   const scopeOverride = pick(env, "M365_SCOPES");
   const scopes = scopeOverride
     ? scopeOverride.split(/[,\s]+/).filter(Boolean)
-    : [...new Set([...READ_SCOPES.base, ...list.flatMap((m) => READ_SCOPES[m] ?? [])])];
+    : [...new Set([
+      ...READ_SCOPES.base,
+      ...list.flatMap((m) => READ_SCOPES[m] ?? []),
+      ...(readOnly ? [] : list.flatMap((m) => WRITE_SCOPES[m] ?? [])),
+    ])];
   return {
     clientId: pick(env, "M365_PLUGIN_CLIENT_ID", "M365_CLIENT_ID"),
     tenant: pick(env, "M365_PLUGIN_TENANT", "M365_TENANT") || "organizations",
