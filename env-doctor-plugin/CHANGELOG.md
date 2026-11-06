@@ -2,6 +2,21 @@
 
 All notable changes to this plugin are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.1] - 2026-11-06
+
+**Security fix: the cleanup plan id did not cover the fields the apply step uses.** Found by an
+automated security review of 0.9.0; nothing was applied.
+
+### Security
+- The plan id is now a hash of every field of every item (it covered only kind, target, size,
+  reason, action and backup), so editing `db`, `port`, `conn`, `filestore`, `dest`,
+  `depends_on`, `source` or `command` after approval is refused.
+- `emit` refuses a database item whose `db@port` does not match the target shown in the plan.
+
+### Tests
+- `tests/test_cleanup_plan.py`: edits to each hidden apply field are refused; a db/target
+  mismatch is refused even with a recomputed id.
+
 ## [0.9.0] - 2026-11-06
 
 Three new capabilities for WSL-based development, from measured pain on a real machine: services

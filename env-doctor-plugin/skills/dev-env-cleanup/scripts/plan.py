@@ -41,7 +41,6 @@ JUDGMENT_CACHES = {
     ".cache/ms-playwright-mcp": "Playwright MCP browser profile/cache; close the MCP server first",
     ".cache/odoo-src": "derived source clones; delete only after proving each is a clean clone of a source still on disk",
 }
-PLAN_FIELDS = ("kind", "target", "size_bytes", "reason", "action", "backup")
 
 
 # --------------------------------------------------------------------------- parsing
@@ -405,7 +404,10 @@ def merge_odoo(planner: Planner, odoo: dict):
 
 
 def plan_id_for(items) -> str:
-    canon = json.dumps([{k: i.get(k) for k in PLAN_FIELDS} for i in items], sort_keys=True, ensure_ascii=True)
+    # Hash every field of every item, not only the displayed ones: emit and the apply scripts
+    # also use db, port, conn, filestore, dest, depends_on, source and command, so an edit to
+    # any of them after approval must change the id.
+    canon = json.dumps(items, sort_keys=True, ensure_ascii=True, default=str)
     return "envdoc-" + hashlib.sha256(canon.encode("utf-8")).hexdigest()[:10]
 
 
@@ -475,6 +477,9 @@ def emit(plan: dict, approve: str, out_dir: str, now=None, max_age_hours=24, exc
         if i["action"] == "archive":
             lines["confs.tsv"].append(f"archive\t{i['target']}\t{i['dest']}")
         elif i["action"] == "drop" and i["kind"] == "db":
+            if i.get("target") != f"{i.get('db')}@{i.get('port')}":
+                raise SystemExit(f"refused: item {i.get('id')} drops {i.get('db')}@{i.get('port')} but shows "
+                                 f"{i.get('target')!r}; rebuild the plan")
             conn = i.get("conn", "socket")
             host, user = ("", "") if conn in ("", "socket") else tuple((conn.split(":", 2) + ["", ""])[1:3])
             lines["dbs.tsv"].append("\t".join([i["port"], i["db"], "1" if i.get("backup") else "0",

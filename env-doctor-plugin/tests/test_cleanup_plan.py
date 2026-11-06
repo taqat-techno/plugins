@@ -232,6 +232,27 @@ def test_plan_id_is_content_derived_and_emit_refuses_tampering(tmp_path):
         P.emit(plan, plan["plan_id"], str(tmp_path), now=NOW + 30 * 3600)
 
 
+@pytest.mark.parametrize("field,value", [("db", "shop"), ("port", "5999"), ("conn", "tcp:10.0.0.5:pg"),
+                                         ("filestore", "/home/u/.local/share/Odoo/filestore/shop")])
+def test_emit_refuses_edits_to_hidden_apply_fields(tmp_path, field, value):
+    # The approved id must cover the fields the apply scripts use, not only the displayed ones.
+    _, plan = build(base())
+    edited = json.loads(json.dumps(plan))
+    db = next(i for i in edited["items"] if i["kind"] == "db")
+    db[field] = value
+    with pytest.raises(SystemExit, match="edited after"):
+        P.emit(edited, plan["plan_id"], str(tmp_path), now=NOW)
+
+
+def test_emit_refuses_db_item_whose_target_disagrees(tmp_path):
+    _, plan = build(base())
+    db = next(i for i in plan["items"] if i["kind"] == "db")
+    db["db"] = "shop"
+    plan["plan_id"] = P.plan_id_for(plan["items"])  # a consistent id, but db no longer matches target
+    with pytest.raises(SystemExit, match="rebuild the plan"):
+        P.emit(plan, plan["plan_id"], str(tmp_path), now=NOW)
+
+
 def test_emit_writes_lists_and_honours_exclusions(tmp_path):
     _, plan = build(base())
     lane = by_target(plan)["shop_lane_a@5432"]
