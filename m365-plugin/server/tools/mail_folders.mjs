@@ -4,7 +4,10 @@
 import { M365Error, UNTRUSTED_FIELDS, clean, safeId, safeStr, seg } from "../util.mjs";
 
 const WELL_KNOWN = ["inbox", "archive", "sentitems"];
-const FORBIDDEN = ["deleteditems", "junkemail", "recoverableitemsdeletions", "outbox", "drafts"];
+// Refused by name. Recoverable Items live outside the visible folder root, so the id check (which must reach that root)
+// excludes them by construction; they are listed here too so their names are refused without any lookup.
+const REQUIRED_FORBIDDEN = ["deleteditems", "junkemail", "outbox", "drafts"];
+const FORBIDDEN = [...REQUIRED_FORBIDDEN, "recoverableitemsroot", "recoverableitemsdeletions", "recoverableitemspurges", "recoverableitemsversions"];
 const MAX_FOLDERS = 1000, MAX_DEPTH = 10;
 const SELECT = "id,displayName,parentFolderId,childFolderCount,unreadItemCount,totalItemCount";
 
@@ -31,19 +34,27 @@ export async function folderTree(ctx, { maxDepth = MAX_DEPTH } = {}) {
   return { folders: all, complete };
 }
 
+/** The ids of the folders that must never be destinations. Fails CLOSED: if one of them cannot be looked up, nothing
+ *  is moved, rather than checking against an incomplete list. */
 async function forbiddenIds(ctx) {
   const ids = new Set();
-  await Promise.all(FORBIDDEN.map((w) => ctx.graph.get(`/me/mailFolders/${w}?$select=id`).then((f) => f.id && ids.add(f.id), () => {})));
+  await Promise.all(REQUIRED_FORBIDDEN.map(async (w) => {
+    let f;
+    try { f = await ctx.graph.get(`/me/mailFolders/${w}?$select=id`); } catch (e) { throw checkFailed(e); }
+    if (!f?.id) throw checkFailed();
+    ids.add(f.id);
+  }));
   return ids;
 }
+const checkFailed = (e) => new M365Error("FOLDER_CHECK_FAILED", "Could not confirm the destination is not a deleting or sending folder, so nothing was moved.", { hint: `Try again in a moment${e?.code ? ` (${e.code})` : ""}.` });
 
 /** A folder by well-known name, id or path; refused if unknown, or if it is (inside) a deleting/sending folder. */
 export async function resolveFolder(ctx, spec, { purpose = "move" } = {}) {
   const s = String(spec ?? "").trim();
   if (!s) throw new M365Error("INVALID_ARGUMENT", "folder is required");
-  const bad = await forbiddenIds(ctx);
   const refuse = () => new M365Error("FOLDER_NOT_ALLOWED", `Messages cannot be ${purpose === "move" ? "moved" : "filed"} into that folder from here (Deleted Items, Junk, Recoverable Items, Outbox and Drafts are excluded).`, { hint: "To delete a message use email_delete, which asks the user." });
-  if (FORBIDDEN.includes(s.toLowerCase())) throw refuse();
+  if (FORBIDDEN.includes(s.toLowerCase())) throw refuse(); // by name: refused before any lookup
+  const bad = await forbiddenIds(ctx);
   if (WELL_KNOWN.includes(s.toLowerCase())) {
     const f = await ctx.graph.get(`/me/mailFolders/${s.toLowerCase()}?$select=${SELECT}`);
     return { id: f.id, path: clean(f.displayName, 200), well_known: s.toLowerCase() };
@@ -74,24 +85,30 @@ export async function resolveFolder(ctx, spec, { purpose = "move" } = {}) {
     }
     return { id: cur.id, path: clean(path.join("/"), 400) };
   }
-  // An id: climb to the top so a folder inside Deleted Items or Junk is caught too.
+  // An id: climb its parents. It is accepted ONLY if the climb reaches the visible folder root (msgfolderroot) within the
+  // depth limit without passing a forbidden folder. Any failed lookup, a loop, or running out of depth is a refusal, and
+  // folders outside that root (Recoverable Items and other system folders) can never qualify.
   const id = safeId(s, "folder");
+  let root;
+  try { root = (await ctx.graph.get("/me/mailFolders/msgfolderroot?$select=id")).id; } catch (e) { throw checkFailed(e); }
+  if (!root) throw checkFailed();
   let f;
   try { f = await ctx.graph.get(`/me/mailFolders/${seg(id)}?$select=${SELECT}`); }
   catch (e) { if (e.code === "NOT_FOUND") throw new M365Error("FOLDER_NOT_FOUND", "No folder with that id. Use email_list_folders."); throw e; }
+  if (f.id === root) throw refuse();
   const names = [f.displayName];
-  let cur = f;
+  const seen = new Set();
+  let cur = f, reached = false;
   for (let i = 0; i < MAX_DEPTH; i++) {
-    if (bad.has(cur.id)) throw refuse();
+    if (bad.has(cur.id) || seen.has(cur.id)) throw refuse();
+    seen.add(cur.id);
+    if (cur.parentFolderId === root) { reached = true; break; }
     if (!cur.parentFolderId) break;
-    let parent;
-    try { parent = await ctx.graph.get(`/me/mailFolders/${seg(cur.parentFolderId)}?$select=${SELECT}`); } catch { break; } // the mailbox root
-    if (!parent?.id || parent.id === cur.id) break;
-    if (bad.has(parent.id)) throw refuse();
-    if (!parent.parentFolderId || parent.displayName === "" || /^top of information store$/i.test(parent.displayName ?? "")) break;
-    names.unshift(parent.displayName);
-    cur = parent;
+    try { cur = await ctx.graph.get(`/me/mailFolders/${seg(cur.parentFolderId)}?$select=${SELECT}`); } catch { throw refuse(); }
+    if (!cur?.id) throw refuse();
+    names.unshift(cur.displayName);
   }
+  if (!reached) throw refuse();
   return { id: f.id, path: clean(names.join("/"), 400) };
 }
 

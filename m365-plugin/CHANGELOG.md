@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.6.1] - 2026-11-07
+
+### Security
+- **`email_move` / `email_create_folder` fail closed.** If one of the forbidden folders (Deleted Items, Junk, Outbox, Drafts) could
+  not be looked up, the check went on with an incomplete list; it now stops with `FOLDER_CHECK_FAILED` and moves nothing. A folder
+  given by id is accepted only if its parents reach the visible folder root (`msgfolderroot`) within the depth limit without passing
+  a forbidden folder; a failed parent lookup, a loop or running out of depth is a refusal (it used to count as "reached the top").
+  Recoverable Items and other system folders sit outside that root, so they can never qualify; their names
+  (`recoverableitemsroot`, `...deletions`, `...purges`, `...versions`) are also refused before any lookup. Verified live: every
+  ordinary folder still resolves by id, the forbidden ones and Recoverable Items are refused.
+- `teams_meeting_transcript` marks its topic and speaker names (outside the fenced transcript) as untrusted third-party data.
+
 ## [0.6.0] - 2026-11-06
 
 The last Microsoft 365 gaps Teqo still used his old tools for.

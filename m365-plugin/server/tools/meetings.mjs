@@ -142,6 +142,7 @@ export const tools = [
         total_chars: full.length, offset, returned_chars: Math.max(0, end - offset),
         ...(end < full.length ? { next_offset: end + 1, more: "Call again with offset=next_offset. Read all pages before summarising." } : { complete: true }),
         content: fence(full.slice(offset, end), "Teams meeting transcript (machine speech-to-text; names and words can be wrong)", `${t.id}:${offset}`),
+        note: `${UNTRUSTED_FIELDS} This includes topic and the speaker names in speakers_by_words.`,
       };
     },
   },

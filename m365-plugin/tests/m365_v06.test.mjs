@@ -24,7 +24,8 @@ const FOLDERS = [
   mk("A", "Archive", "ROOT", 0), mk("CI", "CI/CD", "ROOT", 1), mk("CB", "Builds", "CI", 0),
   mk("DR", "Drafts", "ROOT", 0), mk("OB", "Outbox", "ROOT", 0), mk("S", "Sales", "ROOT", 0),
 ];
-const WK = { inbox: ID("I"), deleteditems: ID("D"), junkemail: ID("J"), archive: ID("A"), drafts: ID("DR"), outbox: ID("OB") };
+FOLDERS.push(mk("RI", "Recoverable Items", "TOPMOST", 1), mk("RD", "Deletions", "RI", 0), mk("LOOP1", "Loop", "LOOP2", 0), mk("LOOP2", "Loop2", "LOOP1", 0));
+const WK = { inbox: ID("I"), deleteditems: ID("D"), junkemail: ID("J"), archive: ID("A"), drafts: ID("DR"), outbox: ID("OB"), msgfolderroot: ID("ROOT") };
 const kids = (id) => FOLDERS.filter((f) => f.parentFolderId === id);
 function folderCtx() {
   return ctxFor([TOK,
@@ -69,6 +70,23 @@ test("folders: Deleted Items, Junk, Drafts, Outbox and anything inside them are 
     await assert.rejects(call(c, "email_move", { message_id: "m1", folder: f }), (e) => e.code === "FOLDER_NOT_ALLOWED", f);
   }
   assert.equal(calls(c, "POST", /\/move$/).length, before, "no move reached Microsoft");
+});
+
+test("folders: an id is accepted only if its parents reach the visible root; everything else fails closed", async () => {
+  const c = folderCtx();
+  for (const f of [ID("RD"), ID("RI"), ID("LOOP1"), ID("ROOT"), "recoverableitemsroot", "RecoverableItemsPurges"]) {
+    await assert.rejects(call(c, "email_move", { message_id: "m1", folder: f }), (e) => e.code === "FOLDER_NOT_ALLOWED", f);
+  }
+  // a forbidden-folder lookup that fails stops the move instead of checking against an incomplete list
+  const broken = ctxFor([TOK, [/\/me\/mailFolders\/junkemail\?/, () => json({ error: { code: "ServiceUnavailable" } }, 503)], [/./, () => json({ value: [] })]]);
+  await assert.rejects(call(broken, "email_move", { message_id: "m1", folder: "Inbox/Projects" }), (e) => e.code === "FOLDER_CHECK_FAILED");
+  assert.equal(calls(broken, "POST", /\/move$/).length, 0);
+  // a parent lookup that fails mid-climb is a refusal, not "reached the top"
+  const flaky = folderCtx();
+  flaky.fetch.calls.length = 0;
+  const orig = flaky.ctx.graph.get;
+  flaky.ctx.graph.get = (p, o) => (p.includes(encodeURIComponent(ID("P"))) && p.includes("$select=id,displayName") && !p.includes("childFolders") ? Promise.reject(Object.assign(new Error("x"), { code: "GRAPH_ERROR" })) : orig(p, o));
+  await assert.rejects(call(flaky, "email_move", { message_id: "m1", folder: ID("N") }), (e) => e.code === "FOLDER_NOT_ALLOWED");
 });
 
 test("folders: create under a path; '/' in a name and parents inside Deleted Items are refused", async () => {
