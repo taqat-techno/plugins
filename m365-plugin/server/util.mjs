@@ -190,6 +190,23 @@ export function htmlToText(html) {
     .trim();
 }
 
+/** HTML to text that still shows its formatting as the same marks a draft is written with: **bold**, *italic*, __underline__,
+ *  ==highlight==, ~~strike~~, "- " bullets and "1. " numbered items. Used for draft previews, so the person sees exactly which
+ *  words are formatted (in a draft the plugin built, or one edited in Outlook). */
+export function htmlToMarkedText(html) {
+  let s = String(html ?? "").replace(/<(script|style)[\s\S]*?<\/\1>/gi, "");
+  s = s.replace(/<ol\b[^>]*>([\s\S]*?)<\/ol>/gi, (_, inner) => { let n = 0; return inner.replace(/<li\b[^>]*>/gi, () => `${++n}. `) + "\n"; });
+  s = s.replace(/<li\b[^>]*>/gi, "- ").replace(/<\/ul>/gi, "\n");
+  s = s.replace(/<(b|strong)\b[^>]*>([\s\S]*?)<\/\1>/gi, "**$2**")
+    .replace(/<(i|em)\b[^>]*>([\s\S]*?)<\/\1>/gi, "*$2*")
+    .replace(/<u\b[^>]*>([\s\S]*?)<\/u>/gi, "__$1__")
+    .replace(/<(s|strike|del)\b[^>]*>([\s\S]*?)<\/\1>/gi, "~~$2~~")
+    .replace(/<span\b[^>]*\bbackground(?:-color)?\s*:\s*(?!\s*(?:transparent|white|#fff\b|#ffffff\b))[^>]*>([^<]*)<\/span>/gi, "==$1==")
+    .replace(/<mark\b[^>]*>([^<]*)<\/mark>/gi, "==$1==")
+    .replace(/<\/p>/gi, "</p>\n");
+  return htmlToText(s);
+}
+
 export function truncate(text, max) {
   const s = String(text ?? "");
   return s.length > max ? { text: s.slice(0, max), truncated: true } : { text: s, truncated: false };

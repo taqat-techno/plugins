@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.8.0] - 2026-11-08
+
+### Added
+- **Formatted emails.** Draft, reply and forward text can use `**bold**`, `*italic*`, `__underline__`, `==highlight==`
+  (yellow), `~~strike~~`, and lines starting `- ` (bullets) or `1. ` (numbered list). The plugin turns only these marks
+  into fixed HTML tags, on fully escaped text, so the model still never writes HTML and no link, image, colour or hidden
+  text can come from it. Works with or without a signature file; text without marks stays a plain-text email as before.
+  A mark inside a word (`a==b`, `snake__case__x`, `2*3*4`) is left as typed.
+- The preview shows the same marks (also for `<b>`, `<strong>`, `<em>`, `<u>`, `<s>`, highlights and lists in a draft
+  edited in Outlook), so the person sees exactly which words are formatted. `email_create_*` answers `formatted`.
+
+### Changed
+- `email_create_draft` answers `signature` as whether the user's signature was added (it used to mean "the body is HTML").
+
 ## [0.7.2] - 2026-11-08
 
 ### Security

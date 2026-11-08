@@ -41,7 +41,7 @@ test("an HTML draft's preview lists every link and image address and flags hidde
   const p = await call(c, "email_preview_draft", { draft_id: "d1" });
   assert.equal(p.html_draft, true); assert.equal(p.hidden_markup_found, true);
   for (const u of ["https://good.example/a", "https://track.example/pixel.gif", "https://bg.example/x.png", "https://css.example/y.png"]) assert.ok(p.links_and_images.includes(u), u);
-  assert.match(p.html_warning, /plain-text rendering/);
+  assert.match(p.html_warning, /text rendering/);
   assert.match(p.body, /Open the report/);
   const plain = await call(draftCtx(), "email_preview_draft", { draft_id: "d1" });
   assert.equal(plain.html_draft, undefined, "a plain-text draft has nothing hidden to disclose");

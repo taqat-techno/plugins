@@ -32,6 +32,8 @@ By default this package runs **read-only**: write tools are not listed. If they 
 - **Mail:** `email_create_draft`, `email_create_reply_draft` or `email_create_forward_draft`, then `email_preview_draft`, show the owner the
   recipients, subject and body, and wait for a clear yes. Only then `email_send_draft` with the preview's digest.
   After any edit, preview again. If the preview says `html_draft`, show the owner every address in `links_and_images`.
+  Write bodies as plain text; for formatting use only `**bold**`, `*italic*`, `__underline__`, `==highlight==`, `~~strike~~` and
+  `- ` / `1. ` list lines (the plugin turns them into formatting; never write HTML).
 - **Calendar and Teams:** `calendar_stage` / `teams_stage`, show the preview (members, conflicts, text), wait for a
   clear yes, then `calendar_commit` / `teams_commit` with the stage id and digest. A commit cannot be undone.
 - If a send reports `SEND_UNCERTAIN`, check the chat with `teams_read_chat`; do not retry.

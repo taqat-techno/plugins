@@ -3,10 +3,12 @@
 //   email_preview_draft                            -> exactly what will be sent, plus a digest
 //   email_send_draft(draft_id, digest)             -> refuses unless the draft is unchanged since that preview
 // Recipients must be email addresses (resolve names with people_resolve); nothing is guessed from a name.
-import { EMAIL_RE, M365Error, clean, decodeEntities, fence, htmlToText, safeId, safeStr, seg, truncate } from "../util.mjs";
+import { EMAIL_RE, M365Error, clean, decodeEntities, fence, htmlToMarkedText, safeId, safeStr, seg, truncate } from "../util.mjs";
 import { digestOf } from "../staging.mjs";
 import { allowedFile, attachBytes, readAllowed, contentTypeOf } from "../attach.mjs";
-import { composeHtml, loadSignature, prependToReply } from "../signature.mjs";
+import { composeHtml, formatText, loadSignature, prependToReply } from "../signature.mjs";
+
+const FORMAT_HELP = "Plain text; never HTML. Formatting marks the plugin turns into real formatting: **bold**, *italic*, __underline__, ==highlight==, ~~strike~~, and lines starting \"- \" (bullets) or \"1. \" (numbered). Blank line = new paragraph. No links, colours or fonts.";
 
 const FLAGS = { flagged: "flagged", complete: "complete", none: "notFlagged" };
 const DRAFT_SELECT = "id,subject,toRecipients,ccRecipients,bccRecipients,body,hasAttachments,isDraft,conversationId";
@@ -97,8 +99,14 @@ function bodyOf(a, ctx, field = "body") {
   if (a.body_format !== undefined && String(a.body_format).toLowerCase() !== "text") throw new M365Error("INVALID_ARGUMENT", "only plain-text bodies are supported (body_format must be text); the plugin adds the user's HTML signature itself");
   const text = safeBody(a[field]);
   const sig = wantsSignature(a, ctx) ? loadSignature(ctx.cfg) : null;
-  return sig ? { body: { contentType: "HTML", content: composeHtml(text, sig) }, images: sig.images } : { body: { contentType: "Text", content: text }, images: [] };
+  // HTML only when needed (a signature, or a formatting mark the plugin turns into a fixed tag); otherwise plain text.
+  return sig || formatText(text).formatted
+    ? { body: { contentType: "HTML", content: composeHtml(text, sig) }, images: sig?.images ?? [] }
+    : { body: { contentType: "Text", content: text }, images: [] };
 }
+
+/** Whether a reply/forward note needs the plugin-built HTML path (a signature or formatting marks). */
+const richNote = (a, ctx, text) => wantsSignature(a, ctx) || formatText(safeBody(text)).formatted;
 
 /** Attach the signature's images inline, skipping any the draft already has (an update re-builds the body). */
 async function attachSignatureImages(ctx, draftId, images) {
@@ -109,12 +117,12 @@ async function attachSignatureImages(ctx, draftId, images) {
 }
 
 /** A reply or forward with the signature: Outlook builds the quoted original, then our text and signature go on top. */
-async function topOfReply(ctx, draftId, text) {
-  const sig = loadSignature(ctx.cfg);
+async function topOfReply(ctx, draftId, text, a) {
+  const sig = wantsSignature(a, ctx) ? loadSignature(ctx.cfg) : null;
   const d = await ctx.graph.get(`/me/messages/${seg(draftId)}?$select=body`);
   const existing = (d.body?.contentType ?? "").toLowerCase() === "html" ? d.body.content : `<html><body><pre>${String(d.body?.content ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;")}</pre></body></html>`;
   await ctx.graph.patch(`/me/messages/${seg(draftId)}`, { body: { contentType: "HTML", content: prependToReply(existing, safeBody(text), sig) } });
-  await attachSignatureImages(ctx, draftId, sig.images);
+  await attachSignatureImages(ctx, draftId, sig?.images ?? []);
 }
 function safeBody(v) {
   const s = String(v ?? "");
@@ -144,7 +152,7 @@ const draftDigest = (m, atts) => digestOf({
 const draftProps = {
   to: { type: "array", items: { type: "string" }, description: "Recipient email addresses." },
   cc: { type: "array", items: { type: "string" } }, bcc: { type: "array", items: { type: "string" } },
-  subject: { type: "string" }, body: { type: "string", description: "Plain text. **like this** is shown in bold when the user's signature (HTML) is used." },
+  subject: { type: "string" }, body: { type: "string", description: FORMAT_HELP },
   signature: { type: "boolean", description: "Add the user's email signature (default true when they set a signature file; false to leave it out)." },
 };
 
@@ -160,21 +168,21 @@ export const tools = [
       const { body, images } = bodyOf(a, ctx);
       const m = await ctx.graph.post("/me/messages", { subject, body, toRecipients: to, ccRecipients: rcpts(a.cc, "cc"), bccRecipients: rcpts(a.bcc, "bcc") });
       await attachSignatureImages(ctx, m.id, images);
-      return { draft_id: m.id, created: true, signature: images.length > 0 || body.contentType === "HTML", next_step: "Call email_preview_draft with this draft_id and show the user the preview before sending." };
+      return { draft_id: m.id, created: true, signature: wantsSignature(a, ctx), formatted: formatText(safeBody(a.body)).formatted, next_step: "Call email_preview_draft with this draft_id and show the user the preview before sending." };
     },
   },
   {
     name: "email_create_reply_draft", kind: "write", module: "mail",
     description: "Create a reply (or reply-all) to a message as a DRAFT, with your text above the quoted original. Nothing is sent. Use email_preview_draft next, show the user, and send only after approval.",
     inputSchema: { type: "object", properties: {
-      message_id: { type: "string" }, comment: { type: "string", description: "Your reply text (plain text)." },
+      message_id: { type: "string" }, comment: { type: "string", description: `Your reply text. ${FORMAT_HELP}` },
       reply_all: { type: "boolean", description: "Reply to everyone on the message. Default false." }, signature: draftProps.signature }, required: ["message_id", "comment"] },
     async handler(a, ctx) {
       const id = safeId(a.message_id, "message_id");
-      const sig = wantsSignature(a, ctx);
-      const m = await ctx.graph.post(`/me/messages/${seg(id)}/${a.reply_all ? "createReplyAll" : "createReply"}`, sig ? {} : { comment: safeBody(a.comment) });
-      if (sig) await topOfReply(ctx, m.id, a.comment);
-      return { draft_id: m.id, created: true, reply_all: !!a.reply_all, signature: sig, next_step: "Call email_preview_draft with this draft_id and show the user the preview before sending." };
+      const sig = wantsSignature(a, ctx), rich = richNote(a, ctx, a.comment);
+      const m = await ctx.graph.post(`/me/messages/${seg(id)}/${a.reply_all ? "createReplyAll" : "createReply"}`, rich ? {} : { comment: safeBody(a.comment) });
+      if (rich) await topOfReply(ctx, m.id, a.comment, a);
+      return { draft_id: m.id, created: true, reply_all: !!a.reply_all, signature: sig, formatted: rich && formatText(safeBody(a.comment)).formatted, next_step: "Call email_preview_draft with this draft_id and show the user the preview before sending." };
     },
   },
   {
@@ -182,16 +190,16 @@ export const tools = [
     description: "Create a forward of a message as a DRAFT, with your note above the original and its attachments kept. Nothing is sent. Recipients must be email addresses (resolve names with people_resolve first). Then email_preview_draft, show the user, and send only after approval.",
     inputSchema: { type: "object", properties: {
       message_id: { type: "string" }, to: draftProps.to, cc: draftProps.cc,
-      comment: { type: "string", description: "Your note above the forwarded message (plain text)." }, signature: draftProps.signature }, required: ["message_id", "to"] },
+      comment: { type: "string", description: `Your note above the forwarded message. ${FORMAT_HELP}` }, signature: draftProps.signature }, required: ["message_id", "to"] },
     async handler(a, ctx) {
       const id = safeId(a.message_id, "message_id");
       const to = rcpts(a.to, "to");
       if (!to.length) throw new M365Error("INVALID_ARGUMENT", "to needs at least one email address");
       const cc = rcpts(a.cc, "cc");
-      const sig = wantsSignature(a, ctx);
-      const m = await ctx.graph.post(`/me/messages/${seg(id)}/createForward`, { ...(sig ? {} : { comment: safeBody(a.comment) }), toRecipients: to, ...(cc.length ? { ccRecipients: cc } : {}) });
-      if (sig) await topOfReply(ctx, m.id, a.comment ?? "");
-      return { draft_id: m.id, created: true, forward: true, signature: sig, next_step: "Call email_preview_draft with this draft_id and show the user the preview (including has_attachments) before sending." };
+      const sig = wantsSignature(a, ctx), rich = richNote(a, ctx, a.comment);
+      const m = await ctx.graph.post(`/me/messages/${seg(id)}/createForward`, { ...(rich ? {} : { comment: safeBody(a.comment) }), toRecipients: to, ...(cc.length ? { ccRecipients: cc } : {}) });
+      if (rich) await topOfReply(ctx, m.id, a.comment ?? "", a);
+      return { draft_id: m.id, created: true, forward: true, signature: sig, formatted: rich && formatText(safeBody(a.comment)).formatted, next_step: "Call email_preview_draft with this draft_id and show the user the preview (including has_attachments) before sending." };
     },
   },
   {
@@ -225,7 +233,7 @@ export const tools = [
       ctx.staging.setPreview(id, digest);
       const html = (m.body?.contentType ?? "").toLowerCase() === "html";
       const raw = String(m.body?.content ?? "");
-      const { text, truncated } = truncate(html ? htmlToText(raw) : raw, MAX_PREVIEW);
+      const { text, truncated } = truncate(html ? htmlToMarkedText(raw) : raw, MAX_PREVIEW);
       // A reply or a draft edited in Outlook is HTML: the text below is only a rendering of it, so say what else is in it.
       const all = html ? extractLinks(raw) : [];
       const links = all.slice(0, MAX_LINKS);
@@ -237,7 +245,7 @@ export const tools = [
         inline_images: atts.filter((x) => x.inline).map((x) => x.name),
         body: fence(text, "draft body (may quote other people)", id), body_truncated: truncated,
         ...(html ? { html_draft: true, links_and_images: links, link_count: all.length, links_truncated: all.length > MAX_LINKS, hidden_markup_found: hidden,
-          html_warning: "This draft is HTML; the body above is a plain-text rendering. Show the user every link and image address listed and say if hidden_markup_found is true." } : {}),
+          html_warning: "This draft is HTML; the body above is a text rendering in which **bold**, *italic*, __underline__, ==highlight==, ~~strike~~ and list marks show the formatting. Show the user every link and image address listed and say if hidden_markup_found is true." } : {}),
         digest,
         next_step: truncated || all.length > MAX_LINKS
           ? "This draft is too long or has too many links to preview in full, so it cannot be sent from here. Shorten it or send it from Outlook."
@@ -276,7 +284,7 @@ export const tools = [
       if (now !== prev.digest) throw new M365Error("DRAFT_CHANGED", "The draft changed after it was previewed (for example in Outlook). Preview it again and show the user.");
       if (!addrs(m.toRecipients).length && !addrs(m.ccRecipients).length && !addrs(m.bccRecipients).length) throw new M365Error("NO_RECIPIENT", "The draft has no recipient.");
       const isHtml = (m.body?.contentType ?? "").toLowerCase() === "html";
-      const full = isHtml ? htmlToText(m.body?.content) : String(m.body?.content ?? "");
+      const full = isHtml ? htmlToMarkedText(m.body?.content) : String(m.body?.content ?? "");
       if (full.length > MAX_PREVIEW) throw new M365Error("PREVIEW_TRUNCATED", "The body is longer than what a preview can show in full, so it cannot be sent from here.", { hint: "Shorten the draft, or send it from Outlook." });
       if (isHtml && extractLinks(String(m.body?.content ?? "")).length > MAX_LINKS) throw new M365Error("PREVIEW_TRUNCATED", `The draft has more than ${MAX_LINKS} links or images, more than a preview can list in full, so it cannot be sent from here.`, { hint: "Shorten the draft, or send it from Outlook." });
       if (!m.hasAttachments && !a.confirm_no_attachment) {

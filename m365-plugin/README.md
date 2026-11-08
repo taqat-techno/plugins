@@ -123,8 +123,10 @@ before every send, because the confirmation hook is a Claude Code feature. `data
   another user's id. POST, PATCH and DELETE are never retried.
 - In Claude Code a hook asks you before `email_send_draft`, `email_discard_draft`, `calendar_commit`, `teams_commit`,
   `email_delete` and `onedrive_share_link`; if the hook script or Python is missing it asks too (it fails closed).
-  The server enforces the preview and digest either way. Drafts the plugin creates are plain text; for an HTML draft
-  (a reply) the preview lists every link and image address and flags hidden markup.
+  The server enforces the preview and digest either way. The model writes drafts as plain text, never HTML; the plugin itself turns
+  a fixed set of marks (`**bold**`, `*italic*`, `__underline__`, `==highlight==`, `~~strike~~`, `- ` and `1. ` lists) into
+  formatting, on escaped text, so no link, image or hidden text can come from the model. The preview shows the same marks;
+  for any HTML draft (a reply, or one edited in Outlook) it also lists every link and image address and flags hidden markup.
 - Read-only mode removes the write tools, never requests write permissions, and the Graph client refuses writes.
 - Colleagues' calendars are reduced to free/busy in code; meeting titles are discarded before the model sees them.
 - No token is returned to a tool caller or written into an error message. The refresh token file lives in your profile

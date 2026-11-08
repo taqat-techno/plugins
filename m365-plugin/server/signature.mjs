@@ -1,8 +1,8 @@
 // signature.mjs - HTML drafts the plugin builds itself, never HTML a model wrote.
 //
 // The model always writes plain text. When the user has set a signature file (M365_SIGNATURE_FILE, an HTML file only the
-// person can choose), drafts become HTML: the text is escaped (only **bold** is turned into <b>), paragraphs and line
-// breaks are kept, and the user's own signature follows. Images the signature references by a plain file name next to
+// person can choose), or when the text uses one of the formatting marks below, drafts become HTML: the text is escaped,
+// only those marks become fixed tags, paragraphs and line breaks are kept, and the user's own signature (if any) follows. Images the signature references by a plain file name next to
 // the signature file (src="logo.png") are attached inline, so they show without loading anything from the internet.
 // The preview still lists every link and image address of the result.
 import { existsSync, readFileSync, statSync } from "node:fs";
@@ -16,13 +16,56 @@ const UNSAFE = /<\s*(script|iframe|object|embed|form|input|button|meta|link|base
 
 const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
-/** Plain text to safe HTML: everything escaped; **bold** becomes <b>; blank lines are paragraphs. */
-export function textToHtml(text) {
-  return String(text ?? "").replace(/\r\n?/g, "\n").split(/\n{2,}/).map((para) => {
-    const inner = esc(para).replace(/\*\*([^*\n]+?)\*\*/g, "<b>$1</b>").replace(/\n/g, "<br>");
-    return `<p style="margin:0 0 10px 0">${inner}</p>`;
-  }).join("");
+// The only formatting a draft can carry: a fixed set of plain-text marks, each turned into one fixed tag AFTER the text
+// is escaped. No link, image, colour or style can be written by the model; the marks are visible in the preview too.
+//   **bold**  *italic*  __underline__  ==highlight==  ~~strike~~   lines "- item" / "* item"  "1. item"
+// A mark must sit against a word on both inner sides and not inside a word (so a==b, snake__case__x, 2*3*4 stay as typed).
+const HIGHLIGHT = '<span style="background-color:#ffff00;mso-highlight:yellow">';
+const INLINE = [
+  [/(^|[^\w*])\*\*(?=\S)([^*\n]*?\S)\*\*(?![\w*])/g, "$1<b>$2</b>"],
+  [/(^|[^\w_])__(?=\S)([^_\n]*?\S)__(?![\w_])/g, "$1<u>$2</u>"],
+  [/(^|[^\w=])==(?=\S)([^=\n]*?\S)==(?![\w=])/g, `$1${HIGHLIGHT}$2</span>`],
+  [/(^|[^\w~])~~(?=\S)([^~\n]*?\S)~~(?![\w~])/g, "$1<s>$2</s>"],
+  [/(^|[^\w*])\*(?=[^\s*])([^*\n]*?[^\s*])\*(?![\w*])/g, "$1<i>$2</i>"],
+];
+const BULLET = /^\s*[-*•]\s+(.+)$/, NUMBERED = /^\s*\d{1,3}[.)]\s+(.+)$/;
+const P = '<p style="margin:0 0 10px 0">';
+
+function inline(line) {
+  let s = esc(line);
+  for (const [re, to] of INLINE) s = s.replace(re, to);
+  return s;
 }
+
+/** Plain text to safe HTML. Returns { html, formatted }: formatted is true when any mark or list was used. */
+export function formatText(text) {
+  let formatted = false;
+  const out = [];
+  for (const block of String(text ?? "").replace(/\r\n?/g, "\n").split(/\n{2,}/)) {
+    let lines = [], list = null, items = [];
+    const flushLines = () => { if (lines.length) out.push(`${P}${lines.join("<br>")}</p>`); lines = []; };
+    const flushList = () => { if (items.length) out.push(`<${list} style="margin:0 0 10px 0">${items.map((i) => `<li>${i}</li>`).join("")}</${list}>`); items = []; list = null; };
+    for (const line of block.split("\n")) {
+      const b = BULLET.exec(line), n = b ? null : NUMBERED.exec(line);
+      const kind = b ? "ul" : n ? "ol" : null;
+      if (kind) {
+        flushLines();
+        if (list !== kind) flushList();
+        list = kind; formatted = true;
+        items.push(inline((b ?? n)[1]));
+      } else {
+        flushList();
+        lines.push(inline(line));
+      }
+    }
+    flushLines(); flushList();
+  }
+  const html = out.join("");
+  if (!formatted) formatted = /<(b|i|u|s)>|<span style="background-color/.test(html);
+  return { html, formatted };
+}
+
+export const textToHtml = (text) => formatText(text).html;
 
 /** The user's signature, checked, with its local images. null when no signature file is set. */
 export function loadSignature(cfg) {
