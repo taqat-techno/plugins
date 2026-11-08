@@ -2,7 +2,8 @@
 // under <home>/chat-files). Run: node --test tests/
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { mkdirSync, mkdtempSync, symlinkSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { ctxFor, call, json, TOK } from "./_helpers.mjs";
@@ -55,9 +56,53 @@ test("folders (the default, and what a bot gets): outside files still refused; p
   const d = dir(); writeFileSync(join(d, "x.txt"), "hello");
   await assert.rejects(call(c, "email_add_attachment", { draft_id: "d1", path: join(d, "x.txt") }), (e) => e.code === "ATTACH_NOT_CONFIGURED" && /attach-scope anywhere/.test(e.hint));
   const chat = join(c.home, "chat-files", "sess1"); mkdirSync(chat, { recursive: true });
-  writeFileSync(join(chat, "pasted-abc.png"), Buffer.from("89504e470d0a1a0a0000", "hex"));
-  const r = await call(c, "email_add_attachment", { draft_id: "d1", path: join(chat, "pasted-abc.png"), name: "screenshot-1.png" });
+  const png = Buffer.from("89504e470d0a1a0a0000000d49484452", "hex");
+  const good = join(chat, `pasted-${sha16(png)}.png`);
+  writeFileSync(good, png);
+  const r = await call(c, "email_add_attachment", { draft_id: "d1", path: good, name: "screenshot-1.png" });
   assert.equal(r.attached, true); assert.equal(r.name, "screenshot-1.png");
+});
+
+const sha16 = (b) => createHash("sha256").update(b).digest("hex").slice(0, 16);
+
+test("0.7.1: chat-files accepts only files exactly as the hook writes them, in both modes", async () => {
+  for (const scope of [undefined, "anywhere"]) {
+    const c = attachCtx(scope ? { M365_ATTACH_SCOPE: scope } : {});
+    const chat = join(c.home, "chat-files", "s"); mkdirSync(chat, { recursive: true });
+    const png = Buffer.from("89504e470d0a1a0a00000000", "hex");
+    const planted = [
+      ["notes.txt", Buffer.from("secret data")],                       // not the hook's name
+      ["pasted-0123456789abcdef.png", png],                            // name is not its own hash
+      [`pasted-${sha16(Buffer.from("hello"))}.png`, Buffer.from("hello")], // hash fits but it is no image
+    ];
+    for (const [n, b] of planted) {
+      writeFileSync(join(chat, n), b);
+      await assert.rejects(call(c, "email_add_attachment", { draft_id: "d1", path: join(chat, n) }), (e) => ["PATH_NOT_ALLOWED", "ATTACH_NOT_CONFIGURED"].includes(e.code), `${scope} ${n}`);
+    }
+    assert.equal(c.state.atts.length, 0);
+  }
+});
+
+test("0.7.1: more secret files are refused, and ~/.claude only at the home root", async () => {
+  const d = dir();
+  const c = attachCtx({ M365_ATTACH_SCOPE: "anywhere" });
+  for (const n of [".credentials.json", ".git-credentials", ".netrc", "_netrc", ".npmrc", ".pypirc", "msal_token_cache.json", "msal_token_cache.bin"]) {
+    writeFileSync(join(d, n), "x");
+    await assert.rejects(call(c, "email_add_attachment", { draft_id: "d1", path: join(d, n) }), (e) => e.code === "PATH_NOT_ALLOWED", n);
+  }
+  await assert.rejects(call(c, "email_add_attachment", { draft_id: "d1", path: join(homedir(), ".claude", "settings.json") }), (e) => e.code === "PATH_NOT_ALLOWED");
+  mkdirSync(join(d, "proj", ".claude", "docs"), { recursive: true });
+  writeFileSync(join(d, "proj", ".claude", "docs", "report.md"), "# ok");
+  const r = await call(c, "email_add_attachment", { draft_id: "d1", path: join(d, "proj", ".claude", "docs", "report.md") });
+  assert.equal(r.attached, true);
+});
+
+test("0.7.1: a link into a secret folder is judged by where it points", { skip: false }, async (t) => {
+  const d = dir();
+  const sshLike = join(d, ".ssh"); mkdirSync(sshLike); writeFileSync(join(sshLike, "config"), "x");
+  try { symlinkSync(sshLike, join(d, "innocent"), "junction"); } catch { t.skip("cannot create a link here"); return; }
+  const c = attachCtx({ M365_ATTACH_SCOPE: "anywhere" });
+  await assert.rejects(call(c, "email_add_attachment", { draft_id: "d1", path: join(d, "innocent", "config") }), (e) => e.code === "PATH_NOT_ALLOWED");
 });
 
 test("chat_image without the hook's saved path explains instead of failing obscurely", async () => {

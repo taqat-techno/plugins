@@ -3,11 +3,13 @@
 // Which files can be attached is the PERSON's choice (attach_scope, attach_dirs: plugin settings or `cli.mjs setup`):
 //   folders  (default; what a bot gets) only files under attach_dirs.
 //   anywhere (the Claude Code plugin's default) any local file except keys, tokens and sign-in folders. Every attach is
-//            then shown to the human with its full path first (hooks/pre_write_confirm.py asks), so injected text cannot
-//            quietly mail out a file.
-// Images the user pasted into the chat are saved by that hook under <home>/chat-files and are allowed in both modes.
-// The checks use the file's real path (symbolic links and '..' resolved) as well as the text of the path. Up to 3 MB goes in one request; larger
-// files (up to MAX_BYTES) use an Outlook upload session.
+//            then shown to the human with its full real path first (hooks/pre_write_confirm.py asks), so injected text
+//            cannot quietly mail out a file.
+// Images the user pasted into the chat are saved by that hook under <home>/chat-files and are allowed in both modes, but
+// only files exactly as the hook writes them (name = their own hash, real image bytes): anything else put there is refused.
+// The checks use the file's real path (links, junctions, '..' and 8.3 short names resolved) as well as the text of the
+// path. Up to 3 MB goes in one request; larger files (up to MAX_BYTES) use an Outlook upload session.
+import { createHash } from "node:crypto";
 import { readFileSync, realpathSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import { basename, extname, isAbsolute, join, relative, resolve, sep } from "node:path";
@@ -26,42 +28,72 @@ const TYPES = {
 };
 export const contentTypeOf = (name) => TYPES[extname(String(name)).toLowerCase()] ?? "application/octet-stream";
 
+// Paths are compared case-insensitively where the file system usually is (Windows, macOS).
+const fold = (s) => (process.platform === "win32" || process.platform === "darwin" ? s.toLowerCase() : s);
+const norm = (s) => fold(s).replace(/\\/g, "/").replace(/\/$/, "");
+// The native realpath expands 8.3 short names (C:\Users\LONGNA~1) and returns the on-disk spelling; the JS one does not.
+const realOf = (p) => (realpathSync.native ?? realpathSync)(p);
+const realOrSelf = (p) => { try { return realOf(p); } catch { return resolve(p); } };
+
 const inside = (root, real) => {
   const rel = relative(root, real);
   return rel !== "" && !rel.startsWith("..") && !isAbsolute(rel) && !rel.split(sep).includes("..");
 };
 
-/** The real path and size of a file the user allowed, or a clear refusal. */
 /** Where the Claude Code hook saves images the user pasted into the chat (one folder per session). */
 export const chatFilesDir = (cfg) => join(cfg.home, "chat-files");
 
 // Never attachable, even in "anywhere" mode: folders that hold keys, tokens and sign-ins, and files that look like them.
-const SECRET_DIRS = [".ssh", ".gnupg", ".aws", ".azure", ".kube", ".docker", ".config/gcloud", "credentials", "secrets",
-  "appdata/roaming/microsoft/credentials", "appdata/roaming/microsoft/protect", "appdata/local/microsoft/credentials"];
-const SECRET_FILE = /^(\.env(\..*)?|id_(rsa|dsa|ecdsa|ed25519)(\.pub)?|credentials(\.json)?|token-cache\.json|.*\.(pem|key|pfx|p12|kdbx|ppk|jks|keystore|asc))$/i;
+// ANY_DIRS are refused wherever they appear in a path; HOME_DIRS only directly under the user's home (a project's own
+// .claude/docs folder stays attachable; ~/.claude, with transcripts and settings, does not).
+const ANY_DIRS = [".ssh", ".gnupg", ".aws", ".azure", ".kube", ".docker", "credentials", "secrets", ".password-store"];
+const HOME_DIRS = [".claude", ".config", ".mozilla", ".local/share/keyrings", "library/keychains",
+  "library/application support/google/chrome", "library/application support/firefox", "library/application support/microsoft edge",
+  "appdata/roaming/microsoft/credentials", "appdata/roaming/microsoft/protect", "appdata/local/microsoft/credentials",
+  "appdata/local/google/chrome/user data", "appdata/local/microsoft/edge/user data", "appdata/roaming/mozilla/firefox/profiles",
+  "appdata/local/bravesoftware/brave-browser/user data"];
+const SECRET_FILE = /^(\.env(\..*)?|id_(rsa|dsa|ecdsa|ed25519)(\.pub)?|\.?credentials(\.json)?|\.git-credentials|[._]netrc|\.npmrc|\.pypirc|\.htpasswd|(msal_)?token[-_]cache(\.json|\.bin)?|.*\.(pem|key|pfx|p12|kdbx|ppk|jks|keystore|asc))$/i;
 
-function secret(cfg, p, fold) {
-  const f = fold(p).replace(/\\/g, "/");
-  const home = fold(homedir()).replace(/\\/g, "/").replace(/\/$/, "");
-  if (SECRET_DIRS.some((d) => f.startsWith(`${home}/${d}/`) || f.includes(`/${d}/`))) return true;
+function secret(cfg, p) {
+  const f = norm(p);
+  const home = norm(homedir());
+  if (ANY_DIRS.some((d) => f.startsWith(`${home}/${d}/`) || f.includes(`/${d}/`))) return true;
+  if (HOME_DIRS.some((d) => f.startsWith(`${home}/${d}/`))) return true;
   // the plugin's own folder (sign-in cache, settings) except the pasted images it saved
-  const own = fold(cfg.home).replace(/\\/g, "/").replace(/\/$/, "");
+  const own = norm(cfg.home);
   if (f.startsWith(`${own}/`) && !f.startsWith(`${own}/chat-files/`)) return true;
-  for (const c of [cfg.refreshTokenFile, cfg.clientSecretFile].filter(Boolean)) if (fold(resolve(c)).replace(/\\/g, "/") === f) return true;
+  for (const c of [cfg.refreshTokenFile, cfg.clientSecretFile].filter(Boolean)) if (norm(resolve(c)) === f) return true;
   return SECRET_FILE.test(basename(p));
 }
 
+// A file in chat-files counts as a pasted image only if it is exactly what the hook writes:
+// chat-files/<session>/pasted-<first 16 hex of its own sha256>.<ext>, starting with that image type's magic bytes.
+const MAGIC = { png: [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a], jpg: [0xff, 0xd8, 0xff], gif: [0x47, 0x49, 0x46, 0x38], webp: [0x52, 0x49, 0x46, 0x46] };
+function hookSaved(cfg, real) {
+  const base = norm(realOrSelf(chatFilesDir(cfg)));
+  const f = norm(real);
+  if (!f.startsWith(`${base}/`)) return false;
+  const m = /^[a-z0-9_-]{1,64}\/pasted-([0-9a-f]{16})\.(png|jpg|gif|webp)$/i.exec(f.slice(base.length + 1));
+  if (!m) return false;
+  let bytes;
+  try { if (statSync(real).size > MAX_BYTES) return false; bytes = readFileSync(real); } catch { return false; }
+  const ext = m[2].toLowerCase();
+  if (!MAGIC[ext].every((b, i) => bytes[i] === b)) return false;
+  if (ext === "webp" && bytes.subarray(8, 12).toString("latin1") !== "WEBP") return false;
+  return createHash("sha256").update(bytes).digest("hex").slice(0, 16) === m[1].toLowerCase();
+}
+
+/** The real path and size of a file the user allowed, or a clear refusal. */
 export function allowedFile(cfg, path) {
   const anywhere = cfg.attachScope === "anywhere";
-  const roots = [...(cfg.attachDirs ?? []), chatFilesDir(cfg)];
+  const dirs = cfg.attachDirs ?? [];
   const p = String(path ?? "").trim();
   if (!p || !isAbsolute(p)) throw new M365Error("INVALID_ARGUMENT", "path must be an absolute file path");
-  const refuse = () => (!anywhere && !(cfg.attachDirs ?? []).length)
+  const refuse = () => (!anywhere && !dirs.length)
     ? new M365Error("ATTACH_NOT_CONFIGURED", "No folder is allowed for attachments yet.", {
       hint: "Only the user can choose: the plugin setting 'Files that may be attached' (anywhere) or 'Folders files may be attached from', or in their own terminal: node server/cli.mjs setup --attach-scope anywhere. Images pasted into the chat can be attached with chat_image. Never copy a file somewhere else to get around this." })
     : new M365Error("PATH_NOT_ALLOWED", anywhere ? "That file looks like a key, token or sign-in, so it is never attached." : "That file is outside the folders the user allowed for attachments.",
       { hint: anywhere ? "Do not try another way to send it." : "Ask the user to put the file in an allowed folder, or to change the setting themselves." });
-  const fold = (s) => (process.platform === "win32" ? s.toLowerCase() : s);
   // 1) Text only, before ANY file-system call: on Windows even resolving \\host\share\x makes the machine connect to that
   //    host and offer its login (an NTLM leak). Network, device and extended-length paths, drive-relative forms and
   //    alternate data streams (a ':' after the drive) are refused, and the path must lie inside an allowed folder.
@@ -69,12 +101,17 @@ export function allowedFile(cfg, path) {
     throw new M365Error("PATH_NOT_ALLOWED", "Network, device and stream paths cannot be attached.", { hint: "Copy nothing; ask the user for a local file." });
   }
   const lexical = resolve(p);
-  const okLexical = anywhere ? !secret(cfg, lexical, fold) : roots.some((r) => inside(fold(resolve(r)), fold(lexical)));
+  const inChat = inside(fold(resolve(chatFilesDir(cfg))), fold(lexical));
+  const okLexical = anywhere ? !secret(cfg, lexical) : (inChat || dirs.some((r) => inside(fold(resolve(r)), fold(lexical))));
   if (!okLexical) throw refuse();
-  // 2) Only now touch the disk, and check the real path (links resolved) as well.
+  // 2) Only now touch the disk, and check the real path as well.
   let real;
-  try { real = realpathSync(lexical); } catch { throw new M365Error("NOT_FOUND", "No such file."); }
-  const ok = anywhere ? !secret(cfg, real, fold) : roots.some((r) => { try { return inside(fold(realpathSync(r)), fold(real)); } catch { return false; } });
+  try { real = realOf(lexical); } catch { throw new M365Error("NOT_FOUND", "No such file."); }
+  if (/^[\\/]{2}/.test(real)) throw new M365Error("PATH_NOT_ALLOWED", "That path leads to a network or device location, which cannot be attached.", { hint: "Copy nothing; ask the user for a local file." });
+  const chatReal = inside(fold(realOrSelf(chatFilesDir(cfg))), fold(real));
+  const ok = anywhere
+    ? !secret(cfg, real) && (!chatReal || hookSaved(cfg, real))
+    : (chatReal ? hookSaved(cfg, real) : dirs.some((r) => { try { return inside(fold(realOf(r)), fold(real)); } catch { return false; } }));
   if (!ok) throw refuse();
   const st = statSync(real);
   if (!st.isFile()) throw new M365Error("INVALID_ARGUMENT", "That is not a file.");

@@ -106,7 +106,30 @@ def _run_attach(tmp_path, tool_input, transcript):
 def test_attach_hook_shows_the_exact_file_path(tmp_path):
     out = _run_attach(tmp_path, {"draft_id": "D1", "path": "C:\\Users\\me\\report.pdf"}, "")
     assert out["permissionDecision"] == "ask" and "C:\\Users\\me\\report.pdf" in out["permissionDecisionReason"]
-    assert "updatedInput" not in out
+    assert "updatedInput" not in out  # a file that does not exist: shown as given, the server answers NOT_FOUND
+
+
+def test_attach_hook_shows_and_passes_where_a_link_really_points(tmp_path):
+    secret_dir = tmp_path / "vault"
+    secret_dir.mkdir()
+    (secret_dir / "keys.txt").write_text("x")
+    link = tmp_path / "harmless"
+    try:
+        if os.name == "nt":
+            subprocess.run(["cmd", "/c", "mklink", "/J", str(link), str(secret_dir)], check=True, capture_output=True)
+        else:
+            link.symlink_to(secret_dir)
+    except Exception:
+        pytest.skip("cannot create a link here")
+    out = _run_attach(tmp_path, {"draft_id": "D1", "path": str(link / "keys.txt")}, "")
+    real = os.path.realpath(secret_dir / "keys.txt")
+    assert out["permissionDecision"] == "ask"
+    assert real in out["permissionDecisionReason"] and "points there" in out["permissionDecisionReason"]
+    assert out["updatedInput"]["path"] == real, "the approved file is the file the server reads"
+    plain = _run_attach(tmp_path, {"draft_id": "D1", "path": str(secret_dir / "keys.txt")}, "")
+    assert "points there" not in plain["permissionDecisionReason"]
+    for unc in ("\\\\evil\\share\\x.pdf", "//evil/share/x.pdf"):
+        assert "updatedInput" not in _run_attach(tmp_path, {"draft_id": "D1", "path": unc}, "")
 
 
 def test_attach_hook_saves_the_users_pasted_image_never_a_tool_image(tmp_path):

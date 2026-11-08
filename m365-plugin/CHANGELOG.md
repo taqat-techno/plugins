@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.7.1] - 2026-11-08
+
+### Security
+- **The confirmation shows the file that is really sent.** For a path that is a link, junction or short name, the hook
+  shows where it really points and hands that resolved path to the tool, so re-pointing the link after approval changes
+  nothing. A path that resolves to a network or device location is refused by the server.
+- **chat-files is no longer a free folder.** A file there is accepted only if it is exactly what the hook writes
+  (`<session>/pasted-<its own sha256 prefix>.<png|jpg|gif|webp>` with real image bytes), in both modes, so a file put there
+  by anything else is refused.
+- **Path aliases cannot dodge the deny-list.** Real paths come from the native realpath (8.3 short names expanded, on-disk
+  case), and comparisons ignore case on macOS as well as Windows.
+- **Broader deny-list in `anywhere` mode:** `.credentials.json`, `.git-credentials`, `.netrc`/`_netrc`, `.npmrc`,
+  `.pypirc`, `.htpasswd`, `msal_token_cache.*`, `.password-store`, and, under the home folder, `~/.claude`, `~/.config`,
+  keyrings and browser profile folders (a project's own `.claude/docs` stays attachable).
+
 ## [0.7.0] - 2026-11-08
 
 ### Added

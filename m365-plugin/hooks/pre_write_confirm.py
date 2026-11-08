@@ -72,9 +72,42 @@ def _attach(data, tool_input):
             updated["name"] = f"screenshot-{n}{os.path.splitext(saved)[1]}"
         return _out("ask", f"ATTACH the image you pasted into this chat (#{n} counting back from the latest, {media_type}, "
                            f"{size // 1024 or 1} KB) to email draft {_show(draft)} as {_show(updated['name'])}. Nothing is sent yet.", updated)
-    return _out("ask", f"ATTACH the file {_show(path or '-')} from this computer to email draft {_show(draft)}"
+    real = _real_path(path)
+    updated = None
+    shown = _show(path or "-")
+    if real and os.path.normcase(real) != os.path.normcase(os.path.abspath(path)):
+        # A link, junction or short name: show where it really points, and hand that exact path on, so the file the
+        # person approves is the file the server reads (re-pointing the link afterwards changes nothing).
+        shown = f"{_show(real)} (you gave {_show(path)}, which points there)"
+    if real:
+        updated = dict(tool_input)
+        updated["path"] = real
+    return _out("ask", f"ATTACH the file {shown} from this computer to email draft {_show(draft)}"
                        f"{(' as ' + _show(tool_input['name'])) if tool_input.get('name') else ''}. "
-                       "Whoever receives the email gets this file. Nothing is sent yet.")
+                       "Whoever receives the email gets this file. Nothing is sent yet.", updated)
+
+
+def _real_path(path):
+    """The fully resolved path of a local file, or None. Never touches network, device or stream paths: resolving
+    \\\\host\\share on Windows would make the machine offer its login to that host. The server refuses those anyway."""
+    p = str(path or "")
+    if not p or not os.path.isabs(p) or p[:2] in ("\\\\", "//", "\\/", "/\\"):
+        return None
+    if os.name == "nt" and (len(p) < 3 or p[1] != ":" or p[2] not in "\\/" or ":" in p[2:]):
+        return None
+    try:
+        real = os.path.realpath(p, strict=True) if sys.version_info >= (3, 10) else os.path.realpath(p)
+    except (OSError, ValueError):
+        return None
+    if real[:2] in ("\\\\", "//"):
+        # a link to a network share, or an extended-length form: keep the given path; the server decides
+        return None if not real.startswith("\\\\?\\") else _strip_ext(real)
+    return real if os.path.isfile(real) else None
+
+
+def _strip_ext(real):
+    rest = real[4:]
+    return rest if len(rest) > 2 and rest[1] == ":" else None
 
 
 def main():
