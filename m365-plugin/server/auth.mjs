@@ -47,10 +47,9 @@ export function classifyTokenError(j, status) {
   if (aadsts === "700016") return new M365Error("CLIENT_ID_INVALID", "The client id is not an app in this tenant (AADSTS700016).", { hint: "Check the Client ID and Tenant settings." });
   if (aadsts === "7000218" || aadsts === "7000215") {
     return new M365Error("PUBLIC_CLIENT_NOT_ENABLED", "Microsoft wants a client secret or a different sign-in flow for this app (AADSTS" + aadsts + ").",
-      { hint: "If the app has a secret (a confidential app, often one a bot uses), the device code flow may not work for it even with the secret: " +
-        "use the browser sign-in (mode interactive) with the app's registered redirect, by setting M365_REDIRECT_URI (plugin setting 'Sign-in redirect address') " +
-        "to that exact address, for example http://localhost:8400/callback, and M365_CLIENT_SECRET_FILE to the secret's file. " +
-        "If the app is meant to be public (no secret): App registration > Authentication > Allow public client flows = Yes, with the Mobile and desktop redirect http://localhost." });
+      { hint: "The app registration needs public client flows turned on by the admin: App registration > Authentication > Allow public client flows = Yes, " +
+        "with the Mobile and desktop redirect http://localhost. m365_access_request writes the message for the admin. Do not ask the user for a token or secret. " +
+        "(Only if the user themselves runs a bot with this app and already set its secret file: the browser sign-in with the app's exact redirect, M365_REDIRECT_URI, may work.)" });
   }
   if (code === "authorization_declined" || aadsts === "700171" || aadsts === "90135") {
     return new M365Error("SIGN_IN_DECLINED", "The sign-in was cancelled or refused on the Microsoft page.",

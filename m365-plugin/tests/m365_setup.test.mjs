@@ -68,7 +68,8 @@ test("the tool can never point the plugin at a credential file; only the person 
   const rt = join(h, "rt.txt"), sec = join(h, "secret.txt");
   writeFileSync(rt, "0.AAAA-fake-refresh-token_1234567890\n"); writeFileSync(sec, "fake~secret.value-12345\n");
   for (const bad of [{ refresh_token_file: rt }, { client_secret_file: sec }, { client_id: CID, refresh_token_file: rt }]) {
-    await assert.rejects(c.callTool("m365_setup_save", bad), (e) => e.code === "CREDENTIAL_SETTING_NOT_ALLOWED" && /cli\.mjs setup/.test(e.hint), JSON.stringify(bad));
+    // the hint steers the agent back to a normal sign-in and never hands it the token-file command to pass on
+    await assert.rejects(c.callTool("m365_setup_save", bad), (e) => e.code === "CREDENTIAL_SETTING_NOT_ALLOWED" && /m365_sign_in/.test(e.hint) && !/--token-file|--secret-file/.test(e.hint), JSON.stringify(bad));
   }
   assert.ok(!existsSync(join(h, "settings.json")), "a refused call saves nothing, not even the harmless part");
   assert.equal(c.ctx.cfg.refreshTokenFile, "");

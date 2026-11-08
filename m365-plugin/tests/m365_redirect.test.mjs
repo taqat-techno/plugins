@@ -84,7 +84,8 @@ test("redirect: an invalid setting is refused at sign-in, and an error sent to t
 test("hints: AADSTS7000218 points a confidential app to the browser flow with its registered redirect; 50011 to the setting", () => {
   const e = classifyTokenError({ error: "invalid_client", error_description: "AADSTS7000218: The request body must contain client_assertion or client_secret." }, 401);
   assert.equal(e.code, "PUBLIC_CLIENT_NOT_ENABLED");
-  assert.match(e.hint, /M365_REDIRECT_URI/); assert.match(e.hint, /interactive/); assert.match(e.hint, /Allow public client flows/);
+  assert.match(e.hint, /Allow public client flows/); assert.match(e.hint, /m365_access_request/); assert.match(e.hint, /M365_REDIRECT_URI/);
+  assert.match(e.hint, /Do not ask the user for a token or secret/);
   const m = classifyTokenError({ error: "invalid_request", error_description: "AADSTS50011: The redirect URI does not match" }, 400);
   assert.equal(m.code, "REDIRECT_URI_MISMATCH"); assert.match(m.hint, /M365_REDIRECT_URI/);
 });

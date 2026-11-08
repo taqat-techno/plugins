@@ -78,6 +78,61 @@ def test_hook_fails_closed_on_garbage_and_handles_non_ascii():
     assert out["permissionDecision"] == "ask" and "مسودة" in out["permissionDecisionReason"]
 
 
+# ---------------------------------------------------------------- attachments and pasted images
+
+_PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 40
+
+
+def _transcript(tmp_path, entries):
+    p = tmp_path / "session.jsonl"
+    p.write_text("\n".join(json.dumps(e) for e in entries) + "\n", encoding="utf-8")
+    return str(p)
+
+
+def _img(data):
+    import base64
+    return {"type": "image", "source": {"type": "base64", "media_type": "image/png", "data": base64.b64encode(data).decode()}}
+
+
+def _run_attach(tmp_path, tool_input, transcript):
+    payload = {"tool_name": "mcp__plugin_m365_m365__email_add_attachment", "tool_input": tool_input,
+               "transcript_path": transcript, "session_id": "abc-123"}
+    r = subprocess.run([sys.executable, str(PLUGIN / "hooks" / "pre_write_confirm.py")], input=json.dumps(payload).encode("utf-8"),
+                       capture_output=True, timeout=20, env=dict(ENV, M365_HOME=str(tmp_path / "home")), cwd=str(tmp_path))
+    assert r.returncode == 0, r.stderr
+    return json.loads(r.stdout.decode("utf-8"))["hookSpecificOutput"]
+
+
+def test_attach_hook_shows_the_exact_file_path(tmp_path):
+    out = _run_attach(tmp_path, {"draft_id": "D1", "path": "C:\\Users\\me\\report.pdf"}, "")
+    assert out["permissionDecision"] == "ask" and "C:\\Users\\me\\report.pdf" in out["permissionDecisionReason"]
+    assert "updatedInput" not in out
+
+
+def test_attach_hook_saves_the_users_pasted_image_never_a_tool_image(tmp_path):
+    mine1, mine2, tools = _PNG + b"first", _PNG + b"second", _PNG + b"from-a-web-page"
+    t = _transcript(tmp_path, [
+        {"type": "user", "message": {"role": "user", "content": [{"type": "text", "text": "here"}, _img(mine1)]}},
+        {"type": "user", "message": {"role": "user", "content": [_img(mine2)]}},
+        {"type": "user", "toolUseResult": {}, "message": {"role": "user", "content": [{"type": "tool_result", "content": [_img(tools)]}]}},
+        {"type": "user", "isSidechain": True, "message": {"role": "user", "content": [_img(tools)]}},
+    ])
+    out = _run_attach(tmp_path, {"draft_id": "D1", "chat_image": 1}, t)
+    assert out["permissionDecision"] == "ask" and "pasted" in out["permissionDecisionReason"]
+    saved = Path(out["updatedInput"]["path"])
+    assert saved.read_bytes() == mine2, "1 = the user's most recent paste, not the tool's image"
+    assert saved.parent == tmp_path / "home" / "chat-files" / "abc-123"
+    assert out["updatedInput"]["name"] == "screenshot-1.png" and out["updatedInput"]["draft_id"] == "D1"
+    assert Path(_run_attach(tmp_path, {"draft_id": "D1", "chat_image": 2}, t)["updatedInput"]["path"]).read_bytes() == mine1
+
+
+def test_attach_hook_refuses_a_missing_or_fake_image(tmp_path):
+    t = _transcript(tmp_path, [{"type": "user", "message": {"role": "user", "content": [_img(b"not a png at all")]}}])
+    assert _run_attach(tmp_path, {"draft_id": "D1", "chat_image": 1}, t)["permissionDecision"] == "deny"
+    assert _run_attach(tmp_path, {"draft_id": "D1", "chat_image": 5}, t)["permissionDecision"] == "deny"
+    assert _run_attach(tmp_path, {"draft_id": "D1", "chat_image": 1}, str(tmp_path / "missing.jsonl"))["permissionDecision"] == "deny"
+
+
 # ---------------------------------------------------------------- package builder
 
 @pytest.fixture(scope="module")
@@ -149,6 +204,20 @@ def test_builder_refuses_to_write_inside_the_plugin_or_a_foreign_directory(tmp_p
 def test_write_tools_are_never_registered_for_the_read_only_mode_listing():
     index = (PLUGIN / "server" / "tools" / "index.mjs").read_text(encoding="utf-8")
     assert 't.kind === "write" && cfg.readOnly' in index
+
+
+def test_first_run_never_offers_a_token_or_a_copied_sign_in():
+    """A normal user is asked for the client ID and signs in; a bot's token file is advanced and never offered."""
+    init = (PLUGIN / "commands" / "init.md").read_text(encoding="utf-8")
+    step2 = init.split("## 2.")[1].split("### Advanced")[0]
+    assert "Never ask for, mention or suggest a token" in step2
+    assert "--token-file" not in step2 and "refresh token" not in step2.lower()
+    advanced = init.split("### Advanced")[1].split("## 3.")[0]
+    assert "--token-file" in advanced and "only when the user" in advanced.lower()
+    step3 = init.split("## 3.")[1].split("## 4.")[0]
+    assert "token-file" not in step3 and "m365_access_request" in step3
+    skill = (PLUGIN / "skills" / "m365" / "SKILL.md").read_text(encoding="utf-8")
+    assert "Never suggest a token file" in skill
 
 
 def test_every_write_scope_is_requested_only_when_writes_are_on():

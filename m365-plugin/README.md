@@ -28,7 +28,7 @@ No browser on the machine? Use the sign-in method `device-code`: you get a short
 |---|---|
 | Sign-in and setup | `m365_sign_in`, `m365_auth_status`, `m365_sign_out`, `m365_setup_save` (first setup of the app's ids only; asks you first), `m365_access_request` (writes the message for your admin) |
 | Mail (read) | `email_list_recent` (optionally unread only), `email_search`, `email_read`, `email_read_thread`, `email_list_attachments`, `email_list_categories`, `email_read_attachment` |
-| Mail (write) | `email_create_draft`, `email_create_reply_draft`, `email_create_forward_draft`, `email_update_draft`, `email_preview_draft`, **`email_discard_draft`**, **`email_send_draft`**, `email_move` (any ordinary folder by path or id; never Deleted Items/Junk), `email_create_folder`, `email_list_folders`, `email_save_attachment` (into the folder you chose), `email_mark_read`, `email_set_flag`, `email_set_categories`, `email_add_attachment` (only from folders you allow), `email_remove_attachment`, **`email_delete`** (to Deleted Items) |
+| Mail (write) | `email_create_draft`, `email_create_reply_draft`, `email_create_forward_draft`, `email_update_draft`, `email_preview_draft`, **`email_discard_draft`**, **`email_send_draft`**, `email_move` (any ordinary folder by path or id; never Deleted Items/Junk), `email_create_folder`, `email_list_folders`, `email_save_attachment` (into the folder you chose), `email_mark_read`, `email_set_flag`, `email_set_categories`, `email_add_attachment` (any file except keys and tokens, or only folders you choose; also an image you pasted into the chat; you see each file first), `email_remove_attachment`, **`email_delete`** (to Deleted Items) |
 | Calendar | `calendar_list_events`, `calendar_get_event`, `calendar_find_free_slots`; write: `calendar_stage`, **`calendar_commit`**, `calendar_discard` |
 | Teams chats | `teams_list_chats`, `teams_find_chat`, `teams_read_chat`, `teams_chat_members`; write: `teams_stage`, **`teams_commit`**, `teams_cancel` |
 | Team channels (module `channels`, needs admin consent) | `teams_list_teams`, `teams_list_channels`, `teams_read_channel` |
@@ -65,7 +65,10 @@ per machine, never shared.
 `people_resolve` checks it first, then the directory. A single exact match is used; several are returned for you to
 pick; nothing is ever guessed. A name or alias that already points at one address is not silently re-pointed at another.
 
-## Reusing another tool's sign-in (for example your own bot)
+## Reusing another tool's sign-in (advanced: only for someone running their own bot)
+
+Normal users skip this section: they enter the client ID from their admin and sign in with the browser, on each computer.
+Never copy a token file to another computer; sign in there instead.
 
 If a bot already signs in as you with an app an admin approved, point the plugin at that sign-in instead of asking for new
 approval: set `M365_CLIENT_ID` and `M365_TENANT` to the bot's, `M365_REFRESH_TOKEN_FILE` to the file holding its refresh token and

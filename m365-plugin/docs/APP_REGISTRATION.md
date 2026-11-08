@@ -53,9 +53,9 @@ so no new approval is needed. Tools whose permission the app does not have retur
 The app still needs "Allow public client flows" and the `http://localhost` redirect (above). Read-only mode still removes the
 write tools, but in this mode it cannot narrow what the app is allowed to do, so it is a tool-level guard only.
 
-## Reusing another tool's saved sign-in
+## Reusing another tool's saved sign-in (advanced, bot owners only)
 
-If a bot already holds a refresh token for the app, the plugin can use it (`M365_REFRESH_TOKEN_FILE`, and
+Users never need this: each user, on each computer, enters the client ID and signs in. If a bot already holds a refresh token for the app, the plugin can use it (`M365_REFRESH_TOKEN_FILE`, and
 `M365_CLIENT_SECRET_FILE` if the app has a secret) instead of a new sign-in. No new approval is needed because that sign-in
 was already approved. See the README section "Reusing another tool's sign-in".
 

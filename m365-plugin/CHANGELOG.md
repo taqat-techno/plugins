@@ -1,5 +1,32 @@
 # Changelog
 
+## [0.7.0] - 2026-11-08
+
+### Added
+- **Attach any file, and screenshots pasted into the chat.** `email_add_attachment` takes `chat_image` (1 = the image the
+  user pasted most recently): the Claude Code hook finds it in the session transcript (only the user's own pastes, never an
+  image a tool or web page returned), checks it really is a PNG/JPEG/GIF/WebP, saves it under
+  `<M365_HOME>/chat-files/<session>/` and hands that path to the tool. New setting **attach_scope** ("Files that may be
+  attached", human-only): `anywhere`, the Claude Code default, allows any local file except keys, tokens, `.env`,
+  credential folders (`.ssh`, `.aws`, `.azure`, any `credentials`/`secrets` folder ...), the configured token files and
+  the plugin's own folder; `folders` (the server default, so bots keep the old rule) allows only `attach_dirs`. Pasted
+  images are allowed in both. Network, device and stream paths stay refused before any disk access.
+- `email_add_attachment` is now confirm-gated: the hook shows the full path (or the pasted image's type and size) and the
+  name recipients see, before anything is added.
+
+### Changed
+- **First-run setup no longer offers a bot's token.** `/m365:init` used to list "reuse a sign-in another tool holds"
+  (a refresh token file and an app secret) as one of four equal choices, so an agent setting up a second computer asked a
+  normal user for their bot's token. Setup now asks one question, "Do you have the client ID from your admin?", then signs
+  the user in with the browser; another computer is set up the same way (same client ID, sign in again there). Agents are
+  told never to ask for, mention or suggest a token, a token file, an app secret, or copying a sign-in. The bot-owner
+  options (shared token file, one exact redirect, `scope_mode: app`) moved to an "Advanced" section used only when the user
+  brings them up.
+- A sign-in refused for an app setting (`PUBLIC_CLIENT_NOT_ENABLED`, `REDIRECT_URI_MISMATCH`) now leads to the admin message
+  (`m365_access_request`), not to a token or secret workaround. The `PUBLIC_CLIENT_NOT_ENABLED` and
+  `CREDENTIAL_SETTING_NOT_ALLOWED` hints say the same.
+- README and APP_REGISTRATION mark token reuse as advanced, for bot owners only.
+
 ## [0.6.1] - 2026-11-07
 
 ### Security

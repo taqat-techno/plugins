@@ -1,6 +1,6 @@
 {
   "name": "m365",
-  "version": "0.6.1",
+  "version": "0.7.0",
   "license": "MIT",
   "description": "Microsoft 365 for Claude Code and agent bots: read and search Outlook mail, calendar and free slots, Teams chats, OneDrive and people; draft, preview and send mail, schedule meetings and message Teams with a preview-digest-confirm flow and a human confirmation hook; an events poll for alerts; and a local profile that remembers your contacts and chats so 'email Mahmoud' resolves. Self-contained (no npm packages, no admin rights), browser or device-code sign-in, least-privilege scopes, optional read-only mode, OpenClaw package builder.",
   "author": {
@@ -64,8 +64,14 @@
     "m365_attach_dirs": {
       "type": "string",
       "title": "Folders files may be attached from (optional)",
-      "description": "Only files inside these folders can be attached to an email draft (separate several with ; on Windows). Leave empty to allow no local attachments. Pick a dedicated folder, never your whole user folder.",
+      "description": "Used when 'Files that may be attached' is folders: only files inside these folders can be attached (separate several with ; on Windows). Pick a dedicated folder, never your whole user folder.",
       "default": ""
+    },
+    "m365_attach_scope": {
+      "type": "string",
+      "title": "Files that may be attached",
+      "description": "anywhere (default): any file on this computer, except keys, tokens and sign-in files; you are shown each file before it is added to a draft. folders: only files inside the folders below.",
+      "default": "anywhere"
     },
     "m365_signature_file": {
       "type": "string",

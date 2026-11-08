@@ -42,7 +42,7 @@ export const WRITE_SCOPES = {
 export const ADMIN_CONSENT_SCOPES = ["Team.ReadBasic.All", "Channel.ReadBasic.All", "ChannelMessage.Read.All", "OnlineMeetingTranscript.Read.All"];
 
 /** What /m365:init may save: ids and file PATHS only. Read-only mode and modules are deliberately not here. */
-export const SETTINGS_KEYS = ["client_id", "tenant", "auth_mode", "scope_mode", "refresh_token_file", "client_secret_file", "redirect_uri", "attach_dirs", "signature_file", "download_dir"];
+export const SETTINGS_KEYS = ["client_id", "tenant", "auth_mode", "scope_mode", "refresh_token_file", "client_secret_file", "redirect_uri", "attach_dirs", "attach_scope", "signature_file", "download_dir"];
 
 /** A sign-in redirect the plugin can listen on itself: http on localhost/127.0.0.1, a fixed port, an optional path.
  *  Returns { uri, host, port, path } (uri exactly as given, minus a trailing space) or throws INVALID_ARGUMENT. */
@@ -109,6 +109,10 @@ export function resolveConfig(env = process.env) {
     redirectUri: get("redirect_uri", "M365_PLUGIN_REDIRECT_URI", "M365_REDIRECT_URI"),
     // Folders files may be attached from (separated by ';' on Windows, ':' elsewhere). Set only by the person.
     attachDirs: get("attach_dirs", "M365_PLUGIN_ATTACH_DIRS", "M365_ATTACH_DIRS").split(delimiter).map((s) => s.trim()).filter(Boolean),
+    // "anywhere": any file on this computer except secrets (keys, tokens, credential folders) may be attached; each attach
+    // is then shown to the human with its full path (the Claude Code hook asks). "folders" (default, and what a bot gets):
+    // only attach_dirs. Images the user pasted into the chat are saved under <home>/chat-files and allowed in both modes.
+    attachScope: get("attach_scope", "M365_PLUGIN_ATTACH_SCOPE", "M365_ATTACH_SCOPE").toLowerCase() === "anywhere" ? "anywhere" : "folders",
     // The user's HTML email signature (a file only the person chooses). Set: drafts are HTML built by the plugin.
     signatureFile: get("signature_file", "M365_PLUGIN_SIGNATURE_FILE", "M365_SIGNATURE_FILE"),
     // The one folder files may be saved into (email_save_attachment, onedrive_save_file). Set only by the person.

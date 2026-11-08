@@ -11,6 +11,7 @@ Stdlib only. Fails CLOSED: on any internal error it still asks, because the matc
 call to a confirm-gated tool.
 """
 import json
+import os
 import sys
 
 try:
@@ -43,14 +44,49 @@ def _tool_name(raw_name):
     return str(raw_name or "").rsplit("__", 1)[-1]
 
 
+def _out(decision, reason, updated=None):
+    spec = {"hookEventName": "PreToolUse", "permissionDecision": decision, "permissionDecisionReason": "Microsoft 365: " + reason}
+    if updated is not None:
+        spec["updatedInput"] = updated
+    print(json.dumps({"hookSpecificOutput": spec}, ensure_ascii=False))
+    return 0
+
+
+def _attach(data, tool_input):
+    """email_add_attachment: show the exact file. For a pasted image, save it first and hand its path to the tool."""
+    draft = tool_input.get("draft_id", "-")
+    path = tool_input.get("path")
+    if len(str(draft)) > _LIMIT or len(str(path or "")) > 1000:
+        return _out("deny", "refused, an argument is too long to show you in full.")
+    if not path and tool_input.get("chat_image") is not None:
+        try:
+            from chat_image import save_pasted_image
+            saved, media_type, size = save_pasted_image(data.get("transcript_path"), data.get("session_id"), tool_input.get("chat_image"))
+        except Exception as e:  # nothing attached; Claude is told why and can ask the user
+            msg = str(e) if e.__class__.__name__ == "ChatImageError" else "the pasted image could not be saved"
+            return _out("deny", f"no pasted image was attached: {_show(msg)}. Ask the user to paste it again or give a file path.")
+        updated = dict(tool_input)
+        updated["path"] = saved
+        n = _show(tool_input.get("chat_image"))
+        if not updated.get("name"):
+            updated["name"] = f"screenshot-{n}{os.path.splitext(saved)[1]}"
+        return _out("ask", f"ATTACH the image you pasted into this chat (#{n} counting back from the latest, {media_type}, "
+                           f"{size // 1024 or 1} KB) to email draft {_show(draft)} as {_show(updated['name'])}. Nothing is sent yet.", updated)
+    return _out("ask", f"ATTACH the file {_show(path or '-')} from this computer to email draft {_show(draft)}"
+                       f"{(' as ' + _show(tool_input['name'])) if tool_input.get('name') else ''}. "
+                       "Whoever receives the email gets this file. Nothing is sent yet.")
+
+
 def main():
-    name, tool_input = "", {}
+    name, tool_input, data = "", {}, {}
     try:
         data = json.loads(sys.stdin.buffer.read().decode("utf-8", errors="replace"))
         name = _tool_name(data.get("tool_name"))
         tool_input = data.get("tool_input") or {}
     except Exception:
-        pass
+        data = data if isinstance(data, dict) else {}
+    if name == "email_add_attachment":
+        return _attach(data, tool_input)
     template = _WHAT.get(name, "make a change in Microsoft 365 that others can see or that cannot be undone.")
     keys = ("draft_id", "stage_id", "message_id", "item_id", "client_id", "tenant", "scope_mode", "auth_mode", "redirect_uri")
     values = {k: tool_input.get(k, "-") for k in keys}

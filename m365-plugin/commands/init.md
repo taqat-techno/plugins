@@ -1,5 +1,5 @@
 ---
-description: Set up Microsoft 365 for this user - choose how to get access (a client ID from the admin, a message asking the admin for one, or reusing a sign-in another tool already holds), sign in, build the local profile, and choose the people and chats to remember.
+description: Set up Microsoft 365 for this user - enter the client ID from the admin (or get a message asking the admin for one), sign in with the browser, build the local profile, and choose the people and chats to remember.
 argument-hint: "[status | setup | signin | profile | contacts]"
 ---
 
@@ -28,34 +28,42 @@ Call `m365_auth_status` and read it:
 
 ## 2. Get access set up (first run)
 
-The plugin signs the user in through a Microsoft app that the company's admin registers once. Ask ONE question and
-let the user pick the situation that fits them:
+The plugin signs the user in with their own work account, in the browser, through a Microsoft app that the company's
+admin registers once. A user needs exactly two things: the app's **client ID** (and the tenant, if the admin gave one)
+and their own sign-in. Ask ONE question: "Do you have the client ID from your admin?"
 
-1. **"My admin gave me a client ID"** -> ask for the Application (client) ID, and the tenant ID or domain if the admin
-   gave one. Call `m365_setup_save` with `client_id` (and `tenant`). Claude Code asks the user to confirm it.
-2. **"I don't have one yet"** -> call `m365_access_request`. Show the user the `message` it returns exactly as it is,
-   tell them to send it to their IT or Microsoft 365 admin, and stop here. When the admin sends back the client ID,
-   the user runs `/m365:init` again and picks the first option. This is the normal route for a new user: the request
-   lists exactly the permissions needed for the features they enabled, and nothing more.
-3. **"My own bot or another tool already signs in as me, and I want to reuse it (on my own computer)"** -> ask for:
-   the client ID and tenant that tool uses, the PATH of the file holding its refresh token, and the PATH of the file
-   holding the app's secret (if the app has one). **You cannot save file paths yourself, on purpose: only the person
-   at the keyboard may point the plugin at a credential file.** Give the user this command to run in their own terminal
-   (replace the placeholders; never paste a token or secret into the chat):
-   `node "<plugin folder>/server/cli.mjs" setup --client-id <id> --tenant <id> --token-file <path> --secret-file <path>`
-   (the plugin folder is where this plugin is installed; the same values can instead go in the plugin settings
-   "Shared token file" and "App secret file"). The command checks each file looks like a token or secret and never shows
-   it. No new admin approval is needed, because that tool's sign-in was already approved. Then call `m365_auth_status`:
-   it picks the change up without a restart. The plugin writes a renewed token back to the same file, as its owner does.
-   Skip step 3.
-   If the app registration allows only one exact redirect address (common for an app made for a bot, for example
-   `http://localhost:8400/callback`), also save it: `m365_setup_save` with `redirect_uri`, then sign in with
-   `m365_sign_in` `mode: "interactive"`. An app with a secret also needs the secret's file, which the user sets
-   themselves (`cli.mjs setup --secret-file <path>`).
-4. **"An approved app exists, but sign-in still asks for approval"** -> `m365_setup_save` with `scope_mode: "app"`
-   (use the permissions already approved for the app) and go to step 3.
+1. **Yes** -> ask for the Application (client) ID, and the tenant ID or domain if they have it. Call `m365_setup_save`
+   with `client_id` (and `tenant`). Claude Code asks the user to confirm it. Then go to step 3 (sign in).
+2. **No** -> call `m365_access_request`. Show the user the `message` it returns exactly as it is, tell them to send it to
+   their IT or Microsoft 365 admin, and stop here. When the admin sends back the client ID, the user runs `/m365:init`
+   again. The request lists exactly the permissions needed for the features they enabled, and nothing more.
+
+**Another computer of the same user** is set up the same way: the same client ID and tenant, and the user signs in again
+on that computer. Each computer holds its own sign-in.
+
+**Never ask for, mention or suggest a token, a token file, an app secret, or copying another tool's or computer's sign-in.**
+A normal user has none of these and must never be led to look for one. The only exception is the advanced setup below,
+and only when the user brings it up themselves.
 
 After saving, call `m365_auth_status` again to confirm it is configured.
+
+### Advanced: only when the user says it themselves
+
+Use these only when the user, unprompted, says the situation applies. Do not list them as choices.
+
+- **"An app is already approved, but sign-in still asks for approval"** -> `m365_setup_save` with `scope_mode: "app"`
+  (use the permissions already approved for the app) and go to step 3.
+- **The app allows only one exact redirect address** (the sign-in failed with `REDIRECT_URI_MISMATCH` and the user or
+  admin knows the address, for example `http://localhost:8400/callback`) -> `m365_setup_save` with `redirect_uri`, then
+  `m365_sign_in` `mode: "interactive"`. If that app also needs a secret, the right fix is the admin turning on public
+  client flows (`m365_access_request` gives the message); a secret file is something only the user may set, in their own
+  terminal, and you never ask for it.
+- **The user runs their own bot on THIS computer that already signs in as them, and asks to reuse its sign-in** -> they
+  point the plugin at the bot's files themselves, in their own terminal (you cannot save file paths, on purpose):
+  `node "<plugin folder>/server/cli.mjs" setup --client-id <id> --tenant <id> --token-file <path> --secret-file <path>`
+  (or the plugin settings "Shared token file" and "App secret file"). Never ask them to paste a token or secret, and never
+  suggest copying these files to another computer: another computer signs in on its own (above). Then call
+  `m365_auth_status`; skip step 3.
 
 ## 3. Sign in
 
@@ -67,10 +75,11 @@ account, or a page and a code to type. Then call `m365_auth_status` every few se
 
 On a failure show `sign_in.error.message` and its `hint` as they are, and offer the matching step:
 - `SIGN_IN_DECLINED`, `CONSENT_NEEDED`, or the Microsoft page said "Need admin approval" -> the app's permissions are not approved yet.
-  Call `m365_access_request`, show the message for the user to send to the admin, and stop. If the user knows an
-  approved app exists, offer option 4 of step 2.
-- `PUBLIC_CLIENT_NOT_ENABLED` / `REDIRECT_URI_MISMATCH` -> the app registration needs a setting changed; show the hint
-  (or give the user `m365_access_request`'s message for the admin).
+  Call `m365_access_request`, show the message for the user to send to the admin, and stop. If the user says an
+  approved app exists, use the `scope_mode: "app"` setup in step 2's advanced section.
+- `PUBLIC_CLIENT_NOT_ENABLED` / `REDIRECT_URI_MISMATCH` -> the app registration needs a setting changed by the admin.
+  Call `m365_access_request` and show its message for the user to send to the admin (it asks for exactly that setting),
+  and stop. Do not offer a token, a secret or another tool's sign-in as a way around it.
 - No browser available -> retry with `m365_sign_in` `mode: "device-code"`.
 
 ## 4. Build the profile
@@ -82,8 +91,9 @@ On a failure show `sign_in.error.message` and its `hint` as they are, and offer 
    the user's own and are never overwritten by Outlook later. Ask their usual meeting length and set `meeting_minutes`.
 2. Optional, only the user can set these (plugin settings, or `cli.mjs setup` in their own terminal):
    **"Email signature file"** (an HTML file; drafts then go out as HTML with that signature) and
-   **"Folders files may be attached from"** (so files can be attached to drafts). Mention them once; never ask for a
-   path to set yourself.
+   **"Files that may be attached"** (anywhere, the default: any file except keys and tokens, shown to the user before it is
+   added; or folders: only the folders in "Folders files may be attached from"). Images pasted into the chat can always be
+   attached. Mention these once; never ask for a path to set yourself.
 
 ## 5. Choose people to remember
 

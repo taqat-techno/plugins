@@ -1,7 +1,7 @@
 ---
 name: m365
 description: "Use when the user asks about or wants to act in their Microsoft 365: find or read an email, draft or send one, what is on the calendar, schedule a meeting or find free time, read or send a Teams message, who 'Mahmoud' is, or what needs attention. Also when a tool reports NOT_SIGNED_IN, CONSENT_NEEDED or ACCESS_NEEDED."
-version: "0.6.1"
+version: "0.7.0"
 ---
 
 # Microsoft 365 tools
@@ -13,7 +13,10 @@ directory). With read-only mode on, the write tools are not listed.
 
 If a tool answers `NOT_SIGNED_IN`, `NOT_CONFIGURED` or `PERMISSIONS_CHANGED`, call `m365_auth_status`, then
 `m365_sign_in` and tell the user what to do (browser window, or a code to type). Never ask for a password or token:
-none passes through you. First-time setup is `/m365:init`.
+none passes through you. First-time setup is `/m365:init`: the client ID from the admin, then the user's own sign-in.
+Setting up another computer is the same: same client ID, sign in again there. Never suggest a token file, an app secret,
+or copying a bot's or another computer's sign-in; if sign-in fails for an app setting, `m365_access_request` gives the
+message for the admin.
 
 ## Names to addresses: profile first
 
@@ -45,7 +48,9 @@ Nothing outward-facing happens without the user's clear yes after they have seen
   refused if the draft changed, was never previewed, has no recipient, is too long to preview in full, or says "attached"
   with nothing attached. You always write plain text (`**bold**` is allowed); if the user set a signature file, the plugin
   turns it into HTML with their signature itself (`signature: false` leaves it out). Attach files with `email_add_attachment`
-  (only from folders the user allowed) and preview again: the preview lists every file. If the preview says `html_draft` (a reply, or a draft edited in
+  (`path` for a file on this computer; `chat_image: 1` for the image the user just pasted into the chat, 2 for the one
+  before) and preview again: the preview lists every file. The user is shown each file before it is added. A refusal
+  (a key or token file, or a file outside the folders the user allowed) is final: never copy or move a file to get around it. If the preview says `html_draft` (a reply, or a draft edited in
   Outlook), show the user every address in `links_and_images` and say if `hidden_markup_found` is true. If `links_truncated`, it
   cannot be sent from here.
 - **Calendar:** `calendar_stage` shows the times in the user's zone, conflicts, and who will be invited. After a yes,

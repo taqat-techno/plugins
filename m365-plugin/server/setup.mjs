@@ -12,7 +12,7 @@ import { M365Error, replaceFile } from "./util.mjs";
 
 export const CREDENTIAL_KEYS = ["refresh_token_file", "client_secret_file"];
 // Settings only the person may choose: credential files, the folders files may be mailed out from, the signature file.
-export const HUMAN_ONLY_KEYS = [...CREDENTIAL_KEYS, "attach_dirs", "signature_file", "download_dir"];
+export const HUMAN_ONLY_KEYS = [...CREDENTIAL_KEYS, "attach_dirs", "attach_scope", "signature_file", "download_dir"];
 const GUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const TENANT = /^([0-9a-f-]{36}|[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+|organizations|common|consumers)$/i;
 
@@ -42,7 +42,9 @@ export function saveSettings(cfg, input, { viaTool }) {
     if (input[k] === undefined) continue;
     if (viaTool && HUMAN_ONLY_KEYS.includes(k)) {
       throw new M365Error("CREDENTIAL_SETTING_NOT_ALLOWED", `${k} cannot be set through a tool: only the person at the keyboard may choose credential files, the folders files may be attached from or saved into, and the signature file.`,
-        { hint: "Ask the user to run, in their own terminal: node server/cli.mjs setup --token-file <path> --secret-file <path>   (or to fill in the plugin settings 'Shared token file' / 'App secret file'). Never ask them to paste a token or secret." });
+        { hint: CREDENTIAL_KEYS.includes(k)
+          ? "A normal setup needs no token or secret file: save the client_id and sign in with m365_sign_in. Never ask for, suggest or mention a token or secret file; only someone running their own bot sets one, unprompted, in the plugin settings."
+          : `The user sets it in the plugin settings, or in their own terminal: node server/cli.mjs setup --${k.replace(/_/g, "-")} <path>` });
     }
     if (viaTool && (k === "client_id" || k === "tenant") && currentId && String(input[k]).trim().toLowerCase() !== (k === "client_id" ? currentId : currentTenant).toLowerCase()) {
       throw new M365Error("ALREADY_CONFIGURED", `The Microsoft app is already set up, so ${k} cannot be changed from here.`,
@@ -54,6 +56,7 @@ export function saveSettings(cfg, input, { viaTool }) {
     if (k === "tenant" && !TENANT.test(v)) throw new M365Error("INVALID_ARGUMENT", "tenant must be a tenant id, a domain such as contoso.com, or organizations");
     if (k === "scope_mode" && !["requested", "app"].includes(v.toLowerCase())) throw new M365Error("INVALID_ARGUMENT", "scope_mode must be requested or app");
     if (k === "auth_mode" && !["auto", "interactive", "device-code"].includes(v.toLowerCase())) throw new M365Error("INVALID_ARGUMENT", "auth_mode must be auto, interactive or device-code");
+    if (k === "attach_scope" && !["folders", "anywhere"].includes(v.toLowerCase())) throw new M365Error("INVALID_ARGUMENT", "attach_scope must be folders or anywhere");
     if (k === "redirect_uri") { try { parseRedirectUri(v); } catch (e) { throw new M365Error("INVALID_ARGUMENT", e.message); } }
     if (CREDENTIAL_KEYS.includes(k)) checkSecretFile(v, k);
     if (k === "attach_dirs") for (const d of v.split(delimiter).map((x) => x.trim()).filter(Boolean)) {
@@ -72,7 +75,7 @@ export function saveSettings(cfg, input, { viaTool }) {
       let st; try { st = statSync(v); } catch { st = null; }
       if (!st?.isFile() || st.size > 100 * 1024) throw new M365Error("INVALID_ARGUMENT", "signature_file must be an HTML file under 100 KB");
     }
-    next[k] = k === "scope_mode" || k === "auth_mode" ? v.toLowerCase() : v;
+    next[k] = ["scope_mode", "auth_mode", "attach_scope"].includes(k) ? v.toLowerCase() : v;
     changed.push(k);
   }
   if (!changed.length) throw new M365Error("INVALID_ARGUMENT", `give at least one of: ${(viaTool ? SETTINGS_KEYS.filter((k) => !HUMAN_ONLY_KEYS.includes(k)) : SETTINGS_KEYS).join(", ")}`);

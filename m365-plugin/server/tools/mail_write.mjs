@@ -319,13 +319,20 @@ export const tools = [
     },
   },
   {
-    name: "email_add_attachment", kind: "write", module: "mail",
-    description: "Attach a file from this computer to a DRAFT. Only files inside the folders the user allowed (M365_ATTACH_DIRS) can be attached, up to 25 MB; anything else is refused, so never copy or move a file to get around that. Nothing is sent: the earlier preview becomes invalid, so call email_preview_draft again and show the user the attachment list before sending.",
+    name: "email_add_attachment", kind: "write", module: "mail", confirm: true,
+    description: "Attach a file to a DRAFT, up to 25 MB: a file on this computer (path), or an image the user pasted into this chat (chat_image: 1 = the most recent one). Which files are allowed is the user's setting; keys, tokens and sign-in files are never attached, so never copy or move a file to get around a refusal. The user is shown each attachment before it is added. Nothing is sent: the earlier preview becomes invalid, so call email_preview_draft again and show the user the attachment list before sending.",
     inputSchema: { type: "object", properties: {
-      draft_id: { type: "string" }, path: { type: "string", description: "Absolute path of the file." },
-      name: { type: "string", description: "Optional file name the recipient sees (default the file's own name)." } }, required: ["draft_id", "path"] },
+      draft_id: { type: "string" }, path: { type: "string", description: "Absolute path of the file. Give this or chat_image." },
+      chat_image: { type: "number", description: "An image the user pasted into this chat: 1 = the most recent, 2 = the one before, and so on. Claude Code only." },
+      name: { type: "string", description: "Optional file name the recipient sees (default the file's own name, or screenshot-<n>.png for a pasted image)." } }, required: ["draft_id"] },
     async handler(a, ctx) {
       const id = safeId(a.draft_id, "draft_id");
+      if ((a.path === undefined || a.path === "") && a.chat_image !== undefined) {
+        // In Claude Code the plugin's hook saves the pasted image and fills in path before this runs.
+        throw new M365Error("CHAT_IMAGE_UNAVAILABLE", "That pasted image could not be found or saved, so nothing was attached.",
+          { hint: "Pasted images can be attached only in Claude Code with the plugin's hooks on. Otherwise ask the user to save the image as a file and give its path." });
+      }
+      if (a.path === undefined || a.path === "") throw new M365Error("INVALID_ARGUMENT", "give path (a file) or chat_image (a pasted image)");
       const f = allowedFile(ctx.cfg, a.path);
       await loadDraft(ctx, id);
       const name = a.name !== undefined ? clean(safeStr(a.name, "name", 200) ?? "", 200).trim() || f.name : f.name;
