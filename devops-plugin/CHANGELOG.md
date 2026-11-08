@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [8.2.3] - 2026-11-08
+
+### Fixed
+- The devops skill's version field matches plugin.json again (8.2.2 missed it).
+
 ## [8.2.2] - 2026-11-08
 
 ### Fixed

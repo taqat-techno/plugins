@@ -81,7 +81,8 @@ while IFS=$'\t' read -r action path dest || [ -n "${action:-}" ]; do
   path="${path%/}"
   if [ -z "$why" ] && ! allowed "$path"; then why="outside the allow-list"; fi
   if [ -z "$why" ] && [ -e "$path" ]; then
-    real=$(realpath -m -- "$path")
+    # the path exists here, so plain realpath suffices; BSD/macOS realpath has no -m
+    real=$(realpath -- "$path" 2>/dev/null || python3 -c 'import os,sys; print(os.path.realpath(sys.argv[1]))' "$path")
     allowed "$real" || why="resolves outside the allow-list ($real)"
   fi
   if [ -z "$why" ]; then
