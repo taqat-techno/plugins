@@ -365,6 +365,18 @@ class TestProcessPresets:
         preset, wit = key
         assert raw_state_machine["processPresets"][preset]["workItemTypes"][wit]["states"] == states
 
+    def test_requirement_sizing_field_per_preset(self, raw_state_machine):
+        # Microsoft defaults for the stock templates; the customized Scrum hides Effort on the PBI
+        expected = {
+            "basic": "Microsoft.VSTS.Scheduling.Effort",
+            "agile": "Microsoft.VSTS.Scheduling.StoryPoints",
+            "scrum": "Microsoft.VSTS.Scheduling.Effort",
+            "cmmi": "Microsoft.VSTS.Scheduling.Size",
+            CUSTOM: "Microsoft.VSTS.Scheduling.StoryPoints",
+        }
+        got = {n: p.get("requirementSizingField") for n, p in raw_state_machine["processPresets"].items()}
+        assert got == expected
+
     def test_every_preset_type_is_well_formed(self, raw_state_machine):
         for name, preset in raw_state_machine["processPresets"].items():
             assert preset.get("requirementType"), name

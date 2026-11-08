@@ -9,7 +9,7 @@ Listed in marketplace order. Component counts are the real contents of each plug
 | # | Plugin | Version | Category | Commands | Agents | Skills | Hooks | MCP | Evals | Docs |
 |---|---|---|---|---|---|---|---|---|---|---|
 | 1 | **odoo** | `4.3.0` | development | 20 | 5 | 25 | 5 | yes | 26 + 25 | [[Odoo Plugin\|Odoo-Plugin]] · [README](../../odoo-plugin/README.md) |
-| 2 | **devops** | `8.2.3` | productivity | 9 | 3 | 1 | 4 | yes | 1 + 1 | [[DevOps Plugin\|DevOps-Plugin]] · [README](../../devops-plugin/README.md) |
+| 2 | **devops** | `8.3.0` | productivity | 9 | 3 | 1 | 4 | yes | 1 + 1 | [[DevOps Plugin\|DevOps-Plugin]] · [README](../../devops-plugin/README.md) |
 | 3 | **m365** | `0.8.1` | productivity | 2 | 0 | 1 | 1 | yes | n/a | [README](../../m365-plugin/README.md) |
 | 4 | **notification** | `1.2.0` | productivity | 1 | 0 | 0 | 7 | — | n/a | [[Notification Plugin\|Notification-Plugin]] · [README](../../notification-plugin/README.md) |
 | 5 | **pandoc** | `3.0.3` | productivity | 4 | 0 | 1 | 0 | — | 1 + 1 | [[Pandoc Plugin\|Pandoc-Plugin]] · [README](../../pandoc-plugin/README.md) |

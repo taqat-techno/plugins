@@ -60,6 +60,10 @@ If no type flag is given, detect from title keywords:
 7. **Execute** via `wit_create_work_item` + `wit_work_items_link` for parent
 8. **Report** created item with ID and hierarchy tree
 
+## Sizing a story
+
+A `--story` estimate goes in the active process's requirement sizing field (Story Points or Effort, never both). The devops skill's "Sizing a requirement" section owns the rule.
+
 ## Example
 
 ```

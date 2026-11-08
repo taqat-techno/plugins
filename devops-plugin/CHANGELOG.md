@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [8.3.0] - 2026-11-08
+
+### Added
+- Requirement sizing follows the process. Each preset in `data/state_machine.json` names its `requirementSizingField` (Microsoft defaults: Effort for a Scrum PBI and a Basic Issue, Story Points for an Agile User Story, Size for a CMMI Requirement; `custom-scrum-qc` uses Story Points). The devops skill sets only that field when creating or updating a requirement, never both, and `/create` points to the rule. Carries over `feat/devops-pbi-storypoints-rule` (8 June), generalized from one process to every preset.
+
 ## [8.2.3] - 2026-11-08
 
 ### Fixed

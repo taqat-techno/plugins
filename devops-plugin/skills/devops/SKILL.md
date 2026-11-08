@@ -3,7 +3,7 @@ name: devops
 description: "Use when the user works with Azure DevOps: work items (create, update state, comment with @mentions, link, log hours), pull requests, sprints, standups, builds and pipelines, wiki, test plans, the az devops CLI, or the azure-devops MCP server. Also use when an Azure DevOps call fails: TF401320 on Completed Work (set Original Estimate first, never drop it), MCP auth or unknown-tool errors, an empty work item search, or a denied branch or push."
 license: "MIT"
 metadata:
-  version: "8.2.3"
+  version: "8.3.0"
   last_reviewed: "2026-10-19"
   author: "TAQAT Techno"
   mode: "hybrid"
@@ -98,6 +98,14 @@ All behavioral enforcement lives in `rules/`. Do NOT re-implement — follow the
 In **stock** Azure DevOps Scrum, scheduling hours (Original / Completed / Remaining Work) and the working **"In Progress"** state live on **Tasks**. A **Product Backlog Item** carries **Effort (points)** and flows `New → Approved → Committed → Done` — it has no hours fields and no "In Progress" state. So the default place to log time and move through "In Progress" is a Task under the PBI, not the PBI itself.
 
 **Follow the active process preset, not an assumption.** The profile's `process` field selects a preset in `${CLAUDE_PLUGIN_ROOT}/data/state_machine.json` `processPresets` (detected by `/init`, Step 3.5). The stock presets (`basic`, `agile`, `scrum`, `cmmi`) encode Microsoft's defaults; the opt-in `custom-scrum-qc` preset models a customized Scrum in which PBIs and Bugs **do** move through "In Progress" (and "Ready For QC"). Under that preset the customization is deliberate — do not "correct" it back to stock Scrum. Under a stock preset, do not apply custom states, QC gates or prefixes. When the live project disagrees with its preset, say so and suggest `/init profile` to re-detect.
+
+### Sizing a requirement — one estimate field, chosen by the process
+
+A requirement's estimate goes in exactly one field, and which one depends on the process. Read it from the active preset's `requirementSizingField` in `${CLAUDE_PLUGIN_ROOT}/data/state_machine.json`: Microsoft's defaults are **Effort** for a Scrum PBI and a Basic Issue, **Story Points** for an Agile User Story, and **Size** for a CMMI Requirement. The `custom-scrum-qc` preset uses **Story Points**, because a customized Scrum commonly hides Effort on the PBI form.
+
+- When creating or updating a requirement with an estimate, set **only** that field. Never also set the other one: a value in a hidden field is invisible on the form yet still counted by queries and reports.
+- This applies to requirements only. **Tasks** keep the hour fields (Original Estimate / Remaining Work / Completed Work).
+- Some processes make the estimate read-only once the item is **Done**, so record it at creation or while the item is active.
 
 ### `TF401320` is a field-RULE error — SET the estimate, don't DROP the field
 

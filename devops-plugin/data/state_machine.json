@@ -39,6 +39,7 @@
       "note": "Microsoft's documented default for this stock process template (Azure DevOps Services, inherited process). Inherited processes allow a transition between any two states of a type, so transitionModel is 'any' and happyPath is the documented forward flow. Encoded from Microsoft Learn ('Default processes and process templates', 'Workflow states and state categories'); a customized copy of the process can differ - /init re-reads the live types with wit_get_work_item_type.",
       "transitionModel": "any",
       "requirementType": "Issue",
+      "requirementSizingField": "Microsoft.VSTS.Scheduling.Effort",
       "workItemTypes": {
         "Epic": {
           "name": "Epic",
@@ -100,6 +101,7 @@
       "note": "Microsoft's documented default for this stock process template (Azure DevOps Services, inherited process). Inherited processes allow a transition between any two states of a type, so transitionModel is 'any' and happyPath is the documented forward flow. Encoded from Microsoft Learn ('Default processes and process templates', 'Workflow states and state categories'); a customized copy of the process can differ - /init re-reads the live types with wit_get_work_item_type.",
       "transitionModel": "any",
       "requirementType": "User Story",
+      "requirementSizingField": "Microsoft.VSTS.Scheduling.StoryPoints",
       "workItemTypes": {
         "Epic": {
           "name": "Epic",
@@ -210,6 +212,7 @@
       "note": "Microsoft's documented default for this stock process template (Azure DevOps Services, inherited process). Inherited processes allow a transition between any two states of a type, so transitionModel is 'any' and happyPath is the documented forward flow. Encoded from Microsoft Learn ('Default processes and process templates', 'Workflow states and state categories'); a customized copy of the process can differ - /init re-reads the live types with wit_get_work_item_type. In stock Scrum, hours and 'In Progress' live on Tasks; PBIs and Bugs carry Effort and flow New -> Approved -> Committed -> Done.",
       "transitionModel": "any",
       "requirementType": "Product Backlog Item",
+      "requirementSizingField": "Microsoft.VSTS.Scheduling.Effort",
       "workItemTypes": {
         "Epic": {
           "name": "Epic",
@@ -317,6 +320,7 @@
       "note": "Microsoft's documented default for this stock process template (Azure DevOps Services, inherited process). Inherited processes allow a transition between any two states of a type, so transitionModel is 'any' and happyPath is the documented forward flow. Encoded from Microsoft Learn ('Default processes and process templates', 'Workflow states and state categories'); a customized copy of the process can differ - /init re-reads the live types with wit_get_work_item_type.",
       "transitionModel": "any",
       "requirementType": "Requirement",
+      "requirementSizingField": "Microsoft.VSTS.Scheduling.Size",
       "workItemTypes": {
         "Epic": {
           "name": "Epic",
@@ -473,6 +477,7 @@
       "note": "An opt-in preset for organizations running a CUSTOMIZED Scrum process: PBIs and Bugs move through 'In Progress' (and 'Ready For QC'), an Enhancement type, QC Return loops, fixed Task-title prefixes, and role rules (QA-only Bug creation, PM/Lead-only Close/Remove). It is NOT stock Scrum. Select it with 'process: custom-scrum-qc' in the profile; /init proposes it only when the live project has the Enhancement type or a 'Ready For QC' PBI state.",
       "transitionModel": "explicit",
       "requirementType": "Product Backlog Item",
+      "requirementSizingField": "Microsoft.VSTS.Scheduling.StoryPoints",
       "workItemTypes": {
         "Task": {
           "name": "Task",
