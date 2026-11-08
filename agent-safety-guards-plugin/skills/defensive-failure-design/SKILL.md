@@ -13,6 +13,7 @@ metadata:
     - crash-context capture in the `except`, before teardown (re-check every consumer that reads state after a failure once cleanup is added)
     - the silence-assertion rule (pair every "nothing happened" assertion with a positive one, and prove it by reverting the fix)
     - the fail-closed rule for a RESTRICTION resolver (a nullable policy lookup is fail-open; assert the resolved object, not the config key) and its boundary against the fail-quiet rule for a narrowing hint
+    - safety-gate coverage (enforced on every channel, approval bound to every applied field and unforgeable by the model, protection independent of caller input, complete-or-refuse lists, a gate that cannot run asks or denies)
   defers_to:
     - test-result-evidence skill (this plugin) for the general rule that a passing run is not proof until you have shown it could have failed — the named discriminator, the control on the control, and the collection-error reading
     - test-double-seams skill (this plugin) for the per-branch coverage ledger form of a branch enumeration (which side of the seam each branch's tests called)
@@ -120,6 +121,19 @@ A phased, re-runnable loader that skips "what already exists" is only safe if th
 - A missing lookup is a **hard error**, not a default. A silent default in a data path is the rule-6 hole wearing a different coat.
 - Reconcile after loading **per group** (per category, per location, per product), not only on totals — a total can match while every row sits in the wrong bucket.
 
+### 8. A safety gate protects only the channels, fields and inputs it actually checks
+
+A confirm step, an approval id, a read-only switch or a keep-list looks like a lock from the outside whatever it really covers. Each of these shapes shipped as a gap that review, not use, found:
+
+- **Enforce at the layer every caller crosses.** A check that lives in a Claude Code hook disappears when the same server runs inside an agent bot, which has no hooks. A read-only mode that blocks the MCP write tools still lets the CLI or a script write. Put the check in the server or a proxy in front of it, list every write channel (tools, CLI, scripts, token scope), and test that each one is refused.
+- **Approval must be something the model cannot produce.** An `approved=yes` argument, a `--approved-by` flag or a `confirm` field is written by the model, so a prompt-injected agent supplies it as easily as a human. Use an interactive TTY prompt, a grant only an out-of-band tool can sign, a hook `ask`, an elicitation, or an approve action in the owner's channel.
+- **Bind an approval id to everything the apply step reads.** Hash the whole item (or every field apply consumes), not only the fields shown, and check that the target matches what the user saw. Otherwise the plan can be edited after approval while its id still matches.
+- **Protection must not depend on input it can lose.** Unresolvable config protects everything it would have scoped. A caller-supplied pattern may add candidates but never remove a built-in protection. A destructive step backs up by default instead of above a size threshold.
+- **A list shown for approval is complete or the action refuses.** A disclosure list built by regex, or silently capped, looks complete and is not. Return a count and a `truncated` flag, and refuse when either says the list is partial.
+- **A gate whose check cannot run must ask or deny.** Audit the wrapper's fallback exits as well as the check: `[ -f "$s" ] || exit 0` approves the write when the script is missing or the interpreter is not found. This is the rule-6 restriction case applied to the gate itself; it does not change how advisory hooks such as `UserPromptSubmit` fail.
+
+Test each property end to end: the real gate in front of a fake backend, proving that a refused call never reaches it.
+
 ## Decision framework
 
 ```
@@ -136,6 +150,7 @@ crash recorder present?         --> capture in the `except` before teardown; `fi
 test expects nothing to happen? --> pair with a positive assertion; revert the fix and watch it fail, or it proves nothing
 lookup may not resolve?         --> HINT: ignore it and widen. RESTRICTION: deny or refuse to start; never "no policy resolved" == "no policy needed"
 resolver returns nullable?      --> assert the RESOLVED object at each call site, not the presence of the config key
+building a confirm/approval gate? --> what enforces it with no hook? what fields does apply read? can the model write the approval?
 ```
 
 ## Validation checklist
@@ -153,6 +168,7 @@ resolver returns nullable?      --> assert the RESOLVED object at each call site
 - [ ] Every silence assertion is paired with a positive assertion, and the pair was proven by reverting the fix.
 - [ ] Every lookup that may fail to resolve was classified as hint or restriction, and its failure mode matches that class.
 - [ ] Every restriction resolver is asserted on the resolved object; no call site reads a nullable policy without handling the null as a denial.
+- [ ] Every safety gate is enforced on every write channel, binds its approval to every field apply reads, accepts no model-writable approval, and asks or denies when its own check cannot run.
 
 ## Anti-patterns
 

@@ -19,11 +19,11 @@ Listed in marketplace order. Component counts are the real contents of each plug
 | 9 | **qa-browser** | `0.9.2` | productivity | 5 | 2 | 13 | 4 | — | 13 + 13 | [README](../../qa-browser-plugin/README.md) |
 | 10 | **docs-wiki** | `0.11.2` | productivity | 7 | 3 | 10 | 0 | — | 10 + 7 | [README](../../docs-wiki-plugin/README.md) |
 | 11 | **env-doctor** | `0.8.2` | productivity | 1 | 1 | 2 | 1 | — | 2 + 2 | [README](../../env-doctor-plugin/README.md) |
-| 12 | **agent-safety-guards** | `0.6.2` | productivity | 0 | 0 | 7 | 3 | — | 7 + 3 | [README](../../agent-safety-guards-plugin/README.md) |
+| 12 | **agent-safety-guards** | `0.7.0` | productivity | 0 | 0 | 7 | 3 | — | 7 + 3 | [README](../../agent-safety-guards-plugin/README.md) |
 | 13 | **release-safety** | `0.5.2` | productivity | 1 | 0 | 3 | 2 | — | 3 + 3 | [README](../../release-safety-plugin/README.md) |
 | 14 | **django** | `0.5.2` | development | 4 | 3 | 7 | 3 | — | 7 + 8 | [README](../../django-plugin/README.md) |
 | 15 | **fastapi** | `0.5.2` | development | 4 | 3 | 8 | 3 | — | 8 + 9 | [README](../../fastapi-plugin/README.md) |
-| 16 | **git-safety** | `0.5.1` | productivity | 0 | 0 | 2 | 1 | — | 2 + 2 | [README](../../git-safety-plugin/README.md) |
+| 16 | **git-safety** | `0.6.0` | productivity | 0 | 0 | 2 | 1 | — | 2 + 2 | [README](../../git-safety-plugin/README.md) |
 | 17 | **worktree** | `2.1.5` | development | 0 | 0 | 13 | 0 | — | 3 + 1 | [README](../../worktree-plugin/README.md) |
 | 18 | **sprint-recap** | `0.4.1` | productivity | 2 | 0 | 5 | 2 | — | 5 + 2 | [README](../../sprint-recap-plugin/README.md) |
 

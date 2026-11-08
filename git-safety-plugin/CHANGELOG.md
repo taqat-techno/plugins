@@ -4,6 +4,15 @@ All notable changes to the `git-safety` plugin are documented here. The format i
 based on [Keep a Changelog](https://keepachangelog.com/), and the project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [0.6.0] - 2026-11-08
+
+### Added
+- `git-safety` rule 6: the `gh` active account is shared by every session on the machine;
+  with parallel sessions, pin the identity per command with `GH_TOKEN`.
+- `git-safety` rule 9: a non-fast-forward you did not cause usually means the remote was
+  rewritten. Prove the shared trees are identical, back up, rebase only your own commits;
+  never force-push or merge to reconcile.
+
 ## [0.5.1] - 2026-10-19
 
 ### Fixed

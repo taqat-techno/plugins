@@ -3,6 +3,21 @@
 All notable changes to the `agent-safety-guards` plugin are documented here.
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] - 2026-11-08
+
+Absorbs a cluster of lessons from several independent security reviews
+(lessons-to-plugins run).
+
+### Added
+- `defensive-failure-design` rule 8: a safety gate protects only the channels, fields and
+  inputs it actually checks. Enforce it at the layer every caller crosses (a hook vanishes
+  when the server runs in an agent bot; read-only must cover the CLI too); approval must be
+  something the model cannot produce and must be bound to every field the apply step reads;
+  protection must not depend on caller input; a list shown for approval is complete or the
+  action refuses; a gate whose check cannot run asks or denies.
+- `agent-safety` rule 11: the producer side. A tool that feeds third-party text to an agent
+  sends fixed-string fields, or fences quoted text properly.
+
 ## [0.6.2] - 2026-10-19
 
 Skill triggering tuned against real eval results. Measured with `claude plugin eval --runs 1 --model claude-sonnet-5-5`; the no-plugin baseline is the 2026-10-19 run, and Δ counts the criteria grader only.
