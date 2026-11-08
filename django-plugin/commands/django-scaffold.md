@@ -1,5 +1,6 @@
 ---
 description: "Deprecated: use /django:scaffold"
+disable-model-invocation: true
 argument-hint: "(same arguments as /django:scaffold)"
 ---
 

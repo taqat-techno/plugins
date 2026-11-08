@@ -1,5 +1,6 @@
 ---
 description: "Deprecated: use /django:security"
+disable-model-invocation: true
 argument-hint: "(same arguments as /django:security)"
 ---
 

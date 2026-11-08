@@ -1,5 +1,6 @@
 ---
 description: "Deprecated: use /remotion:init, /remotion:status, /remotion:render or /remotion:voice"
+disable-model-invocation: true
 argument-hint: '[project-name] | render | voice'
 ---
 

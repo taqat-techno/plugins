@@ -1,5 +1,6 @@
 ---
 description: "Deprecated: use /qa-browser:roles"
+disable-model-invocation: true
 argument-hint: "(same arguments as /qa-browser:roles)"
 ---
 

@@ -1,5 +1,6 @@
 ---
 description: "Deprecated: use /env-doctor:diagnose"
+disable-model-invocation: true
 argument-hint: "[symptom]"
 ---
 

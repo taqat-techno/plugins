@@ -1,5 +1,6 @@
 ---
 description: "Deprecated: use /qa-browser:target"
+disable-model-invocation: true
 argument-hint: "(same arguments as /qa-browser:target)"
 ---
 

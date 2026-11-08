@@ -1,5 +1,6 @@
 ---
 description: "Deprecated: use /pandoc:convert, /pandoc:setup, /pandoc:status or /pandoc:formats"
+disable-model-invocation: true
 argument-hint: '[setup|status|convert|formats|help] [args...]'
 ---
 

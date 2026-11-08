@@ -3,6 +3,11 @@
 All notable changes to the `fastapi` plugin are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/); this plugin uses [Semantic Versioning](https://semver.org/).
 
+## [0.5.3] - 2026-11-08
+
+### Changed
+- The 4 deprecated alias commands now set `disable-model-invocation: true`. Typing the old name still works and still points to the new command, but Claude no longer sees these stubs in its skill listing, which leaves more of the shared listing budget for the descriptions of live skills and commands.
+
 ## [0.5.2] - 2026-10-19
 
 Skill triggering tuned against real eval results. Measured with `claude plugin eval --runs 1 --model claude-sonnet-5-5`; the no-plugin baseline is the 2026-10-19 run, and Δ counts the criteria grader only.

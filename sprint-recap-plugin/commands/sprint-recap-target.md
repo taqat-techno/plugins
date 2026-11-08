@@ -1,5 +1,6 @@
 ---
 description: "Deprecated: use /sprint-recap:target"
+disable-model-invocation: true
 argument-hint: "[check | set | show]"
 ---
 

@@ -2,6 +2,11 @@
 
 All notable changes to this plugin are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.2] - 2026-11-08
+
+### Changed
+- The 1 deprecated alias command now set `disable-model-invocation: true`. Typing the old name still works and still points to the new command, but Claude no longer sees these stubs in its skill listing, which leaves more of the shared listing budget for the descriptions of live skills and commands.
+
 ## [0.9.1] - 2026-11-06
 
 **Security fix: the cleanup plan id did not cover the fields the apply step uses.** Found by an

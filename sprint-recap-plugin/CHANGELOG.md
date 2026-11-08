@@ -3,6 +3,11 @@
 All notable changes to the sprint-recap plugin are documented here.
 This project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.4.2] - 2026-11-08
+
+### Changed
+- The 2 deprecated alias commands now set `disable-model-invocation: true`. Typing the old name still works and still points to the new command, but Claude no longer sees these stubs in its skill listing, which leaves more of the shared listing budget for the descriptions of live skills and commands.
+
 ## [0.4.1] - 2026-10-19
 
 ### Changed

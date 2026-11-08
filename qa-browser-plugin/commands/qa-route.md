@@ -1,5 +1,6 @@
 ---
 description: "Deprecated: use /qa-browser:route"
+disable-model-invocation: true
 argument-hint: "(same arguments as /qa-browser:route)"
 ---
 

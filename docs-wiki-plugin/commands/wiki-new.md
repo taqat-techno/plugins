@@ -1,5 +1,6 @@
 ---
 description: "Deprecated: use /docs-wiki:new"
+disable-model-invocation: true
 argument-hint: "[same arguments as the new command]"
 ---
 

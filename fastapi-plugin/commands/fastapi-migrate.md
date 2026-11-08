@@ -1,5 +1,6 @@
 ---
 description: "Deprecated: use /fastapi:migrate"
+disable-model-invocation: true
 argument-hint: "(same arguments as /fastapi:migrate)"
 ---
 

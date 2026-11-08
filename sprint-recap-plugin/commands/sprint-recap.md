@@ -1,5 +1,6 @@
 ---
 description: "Deprecated: use /sprint-recap:run"
+disable-model-invocation: true
 argument-hint: "[collect | script | capture | render | publish | all] [--sprint \"Sprint 24\"]"
 ---
 

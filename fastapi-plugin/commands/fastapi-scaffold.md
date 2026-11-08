@@ -1,5 +1,6 @@
 ---
 description: "Deprecated: use /fastapi:scaffold"
+disable-model-invocation: true
 argument-hint: "(same arguments as /fastapi:scaffold)"
 ---
 

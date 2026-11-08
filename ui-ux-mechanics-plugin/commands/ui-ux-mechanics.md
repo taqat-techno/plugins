@@ -1,5 +1,6 @@
 ---
 description: "Deprecated: use /ui-ux-mechanics:toolkit"
+disable-model-invocation: true
 argument-hint: "(same arguments as /ui-ux-mechanics:toolkit)"
 ---
 
