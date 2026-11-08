@@ -44,25 +44,27 @@ const inside = (root, real) => {
 export const chatFilesDir = (cfg) => join(cfg.home, "chat-files");
 
 // Never attachable, even in "anywhere" mode: folders that hold keys, tokens and sign-ins, and files that look like them.
-// ANY_DIRS are refused wherever they appear in a path; HOME_DIRS only directly under the user's home (a project's own
-// .claude/docs folder stays attachable; ~/.claude, with transcripts and settings, does not).
-const ANY_DIRS = [".ssh", ".gnupg", ".aws", ".azure", ".kube", ".docker", "credentials", "secrets", ".password-store"];
-const HOME_DIRS = [".claude", ".config", ".mozilla", ".local/share/keyrings", "library/keychains",
+// ANY_DIRS are refused wherever they appear in a path (any user's profile, a copied profile, a junctioned one);
+// HOME_DIRS only directly under the user's home (a project's own .claude/docs folder stays attachable; ~/.claude, with
+// transcripts and settings, does not).
+const ANY_DIRS = [".ssh", ".gnupg", ".aws", ".azure", ".kube", ".docker", "credentials", "secrets", ".password-store",
+  ".mozilla", ".local/share/keyrings", "library/keychains",
   "library/application support/google/chrome", "library/application support/firefox", "library/application support/microsoft edge",
   "appdata/roaming/microsoft/credentials", "appdata/roaming/microsoft/protect", "appdata/local/microsoft/credentials",
   "appdata/local/google/chrome/user data", "appdata/local/microsoft/edge/user data", "appdata/roaming/mozilla/firefox/profiles",
   "appdata/local/bravesoftware/brave-browser/user data"];
+const HOME_DIRS = [".claude", ".config"];
+// Every spelling of a folder: as configured and as resolved on disk (a junctioned or short-named home compares equal).
+const spellings = (p) => [...new Set([norm(resolve(p)), norm(realOrSelf(p))])];
 const SECRET_FILE = /^(\.env(\..*)?|id_(rsa|dsa|ecdsa|ed25519)(\.pub)?|\.?credentials(\.json)?|\.git-credentials|[._]netrc|\.npmrc|\.pypirc|\.htpasswd|(msal_)?token[-_]cache(\.json|\.bin)?|.*\.(pem|key|pfx|p12|kdbx|ppk|jks|keystore|asc))$/i;
 
 function secret(cfg, p) {
   const f = norm(p);
-  const home = norm(homedir());
-  if (ANY_DIRS.some((d) => f.startsWith(`${home}/${d}/`) || f.includes(`/${d}/`))) return true;
-  if (HOME_DIRS.some((d) => f.startsWith(`${home}/${d}/`))) return true;
+  if (ANY_DIRS.some((d) => f.includes(`/${d}/`))) return true;
+  for (const home of spellings(homedir())) if (HOME_DIRS.some((d) => f.startsWith(`${home}/${d}/`))) return true;
   // the plugin's own folder (sign-in cache, settings) except the pasted images it saved
-  const own = norm(cfg.home);
-  if (f.startsWith(`${own}/`) && !f.startsWith(`${own}/chat-files/`)) return true;
-  for (const c of [cfg.refreshTokenFile, cfg.clientSecretFile].filter(Boolean)) if (norm(resolve(c)) === f) return true;
+  for (const own of spellings(cfg.home)) if (f.startsWith(`${own}/`) && !f.startsWith(`${own}/chat-files/`)) return true;
+  for (const c of [cfg.refreshTokenFile, cfg.clientSecretFile].filter(Boolean)) if (spellings(c).includes(f)) return true;
   return SECRET_FILE.test(basename(p));
 }
 
@@ -87,8 +89,12 @@ function hookSaved(cfg, real) {
 export function allowedFile(cfg, path) {
   const anywhere = cfg.attachScope === "anywhere";
   const dirs = cfg.attachDirs ?? [];
-  const p = String(path ?? "").trim();
-  if (!p || !isAbsolute(p)) throw new M365Error("INVALID_ARGUMENT", "path must be an absolute file path");
+  // Never trimmed or otherwise reshaped: the server must read exactly the path the person was shown.
+  const p = String(path ?? "");
+  if (!p || p !== p.trim() || /[\u0000-\u001f\u007f-\u009f​-‏‪-‮⁦-⁩]/.test(p)) {
+    throw new M365Error("INVALID_ARGUMENT", "path has leading or trailing spaces or hidden characters; give the plain absolute path");
+  }
+  if (!isAbsolute(p)) throw new M365Error("INVALID_ARGUMENT", "path must be an absolute file path");
   const refuse = () => (!anywhere && !dirs.length)
     ? new M365Error("ATTACH_NOT_CONFIGURED", "No folder is allowed for attachments yet.", {
       hint: "Only the user can choose: the plugin setting 'Files that may be attached' (anywhere) or 'Folders files may be attached from', or in their own terminal: node server/cli.mjs setup --attach-scope anywhere. Images pasted into the chat can be attached with chat_image. Never copy a file somewhere else to get around this." })

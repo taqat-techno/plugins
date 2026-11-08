@@ -97,6 +97,24 @@ test("0.7.1: more secret files are refused, and ~/.claude only at the home root"
   assert.equal(r.attached, true);
 });
 
+test("0.7.2: the server never reshapes a path: spaces and hidden characters are refused, not trimmed", async () => {
+  const d = dir(); const f = join(d, "report.pdf"); writeFileSync(f, "%PDF-1.7");
+  const c = attachCtx({ M365_ATTACH_SCOPE: "anywhere" });
+  for (const p of [` ${f}`, `${f} `, `${f}\n`, `‮${f}`, f.replace("report", "rep​ort")]) {
+    await assert.rejects(call(c, "email_add_attachment", { draft_id: "d1", path: p }), (e) => e.code === "INVALID_ARGUMENT", JSON.stringify(p));
+  }
+  assert.equal(c.state.atts.length, 0);
+});
+
+test("0.7.2: OS credential and browser-profile folders are refused in any profile, not only the current home", async () => {
+  const d = dir();
+  for (const sub of [["AppData", "Roaming", "Microsoft", "Protect"], ["AppData", "Local", "Google", "Chrome", "User Data", "Default"]]) {
+    const folder = join(d, "OtherUser", ...sub); mkdirSync(folder, { recursive: true }); writeFileSync(join(folder, "blob.txt"), "x");
+    const c = attachCtx({ M365_ATTACH_SCOPE: "anywhere" });
+    await assert.rejects(call(c, "email_add_attachment", { draft_id: "d1", path: join(folder, "blob.txt") }), (e) => e.code === "PATH_NOT_ALLOWED", folder);
+  }
+});
+
 test("0.7.1: a link into a secret folder is judged by where it points", { skip: false }, async (t) => {
   const d = dir();
   const sshLike = join(d, ".ssh"); mkdirSync(sshLike); writeFileSync(join(sshLike, "config"), "x");

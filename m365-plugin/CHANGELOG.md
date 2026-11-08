@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.7.2] - 2026-11-08
+
+### Security
+- **Hook and server act on the same path, always.** The server no longer trims a path: leading or trailing spaces,
+  control and hidden (zero-width, bidirectional) characters are refused. The hook offers an attachment for approval only
+  when the path resolves to an existing local file, and always hands the tool that resolved path; anything else is
+  refused before a prompt appears.
+- **Folder checks compare like with like.** The home folder, the plugin's own folder and the configured token files are
+  matched in both their configured and their resolved spelling. OS credential/DPAPI folders and browser-profile folders
+  are refused wherever they appear in a path again (0.7.1 had narrowed them to the current home); only `~/.claude` and
+  `~/.config` stay home-anchored.
+
 ## [0.7.1] - 2026-11-08
 
 ### Security

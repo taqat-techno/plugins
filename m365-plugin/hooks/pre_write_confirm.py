@@ -73,15 +73,17 @@ def _attach(data, tool_input):
         return _out("ask", f"ATTACH the image you pasted into this chat (#{n} counting back from the latest, {media_type}, "
                            f"{size // 1024 or 1} KB) to email draft {_show(draft)} as {_show(updated['name'])}. Nothing is sent yet.", updated)
     real = _real_path(path)
-    updated = None
-    shown = _show(path or "-")
-    if real and os.path.normcase(real) != os.path.normcase(os.path.abspath(path)):
-        # A link, junction or short name: show where it really points, and hand that exact path on, so the file the
-        # person approves is the file the server reads (re-pointing the link afterwards changes nothing).
+    if not real:
+        # Only a path that resolves to an existing local file is offered for approval, and the tool then receives that
+        # resolved path, never the raw text: the person never approves one spelling while the server reads another.
+        return _out("deny", f"nothing attached: {_show(path or '-')} is not an existing local file (network paths, "
+                            "spaces around the path and hidden characters are refused). Ask the user for the plain full path.")
+    shown = _show(real)
+    if os.path.normcase(real) != os.path.normcase(os.path.abspath(path)):
+        # A link, junction or short name: show where it really points (re-pointing the link afterwards changes nothing).
         shown = f"{_show(real)} (you gave {_show(path)}, which points there)"
-    if real:
-        updated = dict(tool_input)
-        updated["path"] = real
+    updated = dict(tool_input)
+    updated["path"] = real
     return _out("ask", f"ATTACH the file {shown} from this computer to email draft {_show(draft)}"
                        f"{(' as ' + _show(tool_input['name'])) if tool_input.get('name') else ''}. "
                        "Whoever receives the email gets this file. Nothing is sent yet.", updated)
@@ -91,7 +93,9 @@ def _real_path(path):
     """The fully resolved path of a local file, or None. Never touches network, device or stream paths: resolving
     \\\\host\\share on Windows would make the machine offer its login to that host. The server refuses those anyway."""
     p = str(path or "")
-    if not p or not os.path.isabs(p) or p[:2] in ("\\\\", "//", "\\/", "/\\"):
+    if not p or p != p.strip() or not p.isprintable() or not os.path.isabs(p) or p[:2] in ("\\\\", "//", "\\/", "/\\"):
+        return None
+    if any(c in p for c in "​‌‍‎‏‪‫‬‭‮⁦⁧⁨⁩"):
         return None
     if os.name == "nt" and (len(p) < 3 or p[1] != ":" or p[2] not in "\\/" or ":" in p[2:]):
         return None

@@ -104,9 +104,21 @@ def _run_attach(tmp_path, tool_input, transcript):
 
 
 def test_attach_hook_shows_the_exact_file_path(tmp_path):
-    out = _run_attach(tmp_path, {"draft_id": "D1", "path": "C:\\Users\\me\\report.pdf"}, "")
-    assert out["permissionDecision"] == "ask" and "C:\\Users\\me\\report.pdf" in out["permissionDecisionReason"]
-    assert "updatedInput" not in out  # a file that does not exist: shown as given, the server answers NOT_FOUND
+    f = tmp_path / "report.pdf"
+    f.write_bytes(b"%PDF-1.7")
+    out = _run_attach(tmp_path, {"draft_id": "D1", "path": str(f)}, "")
+    real = os.path.realpath(f)
+    assert out["permissionDecision"] == "ask" and real in out["permissionDecisionReason"]
+    assert out["updatedInput"]["path"] == real
+
+
+def test_attach_hook_refuses_what_it_cannot_resolve_exactly(tmp_path):
+    f = tmp_path / "report.pdf"
+    f.write_bytes(b"%PDF-1.7")
+    for p in [str(tmp_path / "missing.pdf"), " " + str(f), str(f) + " ", str(f) + "\t", "‮" + str(f),
+              str(f).replace("report", "rep​ort"), "report.pdf", "\\\\evil\\share\\x.pdf"]:
+        out = _run_attach(tmp_path, {"draft_id": "D1", "path": p}, "")
+        assert out["permissionDecision"] == "deny" and "updatedInput" not in out, repr(p)
 
 
 def test_attach_hook_shows_and_passes_where_a_link_really_points(tmp_path):
