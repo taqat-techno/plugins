@@ -1,9 +1,10 @@
 # Authoring recipes — workbook JSON, geometry, deltas, scoped chrome
 
-Reference for `spreadsheet-dashboards`. Everything here is category A/B (workbook JSON) except the
-last two sections. Schema shown is the shipped dashboard idiom (`version: 12`, `odooVersion: 4`);
-the library's own `CURRENT_VERSION` runs ahead and migrations are applied client-side on load, so
-authoring at the shipped version is safe.
+Reference for `spreadsheet-dashboards`. Sections 1-6 are workbook JSON (ladder rung A); 7 is SCSS
+(B); 8 is JS (D); 9 applies a brand palette across all three; 10 is the module architecture. Schema
+shown is the shipped Odoo 17 dashboard idiom (`version: 12`, `odooVersion: 4`); the library's own
+`CURRENT_VERSION` runs ahead (14.5 in 17) and migrations run client-side on load, so authoring at the
+shipped version is safe — and a 17-shaped workbook also loads on 19 (`version-differences.md`).
 
 **Authoring route that actually works:** build the dashboard in the editor UI (a dashboard-edition
 module adds an "Add a spreadsheet" button to the group form), then export the record's
@@ -68,7 +69,10 @@ and the failure mode is silent — a malformed pivot yields `0`, not an error.
      "timeFormat": "hh:mm:ss", "formulaArgSeparator": ","}},
   "chartOdooMenusReferences": {"chart-trend": "your_module.your_menu_xmlid"},
   "odooVersion": 4,
-  "lists": {}, "listNextId": 1,
+  "lists": {"1": {"id": "1", "model": "your.model", "columns": ["name", "amount_untaxed"],
+                  "domain": [], "context": {},
+                  "orderBy": [{"name": "amount_untaxed", "asc": false}], "name": "Top Records"}},
+  "listNextId": 2,
   "pivots": {
     "1": {"id": "1", "model": "your.model", "colGroupBys": [], "rowGroupBys": [],
           "context": {}, "domain": [], "measures": [{"field": "__count"}],
@@ -84,11 +88,37 @@ and the failure mode is silent — a malformed pivot yields `0`, not an error.
      "defaultsToCurrentPeriod": false,
      "pivotFields": {"1": {"field": "date", "type": "datetime", "offset": 0},
                      "2": {"field": "date", "type": "datetime", "offset": -1}},
-     "listFields":  {},
+     "listFields":  {"1": {"field": "date_order", "type": "datetime", "offset": 0}},
      "graphFields": {"chart-trend": {"field": "date", "type": "datetime", "offset": 0}}}
   ]
 }
 ```
+
+**The same figures in the Odoo 19 shape** — what a 19 export looks like, and what you author only if
+the module ships on 19 alone (a 19-shaped file does not load correctly on 17):
+
+```json
+{"id": "kpi-demand", "col": 0, "row": 0, "offset": {"x": 0, "y": 0},
+ "width": 200, "height": 120, "tag": "chart",
+ "data": {"type": "scorecard", "chartId": "kpi-demand",
+          "title": {"text": "Requests", "fontSize": 14},
+          "keyValue": "Data!D2", "baseline": "Data!E2", "humanize": true,
+          "baselineMode": "percentage", "baselineDescr": {"text": "vs last period"},
+          "baselineColorUp": "#43C5B1", "baselineColorDown": "#EA6175", "background": ""}},
+{"id": "chart-stage", "col": 0, "row": 0, "offset": {"x": 0, "y": 178},
+ "width": 1000, "height": 230, "tag": "chart",
+ "data": {"type": "odoo_bar", "chartId": "chart-stage",
+          "title": {"text": "", "bold": true, "fontSize": 14, "color": "#10233A", "align": "left"},
+          "background": "#FFFFFF", "legendPosition": "top", "showValues": false, "humanize": true,
+          "dataSets": [{"backgroundColor": "#0F3D5E"}, {"backgroundColor": "#1BA39C"}],
+          "metaData": {"groupBy": ["stage_id"], "measure": "__count", "order": null,
+                       "resModel": "your.model"},
+          "searchParams": {"comparison": null, "context": {}, "domain": [],
+                           "groupBy": ["stage_id"], "orderBy": []}}}
+```
+
+Export a real 19 dashboard and diff against it before shipping: keys above were read from the 19
+source, not from a 19 export.
 
 Binding record:
 
@@ -126,13 +156,18 @@ specific hex here is an example — substitute the palette the module actually u
   width — ~300px per chart puts the x axis under Chart.js's label truncation (20 characters) and
   forces the 15-60° tick rotation, so the category labels stop being readable before the chart does.
 - **Then a repeating 13-row stanza:** 40px title row + column-header row + 10 data rows + 1 spacer.
-- **Palette:** one accent hue carrying both section titles and the primary text column (the sample
-  workbooks use a teal, `#01666b`); a near-white zebra fill (`#f2f2f2` / `#f8f9fa`); thin `#000`
-  rules. `#00A04A` / `#DC6965` for KPI up/down are the library's own scorecard defaults — leave those
-  alone unless the whole design has a reason to diverge, since users read them as a fixed convention.
-- **Typography:** two steps only — 10pt body and 16pt bold titles. Scorecard titles render at an
-  engine-fixed size regardless of what you author, so a third step would only ever apply to cells and
-  would not survive next to a scorecard.
+- **Palette (Odoo's shipped design language):** one accent hue carrying both section titles and the
+  primary text column (teal `#01666b`), magenta `#741b47` as a secondary accent, a near-white zebra
+  fill (`#f2f2f2` / `#f8f9fa`), thin `#000` rules. KPI up/down use the library's scorecard defaults —
+  `#00A04A` / `#DC6965` in 17, `#43C5B1` / `#EA6175` in 19. Keep the defaults unless the design has
+  a reason to diverge, because users read them as a fixed convention. A deliberate house palette is
+  that reason (§9).
+- **Typography:** two steps only — 10pt body and 16pt bold titles. In 17 scorecard titles render at
+  an engine-fixed ~18px grey regardless of what you author, so a third step would only ever apply to
+  cells and would not survive next to a scorecard. In 19 the scorecard title is settable (default
+  14px) — match it to the cell title step.
+- **Every title is a drill-down** (`odoo://view/…`), and charts link to menus via
+  `chartOdooMenusReferences`.
 - **Restraint across the whole sampled suite:** no conditional formatting, no icons, no data bars, no
   images, essentially no merges, no hidden sheets.
 
@@ -193,17 +228,30 @@ normal widths.
 - Counts `#,##0` — never `#,##0.00`, which claims a precision a count does not have and reads as
   money.
 - Rates `0.0%`. Currency `[$$]#,##0` or `#,##0` with the company currency (injected server-side).
-- **Compact big numbers:** `=FORMAT.LARGE.NUMBER(B2)` on the `Data` sheet, with `keyValue` pointing at
-  that cell. There is no `humanize` flag.
+- **Compact big numbers:** 17 — `=FORMAT.LARGE.NUMBER(B2)` on the `Data` sheet, with `keyValue`
+  pointing at that cell; there is no `humanize` flag. 19 — scorecards and charts carry `humanize`
+  (scorecard default `true`), so `42.8M` is automatic; set `humanize: false` to show the full value.
 - **Always wrap literals for translation:** `=_t("Customer")`. Hardcoded bilingual strings
   (`"ملغي — Cancelled"`) show both languages to every user regardless of their own.
-- Chart `title: ""` on the figure; render the title as a styled cell above it. The canvas title is
-  locked at 22px in the Chart.js font family, which does not match the cell font.
+- Chart titles: in 17, author `title: ""` on the figure and render the title as a styled cell above
+  it — the canvas title is locked at 22px in the Chart.js font family, which does not match the cell
+  font. In 19, set `title: {text, bold, fontSize, color, align: "left"}` on the figure instead: the
+  title then lives inside the card, survives mobile, and the cell row above it is free.
+- **Status fills on table cells** (over / near / under budget): a conditional format on the value
+  column. In 19, `operator: "customFormula"` can compare neighbours (`=C2>B2`). In 17, stage a status
+  value or ratio on the `Data` sheet and use a plain value rule on it. Fills are rectangles — there
+  are no rounded "pills" on canvas.
+- **Table header band:** one style with `fillColor` (dark brand colour), `textColor` `#FFFFFF`,
+  `bold`, applied to every header cell in the used span; right-align numeric column headers to sit
+  over their figures.
 
-## 7. Scoped card chrome (category C — one SCSS file)
+## 7. Scoped chrome (ladder rung B — one SCSS file)
 
 Register in `web.assets_backend` (SCSS is eager; the JS bundle is lazy and never carries SCSS).
-Separate file — never inline styles.
+Separate file — never inline styles. Print rules go in a second file registered in
+`spreadsheet.assets_print`, next to core's own print file. These selectors are the same in 17 and 19.
+
+### 7.1 Cards for charts and KPIs — the highest-value change
 
 ```scss
 // your_module/static/src/scss/dashboard.scss
@@ -215,48 +263,115 @@ Separate file — never inline styles.
     box-shadow: 0 1px 2px rgba(16, 24, 40, .06), 0 1px 3px rgba(16, 24, 40, .10);
     overflow: hidden;   // clips the chart canvas to the radius
 }
-
-// Print: drop the elevation.
-@media print {
-    .o_spreadsheet_dashboard_action .o-figure { box-shadow: none; }
-}
 ```
 
-Runtime verified: radius, shadow and background apply to `.o-figure` with **no `!important`**, and
-`.o-figure` computes to `border-box`. **Never** add padding to `.o-figure-wrapper` (content-box +
-inline sizing → 300x180 becomes 312x192 and falls out of grid alignment).
+[17 runtime] radius, shadow and background apply to `.o-figure` with **no `!important`**, and
+`.o-figure` computes to `border-box`. A rule under `.o_spreadsheet_dashboard_action .o-figure` with
+no `data-id` filter works too, but restyles **every** dashboard in the database — use it only when
+that is the intent (a company-wide house style), and say so. **Never** add padding to
+`.o-figure-wrapper` (content-box + inline sizing → 300x180 becomes 312x192 and falls out of grid
+alignment); put breathing room on `.o-figure` or in the stored position.
 
-Page background, if you want it, needs the four-class depth and only tints the margins around the
-sheet — the canvas covers the sheet itself:
+### 7.2 Page background
+
+Needs the four-class depth, and only tints the margins around the sheet — the canvas covers the sheet:
 
 ```scss
 .o_spreadsheet_dashboard_action { background-color: #f7f8fa; }
 .o_spreadsheet_dashboard_action .o_renderer .o-spreadsheet .o-grid { background-color: #f7f8fa; }
 ```
 
-Other useful chrome targets: `.o_spreadsheet_dashboard_search_panel` (core caps it at 200px),
-`.o_filter_value_container` (core: 235px), `.dashboard-loading-status`.
+To tint the sheet body itself, set `fillColor` on the cells in the JSON. A page background that
+differs from the sheet fill makes the sheet read as a white slab: either fill the used cells with
+the same colour, or accept the slab as the "paper".
 
-## 8. Chart theme (category D — optional, and global)
+### 7.3 Sidebar
 
-Separate JS file registered in `spreadsheet.o_spreadsheet`. Wrap the existing runtime rather than
-reimplementing it; `Registry.add` silently overwrites.
+```scss
+.o_spreadsheet_dashboard_action .o_spreadsheet_dashboard_search_panel {
+    max-width: 240px;                       // core caps at 200px
+    li { border-radius: 6px; margin-inline: 4px; }
+    li.active { /* accent here — use logical properties so RTL flips */ }
+}
+```
+
+In 19 the sidebar also collapses (a toggle button) and carries `.o_edit_dashboard` and
+`.o_dashboard_star` controls; do not hide them.
+
+### 7.4 Filter strip
+
+```scss
+.o_spreadsheet_dashboard_action .o_control_panel_actions {
+    .o_filter_value_container { width: 260px; }   // core: 235px
+}
+```
+
+### 7.5 Loading state and mobile
+
+`.o_spreadsheet_dashboard_action .dashboard-loading-status` for the `Loading...` / error text.
+Mobile cards: `.o_mobile_dashboard .o-chart-container` (17 — never the unclassed parents).
+
+### 7.6 Print (`spreadsheet.assets_print`)
+
+```scss
+@media print {
+    .o_spreadsheet_dashboard_action .o-figure { box-shadow: none; }
+}
+```
+
+## 8. Chart theme (ladder rung D — optional, and global)
+
+Separate JS file registered in `spreadsheet.o_spreadsheet`.
+
+### 8.1 Fonts
+
+```js
+/** @odoo-module **/
+// Chart.js is loaded before the spreadsheet bundle by the action loader.
+if (window.Chart) {
+    window.Chart.defaults.font.family =
+        "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+    window.Chart.defaults.font.size = 12;
+}
+```
+
+Session-global: it also restyles graph views. Not runtime-verified — check one dashboard chart and
+one graph view after adding it. State the global effect in the module description.
+
+### 8.2 Series palette
+
+**On 19, set bar / line / combo colours in the definition** (`dataSets[i].backgroundColor`, §1) and
+use this wrapper **only for pie and doughnut**, whose slice colours are not storable. **On 17 the
+wrapper is the only way** to colour any series. Wrap the existing runtime rather than reimplementing
+it; `Registry.add` silently overwrites.
 
 ```js
 /** @odoo-module **/
 import * as spreadsheet from "@odoo/o-spreadsheet";
 const { chartRegistry } = spreadsheet.registries;
-// Replace with the module's own palette. Order matters: series are assigned by dataset index.
+// Replace with the module's palette. Order matters: series / slices are assigned by index.
 const PALETTE = ["#01666b", "#741b47", "#f1c232", "#3266ca", "#6aa84f"];
 
 for (const type of ["odoo_bar", "odoo_line", "odoo_pie"]) {
     const base = chartRegistry.get(type);
+    if (!base) continue;
     chartRegistry.add(type, {
         ...base,
         getChartRuntime(chart, getters) {
             const runtime = base.getChartRuntime(chart, getters);
-            if (getters.isDashboard()) {
-                runtime.chartJsConfig.data.datasets.forEach((ds, i) => {
+            if (!getters.isDashboard()) {
+                return runtime;
+            }
+            const datasets = runtime.chartJsConfig.data.datasets;
+            if (type === "odoo_pie") {
+                // One colour per slice, shared by every ring.
+                for (const ds of datasets) {
+                    ds.backgroundColor = ds.data.map((_, i) => PALETTE[i % PALETTE.length]);
+                }
+            } else {
+                datasets.forEach((ds, i) => {
+                    // 19: keep a colour the definition stored for this series.
+                    if (chart.getDefinition?.().dataSets?.[i]?.backgroundColor) return;
                     ds.backgroundColor = ds.borderColor = PALETTE[i % PALETTE.length];
                 });
             }
@@ -266,7 +381,61 @@ for (const type of ["odoo_bar", "odoo_line", "odoo_pie"]) {
 }
 ```
 
-Font unification is one line (`window.Chart.defaults.font.family = …`) but is **session-global** — it
-also restyles graph views. Both of these change charts in *every* spreadsheet, not just yours; the
-`isDashboard()` guard above is the minimum containment. State the global effect in the module
-description, and skip the whole layer if the design does not require it.
+The guide this was derived from marks the wrapper **not runtime-exercised**. Verify on the target
+version: one bar, one line and one pie on a dashboard, plus one spreadsheet *outside* dashboard mode
+to confirm the `isDashboard()` guard holds. The guard scopes the palette to dashboard mode, not to
+*your* dashboards: every dashboard in the database gets it. Registrations must run before any
+`Model` is constructed; use the `("after", "spreadsheet/static/src/o_spreadsheet/o_spreadsheet.js", …)`
+manifest form if load order bites.
+
+## 9. Applying a brand palette — one token set, six carriers
+
+A house palette cannot live in one place: o-spreadsheet has no theme object. Write the tokens down
+once (in the module README or a design doc), then carry each token into exactly these places:
+
+| Carrier | What it holds | Mechanism | Versions |
+|---|---|---|---|
+| Workbook `styles` | section titles, table header band, zebra rows, body text, page-coloured fills | `textColor`, `fillColor`, `bold`, `fontSize` | 17, 19 |
+| Scorecard definitions | up / down colours per KPI, card background | `baselineColorUp`, `baselineColorDown`, `background` | 17, 19 |
+| Chart definitions | series colours, title colour | `dataSets[i].backgroundColor`, `title.color` | **19 only** (bar/line/combo) |
+| Conditional formats | status fills (good / watch / bad) | rule `style.fillColor` / `textColor` | 17, 19 (operator names differ — `version-differences.md`) |
+| SCSS (rung B) | page background, card radius / border / shadow, sidebar accent, filter strip | §7 | 17, 19 |
+| JS wrapper (rung D) | series colours on 17; pie / doughnut slices on 17 and 19; chart font | §8 | 17, 19 |
+
+Rules that keep a palette honest:
+
+- **Semantic colours are reserved.** Good / watch / bad hues appear only where they encode status —
+  never as a series colour, a section accent or decoration. Otherwise a reader cannot tell "this is
+  red because it is bad" from "this is red because it is series 5".
+- **Swap up/down colours on KPIs where up is bad** (cost, overdue, churn): `baselineColorUp` = bad,
+  `baselineColorDown` = good. The scorecard colours by sign only.
+- **Series order is colour order.** The first series gets the primary colour; keep the dataset order
+  stable across charts so "Q1" is the same colour everywhere.
+- **Check contrast against the card.** Chart text auto-flips at luminance 0.3; a mid-tone card
+  background takes text-colour control away from you. Keep cards white or near-white.
+- `text` and `progress` scorecard modes render no colour — a coloured status caption ("7 at risk"
+  in amber) is not reproducible on a scorecard; use a coloured cell next to it, or drop the colour.
+
+## 10. Module architecture for dashboard work
+
+Four layers keep upgrade risk where it belongs:
+
+1. **Content and layout — JSON, per dashboard.** KPI values, tables, charts, section titles, colours,
+   formats, geometry. One JSON file per dashboard under `<module>/data/files/`, bound by a
+   `spreadsheet.dashboard` record. Standardise on one design grid (§2).
+2. **One shared design-token module — SCSS, once for all dashboards.** All
+   `.o_spreadsheet_dashboard_action`-scoped SCSS: cards, page background, sidebar, filter strip,
+   print. One file, one place to review at upgrade time.
+3. **One shared chart-theme module — JS, optional.** Only if the design needs brand chart colours on
+   17, pie colours on 19, or a unified font. A single file in `spreadsheet.o_spreadsheet`; the piece
+   most likely to need attention on an Odoo upgrade.
+4. **Custom figure types — JS, only with a named requirement.** Sparkline KPIs, icon cards. Real cost.
+
+A pure-data dashboard module (layer 1 only) and a data-plus-plugin module (layers 1 + 3/4, JS in
+`spreadsheet.o_spreadsheet`) are both legitimate shapes — copy whichever an existing module in the
+project already uses.
+
+**Sequencing a redesign:** author in the editor UI → export `spreadsheet_data` → commit it as module
+data → add the layer-2 SCSS → update the module on a **cloned** database and read the server log
+(`stack-doctor`) → verify at 1440px, 768px, 414px and in print → check an Arabic session if the
+dashboard is user-facing → open one unrelated dashboard and confirm it is unchanged.

@@ -2,6 +2,34 @@
 
 All notable changes to `odoo-plugin` are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/). Versioning follows [SemVer](https://semver.org/).
 
+## [4.2.0] - 2026-11-08
+
+**`spreadsheet-dashboards` 0.2.0: complete Odoo 17 guidance, made version-aware for Odoo 19.**
+The skill was built from an Odoo 17 investigation and carried only part of it; every rule now
+states what holds on 17 and what changed by 19 (read from the 19.0 source, o-spreadsheet 19.0.4).
+
+### Added
+- `references/version-differences.md`: 17 vs 19 for chart colours (19 stores bar/line/combo series
+  colours in `dataSets[i].backgroundColor`; pie slices still not storable), chart and scorecard
+  titles, scorecard defaults (`#43C5B1` / `#EA6175`, `humanize`, `progress` mode, `keyDescr`),
+  workbook migrations 18.3.1-18.5.1 (figure `offset` positions, renamed conditional-format operators,
+  `baselineDescr` object, `chartId`), and what did not change.
+- Rule 0 (read the Odoo version first) and a brand-palette trigger in the description.
+- `rendering-architecture.md`: architecture map, asset-bundle table, rendering lifecycle, sharing and
+  print, key files, per-element style sources, typography, dark mode, RTL, executive-pattern table,
+  extension ladder with upgrade impact and ordered-insertion mechanics.
+- `authoring-recipes.md`: the 19 figure shape, list definitions, status fills, header bands, sidebar
+  / filter-strip / print snippets (print in `spreadsheet.assets_print`), chart-font JS, a
+  version-aware palette wrapper, the six-carrier brand-palette recipe, and the four-layer module
+  architecture with redesign sequencing.
+- Anti-patterns: un-scoped selectors, restyling clickable-cell overlays, deep `o-*` selectors,
+  patching non-exported internals, the shared link, second sheets, 19-only keys in a 17 workbook.
+
+### Changed
+- Rule 4 (mobile): 17 renders figures only; 19 renders the unreflowed grid canvas (source-checked).
+- Rule 9 (RTL): right alignment is fine within cells or used-span merges; never in full-width merges.
+- Rule 10 and rule 11: chart colour and title routes split by version.
+
 ## [4.1.2] - 2026-11-06
 
 **Security fix: a caller's `scratch_pattern` could lift odoo-local's keep rails.** Found by an
