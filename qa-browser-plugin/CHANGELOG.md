@@ -2,6 +2,11 @@
 
 All notable changes to `qa-browser-plugin` are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/). Versioning follows [SemVer](https://semver.org/).
 
+## [0.9.4] - 2026-11-08
+
+### Fixed
+- README version badge matches plugin.json again (CI `test_readme_badge_matches_manifest`).
+
 ## [0.9.3] - 2026-11-08
 
 ### Changed

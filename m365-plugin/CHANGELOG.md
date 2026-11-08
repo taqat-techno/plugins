@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.8.1] - 2026-11-08
+
+### Fixed
+- Attachment guard: the never-attachable OS credential and browser-profile folders now match case-insensitively on Linux too (a copied Windows profile keeps `AppData/Roaming/Microsoft/Protect`). Test fixtures use reserved `.example` domains.
+
 ## [0.8.0] - 2026-11-08
 
 ### Added

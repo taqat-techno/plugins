@@ -63,7 +63,9 @@ conf_data_dirs() {
     sed -nE 's/^[[:space:]]*data_dir[[:space:]]*=[[:space:]]*//p' "$f" | tr -d '\r' | sed -E "s#^~#$H#; s#/+\$##"
   done
 }
-mapfile -t LIVE_DATA_DIRS < <(conf_data_dirs | sort -u)
+# bash 3.2 (macOS) has no mapfile
+LIVE_DATA_DIRS=()
+while IFS= read -r _d; do LIVE_DATA_DIRS+=("$_d"); done < <(conf_data_dirs | sort -u)
 
 refused=0; done_n=0
 while IFS=$'\t' read -r action path dest || [ -n "${action:-}" ]; do
@@ -83,7 +85,7 @@ while IFS=$'\t' read -r action path dest || [ -n "${action:-}" ]; do
     allowed "$real" || why="resolves outside the allow-list ($real)"
   fi
   if [ -z "$why" ]; then
-    for d in "${LIVE_DATA_DIRS[@]}"; do
+    for d in ${LIVE_DATA_DIRS[@]+"${LIVE_DATA_DIRS[@]}"}; do  # bash 3.2 + set -u: empty array is unbound
       if [ -n "$d" ] && [ "$path" = "$d" ]; then why="still the data_dir of a live conf"; fi
     done
   fi

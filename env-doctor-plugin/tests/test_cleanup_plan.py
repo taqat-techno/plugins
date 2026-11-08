@@ -19,7 +19,7 @@ OLD = NOW - 60 * DAY
 NEW = NOW - 1 * DAY
 MB = 1024 ** 2
 GB = 1024 ** 3
-H = "/home/dev"
+H = "/home/user"
 
 
 def rows(*recs):

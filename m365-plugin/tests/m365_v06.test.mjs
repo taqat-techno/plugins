@@ -114,7 +114,7 @@ test("meetings: chat id from a join link, the derived meeting id, and VTT turns"
 function meetingCtx(over = {}) {
   return ctxFor([TOK,
     g("calendarView", { value: [
-      { id: "e1", subject: "NAFLA weekly", start: { dateTime: "2026-11-05T08:00:00" }, end: { dateTime: "2026-11-05T09:00:00" }, isOnlineMeeting: true, onlineMeeting: { joinUrl: JOIN }, organizer: { emailAddress: { name: "Sara Ali" } }, attendees: [{ emailAddress: { name: "Omar", address: "omar@x.com" } }] },
+      { id: "e1", subject: "NAFLA weekly", start: { dateTime: "2026-11-05T08:00:00" }, end: { dateTime: "2026-11-05T09:00:00" }, isOnlineMeeting: true, onlineMeeting: { joinUrl: JOIN }, organizer: { emailAddress: { name: "Sara Ali" } }, attendees: [{ emailAddress: { name: "Omar", address: "omar@x.example" } }] },
       { id: "e2", subject: "Lunch", start: { dateTime: "2026-11-05T12:00:00" }, end: { dateTime: "2026-11-05T13:00:00" }, isOnlineMeeting: false, attendees: [] }] }),
     g("/me/events/e1\\?", { id: "e1", subject: "NAFLA weekly", isOnlineMeeting: true, onlineMeeting: { joinUrl: JOIN } }),
     g(`/chats/${encodeURIComponent(CHAT)}\\?`, { id: CHAT, topic: "NAFLA weekly", onlineMeetingInfo: { organizer: { id: "org1" } } }),

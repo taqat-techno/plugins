@@ -22,7 +22,7 @@ test("extractLinks finds quoted, unquoted, srcset, formaction, css, import, meta
 });
 
 function ctxWith(body) {
-  const draft = { id: "d1", isDraft: true, subject: "s", toRecipients: [{ emailAddress: { address: "m@x.com" } }], ccRecipients: [], bccRecipients: [], body: { contentType: "html", content: body }, hasAttachments: false };
+  const draft = { id: "d1", isDraft: true, subject: "s", toRecipients: [{ emailAddress: { address: "m@x.example" } }], ccRecipients: [], bccRecipients: [], body: { contentType: "html", content: body }, hasAttachments: false };
   return ctxFor([TOK,
     [/^POST .*\/d1\/send$/, () => new Response(null, { status: 202 })],
     [/^GET .*\/me\/messages\/d1\?/, () => json(draft)]]);

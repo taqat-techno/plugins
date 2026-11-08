@@ -16,7 +16,7 @@ const dir = (p = "m365-v05-") => mkdtempSync(join(tmpdir(), p));
 
 // ---------------------------------------------------------------- profile from Outlook
 
-const ME = g("/me\\?\\$select=id,displayName", { id: "u1", displayName: "Ahmed Test", mail: "Ahmed@Contoso.com", preferredLanguage: "ar-EG" });
+const ME = g("/me\\?\\$select=id,displayName", { id: "u1", displayName: "Ahmed Test", mail: "Ahmed@Contoso.example", preferredLanguage: "ar-EG" });
 const MBX = (over = {}) => g("/me/mailboxSettings", { timeZone: "Egypt Standard Time", language: { locale: "en-US" },
   workingHours: { daysOfWeek: ["sunday", "monday", "tuesday", "wednesday", "thursday"], startTime: "08:30:00.0000000", endTime: "16:30:00.0000000", timeZone: { name: "Egypt Standard Time" } }, ...over });
 
@@ -25,7 +25,7 @@ test("profile: the first tool call after sign-in fills identity, zone and workin
   assert.equal(c.ctx.profile.load().me.email, null);
   await call(c, "email_list_recent", {});
   const p = c.ctx.profile.load();
-  assert.deepEqual([p.me.email, p.me.name, p.me.id, p.me.timezone, p.me.language], ["ahmed@contoso.com", "Ahmed Test", "u1", "Africa/Cairo", "en-US"]);
+  assert.deepEqual([p.me.email, p.me.name, p.me.id, p.me.timezone, p.me.language], ["ahmed@contoso.example", "Ahmed Test", "u1", "Africa/Cairo", "en-US"]);
   assert.deepEqual(p.defaults.working_hours, { days: ["sunday", "monday", "tuesday", "wednesday", "thursday"], start: "08:30", end: "16:30" });
   assert.equal(p.sources.timezone, "outlook");
   await call(c, "email_list_recent", {});
@@ -45,7 +45,7 @@ test("profile: values the user set are never overwritten; a missing permission f
   const r = await call(c, "profile_refresh_me", {});
   assert.equal(r.me.timezone, "Europe/London"); assert.deepEqual(r.working_hours.days, ["monday"]);
   assert.deepEqual(r.kept_because_user_set.sort(), ["timezone", "working_hours"]);
-  assert.equal(r.me.email, "ahmed@contoso.com", "account values are still filled");
+  assert.equal(r.me.email, "ahmed@contoso.example", "account values are still filled");
 
   const d = ctxFor([TOK, ME, [/mailboxSettings/, () => json({ error: { code: "ErrorAccessDenied" } }, 403)]]);
   const r2 = await call(d, "profile_refresh_me", {});
@@ -82,7 +82,7 @@ test("categories: set, de-duplicated and cleaned; an empty list clears; the mast
 
 function attachCtx(extraEnv = {}, extraRoutes = []) {
   const state = { atts: [] };
-  const draft = () => ({ id: "d1", isDraft: true, subject: "S", toRecipients: [{ emailAddress: { address: "m@x.com" } }], ccRecipients: [], bccRecipients: [], body: { contentType: "text", content: "See the attached report." }, hasAttachments: state.atts.length > 0 });
+  const draft = () => ({ id: "d1", isDraft: true, subject: "S", toRecipients: [{ emailAddress: { address: "m@x.example" } }], ccRecipients: [], bccRecipients: [], body: { contentType: "text", content: "See the attached report." }, hasAttachments: state.atts.length > 0 });
   const c = ctxFor([TOK, ...extraRoutes,
     [/^POST .*\/me\/messages\/d1\/attachments\/createUploadSession$/, () => json({ uploadUrl: "https://outlook.office.com/api/v2.0/upload?token=x" })],
     [/^PUT https:\/\/outlook\.office\.com\//, ({ init }) => { if (!/bytes \d+-\d+\/\d+/.test(init.headers["Content-Range"])) return json({}, 400); return new Response(null, { status: 200 }); }],
@@ -215,15 +215,15 @@ test("signature: an unsafe signature file is refused; local images become inline
 test("signature: new drafts become HTML with the signature and its image; signature:false keeps plain text", async () => {
   const d = dir();
   writeFileSync(join(d, "logo.png"), Buffer.from([1, 2, 3]));
-  writeFileSync(join(d, "sig.html"), '<p>Ahmed | <a href="https://contoso.com">Contoso</a></p><img src="logo.png">');
+  writeFileSync(join(d, "sig.html"), '<p>Ahmed | <a href="https://contoso.example">Contoso</a></p><img src="logo.png">');
   const c = ctxFor([TOK, [/^POST .*\/me\/messages$/, () => json({ id: "n1" }, 201)], [/^POST .*\/me\/messages\/n1\/attachments$/, () => json({ id: "img1" }, 201)], g("/messages/n1/attachments\\?", { value: [] })],
     { M365_SIGNATURE_FILE: join(d, "sig.html") });
-  await call(c, "email_create_draft", { to: ["m@x.com"], subject: "Hi", body: "Hello **team**" });
+  await call(c, "email_create_draft", { to: ["m@x.example"], subject: "Hi", body: "Hello **team**" });
   const body = calls(c, "POST", /\/me\/messages$/)[0].json.body;
-  assert.equal(body.contentType, "HTML"); assert.match(body.content, /Hello <b>team<\/b>/); assert.match(body.content, /contoso\.com/);
+  assert.equal(body.contentType, "HTML"); assert.match(body.content, /Hello <b>team<\/b>/); assert.match(body.content, /contoso\.example/);
   const img = calls(c, "POST", /\/n1\/attachments$/)[0].json;
   assert.equal(img.isInline, true); assert.match(img.contentId, /^sig-/);
-  await call(c, "email_create_draft", { to: ["m@x.com"], subject: "Hi", body: "plain", signature: false });
+  await call(c, "email_create_draft", { to: ["m@x.example"], subject: "Hi", body: "plain", signature: false });
   assert.equal(calls(c, "POST", /\/me\/messages$/)[1].json.body.contentType, "Text");
 });
 

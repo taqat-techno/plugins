@@ -3,6 +3,11 @@
 All notable changes to the `fastapi` plugin are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/); this plugin uses [Semantic Versioning](https://semver.org/).
 
+## [0.5.4] - 2026-11-08
+
+### Fixed
+- README version badge matches plugin.json again (CI `test_readme_badge_matches_version`).
+
 ## [0.5.3] - 2026-11-08
 
 ### Changed

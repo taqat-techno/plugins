@@ -31,7 +31,7 @@ export const contentTypeOf = (name) => TYPES[extname(String(name)).toLowerCase()
 // Paths are compared case-insensitively where the file system usually is (Windows, macOS).
 const fold = (s) => (process.platform === "win32" || process.platform === "darwin" ? s.toLowerCase() : s);
 const norm = (s) => fold(s).replace(/\\/g, "/").replace(/\/$/, "");
-// The native realpath expands 8.3 short names (C:\Users\LONGNA~1) and returns the on-disk spelling; the JS one does not.
+// The native realpath expands 8.3 short names (C:\Users\user~1 for a long account name) and returns the on-disk spelling; the JS one does not.
 const realOf = (p) => (realpathSync.native ?? realpathSync)(p);
 const realOrSelf = (p) => { try { return realOf(p); } catch { return resolve(p); } };
 
@@ -60,7 +60,10 @@ const SECRET_FILE = /^(\.env(\..*)?|id_(rsa|dsa|ecdsa|ed25519)(\.pub)?|\.?creden
 
 function secret(cfg, p) {
   const f = norm(p);
-  if (ANY_DIRS.some((d) => f.includes(`/${d}/`))) return true;
+  // ANY_DIRS are lower-case: match them case-insensitively everywhere, since a copied Windows or macOS
+  // profile keeps its mixed-case folder names on a case-sensitive Linux file system too.
+  const lf = f.toLowerCase();
+  if (ANY_DIRS.some((d) => lf.includes(`/${d}/`))) return true;
   for (const home of spellings(homedir())) if (HOME_DIRS.some((d) => f.startsWith(`${home}/${d}/`))) return true;
   // the plugin's own folder (sign-in cache, settings) except the pasted images it saved
   for (const own of spellings(cfg.home)) if (f.startsWith(`${own}/`) && !f.startsWith(`${own}/chat-files/`)) return true;

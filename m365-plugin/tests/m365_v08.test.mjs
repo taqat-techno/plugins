@@ -39,7 +39,7 @@ function draftCtx(extraEnv = {}) {
   const state = {};
   const c = ctxFor([TOK,
     [/^POST .*\/me\/messages$/, ({ body }) => { state.body = JSON.parse(body).body; return json({ id: "n1" }, 201); }],
-    [/^GET .*\/me\/messages\/n1\?/, () => json({ id: "n1", isDraft: true, subject: "S", toRecipients: [{ emailAddress: { address: "m@x.com" } }], ccRecipients: [], bccRecipients: [], body: state.body, hasAttachments: false })],
+    [/^GET .*\/me\/messages\/n1\?/, () => json({ id: "n1", isDraft: true, subject: "S", toRecipients: [{ emailAddress: { address: "m@x.example" } }], ccRecipients: [], bccRecipients: [], body: state.body, hasAttachments: false })],
   ], extraEnv);
   c.state = state;
   return c;
@@ -47,14 +47,14 @@ function draftCtx(extraEnv = {}) {
 
 test("a draft with marks is HTML even without a signature; without marks it stays plain text", async () => {
   const c = draftCtx();
-  const r = await call(c, "email_create_draft", { to: ["m@x.com"], subject: "S", body: "Please **review** the ==numbers==." });
+  const r = await call(c, "email_create_draft", { to: ["m@x.example"], subject: "S", body: "Please **review** the ==numbers==." });
   assert.equal(r.formatted, true); assert.equal(r.signature, false);
   assert.equal(c.state.body.contentType, "HTML");
   assert.ok(c.state.body.content.includes("<b>review</b>") && c.state.body.content.includes(`${HL}numbers</span>`));
   const p = await call(c, "email_preview_draft", { draft_id: "n1" });
   assert.equal(p.html_draft, true); assert.deepEqual(p.links_and_images, []); assert.equal(p.hidden_markup_found, false);
   assert.match(p.body, /Please \*\*review\*\* the ==numbers==\./);
-  const plain = await call(c, "email_create_draft", { to: ["m@x.com"], subject: "S", body: "No formatting here." });
+  const plain = await call(c, "email_create_draft", { to: ["m@x.example"], subject: "S", body: "No formatting here." });
   assert.equal(plain.formatted, false); assert.equal(c.state.body.contentType, "Text");
 });
 

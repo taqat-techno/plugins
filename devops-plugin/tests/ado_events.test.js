@@ -6,8 +6,8 @@ const ev = require("../scripts/ado-events.js");
 
 const ORG = "https://dev.azure.com/contoso";
 const ME = "11111111-2222-3333-4444-555555555555";
-const OTHER = { id: "99999999-0000-0000-0000-000000000001", displayName: "Sara", uniqueName: "sara@contoso.com" };
-const ME_ID = { id: ME, displayName: "Ahmed", uniqueName: "ahmed@contoso.com" };
+const OTHER = { id: "99999999-0000-0000-0000-000000000001", displayName: "Sara", uniqueName: "sara@contoso.example" };
+const ME_ID = { id: ME, displayName: "Ahmed", uniqueName: "ahmed@contoso.example" };
 const T0 = Date.parse("2026-11-06T10:00:00.000Z");
 const LATER = "2026-11-06T10:30:00.000Z";
 const OLD = "2026-11-06T08:00:00.000Z";
@@ -32,7 +32,7 @@ function fakeApi(routes) {
 // Specific routes first: the first matching route wins, the defaults answer "nothing".
 const base = (extra) => [
   ...(extra || []),
-  [/connectionData/, { authenticatedUser: { id: ME, providerDisplayName: "Ahmed", properties: { Account: { $value: "ahmed@contoso.com" } } } }],
+  [/connectionData/, { authenticatedUser: { id: ME, providerDisplayName: "Ahmed", properties: { Account: { $value: "ahmed@contoso.example" } } } }],
   [/_apis\/projects/, { value: [{ name: "Alpha" }] }],
   [/_apis\/wit\/wiql/, { workItems: [] }],
   [/git\/pullrequests/, { value: [] }],
@@ -133,7 +133,7 @@ test("failed build requested by me", async () => {
     { id: 71, buildNumber: "old", definition: { name: "CI" }, finishTime: OLD, sourceBranch: "refs/heads/main" } ] }]]);
   const r = await run(routes, cur());
   assert.deepStrictEqual(r.events.map((e) => [e.type, e.id, e.summary]), [["build-failed", "build-failed:70", "Build failed (pull request 12)"]]);
-  assert.ok(r.calls.find((x) => /builds/.test(x.url)).url.includes("requestedFor=ahmed%40contoso.com"));
+  assert.ok(r.calls.find((x) => /builds/.test(x.url)).url.includes("requestedFor=ahmed%40contoso.example"));
 });
 
 test("polling twice with the returned cursor never repeats an event", async () => {

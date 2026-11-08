@@ -17,7 +17,7 @@ const waitWhile = async (a) => { for (let i = 0; i < 150 && a.status().sign_in?.
 test("redirect: only http on localhost/127.0.0.1 with a fixed port >= 1024 is accepted", () => {
   assert.deepEqual(parseRedirectUri(" http://localhost:8400/callback "), { uri: "http://localhost:8400/callback", host: "localhost", port: 8400, path: "/callback" });
   assert.equal(parseRedirectUri("http://127.0.0.1:9000").path, "/");
-  for (const bad of ["https://localhost:8400/callback", "http://evil.com:8400/callback", "http://localhost/callback", "http://localhost:80/x",
+  for (const bad of ["https://localhost:8400/callback", "http://evil.example:8400/callback", "http://localhost/callback", "http://localhost:80/x",
     "http://localhost:8400/callback?x=1", "http://localhost:8400/cb#f", "http://u:p@localhost:8400/", "localhost:8400", ""]) {
     assert.throws(() => parseRedirectUri(bad), (e) => e.code === "INVALID_ARGUMENT", bad);
   }
@@ -96,6 +96,6 @@ test("setup: redirect_uri is saved after validation and read back with the lowes
   assert.deepEqual(saveSettings(cfg, { redirect_uri: "http://localhost:8400/callback" }, { viaTool: false }).saved, ["redirect_uri"]);
   assert.equal(resolveConfig({ M365_HOME: h }).redirectUri, "http://localhost:8400/callback");
   assert.equal(resolveConfig({ M365_HOME: h, M365_REDIRECT_URI: "http://localhost:9001/x" }).redirectUri, "http://localhost:9001/x", "env wins");
-  assert.throws(() => saveSettings(cfg, { redirect_uri: "https://evil.com/cb" }, { viaTool: true }), (e) => e.code === "INVALID_ARGUMENT");
+  assert.throws(() => saveSettings(cfg, { redirect_uri: "https://evil.example/cb" }, { viaTool: true }), (e) => e.code === "INVALID_ARGUMENT");
   assert.equal(resolveConfig({ M365_HOME: h }).redirectUri, "http://localhost:8400/callback", "the bad value was not saved");
 });

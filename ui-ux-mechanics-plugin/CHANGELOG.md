@@ -1,5 +1,10 @@
 # Changelog
 
+## [4.0.3] - 2026-11-08
+
+### Fixed
+- README version badge matches plugin.json again (CI `test_readme_badge_matches_manifest`).
+
 ## [4.0.2] - 2026-11-08
 
 ### Changed

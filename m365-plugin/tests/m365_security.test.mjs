@@ -6,7 +6,7 @@ import { ctxFor, call, g, json, TOK } from "./_helpers.mjs";
 const posts = (c, re) => c.fetch.calls.filter((x) => x.method === "POST" && re.test(x.url));
 
 function draftCtx(draft) {
-  const st = { draft: { id: "d1", isDraft: true, subject: "Hi", toRecipients: [{ emailAddress: { address: "m@x.com" } }], ccRecipients: [], bccRecipients: [], body: { contentType: "text", content: "hello" }, hasAttachments: false, ...draft } };
+  const st = { draft: { id: "d1", isDraft: true, subject: "Hi", toRecipients: [{ emailAddress: { address: "m@x.example" } }], ccRecipients: [], bccRecipients: [], body: { contentType: "text", content: "hello" }, hasAttachments: false, ...draft } };
   const c = ctxFor([TOK,
     [/^POST .*\/d1\/send$/, () => new Response(null, { status: 202 })],
     [/^POST .*\/me\/messages$/, () => json({ id: "d1" }, 201)],
@@ -29,8 +29,8 @@ test("email_move cannot delete: Deleted Items and Junk are refused, deleting goe
 
 test("the plugin only writes plain-text drafts: HTML from the model is refused", async () => {
   const c = draftCtx();
-  await assert.rejects(call(c, "email_create_draft", { to: ["m@x.com"], subject: "s", body: "<a href='http://evil'>Click</a>", body_format: "html" }), (e) => e.code === "INVALID_ARGUMENT" && /plain-text/.test(e.message));
-  await call(c, "email_create_draft", { to: ["m@x.com"], subject: "s", body: "plain", body_format: "text" });
+  await assert.rejects(call(c, "email_create_draft", { to: ["m@x.example"], subject: "s", body: "<a href='http://evil'>Click</a>", body_format: "html" }), (e) => e.code === "INVALID_ARGUMENT" && /plain-text/.test(e.message));
+  await call(c, "email_create_draft", { to: ["m@x.example"], subject: "s", body: "plain", body_format: "text" });
   assert.equal(posts(c, /\/me\/messages$/)[0].json.body.contentType, "Text");
 });
 
@@ -53,7 +53,7 @@ test("a draft too long to preview in full cannot be sent", async () => {
   assert.equal(p.body_truncated, true); assert.match(p.next_step, /cannot be sent from here/);
   await assert.rejects(call(c, "email_send_draft", { draft_id: "d1", digest: p.digest }), (e) => e.code === "PREVIEW_TRUNCATED");
   assert.equal(posts(c, /send$/).length, 0);
-  await assert.rejects(call(c, "email_create_draft", { to: ["m@x.com"], subject: "s", body: "x".repeat(100_001) }), (e) => e.code === "INVALID_ARGUMENT");
+  await assert.rejects(call(c, "email_create_draft", { to: ["m@x.example"], subject: "s", body: "x".repeat(100_001) }), (e) => e.code === "INVALID_ARGUMENT");
 });
 
 function teamsCtx(status) {

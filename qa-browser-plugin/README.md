@@ -1,6 +1,6 @@
 # qa-browser
 
-![Version](https://img.shields.io/badge/version-0.9.2-blue.svg)
+![Version](https://img.shields.io/badge/version-0.9.4-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 
 ## What it does

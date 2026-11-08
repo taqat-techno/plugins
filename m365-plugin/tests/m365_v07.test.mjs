@@ -14,7 +14,7 @@ const dir = (p = "m365-v07-") => mkdtempSync(join(tmpdir(), p));
 
 function attachCtx(extraEnv = {}) {
   const state = { atts: [] };
-  const draft = () => ({ id: "d1", isDraft: true, subject: "S", toRecipients: [{ emailAddress: { address: "m@x.com" } }], ccRecipients: [], bccRecipients: [], body: { contentType: "text", content: "hi" }, hasAttachments: state.atts.length > 0 });
+  const draft = () => ({ id: "d1", isDraft: true, subject: "S", toRecipients: [{ emailAddress: { address: "m@x.example" } }], ccRecipients: [], bccRecipients: [], body: { contentType: "text", content: "hi" }, hasAttachments: state.atts.length > 0 });
   const c = ctxFor([TOK,
     [/^POST .*\/me\/messages\/d1\/attachments$/, ({ body }) => { const b = JSON.parse(body); state.atts.push({ id: "a" + (state.atts.length + 1), name: b.name }); return json({ id: "a" + state.atts.length }, 201); }],
     [/^GET .*\/me\/messages\/d1\/attachments/, () => json({ value: state.atts })],

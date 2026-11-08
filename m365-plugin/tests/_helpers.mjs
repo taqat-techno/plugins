@@ -7,7 +7,7 @@ import { scopeString } from "../server/auth.mjs";
 import { createContext } from "../server/context.mjs";
 
 export const home = () => mkdtempSync(join(tmpdir(), "m365-test-"));
-export const env = (h, extra = {}) => ({ M365_CLIENT_ID: "cid-123", M365_TENANT: "contoso.com", M365_HOME: h, ...extra });
+export const env = (h, extra = {}) => ({ M365_CLIENT_ID: "cid-123", M365_TENANT: "contoso.example", M365_HOME: h, ...extra });
 export const json = (body, status = 200) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 export const TOKEN = /^POST https:\/\/login\.microsoftonline\.com\/.+\/oauth2\/v2\.0\/token/;
 export const TOK = [TOKEN, () => json({ access_token: "at-1", refresh_token: "rt-2", expires_in: 3600 })];
@@ -33,7 +33,7 @@ export function fakeFetch(routes) {
 }
 
 export function seedCache(h, over = {}) {
-  writeFileSync(join(h, "token-cache.json"), JSON.stringify({ v: 1, client_id: "cid-123", tenant: "contoso.com", scope: ALL_SCOPES, refresh_token: "rt-1", account: { name: "Ahmed", username: "a@contoso.com" }, ...over }));
+  writeFileSync(join(h, "token-cache.json"), JSON.stringify({ v: 1, client_id: "cid-123", tenant: "contoso.example", scope: ALL_SCOPES, refresh_token: "rt-1", account: { name: "Ahmed", username: "a@contoso.example" }, ...over }));
 }
 
 export function ctxFor(routes, extraEnv = {}, deps = {}) {
