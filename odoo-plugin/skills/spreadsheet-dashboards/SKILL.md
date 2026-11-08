@@ -6,15 +6,17 @@ description: >-
   styles), someone proposing CSS to recolour cells or the dashboard background, a dashboard
   that is blank on a phone or has a permanent horizontal scrollbar, a KPI that needs a delta
   or trend, applying a brand palette or house style to dashboard charts and cards, a
-  dashboard that behaves differently on Odoo 17 and 19, or checking a dashboard's numbers
-  against its pivots. Not for running tests or judging whether a task is finished.
-version: 0.2.0
+  dashboard that behaves differently on Odoo 17 and 19, a dashboard shipped from a module
+  that must stay editable from the Edit button or lost its UI edits after a module update,
+  or checking a dashboard's numbers against its pivots. Not for running tests or judging whether a task is finished.
+version: 0.3.0
 user-invocable: false
 metadata:
   last_reviewed: 2026-11-08
   owns:
     - the Odoo 17 vs 19 version gate for every dashboard mechanism (mobile, chart colours, titles, scorecards, workbook shape)
     - the six-carrier model for applying a brand palette to a dashboard
+    - organic dashboards - noupdate records, the Download-as-JSON round trip, and the binary-write revision wipe
     - the two-rendering-systems model (canvas cells vs DOM figures) and what each layer can change
     - the specificity rule for overriding library CSS injected from JS at import time
     - the figure `data-id` scoping hook and the shared-action scope-isolation trap
@@ -101,7 +103,7 @@ A figure `id` authored in the workbook JSON surfaces as `data-id` on `.o-figure`
 .o_spreadsheet_dashboard_action .o-figure[data-id^="<prefix>-"] { /* only our cards */ }
 ```
 
-`.o_spreadsheet_dashboard_action` **alone matches every spreadsheet dashboard in the database** — yours, the other team's, and all the core ones. That is the scope-isolation trap: a "harmless" card style silently restyles a dozen dashboards you never opened. Give every figure a readable, stable slug id (`kpi-demand`, `chart-stage`); UUIDs are core's habit, not a requirement.
+`.o_spreadsheet_dashboard_action` **alone matches every spreadsheet dashboard in the database** — yours, the other team's, and all the core ones. That is the scope-isolation trap: a "harmless" card style silently restyles a dozen dashboards you never opened. Give every figure a readable, stable slug id (`kpi-demand`, `chart-stage`); UUIDs are core's habit, not a requirement. The exception is a deliberate company-wide house style on dashboards people edit in the UI: figures added through the editor get UUID ids that no prefix rule matches, so there the unfiltered rule is the right one — declared as global (rule 13).
 
 Never put `padding` or `margin` on `.o-figure-wrapper`. The library forces `content-box` on every `.o-spreadsheet` descendant and the wrapper carries inline width/height, so padding **inflates the box out of grid alignment** — verified: `padding: 6px` grew a 300x180 figure to 312x192. `.o-figure` itself computes to `border-box`; put breathing room there, or better, in the figure's stored `x`/`y`.
 
@@ -156,6 +158,17 @@ Any dashboard redesign splits cleanly, and stating the split up front is what ma
 - **D — optional work needing new data or code.** New stored fields, custom chart runtimes, formula signature changes.
 
 And the governance rule that goes with it: **a defect that source control shows was a deliberate, documented decision is a decision to re-open with its owner, not a bug to silently fix.** List those separately as gated, with the evidence that they were deliberate.
+
+### 13. Ship dashboards the UI can keep editing
+
+On Enterprise, the dashboard group form's **Edit** button opens the collaborative editor. Edits are stored as revisions plus a snapshot; `spreadsheet_binary_data` keeps the original file. **Any write to `spreadsheet_binary_data` deletes every revision and the snapshot** — and a module update that reloads a non-`noupdate` dashboard record is such a write (same in 17, 18 and 19). So a dashboard shipped from code stays organic only if:
+
+- its record is inside `noupdate="1"` (Odoo's own dashboards are not, because they are templates meant to reset);
+- you round-trip through **File › Download as JSON** in the editor (debug mode), never through the stale `spreadsheet_data` field;
+- no migration, sync job or server action writes `spreadsheet_binary_data` on an existing dashboard unless wiping the users' edits is agreed;
+- whatever lives outside the workbook (SCSS chrome, a JS palette, custom formulas) is declared in the README and still applies to figures users add in the editor.
+
+The full recipe, including how to ship a new layout to a dashboard users have already edited, is `references/authoring-recipes.md` §11.
 
 ## Decision framework
 
@@ -212,7 +225,8 @@ Run this against any dashboard before calling it designed. Each line has caught 
 - [ ] Move every global filter and confirm each card responds — or is labelled as exempt. A `fieldMatching` mismatch **silently unfilters** a pivot rather than erroring.
 - [ ] Arabic session: labels resolve to one language; layout does not regress.
 - [ ] **Scope-isolation regression check** — open at least one other spreadsheet dashboard and confirm it is visually unchanged.
-- [ ] Test on a **clone**, never a reference database — iterating on a dashboard means repeated module updates, and each one rewrites the `spreadsheet.dashboard` record, discarding any revisions users made through the UI in the meantime. `stack-doctor` owns how to clone safely (with the filestore, on its own config).
+- [ ] Test on a **clone**, never a reference database — iterating on a dashboard means repeated module updates, and each one rewrites a non-`noupdate` `spreadsheet.dashboard` record, discarding any revisions users made through the UI in the meantime. `stack-doctor` owns how to clone safely (with the filestore, on its own config).
+- [ ] **Organic check (rule 13):** edit one cell through **Edit**, reload the dashboard (the change shows), update the module on the clone, reload again (the change survives); add a chart in the editor and confirm it gets the house card chrome.
 - [ ] A malformed pivot yields `0`, not an error — spot-check every number against the underlying model before sign-off.
 
 ## Anti-patterns
@@ -241,7 +255,10 @@ Run this against any dashboard before calling it designed. Each line has caught 
 | A second sheet expecting tabs | Dashboard mode shows only the first sheet; there is no switcher | `Dashboard` sheet for presentation, `Data` sheet for staging |
 | Using 19-only keys in a workbook that ships on 17 | Title objects, `dataSets` colours, `offset` positions do not load correctly on 17 | Author the 17 shape when both versions ship |
 | Silently fixing a documented deliberate decision | Reverts an accepted trade-off whose owner is elsewhere | List it as gated; re-open with the owner |
-| Hand-writing the workbook JSON from scratch | Error-prone; a malformed pivot yields `0` rather than an error | Author in the editor UI, export `spreadsheet_data`, commit it as module data |
+| Hand-writing the workbook JSON from scratch | Error-prone; a malformed pivot yields `0` rather than an error | Author in the editor UI, **File › Download as JSON** (debug mode), commit it as module data |
+| Exporting `spreadsheet_data` from a dashboard people have edited | The field keeps the original file; UI edits live in revisions and the snapshot | **File › Download as JSON** from the editor |
+| A custom dashboard record without `noupdate="1"` | Every module update rewrites `spreadsheet_binary_data`, which deletes all UI revisions | `<odoo noupdate="1">` around custom dashboard records |
+| Writing `spreadsheet_binary_data` from a migration or sync job | Same wipe, with no warning to the people who edited it | Write only where `spreadsheet_revision_ids` is empty, or ship a new record |
 
 ## Cross-references
 

@@ -6,10 +6,14 @@ shown is the shipped Odoo 17 dashboard idiom (`version: 12`, `odooVersion: 4`); 
 `CURRENT_VERSION` runs ahead (14.5 in 17) and migrations run client-side on load, so authoring at the
 shipped version is safe — and a 17-shaped workbook also loads on 19 (`version-differences.md`).
 
-**Authoring route that actually works:** build the dashboard in the editor UI (a dashboard-edition
-module adds an "Add a spreadsheet" button to the group form), then export the record's
-`spreadsheet_data` and commit it as the module's JSON file. Hand-writing this JSON is error-prone,
-and the failure mode is silent — a malformed pivot yields `0`, not an error.
+**Authoring route that actually works:** build the dashboard in the editor UI (Enterprise
+`spreadsheet_dashboard_edition` adds the **Spreadsheets** tab with *Add a spreadsheet* and a per-row
+**Edit** button to the dashboard group form), then in the editor, in debug mode, use **File › Download
+as JSON** and commit that file as the module's workbook. Do **not** export the record's
+`spreadsheet_data`: once anyone has edited the dashboard, that field still holds the original file —
+the edits live in revisions and a snapshot (§11). Hand-writing this JSON is error-prone, and the
+failure mode is silent — a malformed pivot yields `0`, not an error. Keeping the shipped dashboard
+editable from the UI afterwards is §11.
 
 ## 1. Workbook skeleton
 
@@ -123,14 +127,30 @@ source, not from a 19 export.
 Binding record:
 
 ```xml
-<record id="my_dashboard" model="spreadsheet.dashboard">
-    <field name="name">My Dashboard</field>
-    <field name="spreadsheet_binary_data" type="base64" file="my_module/data/files/my_dashboard.json"/>
-    <field name="dashboard_group_id" ref="spreadsheet_dashboard.spreadsheet_dashboard_group_sales"/>
-    <field name="group_ids" eval="[Command.link(ref('base.group_user'))]"/>
-    <field name="sequence">100</field>
-</record>
+<!-- noupdate="1": the module installs the dashboard once; after that the UI owns it (§11). -->
+<odoo noupdate="1">
+    <record id="my_dashboard" model="spreadsheet.dashboard">
+        <field name="name">My Dashboard</field>
+        <field name="spreadsheet_binary_data" type="base64" file="my_module/data/files/my_dashboard.json"/>
+        <field name="dashboard_group_id" ref="spreadsheet_dashboard.spreadsheet_dashboard_group_sales"/>
+        <field name="group_ids" eval="[Command.link(ref('base.group_user'))]"/>
+        <field name="sequence">100</field>
+    </record>
+</odoo>
 ```
+
+Record fields by version (`spreadsheet_dashboard` model):
+
+| Field | 17 | 18 | 19 |
+|---|---|---|---|
+| `name` (translatable), `dashboard_group_id`, `sequence`, `group_ids` | yes | yes | yes |
+| `is_published` (default `True`), `main_data_model_ids`, `sample_dashboard_file_path` | — | yes | yes |
+| company scope | — | `company_id` (Many2one) | `company_ids` (Many2many) |
+| favourites (`favorite_user_ids`, `is_favorite`) | — | — | yes |
+
+Odoo's own shipped dashboard records are **not** `noupdate` — every update of the module that ships
+them resets them to the file. That is right for core templates and wrong for a client dashboard
+people are expected to edit.
 
 Check `group_ids` deliberately. Widening a dashboard to all internal users is a governance decision,
 not a default — if the surface it replaces was gated to a manager group, say so and get it confirmed.
@@ -268,7 +288,9 @@ Separate file — never inline styles. Print rules go in a second file registere
 [17 runtime] radius, shadow and background apply to `.o-figure` with **no `!important`**, and
 `.o-figure` computes to `border-box`. A rule under `.o_spreadsheet_dashboard_action .o-figure` with
 no `data-id` filter works too, but restyles **every** dashboard in the database — use it only when
-that is the intent (a company-wide house style), and say so. **Never** add padding to
+that is the intent (a company-wide house style), and say so. Note the trade-off with UI editing: a
+`data-id` prefix rule never reaches a figure a user adds through the editor (it gets a UUID id), so a
+dashboard meant to be edited in the UI should take the unfiltered rule (§11). **Never** add padding to
 `.o-figure-wrapper` (content-box + inline sizing → 300x180 becomes 312x192 and falls out of grid
 alignment); put breathing room on `.o-figure` or in the stored position.
 
@@ -435,7 +457,68 @@ A pure-data dashboard module (layer 1 only) and a data-plus-plugin module (layer
 `spreadsheet.o_spreadsheet`) are both legitimate shapes — copy whichever an existing module in the
 project already uses.
 
-**Sequencing a redesign:** author in the editor UI → export `spreadsheet_data` → commit it as module
-data → add the layer-2 SCSS → update the module on a **cloned** database and read the server log
+**Sequencing a redesign:** author in the editor UI → **File › Download as JSON** (debug mode) → commit
+it as module data in a `noupdate="1"` record (§11) → add the layer-2 SCSS → update the module on a **cloned** database and read the server log
 (`stack-doctor`) → verify at 1440px, 768px, 414px and in print → check an Arabic session if the
 dashboard is user-facing → open one unrelated dashboard and confirm it is unchanged.
+
+## 11. Organic dashboards — editable from the Edit button
+
+An *organic* dashboard is one a functional user can open from the dashboard group form
+(**Spreadsheets** tab › **Edit**), change in the spreadsheet editor, and keep — without a developer,
+and without the next module update undoing it. Everything here was read from Enterprise
+`spreadsheet_edition` / `spreadsheet_dashboard_edition` source for 17, 18 and 19 (identical on the
+points below). On Community there is no Edit button, so there are no UI edits to lose.
+
+### How UI edits are stored
+
+- The Edit button opens the collaborative spreadsheet editor (`action_edit_dashboard`).
+- Each change is saved as a `spreadsheet.revision` record; periodically the revisions are folded into
+  `spreadsheet_snapshot`. `spreadsheet_binary_data` / `spreadsheet_data` keep the **original** file.
+- The dashboard view loads snapshot + revisions (`join_spreadsheet_session` on 17;
+  `_get_serialized_readonly_dashboard` on 18/19), so viewers see the edited version.
+- **Any write to `spreadsheet_binary_data` deletes every revision and the snapshot**
+  (`spreadsheet.mixin.write` → `_delete_collaborative_data`), unless the context carries
+  `preserve_spreadsheet_revisions`. A module update that reloads a non-`noupdate` dashboard record is
+  such a write: all UI edits vanish silently.
+
+### The rules
+
+1. **Ship custom dashboard records with `noupdate="1"`.** The module installs the dashboard once; the
+   UI owns it afterwards. Without it, every `-u` resets the dashboard to the file.
+2. **Round-trip through the editor, not the database field.** UI → **File › Download as JSON** (debug
+   mode) → commit. `spreadsheet_data` is stale as soon as someone has edited.
+3. **Never write `spreadsheet_binary_data` from code on a live dashboard** — a migration, a sync job, a
+   server action — unless wiping the users' edits is the intent and has been agreed. To ship a new
+   layout to a `noupdate` dashboard, either (a) write it only where the record has no revisions
+   (`not dashboard.spreadsheet_revision_ids`) and report the others, or (b) ship it as a **new**
+   dashboard record next to the edited one and let the owner retire the old one. Never force it.
+4. **Only use what the editor can show and save.** Everything in the workbook JSON is editable in the
+   UI. These are not, so keep them few and say where they live in the module README:
+   - **SCSS chrome** (rung B): edited in code only. Scope it so figures a user *adds* in the UI get it
+     too — a `data-id` prefix rule never matches a UI-created figure (the editor gives new figures
+     UUID ids). For a company-wide house style, style every figure under
+     `.o_spreadsheet_dashboard_action .o-figure`; reserve `data-id` rules for one-off cards.
+   - **JS chart palettes** (rung D): the editor is not in dashboard mode, so an `isDashboard()`-guarded
+     palette shows **default** colours while editing and the house colours when viewing. Tell editors.
+     On 19, prefer series colours stored in the chart (`dataSets[i].backgroundColor`) — they are set
+     and changed in the editor's chart panel, so they are organic; the wrapper must leave stored
+     colours alone.
+   - **Custom formulas / data sources** registered in `spreadsheet.o_spreadsheet`: the editor loads
+     the same bundle, so they work while editing — but a dashboard that uses them breaks if the module
+     providing them is uninstalled.
+5. **Design for the editor's hands.** Readable figure titles, a `Data` sheet with labelled staging
+   cells, `=_t()` labels, and pivots named for what they compute (`"revenue - current"`), so the next
+   person can change the dashboard without reverse-engineering it.
+6. **Access.** Editing needs write access on the dashboard (the collaborative access check runs on
+   every save). `group_ids` controls who *sees* it; it does not grant editing.
+
+### Checks
+
+- [ ] Every custom `spreadsheet.dashboard` record is inside a `noupdate="1"` block.
+- [ ] After install: open the dashboard via **Edit**, change one cell, close, reload the dashboard —
+      the change shows. Then update the module (`-u`) on the clone and reload — the change is still
+      there.
+- [ ] Add a chart in the editor; on viewing, it gets the same card chrome as the shipped ones.
+- [ ] No code path in the module (or any sync job) writes `spreadsheet_binary_data` on existing
+      dashboards.

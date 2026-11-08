@@ -2,6 +2,25 @@
 
 All notable changes to `odoo-plugin` are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/). Versioning follows [SemVer](https://semver.org/).
 
+## [4.3.0] - 2026-11-08
+
+**`spreadsheet-dashboards` 0.3.0: organic dashboards that stay editable from the Edit button.**
+Read from Enterprise `spreadsheet_edition` / `spreadsheet_dashboard_edition` 17, 18 and 19.
+
+### Added
+- Rule 13 and `authoring-recipes.md` §11: UI edits are revisions + a snapshot; any write to
+  `spreadsheet_binary_data` deletes them (`spreadsheet.mixin.write` → `_delete_collaborative_data`),
+  so a module update that reloads a non-`noupdate` dashboard record silently wipes them. Custom
+  dashboard records ship in `noupdate="1"`; new layouts go only to dashboards without revisions, or
+  as a new record.
+- Export route: the editor's **File › Download as JSON** (debug mode) instead of `spreadsheet_data`,
+  which keeps the original file after edits.
+- Dashboard record fields by version (17 / 18 / 19), an organic validation check, four anti-patterns.
+
+### Changed
+- Rule 3 and recipe §7.1: a `data-id` prefix rule misses figures added in the editor (UUID ids);
+  a company-wide house style on editable dashboards uses the unfiltered `.o-figure` rule.
+
 ## [4.2.0] - 2026-11-08
 
 **`spreadsheet-dashboards` 0.2.0: complete Odoo 17 guidance, made version-aware for Odoo 19.**
