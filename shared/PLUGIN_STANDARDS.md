@@ -88,6 +88,17 @@ finding. CI enforces the rules marked **(CI)**.
    blocks and policy detail into the body or `references/`. Claude Code truncates
    descriptions at 1,536 characters and drops whole descriptions when the listing budget
    overflows. [ECO-02]
+   - **Don't shorten trigger text to save listing space.** The symptom phrases are what
+     make a skill fire. A November 2026 pilot cut django's seven descriptions from ~800 to
+     ~230 characters and must-fire evals fell from 11/14 to 4/14 (must-not-fire unchanged).
+     Any description rewrite needs `claude plugin eval` before and after on the same model,
+     with no drop in must-fire or must-not-fire.
+   - **Shrink the listing by hiding entries instead.** Every installed plugin shares one
+     listing of about 1% of the context window (~30,000 characters measured). On overflow
+     Claude Code keeps every name but drops descriptions, least-invoked first. Hide entries
+     Claude should not start by itself with `disable-model-invocation: true` (deprecated
+     aliases always), and merge sibling skills that always load together.
+     `validate_marketplace.py` prints the marketplace's listing total.
 2. **Custom frontmatter goes under `metadata:` (CI).** Use it for `owns`, `defers_to`,
    `last_reviewed` and the like. Other top-level keys break claude.ai upload.
    `python tools/nest_skill_metadata.py` converts a file. [ECO-11]

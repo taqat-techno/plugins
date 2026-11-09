@@ -319,6 +319,11 @@ def check_mcp(dirs: list[Path], idents: dict[Path, str]) -> None:
 # characters. The marketplace keeps every description within DESC_BUDGET.
 DESC_CAP = 1536
 DESC_BUDGET = 1024
+# Claude Code's skill listing is shared by every installed plugin and capped at ~1% of the
+# context window (~30,000 chars measured, Nov 2026). On overflow it keeps every name but drops
+# descriptions, least-invoked first. The total is reported for information only: a pilot that
+# cut django's descriptions to ~230 chars dropped its must-fire evals from 11/14 to 4/14, so
+# description length is NOT warned on. Shrink the listing by hiding entries instead.
 TRIGGER = re.compile(r"(?i)\b(use (this skill )?when|use for|activates? (when|on|for)|invoke when|when the user)")
 
 
@@ -349,6 +354,33 @@ def check_descriptions(dirs: list[Path]) -> int:
                 err("budget", f"{rel}: description is {size} chars (marketplace budget {DESC_BUDGET})")
             if desc and not TRIGGER.search(desc[:300]):
                 warn("budget", f"{rel}: no 'Use when ...' trigger clause in the first 300 chars")
+    return total
+
+
+def _model_visible(path: Path) -> bool:
+    m = re.match(r"(?s)\A---\s*\n(.*?)\n---", path.read_text(encoding="utf-8", errors="replace"))
+    return not (m and re.search(r"^disable-model-invocation:\s*true\s*$", m.group(1), re.M))
+
+
+def check_listing(dirs: list[Path], idents: dict[Path, str]) -> int:
+    """Total size of this marketplace's share of the shared skill listing (skills + commands
+    Claude can see), for the summary line. Entries hidden with
+    `disable-model-invocation: true` cost nothing and are skipped. Informational, no warnings.
+    """
+    total = 0
+    for d in dirs:
+        ns = idents.get(d) or d.name.removesuffix("-plugin")
+        entries = []
+        for f in sorted((d / "skills").glob("*/SKILL.md")) if (d / "skills").is_dir() else []:
+            if _model_visible(f):
+                text = f"{_skill_text(f, 'description')} {_skill_text(f, 'when_to_use')}".strip()
+                entries.append((f.parent.name, text))
+        for f in sorted((d / "commands").glob("*.md")) if (d / "commands").is_dir() else []:
+            if _model_visible(f):
+                entries.append((f.stem, _skill_text(f, "description")))
+        if not entries:
+            continue
+        total += sum(len(f"- {ns}:{name}: {text}\n") for name, text in entries)
     return total
 
 
@@ -503,6 +535,7 @@ def main() -> int:
     check_state_in_plugin_root(dirs)
     check_mcp(dirs, idents)
     listing = check_descriptions(dirs)
+    model_listing = check_listing(dirs, idents)
     check_license(dirs)
     check_vendor(dirs)
     check_hot_path(dirs)
@@ -511,12 +544,13 @@ def main() -> int:
 
     if args.json:
         print(json.dumps({"plugins": len(dirs), "discoverable_skills": skills,
-                          "skill_listing_chars": listing,
+                          "skill_listing_chars": listing, "model_listing_chars": model_listing,
                           "errors": errors, "warnings": warns}, indent=2))
         return 1 if errors else 0
 
     print(f"Marketplace architecture check - {len(dirs)} plugins, "
-          f"{skills} discoverable skills, {listing} chars of skill descriptions\n")
+          f"{skills} discoverable skills, {listing} chars of skill descriptions, "
+          f"{model_listing} chars in the shared skill listing (skills + commands)\n")
     if errors:
         print(f"ERRORS ({len(errors)}):")
         for e in errors:
