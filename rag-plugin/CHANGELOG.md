@@ -2,6 +2,13 @@
 
 All notable changes to `rag-plugin` are documented here. Format is loosely based on [Keep a Changelog](https://keepachangelog.com/). Versioning follows [SemVer](https://semver.org/).
 
+## [0.21.0] - 2026-11-09
+
+### Changed
+- The PreToolUse lock-conflict check (`hook_launcher.py lock-conflict`) now starts only when a Bash/PowerShell command contains `rag` (Bash in three cases) or `QdrantClient` (exact case, as the pattern itself is). It now runs on about 2% of commands instead of all of them.
+- Proof: the guard's real decision function was run in-process on every one of 54,460 Bash/PowerShell calls from the last month (full original input); every call it would act on is one the filters let through.
+- Limit, as for every `if`-gated guard (PLUGIN_STANDARDS 1.12): Bash filter matching is case-sensitive and does not strip quotes, so a deliberately disguised spelling (`PyTeSt`, `py"test"`) skips the guard. It stops accidental runs, not adversarial ones.
+
 ## [0.20.6] - 2026-11-09
 
 ### Changed

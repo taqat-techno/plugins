@@ -18,6 +18,121 @@
         "hooks": [
           {
             "type": "command",
+            "if": "Bash(*test*)",
+            "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/test_scope_guard.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\" check; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "if": "Bash(*TEST*)",
+            "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/test_scope_guard.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\" check; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "if": "Bash(*Test*)",
+            "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/test_scope_guard.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\" check; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "if": "Bash(*jest*)",
+            "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/test_scope_guard.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\" check; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "if": "Bash(*JEST*)",
+            "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/test_scope_guard.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\" check; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "if": "Bash(*Jest*)",
+            "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/test_scope_guard.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\" check; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "if": "Bash(*npm*)",
+            "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/test_scope_guard.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\" check; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "if": "Bash(*NPM*)",
+            "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/test_scope_guard.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\" check; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "if": "Bash(*Npm*)",
+            "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/test_scope_guard.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\" check; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "if": "Bash(*yarn*)",
+            "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/test_scope_guard.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\" check; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "if": "Bash(*YARN*)",
+            "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/test_scope_guard.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\" check; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "if": "Bash(*Yarn*)",
+            "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/test_scope_guard.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\" check; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "if": "Bash(*bun*)",
+            "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/test_scope_guard.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\" check; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "if": "Bash(*BUN*)",
+            "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/test_scope_guard.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\" check; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "if": "Bash(*Bun*)",
+            "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/test_scope_guard.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\" check; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "if": "PowerShell(*test*)",
+            "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/test_scope_guard.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\" check; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "if": "PowerShell(*jest*)",
+            "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/test_scope_guard.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\" check; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "if": "PowerShell(*npm*)",
+            "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/test_scope_guard.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\" check; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "if": "PowerShell(*yarn*)",
+            "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/test_scope_guard.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\" check; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "if": "PowerShell(*bun*)",
             "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/test_scope_guard.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\" check; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0",
             "timeout": 5
           }

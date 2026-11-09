@@ -3,6 +3,13 @@
 All notable changes to the `agent-safety-guards` plugin are documented here.
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0] - 2026-11-09
+
+### Changed
+- `test_scope_guard.py check` now starts only when a Bash/PowerShell command contains test, jest, npm, yarn or bun (Bash in three cases each). These are the words every runner it classifies needs: pytest, manage.py test, odoo --test-enable, npm/pnpm/yarn/bun test scripts, vitest, jest, playwright test. Before, it ran on every command; on last month's commands it now runs on 30% of them.
+- Proof: the guard's real decision function was run in-process on every one of 54,460 Bash/PowerShell calls from the last month (full original input); every call it would act on is one the filters let through.
+- Limit, as for every `if`-gated guard (PLUGIN_STANDARDS 1.12): Bash filter matching is case-sensitive and does not strip quotes, so a deliberately disguised spelling (`PyTeSt`, `py"test"`) skips the guard. It stops accidental runs, not adversarial ones.
+
 ## [0.7.1] - 2026-11-09
 
 ### Changed

@@ -2,6 +2,13 @@
 
 All notable changes to this plugin are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.0] - 2026-11-09
+
+### Changed
+- `long_job_advisory.py` now starts only when a Bash/PowerShell command contains sleep, pgrep, pkill, after-init, test or pg_ (Bash in three cases each). These are the words each of its branches requires: wait loops, self-matching pgrep/pkill -f, `odoo … --stop-after-init` or `--test-…`, pytest / manage.py test / test:e2e / playwright test, and pg_dump / pg_restore. `after-init` is used instead of `odoo`, which matched 54% of commands through folder paths. It now runs on 31% of commands instead of all of them.
+- Proof: the guard's real decision function was run in-process on every one of 54,460 Bash/PowerShell calls from the last month (full original input); every call it would act on is one the filters let through.
+- Limit, as for every `if`-gated guard (PLUGIN_STANDARDS 1.12): Bash filter matching is case-sensitive and does not strip quotes, so a deliberately disguised spelling (`PyTeSt`, `py"test"`) skips the guard. It stops accidental runs, not adversarial ones.
+
 ## [0.9.5] - 2026-11-09
 
 ### Changed

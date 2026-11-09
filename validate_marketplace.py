@@ -396,7 +396,8 @@ def _matches_tool(matcher, tool: str) -> bool:
 def check_hot_path(dirs: list[Path]) -> None:
     """Synchronous tool hooks on Bash/PowerShell are gated by `if` filters (PLUGIN_STANDARDS 1.12).
 
-    WARN: a synchronous handler that runs on every Bash/PowerShell call (no `if`).
+    WARN: a synchronous handler that runs on every Bash/PowerShell call (no `if`), unless the
+    hooks.json description records `hot-path-exempt: <script>.py (<reason>)`.
     ERROR: a malformed `if`; a group matching both tools whose filters for one script cover
     only one tool (the other tool silently loses the guard); a script registered under several
     `if` handlers that does not read its payload through hooklib (no claim-once, so it can run
@@ -410,6 +411,7 @@ def check_hot_path(dirs: list[Path]) -> None:
         if not isinstance(data, dict):
             continue
         hooks = data.get("hooks", data)
+        exempt = set(re.findall(r"hot-path-exempt:\s*([\w.-]+\.py)", str(data.get("description", ""))))
         for event in _HOT_EVENTS:
             for group in hooks.get(event, []) or []:
                 matcher = group.get("matcher")
@@ -425,6 +427,8 @@ def check_hot_path(dirs: list[Path]) -> None:
                     label = m.group(1) if m else (cmd[:50] or "?")
                     rule = h.get("if")
                     if rule is None:
+                        if label.rsplit("/", 1)[-1] in exempt:
+                            continue
                         warn("hot-path", f"{d.name}: {event} {label} runs on every "
                                          f"{'/'.join(tools)} call; add an `if` filter per trigger word")
                         continue
@@ -443,7 +447,13 @@ def check_hot_path(dirs: list[Path]) -> None:
                     if len(rule_tools) > 1 and m:
                         script = d / m.group(1)
                         text = script.read_text(encoding="utf-8", errors="replace") if script.is_file() else ""
-                        if "hooklib.read_payload" not in text:
+                        # A launcher that runs a sibling target in-process (rag's hook_launcher.py)
+                        # passes when a target it names reads the payload through hooklib.
+                        targets = [p for p in script.parent.glob("*.py") if p != script and p.name in text]
+                        uses = "hooklib.read_payload" in text or any(
+                            "hooklib.read_payload" in p.read_text(encoding="utf-8", errors="replace")
+                            for p in targets)
+                        if not uses:
                             err("hot-path", f"{d.name}: {label} is registered under {len(rule_tools)} `if` "
                                             "handlers but does not use hooklib.read_payload (claim-once)")
 

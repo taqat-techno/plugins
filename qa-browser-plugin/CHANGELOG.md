@@ -2,6 +2,12 @@
 
 All notable changes to `qa-browser-plugin` are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/). Versioning follows [SemVer](https://semver.org/).
 
+## [0.9.6] - 2026-11-09
+
+### Changed
+- `hooks/hooks.json` records `pre_navigate_prod_gate.py` as `hot-path-exempt`. Its Bash/PowerShell gate also denies any command that names a credential variable listed in the project's `.qa-browser.local.json`. Those names come from the project file, so no fixed `if` word list can cover them, and the gate stays unfiltered on purpose. No behaviour change.
+- README version badge synced with plugin.json (it still said 0.9.4 after the 0.9.5 release).
+
 ## [0.9.5] - 2026-11-09
 
 ### Changed

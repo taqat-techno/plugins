@@ -7,6 +7,37 @@
         "hooks": [
           {
             "type": "command",
+            "if": "Bash(*rag*)",
+            "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/hook_launcher.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\" lock-conflict; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "if": "Bash(*RAG*)",
+            "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/hook_launcher.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\" lock-conflict; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "if": "Bash(*Rag*)",
+            "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/hook_launcher.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\" lock-conflict; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "if": "Bash(*QdrantClient*)",
+            "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/hook_launcher.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\" lock-conflict; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "if": "PowerShell(*rag*)",
+            "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/hook_launcher.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\" lock-conflict; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "if": "PowerShell(*QdrantClient*)",
             "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/hook_launcher.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\" lock-conflict; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0",
             "timeout": 10
           }

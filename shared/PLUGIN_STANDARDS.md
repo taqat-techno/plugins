@@ -63,9 +63,23 @@ finding. CI enforces the rules marked **(CI)**.
       whose matcher covers both tools needs `PowerShell(*word*)` handlers as well (CI error).
     - **Read the payload with `hooklib.read_payload()` (CI error otherwise).** It claims each
       tool call once per script, so a command with two trigger words still runs the guard once.
+    - **Guards with no single cheap pre-check** (a test-runner or long-job classifier): take
+      the words from every branch that can decide. Prefer the narrowest word each branch
+      requires: `after-init`, not `odoo`, which also matches every path under an odoo folder.
     - Prove a new or changed filter set by replaying real commands: every command the filters
-      skip must produce no decision when fed to the guard.
-    `validate_marketplace.py` warns on any unfiltered synchronous Bash/PowerShell handler.
+      skip must produce no decision when fed to the guard (run the decision function
+      in-process on all of them, not a sample).
+    - **Limit: these filters stop accidents, not deliberate evasion.** Bash matching is
+      case-sensitive and doesn't strip quotes, so `DoCkEr …` or `fl"u"sh` skip a guard whose
+      own check would lowercase or dequote them. Claude Code documents `if` as best-effort.
+      A hard block belongs in permission rules (`permissions.deny`), and a guard that must
+      resist an adversarial command should stay unfiltered and be recorded as exempt.
+    - **Exemption:** a guard that can't have a fixed word list (it matches names read from
+      project data, for instance) stays unfiltered. Record that in the hooks.json
+      `description` as `hot-path-exempt: <script>.py (<reason>)` and keep its
+      irrelevant-payload path fast.
+    `validate_marketplace.py` warns on any unfiltered synchronous Bash/PowerShell handler that
+    isn't recorded as exempt.
 
 ## 2. Skills
 

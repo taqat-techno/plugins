@@ -2,6 +2,11 @@
 
 All notable changes to `odoo-plugin` are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/). Versioning follows [SemVer](https://semver.org/).
 
+## [4.4.1] - 2026-11-09
+
+### Fixed
+- README version badge now matches plugin.json (it lagged behind the 4.4.0 release).
+
 ## [4.4.0] - 2026-11-09
 
 ### Changed
