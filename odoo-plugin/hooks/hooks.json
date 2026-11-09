@@ -39,6 +39,109 @@
         "hooks": [
           {
             "type": "command",
+            "if": "Bash(*docker*)",
+            "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/pre_odoo_volume_guard.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\"; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "if": "Bash(*DOCKER*)",
+            "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/pre_odoo_volume_guard.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\"; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "if": "Bash(*Docker*)",
+            "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/pre_odoo_volume_guard.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\"; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "if": "Bash(*podman*)",
+            "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/pre_odoo_volume_guard.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\"; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "if": "Bash(*PODMAN*)",
+            "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/pre_odoo_volume_guard.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\"; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "if": "Bash(*Podman*)",
+            "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/pre_odoo_volume_guard.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\"; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "if": "Bash(*db_manager*)",
+            "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/pre_odoo_volume_guard.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\"; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "if": "Bash(*DB_MANAGER*)",
+            "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/pre_odoo_volume_guard.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\"; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "if": "Bash(*Db_manager*)",
+            "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/pre_odoo_volume_guard.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\"; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "if": "Bash(*server_manager*)",
+            "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/pre_odoo_volume_guard.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\"; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "if": "Bash(*SERVER_MANAGER*)",
+            "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/pre_odoo_volume_guard.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\"; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "if": "Bash(*Server_manager*)",
+            "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/pre_odoo_volume_guard.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\"; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "if": "Bash(*dropdb*)",
+            "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/pre_odoo_volume_guard.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\"; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "if": "Bash(*DROPDB*)",
+            "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/pre_odoo_volume_guard.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\"; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "if": "Bash(*Dropdb*)",
+            "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/pre_odoo_volume_guard.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\"; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "if": "Bash(*psql*)",
+            "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/pre_odoo_volume_guard.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\"; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "if": "Bash(*PSQL*)",
+            "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/pre_odoo_volume_guard.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\"; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "if": "Bash(*Psql*)",
             "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/pre_odoo_volume_guard.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\"; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0",
             "timeout": 10
           }
@@ -49,6 +152,73 @@
         "hooks": [
           {
             "type": "command",
+            "if": "Bash(*curl*)",
+            "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/pre_odoo_restart_guard.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\"; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "if": "Bash(*CURL*)",
+            "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/pre_odoo_restart_guard.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\"; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "if": "Bash(*Curl*)",
+            "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/pre_odoo_restart_guard.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\"; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "if": "Bash(*pkill*)",
+            "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/pre_odoo_restart_guard.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\"; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "if": "Bash(*PKILL*)",
+            "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/pre_odoo_restart_guard.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\"; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "if": "Bash(*Pkill*)",
+            "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/pre_odoo_restart_guard.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\"; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "if": "Bash(*psql*)",
+            "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/pre_odoo_restart_guard.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\"; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "if": "Bash(*PSQL*)",
+            "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/pre_odoo_restart_guard.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\"; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "if": "Bash(*Psql*)",
+            "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/pre_odoo_restart_guard.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\"; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "if": "Bash(*createdb*)",
+            "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/pre_odoo_restart_guard.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\"; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "if": "Bash(*CREATEDB*)",
+            "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/pre_odoo_restart_guard.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\"; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "if": "Bash(*Createdb*)",
             "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/pre_odoo_restart_guard.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\"; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0",
             "timeout": 10
           }

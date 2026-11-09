@@ -37,7 +37,7 @@ import re
 import sys
 import threading
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 
 # --------------------------------------------------------------------------- input
 
@@ -57,7 +57,60 @@ def read_payload(stream=None):
         data = json.loads(raw) if raw and raw.strip() else None
     except Exception:
         return None
-    return data if isinstance(data, dict) else None
+    if not isinstance(data, dict):
+        return None
+    return data if _first_claim(data) else None
+
+
+def _first_claim(payload: dict) -> bool:
+    """False when an identical handler of this same hook already took this tool call.
+
+    A guard with several trigger words registers one handler per word, each with its own
+    `if` filter (`Bash(*drop*)`, `Bash(*DROP*)`, ...). Claude Code runs every handler whose
+    filter matches, so a command containing two trigger words would start the same script
+    twice. The first process to create the claim file for (tool_use_id, event, script,
+    argv) runs; the rest see None and exit 0. Events without a tool_use_id (SessionStart,
+    Stop, UserPromptSubmit) are never deduplicated. Any error returns True: running twice
+    is acceptable, skipping a guard is not.
+    """
+    tool_use_id = payload.get("tool_use_id")
+    if not isinstance(tool_use_id, str) or not tool_use_id:
+        return True
+    try:
+        import hashlib
+        base = os.environ.get("CLAUDE_PLUGIN_DATA")
+        if not base:
+            import tempfile
+            base = tempfile.gettempdir()
+        folder = os.path.join(base, "hooklib-once")
+        os.makedirs(folder, exist_ok=True)
+        parts = [tool_use_id, str(payload.get("hook_event_name") or ""),
+                 os.path.abspath(sys.argv[0]) if sys.argv and sys.argv[0] else ""] + sys.argv[1:]
+        key = hashlib.sha1("\0".join(parts).encode("utf-8", "replace")).hexdigest()
+        fd = os.open(os.path.join(folder, key), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+        os.close(fd)
+        if os.urandom(1)[0] < 3:  # ~1% of claims: drop claim files older than an hour
+            _prune(folder, 3600)
+        return True
+    except FileExistsError:
+        return False
+    except Exception:
+        return True
+
+
+def _prune(folder: str, max_age: float) -> None:
+    try:
+        import time
+        cutoff = time.time() - max_age
+        for name in os.listdir(folder):
+            path = os.path.join(folder, name)
+            try:
+                if os.path.getmtime(path) < cutoff:
+                    os.remove(path)
+            except OSError:
+                pass
+    except OSError:
+        pass
 
 
 def tool_input(payload) -> dict:

@@ -1,6 +1,6 @@
 {
   "name": "odoo",
-  "version": "4.3.0",
+  "version": "4.4.0",
   "license": "MIT",
   "description": "Unified Odoo development toolkit — code review & technical-debt, upgrade, frontend themes, testing, security auditing, i18n, reports, Docker infrastructure, server lifecycle, OWL app scaffolding, architecture & linting, solution design (standard → OCA → custom fit-gap), Odoo.sh, a live-instance data MCP and a local-services MCP across Odoo 14-19",
   "author": {

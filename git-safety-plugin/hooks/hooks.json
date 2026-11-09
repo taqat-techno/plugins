@@ -7,6 +7,25 @@
         "hooks": [
           {
             "type": "command",
+            "if": "Bash(*git*)",
+            "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/risky_git_advisory.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\"; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "if": "Bash(*GIT*)",
+            "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/risky_git_advisory.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\"; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "if": "Bash(*Git*)",
+            "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/risky_git_advisory.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\"; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "if": "PowerShell(*git*)",
             "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/risky_git_advisory.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\"; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0",
             "timeout": 10
           }

@@ -3,6 +3,11 @@
 All notable changes to the notification plugin are documented here.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [1.2.1] - 2026-11-09
+
+### Changed
+- Vendored `hooklib` 1.1.0: `read_payload()` claims each tool call once per script, so a guard registered under several `if` filters still runs once when a command contains two trigger words. `notify.py` keeps its own payload reader and claim; behaviour is unchanged.
+
 ## [1.2.0] - 2026-10-19
 
 ### Added

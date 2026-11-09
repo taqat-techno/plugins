@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [8.4.0] - 2026-11-09
+
+### Changed
+- `pre_bash_write_gate.py` now starts only when the command contains `az` or `push` (three cases each), through `if` filters in `hooks/hooks.json`. Before, it started a shell and Python on every Bash call; on last month's commands it now runs on about 3% of them. Keyword filters (`Bash(*word*)`) are used instead of prefixes, so `sudo`, `env`, `timeout` and `bash -c` wrappers are still caught, and commands Claude Code cannot parse run the guard anyway.
+- A replay of 54,313 real Bash/PowerShell commands from the last month found no call the filters skip on which the guard would have asked, denied or advised.
+- Vendored `hooklib` 1.1.0: `read_payload()` claims each tool call once per script, so a guard registered under several `if` filters still runs once when a command contains two trigger words.
+
 ## [8.3.0] - 2026-11-08
 
 ### Added

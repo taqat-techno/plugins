@@ -3,6 +3,11 @@
 All notable changes to the `agent-safety-guards` plugin are documented here.
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.1] - 2026-11-09
+
+### Changed
+- Vendored `hooklib` 1.1.0: `read_payload()` claims each tool call once per script, so a guard registered under several `if` filters still runs once when a command contains two trigger words. This plugin's hooks are not yet `if`-gated; behaviour is unchanged.
+
 ## [0.7.0] - 2026-11-08
 
 Absorbs a cluster of lessons from several independent security reviews

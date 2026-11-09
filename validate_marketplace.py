@@ -381,6 +381,73 @@ def check_vendor(dirs: list[Path]) -> None:
                           "(run python tools/sync_vendor.py)")
 
 
+_HOT_EVENTS = ("PreToolUse", "PostToolUse", "PostToolUseFailure")
+_IF_RULE = re.compile(r"^([A-Za-z][\w.-]*)\((.+)\)$")
+_SCRIPT_REF = re.compile(r"\$\{CLAUDE_PLUGIN_ROOT\}/(hooks/[\w./-]+\.py)")
+
+
+def _matches_tool(matcher, tool: str) -> bool:
+    """True when a hooks.json matcher names this tool (or matches every tool)."""
+    if matcher in (None, "", "*"):
+        return True
+    return tool in re.split(r"[|^$()\s]+", str(matcher))
+
+
+def check_hot_path(dirs: list[Path]) -> None:
+    """Synchronous tool hooks on Bash/PowerShell are gated by `if` filters (PLUGIN_STANDARDS 1.12).
+
+    WARN: a synchronous handler that runs on every Bash/PowerShell call (no `if`).
+    ERROR: a malformed `if`; a group matching both tools whose filters for one script cover
+    only one tool (the other tool silently loses the guard); a script registered under several
+    `if` handlers that does not read its payload through hooklib (no claim-once, so it can run
+    twice on one call).
+    """
+    for d in dirs:
+        hj = d / "hooks" / "hooks.json"
+        if not hj.is_file():
+            continue
+        data = load_json(hj)
+        if not isinstance(data, dict):
+            continue
+        hooks = data.get("hooks", data)
+        for event in _HOT_EVENTS:
+            for group in hooks.get(event, []) or []:
+                matcher = group.get("matcher")
+                tools = [t for t in ("Bash", "PowerShell") if _matches_tool(matcher, t)]
+                if not tools:
+                    continue
+                by_cmd: dict[str, list[str]] = {}
+                for h in group.get("hooks", []):
+                    if h.get("async") or h.get("type") != "command":
+                        continue
+                    cmd = h.get("command", "")
+                    m = _SCRIPT_REF.search(cmd)
+                    label = m.group(1) if m else (cmd[:50] or "?")
+                    rule = h.get("if")
+                    if rule is None:
+                        warn("hot-path", f"{d.name}: {event} {label} runs on every "
+                                         f"{'/'.join(tools)} call; add an `if` filter per trigger word")
+                        continue
+                    rm = _IF_RULE.match(str(rule))
+                    if not rm:
+                        err("hot-path", f"{d.name}: {event} {label} has malformed if {rule!r}")
+                        continue
+                    by_cmd.setdefault(cmd, []).append(rm.group(1))
+                for cmd, rule_tools in by_cmd.items():
+                    m = _SCRIPT_REF.search(cmd)
+                    label = m.group(1) if m else cmd[:50]
+                    for t in tools:
+                        if t not in rule_tools:
+                            err("hot-path", f"{d.name}: {event} {label}: matcher covers {t} but no "
+                                            f"`{t}(...)` filter exists, so {t} calls never reach the guard")
+                    if len(rule_tools) > 1 and m:
+                        script = d / m.group(1)
+                        text = script.read_text(encoding="utf-8", errors="replace") if script.is_file() else ""
+                        if "hooklib.read_payload" not in text:
+                            err("hot-path", f"{d.name}: {label} is registered under {len(rule_tools)} `if` "
+                                            "handlers but does not use hooklib.read_payload (claim-once)")
+
+
 CHECKS = [
     ("identity",    "marketplace <-> plugin.json identity, duplicates, orphans"),
     ("discovery",   "SKILL.md is at the discoverable path skills/<name>/SKILL.md"),
@@ -393,6 +460,7 @@ CHECKS = [
     ("budget",      f"skill description <= {DESC_BUDGET} chars, trigger clause first"),
     ("license",     "LICENSE file and matching license field in every plugin"),
     ("vendor",      "vendored hooklib copies match shared/hooklib.py"),
+    ("hot-path",    "sync Bash/PowerShell tool hooks carry `if` filters for every tool they match"),
 ]
 
 
@@ -427,6 +495,7 @@ def main() -> int:
     listing = check_descriptions(dirs)
     check_license(dirs)
     check_vendor(dirs)
+    check_hot_path(dirs)
 
     skills = sum(len(list((d / "skills").glob("*/SKILL.md"))) for d in dirs if (d / "skills").is_dir())
 

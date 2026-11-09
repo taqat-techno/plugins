@@ -2,6 +2,13 @@
 
 All notable changes to `odoo-plugin` are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/). Versioning follows [SemVer](https://semver.org/).
 
+## [4.4.0] - 2026-11-09
+
+### Changed
+- `pre_odoo_volume_guard.py` and `pre_odoo_restart_guard.py` now starts only when the command contains the trigger words of each guard's own pre-check (docker, podman, db_manager, server_manager, dropdb, psql / curl, pkill, psql, createdb), three cases each, through `if` filters in `hooks/hooks.json`. Before, it started a shell and Python on every Bash call; on last month's commands it now runs on about 3-5% of them. Keyword filters (`Bash(*word*)`) are used instead of prefixes, so `sudo`, `env`, `timeout` and `bash -c` wrappers are still caught, and commands Claude Code cannot parse run the guard anyway.
+- A replay of 54,313 real Bash/PowerShell commands from the last month found no call the filters skip on which the guard would have asked, denied or advised.
+- Vendored `hooklib` 1.1.0: `read_payload()` claims each tool call once per script, so a guard registered under several `if` filters still runs once when a command contains two trigger words.
+
 ## [4.3.0] - 2026-11-08
 
 **`spreadsheet-dashboards` 0.3.0: organic dashboards that stay editable from the Edit button.**

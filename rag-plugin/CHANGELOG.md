@@ -2,6 +2,11 @@
 
 All notable changes to `rag-plugin` are documented here. Format is loosely based on [Keep a Changelog](https://keepachangelog.com/). Versioning follows [SemVer](https://semver.org/).
 
+## [0.20.6] - 2026-11-09
+
+### Changed
+- Vendored `hooklib` 1.1.0: `read_payload()` claims each tool call once per script, so a guard registered under several `if` filters still runs once when a command contains two trigger words. This plugin's hooks are not yet `if`-gated; behaviour is unchanged.
+
 ## [0.20.5] - 2026-10-19
 
 ### Changed

@@ -26,6 +26,64 @@ def test_read_payload_returns_none_for_garbage():
         assert hooklib.read_payload(_Stdin(raw)) is None
 
 
+def _payload_bytes(**extra):
+    return json.dumps(dict({"tool_input": {"command": "x"}}, **extra)).encode("utf-8")
+
+
+def test_read_payload_runs_once_per_tool_call(tmp_path, monkeypatch):
+    monkeypatch.setenv("CLAUDE_PLUGIN_DATA", str(tmp_path))
+    raw = _payload_bytes(tool_use_id="toolu_1", hook_event_name="PreToolUse")
+    assert hooklib.read_payload(_Stdin(raw)) is not None
+    assert hooklib.read_payload(_Stdin(raw)) is None          # second identical handler
+    other = _payload_bytes(tool_use_id="toolu_2", hook_event_name="PreToolUse")
+    assert hooklib.read_payload(_Stdin(other)) is not None    # next tool call runs again
+
+
+def test_read_payload_claim_is_per_script_and_argv(tmp_path, monkeypatch):
+    monkeypatch.setenv("CLAUDE_PLUGIN_DATA", str(tmp_path))
+    raw = _payload_bytes(tool_use_id="toolu_9", hook_event_name="PreToolUse")
+    monkeypatch.setattr(sys, "argv", ["guard.py", "check"])
+    assert hooklib.read_payload(_Stdin(raw)) is not None
+    monkeypatch.setattr(sys, "argv", ["guard.py", "track"])
+    assert hooklib.read_payload(_Stdin(raw)) is not None
+    monkeypatch.setattr(sys, "argv", ["other_guard.py", "check"])
+    assert hooklib.read_payload(_Stdin(raw)) is not None
+
+
+def test_read_payload_never_dedupes_without_tool_use_id(tmp_path, monkeypatch):
+    monkeypatch.setenv("CLAUDE_PLUGIN_DATA", str(tmp_path))
+    raw = _payload_bytes(hook_event_name="SessionStart")
+    assert hooklib.read_payload(_Stdin(raw)) is not None
+    assert hooklib.read_payload(_Stdin(raw)) is not None
+
+
+def test_read_payload_runs_when_claim_store_is_unusable(tmp_path, monkeypatch):
+    blocker = tmp_path / "file-not-dir"
+    blocker.write_text("x")
+    monkeypatch.setenv("CLAUDE_PLUGIN_DATA", str(blocker))  # makedirs under a file fails
+    raw = _payload_bytes(tool_use_id="toolu_3", hook_event_name="PreToolUse")
+    assert hooklib.read_payload(_Stdin(raw)) is not None
+    assert hooklib.read_payload(_Stdin(raw)) is not None      # fails open: runs, never skips
+
+
+def test_parallel_duplicates_yield_exactly_one_runner(tmp_path):
+    script = tmp_path / "g.py"
+    script.write_text(textwrap.dedent(f"""
+        import sys; sys.path.insert(0, {os.path.dirname(hooklib.__file__)!r})
+        import hooklib
+        sys.exit(0 if hooklib.read_payload() is not None else 3)
+    """), encoding="utf-8")
+    env = dict(os.environ, CLAUDE_PLUGIN_DATA=str(tmp_path / "data"))
+    raw = _payload_bytes(tool_use_id="toolu_par", hook_event_name="PreToolUse")
+    procs = [subprocess.Popen([sys.executable, str(script)], stdin=subprocess.PIPE, env=env) for _ in range(6)]
+    for p in procs:
+        assert p.stdin is not None
+        p.stdin.write(raw)
+        p.stdin.close()
+    codes = sorted(p.wait(timeout=30) for p in procs)
+    assert codes == [0, 3, 3, 3, 3, 3]
+
+
 def test_tool_input_is_safe_on_bad_shapes():
     assert hooklib.tool_input({"tool_input": {"a": 1}}) == {"a": 1}
     for bad in (None, [], {"tool_input": 5}, {}):

@@ -20,7 +20,7 @@ finding. CI enforces the rules marked **(CI)**.
 3. **Use the vendored runtime.** Put a copy of `shared/hooklib.py` under
    `hooks/_vendor/hooklib.py` by creating `hooks/_vendor/` and running
    `python tools/sync_vendor.py`. Never edit the copy. The library provides `read_payload()`
-   (UTF-8 stdin), `tool_input()`, `watchdog()`, `run()` (fail open), `context()`, `ask()`,
+   (UTF-8 stdin, and claim-once per tool call so duplicate `if` handlers run the script once), `tool_input()`, `watchdog()`, `run()` (fail open), `context()`, `ask()`,
    `deny()` and `redact()`. [ECO-14]
 4. **Read stdin as UTF-8 bytes.** On Windows, `sys.stdin.read()` decodes cp1252, so the
    guard never sees non-ASCII input. `hooklib.read_payload()` handles this. [ECO-P1-05]
@@ -44,6 +44,28 @@ finding. CI enforces the rules marked **(CI)**.
     when the payload is irrelevant, before any import-heavy work. [ECO-13]
 11. **No dead assets.** Every script under `hooks/` is registered or deleted. A plugin with
     no hooks ships no `hooks.json`. [ECO-20]
+12. **Gate Bash/PowerShell guards with `if` filters (CI).** Without one, a synchronous
+    PreToolUse/PostToolUse handler starts a shell plus Python on every command. In October 2026,
+    12 such handlers added ~0.45 s to each of 52,000 commands and timed out 326 times. A
+    timed-out PreToolUse guard does not gate anything. Register one handler per trigger word,
+    each with `"if": "Bash(*word*)"`:
+    - **Keyword, not prefix.** `Bash(git *)` misses `sudo git …`, `env X=1 git …`,
+      `timeout 10 git …` and `bash -c "git …"`; `Bash(*git*)` catches all of them (measured
+      live on Claude Code 2.1.317). A command Claude Code cannot parse (subshell, heredoc,
+      loop, `$(…)`) runs every handler anyway, so the filter fails safe.
+    - **The words cover the guard's own pre-check.** Every token the script's first cheap
+      check accepts must contain one of the filter words, or the filter skips calls the guard
+      would have acted on.
+    - **Bash matching is case-sensitive; PowerShell is not.** When the script lowercases the
+      command before checking it, add `word`, `WORD` and `Word` variants for Bash. A lowercase
+      `drop` filter misses `psql -c "DROP DATABASE …"`.
+    - **One filter per tool.** `Bash(...)` never matches a PowerShell call. A handler group
+      whose matcher covers both tools needs `PowerShell(*word*)` handlers as well (CI error).
+    - **Read the payload with `hooklib.read_payload()` (CI error otherwise).** It claims each
+      tool call once per script, so a command with two trigger words still runs the guard once.
+    - Prove a new or changed filter set by replaying real commands: every command the filters
+      skip must produce no decision when fed to the guard.
+    `validate_marketplace.py` warns on any unfiltered synchronous Bash/PowerShell handler.
 
 ## 2. Skills
 

@@ -2,6 +2,13 @@
 
 All notable changes to this plugin are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] - 2026-11-09
+
+### Changed
+- `release_push_guard.py` now starts only when the command contains `git` or `gh` (Bash in three cases; PowerShell), through `if` filters in `hooks/hooks.json`. Before, it started a shell and Python on every Bash call; on last month's commands it now runs on about 17% of them. Keyword filters (`Bash(*word*)`) are used instead of prefixes, so `sudo`, `env`, `timeout` and `bash -c` wrappers are still caught, and commands Claude Code cannot parse run the guard anyway.
+- A replay of 54,313 real Bash/PowerShell commands from the last month found no call the filters skip on which the guard would have asked, denied or advised.
+- Vendored `hooklib` 1.1.0: `read_payload()` claims each tool call once per script, so a guard registered under several `if` filters still runs once when a command contains two trigger words.
+
 ## [0.5.2] - 2026-10-19
 
 Skill triggering tuned against real eval results. Measured with `claude plugin eval --runs 1 --model claude-sonnet-5-5`; the no-plugin baseline is the 2026-10-19 run, and Δ counts the criteria grader only.

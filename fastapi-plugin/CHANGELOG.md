@@ -3,6 +3,13 @@
 All notable changes to the `fastapi` plugin are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/); this plugin uses [Semantic Versioning](https://semver.org/).
 
+## [0.6.0] - 2026-11-09
+
+### Changed
+- `pre_bash_guard.py` now starts only when the command contains downgrade, drop, stamp or truncate (three cases each), through `if` filters in `hooks/hooks.json`. Before, it started a shell and Python on every Bash call; on last month's commands it now runs on about 2% of them. Keyword filters (`Bash(*word*)`) are used instead of prefixes, so `sudo`, `env`, `timeout` and `bash -c` wrappers are still caught, and commands Claude Code cannot parse run the guard anyway.
+- A replay of 54,313 real Bash/PowerShell commands from the last month found no call the filters skip on which the guard would have asked, denied or advised.
+- Vendored `hooklib` 1.1.0: `read_payload()` claims each tool call once per script, so a guard registered under several `if` filters still runs once when a command contains two trigger words.
+
 ## [0.5.4] - 2026-11-08
 
 ### Fixed
