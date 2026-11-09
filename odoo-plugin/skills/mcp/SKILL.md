@@ -154,7 +154,7 @@ Tool output lands in the context window. Be deliberate:
 |---|---|
 | `allowed_company_ids` | On multi-company databases this decides which records are visible at all. Set it in the profile, or per call. A silently wrong company is the most common source of confusing results. |
 | `active_test: false` | Archived records are hidden by default. Pass this when a record "should exist" but does not appear. |
-| `lang` | Translated fields come back in the context language. A `lang` write to an `html_translate` field also overwrites the source value: write the source first, then `update_field_translations` (see `skills/i18n/references/runtime-traps.md`). |
+| `lang` | Translated fields come back in the context language. A `lang` write to an `html_translate` field also overwrites the source value: write the source first, then `update_field_translations` (see `skills/i18n/references/runtime-traps.md`). Bulk translation of a live DB goes through the `base.language.export` / `base.language.import` wizards in a guarded script, not field-by-field MCP writes: `skills/i18n/references/live-db-translation.md`. |
 
 ## Safety model
 

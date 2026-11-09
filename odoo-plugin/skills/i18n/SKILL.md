@@ -4,9 +4,10 @@ description: >-
   Use when working on Odoo 14-19 translations: extracting strings to a .pot, creating or
   validating a .po file (Arabic or any other language), finding untranslated or fuzzy
   entries, exporting or importing translations with the Odoo CLI, loading and activating a
-  language, fixing RTL layout for Arabic, or translations that do not show after a module
-  update. For a filled msgstr that still does not apply, or a scripted .po edit, also use
-  i18n-audit.
+  language, fixing RTL layout for Arabic, translations that do not show after a module
+  update, or translating records, dashboards or selection labels directly in a running
+  database (staging, Odoo.sh, production) without deploying a module. For a filled msgstr
+  that still does not apply, or a scripted .po edit, also use i18n-audit.
 license: "MIT"
 metadata:
   mode: "codebase"
@@ -37,6 +38,7 @@ Example requests:
 - "Export translations for my module using Odoo CLI" (Export trigger - Odoo CLI translation export)
 - "How do I activate Arabic language in my Odoo database?" (Language activation trigger)
 - "My translations are not showing after I updated the module" (Troubleshooting trigger - translation visibility issues)
+- "Translate these dashboards / records into Arabic on staging without deploying a module" (Live-DB trigger - `references/live-db-translation.md`)
 
 Provides deep expertise in Odoo internationalization (i18n) and localization (l10n) across Odoo 14-19.
 
@@ -53,6 +55,7 @@ Provides deep expertise in Odoo internationalization (i18n) and localization (l1
 9. **Restart the server after editing a `.po`** -- code translations are cached per process, keyed `(module, lang)`, and a registry reload does not drop that cache. Then re-test in a fresh browser context: `/web/webclient/translations` is HTTP-cached and survives a normal reload
 10. **Scripted `.po` edits keep the file's newline convention** -- write in binary mode with the detected `\r\n` / `\n`, then check `git diff --stat` (see i18n-audit rule 6)
 11. **A coverage % is not evidence** -- a string with no entry is never counted. Verify the rendered screen or the extracted terms (see i18n-audit rule 7)
+12. **A `.po` imported into a live database translates record terms only** -- the importer skips every `code` entry (`_()`, `_t()`, `=_t()` in spreadsheets). To translate a running DB without a deploy, use Export Translation (type Model) → fill → Import Translation, or `update_field_translations`; move code-term texts into records first. A live import is DB-only and is lost when the records are rebuilt: [references/live-db-translation.md](references/live-db-translation.md)
 
 Runtime traps that look like "the translation is in the file but the screen is English"
 (Owl component props, multi-line QWeb text, `html_translate` writes over RPC, theme

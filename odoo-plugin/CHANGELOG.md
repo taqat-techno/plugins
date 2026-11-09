@@ -2,6 +2,32 @@
 
 All notable changes to `odoo-plugin` are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/). Versioning follows [SemVer](https://semver.org/).
 
+## [4.5.0] - 2026-11-09
+
+**Translate a running database without deploying a module.** Taken from a session that translated
+Odoo 17 spreadsheet dashboards into Arabic on Odoo.sh staging and production with no code
+deploy. The first answer there was wrong (it said a `.po` needs a module on disk), and an early
+attempt duplicated every board per language.
+
+### Added
+- `skills/i18n/references/live-db-translation.md`:
+  - The record-term vs code-term rule: `TranslationImporter._load` skips every `code` entry, so an
+    imported `.po` never translates `_()`, `_t()` or spreadsheet `=_t()` texts on a live database.
+  - The Export Translation (type Model + domain) → fill → Import Translation round trip, with
+    `base.language.export` / `base.language.import` RPC call shapes and `__export__` IDs.
+  - Overwrite vs `noupdate`, single-field `update_field_translations`, verification in both
+    languages (read back with `context lang`; a full reload with a cache-buster), and durability:
+    a live import is DB-only and lost when records are rebuilt.
+- `spreadsheet-dashboards` rule 14, "Translating a dashboard without code": selection labels read
+  with `ODOO.PIVOT.HEADER` (they resolve in the viewer's language), captions instead of figure
+  titles, hash keys instead of discovery-order keys, and never rewriting `ODOO.PIVOT*` /
+  `ODOO.FILTER.VALUE` arguments.
+- i18n rule 12, plus a live-DB trigger in the i18n description. `mcp` points bulk translation at
+  the wizards in a guarded script.
+
+### Evals
+- `fires-on-live-db-dashboard-translation` (i18n or spreadsheet-dashboards). Not piloted yet.
+
 ## [4.4.1] - 2026-11-09
 
 ### Fixed

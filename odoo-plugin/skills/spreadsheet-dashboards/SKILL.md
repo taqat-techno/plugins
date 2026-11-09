@@ -170,6 +170,30 @@ On Enterprise, the dashboard group form's **Edit** button opens the collaborativ
 
 The full recipe, including how to ship a new layout to a dashboard users have already edited, is `references/authoring-recipes.md` §11.
 
+### 14. Translating a dashboard without code
+
+`=_t("…")` labels and figure titles are **code terms**: they translate only from a module's
+`i18n/<lang>.po` on the server's disk, and a `.po` imported into a live database ignores them.
+When no module can be deployed (Odoo.sh stage or production, boards that exist only as records),
+make every visible text a **record term** instead:
+
+- Board `name` and the dashboard group `name` are `translate=True` already.
+- For card, chart and header texts, add a small label dataset with one **selection field**. Each
+  option is `(key, English text)`. Rewrite each literal cell to
+  `=ODOO.PIVOT.HEADER(<labels_pivot_id>,"<field>","<key>")`, using a pivot on that dataset grouped
+  by the field. The server returns the option label **in the viewer's language**. Concatenate
+  pieces for mixed text (`"…"&ODOO.PIVOT.HEADER(…)`).
+- Figure `title` / `baselineDescr` cannot hold a formula. Move them into a caption cell above
+  the figure, or into the scorecard baseline cell with `baselineMode: "text"`.
+- **Key = a stable hash of the English text** (for example sha1), never the order in which the
+  text was found. Order-based keys shift after a layout change and put captions on the wrong cards.
+- When rewriting literals, **never touch the arguments of `ODOO.PIVOT*` or `ODOO.FILTER.VALUE`**:
+  those strings are pivot ids, field names and filter names, and changing them gives `#ERROR`.
+
+Then translate the selection labels, board names and group name with the Export (Model) → Import
+round trip in `../i18n/references/live-db-translation.md`. Those translations are DB-only: re-run
+it whenever the label dataset or boards are rebuilt. The sheet itself stays LTR (rule 9).
+
 ## Decision framework
 
 Route the change to its owning layer before writing anything:
@@ -280,7 +304,7 @@ Owned elsewhere — reference, do not restate:
 - `theme-scss` / `theme-design` — website theme SCSS variables and palettes. This skill governs backend dashboard chrome only; the two share no variable system.
 - `frontend-js` — general Odoo asset-bundle and OWL conventions. Note the split this skill depends on: custom **JS** belongs in the lazy `spreadsheet.o_spreadsheet` bundle, custom **SCSS** in the eager `web.assets_backend`.
 - `reviewer` — module-level review conventions, manifest hygiene, version bumps.
-- `i18n` / `i18n-audit` — `.pot` extraction, msgid discipline and the translation workflow once labels are wrapped in `=_t()`. This skill only requires the wrapping; everything downstream of it is theirs.
+- `i18n` / `i18n-audit` — `.pot` extraction, msgid discipline and the translation workflow once labels are wrapped in `=_t()`. This skill only requires the wrapping; everything downstream of it is theirs. Translating boards on a live DB with no module deploy: rule 14 here (the JSON pattern), and `i18n/references/live-db-translation.md` (the import mechanics).
 - `stack-doctor` — module-update verification from the log, and cloning a database with its filestore onto its own config. The two validation-checklist lines above are pointers into that skill, not a second copy of it.
 - A general data-visualisation skill, where one is available — chart-type selection, categorical palette construction and contrast/accessibility. This skill constrains those choices to what o-spreadsheet can express (rule 10: series colours come from a fixed runtime palette) but does not own them.
 - The decision/issue owner — owns every gated item in the four-way separation. This skill flags them; it never resolves them.
