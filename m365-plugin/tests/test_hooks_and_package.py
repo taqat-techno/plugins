@@ -322,27 +322,36 @@ def test_chat_confirm_mode_turns_the_click_into_an_allow_but_never_a_refusal(tmp
     send = _hook_with(tmp_path, "email_send_draft", {"draft_id": "D1", "digest": "x"}, chat)
     assert send["permissionDecision"] == "allow" and "approved in the chat" in send["permissionDecisionReason"] and "SEND the email draft D1" in send["permissionDecisionReason"]
     assert _hook_with(tmp_path, "teams_commit", {"stage_id": "teams_1", "digest": "x"}, chat)["permissionDecision"] == "allow"
-    # the setup tool always asks
-    assert _hook_with(tmp_path, "m365_setup_save", {"client_id": "c"}, chat)["permissionDecision"] == "ask"
-    # refusals stay refusals, and file resolution still happens
-    assert _hook_with(tmp_path, "email_add_attachment", {"draft_id": "D1", "path": str(tmp_path / "missing.pdf")}, chat)["permissionDecision"] == "deny"
+    assert _hook_with(tmp_path, "calendar_commit", {"stage_id": "calendar_1", "digest": "x"}, chat)["permissionDecision"] == "allow"
+    # everything without a previewed digest keeps the click, in chat mode too
     f = tmp_path / "a.pdf"
     f.write_bytes(b"%PDF")
+    keep = [("m365_setup_save", {"client_id": "c"}), ("onedrive_upload", {"path": str(f)}),
+            ("onedrive_share_with", {"item_id": "i", "name": "a", "emails": ["x@contoso.example"]}), ("onedrive_delete", {"item_id": "i", "name": "a"}),
+            ("onedrive_share_link", {"drive_id": "d", "item_id": "i"}), ("email_delete", {"message_id": "m"}), ("email_discard_draft", {"draft_id": "D"}),
+            ("teams_delete_message", {"chat_id": "c", "message_id": "m"}), ("email_add_attachment", {"draft_id": "D", "path": str(f)}),
+            ("teams_stage", {"chat_id": "c", "attachments": [{"path": str(f)}]}), ("onedrive_move", {"item_id": "i", "to_folder_path": "T", "into_shared_folder": True})]
+    for tool, args in keep:
+        out = _hook_with(tmp_path, tool, args, chat)
+        assert out["permissionDecision"] == "ask", tool
+    # refusals stay refusals, and file resolution still happens
+    assert _hook_with(tmp_path, "email_add_attachment", {"draft_id": "D1", "path": str(tmp_path / "missing.pdf")}, chat)["permissionDecision"] == "deny"
     up = _hook_with(tmp_path, "onedrive_upload", {"path": str(f)}, chat)
-    assert up["permissionDecision"] == "allow" and up["updatedInput"]["path"] == os.path.realpath(f)
+    assert up["updatedInput"]["path"] == os.path.realpath(f)
     # an ordinary move is still silent; an unexpanded placeholder or junk value means "always"
     assert _hook_with(tmp_path, "onedrive_move", {"item_id": "i", "to_folder_path": "A"}, chat) is None
     for v in ("${user_config.m365_confirm_mode}", "", "yes", "CHATTY"):
         assert _hook_with(tmp_path, "email_send_draft", {"draft_id": "D1"}, {"CLAUDE_PLUGIN_OPTION_M365_CONFIRM_MODE": v})["permissionDecision"] == "ask", v
 
 
-def test_chat_confirm_mode_can_come_from_settings_json(tmp_path):
+def test_only_the_claude_code_plugin_setting_can_turn_the_click_off(tmp_path):
+    # The assistant can write ~/.m365-plugin/settings.json, run cli.mjs or set an env var for itself: none of them counts.
     home = tmp_path / "home"
     home.mkdir()
     (home / "settings.json").write_text(json.dumps({"confirm_mode": "chat"}), encoding="utf-8")
-    assert _hook_with(tmp_path, "email_send_draft", {"draft_id": "D1"}, {})["permissionDecision"] == "allow"
-    (home / "settings.json").write_text(json.dumps({"confirm_mode": "always"}), encoding="utf-8")
-    assert _hook_with(tmp_path, "email_send_draft", {"draft_id": "D1"}, {})["permissionDecision"] == "ask"
+    for env in ({}, {"M365_CONFIRM_MODE": "chat"}, {"M365_PLUGIN_CONFIRM_MODE": "chat"}):
+        assert _hook_with(tmp_path, "email_send_draft", {"draft_id": "D1"}, env)["permissionDecision"] == "ask", env
+    assert _hook_with(tmp_path, "email_send_draft", {"draft_id": "D1"}, {"CLAUDE_PLUGIN_OPTION_M365_CONFIRM_MODE": "chat"})["permissionDecision"] == "allow"
 
 
 def test_ids_that_are_not_plain_text_are_refused(tmp_path):

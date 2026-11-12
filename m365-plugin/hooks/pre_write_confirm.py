@@ -47,28 +47,23 @@ def _tool_name(raw_name):
 
 
 _TOOL = {"name": ""}
-# Never switched to "allow": changing the app / sign-in setup always gets the click prompt.
-_ALWAYS_ASK = {"m365_setup_save"}
+# The only actions chat mode may approve without a click: each one carries a preview the user saw in the chat and a
+# digest the server checks, so the yes in the chat covers exactly what goes out. Everything else (share, upload, delete,
+# attach, setup, a move into a shared folder) keeps the click prompt in every mode.
+_CHAT_APPROVABLE = {"email_send_draft", "teams_commit", "calendar_commit"}
 
 
 def _confirm_mode():
-    """'chat' or 'always'. Only the person can set it: the plugin setting (exported to hooks as
-    CLAUDE_PLUGIN_OPTION_M365_CONFIRM_MODE), M365_CONFIRM_MODE, or confirm_mode in <M365_HOME>/settings.json
-    (written by `cli.mjs setup --confirm-mode`; m365_setup_save refuses it). Anything unreadable means 'always'."""
-    for key in ("CLAUDE_PLUGIN_OPTION_M365_CONFIRM_MODE", "M365_PLUGIN_CONFIRM_MODE", "M365_CONFIRM_MODE"):
-        v = os.environ.get(key, "").strip().lower()
-        if v and not v.startswith("${"):
-            return "chat" if v == "chat" else "always"
-    try:
-        from chat_image import m365_home
-        with open(m365_home() / "settings.json", "r", encoding="utf-8") as fh:
-            return "chat" if str(json.load(fh).get("confirm_mode", "")).strip().lower() == "chat" else "always"
-    except Exception:
-        return "always"
+    """'chat' or 'always'. Read ONLY from the Claude Code plugin setting, which Claude Code exports to hook processes as
+    CLAUDE_PLUGIN_OPTION_M365_CONFIRM_MODE and which the person sets in Claude Code's own settings screen. Never from a
+    file or a command the assistant could write or run itself (settings.json, cli.mjs, an env var): the assistant must
+    not be able to switch its own confirmation off. Anything else means 'always'."""
+    v = os.environ.get("CLAUDE_PLUGIN_OPTION_M365_CONFIRM_MODE", "").strip().lower()
+    return "chat" if v == "chat" else "always"
 
 
 def _out(decision, reason, updated=None):
-    if decision == "ask" and _TOOL["name"] not in _ALWAYS_ASK and _confirm_mode() == "chat":
+    if decision == "ask" and _TOOL["name"] in _CHAT_APPROVABLE and _confirm_mode() == "chat":
         # The user approved the preview in the chat: no click prompt. The server's preview / digest gates still apply,
         # and every refusal ("deny") stays a refusal.
         decision, reason = "allow", "approved in the chat (confirm mode: chat). " + reason

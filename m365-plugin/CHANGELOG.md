@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.13.1] - 2026-11-12
+
+### Security
+- **The assistant cannot switch its own confirmation off.** The hook now reads the confirm mode ONLY from the Claude Code
+  plugin setting (exported to hooks as `CLAUDE_PLUGIN_OPTION_M365_CONFIRM_MODE`). 0.13.0 also accepted `confirm_mode`
+  in `~/.m365-plugin/settings.json` (written by `cli.mjs setup --confirm-mode`) and the `M365_CONFIRM_MODE` environment
+  variable, both of which the assistant can write or run itself. Those routes are removed: `confirm_mode` is no longer a
+  settings key and the CLI flag is gone.
+- **Chat mode skips the click only for previewed sends.** `email_send_draft`, `teams_commit` and `calendar_commit` (each
+  carries a preview the user saw and a digest the server checks) are the only actions chat mode approves without a
+  click. Sharing, uploads, deletes, attachments, moves into a shared folder and the setup tool keep the click in every
+  mode (0.13.0 skipped them too).
+
 ## [0.13.0] - 2026-11-12
 
 ### Added

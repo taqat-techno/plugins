@@ -148,15 +148,15 @@ test("0.13.0: the stage binds the event's identity (shown in the confirmation) i
   assert.ok(s.digest);
 });
 
-test("0.13.0: confirm_mode is the person's choice: saved from the terminal, refused from a tool, shown in status", async () => {
+test("0.13.1: confirm mode is read only from the Claude Code plugin setting, never settings.json, the CLI or a tool", async () => {
   const { mkdtempSync } = await import("node:fs"); const { tmpdir } = await import("node:os"); const { join } = await import("node:path");
-  const { saveSettings } = await import("../server/setup.mjs"); const { resolveConfig } = await import("../server/config.mjs");
-  const h = mkdtempSync(join(tmpdir(), "m365-v13-"));
-  assert.deepEqual(saveSettings(resolveConfig({ M365_HOME: h }), { confirm_mode: "Chat" }, { viaTool: false }).saved, ["confirm_mode"]);
-  assert.equal(resolveConfig({ M365_HOME: h }).confirmMode, "chat");
-  assert.throws(() => saveSettings(resolveConfig({ M365_HOME: h }), { confirm_mode: "never" }, { viaTool: false }), (e) => e.code === "INVALID_ARGUMENT");
-  assert.equal(resolveConfig({ M365_HOME: h, M365_CONFIRM_MODE: "anything" }).confirmMode, "always");
+  const { saveSettings } = await import("../server/setup.mjs"); const { resolveConfig, SETTINGS_KEYS } = await import("../server/config.mjs");
+  assert.ok(!SETTINGS_KEYS.includes("confirm_mode"), "not a settings.json key");
+  const h = mkdtempSync(join(tmpdir(), "m365-v131-"));
+  assert.throws(() => saveSettings(resolveConfig({ M365_HOME: h }), { confirm_mode: "chat" }, { viaTool: false }));
+  assert.equal(resolveConfig({ M365_HOME: h, M365_CONFIRM_MODE: "chat" }).confirmMode, "always", "a plain env var does not count");
+  assert.equal(resolveConfig({ M365_HOME: h, M365_PLUGIN_CONFIRM_MODE: "chat" }).confirmMode, "chat", "the plugin setting, passed by .mcp.json, is shown in status");
   const c = calCtx(EV());
-  await assert.rejects(call(c, "m365_setup_save", { confirm_mode: "chat" }), (e) => e.code === "CREDENTIAL_SETTING_NOT_ALLOWED");
+  await assert.rejects(call(c, "m365_setup_save", { confirm_mode: "chat" }));
   assert.equal((await call(c, "m365_auth_status", {})).confirm_mode, "always");
 });
