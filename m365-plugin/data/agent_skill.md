@@ -36,6 +36,8 @@ By default this package runs **read-only**: write tools are not listed. If they 
   `- ` / `1. ` list lines (the plugin turns them into formatting; never write HTML).
 - **Calendar and Teams:** `calendar_stage` / `teams_stage`, show the preview (members, conflicts, text), wait for a
   clear yes, then `calendar_commit` / `teams_commit` with the stage id and digest. A commit cannot be undone.
+  Teams text takes the same formatting marks. `teams_stage` can carry `attachments` (a `path` inside the allowed folders):
+  the preview lists each file and who gets read access; show both to the owner. A refused file is final.
 - If a send reports `SEND_UNCERTAIN`, check the chat with `teams_read_chat`; do not retry.
 - Never claim something was sent or created unless the tool result says so.
 

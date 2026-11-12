@@ -1,7 +1,7 @@
 ---
 name: m365
 description: "Use when the user asks about or wants to act in their Microsoft 365: find or read an email, draft or send one, what is on the calendar, schedule a meeting or find free time, read or send a Teams message, who 'Mahmoud' is, or what needs attention. Also when a tool reports NOT_SIGNED_IN, CONSENT_NEEDED or ACCESS_NEEDED."
-version: "0.8.1"
+version: "0.9.0"
 ---
 
 # Microsoft 365 tools
@@ -58,6 +58,12 @@ Nothing outward-facing happens without the user's clear yes after they have seen
 - **Calendar:** `calendar_stage` shows the times in the user's zone, conflicts, and who will be invited. After a yes,
   `calendar_commit` with `stage_id` and `digest` (invitations go out).
 - **Teams:** `teams_stage` shows the chat's members and the text. After a yes, `teams_commit`. It cannot be unsent.
+  The text takes the same formatting marks as email. To send files, pass `attachments` to `teams_stage` (`path` for a file
+  on this computer, `chat_image: 1` for the image the user just pasted): small pictures show inside the message; other
+  files are uploaded to the user's OneDrive when the message is sent and shared read-only with exactly the members in the
+  preview. Show the user every file and who gets access before `teams_commit`. The same refusals as email apply (keys,
+  tokens, files outside the allowed folders) and are final. Members listed under `no_access_for` will not be able to open
+  the file: say so.
   If it says `SEND_UNCERTAIN`, check with `teams_read_chat` and do not retry.
 - Claude Code asks the user to confirm `email_send_draft`, `email_discard_draft`, `calendar_commit`, `teams_commit`,
   `email_delete` and `onedrive_share_link` as well. Present the preview before that prompt appears.

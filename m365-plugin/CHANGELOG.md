@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.9.0] - 2026-11-12
+
+### Added
+- **Files and pictures in Teams chat messages.** `teams_stage` takes `attachments` (`path`, or `chat_image` for an image
+  pasted into the Claude Code chat). The same file rules as email apply (`attach_scope`, the secrets deny-list). Nothing is
+  uploaded at stage time: the stage records each file's real path, size and sha256 and the exact members who will get
+  access, and the digest covers all of it. On `teams_commit` a small picture (PNG/JPEG/GIF up to 2 MB) travels inside the
+  message; any other file is uploaded to the user's OneDrive folder "Microsoft Teams Chat Files", shared read-only with
+  exactly the staged members (no invitation email), and referenced from the message. A file that changed since the
+  preview is not sent (`FILE_CHANGED`). If sharing or the post is refused, the upload is taken back and the stage can be
+  retried; an unknown outcome still blocks a repeat. Needs `Files.ReadWrite` (the `files` module) for uploaded files.
+- **Formatted Teams text**: the same marks as email (`**bold**`, `*italic*`, `__underline__`, `==highlight==`,
+  `~~strike~~`, lists). Text without marks is still sent as plain text. Line breaks are now accepted in Teams text.
+- Hook: `teams_stage` with attachments saves pasted images, resolves real paths and shows the files (silent without
+  attachments); the `teams_commit` prompt names the staged files and who gets access.
+
 ## [0.8.1] - 2026-11-08
 
 ### Fixed

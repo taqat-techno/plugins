@@ -30,7 +30,7 @@ No browser on the machine? Use the sign-in method `device-code`: you get a short
 | Mail (read) | `email_list_recent` (optionally unread only), `email_search`, `email_read`, `email_read_thread`, `email_list_attachments`, `email_list_categories`, `email_read_attachment` |
 | Mail (write) | `email_create_draft`, `email_create_reply_draft`, `email_create_forward_draft`, `email_update_draft`, `email_preview_draft`, **`email_discard_draft`**, **`email_send_draft`**, `email_move` (any ordinary folder by path or id; never Deleted Items/Junk), `email_create_folder`, `email_list_folders`, `email_save_attachment` (into the folder you chose), `email_mark_read`, `email_set_flag`, `email_set_categories`, `email_add_attachment` (any file except keys and tokens, or only folders you choose; also an image you pasted into the chat; you see each file first), `email_remove_attachment`, **`email_delete`** (to Deleted Items) |
 | Calendar | `calendar_list_events`, `calendar_get_event`, `calendar_find_free_slots`; write: `calendar_stage`, **`calendar_commit`**, `calendar_discard` |
-| Teams chats | `teams_list_chats`, `teams_find_chat`, `teams_read_chat`, `teams_chat_members`; write: `teams_stage`, **`teams_commit`**, `teams_cancel` |
+| Teams chats | `teams_list_chats`, `teams_find_chat`, `teams_read_chat`, `teams_chat_members`; write: `teams_stage` (text with the same formatting marks as email, plus files and pasted images), **`teams_commit`**, `teams_cancel` |
 | Team channels (module `channels`, needs admin consent) | `teams_list_teams`, `teams_list_channels`, `teams_read_channel` |
 | Teams meetings (module `meetings`, transcripts need admin consent) | `teams_meeting_find`, `teams_meeting_transcript`, `teams_meeting_files` (then `onedrive_read_file` / `onedrive_save_file`) |
 | OneDrive | `onedrive_search`, `onedrive_read_file`, `onedrive_save_file` (into the folder you chose); write: **`onedrive_share_link`** (organization-only) |
@@ -52,7 +52,9 @@ email_create_draft  ->  email_preview_draft (shows recipients, subject, body, di
 since (for example edited in Outlook), if it has no recipient, or if your text says "attached" (English or Arabic) with
 nothing attached. A sent draft cannot be sent twice. Calendar events and Teams messages use `stage` -> `commit` the same way:
 the commit needs the stage id and digest you saw, creates the event with a transaction id so a retry cannot duplicate it,
-and a Teams message whose delivery is uncertain is never re-sent automatically. Recipients and attendees must be email
+and a Teams message whose delivery is uncertain is never re-sent automatically. A file sent in Teams is uploaded to your OneDrive
+folder "Microsoft Teams Chat Files" only when you confirm the send, and shared read-only with exactly the chat members the preview
+listed (small pictures travel inside the message instead); if the file changed since the preview, nothing is sent. Recipients and attendees must be email
 addresses; a name is refused until it is resolved with `people_resolve`.
 
 ## The local profile

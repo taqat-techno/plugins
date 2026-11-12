@@ -28,8 +28,8 @@ const NEEDS = [
 const NEEDS_WRITE = [
   [/^\/me\/(messages|mailFolders)/, "Mail.ReadWrite / Mail.Send"],
   [/^\/me\/(calendar|events)/, "Calendars.ReadWrite"],
-  [/^\/chats/, "Chat.ReadWrite"],
-  [/^\/drives/, "Files.ReadWrite"],
+  [/^\/chats/, "ChatMessage.Send (or Chat.ReadWrite)"],
+  [/^\/(drives|me\/drive)/, "Files.ReadWrite"],
 ];
 
 function accessNeeded(path, method = "GET") {
@@ -52,7 +52,8 @@ export function createGraph(cfg, auth, { fetch: fetchImpl = globalThis.fetch, sl
         headers: { Authorization: `Bearer ${token}`, Accept: "application/json", ...(opts.headers ?? {}) },
         signal: AbortSignal.timeout(cfg.timeoutMs),
       };
-      if (body !== undefined) { init.headers["Content-Type"] = "application/json"; init.body = JSON.stringify(body); }
+      if (opts.bytes) { init.headers["Content-Type"] = opts.contentType ?? "application/octet-stream"; init.body = opts.bytes; init.signal = AbortSignal.timeout(Math.max(cfg.timeoutMs, 120_000)); }
+      else if (body !== undefined) { init.headers["Content-Type"] = "application/json"; init.body = JSON.stringify(body); }
       let res;
       try { res = await fetchImpl(url, init); }
       catch (e) {
@@ -85,6 +86,8 @@ export function createGraph(cfg, auth, { fetch: fetchImpl = globalThis.fetch, sl
     get: (path, opts) => call("GET", path, undefined, opts),
     /** Changes Microsoft 365. Never retried: a timed-out POST may already have happened. */
     post: mutate("POST"), patch: mutate("PATCH"), del: (path, opts) => mutate("DELETE")(path, undefined, opts),
+    /** PUT a file's bytes to a fixed Graph path (a OneDrive upload). Never retried. */
+    putBytes: (path, bytes, contentType) => mutate("PUT")(path, undefined, { bytes, contentType }),
     /** POST for lookups that change nothing. Callers pass fixed paths only. */
     postRead: (path, body, opts) => call("POST", path, body, opts),
     /** PUT one chunk to an Outlook attachment upload session. The upload URL carries its own short-lived

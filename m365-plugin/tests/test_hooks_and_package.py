@@ -20,7 +20,9 @@ ENV = {k: v for k, v in os.environ.items() if not k.startswith("M365_")}  # comp
 def _matcher_names():
     hooks = json.loads((PLUGIN / "hooks" / "hooks.json").read_text(encoding="utf-8"))
     entries = hooks["hooks"]["PreToolUse"]
-    assert len(entries) == 1
+    # entry 0: the confirm gate. entry 1: teams_stage only, where the script stays silent unless there are attachments.
+    assert len(entries) == 2
+    assert entries[1]["matcher"] == "^mcp__(plugin_m365_)?m365__teams_stage$" and entries[1]["hooks"] == entries[0]["hooks"]
     m = re.fullmatch(r"\^mcp__\(plugin_m365_\)\?m365__\(([a-z0-9_|]+)\)\$", entries[0]["matcher"])
     assert m, entries[0]["matcher"]
     return entries[0]["matcher"], set(m.group(1).split("|"))
@@ -166,6 +168,58 @@ def test_attach_hook_refuses_a_missing_or_fake_image(tmp_path):
     assert _run_attach(tmp_path, {"draft_id": "D1", "chat_image": 1}, t)["permissionDecision"] == "deny"
     assert _run_attach(tmp_path, {"draft_id": "D1", "chat_image": 5}, t)["permissionDecision"] == "deny"
     assert _run_attach(tmp_path, {"draft_id": "D1", "chat_image": 1}, str(tmp_path / "missing.jsonl"))["permissionDecision"] == "deny"
+
+
+def _run_tool_hook(tmp_path, tool, tool_input, transcript=""):
+    payload = {"tool_name": f"mcp__plugin_m365_m365__{tool}", "tool_input": tool_input, "transcript_path": transcript, "session_id": "abc-123"}
+    r = subprocess.run([sys.executable, str(PLUGIN / "hooks" / "pre_write_confirm.py")], input=json.dumps(payload).encode("utf-8"),
+                       capture_output=True, timeout=20, env=dict(ENV, M365_HOME=str(tmp_path / "home")), cwd=str(tmp_path))
+    assert r.returncode == 0, r.stderr
+    return json.loads(r.stdout.decode("utf-8"))["hookSpecificOutput"] if r.stdout.strip() else None
+
+
+def test_teams_stage_hook_is_silent_without_attachments(tmp_path):
+    assert _run_tool_hook(tmp_path, "teams_stage", {"chat_id": "19:a@unq.v2", "text": "hi"}) is None
+    assert _run_tool_hook(tmp_path, "teams_stage", {"chat_id": "19:a@unq.v2", "text": "hi", "attachments": []}) is None
+
+
+def test_teams_stage_hook_resolves_files_and_pasted_images(tmp_path):
+    f = tmp_path / "report.pdf"
+    f.write_bytes(b"%PDF-1.7")
+    mine = _PNG + b"mine"
+    t = _transcript(tmp_path, [{"type": "user", "message": {"role": "user", "content": [_img(mine)]}}])
+    out = _run_tool_hook(tmp_path, "teams_stage", {"chat_id": "C1", "text": "see", "attachments": [{"path": str(f)}, {"chat_image": 1}]}, t)
+    assert out["permissionDecision"] == "ask"
+    real = os.path.realpath(f)
+    assert real in out["permissionDecisionReason"] and "pasted" in out["permissionDecisionReason"] and "Nothing is uploaded or sent yet" in out["permissionDecisionReason"]
+    a, b = out["updatedInput"]["attachments"]
+    assert a == {"path": real}
+    assert Path(b["path"]).read_bytes() == mine and b["name"] == "screenshot-1.png" and "chat_image" not in b
+    assert out["updatedInput"]["chat_id"] == "C1" and out["updatedInput"]["text"] == "see"
+
+
+def test_teams_stage_hook_refuses_what_it_cannot_show(tmp_path):
+    f = tmp_path / "report.pdf"
+    f.write_bytes(b"x")
+    bad = [[{"path": str(tmp_path / "missing.pdf")}], [{"path": str(f) + " "}], [{"path": "\\\\evil\\share\\x.pdf"}], [{"chat_image": 1}],
+           ["not-an-object"], [{"path": str(f)}] * 11, [{"path": str(f), "name": "n" * 300}]]
+    for items in bad:
+        out = _run_tool_hook(tmp_path, "teams_stage", {"chat_id": "C1", "text": "x", "attachments": items}, "")
+        assert out["permissionDecision"] == "deny" and "updatedInput" not in out, items
+
+
+def test_teams_commit_prompt_names_the_staged_files_and_who_gets_access(tmp_path):
+    home = tmp_path / "home"
+    home.mkdir()
+    (home / "staged.json").write_text(json.dumps({"teams_ab12cd34": {"kind": "teams", "payload": {
+        "chat_id": "C1", "text": "x", "share_with": ["sara@contoso.example"],
+        "files": [{"path": "C:\\docs\\report {final}.pdf", "name": "report {final}.pdf", "size": 20480, "sha256": "0" * 64, "as": "file"}]}}}), encoding="utf-8")
+    out = _run_tool_hook(tmp_path, "teams_commit", {"stage_id": "teams_ab12cd34", "digest": "d"})
+    reason = out["permissionDecisionReason"]
+    assert out["permissionDecision"] == "ask" and "SEND the staged Teams message teams_ab12cd34" in reason
+    assert "report {final}.pdf (20 KB, from C:\\docs\\report {final}.pdf)" in reason and "sara@contoso.example" in reason
+    plain = _run_tool_hook(tmp_path, "teams_commit", {"stage_id": "teams_unknown", "digest": "d"})
+    assert plain["permissionDecision"] == "ask" and "file(s)" not in plain["permissionDecisionReason"]
 
 
 # ---------------------------------------------------------------- package builder

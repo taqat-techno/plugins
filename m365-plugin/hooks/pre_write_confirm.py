@@ -114,6 +114,70 @@ def _strip_ext(real):
     return rest if len(rest) > 2 and rest[1] == ":" else None
 
 
+def _teams_stage(data, tool_input):
+    """teams_stage: without attachments this hook stays silent (staging sends nothing). With attachments it saves pasted
+    images, resolves every path to the real file, shows them, and hands the resolved paths to the tool."""
+    items = tool_input.get("attachments")
+    if not items:
+        return 0
+    if not isinstance(items, list) or len(items) > 10 or len(str(tool_input.get("chat_id", ""))) > 1024:
+        return _out("deny", "refused, the attachments could not be shown to you in full.")
+    resolved, lines = [], []
+    for item in items:
+        if not isinstance(item, dict):
+            return _out("deny", "refused, an attachment is not in the expected form.")
+        new = dict(item)
+        path = item.get("path")
+        if len(str(path or "")) > 1000 or len(str(item.get("name") or "")) > _LIMIT:
+            return _out("deny", "refused, an argument is too long to show you in full.")
+        if not path and item.get("chat_image") is not None:
+            try:
+                from chat_image import save_pasted_image
+                saved, media_type, size = save_pasted_image(data.get("transcript_path"), data.get("session_id"), item.get("chat_image"))
+            except Exception as e:
+                msg = str(e) if e.__class__.__name__ == "ChatImageError" else "the pasted image could not be saved"
+                return _out("deny", f"nothing staged: {_show(msg)}. Ask the user to paste it again or give a file path.")
+            n = _show(item.get("chat_image"))
+            new["path"] = saved
+            new.pop("chat_image", None)
+            if not new.get("name"):
+                new["name"] = f"screenshot-{n}{os.path.splitext(saved)[1]}"
+            lines.append(f"the image you pasted into this chat (#{n} counting back, {media_type}, {size // 1024 or 1} KB) as {_show(new['name'])}")
+        else:
+            real = _real_path(path)
+            if not real:
+                return _out("deny", f"nothing staged: {_show(path or '-')} is not an existing local file (network paths, "
+                                    "spaces around the path and hidden characters are refused). Ask the user for the plain full path.")
+            new["path"] = real
+            shown = _show(real)
+            if os.path.normcase(real) != os.path.normcase(os.path.abspath(path)):
+                shown = f"{_show(real)} (you gave {_show(path)}, which points there)"
+            lines.append(shown + (f" as {_show(item['name'])}" if item.get("name") else ""))
+        resolved.append(new)
+    updated = dict(tool_input)
+    updated["attachments"] = resolved
+    return _out("ask", "PREPARE a Teams message with " + ("this file: " if len(lines) == 1 else f"these {len(lines)} files: ")
+                + "; ".join(lines) + ". Nothing is uploaded or sent yet: you will see the chat members and confirm again before it goes.", updated)
+
+
+def _staged_files(stage_id):
+    """What a staged Teams message will send besides text, read from the plugin's own staging file. '' when none or unknown."""
+    try:
+        from chat_image import m365_home
+        with open(m365_home() / "staged.json", "r", encoding="utf-8") as fh:
+            payload = (json.load(fh).get(str(stage_id)) or {}).get("payload") or {}
+        files = payload.get("files") or []
+        if not files:
+            return ""
+        names = ", ".join(f"{_show(f.get('name'))} ({int(f.get('size') or 0) // 1024 or 1} KB, from {_show(f.get('path'))})" for f in files[:10])
+        share = payload.get("share_with") or []
+        who = (" Uploaded files go to your OneDrive and are shared read-only with: " + ", ".join(_show(e) for e in share[:25])
+               + (f" and {len(share) - 25} more" if len(share) > 25 else "") + ".") if share else ""
+        return f" It carries {len(files)} file(s): {names}.{who}"
+    except Exception:
+        return ""
+
+
 def main():
     name, tool_input, data = "", {}, {}
     try:
@@ -124,7 +188,11 @@ def main():
         data = data if isinstance(data, dict) else {}
     if name == "email_add_attachment":
         return _attach(data, tool_input)
+    if name == "teams_stage":
+        return _teams_stage(data, tool_input)
     template = _WHAT.get(name, "make a change in Microsoft 365 that others can see or that cannot be undone.")
+    if name == "teams_commit" and len(str(tool_input.get("stage_id", ""))) <= _LIMIT:
+        template += _staged_files(tool_input.get("stage_id")).replace("{", "{{").replace("}", "}}")
     keys = ("draft_id", "stage_id", "message_id", "item_id", "client_id", "tenant", "scope_mode", "auth_mode", "redirect_uri")
     values = {k: tool_input.get(k, "-") for k in keys}
     if any(len(str(v)) > _LIMIT for v in values.values()):
