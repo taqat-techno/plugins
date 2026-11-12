@@ -1,7 +1,7 @@
 ---
 name: m365
 description: "Use when the user asks about or wants to act in their Microsoft 365: find or read an email, draft or send one, what is on the calendar, schedule a meeting or find free time, read or send a Teams message, who 'Mahmoud' is, or what needs attention. Also when a tool reports NOT_SIGNED_IN, CONSENT_NEEDED or ACCESS_NEEDED."
-version: "0.11.0"
+version: "0.11.1"
 ---
 
 # Microsoft 365 tools
@@ -76,10 +76,12 @@ Nothing outward-facing happens without the user's clear yes after they have seen
   `email_delete`, `teams_delete_message`, `onedrive_share_link`, `onedrive_upload`, `onedrive_delete` and
   `onedrive_share_with` as well. Present the preview before that prompt appears.
 - **OneDrive:** uploads, folders, moves, deletes and sharing act on the user's OWN OneDrive only (`folder_path` like
-  `Documents/Reports`; the folder must exist). Upload never overwrites (a taken name gets a number) and the file stays
-  private until shared; the same file refusals as email apply. Delete goes to the recycle bin: say the name first.
-  Share only with addresses from `people_resolve`; say who gets which role (read or edit) and whether
-  `outside_your_domain` lists anyone. SharePoint libraries can be browsed and read, not changed, from here.
+  `Documents/Reports`; the folder must exist). Upload never overwrites (a taken name gets a number); the same file
+  refusals as email apply. Upload and move refuse a folder others can already open (`FOLDER_IS_SHARED` lists who): tell
+  the user who, and pass `into_shared_folder: true` only if they agree. Delete and share take the item's exact `name`
+  (the server checks it): say the name first. Share only with addresses from `people_resolve`, say who gets which role
+  (read or edit); addresses outside the organization are refused (`OUTSIDE_ORGANIZATION`) unless the user agrees and
+  you pass `allow_outside: true`. SharePoint libraries can be browsed and read, not changed, from here.
 - `email_delete` moves to Deleted Items (recoverable); there is no permanent delete.
 - **Never say something was sent, created or changed unless the tool result says so.**
 

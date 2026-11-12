@@ -11,7 +11,10 @@ import { resolveConfig } from "../server/config.mjs";
 
 const calls = (c, method, re) => c.fetch.calls.filter((x) => x.method === method && re.test(x.url));
 const ITEM = (over = {}) => ({ id: "f1", name: "report.pdf", size: 10, webUrl: "https://x.example/report.pdf", parentReference: { driveId: "d-me", path: "/drive/root:/Docs" }, file: {}, ...over });
-const ctx = (routes = [], env = {}) => ctxFor([TOK, ...routes], { M365_ATTACH_SCOPE: "anywhere", ...env });
+// By default every folder is private (only the owner) and the organization owns two domains.
+const PRIVATE = [/^GET .*\/permissions/, () => json({ value: [{ id: "o", roles: ["owner"], grantedToV2: { user: { email: "me@contoso.example" } } }] })];
+const ORG = [/^GET .*\/organization\?/, () => json({ value: [{ verifiedDomains: [{ name: "contoso.example" }, { name: "contoso-qa.example" }] }] })];
+const ctx = (routes = [], env = {}) => ctxFor([TOK, ...routes, PRIVATE, ORG], { M365_ATTACH_SCOPE: "anywhere", ...env });
 
 test("list a folder: own OneDrive by path, any library by drive_id; paths cannot escape", async () => {
   const c = ctx([[/^GET .*\/children\?/, () => json({ value: [ITEM(), ITEM({ id: "d2", name: "Old", folder: { childCount: 3 }, file: undefined })] })]]);
@@ -48,7 +51,7 @@ test("upload: same file rules as email; never overwrites; into an existing folde
     [/^GET .*\/me\/drive\/root:\/Notes\.txt:\?/, () => json({ id: "n1", name: "Notes.txt", file: {} })],
     [/^PUT .*\/me\/drive\/root:\/Projects\/plan\.pdf:\/content\?@microsoft\.graph\.conflictBehavior=rename$/, () => json({ id: "u1", name: "plan 1.pdf", webUrl: "https://x.example/p", parentReference: { driveId: "d-me" } }, 201)]]);
   const r = await call(c, "onedrive_upload", { path: f, folder_path: "Projects" });
-  assert.equal(r.uploaded, true); assert.equal(r.renamed, true); assert.equal(r.name, "plan 1.pdf"); assert.equal(r.shared, false);
+  assert.equal(r.uploaded, true); assert.equal(r.renamed, true); assert.equal(r.name, "plan 1.pdf"); assert.equal(r.visible_to, "only you");
   assert.equal(calls(c, "PUT", /content/)[0].body, "%PDF-plan");
   await assert.rejects(call(c, "onedrive_upload", { path: join(d, ".env"), folder_path: "Projects" }), (e) => e.code === "PATH_NOT_ALLOWED");
   await assert.rejects(call(c, "onedrive_upload", { chat_image: 1 }), (e) => e.code === "CHAT_IMAGE_UNAVAILABLE");
@@ -85,30 +88,30 @@ test("delete goes to the recycle bin and reports what went", async () => {
   const c = ctx([[/^GET .*\/me\/drive\/items\/fold\?/, () => json(ITEM({ id: "fold", name: "Old stuff", folder: { childCount: 12 }, file: undefined }))],
     [/^GET .*\/me\/drive\/items\/root1\?/, () => json(ITEM({ id: "root1", root: {} }))],
     [/^DELETE .*\/me\/drive\/items\/fold$/, () => new Response(null, { status: 204 })]]);
-  const r = await call(c, "onedrive_delete", { item_id: "fold" });
+  const r = await call(c, "onedrive_delete", { item_id: "fold", name: "Old stuff" });
   assert.deepEqual([r.deleted, r.to, r.name, r.is_folder, r.items_inside], [true, "OneDrive recycle bin", "Old stuff", true, 12]);
-  await assert.rejects(call(c, "onedrive_delete", { item_id: "root1" }), (e) => e.code === "INVALID_ARGUMENT");
+  await assert.rejects(call(c, "onedrive_delete", { item_id: "root1", name: "report.pdf" }), (e) => e.code === "INVALID_ARGUMENT");
   assert.equal(calls(c, "DELETE", /items/).length, 1);
 });
 
 test("a retention hold is reported as a policy, never as a missing permission", async () => {
   const c = ctx([[/^GET .*\/me\/drive\/items\/fold\?/, () => json(ITEM({ id: "fold", name: "Project", folder: { childCount: 2 }, file: undefined }))],
     [/^DELETE .*\/me\/drive\/items\/fold$/, () => json({ error: { code: "accessDenied", message: "Request was cancelled by event received. If attempting to delete a non-empty folder, it's possible that it's on hold" } }, 403)]]);
-  await assert.rejects(call(c, "onedrive_delete", { item_id: "fold" }), (e) => e.code === "BLOCKED_BY_POLICY" && /delete what is inside it first/.test(e.hint) && !/permission Files/.test(e.message));
+  await assert.rejects(call(c, "onedrive_delete", { item_id: "fold", name: "Project" }), (e) => e.code === "BLOCKED_BY_POLICY" && /delete what is inside it first/.test(e.hint) && !/permission Files/.test(e.message));
 });
 
 test("share with named people: sign-in required, no invitation unless asked, outsiders flagged", async () => {
   const c = ctx([[/^GET .*\/me\/drive\/items\/f1\?/, () => json(ITEM())], [/^GET .*\/me\?\$select=mail/, () => json({ mail: "me@contoso.example" })],
     [/^POST .*\/me\/drive\/items\/f1\/invite$/, () => json({ value: [{ id: "p1" }, { id: "p2" }] })]]);
-  const r = await call(c, "onedrive_share_with", { item_id: "f1", emails: ["Sara@Contoso.example", "guest@partner.example"], role: "edit" });
+  const r = await call(c, "onedrive_share_with", { item_id: "f1", name: "report.pdf", emails: ["Sara@Contoso.example", "guest@partner.example"], role: "edit", allow_outside: true });
   const inv = calls(c, "POST", /invite$/)[0].json;
   assert.deepEqual(inv, { recipients: [{ email: "sara@contoso.example" }, { email: "guest@partner.example" }], requireSignIn: true, sendInvitation: false, roles: ["write"] }, "edit access is Graph's write role");
-  assert.deepEqual(r.outside_your_domain, ["guest@partner.example"]); assert.equal(r.invitation_email_sent, false); assert.equal(r.granted, 2);
-  await call(c, "onedrive_share_with", { item_id: "f1", emails: ["sara@contoso.example"], notify: true, message: "For review" });
+  assert.deepEqual(r.outside_organization, ["guest@partner.example"]); assert.equal(r.invitation_email_sent, false); assert.equal(r.granted, 2);
+  await call(c, "onedrive_share_with", { item_id: "f1", name: "report.pdf", emails: ["sara@contoso.example"], notify: true, message: "For review" });
   const inv2 = calls(c, "POST", /invite$/)[1].json;
   assert.equal(inv2.sendInvitation, true); assert.equal(inv2.message, "For review"); assert.deepEqual(inv2.roles, ["read"]);
   for (const bad of [{ emails: [] }, { emails: ["Sara"] }, { emails: ["a@b.example"], role: "owner" }]) {
-    await assert.rejects(call(c, "onedrive_share_with", { item_id: "f1", ...bad }), (e) => e.code === "INVALID_ARGUMENT", JSON.stringify(bad));
+    await assert.rejects(call(c, "onedrive_share_with", { item_id: "f1", name: "report.pdf", ...bad }), (e) => e.code === "INVALID_ARGUMENT", JSON.stringify(bad));
   }
 });
 
@@ -118,7 +121,42 @@ test("writes are confined to the user's own OneDrive and missing permissions are
     assert.ok(!("drive_id" in (t.inputSchema.properties ?? {})), `${t.name} must not take a drive_id`);
   }
   const c = ctx([[/^GET .*\/me\/drive\/items\/f1\?/, () => json(ITEM())], [/^DELETE .*\/me\/drive\/items\/f1$/, () => json({ error: { code: "accessDenied" } }, 403)]]);
-  await assert.rejects(call(c, "onedrive_delete", { item_id: "f1" }), (e) => e.code === "ACCESS_NEEDED" && /Files\.ReadWrite/.test(e.message));
+  await assert.rejects(call(c, "onedrive_delete", { item_id: "f1", name: "report.pdf" }), (e) => e.code === "ACCESS_NEEDED" && /Files\.ReadWrite/.test(e.message));
   const s = ctx([[/^GET .*\/sites\?/, () => json({ error: { code: "accessDenied" } }, 403)]], { M365_MODULES: "files,sites" });
   await assert.rejects(call(s, "sharepoint_list_sites", { query: "hr" }), (e) => e.code === "ACCESS_NEEDED" && /Sites\.Read\.All/.test(e.message));
+});
+
+test("0.11.1: a folder others can open is refused for upload and move unless explicitly approved", async () => {
+  const d = mkdtempSync(join(tmpdir(), "m365-v111-")); const f = join(d, "plan.pdf"); writeFileSync(f, "%PDF");
+  const SHARED = [/^GET .*\/items\/team1\/permissions/, () => json({ value: [
+    { roles: ["owner"], grantedToV2: { user: { email: "me@contoso.example" } } },
+    { roles: ["read"], inheritedFrom: { id: "p" }, grantedToV2: { user: { email: "sara@contoso.example", displayName: "Sara" } } },
+    { roles: ["read"], link: { scope: "organization" } }] })];
+  const c = ctxFor([TOK, SHARED, PRIVATE,
+    [/^GET .*\/me\/drive\/root:\/Team:\?/, () => json({ id: "team1", name: "Team", folder: {} })],
+    [/^GET .*\/me\/drive\/root:\/Mine:\?/, () => json({ id: "mine1", name: "Mine", folder: {} })],
+    [/^GET .*\/me\/drive\/items\/f1\?/, () => json(ITEM())],
+    [/^PUT .*\/content\?/, () => json({ id: "u1", name: "plan.pdf" }, 201)],
+    [/^PATCH .*\/me\/drive\/items\/f1/, () => json(ITEM())]], { M365_ATTACH_SCOPE: "anywhere" });
+  await assert.rejects(call(c, "onedrive_upload", { path: f, folder_path: "Team" }),
+    (e) => e.code === "FOLDER_IS_SHARED" && e.shared_with.includes("sara@contoso.example") && e.shared_with.includes("anyone in your organization with the link"));
+  await assert.rejects(call(c, "onedrive_move", { item_id: "f1", to_folder_path: "Team" }), (e) => e.code === "FOLDER_IS_SHARED");
+  assert.equal(calls(c, "PUT", /content/).length + calls(c, "PATCH", /items/).length, 0, "nothing changed");
+  const up = await call(c, "onedrive_upload", { path: f, folder_path: "Team", into_shared_folder: true });
+  assert.deepEqual(up.visible_to, ["sara@contoso.example", "anyone in your organization with the link"]);
+  assert.equal((await call(c, "onedrive_upload", { path: f, folder_path: "Mine" })).visible_to, "only you");
+  assert.equal((await call(c, "onedrive_move", { item_id: "f1", to_folder_path: "Team", into_shared_folder: true })).moved, true);
+});
+
+test("0.11.1: delete and share must name the real item; outsiders are refused BEFORE any access is granted", async () => {
+  const c = ctx([[/^GET .*\/me\/drive\/items\/f1\?/, () => json(ITEM())], [/^GET .*\/me\?\$select=mail/, () => json({ mail: "me@contoso.example" })],
+    [/^DELETE .*\/items\/f1$/, () => new Response(null, { status: 204 })], [/^POST .*\/invite$/, () => json({ value: [{ id: "p" }] })]]);
+  await assert.rejects(call(c, "onedrive_delete", { item_id: "f1", name: "budget.xlsx" }), (e) => e.code === "NAME_MISMATCH" && /called "report\.pdf"/.test(e.message));
+  await assert.rejects(call(c, "onedrive_delete", { item_id: "f1" }), (e) => e.code === "INVALID_ARGUMENT");
+  await assert.rejects(call(c, "onedrive_share_with", { item_id: "f1", name: "other.pdf", emails: ["sara@contoso.example"] }), (e) => e.code === "NAME_MISMATCH");
+  await assert.rejects(call(c, "onedrive_share_with", { item_id: "f1", name: "report.pdf", emails: ["sara@contoso.example", "guest@partner.example"] }),
+    (e) => e.code === "OUTSIDE_ORGANIZATION" && e.outside.join() === "guest@partner.example");
+  assert.equal(calls(c, "DELETE", /items/).length + calls(c, "POST", /invite/).length, 0, "nothing deleted or shared");
+  const r = await call(c, "onedrive_share_with", { item_id: "f1", name: "report.pdf", emails: ["omar@contoso-qa.example"] });
+  assert.deepEqual(r.outside_organization, [], "every verified domain of the organization counts as inside");
 });

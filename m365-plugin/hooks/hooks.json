@@ -1,5 +1,5 @@
 {
-  "description": "Microsoft 365 hooks: a permissionDecision 'ask' gate on the outward-facing writes (send an email draft, discard a draft, create a calendar event with invitations, send, start or edit a Teams message, delete a message or your own Teams message, upload a file to OneDrive, move a OneDrive item to the recycle bin, share a OneDrive item with people, create a sharing link, attach a file to a draft (and save a pasted chat image for it), point the plugin at credential files). A second matcher routes teams_stage to the same script, which stays silent unless the message carries attachments (then it saves pasted images, resolves real paths and shows the files). The list lives in data/tools.json under 'confirm'; a test keeps this matcher in step with it. The wrapper fails closed: if the check script or Python is missing it asks the human instead of allowing silently.",
+  "description": "Microsoft 365 hooks: a permissionDecision 'ask' gate on the outward-facing writes (send an email draft, discard a draft, create a calendar event with invitations, send, start or edit a Teams message, delete a message or your own Teams message, upload a file to OneDrive, move a OneDrive item to the recycle bin, share a OneDrive item with people, create a sharing link, attach a file to a draft (and save a pasted chat image for it), point the plugin at credential files). A second matcher routes teams_stage and onedrive_move to the same script, which stays silent unless the message carries attachments (then it saves pasted images, resolves real paths and shows the files) or the move goes into a folder others can already open. The list lives in data/tools.json under 'confirm'; a test keeps this matcher in step with it. The wrapper fails closed: if the check script or Python is missing it asks the human instead of allowing silently.",
   "hooks": {
     "PreToolUse": [
       {
@@ -13,7 +13,7 @@
         ]
       },
       {
-        "matcher": "^mcp__(plugin_m365_)?m365__teams_stage$",
+        "matcher": "^mcp__(plugin_m365_)?m365__(teams_stage|onedrive_move)$",
         "hooks": [
           {
             "type": "command",

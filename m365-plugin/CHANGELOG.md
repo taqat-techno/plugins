@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.11.1] - 2026-11-12
+
+### Security
+- **No silent exposure through a shared folder.** `onedrive_upload` and `onedrive_move` read who can already open the
+  destination folder (its permissions, inherited ones and sharing links included) and refuse (`FOLDER_IS_SHARED`, with
+  the list) unless `into_shared_folder: true` is passed after the user agreed. The hook then says the folder is ALREADY
+  SHARED; an ordinary move stays prompt-free. The upload prompt no longer promises "private" for a shared folder, and the
+  result says who can see the file (`visible_to`).
+- **The confirmation names the real item.** `onedrive_delete` and `onedrive_share_with` require the item's exact `name`:
+  the prompt shows it and the server refuses if it is not the item's real name (`NAME_MISMATCH`), so an id alone can no
+  longer stand in for what the person approved.
+- **Outsiders are checked before sharing, not after.** `onedrive_share_with` compares every address with the
+  organization's verified domains first and refuses outsiders (`OUTSIDE_ORGANIZATION`) unless `allow_outside: true`;
+  the prompt then says it INCLUDES PEOPLE OUTSIDE YOUR ORGANIZATION. Result field renamed to `outside_organization`.
+
 ## [0.11.0] - 2026-11-12
 
 ### Added

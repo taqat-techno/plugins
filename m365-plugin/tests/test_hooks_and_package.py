@@ -20,9 +20,10 @@ ENV = {k: v for k, v in os.environ.items() if not k.startswith("M365_")}  # comp
 def _matcher_names():
     hooks = json.loads((PLUGIN / "hooks" / "hooks.json").read_text(encoding="utf-8"))
     entries = hooks["hooks"]["PreToolUse"]
-    # entry 0: the confirm gate. entry 1: teams_stage only, where the script stays silent unless there are attachments.
+    # entry 0: the confirm gate. entry 1: teams_stage and onedrive_move, where the script stays silent unless there are
+    # attachments / the move goes into a shared folder.
     assert len(entries) == 2
-    assert entries[1]["matcher"] == "^mcp__(plugin_m365_)?m365__teams_stage$" and entries[1]["hooks"] == entries[0]["hooks"]
+    assert entries[1]["matcher"] == "^mcp__(plugin_m365_)?m365__(teams_stage|onedrive_move)$" and entries[1]["hooks"] == entries[0]["hooks"]
     m = re.fullmatch(r"\^mcp__\(plugin_m365_\)\?m365__\(([a-z0-9_|]+)\)\$", entries[0]["matcher"])
     assert m, entries[0]["matcher"]
     return entries[0]["matcher"], set(m.group(1).split("|"))
@@ -261,14 +262,26 @@ def test_onedrive_upload_hook_shows_the_real_file_and_folder(tmp_path):
 
 
 def test_onedrive_share_and_delete_prompts_say_who_and_what(tmp_path):
-    out = _run_tool_hook(tmp_path, "onedrive_share_with", {"item_id": "f1", "emails": ["sara@contoso.example", "guest@partner.example"], "role": "edit"})
+    out = _run_tool_hook(tmp_path, "onedrive_share_with", {"item_id": "f1", "name": "Q3 budget.xlsx", "emails": ["sara@contoso.example", "guest@partner.example"], "role": "edit", "allow_outside": True})
     r = out["permissionDecisionReason"]
     assert out["permissionDecision"] == "ask" and "sara@contoso.example, guest@partner.example" in r and "EDIT" in r and "No invitation email" in r
+    assert 'SHARE "Q3 budget.xlsx"' in r and "OUTSIDE YOUR ORGANIZATION" in r
+    assert "OUTSIDE" not in _run_tool_hook(tmp_path, "onedrive_share_with", {"item_id": "f1", "name": "a", "emails": ["sara@contoso.example"]})["permissionDecisionReason"]
     r = _run_tool_hook(tmp_path, "onedrive_share_with", {"item_id": "f1", "emails": ["sara@contoso.example"], "notify": True, "message": "For review"})["permissionDecisionReason"]
     assert "VIEW" in r and "invitation with the note: For review" in r
     assert _run_tool_hook(tmp_path, "onedrive_share_with", {"item_id": "f1", "emails": []})["permissionDecision"] == "deny"
-    r = _run_tool_hook(tmp_path, "onedrive_delete", {"item_id": "01ABC"})["permissionDecisionReason"]
-    assert "MOVE OneDrive item 01ABC" in r and "recycle bin" in r
+    r = _run_tool_hook(tmp_path, "onedrive_delete", {"item_id": "01ABC", "name": "Old stuff"})["permissionDecisionReason"]
+    assert 'MOVE "Old stuff" (OneDrive item 01ABC' in r and "recycle bin" in r
+
+
+def test_shared_folder_moves_and_uploads_are_called_out(tmp_path):
+    assert _run_tool_hook(tmp_path, "onedrive_move", {"item_id": "f1", "to_folder_path": "Archive"}) is None, "an ordinary move asks nothing"
+    r = _run_tool_hook(tmp_path, "onedrive_move", {"item_id": "f1", "to_folder_path": "Team", "into_shared_folder": True})
+    assert r["permissionDecision"] == "ask" and "ALREADY SHARED" in r["permissionDecisionReason"] and "into Team" in r["permissionDecisionReason"]
+    f = tmp_path / "plan.pdf"
+    f.write_bytes(b"%PDF")
+    up = _run_tool_hook(tmp_path, "onedrive_upload", {"path": str(f), "folder_path": "Team", "into_shared_folder": True})["permissionDecisionReason"]
+    assert "ALREADY SHARED" in up and "private" not in up
 
 
 # ---------------------------------------------------------------- package builder

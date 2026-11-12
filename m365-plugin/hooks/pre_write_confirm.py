@@ -26,7 +26,7 @@ _WHAT = {
     "email_discard_draft": "DELETE the draft {draft_id} from your Drafts folder.",
     "m365_setup_save": "SAVE the Microsoft 365 setup: client id {client_id}, tenant {tenant}, permissions mode {scope_mode}, sign-in method {auth_mode}, sign-in redirect {redirect_uri} (a dash means unchanged). Approve only values your admin gave you.",
     "email_delete": "MOVE message {message_id} to Deleted Items (recoverable from there).",
-    "onedrive_delete": "MOVE OneDrive item {item_id} (and everything in it, if it is a folder) to your OneDrive recycle bin. It can be restored from there for a while.",
+    "onedrive_delete": "MOVE \"{name}\" (OneDrive item {item_id}, and everything in it if it is a folder) to your OneDrive recycle bin. It can be restored from there for a while.",
     "teams_delete_message": "DELETE your Teams message {message_id} in chat {chat_id}. The others in the chat will see that a message was deleted.",
     "onedrive_share_link": "CREATE an organization-wide view link for OneDrive item {item_id}.",
 }
@@ -192,19 +192,35 @@ def _upload(data, tool_input):
             what += f" (you gave {_show(path)}, which points there)"
     where = _show(folder.strip("/\\")) or "the top level"
     as_name = f" as {_show(updated['name'])}" if updated.get("name") else ""
-    return _out("ask", f"UPLOAD {what} to your OneDrive, folder {where}{as_name}. It stays private to you until you share it.", updated)
+    if tool_input.get("into_shared_folder") is True:
+        return _out("ask", f"UPLOAD {what} to your OneDrive, folder {where}{as_name}. That folder is ALREADY SHARED: the people who can "
+                           "open it will be able to open this file too.", updated)
+    return _out("ask", f"UPLOAD {what} to your OneDrive, folder {where}{as_name}. It stays private to you (a shared folder is refused).", updated)
+
+
+def _move(tool_input):
+    """onedrive_move: silent (an ordinary, reversible move) unless it puts the item into a folder others can open."""
+    if tool_input.get("into_shared_folder") is not True:
+        return 0
+    if len(str(tool_input.get("item_id", ""))) > _LIMIT or len(str(tool_input.get("to_folder_path") or "")) > 400:
+        return _out("deny", "refused, an argument is too long to show you in full.")
+    dest = _show(str(tool_input.get("to_folder_path") or "").strip("/\\")) or "the top level"
+    return _out("ask", f"MOVE OneDrive item {_show(tool_input.get('item_id', '-'))} into {dest}, a folder that is ALREADY SHARED: "
+                       "the people who can open that folder will be able to open this item too.")
 
 
 def _share(tool_input):
     """onedrive_share_with: every address and the role, in full."""
     emails, role = tool_input.get("emails"), tool_input.get("role") or "read"
     if not isinstance(emails, list) or not emails or len(emails) > 25 or any(len(str(e)) > 254 for e in emails) \
-            or len(str(tool_input.get("item_id", ""))) > _LIMIT or len(str(tool_input.get("message") or "")) > 500:
+            or len(str(tool_input.get("item_id", ""))) > _LIMIT or len(str(tool_input.get("name") or "")) > _LIMIT or len(str(tool_input.get("message") or "")) > 500:
         return _out("deny", "refused, the people or the item could not be shown to you in full.")
     who = ", ".join(_show(e) for e in emails)
     access = "EDIT (change and delete)" if role == "edit" else "VIEW"
     mail = " Microsoft emails each of them an invitation" + (f" with the note: {_show(tool_input['message'])}" if tool_input.get("message") else "") + "." if tool_input.get("notify") is True else " No invitation email is sent."
-    return _out("ask", f"SHARE OneDrive item {_show(tool_input.get('item_id', '-'))} with {who}, who can {access} it after signing in.{mail}")
+    outside = " This INCLUDES PEOPLE OUTSIDE YOUR ORGANIZATION." if tool_input.get("allow_outside") is True else ""
+    return _out("ask", f"SHARE \"{_show(tool_input.get('name') or '-')}\" (OneDrive item {_show(tool_input.get('item_id', '-'))}) with {who}, "
+                       f"who can {access} it after signing in.{outside}{mail}")
 
 
 def _staged_files(stage_id):
@@ -253,10 +269,12 @@ def main():
         return _upload(data, tool_input)
     if name == "onedrive_share_with":
         return _share(tool_input)
+    if name == "onedrive_move":
+        return _move(tool_input)
     template = _WHAT.get(name, "make a change in Microsoft 365 that others can see or that cannot be undone.")
     if name == "teams_commit" and len(str(tool_input.get("stage_id", ""))) <= _LIMIT:
         template += _staged_files(tool_input.get("stage_id")).replace("{", "{{").replace("}", "}}")
-    keys = ("draft_id", "stage_id", "message_id", "chat_id", "item_id", "client_id", "tenant", "scope_mode", "auth_mode", "redirect_uri")
+    keys = ("draft_id", "stage_id", "message_id", "chat_id", "item_id", "name", "client_id", "tenant", "scope_mode", "auth_mode", "redirect_uri")
     values = {k: tool_input.get(k, "-") for k in keys}
     if any(len(str(v)) > _LIMIT for v in values.values()):
         # A value too long to show in full could hide what the call really does: do not offer a prompt, refuse.

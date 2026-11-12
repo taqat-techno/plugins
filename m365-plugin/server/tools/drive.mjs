@@ -52,6 +52,43 @@ async function ownFolderId(ctx, parts) {
   return f.id;
 }
 
+/** Who other than the owner can open a folder, including access inherited from a parent folder. [] = private. */
+async function folderSharing(ctx, folderId) {
+  const out = [];
+  let url = `/me/drive/items/${seg(folderId)}/permissions`;
+  while (url) {
+    const j = await ctx.graph.get(url);
+    for (const p of j.value ?? []) {
+      if ((p.roles ?? []).includes("owner")) continue;
+      if (p.link) { out.push(p.link.scope === "anonymous" ? "anyone with the link" : p.link.scope === "organization" ? "anyone in your organization with the link" : "people given the link"); continue; }
+      for (const g of [p.grantedToV2, p.grantedTo, ...(p.grantedToIdentitiesV2 ?? []), ...(p.grantedToIdentities ?? [])].filter(Boolean)) {
+        const who = g.user ?? g.siteUser ?? g.group ?? g.siteGroup ?? g.application;
+        if (who) out.push(clean(who.email || who.displayName || "someone", 120));
+      }
+    }
+    url = j["@odata.nextLink"] ?? null;
+  }
+  return [...new Set(out)];
+}
+
+/** Refuse to put a file into a folder others can already open, unless the person explicitly approved exactly that. */
+async function guardShared(ctx, folderId, where, optIn) {
+  const who = await folderSharing(ctx, folderId);
+  if (who.length && optIn !== true) {
+    throw new M365Error("FOLDER_IS_SHARED", `${where} is already shared, so whatever goes into it can be opened by: ${who.slice(0, 20).join(", ")}${who.length > 20 ? ` and ${who.length - 20} more` : ""}. Nothing was changed.`, {
+      shared_with: who, hint: "Tell the user who can already open that folder. Only if they agree, call again with into_shared_folder: true (Claude Code asks them to confirm).",
+    });
+  }
+  return who;
+}
+
+/** The item's real name must match the name the person was shown: the confirm prompt names it, the server checks it. */
+function checkName(f, given) {
+  const want = String(safeStr(given, "name", 200) ?? "").trim();
+  if (!want) throw new M365Error("INVALID_ARGUMENT", "name is required: the item's exact name, as the user was shown it");
+  if (want !== String(f.name ?? "")) throw new M365Error("NAME_MISMATCH", `That item is called "${clean(f.name, 200)}", not "${clean(want, 200)}". Nothing was changed.`, { hint: "Show the user the right item and its real name, then try again." });
+}
+
 export const tools = [
   {
     name: "onedrive_list_folder", kind: "read", module: "files",
@@ -104,11 +141,12 @@ export const tools = [
   },
   {
     name: "onedrive_upload", kind: "write", module: "files", confirm: true,
-    description: "Upload a file from this computer (path) or an image the user pasted into this chat (chat_image: 1 = the most recent) into the user's own OneDrive, into folder_path (\"\" = top level; the folder must exist). Never overwrites: a name already taken gets a number. The file stays private until shared. Same file rules as email attachments: keys and token files are never uploaded; a refusal is final. Claude Code shows the user the file first. Up to 25 MB.",
+    description: "Upload a file from this computer (path) or an image the user pasted into this chat (chat_image: 1 = the most recent) into the user's own OneDrive, into folder_path (\"\" = top level; the folder must exist). Never overwrites: a name already taken gets a number. Refuses a folder others can already open (FOLDER_IS_SHARED lists who) unless into_shared_folder is true. Same file rules as email attachments: keys and token files are never uploaded; a refusal is final. Claude Code shows the user the file first. Up to 25 MB.",
     inputSchema: { type: "object", properties: {
       path: { type: "string", description: "Absolute path of the file. Give this or chat_image." },
       chat_image: { type: "number", description: "An image the user pasted into this chat: 1 = the most recent. Claude Code only." },
-      folder_path: { type: "string" }, name: { type: "string", description: "Optional name in OneDrive (default the file's own name)." } } },
+      folder_path: { type: "string" }, name: { type: "string", description: "Optional name in OneDrive (default the file's own name)." },
+      into_shared_folder: { type: "boolean", description: "Only after the user agreed: allow a folder that others can already open (refused otherwise, with who can open it)." } } },
     async handler(a, ctx) {
       if ((a.path === undefined || a.path === "") && a.chat_image !== undefined) {
         throw new M365Error("CHAT_IMAGE_UNAVAILABLE", "That pasted image could not be found or saved, so nothing was uploaded.",
@@ -117,12 +155,12 @@ export const tools = [
       if (a.path === undefined || a.path === "") throw new M365Error("INVALID_ARGUMENT", "give path (a file) or chat_image (a pasted image)");
       const f = allowedFile(ctx.cfg, a.path);
       const parts = folderSegments(a.folder_path);
-      await ownFolderId(ctx, parts);
+      const who = await guardShared(ctx, await ownFolderId(ctx, parts), parts.length ? `The folder ${parts.join("/")}` : "The top level of your OneDrive", a.into_shared_folder);
       const name = a.name !== undefined && a.name !== "" ? itemName(a.name) : itemName(f.name.replace(/[\\/:*?"<>|]/g, "_").replace(/[. ]+$/, "") || "file");
       const bytes = readAllowed(f);
       const target = parts.length ? `/me/drive/root:/${[...parts, name].map(seg).join("/")}:/content` : `/me/drive/root:/${seg(name)}:/content`;
       const r = await ctx.graph.putBytes(`${target}?@microsoft.graph.conflictBehavior=rename`, bytes, contentTypeOf(name));
-      return { uploaded: true, name: clean(r.name ?? name, 200), renamed: Boolean(r.name && r.name !== name), size_bytes: bytes.length, folder_path: parts.join("/"), web_url: r.webUrl ?? null, drive_id: r.parentReference?.driveId ?? null, item_id: r.id ?? null, shared: false };
+      return { uploaded: true, name: clean(r.name ?? name, 200), renamed: Boolean(r.name && r.name !== name), size_bytes: bytes.length, folder_path: parts.join("/"), web_url: r.webUrl ?? null, drive_id: r.parentReference?.driveId ?? null, item_id: r.id ?? null, visible_to: who.length ? who : "only you" };
     },
   },
   {
@@ -138,8 +176,9 @@ export const tools = [
   },
   {
     name: "onedrive_move", kind: "write", module: "files",
-    description: "Rename and/or move a file or folder in the user's own OneDrive (item_id from onedrive_list_folder or onedrive_search). new_name renames; to_folder_path moves (\"\" = top level; the folder must exist). Refuses if the name is taken at the destination. Can be undone by moving it back.",
-    inputSchema: { type: "object", properties: { item_id: { type: "string" }, new_name: { type: "string" }, to_folder_path: { type: "string" } }, required: ["item_id"] },
+    description: "Rename and/or move a file or folder in the user's own OneDrive (item_id from onedrive_list_folder or onedrive_search). new_name renames; to_folder_path moves (\"\" = top level; the folder must exist). Refuses if the name is taken at the destination, and refuses a destination others can already open (FOLDER_IS_SHARED) unless into_shared_folder is true. Can be undone by moving it back.",
+    inputSchema: { type: "object", properties: { item_id: { type: "string" }, new_name: { type: "string" }, to_folder_path: { type: "string" },
+      into_shared_folder: { type: "boolean", description: "Only after the user agreed: allow a folder that others can already open (refused otherwise, with who can open it)." } }, required: ["item_id"] },
     async handler(a, ctx) {
       if (a.new_name === undefined && a.to_folder_path === undefined) throw new M365Error("INVALID_ARGUMENT", "give new_name, to_folder_path, or both");
       const { id, f } = await ownItem(ctx, a.item_id);
@@ -148,6 +187,7 @@ export const tools = [
       if (a.to_folder_path !== undefined) {
         const parts = folderSegments(a.to_folder_path, "to_folder_path");
         patch.parentReference = { id: await ownFolderId(ctx, parts) };
+        await guardShared(ctx, patch.parentReference.id, parts.length ? `The folder ${parts.join("/")}` : "The top level of your OneDrive", a.into_shared_folder);
         if (f.folder && patch.parentReference.id === id) throw new M365Error("INVALID_ARGUMENT", "A folder cannot be moved into itself.");
       }
       const r = await ctx.graph.patch(`/me/drive/items/${seg(id)}?@microsoft.graph.conflictBehavior=fail`, patch);
@@ -157,22 +197,24 @@ export const tools = [
   },
   {
     name: "onedrive_delete", kind: "write", module: "files", confirm: true,
-    description: "Move a file or folder in the user's own OneDrive to its recycle bin (restorable from there for a while; Claude Code asks the user to confirm). A folder goes with everything in it, unless the organization's retention policy refuses non-empty folders (BLOCKED_BY_POLICY): then delete what is inside first. item_id from onedrive_list_folder or onedrive_search. Show the user the name first.",
-    inputSchema: { type: "object", properties: { item_id: { type: "string" } }, required: ["item_id"] },
+    description: "Move a file or folder in the user's own OneDrive to its recycle bin (restorable from there for a while; Claude Code asks the user to confirm). A folder goes with everything in it, unless the organization's retention policy refuses non-empty folders (BLOCKED_BY_POLICY): then delete what is inside first. item_id from onedrive_list_folder or onedrive_search; name must be the item's exact name (shown to the user in the confirmation, checked by the server).",
+    inputSchema: { type: "object", properties: { item_id: { type: "string" }, name: { type: "string", description: "The item's exact current name." } }, required: ["item_id", "name"] },
     async handler(a, ctx) {
       const { id, f } = await ownItem(ctx, a.item_id);
+      checkName(f, a.name);
       await ctx.graph.del(`/me/drive/items/${seg(id)}`);
       return { deleted: true, to: "OneDrive recycle bin", name: clean(f.name, 200), is_folder: !!f.folder, ...(f.folder ? { items_inside: f.folder.childCount ?? null } : {}), item_id: id };
     },
   },
   {
     name: "onedrive_share_with", kind: "write", module: "files", confirm: true,
-    description: "Give named people access to a file or folder in the user's own OneDrive: role read (view) or edit. They must sign in to open it; no anonymous link is made. notify: true also emails them Microsoft's sharing invitation with your optional message. emails must be addresses (people_resolve first). Claude Code asks the user to confirm; show who and which role before.",
+    description: "Give named people access to a file or folder in the user's own OneDrive: role read (view) or edit. They must sign in to open it; no anonymous link is made. notify: true also emails them Microsoft's sharing invitation with your optional message. emails must be addresses (people_resolve first); name must be the item's exact name. Anyone outside the organization's own domains is refused (OUTSIDE_ORGANIZATION) unless allow_outside is true. Claude Code asks the user to confirm; show the name, who and which role before.",
     inputSchema: { type: "object", properties: {
-      item_id: { type: "string" }, emails: { type: "array", items: { type: "string" } },
+      item_id: { type: "string" }, name: { type: "string", description: "The item's exact current name." }, emails: { type: "array", items: { type: "string" } },
+      allow_outside: { type: "boolean", description: "Only after the user agreed: allow addresses outside the organization." },
       role: { type: "string", enum: ["read", "edit"], description: "Default read." },
       notify: { type: "boolean", description: "Send Microsoft's invitation email. Default false." },
-      message: { type: "string", description: "Short note in the invitation email (only with notify)." } }, required: ["item_id", "emails"] },
+      message: { type: "string", description: "Short note in the invitation email (only with notify)." } }, required: ["item_id", "name", "emails"] },
     async handler(a, ctx) {
       if (!Array.isArray(a.emails) || !a.emails.length || a.emails.length > 25) throw new M365Error("INVALID_ARGUMENT", "emails must list 1 to 25 addresses");
       const emails = [...new Set(a.emails.map((e) => String(safeStr(e, "emails", 254) ?? "").trim().toLowerCase()))];
@@ -182,14 +224,23 @@ export const tools = [
       const notify = a.notify === true;
       const message = notify && a.message ? clean(safeStr(a.message, "message", 500), 500) : undefined;
       const { id, f } = await ownItem(ctx, a.item_id);
+      checkName(f, a.name);
+      // Checked BEFORE access is granted: the organization's verified domains (falls back to the user's own domain).
+      const org = await ctx.graph.get("/organization?$select=verifiedDomains").then((j) => (j.value?.[0]?.verifiedDomains ?? []).map((d) => String(d.name).toLowerCase())).catch(() => []);
+      const own = String((await ctx.graph.get("/me?$select=mail,userPrincipalName")).mail ?? "").split("@")[1]?.toLowerCase();
+      const domains = new Set([...org, ...(own ? [own] : [])]);
+      const outside = emails.filter((e) => !domains.has(e.split("@")[1]));
+      if (outside.length && a.allow_outside !== true) {
+        throw new M365Error("OUTSIDE_ORGANIZATION", `These addresses are outside your organization: ${outside.join(", ")}. Nothing was shared.`, {
+          outside, hint: "Tell the user. Only if they agree to share with people outside the organization, call again with allow_outside: true (Claude Code asks them to confirm).",
+        });
+      }
       const r = await ctx.graph.post(`/me/drive/items/${seg(id)}/invite`, {
         // Graph calls edit access "write".
         recipients: emails.map((email) => ({ email })), requireSignIn: true, sendInvitation: notify, roles: [role === "edit" ? "write" : "read"], ...(message ? { message } : {}),
       });
-      const mine = String((await ctx.graph.get("/me?$select=mail,userPrincipalName")).mail ?? "").split("@")[1]?.toLowerCase();
       return {
-        shared: true, name: clean(f.name, 200), role, with: emails, invitation_email_sent: notify,
-        ...(mine ? { outside_your_domain: emails.filter((e) => e.split("@")[1] !== mine) } : {}),
+        shared: true, name: clean(f.name, 200), role, with: emails, invitation_email_sent: notify, outside_organization: outside,
         granted: (r.value ?? []).length, item_id: id, web_url: f.webUrl ?? null,
       };
     },
