@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.13.2] - 2026-11-12
+
+### Changed
+- **"Approve sends in the chat" is a yes/no switch** (`m365_chat_approval`, off by default) instead of the text field
+  "Confirm Microsoft 365 actions with a click" where `chat` had to be typed. The old text value `chat` is still honoured
+  while Claude Code keeps it, so nothing changes for anyone who set it. Same rules: only previewed sends skip the click.
+
+### Fixed
+- **Chat search matches names in any word order.** `teams_find_chat` with "Amr Shabara" now finds "Amr Mohamed
+  Shabara" (every word typed must appear, in any order; before, the whole phrase had to appear as typed). A 1:1 chat
+  with the person is listed before group chats that merely mention them. Found live: the search had missed the user's
+  1:1 chat with a colleague, so the assistant wrongly reported that no chat existed.
+
 ## [0.13.1] - 2026-11-12
 
 ### Security

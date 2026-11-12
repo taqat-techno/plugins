@@ -160,3 +160,28 @@ test("0.13.1: confirm mode is read only from the Claude Code plugin setting, nev
   await assert.rejects(call(c, "m365_setup_save", { confirm_mode: "chat" }));
   assert.equal((await call(c, "m365_auth_status", {})).confirm_mode, "always");
 });
+
+test("0.13.2: the yes/no switch 'Approve sends in the chat' sets chat mode; the old text value still counts", async () => {
+  const { resolveConfig } = await import("../server/config.mjs");
+  const mode = (env) => resolveConfig({ M365_HOME: "x", ...env }).confirmMode;
+  assert.equal(mode({ M365_PLUGIN_CHAT_APPROVAL: "true" }), "chat");
+  assert.equal(mode({ M365_PLUGIN_CHAT_APPROVAL: "false" }), "always");
+  assert.equal(mode({ M365_PLUGIN_CHAT_APPROVAL: "${user_config.m365_chat_approval}" }), "always");
+  assert.equal(mode({ M365_PLUGIN_CONFIRM_MODE: "chat" }), "chat", "0.13.1 text value");
+  assert.equal(mode({}), "always");
+});
+
+test("0.13.2: chat search matches every word in any order, and lists the 1:1 chat first", async () => {
+  const { ctxFor, call: call2, json: j2, TOK: T2 } = await import("./_helpers.mjs");
+  const chats = [
+    { id: "g1", chatType: "group", topic: "RC - Account Manager (Amr Shabara)", members: [{ displayName: "Mahmoud", email: "m@contoso.example" }], lastMessagePreview: { createdDateTime: "2026-11-12T10:00:00Z" } },
+    { id: "o1", chatType: "oneOnOne", topic: null, members: [{ displayName: "Amr Mohamed Shabara", email: "ashabara@contoso.example" }, { displayName: "Me", email: "me@contoso.example" }], lastMessagePreview: { createdDateTime: "2026-11-11T10:00:00Z" } },
+    { id: "o2", chatType: "oneOnOne", topic: null, members: [{ displayName: "Amr Atya", email: "aatya@contoso.example" }], lastMessagePreview: { createdDateTime: "2026-11-10T10:00:00Z" } },
+  ];
+  const c = ctxFor([T2, [/^GET .*\/me\/chats\?/, () => j2({ value: chats })]]);
+  const ids = async (q) => (await call2(c, "teams_find_chat", { query: q })).chats.map((x) => x.chat_id);
+  assert.deepEqual(await ids("Amr Shabara"), ["o1", "g1"], "the 1:1 chat with him first, then the group named after him");
+  assert.deepEqual(await ids("shabara amr"), ["o1", "g1"]);
+  assert.deepEqual(await ids("Amr"), ["o1", "o2", "g1"]);
+  assert.deepEqual(await ids("ashabara@contoso.example"), ["o1"]);
+});

@@ -354,6 +354,14 @@ def test_only_the_claude_code_plugin_setting_can_turn_the_click_off(tmp_path):
     assert _hook_with(tmp_path, "email_send_draft", {"draft_id": "D1"}, {"CLAUDE_PLUGIN_OPTION_M365_CONFIRM_MODE": "chat"})["permissionDecision"] == "allow"
 
 
+def test_the_yes_no_switch_turns_chat_approval_on(tmp_path):
+    on = {"CLAUDE_PLUGIN_OPTION_M365_CHAT_APPROVAL": "true"}
+    assert _hook_with(tmp_path, "teams_commit", {"stage_id": "teams_1", "digest": "x"}, on)["permissionDecision"] == "allow"
+    assert _hook_with(tmp_path, "onedrive_delete", {"item_id": "i", "name": "a"}, on)["permissionDecision"] == "ask", "deletes keep the click"
+    for v in ("false", "", "${user_config.m365_chat_approval}"):
+        assert _hook_with(tmp_path, "teams_commit", {"stage_id": "teams_1", "digest": "x"}, {"CLAUDE_PLUGIN_OPTION_M365_CHAT_APPROVAL": v})["permissionDecision"] == "ask", v
+
+
 def test_ids_that_are_not_plain_text_are_refused(tmp_path):
     for bad in ({"stage_id": ["calchange_x"], "digest": "d"}, {"stage_id": "calendar_x", "digest": {"a": 1}}):
         out = _run_tool_hook(tmp_path, "calendar_commit", bad)

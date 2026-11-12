@@ -118,7 +118,7 @@ export function resolveConfig(env = process.env) {
     attachScope: get("attach_scope", "M365_PLUGIN_ATTACH_SCOPE", "M365_ATTACH_SCOPE").toLowerCase() === "anywhere" ? "anywhere" : "folders",
     // How Claude Code confirms outward actions, for status only: the hook decides, from the Claude Code plugin setting
     // alone (never settings.json, the CLI or an env var the assistant could set). "always" (default) or "chat".
-    confirmMode: String(env.M365_PLUGIN_CONFIRM_MODE ?? "").trim().toLowerCase() === "chat" ? "chat" : "always",
+    confirmMode: bool(env.M365_PLUGIN_CHAT_APPROVAL) || String(env.M365_PLUGIN_CONFIRM_MODE ?? "").trim().toLowerCase() === "chat" ? "chat" : "always",
     // The user's HTML email signature (a file only the person chooses). Set: drafts are HTML built by the plugin.
     signatureFile: get("signature_file", "M365_PLUGIN_SIGNATURE_FILE", "M365_SIGNATURE_FILE"),
     // The one folder files may be saved into (email_save_attachment, onedrive_save_file). Set only by the person.

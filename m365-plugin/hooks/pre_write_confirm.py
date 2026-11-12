@@ -54,12 +54,14 @@ _CHAT_APPROVABLE = {"email_send_draft", "teams_commit", "calendar_commit"}
 
 
 def _confirm_mode():
-    """'chat' or 'always'. Read ONLY from the Claude Code plugin setting, which Claude Code exports to hook processes as
-    CLAUDE_PLUGIN_OPTION_M365_CONFIRM_MODE and which the person sets in Claude Code's own settings screen. Never from a
+    """'chat' or 'always'. Read ONLY from the Claude Code plugin setting "Approve sends in the chat" (a yes/no switch),
+    which Claude Code exports to hook processes as CLAUDE_PLUGIN_OPTION_M365_CHAT_APPROVAL and which the person sets in
+    Claude Code's own settings screen (the older text option m365_confirm_mode = chat is still honoured). Never from a
     file or a command the assistant could write or run itself (settings.json, cli.mjs, an env var): the assistant must
     not be able to switch its own confirmation off. Anything else means 'always'."""
-    v = os.environ.get("CLAUDE_PLUGIN_OPTION_M365_CONFIRM_MODE", "").strip().lower()
-    return "chat" if v == "chat" else "always"
+    switch = os.environ.get("CLAUDE_PLUGIN_OPTION_M365_CHAT_APPROVAL", "").strip().lower()
+    legacy = os.environ.get("CLAUDE_PLUGIN_OPTION_M365_CONFIRM_MODE", "").strip().lower()  # the 0.13.0/0.13.1 text field
+    return "chat" if switch in ("true", "1", "yes", "on") or legacy == "chat" else "always"
 
 
 def _out(decision, reason, updated=None):

@@ -15,7 +15,7 @@
       "M365_PLUGIN_REDIRECT_URI": "${user_config.m365_redirect_uri}",
       "M365_PLUGIN_ATTACH_DIRS": "${user_config.m365_attach_dirs}",
       "M365_PLUGIN_ATTACH_SCOPE": "${user_config.m365_attach_scope}",
-      "M365_PLUGIN_CONFIRM_MODE": "${user_config.m365_confirm_mode}",
+      "M365_PLUGIN_CHAT_APPROVAL": "${user_config.m365_chat_approval}",
       "M365_PLUGIN_SIGNATURE_FILE": "${user_config.m365_signature_file}",
       "M365_PLUGIN_DOWNLOAD_DIR": "${user_config.m365_download_dir}",
       "M365_PLUGIN_MODULES": "${user_config.m365_modules}",

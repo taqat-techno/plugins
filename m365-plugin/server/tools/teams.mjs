@@ -60,12 +60,16 @@ export const tools = [
     async handler(a, ctx) {
       const q = String(a.query ?? "").trim();
       if (!q) throw new M365Error("INVALID_ARGUMENT", "query is required");
-      const n = normName(q);
+      // Every word typed must appear, in any order: "Amr Shabara" finds "Amr Mohamed Shabara" (and so does "Shabara Amr").
+      const words = normName(q).split(" ").filter(Boolean);
+      const has = (text) => { const t = normName(text ?? ""); return words.every((w) => t.includes(w)); };
       const remembered = ctx.profile.findChats(q).map((c) => ({ chat_id: c.chat_id, kind: c.kind ?? null, topic: c.name, source: "profile" }));
       const all = (await listChats(ctx, 200)).map(chatOut);
       const hits = all.filter((c) =>
-        normName(c.topic ?? "").includes(n) ||
-        c.members.some((m) => normName(m.name ?? "").includes(n) || (m.email ?? "").includes(q.toLowerCase())));
+        has(c.topic) ||
+        c.members.some((m) => has(m.name) || (m.email ?? "").includes(q.toLowerCase())))
+        // a 1:1 chat with the person comes before group chats that merely mention them; otherwise newest first (kept)
+        .sort((x, y) => (y.kind === "oneOnOne") - (x.kind === "oneOnOne"));
       return { query: q, from_profile: remembered, count: hits.length, chats: hits.slice(0, 15).map(slim), scanned: all.length, note: UNTRUSTED_FIELDS };
     },
   },

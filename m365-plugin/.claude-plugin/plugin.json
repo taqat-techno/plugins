@@ -1,6 +1,6 @@
 {
   "name": "m365",
-  "version": "0.13.1",
+  "version": "0.13.2",
   "license": "MIT",
   "description": "Microsoft 365 for Claude Code and agent bots: read and search Outlook mail, calendar and free slots, Teams chats, OneDrive and people; draft, preview and send mail, schedule meetings and message Teams with a preview-digest-confirm flow and a human confirmation hook; an events poll for alerts; and a local profile that remembers your contacts and chats so 'email Mahmoud' resolves. Self-contained (no npm packages, no admin rights), browser or device-code sign-in, least-privilege scopes, optional read-only mode, OpenClaw package builder.",
   "author": {
@@ -73,11 +73,11 @@
       "description": "anywhere (default): any file on this computer, except keys, tokens and sign-in files; you are shown each file before it is added to a draft. folders: only files inside the folders below.",
       "default": "anywhere"
     },
-    "m365_confirm_mode": {
-      "type": "string",
-      "title": "Confirm Microsoft 365 actions with a click",
-      "description": "always (default): Claude Code asks you with a click before anything is sent, shared, deleted or uploaded. chat: your yes to the preview in the chat is enough to send an email, a Teams message or a calendar change (each is previewed and checked); sharing, uploading, deleting and attaching still ask with a click. In chat mode a message that tricks the assistant could send without a click; the plugin still forces a preview first.",
-      "default": "always"
+    "m365_chat_approval": {
+      "type": "boolean",
+      "title": "Approve sends in the chat",
+      "description": "Off (default): Claude Code asks you with a click before anything is sent, shared, deleted or uploaded. On: your yes to the preview in the chat is enough to send an email, a Teams message or a calendar change (each is previewed and checked); sharing, uploading, deleting and attaching still ask with a click. When on, a message that tricks the assistant could send without a click; the plugin still forces a preview first.",
+      "default": false
     },
     "m365_signature_file": {
       "type": "string",
