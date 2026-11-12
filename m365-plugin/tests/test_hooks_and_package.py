@@ -329,13 +329,19 @@ def test_chat_confirm_mode_turns_the_click_into_an_allow_but_never_a_refusal(tmp
     keep = [("m365_setup_save", {"client_id": "c"}), ("onedrive_upload", {"path": str(f)}),
             ("onedrive_share_with", {"item_id": "i", "name": "a", "emails": ["x@contoso.example"]}), ("onedrive_delete", {"item_id": "i", "name": "a"}),
             ("onedrive_share_link", {"drive_id": "d", "item_id": "i"}), ("email_delete", {"message_id": "m"}), ("email_discard_draft", {"draft_id": "D"}),
-            ("teams_delete_message", {"chat_id": "c", "message_id": "m"}), ("email_add_attachment", {"draft_id": "D", "path": str(f)}),
-            ("teams_stage", {"chat_id": "c", "attachments": [{"path": str(f)}]}), ("onedrive_move", {"item_id": "i", "to_folder_path": "T", "into_shared_folder": True})]
+            ("teams_delete_message", {"chat_id": "c", "message_id": "m"}),
+            ("onedrive_move", {"item_id": "i", "to_folder_path": "T", "into_shared_folder": True})]
     for tool, args in keep:
         out = _hook_with(tmp_path, tool, args, chat)
         assert out["permissionDecision"] == "ask", tool
+    # preparing a send with a file (nothing leaves; the send preview lists the file): no click in chat mode, path resolved
+    st = _hook_with(tmp_path, "teams_stage", {"chat_id": "c", "attachments": [{"path": str(f)}]}, chat)
+    assert st["permissionDecision"] == "allow" and st["updatedInput"]["attachments"][0]["path"] == os.path.realpath(f)
+    at = _hook_with(tmp_path, "email_add_attachment", {"draft_id": "D", "path": str(f)}, chat)
+    assert at["permissionDecision"] == "allow" and at["updatedInput"]["path"] == os.path.realpath(f)
     # refusals stay refusals, and file resolution still happens
     assert _hook_with(tmp_path, "email_add_attachment", {"draft_id": "D1", "path": str(tmp_path / "missing.pdf")}, chat)["permissionDecision"] == "deny"
+    assert _hook_with(tmp_path, "teams_stage", {"chat_id": "c", "attachments": [{"chat_image": 9}]}, chat)["permissionDecision"] == "deny"
     up = _hook_with(tmp_path, "onedrive_upload", {"path": str(f)}, chat)
     assert up["updatedInput"]["path"] == os.path.realpath(f)
     # an ordinary move is still silent; an unexpanded placeholder or junk value means "always"

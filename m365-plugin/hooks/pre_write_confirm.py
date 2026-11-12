@@ -47,10 +47,12 @@ def _tool_name(raw_name):
 
 
 _TOOL = {"name": ""}
-# The only actions chat mode may approve without a click: each one carries a preview the user saw in the chat and a
-# digest the server checks, so the yes in the chat covers exactly what goes out. Everything else (share, upload, delete,
-# attach, setup, a move into a shared folder) keeps the click prompt in every mode.
-_CHAT_APPROVABLE = {"email_send_draft", "teams_commit", "calendar_commit"}
+# The only actions chat mode may approve without a click: the previewed sends (a digest the server checks covers exactly
+# what goes out), and the two steps that only PREPARE such a send with a file: teams_stage and email_add_attachment send
+# nothing themselves, and every file they add is listed in the send preview the user approves (the digest covers it, and
+# a file changed afterwards is refused). Everything else (share, upload, delete, setup, a move into a shared folder)
+# keeps the click prompt in every mode. Refusals ("deny") are never turned into an allow.
+_CHAT_APPROVABLE = {"email_send_draft", "teams_commit", "calendar_commit", "teams_stage", "email_add_attachment"}
 
 
 def _confirm_mode():

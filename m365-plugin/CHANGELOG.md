@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.13.3] - 2026-11-12
+
+### Changed
+- **Chat approval covers files and screenshots in a send.** With "Approve sends in the chat" on, preparing a send with a
+  file (`teams_stage` with attachments, `email_add_attachment`) no longer asks with a click: it sends nothing itself,
+  and every file is listed in the send preview the user approves (the digest covers it; a file changed afterwards is
+  refused). Pasted images are still saved and real paths still resolved; refusals stay refusals. Sharing, uploading
+  to OneDrive, deleting and the sign-in setup keep the click.
+
+### Fixed
+- **The chat reader shows pictures inside a message.** `teams_read_chat` / `teams_read_channel` report `pictures` (how
+  many) for a message whose body carries images (a pasted screenshot, a meme), with a note not to describe them. Teams
+  emoji are not counted. Found live: a sent meme read back as an empty message.
+
 ## [0.13.2] - 2026-11-12
 
 ### Changed

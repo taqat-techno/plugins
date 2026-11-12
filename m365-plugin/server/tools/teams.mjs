@@ -15,10 +15,15 @@ function chatOut(c) {
 const MEMBER_CAP = 10;
 /** List and search output: at most MEMBER_CAP members, plus the total. teams_chat_members has the full list. */
 const slim = (c) => c.members.length > MEMBER_CAP ? { ...c, members: c.members.slice(0, MEMBER_CAP), members_total: c.members.length } : c;
+// Pictures inside a message body (pasted or sent inline). Teams also draws emoji as <img itemtype=".../Emoji">: not counted.
+const pictureCount = (html) => (String(html ?? "").match(/<img\b[^>]*>/gi) ?? []).filter((t) => !/itemtype\s*=\s*["']?[^"'>]*emoji/i.test(t)).length;
+
 function messageOut(m, source) {
   const html = (m.body?.contentType ?? "").toLowerCase() === "html";
   const { text, truncated } = truncate(html ? htmlToText(m.body?.content) : String(m.body?.content ?? ""), 4000);
+  const pictures = html && !m.deletedDateTime ? pictureCount(m.body?.content) : 0;
   return {
+    ...(pictures ? { pictures, pictures_note: "Pictures are inside this message; they are not shown or read here. Say there is a picture; never describe it." } : {}),
     message_id: m.id, created: m.createdDateTime ?? null, deleted: !!m.deletedDateTime,
     from: m.from?.user ? { name: clean(m.from.user.displayName, 120), user_id: m.from.user.id ?? null }
       : m.from?.application ? { name: clean(m.from.application.displayName, 120) ?? "app", app: true } : null,

@@ -185,3 +185,17 @@ test("0.13.2: chat search matches every word in any order, and lists the 1:1 cha
   assert.deepEqual(await ids("Amr"), ["o1", "o2", "g1"]);
   assert.deepEqual(await ids("ashabara@contoso.example"), ["o1"]);
 });
+
+test("0.13.3: the chat reader says when a message carries pictures (emoji are not counted)", async () => {
+  const { ctxFor, call: call3, json: j3, TOK: T3 } = await import("./_helpers.mjs");
+  const msgs = [
+    { id: "p1", messageType: "message", from: { user: { id: "u1", displayName: "Me" } }, body: { contentType: "html", content: '<p><img src="https://graph.microsoft.com/v1.0/chats/x/messages/p1/hostedContents/aW1n/$value" alt="screenshot-1.png"></p>' } },
+    { id: "e1", messageType: "message", from: { user: { id: "u2", displayName: "Amr" } }, body: { contentType: "html", content: '<p>haha <img itemtype="http://schema.skype.com/Emoji" alt="😂" src="x"></p>' } },
+    { id: "t1", messageType: "message", from: { user: { id: "u2", displayName: "Amr" } }, body: { contentType: "text", content: "<img src=x>" } },
+  ];
+  const c = ctxFor([T3, [/^GET .*\/chats\/c1\/messages\?/, () => j3({ value: msgs })]]);
+  const out = (await call3(c, "teams_read_chat", { chat_id: "c1" })).messages;
+  assert.equal(out[0].pictures, 1); assert.match(out[0].pictures_note, /never describe it/);
+  assert.equal(out[1].pictures, undefined, "an emoji is not a picture");
+  assert.equal(out[2].pictures, undefined, "plain text that looks like a tag is not a picture");
+});
