@@ -1,7 +1,7 @@
 ---
 name: m365
 description: "Use when the user asks about or wants to act in their Microsoft 365: find or read an email, draft or send one, what is on the calendar, schedule a meeting or find free time, read or send a Teams message, who 'Mahmoud' is, or what needs attention. Also when a tool reports NOT_SIGNED_IN, CONSENT_NEEDED or ACCESS_NEEDED."
-version: "0.13.3"
+version: "0.13.4"
 ---
 
 # Microsoft 365 tools
@@ -54,7 +54,8 @@ Nothing outward-facing happens without the user's clear yes after they have seen
   real formatting, and the preview shows the same marks. If the user set a signature file, the plugin adds it
   (`signature: false` leaves it out). Attach files with `email_add_attachment`
   (`path` for a file on this computer; `chat_image: 1` for the image the user just pasted into the chat, 2 for the one
-  before) and preview again: the preview lists every file. The user is shown each file before it is added. A refusal
+  before) and preview again: the preview lists every file with the local file it came from (`from`, and `real_file_name`
+  when it was renamed): show both. A custom `name` must keep the file's type. The user is shown each file before it is added. A refusal
   (a key or token file, or a file outside the folders the user allowed) is final: never copy or move a file to get around it. If the preview says `html_draft` (a reply, or a draft edited in
   Outlook), show the user every address in `links_and_images` and say if `hidden_markup_found` is true. If `links_truncated`, it
   cannot be sent from here.

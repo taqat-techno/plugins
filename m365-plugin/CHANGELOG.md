@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.13.4] - 2026-11-12
+
+### Security
+- **The email preview shows which local file each attachment came from.** `email_add_attachment` records the resolved
+  source of every file it adds, and `email_preview_draft` lists it (`from`, plus `real_file_name` when the attachment
+  was renamed); attachments not added by the plugin say so. The source is covered by the send digest. With chat
+  approval on, the yes in the chat now covers the actual files, as the Teams preview already did.
+- **A custom attachment name can no longer change the file's type** (`budget.xlsx` cannot go out as `agenda.pdf`).
+
 ## [0.13.3] - 2026-11-12
 
 ### Changed

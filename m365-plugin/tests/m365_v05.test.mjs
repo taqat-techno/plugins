@@ -2,7 +2,7 @@
 // Run: node --test tests/
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, symlinkSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, realpathSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ctxFor, call, g, json, TOK } from "./_helpers.mjs";
@@ -133,7 +133,7 @@ test("attachments: adding or removing a file invalidates the preview; the previe
   await call(c, "email_add_attachment", { draft_id: "d1", path: join(root, "a.txt") });
   await assert.rejects(call(c, "email_send_draft", { draft_id: "d1", digest: p0.digest }), (e) => e.code === "NOT_PREVIEWED");
   const p1 = await call(c, "email_preview_draft", { draft_id: "d1" });
-  assert.deepEqual(p1.attachments, [{ attachment_id: "a1", name: "a.txt", size_bytes: 5 }]); assert.notEqual(p1.digest, p0.digest);
+  assert.deepEqual(p1.attachments, [{ attachment_id: "a1", name: "a.txt", size_bytes: 5, from: realpathSync.native(join(root, "a.txt")) }]); assert.notEqual(p1.digest, p0.digest);
   await call(c, "email_remove_attachment", { draft_id: "d1", attachment_id: "a1" });
   await assert.rejects(call(c, "email_send_draft", { draft_id: "d1", digest: p1.digest }), (e) => e.code === "NOT_PREVIEWED");
   // a file added behind the preview's back (for example in Outlook) is caught at send time

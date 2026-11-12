@@ -3,6 +3,7 @@
 //   email_preview_draft                            -> exactly what will be sent, plus a digest
 //   email_send_draft(draft_id, digest)             -> refuses unless the draft is unchanged since that preview
 // Recipients must be email addresses (resolve names with people_resolve); nothing is guessed from a name.
+import { extname } from "node:path";
 import { EMAIL_RE, M365Error, clean, decodeEntities, fence, htmlToMarkedText, safeId, safeStr, seg, truncate } from "../util.mjs";
 import { digestOf } from "../staging.mjs";
 import { allowedFile, attachBytes, readAllowed, contentTypeOf } from "../attach.mjs";
@@ -135,18 +136,25 @@ async function loadDraft(ctx, id) {
   if (!m.isDraft) throw new M365Error("NOT_A_DRAFT", "That message is not a draft, so it cannot be changed or sent from here.");
   return m;
 }
-/** The draft's attachments (file attachments and inline images), as shown in the preview and covered by the digest. */
+/** The draft's attachments (file attachments and inline images), as shown in the preview and covered by the digest.
+ *  Each one the plugin added says which local file it came from (`from`), and the real file name if it was renamed. */
 async function draftAttachments(ctx, m) {
   if (!m.hasAttachments && !/cid:/i.test(String(m.body?.content ?? ""))) return [];
   const j = await ctx.graph.get(`/me/messages/${seg(m.id)}/attachments?$select=id,name,size,isInline,contentType`);
-  return (j.value ?? []).map((x) => ({ attachment_id: x.id, name: clean(x.name, 200), size_bytes: x.size ?? null, inline: !!x.isInline, content_type: x.contentType ?? null }))
-    .sort((x, y) => String(x.attachment_id).localeCompare(String(y.attachment_id)));
+  const known = ctx.staging.mailAttachmentSources(m.id);
+  return (j.value ?? []).map((x) => {
+    const src = known.find((k) => k.attachment_id && k.attachment_id === x.id) ?? known.find((k) => !k.attachment_id && k.name === x.name);
+    return {
+      attachment_id: x.id, name: clean(x.name, 200), size_bytes: x.size ?? null, inline: !!x.isInline, content_type: x.contentType ?? null,
+      from: src ? src.from : null, ...(src && src.file_name !== x.name ? { file_name: clean(src.file_name, 200) } : {}),
+    };
+  }).sort((x, y) => String(x.attachment_id).localeCompare(String(y.attachment_id)));
 }
 /** What the user is shown and what the send is checked against: adding or removing a file changes it. */
 const draftDigest = (m, atts) => digestOf({
   subject: m.subject ?? "", to: addrs(m.toRecipients), cc: addrs(m.ccRecipients), bcc: addrs(m.bccRecipients),
   body: m.body?.content ?? "", type: m.body?.contentType ?? "", attachments: !!m.hasAttachments,
-  files: atts.map((x) => [x.attachment_id, x.name, x.size_bytes]),
+  files: atts.map((x) => [x.attachment_id, x.name, x.size_bytes, x.from ?? null]),
 });
 
 const draftProps = {
@@ -241,7 +249,8 @@ export const tools = [
       return {
         draft_id: id, to: addrs(m.toRecipients), cc: addrs(m.ccRecipients), bcc: addrs(m.bccRecipients),
         subject: clean(m.subject, 300), has_attachments: !!m.hasAttachments,
-        attachments: atts.filter((x) => !x.inline).map(({ attachment_id, name, size_bytes }) => ({ attachment_id, name, size_bytes })),
+        attachments: atts.filter((x) => !x.inline).map(({ attachment_id, name, size_bytes, from, file_name }) => ({
+          attachment_id, name, size_bytes, from: from ?? "not added by this plugin (already in the draft, or added in Outlook)", ...(file_name ? { real_file_name: file_name } : {}) })),
         inline_images: atts.filter((x) => x.inline).map((x) => x.name),
         body: fence(text, "draft body (may quote other people)", id), body_truncated: truncated,
         ...(html ? { html_draft: true, links_and_images: links, link_count: all.length, links_truncated: all.length > MAX_LINKS, hidden_markup_found: hidden,
@@ -345,8 +354,13 @@ export const tools = [
       await loadDraft(ctx, id);
       const name = a.name !== undefined ? clean(safeStr(a.name, "name", 200) ?? "", 200).trim() || f.name : f.name;
       if (/[\\/]/.test(name)) throw new M365Error("INVALID_ARGUMENT", "name must be a file name, not a path");
+      // A custom name may rename a file but never disguise its type (budget.xlsx cannot go out as agenda.pdf).
+      if (extname(name).toLowerCase() !== extname(f.name).toLowerCase()) {
+        throw new M365Error("INVALID_ARGUMENT", `name must keep the file's type (${extname(f.name) || "no extension"}): the file is ${f.name}`);
+      }
       ctx.staging.clearPreview(id);
       const r = await attachBytes(ctx, id, { name, bytes: readAllowed(f), contentType: contentTypeOf(name) });
+      ctx.staging.rememberMailAttachment(id, { attachment_id: r.attachment_id ?? null, name, from: f.real, file_name: f.name });
       return { draft_id: id, attached: true, ...r, next_step: "Preview again with email_preview_draft and show the user the attachments before sending." };
     },
   },

@@ -117,6 +117,15 @@ export function createStaging(cfg, { now = () => Date.now() } = {}) {
       });
     },
     wasMailSent(draftId) { return load()[mailKey(draftId)]?.state === "sent"; },
+    /** Remember the local file an attachment was made from, so the send preview can show it. */
+    rememberMailAttachment(draftId, rec) {
+      update((all) => {
+        const k = `mailatt_${draftId}`;
+        const list = (all[k]?.list ?? []).filter((x) => !(rec.attachment_id && x.attachment_id === rec.attachment_id));
+        all[k] = { id: k, kind: "mailatt", state: "recorded", list: [...list, rec], created: now() };
+      });
+    },
+    mailAttachmentSources(draftId) { return load()[`mailatt_${draftId}`]?.list ?? []; },
     /** Returns the stage if it is of `kind`, in one of `states`, and the digest matches what the user saw. */
     require(id, kind, digest, states = ["staged"]) { return { ...check(load(), id, kind, digest, states) }; },
     /** require() and a state change as one locked step, so two processes cannot both commit the same stage. */

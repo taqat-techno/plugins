@@ -137,3 +137,19 @@ test("attach_scope is the person's choice: saved from the terminal, refused from
   const c = attachCtx();
   await assert.rejects(call(c, "m365_setup_save", { attach_scope: "anywhere" }), (e) => e.code === "CREDENTIAL_SETTING_NOT_ALLOWED");
 });
+
+test("0.13.4: the email preview shows each attachment's source file; a custom name cannot change the file type", async () => {
+  const d = dir(); writeFileSync(join(d, "budget.xlsx"), "xlsx-bytes"); writeFileSync(join(d, "notes.txt"), "hello");
+  const c = attachCtx({ M365_ATTACH_SCOPE: "anywhere" });
+  await assert.rejects(call(c, "email_add_attachment", { draft_id: "d1", path: join(d, "budget.xlsx"), name: "agenda.pdf" }),
+    (e) => e.code === "INVALID_ARGUMENT" && /keep the file's type \(\.xlsx\)/.test(e.message));
+  assert.equal(c.state.atts.length, 0, "nothing attached");
+  await call(c, "email_add_attachment", { draft_id: "d1", path: join(d, "budget.xlsx"), name: "Q3 numbers.XLSX" });
+  await call(c, "email_add_attachment", { draft_id: "d1", path: join(d, "notes.txt") });
+  c.state.atts.push({ id: "zz", name: "from-outlook.pdf" });
+  const p = await call(c, "email_preview_draft", { draft_id: "d1" });
+  const by = Object.fromEntries(p.attachments.map((x) => [x.name, x]));
+  assert.match(by["Q3 numbers.XLSX"].from, /budget\.xlsx$/); assert.equal(by["Q3 numbers.XLSX"].real_file_name, "budget.xlsx");
+  assert.match(by["notes.txt"].from, /notes\.txt$/); assert.equal(by["notes.txt"].real_file_name, undefined);
+  assert.match(by["from-outlook.pdf"].from, /not added by this plugin/);
+});
