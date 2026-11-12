@@ -24,6 +24,7 @@ By default this package runs **read-only**: write tools are not listed. If they 
 | Read mail, files | `email_read`, `email_read_thread`, `email_read_attachment`, `onedrive_search`, `onedrive_read_file` |
 | Calendar, free time | `calendar_list_events`, `calendar_find_free_slots` |
 | Teams | `teams_find_chat`, `teams_read_chat` |
+| Files | `onedrive_search`, `onedrive_list_folder`, `onedrive_read_file` |
 | What needs attention | `events_since` (keep the cursor; if `more` is true poll again) |
 
 ## Write rules (only when write tools are listed)

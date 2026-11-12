@@ -28,7 +28,10 @@
     "email_list_folders",
     "teams_meeting_find",
     "teams_meeting_transcript",
-    "teams_meeting_files"
+    "teams_meeting_files",
+    "onedrive_list_folder",
+    "sharepoint_list_sites",
+    "sharepoint_list_libraries"
   ],
   "local": [
     "m365_sign_in",
@@ -69,7 +72,12 @@
     "teams_commit",
     "teams_cancel",
     "onedrive_share_link",
-    "teams_delete_message"
+    "teams_delete_message",
+    "onedrive_upload",
+    "onedrive_create_folder",
+    "onedrive_move",
+    "onedrive_delete",
+    "onedrive_share_with"
   ],
   "confirm": [
     "email_send_draft",
@@ -80,6 +88,9 @@
     "onedrive_share_link",
     "m365_setup_save",
     "email_add_attachment",
-    "teams_delete_message"
+    "teams_delete_message",
+    "onedrive_upload",
+    "onedrive_delete",
+    "onedrive_share_with"
   ]
 }

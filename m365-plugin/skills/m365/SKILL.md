@@ -1,7 +1,7 @@
 ---
 name: m365
 description: "Use when the user asks about or wants to act in their Microsoft 365: find or read an email, draft or send one, what is on the calendar, schedule a meeting or find free time, read or send a Teams message, who 'Mahmoud' is, or what needs attention. Also when a tool reports NOT_SIGNED_IN, CONSENT_NEEDED or ACCESS_NEEDED."
-version: "0.10.0"
+version: "0.11.0"
 ---
 
 # Microsoft 365 tools
@@ -35,7 +35,9 @@ message for the admin.
 | What is on the calendar | `calendar_list_events` |
 | When can we meet | `people_resolve` per person, then `calendar_find_free_slots` |
 | A Teams conversation | `teams_find_chat`, then `teams_read_chat` |
-| A file in OneDrive | `onedrive_search`, `onedrive_read_file` |
+| A file in OneDrive | `onedrive_search`, `onedrive_read_file`; what is in a folder: `onedrive_list_folder` |
+| A SharePoint library | `sharepoint_list_sites`, `sharepoint_list_libraries`, then `onedrive_list_folder` with `drive_id` |
+| Put or organise files in OneDrive | `onedrive_upload`, `onedrive_create_folder`, `onedrive_move`, `onedrive_delete`, `onedrive_share_with` |
 | What needs my attention | `events_since` (keep the cursor; if `more` is true, call again) |
 
 ## Writing: always preview, show, then confirm
@@ -71,7 +73,13 @@ Nothing outward-facing happens without the user's clear yes after they have seen
   preview's `action` and every mention. `teams_delete_message` deletes the user's own message (confirmed by the user).
   If it says `SEND_UNCERTAIN`, check with `teams_read_chat` (or `teams_find_chat` for a new chat) and do not retry.
 - Claude Code asks the user to confirm `email_send_draft`, `email_discard_draft`, `calendar_commit`, `teams_commit`,
-  `email_delete`, `teams_delete_message` and `onedrive_share_link` as well. Present the preview before that prompt appears.
+  `email_delete`, `teams_delete_message`, `onedrive_share_link`, `onedrive_upload`, `onedrive_delete` and
+  `onedrive_share_with` as well. Present the preview before that prompt appears.
+- **OneDrive:** uploads, folders, moves, deletes and sharing act on the user's OWN OneDrive only (`folder_path` like
+  `Documents/Reports`; the folder must exist). Upload never overwrites (a taken name gets a number) and the file stays
+  private until shared; the same file refusals as email apply. Delete goes to the recycle bin: say the name first.
+  Share only with addresses from `people_resolve`; say who gets which role (read or edit) and whether
+  `outside_your_domain` lists anyone. SharePoint libraries can be browsed and read, not changed, from here.
 - `email_delete` moves to Deleted Items (recoverable); there is no permanent delete.
 - **Never say something was sent, created or changed unless the tool result says so.**
 

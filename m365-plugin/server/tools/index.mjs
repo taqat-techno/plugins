@@ -14,8 +14,9 @@ import { tools as events } from "./events.mjs";
 import { tools as folders } from "./mail_folders.mjs";
 import { tools as meetings } from "./meetings.mjs";
 import { tools as save } from "./save.mjs";
+import { tools as drive } from "./drive.mjs";
 
-export const ALL_TOOLS = [...auth, ...profile, ...mail, ...mailWrite, ...calendar, ...calendarWrite, ...teams, ...teamsWrite, ...people, ...files, ...events, ...folders, ...meetings, ...save];
+export const ALL_TOOLS = [...auth, ...profile, ...mail, ...mailWrite, ...calendar, ...calendarWrite, ...teams, ...teamsWrite, ...people, ...files, ...events, ...folders, ...meetings, ...save, ...drive];
 
 export function activeTools(cfg) {
   return ALL_TOOLS.filter((t) => {

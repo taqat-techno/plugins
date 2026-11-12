@@ -14,7 +14,7 @@ const pick = (env, ...names) => {
 };
 const bool = (v) => /^(1|true|yes|on)$/i.test(String(v ?? "").trim());
 
-export const MODULES = ["mail", "calendar", "teams", "channels", "meetings", "people", "files"];
+export const MODULES = ["mail", "calendar", "teams", "channels", "meetings", "people", "files", "sites"];
 export const DEFAULT_MODULES = ["mail", "calendar", "teams", "people", "files"];
 
 // Delegated Microsoft Graph permissions each module needs. Read-only mode asks for these only.
@@ -28,6 +28,8 @@ export const READ_SCOPES = {
   meetings: ["Calendars.Read", "Chat.Read", "OnlineMeetingTranscript.Read.All", "Files.Read.All"],
   people: ["People.Read", "User.ReadBasic.All"],
   files: ["Files.Read.All"],
+  // off by default, so turning it on is the only thing that asks for this permission
+  sites: ["Sites.Read.All"],
 };
 
 // Added only when read-only mode is off. All are user-consentable in a default tenant.

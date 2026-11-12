@@ -23,6 +23,7 @@ const NEEDS = [
   [/^\/search\/query/, "Files.Read.All"],
   [/^\/me\/onlineMeetings\/.+\/transcripts/, "OnlineMeetingTranscript.Read.All (admin consent)"],
   [/^\/shares\//, "Files.Read.All"],
+  [/^\/(sites|me\/followedSites)/, "Sites.Read.All"],
 ];
 
 const NEEDS_WRITE = [
@@ -75,6 +76,14 @@ export function createGraph(cfg, auth, { fetch: fetchImpl = globalThis.fetch, sl
       const j = await res.json().catch(() => ({}));
       if (res.ok) return j;
       const gcode = String(j?.error?.code ?? res.status);
+      const gmsg = String(j?.error?.message ?? "");
+      // A retention hold or similar organization policy also answers 403 accessDenied: that is not a missing permission,
+      // and telling the user to ask an admin for one would send them the wrong way.
+      if (method !== "GET" && /on hold|retention|cancelled by event|is locked|resourceLocked/i.test(`${gcode} ${gmsg}`)) {
+        throw new M365Error("BLOCKED_BY_POLICY", "Microsoft refused this change because of your organization's retention or hold policy (or the item is locked), not because of a missing permission.", {
+          status: res.status, hint: "Do not ask for a permission and do not work around it. For a folder, delete what is inside it first, then the empty folder; otherwise tell the user the policy blocks it.",
+        });
+      }
       if (res.status === 403 || /AccessDenied|Authorization_RequestDenied|Forbidden/i.test(gcode)) throw Object.assign(accessNeeded(path, method), { status: res.status });
       if (res.status === 404) throw new M365Error("NOT_FOUND", `Not found: ${path.split("?")[0].replace(/\/[A-Za-z0-9_\-=+%.:@]{30,}/g, "/<id>")}`, { status: 404 });
       if (res.status === 429) throw new M365Error("THROTTLED", "Microsoft is throttling requests. Wait a minute and retry.", { status: 429 });

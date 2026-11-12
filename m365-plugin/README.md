@@ -33,7 +33,8 @@ No browser on the machine? Use the sign-in method `device-code`: you get a short
 | Teams chats | `teams_list_chats`, `teams_find_chat`, `teams_read_chat`, `teams_chat_members`; write: `teams_stage` (existing or new chat; text with the same formatting marks as email, files and pasted images, @mentions, quoted replies, editing your own message), **`teams_commit`**, `teams_cancel`, **`teams_delete_message`** (your own) |
 | Team channels (module `channels`, needs admin consent) | `teams_list_teams`, `teams_list_channels`, `teams_read_channel`; write: `teams_stage` with `team_id` + `channel_id` (a post, or a thread reply) |
 | Teams meetings (module `meetings`, transcripts need admin consent) | `teams_meeting_find`, `teams_meeting_transcript`, `teams_meeting_files` (then `onedrive_read_file` / `onedrive_save_file`) |
-| OneDrive | `onedrive_search`, `onedrive_read_file`, `onedrive_save_file` (into the folder you chose); write: **`onedrive_share_link`** (organization-only) |
+| OneDrive | `onedrive_search`, `onedrive_read_file`, `onedrive_list_folder` (your OneDrive by path, or any library by id), `onedrive_save_file` (into the folder you chose); write (your own OneDrive only): **`onedrive_upload`** (never overwrites; same file rules as email attachments), `onedrive_create_folder`, `onedrive_move` (rename / move), **`onedrive_delete`** (to the recycle bin), **`onedrive_share_with`** (named people, view or edit, sign-in required), **`onedrive_share_link`** (organization-only) |
+| SharePoint (module `sites`, off by default) | `sharepoint_list_sites`, `sharepoint_list_libraries`; browse and read with `onedrive_list_folder` / `onedrive_read_file` |
 | People | `people_find`, `people_resolve` |
 | Alerts | `events_since` |
 | Local profile | `profile_get`, `profile_refresh_me`, `profile_set`, `profile_remember_contact`, `profile_forget_contact`, `profile_remember_chat`, `profile_forget_chat`, `profile_suggest_contacts` |
@@ -95,7 +96,7 @@ owner). If `more` is true, call again. A failing detector is listed in `errors` 
 | Microsoft app (client) ID | `M365_CLIENT_ID` | Required |
 | Tenant | `M365_TENANT` | Default `organizations` |
 | Sign-in method | `M365_AUTH_MODE` | `auto` (default), `interactive`, `device-code` |
-| Modules | `M365_MODULES` | `mail,calendar,teams,channels,meetings,people,files`; default without `channels` and `meetings` |
+| Modules | `M365_MODULES` | `mail,calendar,teams,channels,meetings,people,files,sites`; default without `channels`, `meetings` and `sites` |
 | Read-only mode | `M365_READONLY` | No write tools, read permissions only |
 | Shared token file | `M365_REFRESH_TOKEN_FILE` | Use an existing sign-in held by another tool (a bot): a file with its refresh token |
 | App secret file | `M365_CLIENT_SECRET_FILE` | A file with the app's secret, if the app has one (a shared token usually needs it) |
@@ -124,7 +125,7 @@ before every send, because the confirmation hook is a Claude Code feature. `data
 - Every Graph request is fixed per tool. There is no generic Graph tool, and no tool accepts a URL, a mailbox or
   another user's id. POST, PATCH and DELETE are never retried.
 - In Claude Code a hook asks you before `email_send_draft`, `email_discard_draft`, `calendar_commit`, `teams_commit`,
-  `email_delete`, `teams_delete_message` and `onedrive_share_link`; if the hook script or Python is missing it asks too (it fails closed).
+  `email_delete`, `teams_delete_message`, `onedrive_share_link`, `onedrive_upload`, `onedrive_delete` and `onedrive_share_with`; if the hook script or Python is missing it asks too (it fails closed).
   The server enforces the preview and digest either way. The model writes drafts as plain text, never HTML; the plugin itself turns
   a fixed set of marks (`**bold**`, `*italic*`, `__underline__`, `==highlight==`, `~~strike~~`, `- ` and `1. ` lists) into
   formatting, on escaped text, so no link, image or hidden text can come from the model. The preview shows the same marks;

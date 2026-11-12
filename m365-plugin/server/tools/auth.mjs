@@ -12,7 +12,7 @@ const WHY = {
   "Chat.Read": "read your Teams chats", "Chat.ReadWrite": "send, start, edit and delete Teams chat messages you approved", "ChannelMessage.Send": "post in team channels you approved",
   "People.Read": "find people you work with", "User.ReadBasic.All": "look colleagues up in the directory",
   "Files.Read.All": "find and read your OneDrive files", "Files.ReadWrite": "create view links for your files",
-  "Team.ReadBasic.All": "list your teams", "Channel.ReadBasic.All": "list team channels", "ChannelMessage.Read.All": "read team channel messages", "OnlineMeetingTranscript.Read.All": "read the transcripts of Teams meetings you attended",
+  "Sites.Read.All": "find SharePoint sites and their libraries", "Team.ReadBasic.All": "list your teams", "Channel.ReadBasic.All": "list team channels", "ChannelMessage.Read.All": "read team channel messages", "OnlineMeetingTranscript.Read.All": "read the transcripts of Teams meetings you attended",
 };
 
 export const tools = [

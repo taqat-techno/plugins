@@ -243,6 +243,34 @@ def test_teams_delete_prompt_names_the_message_and_chat(tmp_path):
     assert "DELETE your Teams message 1700000000000 in chat 19:abc@thread.v2" in out["permissionDecisionReason"]
 
 
+def test_onedrive_upload_hook_shows_the_real_file_and_folder(tmp_path):
+    f = tmp_path / "plan.pdf"
+    f.write_bytes(b"%PDF")
+    out = _run_tool_hook(tmp_path, "onedrive_upload", {"path": str(f), "folder_path": "Projects/2026"})
+    real = os.path.realpath(f)
+    assert out["permissionDecision"] == "ask" and real in out["permissionDecisionReason"]
+    assert "folder Projects/2026" in out["permissionDecisionReason"] and "private" in out["permissionDecisionReason"]
+    assert out["updatedInput"]["path"] == real
+    mine = _PNG + b"pasted"
+    t = _transcript(tmp_path, [{"type": "user", "message": {"role": "user", "content": [_img(mine)]}}])
+    out = _run_tool_hook(tmp_path, "onedrive_upload", {"chat_image": 1}, t)
+    assert Path(out["updatedInput"]["path"]).read_bytes() == mine and out["updatedInput"]["name"] == "screenshot-1.png"
+    assert "the top level" in out["permissionDecisionReason"]
+    for bad in ({"path": str(tmp_path / "missing.pdf")}, {"path": str(f) + " "}, {"chat_image": 3}):
+        assert _run_tool_hook(tmp_path, "onedrive_upload", bad, t)["permissionDecision"] == "deny", bad
+
+
+def test_onedrive_share_and_delete_prompts_say_who_and_what(tmp_path):
+    out = _run_tool_hook(tmp_path, "onedrive_share_with", {"item_id": "f1", "emails": ["sara@contoso.example", "guest@partner.example"], "role": "edit"})
+    r = out["permissionDecisionReason"]
+    assert out["permissionDecision"] == "ask" and "sara@contoso.example, guest@partner.example" in r and "EDIT" in r and "No invitation email" in r
+    r = _run_tool_hook(tmp_path, "onedrive_share_with", {"item_id": "f1", "emails": ["sara@contoso.example"], "notify": True, "message": "For review"})["permissionDecisionReason"]
+    assert "VIEW" in r and "invitation with the note: For review" in r
+    assert _run_tool_hook(tmp_path, "onedrive_share_with", {"item_id": "f1", "emails": []})["permissionDecision"] == "deny"
+    r = _run_tool_hook(tmp_path, "onedrive_delete", {"item_id": "01ABC"})["permissionDecisionReason"]
+    assert "MOVE OneDrive item 01ABC" in r and "recycle bin" in r
+
+
 # ---------------------------------------------------------------- package builder
 
 @pytest.fixture(scope="module")
@@ -286,9 +314,10 @@ def test_packaged_server_runs_read_only_and_lists_no_write_tool(pkg, tmp_path):
         p.kill()
     assert not names & set(TOOLS["write"]), names & set(TOOLS["write"])
     assert {"email_read", "events_since", "people_resolve", "m365_sign_in"} <= names
-    # off unless the channels / meetings modules are enabled
+    # off unless the channels / meetings / sites modules are enabled
     channels = {"teams_list_teams", "teams_list_channels", "teams_read_channel",
-                "teams_meeting_find", "teams_meeting_transcript", "teams_meeting_files"}
+                "teams_meeting_find", "teams_meeting_transcript", "teams_meeting_files",
+                "sharepoint_list_sites", "sharepoint_list_libraries"}
     assert names == (set(TOOLS["read"]) | set(TOOLS["local"])) - channels
 
 

@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.11.0] - 2026-11-12
+
+### Added
+- **Browse files:** `onedrive_list_folder` lists a folder of the user's OneDrive by path (`Documents/Reports`), or any
+  SharePoint library / shared folder by `drive_id` (+ `item_id`).
+- **SharePoint** (new module `sites`, off by default, so existing sign-ins are never asked for a new permission):
+  `sharepoint_list_sites` (search, or the sites you follow) and `sharepoint_list_libraries`. Needs `Sites.Read.All`.
+- **Manage your own OneDrive:** `onedrive_upload` (a local file or a pasted image; never overwrites; private until
+  shared; same file rules as email attachments; confirm-gated, the hook shows the real file), `onedrive_create_folder`,
+  `onedrive_move` (rename and/or move), `onedrive_delete` (to the recycle bin; confirm-gated) and `onedrive_share_with`
+  (named people, view or edit, sign-in required, invitation email only on request, people outside your domain flagged;
+  confirm-gated, the prompt lists every address and the role). All writes act on `/me/drive` only: no tool can change a
+  team library, and the drive's top level and system folders are refused. Folder paths are checked segment by segment.
+
+### Fixed
+- A change refused by an organization's retention or hold policy (Microsoft answers 403 "on hold") is now reported as
+  `BLOCKED_BY_POLICY`, not as a missing permission that an admin would be asked to grant. Found live: deleting a
+  non-empty OneDrive folder in a tenant with a retention policy.
+
 ## [0.10.0] - 2026-11-12
 
 ### Added

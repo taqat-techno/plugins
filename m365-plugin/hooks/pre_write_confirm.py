@@ -26,6 +26,7 @@ _WHAT = {
     "email_discard_draft": "DELETE the draft {draft_id} from your Drafts folder.",
     "m365_setup_save": "SAVE the Microsoft 365 setup: client id {client_id}, tenant {tenant}, permissions mode {scope_mode}, sign-in method {auth_mode}, sign-in redirect {redirect_uri} (a dash means unchanged). Approve only values your admin gave you.",
     "email_delete": "MOVE message {message_id} to Deleted Items (recoverable from there).",
+    "onedrive_delete": "MOVE OneDrive item {item_id} (and everything in it, if it is a folder) to your OneDrive recycle bin. It can be restored from there for a while.",
     "teams_delete_message": "DELETE your Teams message {message_id} in chat {chat_id}. The others in the chat will see that a message was deleted.",
     "onedrive_share_link": "CREATE an organization-wide view link for OneDrive item {item_id}.",
 }
@@ -161,6 +162,51 @@ def _teams_stage(data, tool_input):
                 + "; ".join(lines) + ". Nothing is uploaded or sent yet: you will see the chat members and confirm again before it goes.", updated)
 
 
+def _upload(data, tool_input):
+    """onedrive_upload: show the exact file (saving a pasted image first) and the OneDrive folder; pass the real path on."""
+    path, folder = tool_input.get("path"), tool_input.get("folder_path") or ""
+    if len(str(path or "")) > 1000 or len(str(folder)) > 400 or len(str(tool_input.get("name") or "")) > _LIMIT:
+        return _out("deny", "refused, an argument is too long to show you in full.")
+    updated = dict(tool_input)
+    if not path and tool_input.get("chat_image") is not None:
+        try:
+            from chat_image import save_pasted_image
+            saved, media_type, size = save_pasted_image(data.get("transcript_path"), data.get("session_id"), tool_input.get("chat_image"))
+        except Exception as e:
+            msg = str(e) if e.__class__.__name__ == "ChatImageError" else "the pasted image could not be saved"
+            return _out("deny", f"nothing uploaded: {_show(msg)}. Ask the user to paste it again or give a file path.")
+        n = _show(tool_input.get("chat_image"))
+        updated["path"] = saved
+        updated.pop("chat_image", None)
+        if not updated.get("name"):
+            updated["name"] = f"screenshot-{n}{os.path.splitext(saved)[1]}"
+        what = f"the image you pasted into this chat (#{n} counting back, {media_type}, {size // 1024 or 1} KB)"
+    else:
+        real = _real_path(path)
+        if not real:
+            return _out("deny", f"nothing uploaded: {_show(path or '-')} is not an existing local file (network paths, "
+                                "spaces around the path and hidden characters are refused). Ask the user for the plain full path.")
+        updated["path"] = real
+        what = f"the file {_show(real)}"
+        if os.path.normcase(real) != os.path.normcase(os.path.abspath(path)):
+            what += f" (you gave {_show(path)}, which points there)"
+    where = _show(folder.strip("/\\")) or "the top level"
+    as_name = f" as {_show(updated['name'])}" if updated.get("name") else ""
+    return _out("ask", f"UPLOAD {what} to your OneDrive, folder {where}{as_name}. It stays private to you until you share it.", updated)
+
+
+def _share(tool_input):
+    """onedrive_share_with: every address and the role, in full."""
+    emails, role = tool_input.get("emails"), tool_input.get("role") or "read"
+    if not isinstance(emails, list) or not emails or len(emails) > 25 or any(len(str(e)) > 254 for e in emails) \
+            or len(str(tool_input.get("item_id", ""))) > _LIMIT or len(str(tool_input.get("message") or "")) > 500:
+        return _out("deny", "refused, the people or the item could not be shown to you in full.")
+    who = ", ".join(_show(e) for e in emails)
+    access = "EDIT (change and delete)" if role == "edit" else "VIEW"
+    mail = " Microsoft emails each of them an invitation" + (f" with the note: {_show(tool_input['message'])}" if tool_input.get("message") else "") + "." if tool_input.get("notify") is True else " No invitation email is sent."
+    return _out("ask", f"SHARE OneDrive item {_show(tool_input.get('item_id', '-'))} with {who}, who can {access} it after signing in.{mail}")
+
+
 def _staged_files(stage_id):
     """What a staged Teams message will send besides text, read from the plugin's own staging file. '' when none or unknown."""
     try:
@@ -203,6 +249,10 @@ def main():
         return _attach(data, tool_input)
     if name == "teams_stage":
         return _teams_stage(data, tool_input)
+    if name == "onedrive_upload":
+        return _upload(data, tool_input)
+    if name == "onedrive_share_with":
+        return _share(tool_input)
     template = _WHAT.get(name, "make a change in Microsoft 365 that others can see or that cannot be undone.")
     if name == "teams_commit" and len(str(tool_input.get("stage_id", ""))) <= _LIMIT:
         template += _staged_files(tool_input.get("stage_id")).replace("{", "{{").replace("}", "}}")
