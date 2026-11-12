@@ -1,7 +1,7 @@
 ---
 name: m365
 description: "Use when the user asks about or wants to act in their Microsoft 365: find or read an email, draft or send one, what is on the calendar, schedule a meeting or find free time, read or send a Teams message, who 'Mahmoud' is, or what needs attention. Also when a tool reports NOT_SIGNED_IN, CONSENT_NEEDED or ACCESS_NEEDED."
-version: "0.9.0"
+version: "0.10.0"
 ---
 
 # Microsoft 365 tools
@@ -64,9 +64,14 @@ Nothing outward-facing happens without the user's clear yes after they have seen
   preview. Show the user every file and who gets access before `teams_commit`. The same refusals as email apply (keys,
   tokens, files outside the allowed folders) and are final. Members listed under `no_access_for` will not be able to open
   the file: say so.
-  If it says `SEND_UNCERTAIN`, check with `teams_read_chat` and do not retry.
+  The same `teams_stage` also: starts a chat (`to`: addresses from `people_resolve`; one person opens the 1:1 chat, several
+  start a NEW group chat, say which), posts in a channel (`team_id` + `channel_id`, `reply_to_message_id` for a thread
+  reply; visible to everyone in the channel), @mentions chat members (`mentions`: their addresses), quotes a chat message
+  (`quote_message_id`) and edits the user's own message (`edit_message_id` with the new text; show old and new). Show the
+  preview's `action` and every mention. `teams_delete_message` deletes the user's own message (confirmed by the user).
+  If it says `SEND_UNCERTAIN`, check with `teams_read_chat` (or `teams_find_chat` for a new chat) and do not retry.
 - Claude Code asks the user to confirm `email_send_draft`, `email_discard_draft`, `calendar_commit`, `teams_commit`,
-  `email_delete` and `onedrive_share_link` as well. Present the preview before that prompt appears.
+  `email_delete`, `teams_delete_message` and `onedrive_share_link` as well. Present the preview before that prompt appears.
 - `email_delete` moves to Deleted Items (recoverable); there is no permanent delete.
 - **Never say something was sent, created or changed unless the tool result says so.**
 

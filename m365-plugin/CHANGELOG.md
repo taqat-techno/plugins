@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.10.0] - 2026-11-12
+
+### Added
+- **Start a chat.** `teams_stage` with `to` (email addresses, resolved in the directory, never guessed): one person opens
+  the 1:1 chat with them, several start a new group chat (optional `topic`). The chat is created only at `teams_commit`;
+  if the message then fails, a retry posts into the chat already created instead of making a second one. An unknown
+  outcome of the create is never repeated (`SEND_UNCERTAIN`, check with `teams_find_chat`). Files sent this way are
+  shared with exactly the new chat's members.
+- **Channel posts and thread replies** (`team_id` + `channel_id`, optional `reply_to_message_id`), in the `channels`
+  module; the preview names the team and channel and says everyone in the channel will see it. Pictures can be posted;
+  files are refused in channels for now. New permission requested with that module: `ChannelMessage.Send`.
+- **@mentions** (`mentions`: addresses of chat members, or of people in the organization for a channel) and **quoted
+  replies** in chats (`quote_message_id`, sent as a message reference). The plugin builds the mention markup from ids
+  Microsoft returned; the preview lists everyone mentioned.
+- **Edit your own chat message** (`edit_message_id`): the preview shows the current and the new text.
+- **`teams_delete_message`** (confirm-gated): deletes the signed-in user's own chat message. Someone else's message is
+  refused (`NOT_YOUR_MESSAGE`), for edit and delete alike.
+- The `teams_commit` prompt says where the message goes (a new chat with whom, a channel, an edit) and who is mentioned.
+
+### Changed
+- The `teams` module also requests `User.ReadBasic.All` when writing (to find people for new chats and mentions).
+- `ACCESS_NEEDED` names the exact permission for each Teams action: creating a chat, editing and deleting need
+  `Chat.ReadWrite` (or `Chat.Create`); a channel post needs `ChannelMessage.Send`.
+
 ## [0.9.0] - 2026-11-12
 
 ### Added

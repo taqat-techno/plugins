@@ -30,8 +30,8 @@ No browser on the machine? Use the sign-in method `device-code`: you get a short
 | Mail (read) | `email_list_recent` (optionally unread only), `email_search`, `email_read`, `email_read_thread`, `email_list_attachments`, `email_list_categories`, `email_read_attachment` |
 | Mail (write) | `email_create_draft`, `email_create_reply_draft`, `email_create_forward_draft`, `email_update_draft`, `email_preview_draft`, **`email_discard_draft`**, **`email_send_draft`**, `email_move` (any ordinary folder by path or id; never Deleted Items/Junk), `email_create_folder`, `email_list_folders`, `email_save_attachment` (into the folder you chose), `email_mark_read`, `email_set_flag`, `email_set_categories`, `email_add_attachment` (any file except keys and tokens, or only folders you choose; also an image you pasted into the chat; you see each file first), `email_remove_attachment`, **`email_delete`** (to Deleted Items) |
 | Calendar | `calendar_list_events`, `calendar_get_event`, `calendar_find_free_slots`; write: `calendar_stage`, **`calendar_commit`**, `calendar_discard` |
-| Teams chats | `teams_list_chats`, `teams_find_chat`, `teams_read_chat`, `teams_chat_members`; write: `teams_stage` (text with the same formatting marks as email, plus files and pasted images), **`teams_commit`**, `teams_cancel` |
-| Team channels (module `channels`, needs admin consent) | `teams_list_teams`, `teams_list_channels`, `teams_read_channel` |
+| Teams chats | `teams_list_chats`, `teams_find_chat`, `teams_read_chat`, `teams_chat_members`; write: `teams_stage` (existing or new chat; text with the same formatting marks as email, files and pasted images, @mentions, quoted replies, editing your own message), **`teams_commit`**, `teams_cancel`, **`teams_delete_message`** (your own) |
+| Team channels (module `channels`, needs admin consent) | `teams_list_teams`, `teams_list_channels`, `teams_read_channel`; write: `teams_stage` with `team_id` + `channel_id` (a post, or a thread reply) |
 | Teams meetings (module `meetings`, transcripts need admin consent) | `teams_meeting_find`, `teams_meeting_transcript`, `teams_meeting_files` (then `onedrive_read_file` / `onedrive_save_file`) |
 | OneDrive | `onedrive_search`, `onedrive_read_file`, `onedrive_save_file` (into the folder you chose); write: **`onedrive_share_link`** (organization-only) |
 | People | `people_find`, `people_resolve` |
@@ -124,7 +124,7 @@ before every send, because the confirmation hook is a Claude Code feature. `data
 - Every Graph request is fixed per tool. There is no generic Graph tool, and no tool accepts a URL, a mailbox or
   another user's id. POST, PATCH and DELETE are never retried.
 - In Claude Code a hook asks you before `email_send_draft`, `email_discard_draft`, `calendar_commit`, `teams_commit`,
-  `email_delete` and `onedrive_share_link`; if the hook script or Python is missing it asks too (it fails closed).
+  `email_delete`, `teams_delete_message` and `onedrive_share_link`; if the hook script or Python is missing it asks too (it fails closed).
   The server enforces the preview and digest either way. The model writes drafts as plain text, never HTML; the plugin itself turns
   a fixed set of marks (`**bold**`, `*italic*`, `__underline__`, `==highlight==`, `~~strike~~`, `- ` and `1. ` lists) into
   formatting, on escaped text, so no link, image or hidden text can come from the model. The preview shows the same marks;

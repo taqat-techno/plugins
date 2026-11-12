@@ -9,7 +9,7 @@ const WHY = {
   "User.Read": "read your own name and email", "MailboxSettings.Read": "read your time zone and language",
   "Mail.Read": "read and search your mail", "Mail.ReadWrite": "create drafts and manage your mail", "Mail.Send": "send mail you approved",
   "Calendars.Read": "read your calendar", "Calendars.ReadWrite": "create events you approved",
-  "Chat.Read": "read your Teams chats", "Chat.ReadWrite": "send Teams messages you approved",
+  "Chat.Read": "read your Teams chats", "Chat.ReadWrite": "send, start, edit and delete Teams chat messages you approved", "ChannelMessage.Send": "post in team channels you approved",
   "People.Read": "find people you work with", "User.ReadBasic.All": "look colleagues up in the directory",
   "Files.Read.All": "find and read your OneDrive files", "Files.ReadWrite": "create view links for your files",
   "Team.ReadBasic.All": "list your teams", "Channel.ReadBasic.All": "list team channels", "ChannelMessage.Read.All": "read team channel messages", "OnlineMeetingTranscript.Read.All": "read the transcripts of Teams meetings you attended",

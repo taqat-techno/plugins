@@ -222,6 +222,27 @@ def test_teams_commit_prompt_names_the_staged_files_and_who_gets_access(tmp_path
     assert plain["permissionDecision"] == "ask" and "file(s)" not in plain["permissionDecisionReason"]
 
 
+def test_teams_commit_prompt_says_where_it_goes(tmp_path):
+    home = tmp_path / "home"
+    home.mkdir()
+    (home / "staged.json").write_text(json.dumps({
+        "teams_new": {"kind": "teams", "payload": {"text": "x", "new_chat": {"kind": "group", "members": [{"id": "u2", "email": "sara@contoso.example"}, {"id": "u3", "email": "omar@contoso.example"}]}}},
+        "teams_chan": {"kind": "teams", "payload": {"text": "x", "channel": {"team_id": "t", "channel_id": "c", "reply_to": "r"}, "mentions": [{"id": "u2", "name": "Sara", "email": "sara@contoso.example"}]}},
+        "teams_edit": {"kind": "teams", "payload": {"text": "x", "chat_id": "C", "edit": {"message_id": "m"}}},
+    }), encoding="utf-8")
+    r = lambda sid: _run_tool_hook(tmp_path, "teams_commit", {"stage_id": sid, "digest": "d"})["permissionDecisionReason"]
+    assert "STARTS A NEW group chat with sara@contoso.example, omar@contoso.example" in r("teams_new")
+    chan = r("teams_chan")
+    assert "CHANNEL thread" in chan and "everyone in that channel" in chan and "@mentions: sara@contoso.example" in chan
+    assert "REPLACES the text of your earlier message" in r("teams_edit")
+
+
+def test_teams_delete_prompt_names_the_message_and_chat(tmp_path):
+    out = _run_tool_hook(tmp_path, "teams_delete_message", {"chat_id": "19:abc@thread.v2", "message_id": "1700000000000"})
+    assert out["permissionDecision"] == "ask"
+    assert "DELETE your Teams message 1700000000000 in chat 19:abc@thread.v2" in out["permissionDecisionReason"]
+
+
 # ---------------------------------------------------------------- package builder
 
 @pytest.fixture(scope="module")

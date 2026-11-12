@@ -34,7 +34,8 @@ export const READ_SCOPES = {
 export const WRITE_SCOPES = {
   mail: ["Mail.ReadWrite", "Mail.Send"],
   calendar: ["Calendars.ReadWrite"],
-  teams: ["Chat.ReadWrite"],
+  teams: ["Chat.ReadWrite", "User.ReadBasic.All"],
+  channels: ["ChannelMessage.Send"],
   files: ["Files.ReadWrite"],
 };
 

@@ -26,6 +26,7 @@ _WHAT = {
     "email_discard_draft": "DELETE the draft {draft_id} from your Drafts folder.",
     "m365_setup_save": "SAVE the Microsoft 365 setup: client id {client_id}, tenant {tenant}, permissions mode {scope_mode}, sign-in method {auth_mode}, sign-in redirect {redirect_uri} (a dash means unchanged). Approve only values your admin gave you.",
     "email_delete": "MOVE message {message_id} to Deleted Items (recoverable from there).",
+    "teams_delete_message": "DELETE your Teams message {message_id} in chat {chat_id}. The others in the chat will see that a message was deleted.",
     "onedrive_share_link": "CREATE an organization-wide view link for OneDrive item {item_id}.",
 }
 
@@ -167,13 +168,25 @@ def _staged_files(stage_id):
         with open(m365_home() / "staged.json", "r", encoding="utf-8") as fh:
             payload = (json.load(fh).get(str(stage_id)) or {}).get("payload") or {}
         files = payload.get("files") or []
+        where = ""
+        if payload.get("edit"):
+            return " It REPLACES the text of your earlier message in that chat."
+        if payload.get("new_chat"):
+            nc = payload["new_chat"]
+            who_to = ", ".join(_show(m.get("email")) for m in (nc.get("members") or [])[:25])
+            where = (" It opens your 1:1 chat with " if nc.get("kind") == "oneOnOne" else " It STARTS A NEW group chat with ") + who_to + "."
+        elif payload.get("channel"):
+            where = " It is posted in a team CHANNEL" + (" thread" if payload["channel"].get("reply_to") else "") + ", visible to everyone in that channel."
+        ment = payload.get("mentions") or []
+        if ment:
+            where += " It @mentions: " + ", ".join(_show(m.get("email")) for m in ment[:20]) + "."
         if not files:
-            return ""
+            return where
         names = ", ".join(f"{_show(f.get('name'))} ({int(f.get('size') or 0) // 1024 or 1} KB, from {_show(f.get('path'))})" for f in files[:10])
         share = payload.get("share_with") or []
         who = (" Uploaded files go to your OneDrive and are shared read-only with: " + ", ".join(_show(e) for e in share[:25])
                + (f" and {len(share) - 25} more" if len(share) > 25 else "") + ".") if share else ""
-        return f" It carries {len(files)} file(s): {names}.{who}"
+        return f"{where} It carries {len(files)} file(s): {names}.{who}"
     except Exception:
         return ""
 
@@ -193,7 +206,7 @@ def main():
     template = _WHAT.get(name, "make a change in Microsoft 365 that others can see or that cannot be undone.")
     if name == "teams_commit" and len(str(tool_input.get("stage_id", ""))) <= _LIMIT:
         template += _staged_files(tool_input.get("stage_id")).replace("{", "{{").replace("}", "}}")
-    keys = ("draft_id", "stage_id", "message_id", "item_id", "client_id", "tenant", "scope_mode", "auth_mode", "redirect_uri")
+    keys = ("draft_id", "stage_id", "message_id", "chat_id", "item_id", "client_id", "tenant", "scope_mode", "auth_mode", "redirect_uri")
     values = {k: tool_input.get(k, "-") for k in keys}
     if any(len(str(v)) > _LIMIT for v in values.values()):
         # A value too long to show in full could hide what the call really does: do not offer a prompt, refuse.

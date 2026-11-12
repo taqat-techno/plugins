@@ -68,7 +68,8 @@
     "teams_stage",
     "teams_commit",
     "teams_cancel",
-    "onedrive_share_link"
+    "onedrive_share_link",
+    "teams_delete_message"
   ],
   "confirm": [
     "email_send_draft",
@@ -78,6 +79,7 @@
     "email_delete",
     "onedrive_share_link",
     "m365_setup_save",
-    "email_add_attachment"
+    "email_add_attachment",
+    "teams_delete_message"
   ]
 }

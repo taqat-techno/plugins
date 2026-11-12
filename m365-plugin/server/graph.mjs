@@ -26,6 +26,9 @@ const NEEDS = [
 ];
 
 const NEEDS_WRITE = [
+  [/^\/chats$/, "Chat.Create (or Chat.ReadWrite)"],
+  [/^\/users\/[^/]+\/chats\/.+\/softDelete$/, "Chat.ReadWrite"],
+  [/^\/teams\/.+\/messages/, "ChannelMessage.Send"],
   [/^\/me\/(messages|mailFolders)/, "Mail.ReadWrite / Mail.Send"],
   [/^\/me\/(calendar|events)/, "Calendars.ReadWrite"],
   [/^\/chats/, "ChatMessage.Send (or Chat.ReadWrite)"],
@@ -34,7 +37,8 @@ const NEEDS_WRITE = [
 
 function accessNeeded(path, method = "GET") {
   const table = method === "GET" ? NEEDS : NEEDS_WRITE;
-  const need = table.find(([re]) => re.test(path))?.[1] ?? "the matching delegated Graph permission";
+  const need = method === "PATCH" && /^\/chats\//.test(path) ? "Chat.ReadWrite"
+    : table.find(([re]) => re.test(path))?.[1] ?? "the matching delegated Graph permission";
   return new M365Error("ACCESS_NEEDED", `Microsoft refused this request: missing permission ${need}.`, {
     hint: "Do not work around it. Ask a tenant admin to grant that delegated permission to the app (or sign in again to approve it), then retry. A forwardable request: 'Please grant the delegated Microsoft Graph permission " + need + " to the Microsoft 365 plugin app.'",
   });

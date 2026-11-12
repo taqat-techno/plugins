@@ -38,6 +38,8 @@ By default this package runs **read-only**: write tools are not listed. If they 
   clear yes, then `calendar_commit` / `teams_commit` with the stage id and digest. A commit cannot be undone.
   Teams text takes the same formatting marks. `teams_stage` can carry `attachments` (a `path` inside the allowed folders):
   the preview lists each file and who gets read access; show both to the owner. A refused file is final.
+  `teams_stage` also starts chats (`to`), posts in channels (`team_id` + `channel_id`), @mentions, quotes and edits the
+  owner's own message: show the preview's `action` and every mention before committing.
 - If a send reports `SEND_UNCERTAIN`, check the chat with `teams_read_chat`; do not retry.
 - Never claim something was sent or created unless the tool result says so.
 
