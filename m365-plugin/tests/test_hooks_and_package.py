@@ -287,21 +287,69 @@ def test_shared_folder_moves_and_uploads_are_called_out(tmp_path):
 def test_calendar_commit_prompt_says_what_the_change_does(tmp_path):
     home = tmp_path / "home"
     home.mkdir()
+    SHOWN = {"subject": "Board meeting", "start": "2026-11-20T08:00:00", "end": "2026-11-20T09:00:00", "organizer": "me@contoso.example", "attendees": 12, "series": None}
     (home / "staged.json").write_text(json.dumps({
-        "calchange_move1": {"kind": "calchange", "payload": {"event_id": "e", "action": "change", "patch": {"start": "2026-11-21T10:00:00", "end": "2026-11-21T11:00:00", "subject": "Review {v2}"}}},
-        "calchange_cxl1": {"kind": "calchange", "payload": {"event_id": "e", "action": "cancel", "mode": "cancel", "comment": "Sorry"}},
+        "calchange_move1": {"kind": "calchange", "payload": {"event_id": "e", "action": "change", "shown": SHOWN, "patch": {"start": "2026-11-21T10:00:00", "end": "2026-11-21T11:00:00", "subject": "Review {v2}"}}},
+        "calchange_cxl1": {"kind": "calchange", "payload": {"event_id": "e", "action": "cancel", "mode": "cancel", "comment": "Sorry", "shown": dict(SHOWN, series="series")}},
         "calchange_del1": {"kind": "calchange", "payload": {"event_id": "e", "action": "cancel", "mode": "delete"}},
         "calchange_tnt1": {"kind": "calchange", "payload": {"event_id": "e", "action": "tentative", "send_response": True, "propose": {"start": "2026-11-20T12:00:00", "end": "2026-11-20T13:00:00"}}},
         "calchange_dec1": {"kind": "calchange", "payload": {"event_id": "e", "action": "decline", "send_response": False}},
     }), encoding="utf-8")
     r = lambda sid: _run_tool_hook(tmp_path, "calendar_commit", {"stage_id": sid, "digest": "d"})["permissionDecisionReason"]
     assert "move it to 2026-11-21T10:00:00 - 2026-11-21T11:00:00 UTC" in r("calchange_move1") and "rename it to Review {v2}" in r("calchange_move1")
-    assert "CANCEL this meeting for EVERYONE" in r("calchange_cxl1") and "comment: Sorry" in r("calchange_cxl1")
-    assert "REMOVE this event" in r("calchange_del1")
+    cxl = r("calchange_cxl1")
+    assert 'CANCEL "Board meeting" (2026-11-20T08:00:00 - 2026-11-20T09:00:00 UTC, a RECURRING SERIES' in cxl
+    assert "12 attendee(s); staged as calchange_cxl1" in cxl and "for EVERYONE" in cxl and "comment: Sorry" in cxl
+    assert '"Board meeting"' in r("calchange_move1")
+    assert "REMOVE \"" in r("calchange_del1") and "Deleted Items" in r("calchange_del1")
     assert "TENTATIVELY ACCEPT" in r("calchange_tnt1") and "proposing 2026-11-20T12:00:00" in r("calchange_tnt1")
-    assert "DECLINE this invitation silently" in r("calchange_dec1")
+    assert "DECLINE the invitation" in r("calchange_dec1") and "silently" in r("calchange_dec1")
     assert "CREATE the staged calendar event calendar_x" in r("calendar_x"), "creating a new event keeps its prompt"
     assert "CHANGE, CANCEL or ANSWER" in r("calchange_unknown")
+
+
+def _hook_with(tmp_path, tool, tool_input, extra_env, transcript=""):
+    payload = {"tool_name": f"mcp__plugin_m365_m365__{tool}", "tool_input": tool_input, "transcript_path": transcript, "session_id": "abc-123"}
+    env = dict(ENV, M365_HOME=str(tmp_path / "home"), **extra_env)
+    r = subprocess.run([sys.executable, str(PLUGIN / "hooks" / "pre_write_confirm.py")], input=json.dumps(payload).encode("utf-8"),
+                       capture_output=True, timeout=20, env=env, cwd=str(tmp_path))
+    assert r.returncode == 0, r.stderr
+    return json.loads(r.stdout.decode("utf-8"))["hookSpecificOutput"] if r.stdout.strip() else None
+
+
+def test_chat_confirm_mode_turns_the_click_into_an_allow_but_never_a_refusal(tmp_path):
+    chat = {"CLAUDE_PLUGIN_OPTION_M365_CONFIRM_MODE": "chat"}
+    send = _hook_with(tmp_path, "email_send_draft", {"draft_id": "D1", "digest": "x"}, chat)
+    assert send["permissionDecision"] == "allow" and "approved in the chat" in send["permissionDecisionReason"] and "SEND the email draft D1" in send["permissionDecisionReason"]
+    assert _hook_with(tmp_path, "teams_commit", {"stage_id": "teams_1", "digest": "x"}, chat)["permissionDecision"] == "allow"
+    # the setup tool always asks
+    assert _hook_with(tmp_path, "m365_setup_save", {"client_id": "c"}, chat)["permissionDecision"] == "ask"
+    # refusals stay refusals, and file resolution still happens
+    assert _hook_with(tmp_path, "email_add_attachment", {"draft_id": "D1", "path": str(tmp_path / "missing.pdf")}, chat)["permissionDecision"] == "deny"
+    f = tmp_path / "a.pdf"
+    f.write_bytes(b"%PDF")
+    up = _hook_with(tmp_path, "onedrive_upload", {"path": str(f)}, chat)
+    assert up["permissionDecision"] == "allow" and up["updatedInput"]["path"] == os.path.realpath(f)
+    # an ordinary move is still silent; an unexpanded placeholder or junk value means "always"
+    assert _hook_with(tmp_path, "onedrive_move", {"item_id": "i", "to_folder_path": "A"}, chat) is None
+    for v in ("${user_config.m365_confirm_mode}", "", "yes", "CHATTY"):
+        assert _hook_with(tmp_path, "email_send_draft", {"draft_id": "D1"}, {"CLAUDE_PLUGIN_OPTION_M365_CONFIRM_MODE": v})["permissionDecision"] == "ask", v
+
+
+def test_chat_confirm_mode_can_come_from_settings_json(tmp_path):
+    home = tmp_path / "home"
+    home.mkdir()
+    (home / "settings.json").write_text(json.dumps({"confirm_mode": "chat"}), encoding="utf-8")
+    assert _hook_with(tmp_path, "email_send_draft", {"draft_id": "D1"}, {})["permissionDecision"] == "allow"
+    (home / "settings.json").write_text(json.dumps({"confirm_mode": "always"}), encoding="utf-8")
+    assert _hook_with(tmp_path, "email_send_draft", {"draft_id": "D1"}, {})["permissionDecision"] == "ask"
+
+
+def test_ids_that_are_not_plain_text_are_refused(tmp_path):
+    for bad in ({"stage_id": ["calchange_x"], "digest": "d"}, {"stage_id": "calendar_x", "digest": {"a": 1}}):
+        out = _run_tool_hook(tmp_path, "calendar_commit", bad)
+        assert out["permissionDecision"] == "deny" and "not plain text" in out["permissionDecisionReason"], bad
+    assert _hook_with(tmp_path, "calendar_commit", {"stage_id": ["calchange_x"], "digest": "d"}, {"CLAUDE_PLUGIN_OPTION_M365_CONFIRM_MODE": "chat"})["permissionDecision"] == "deny"
 
 
 # ---------------------------------------------------------------- package builder

@@ -293,7 +293,7 @@ export function createAuth(cfg, { fetch: fetchImpl = globalThis.fetch, open = op
       const ok = Boolean(readShared());
       return {
         configured: Boolean(cfg.clientId), signed_in: ok, account: null, auth_source: "shared token file",
-        tenant: cfg.tenant, read_only: cfg.readOnly, permissions: cfg.scopeMode, modules: cfg.modules,
+        tenant: cfg.tenant, read_only: cfg.readOnly, permissions: cfg.scopeMode, modules: cfg.modules, confirm_mode: cfg.confirmMode,
         ...(cfg.clientId ? (ok ? {} : { hint: "The shared token file is missing or empty. Sign in with the tool that owns it." }) : { hint: NEEDS_CLIENT_ID }),
       };
     }
@@ -308,6 +308,7 @@ export function createAuth(cfg, { fetch: fetchImpl = globalThis.fetch, open = op
       read_only: cfg.readOnly,
       permissions: cfg.scopeMode,
       modules: cfg.modules,
+      confirm_mode: cfg.confirmMode,
       ...(cfg.redirectUri ? { redirect_uri: cfg.redirectUri } : {}),
     };
     if (pending) {

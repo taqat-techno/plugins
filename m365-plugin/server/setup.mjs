@@ -12,7 +12,7 @@ import { M365Error, replaceFile } from "./util.mjs";
 
 export const CREDENTIAL_KEYS = ["refresh_token_file", "client_secret_file"];
 // Settings only the person may choose: credential files, the folders files may be mailed out from, the signature file.
-export const HUMAN_ONLY_KEYS = [...CREDENTIAL_KEYS, "attach_dirs", "attach_scope", "signature_file", "download_dir"];
+export const HUMAN_ONLY_KEYS = [...CREDENTIAL_KEYS, "attach_dirs", "attach_scope", "signature_file", "download_dir", "confirm_mode"];
 const GUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const TENANT = /^([0-9a-f-]{36}|[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+|organizations|common|consumers)$/i;
 
@@ -57,6 +57,7 @@ export function saveSettings(cfg, input, { viaTool }) {
     if (k === "scope_mode" && !["requested", "app"].includes(v.toLowerCase())) throw new M365Error("INVALID_ARGUMENT", "scope_mode must be requested or app");
     if (k === "auth_mode" && !["auto", "interactive", "device-code"].includes(v.toLowerCase())) throw new M365Error("INVALID_ARGUMENT", "auth_mode must be auto, interactive or device-code");
     if (k === "attach_scope" && !["folders", "anywhere"].includes(v.toLowerCase())) throw new M365Error("INVALID_ARGUMENT", "attach_scope must be folders or anywhere");
+    if (k === "confirm_mode" && !["always", "chat"].includes(v.toLowerCase())) throw new M365Error("INVALID_ARGUMENT", "confirm_mode must be always or chat");
     if (k === "redirect_uri") { try { parseRedirectUri(v); } catch (e) { throw new M365Error("INVALID_ARGUMENT", e.message); } }
     if (CREDENTIAL_KEYS.includes(k)) checkSecretFile(v, k);
     if (k === "attach_dirs") for (const d of v.split(delimiter).map((x) => x.trim()).filter(Boolean)) {
@@ -75,7 +76,7 @@ export function saveSettings(cfg, input, { viaTool }) {
       let st; try { st = statSync(v); } catch { st = null; }
       if (!st?.isFile() || st.size > 100 * 1024) throw new M365Error("INVALID_ARGUMENT", "signature_file must be an HTML file under 100 KB");
     }
-    next[k] = ["scope_mode", "auth_mode", "attach_scope"].includes(k) ? v.toLowerCase() : v;
+    next[k] = ["scope_mode", "auth_mode", "attach_scope", "confirm_mode"].includes(k) ? v.toLowerCase() : v;
     changed.push(k);
   }
   if (!changed.length) throw new M365Error("INVALID_ARGUMENT", `give at least one of: ${(viaTool ? SETTINGS_KEYS.filter((k) => !HUMAN_ONLY_KEYS.includes(k)) : SETTINGS_KEYS).join(", ")}`);

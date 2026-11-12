@@ -70,7 +70,11 @@ export function createStaging(cfg, { now = () => Date.now() } = {}) {
     mkdirSync(cfg.home, { recursive: true });
     return withFileLock(path, () => { const all = load(); const r = fn(all); save(all); return r; });
   };
+  // Ids and digests must be plain text: String(["calchange_x"]) would otherwise reach a different stage than the
+  // confirmation hook described.
+  const plain = (v, field) => { if (typeof v !== "string") throw new M365Error("INVALID_ARGUMENT", `${field} must be a string`); return v; };
   const check = (all, id, kind, digest, states) => {
+    plain(id, "stage_id"); plain(digest, "digest");
     const s = all[String(id)];
     if (!s || s.kind !== kind) throw new M365Error("STAGE_NOT_FOUND", `No staged ${kind} with id ${id} (it may have expired after 24 hours).`);
     if (!states.includes(s.state)) throw stateError(kind, s);
@@ -122,6 +126,7 @@ export function createStaging(cfg, { now = () => Date.now() } = {}) {
     set(id, patch) { return update((all) => { if (all[id]) Object.assign(all[id], patch); return all[id] ? { ...all[id] } : undefined; }); },
     /** Change state only if the entry is still in `from` (for cancel/discard). Returns the entry or throws. */
     move(id, kind, from, to) {
+      plain(id, "stage_id");
       return update((all) => {
         const s = all[String(id)];
         if (!s || s.kind !== kind) throw new M365Error("STAGE_NOT_FOUND", `No staged ${kind} with that id.`);

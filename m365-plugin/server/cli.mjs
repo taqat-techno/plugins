@@ -6,6 +6,7 @@
 //   node server/cli.mjs events --since now|<cursor|ISO> [--types mail,chat-mention]   what concerns the user (a poll; keep the cursor)
 //   node server/cli.mjs setup [--client-id <id>] [--tenant <id>] [--scope-mode app] [--token-file <path>] [--secret-file <path>] [--redirect-uri <url>]
 //        [--attach-dirs <folder>[;<folder>]] [--attach-scope folders|anywhere] [--signature-file <file.html>] [--download-dir <folder>]
+//        [--confirm-mode always|chat]
 //        saves ids and PATHS (never a token or secret) to settings.json; the only way besides the plugin settings to point
 //        the plugin at another tool's sign-in. Run it yourself: an agent cannot.
 //   node server/cli.mjs sign-out
@@ -23,7 +24,7 @@ try {
   else if (cmd === "sign-out") out(ctx.auth.signOut());
   else if (cmd === "setup") {
     const get = (f) => { const i = rest.indexOf(f); return i >= 0 ? rest[i + 1] : undefined; };
-    const r = saveSettings(ctx.cfg, { client_id: get("--client-id"), tenant: get("--tenant"), scope_mode: get("--scope-mode"), refresh_token_file: get("--token-file"), client_secret_file: get("--secret-file"), redirect_uri: get("--redirect-uri"), attach_dirs: get("--attach-dirs"), attach_scope: get("--attach-scope"), signature_file: get("--signature-file"), download_dir: get("--download-dir") }, { viaTool: false });
+    const r = saveSettings(ctx.cfg, { client_id: get("--client-id"), tenant: get("--tenant"), scope_mode: get("--scope-mode"), refresh_token_file: get("--token-file"), client_secret_file: get("--secret-file"), redirect_uri: get("--redirect-uri"), attach_dirs: get("--attach-dirs"), attach_scope: get("--attach-scope"), signature_file: get("--signature-file"), download_dir: get("--download-dir"), confirm_mode: get("--confirm-mode") }, { viaTool: false });
     out({ ...r, note: "Saved. Restart your agent (or run m365_auth_status) to pick it up." });
   }
   else if (cmd === "events") {

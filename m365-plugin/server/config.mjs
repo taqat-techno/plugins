@@ -45,7 +45,7 @@ export const WRITE_SCOPES = {
 export const ADMIN_CONSENT_SCOPES = ["Team.ReadBasic.All", "Channel.ReadBasic.All", "ChannelMessage.Read.All", "OnlineMeetingTranscript.Read.All"];
 
 /** What /m365:init may save: ids and file PATHS only. Read-only mode and modules are deliberately not here. */
-export const SETTINGS_KEYS = ["client_id", "tenant", "auth_mode", "scope_mode", "refresh_token_file", "client_secret_file", "redirect_uri", "attach_dirs", "attach_scope", "signature_file", "download_dir"];
+export const SETTINGS_KEYS = ["client_id", "tenant", "auth_mode", "scope_mode", "refresh_token_file", "client_secret_file", "redirect_uri", "attach_dirs", "attach_scope", "signature_file", "download_dir", "confirm_mode"];
 
 /** A sign-in redirect the plugin can listen on itself: http on localhost/127.0.0.1, a fixed port, an optional path.
  *  Returns { uri, host, port, path } (uri exactly as given, minus a trailing space) or throws INVALID_ARGUMENT. */
@@ -116,6 +116,10 @@ export function resolveConfig(env = process.env) {
     // is then shown to the human with its full path (the Claude Code hook asks). "folders" (default, and what a bot gets):
     // only attach_dirs. Images the user pasted into the chat are saved under <home>/chat-files and allowed in both modes.
     attachScope: get("attach_scope", "M365_PLUGIN_ATTACH_SCOPE", "M365_ATTACH_SCOPE").toLowerCase() === "anywhere" ? "anywhere" : "folders",
+    // How Claude Code confirms outward actions. "always" (default): a click prompt from the hook. "chat": the user's yes
+    // to the preview in the chat is the approval; the hook stays silent (the server's preview/digest gates still apply).
+    // Read by hooks/pre_write_confirm.py from settings.json (or M365_CONFIRM_MODE); only the person can set it.
+    confirmMode: get("confirm_mode", "M365_PLUGIN_CONFIRM_MODE", "M365_CONFIRM_MODE").toLowerCase() === "chat" ? "chat" : "always",
     // The user's HTML email signature (a file only the person chooses). Set: drafts are HTML built by the plugin.
     signatureFile: get("signature_file", "M365_PLUGIN_SIGNATURE_FILE", "M365_SIGNATURE_FILE"),
     // The one folder files may be saved into (email_save_attachment, onedrive_save_file). Set only by the person.

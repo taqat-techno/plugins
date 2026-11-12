@@ -49,7 +49,10 @@ export const tools = [
       const comment = a.comment === undefined ? "" : (safeStr(a.comment, "comment", 2000) ?? "").trim();
       const nowMs = { start: graphUtcMs(ev.start?.dateTime), end: graphUtcMs(ev.end?.dateTime) };
       const now = { start: wallClock(nowMs.start, iana), end: wallClock(nowMs.end, iana) };
-      const payload = { event_id: id, action, change_key: ev.changeKey ?? null };
+      const payload = { event_id: id, action, change_key: ev.changeKey ?? null,
+        // What the confirmation prompt names: covered by the digest, so the prompt and the commit describe the same event.
+        shown: { subject: clean(ev.subject, 255) || "(no subject)", start: iso(nowMs.start), end: iso(nowMs.end), organizer, attendees: attendees.length,
+          series: ev.type === "seriesMaster" ? "series" : ev.type === "occurrence" || ev.type === "exception" ? "occurrence" : null } };
       const preview = { event: clean(ev.subject, 255) || "(no subject)", timezone: iana, currently: now, organizer, you_organize: !!ev.isOrganizer, attendees_count: attendees.length };
       const series = seriesNote(ev);
       if (series) preview.recurrence = series;
@@ -156,7 +159,8 @@ export const tools = [
     description: "Apply what calendar_stage or calendar_change_stage prepared: create the event (invitations go out), or change, cancel or answer an existing one (attendees / the organizer are notified as the preview said). Needs the stage_id and digest the user saw; refuses if the stage is unknown, already done, the digest differs, or the event changed since the preview. Only call it after the user approved the preview.",
     inputSchema: { type: "object", properties: { stage_id: { type: "string" }, digest: { type: "string" } }, required: ["stage_id", "digest"] },
     async handler(a, ctx) {
-      if (String(a.stage_id ?? "").startsWith("calchange_")) return commitChange(a, ctx);
+      if (typeof a.stage_id !== "string" || typeof a.digest !== "string") throw new M365Error("INVALID_ARGUMENT", "stage_id and digest must be strings");
+      if (a.stage_id.startsWith("calchange_")) return commitChange(a, ctx);
       const st = ctx.staging.transition(a.stage_id, "calendar", a.digest, "committing");
       const p = st.payload;
       const body = {

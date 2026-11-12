@@ -126,3 +126,37 @@ test("discard works for a staged change; an already-cancelled event cannot be st
   await assert.rejects(commit(c, s), (e) => e.code === "STAGE_NOT_READY" || e.code === "ALREADY_DONE");
   await assert.rejects(call(calCtx(EV({ isCancelled: true })), "calendar_change_stage", { event_id: "ev1", action: "cancel" }), (e) => e.code === "ALREADY_DONE");
 });
+
+test("0.13.0: stage ids and digests must be strings everywhere (no parser differential with the hook)", async () => {
+  const c = calCtx(EV());
+  const s = await call(c, "calendar_change_stage", { event_id: "ev1", action: "cancel" });
+  for (const bad of [{ stage_id: [s.stage_id], digest: s.digest }, { stage_id: s.stage_id, digest: [s.digest] }]) {
+    await assert.rejects(call(c, "calendar_commit", bad), (e) => e.code === "INVALID_ARGUMENT", JSON.stringify(bad));
+  }
+  await assert.rejects(call(c, "calendar_discard", { stage_id: [s.stage_id] }), (e) => e.code === "INVALID_ARGUMENT");
+  await assert.rejects(call(c, "teams_commit", { stage_id: ["teams_x"], digest: "d" }), (e) => e.code === "INVALID_ARGUMENT");
+  assert.equal(calls(c, "POST", /\/cancel$/).length, 0);
+});
+
+test("0.13.0: the stage binds the event's identity (shown in the confirmation) into the digest", async () => {
+  const s = await call(calCtx(EV({ type: "seriesMaster" })), "calendar_change_stage", { event_id: "ev1", action: "cancel" });
+  const { createStaging } = await import("../server/staging.mjs");
+  const c = calCtx(EV({ type: "seriesMaster" }));
+  const s2 = await call(c, "calendar_change_stage", { event_id: "ev1", action: "cancel" });
+  const st = createStaging(c.ctx.cfg).get(s2.stage_id);
+  assert.deepEqual(st.payload.shown, { subject: "Design review", start: "2026-11-20T08:00:00", end: "2026-11-20T09:00:00", organizer: "me@contoso.example", attendees: 2, series: "series" });
+  assert.ok(s.digest);
+});
+
+test("0.13.0: confirm_mode is the person's choice: saved from the terminal, refused from a tool, shown in status", async () => {
+  const { mkdtempSync } = await import("node:fs"); const { tmpdir } = await import("node:os"); const { join } = await import("node:path");
+  const { saveSettings } = await import("../server/setup.mjs"); const { resolveConfig } = await import("../server/config.mjs");
+  const h = mkdtempSync(join(tmpdir(), "m365-v13-"));
+  assert.deepEqual(saveSettings(resolveConfig({ M365_HOME: h }), { confirm_mode: "Chat" }, { viaTool: false }).saved, ["confirm_mode"]);
+  assert.equal(resolveConfig({ M365_HOME: h }).confirmMode, "chat");
+  assert.throws(() => saveSettings(resolveConfig({ M365_HOME: h }), { confirm_mode: "never" }, { viaTool: false }), (e) => e.code === "INVALID_ARGUMENT");
+  assert.equal(resolveConfig({ M365_HOME: h, M365_CONFIRM_MODE: "anything" }).confirmMode, "always");
+  const c = calCtx(EV());
+  await assert.rejects(call(c, "m365_setup_save", { confirm_mode: "chat" }), (e) => e.code === "CREDENTIAL_SETTING_NOT_ALLOWED");
+  assert.equal((await call(c, "m365_auth_status", {})).confirm_mode, "always");
+});

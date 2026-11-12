@@ -46,7 +46,32 @@ def _tool_name(raw_name):
     return str(raw_name or "").rsplit("__", 1)[-1]
 
 
+_TOOL = {"name": ""}
+# Never switched to "allow": changing the app / sign-in setup always gets the click prompt.
+_ALWAYS_ASK = {"m365_setup_save"}
+
+
+def _confirm_mode():
+    """'chat' or 'always'. Only the person can set it: the plugin setting (exported to hooks as
+    CLAUDE_PLUGIN_OPTION_M365_CONFIRM_MODE), M365_CONFIRM_MODE, or confirm_mode in <M365_HOME>/settings.json
+    (written by `cli.mjs setup --confirm-mode`; m365_setup_save refuses it). Anything unreadable means 'always'."""
+    for key in ("CLAUDE_PLUGIN_OPTION_M365_CONFIRM_MODE", "M365_PLUGIN_CONFIRM_MODE", "M365_CONFIRM_MODE"):
+        v = os.environ.get(key, "").strip().lower()
+        if v and not v.startswith("${"):
+            return "chat" if v == "chat" else "always"
+    try:
+        from chat_image import m365_home
+        with open(m365_home() / "settings.json", "r", encoding="utf-8") as fh:
+            return "chat" if str(json.load(fh).get("confirm_mode", "")).strip().lower() == "chat" else "always"
+    except Exception:
+        return "always"
+
+
 def _out(decision, reason, updated=None):
+    if decision == "ask" and _TOOL["name"] not in _ALWAYS_ASK and _confirm_mode() == "chat":
+        # The user approved the preview in the chat: no click prompt. The server's preview / digest gates still apply,
+        # and every refusal ("deny") stays a refusal.
+        decision, reason = "allow", "approved in the chat (confirm mode: chat). " + reason
     spec = {"hookEventName": "PreToolUse", "permissionDecision": decision, "permissionDecisionReason": "Microsoft 365: " + reason}
     if updated is not None:
         spec["updatedInput"] = updated
@@ -230,6 +255,11 @@ def _staged_calendar_change(stage_id):
         with open(m365_home() / "staged.json", "r", encoding="utf-8") as fh:
             p = (json.load(fh).get(str(stage_id)) or {}).get("payload") or {}
         action = p.get("action")
+        sh = p.get("shown") or {}
+        series = {"series": ", a RECURRING SERIES (every occurrence)", "occurrence": ", one occurrence of a recurring series"}.get(sh.get("series"), "")
+        who = f", organizer {_show(sh['organizer'])}" if sh.get("organizer") else ""
+        ev = (f"\"{_show(sh.get('subject', '?'))}\" ({_show(sh.get('start', '?'))} - {_show(sh.get('end', '?'))} UTC{series}{who}, "
+              f"{int(sh.get('attendees') or 0)} attendee(s); staged as {_show(stage_id)})")
         if action == "change":
             ch = p.get("patch") or {}
             what = []
@@ -239,19 +269,19 @@ def _staged_calendar_change(stage_id):
                 what.append(f"rename it to {_show(ch['subject'])}")
             if "location" in ch:
                 what.append(f"set the location to {_show(ch['location']) or '(none)'}")
-            return "CHANGE calendar event: " + "; ".join(what) + ". The attendees, if any, get the updated invitation."
+            return f"CHANGE calendar event {ev}: " + "; ".join(what) + ". The attendees, if any, get the updated invitation."
         if action == "cancel":
             if p.get("mode") == "delete":
-                return "REMOVE this event (it has no attendees) from your calendar, to Deleted Items."
-            return "CANCEL this meeting for EVERYONE: every attendee gets a cancellation" + (f" with the comment: {_show(p['comment'])}" if p.get("comment") else "") + "."
+                return f"REMOVE {ev} from your calendar, to Deleted Items (it has no attendees)."
+            return f"CANCEL {ev} for EVERYONE: every attendee gets a cancellation" + (f" with the comment: {_show(p['comment'])}" if p.get("comment") else "") + "."
         if action in ("accept", "tentative", "decline"):
             word = {"accept": "ACCEPT", "tentative": "TENTATIVELY ACCEPT", "decline": "DECLINE"}[action]
             if not p.get("send_response"):
-                return f"{word} this invitation silently (the organizer is not told)."
+                return f"{word} the invitation {ev} silently (the organizer is not told)."
             extra = (f" with the comment: {_show(p['comment'])}" if p.get("comment") else "")
             if p.get("propose"):
                 extra += f", proposing {_show(p['propose']['start'])} - {_show(p['propose']['end'])} UTC instead"
-            return f"{word} this invitation and tell the organizer{extra}."
+            return f"{word} the invitation {ev} and tell the organizer{extra}."
     except Exception:
         return None
     return None
@@ -292,6 +322,7 @@ def main():
     try:
         data = json.loads(sys.stdin.buffer.read().decode("utf-8", errors="replace"))
         name = _tool_name(data.get("tool_name"))
+        _TOOL["name"] = name
         tool_input = data.get("tool_input") or {}
     except Exception:
         data = data if isinstance(data, dict) else {}
@@ -305,6 +336,9 @@ def main():
         return _share(tool_input)
     if name == "onedrive_move":
         return _move(tool_input)
+    if any(k in tool_input and not isinstance(tool_input[k], str) for k in ("stage_id", "digest", "draft_id", "message_id", "chat_id", "item_id", "name")):
+        # The server and this script must read an id the same way: an id that is not plain text is refused, not guessed at.
+        return _out("deny", "refused, an id or name is not plain text.")
     template = _WHAT.get(name, "make a change in Microsoft 365 that others can see or that cannot be undone.")
     if name == "calendar_commit" and str(tool_input.get("stage_id", "")).startswith("calchange_") and len(str(tool_input.get("stage_id", ""))) <= _LIMIT:
         # A change to an existing event: say exactly what it does, read from the plugin's own staging file.
@@ -317,15 +351,12 @@ def main():
     values = {k: tool_input.get(k, "-") for k in keys}
     if any(len(str(v)) > _LIMIT for v in values.values()):
         # A value too long to show in full could hide what the call really does: do not offer a prompt, refuse.
-        print(json.dumps({"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny",
-                                                  "permissionDecisionReason": "Microsoft 365: refused, an argument is too long to show you in full."}}, ensure_ascii=False))
-        return 0
+        return _out("deny", "refused, an argument is too long to show you in full.")
     try:
-        reason = "Microsoft 365: " + template.format(**{k: _show(v) for k, v in values.items()})
+        reason = template.format(**{k: _show(v) for k, v in values.items()})
     except Exception:
-        reason = "Microsoft 365: " + template
-    print(json.dumps({"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "ask", "permissionDecisionReason": reason}}, ensure_ascii=False))
-    return 0
+        reason = template
+    return _out("ask", reason)
 
 
 if __name__ == "__main__":

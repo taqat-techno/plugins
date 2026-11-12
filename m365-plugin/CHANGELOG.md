@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.13.0] - 2026-11-12
+
+### Added
+- **Approve in the chat instead of with a click.** New setting "Confirm Microsoft 365 actions with a click"
+  (`m365_confirm_mode` / `M365_CONFIRM_MODE` / `confirm_mode` in settings.json via `cli.mjs setup --confirm-mode`):
+  `always` (default) keeps the click prompt; `chat` makes the hook answer `allow` instead of `ask`, so the user's yes to
+  the preview in the chat is the approval. Only the person can set it (`m365_setup_save` refuses it). Refusals stay
+  refusals, pasted images and real file paths are still resolved, `m365_setup_save` always asks, and every server-side
+  gate is unchanged. Any unreadable or unknown value means `always`. `m365_auth_status` reports `confirm_mode`. The
+  skill tells the agent that in `chat` mode only an explicit yes to that exact preview counts.
+
+### Security
+- The calendar-change prompt names the event: subject, current time, a RECURRING SERIES / one occurrence note,
+  organizer, attendee count and the stage id. They are recorded in the stage (and so covered by the digest).
+- Stage ids and digests must be plain strings on both sides: the server refuses anything else (no `String([id])`
+  differential), and the hook refuses an id or name that is not plain text before describing it.
+
 ## [0.12.0] - 2026-11-12
 
 ### Added
