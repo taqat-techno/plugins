@@ -284,6 +284,26 @@ def test_shared_folder_moves_and_uploads_are_called_out(tmp_path):
     assert "ALREADY SHARED" in up and "private" not in up
 
 
+def test_calendar_commit_prompt_says_what_the_change_does(tmp_path):
+    home = tmp_path / "home"
+    home.mkdir()
+    (home / "staged.json").write_text(json.dumps({
+        "calchange_move1": {"kind": "calchange", "payload": {"event_id": "e", "action": "change", "patch": {"start": "2026-11-21T10:00:00", "end": "2026-11-21T11:00:00", "subject": "Review {v2}"}}},
+        "calchange_cxl1": {"kind": "calchange", "payload": {"event_id": "e", "action": "cancel", "mode": "cancel", "comment": "Sorry"}},
+        "calchange_del1": {"kind": "calchange", "payload": {"event_id": "e", "action": "cancel", "mode": "delete"}},
+        "calchange_tnt1": {"kind": "calchange", "payload": {"event_id": "e", "action": "tentative", "send_response": True, "propose": {"start": "2026-11-20T12:00:00", "end": "2026-11-20T13:00:00"}}},
+        "calchange_dec1": {"kind": "calchange", "payload": {"event_id": "e", "action": "decline", "send_response": False}},
+    }), encoding="utf-8")
+    r = lambda sid: _run_tool_hook(tmp_path, "calendar_commit", {"stage_id": sid, "digest": "d"})["permissionDecisionReason"]
+    assert "move it to 2026-11-21T10:00:00 - 2026-11-21T11:00:00 UTC" in r("calchange_move1") and "rename it to Review {v2}" in r("calchange_move1")
+    assert "CANCEL this meeting for EVERYONE" in r("calchange_cxl1") and "comment: Sorry" in r("calchange_cxl1")
+    assert "REMOVE this event" in r("calchange_del1")
+    assert "TENTATIVELY ACCEPT" in r("calchange_tnt1") and "proposing 2026-11-20T12:00:00" in r("calchange_tnt1")
+    assert "DECLINE this invitation silently" in r("calchange_dec1")
+    assert "CREATE the staged calendar event calendar_x" in r("calendar_x"), "creating a new event keeps its prompt"
+    assert "CHANGE, CANCEL or ANSWER" in r("calchange_unknown")
+
+
 # ---------------------------------------------------------------- package builder
 
 @pytest.fixture(scope="module")

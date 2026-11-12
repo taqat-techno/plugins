@@ -1,7 +1,7 @@
 ---
 name: m365
 description: "Use when the user asks about or wants to act in their Microsoft 365: find or read an email, draft or send one, what is on the calendar, schedule a meeting or find free time, read or send a Teams message, who 'Mahmoud' is, or what needs attention. Also when a tool reports NOT_SIGNED_IN, CONSENT_NEEDED or ACCESS_NEEDED."
-version: "0.11.1"
+version: "0.12.0"
 ---
 
 # Microsoft 365 tools
@@ -34,6 +34,7 @@ message for the admin.
 | Read mail, "do I owe a reply" | `email_read`, `email_read_thread` (`last_message_was_from_me`), `email_read_attachment` |
 | What is on the calendar | `calendar_list_events` |
 | When can we meet | `people_resolve` per person, then `calendar_find_free_slots` |
+| Move, rename, cancel a meeting; accept or decline an invitation | `calendar_list_events`, then `calendar_change_stage` |
 | A Teams conversation | `teams_find_chat`, then `teams_read_chat` |
 | A file in OneDrive | `onedrive_search`, `onedrive_read_file`; what is in a folder: `onedrive_list_folder` |
 | A SharePoint library | `sharepoint_list_sites`, `sharepoint_list_libraries`, then `onedrive_list_folder` with `drive_id` |
@@ -58,7 +59,12 @@ Nothing outward-facing happens without the user's clear yes after they have seen
   Outlook), show the user every address in `links_and_images` and say if `hidden_markup_found` is true. If `links_truncated`, it
   cannot be sent from here.
 - **Calendar:** `calendar_stage` shows the times in the user's zone, conflicts, and who will be invited. After a yes,
-  `calendar_commit` with `stage_id` and `digest` (invitations go out).
+  `calendar_commit` with `stage_id` and `digest` (invitations go out). For an EXISTING event use
+  `calendar_change_stage` (`action`: `change` start/end/subject/location, or `cancel`, for events the user organizes;
+  `accept` / `tentative` / `decline` for invitations, with an optional `comment`, `send_response: false` to answer
+  silently, and `propose_start` + `propose_end` to suggest a new time). Show its `who_is_notified`, any `recurrence`
+  note (a series id changes every occurrence) and conflicts, then the same `calendar_commit`. `EVENT_CHANGED` means the
+  event was edited since the preview: stage again. An attendee cannot change or cancel a meeting: decline or propose.
 - **Teams:** `teams_stage` shows the chat's members and the text. After a yes, `teams_commit`. It cannot be unsent.
   The text takes the same formatting marks as email. To send files, pass `attachments` to `teams_stage` (`path` for a file
   on this computer, `chat_image: 1` for the image the user just pasted): small pictures show inside the message; other

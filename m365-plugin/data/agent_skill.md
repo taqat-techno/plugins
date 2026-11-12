@@ -37,6 +37,8 @@ By default this package runs **read-only**: write tools are not listed. If they 
   `- ` / `1. ` list lines (the plugin turns them into formatting; never write HTML).
 - **Calendar and Teams:** `calendar_stage` / `teams_stage`, show the preview (members, conflicts, text), wait for a
   clear yes, then `calendar_commit` / `teams_commit` with the stage id and digest. A commit cannot be undone.
+  Existing events: `calendar_change_stage` (change, cancel, accept, tentative, decline, propose a new time); show who
+  is notified and any recurrence note before `calendar_commit`.
   Teams text takes the same formatting marks. `teams_stage` can carry `attachments` (a `path` inside the allowed folders):
   the preview lists each file and who gets read access; show both to the owner. A refused file is final.
   `teams_stage` also starts chats (`to`), posts in channels (`team_id` + `channel_id`), @mentions, quotes and edits the

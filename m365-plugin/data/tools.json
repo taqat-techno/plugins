@@ -77,7 +77,8 @@
     "onedrive_create_folder",
     "onedrive_move",
     "onedrive_delete",
-    "onedrive_share_with"
+    "onedrive_share_with",
+    "calendar_change_stage"
   ],
   "confirm": [
     "email_send_draft",

@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.12.0] - 2026-11-12
+
+### Added
+- **Change existing calendar events.** `calendar_change_stage` prepares, and the confirm-gated `calendar_commit` applies:
+  `change` (new start/end, subject, location; organizer only; attendees get the update), `cancel` (organizer: a
+  cancellation to everyone with an optional comment; an event without attendees is just removed), and `accept` /
+  `tentative` / `decline` for invitations (optional comment, `send_response: false` to answer silently, `propose_start`
+  + `propose_end` to suggest another time when the organizer allows it). The preview says who is notified, whether a
+  recurring series or one occurrence changes, and lists conflicts at a new time (never the event itself). The stage
+  remembers the event's changeKey and the commit refuses if the event was edited since (`EVENT_CHANGED`). A change can
+  be retried; an uncertain cancellation or answer is never repeated (`SEND_UNCERTAIN`). An attendee cannot change or
+  cancel someone else's meeting (`NOT_ORGANIZER`, pointing to decline / propose).
+- The `calendar_commit` prompt says exactly what a staged change does (move to which time, rename, cancel for everyone
+  with the comment, accept / decline silently or with a proposed time). `calendar_discard` also drops a staged change.
+
 ## [0.11.1] - 2026-11-12
 
 ### Security

@@ -223,6 +223,40 @@ def _share(tool_input):
                        f"who can {access} it after signing in.{outside}{mail}")
 
 
+def _staged_calendar_change(stage_id):
+    """What a staged calendar change will do, read from the plugin's own staging file. None when unknown."""
+    try:
+        from chat_image import m365_home
+        with open(m365_home() / "staged.json", "r", encoding="utf-8") as fh:
+            p = (json.load(fh).get(str(stage_id)) or {}).get("payload") or {}
+        action = p.get("action")
+        if action == "change":
+            ch = p.get("patch") or {}
+            what = []
+            if ch.get("start"):
+                what.append(f"move it to {_show(ch['start'])} - {_show(ch['end'])} UTC")
+            if "subject" in ch:
+                what.append(f"rename it to {_show(ch['subject'])}")
+            if "location" in ch:
+                what.append(f"set the location to {_show(ch['location']) or '(none)'}")
+            return "CHANGE calendar event: " + "; ".join(what) + ". The attendees, if any, get the updated invitation."
+        if action == "cancel":
+            if p.get("mode") == "delete":
+                return "REMOVE this event (it has no attendees) from your calendar, to Deleted Items."
+            return "CANCEL this meeting for EVERYONE: every attendee gets a cancellation" + (f" with the comment: {_show(p['comment'])}" if p.get("comment") else "") + "."
+        if action in ("accept", "tentative", "decline"):
+            word = {"accept": "ACCEPT", "tentative": "TENTATIVELY ACCEPT", "decline": "DECLINE"}[action]
+            if not p.get("send_response"):
+                return f"{word} this invitation silently (the organizer is not told)."
+            extra = (f" with the comment: {_show(p['comment'])}" if p.get("comment") else "")
+            if p.get("propose"):
+                extra += f", proposing {_show(p['propose']['start'])} - {_show(p['propose']['end'])} UTC instead"
+            return f"{word} this invitation and tell the organizer{extra}."
+    except Exception:
+        return None
+    return None
+
+
 def _staged_files(stage_id):
     """What a staged Teams message will send besides text, read from the plugin's own staging file. '' when none or unknown."""
     try:
@@ -272,6 +306,11 @@ def main():
     if name == "onedrive_move":
         return _move(tool_input)
     template = _WHAT.get(name, "make a change in Microsoft 365 that others can see or that cannot be undone.")
+    if name == "calendar_commit" and str(tool_input.get("stage_id", "")).startswith("calchange_") and len(str(tool_input.get("stage_id", ""))) <= _LIMIT:
+        # A change to an existing event: say exactly what it does, read from the plugin's own staging file.
+        summary = _staged_calendar_change(tool_input.get("stage_id"))
+        template = (summary.replace("{", "{{").replace("}", "}}") if summary
+                    else "CHANGE, CANCEL or ANSWER a calendar event (staged as {stage_id}); people may be notified.")
     if name == "teams_commit" and len(str(tool_input.get("stage_id", ""))) <= _LIMIT:
         template += _staged_files(tool_input.get("stage_id")).replace("{", "{{").replace("}", "}}")
     keys = ("draft_id", "stage_id", "message_id", "chat_id", "item_id", "name", "client_id", "tenant", "scope_mode", "auth_mode", "redirect_uri")
