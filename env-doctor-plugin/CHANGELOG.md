@@ -2,6 +2,19 @@
 
 All notable changes to this plugin are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.0] - 2026-11-13
+
+### Added
+- Machine mechanic, on by default. When Claude starts a local service (`odoo-bin`, `manage.py runserver`, `npm run dev`, `docker compose up`, uvicorn, gunicorn, `systemd-run`, or the odoo-local start / restart / relaunch tools), a `PostToolUse` hook starts one background watcher per machine (`hooks/mechanic.py`). At below-normal priority it samples memory, CPU, free disk and WSL memory every ~45 s (under 1 ms per sample; `tasklist` for WSL every 4th sample; the WSL disk-image check hourly and only while WSL runs). It never changes anything and exits 30 minutes after the last session activity, or after 12 hours.
+- `data/mechanic_rules.json`: six rules (memory high, CPU saturated, disk low, disk critical, WSL memory hog, WSL disk bloat), each with a sustain count, a cooldown and an authority: `agent` (Claude may fix what it started itself) or `user` (Claude tells you and asks first).
+- `hooks/mechanic_hook.py`: an `asyncRewake` listener wakes Claude with a new finding, and a `UserPromptSubmit` hook delivers anything that came while no listener was waiting. Only sessions that started a service get findings, each one once. While the watcher is off, the listener and prompt hooks stop in the shell before Python starts.
+- Skill `machine-mechanic`: what Claude may fix itself, what it must take to you, and how to answer a finding without stopping the task.
+- Option `mechanic` (or `ENV_DOCTOR_MECHANIC=off`) turns it off.
+- Tests: `tests/test_mechanic.py` (rules, delivery, the hooks end to end with real processes). Eval `fires-on-mechanic-memory-note`.
+
+### Verified
+- A headless `claude -p --plugin-dir` run with a faked low-disk reading: the note reached the agent right after it started the service, and the agent followed the "ask the user" authority. Delivery to an idle session (no tool call running) could not be tested headless; the `UserPromptSubmit` hook covers that case.
+
 ## [0.10.0] - 2026-11-09
 
 ### Changed

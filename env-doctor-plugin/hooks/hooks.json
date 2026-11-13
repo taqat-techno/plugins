@@ -1,5 +1,5 @@
 {
-  "description": "env-doctor: a SessionStart hook that runs cheap read-only checks (project .mcp.json, Syncthing ignores, host disk / WSL pressure) and speaks only on a problem, and a PreToolUse advisory on Bash/PowerShell that reminds Claude to background jobs longer than ~3 minutes. Neither ever blocks.",
+  "description": "env-doctor: a SessionStart hook that runs cheap read-only checks (project .mcp.json, Syncthing ignores, host disk / WSL pressure) and speaks only on a problem, and a PreToolUse advisory on Bash/PowerShell that reminds Claude to background jobs longer than ~3 minutes. Neither ever blocks. Mechanic: when Claude starts a local service, a light background watcher samples memory, CPU, disk and WSL and wakes Claude only on a real problem (PostToolUse asyncRewake + UserPromptSubmit); it never changes anything itself. hot-path-exempt: mechanic_hook.py (asyncRewake runs in the background and never delays the tool call; a shell test of the watcher's marker file ends it before Python starts unless the watcher is active).",
   "hooks": {
     "SessionStart": [
       {
@@ -158,6 +158,128 @@
             "type": "command",
             "if": "PowerShell(*pg_*)",
             "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/long_job_advisory.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\"; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash|PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "if": "Bash(*odoo-bin*)",
+            "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/mechanic_hook.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\" start; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0",
+            "asyncRewake": true
+          },
+          {
+            "type": "command",
+            "if": "Bash(*runserver*)",
+            "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/mechanic_hook.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\" start; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0",
+            "asyncRewake": true
+          },
+          {
+            "type": "command",
+            "if": "Bash(*run dev*)",
+            "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/mechanic_hook.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\" start; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0",
+            "asyncRewake": true
+          },
+          {
+            "type": "command",
+            "if": "Bash(*compose up*)",
+            "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/mechanic_hook.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\" start; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0",
+            "asyncRewake": true
+          },
+          {
+            "type": "command",
+            "if": "Bash(*uvicorn*)",
+            "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/mechanic_hook.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\" start; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0",
+            "asyncRewake": true
+          },
+          {
+            "type": "command",
+            "if": "Bash(*gunicorn*)",
+            "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/mechanic_hook.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\" start; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0",
+            "asyncRewake": true
+          },
+          {
+            "type": "command",
+            "if": "Bash(*systemd-run*)",
+            "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/mechanic_hook.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\" start; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0",
+            "asyncRewake": true
+          },
+          {
+            "type": "command",
+            "if": "PowerShell(*odoo-bin*)",
+            "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/mechanic_hook.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\" start; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0",
+            "asyncRewake": true
+          },
+          {
+            "type": "command",
+            "if": "PowerShell(*runserver*)",
+            "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/mechanic_hook.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\" start; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0",
+            "asyncRewake": true
+          },
+          {
+            "type": "command",
+            "if": "PowerShell(*run dev*)",
+            "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/mechanic_hook.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\" start; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0",
+            "asyncRewake": true
+          },
+          {
+            "type": "command",
+            "if": "PowerShell(*compose up*)",
+            "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/mechanic_hook.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\" start; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0",
+            "asyncRewake": true
+          },
+          {
+            "type": "command",
+            "if": "PowerShell(*uvicorn*)",
+            "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/mechanic_hook.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\" start; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0",
+            "asyncRewake": true
+          },
+          {
+            "type": "command",
+            "if": "PowerShell(*gunicorn*)",
+            "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/mechanic_hook.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\" start; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0",
+            "asyncRewake": true
+          },
+          {
+            "type": "command",
+            "if": "PowerShell(*systemd-run*)",
+            "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/mechanic_hook.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\" start; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0",
+            "asyncRewake": true
+          }
+        ]
+      },
+      {
+        "matcher": "mcp__plugin_odoo_odoo-local__local_(start|restart|relaunch)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/mechanic_hook.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\" start; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0",
+            "asyncRewake": true
+          }
+        ]
+      },
+      {
+        "matcher": "Bash|PowerShell|mcp__plugin_odoo_odoo-local__.*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "d=\"${CLAUDE_PLUGIN_DATA:-$HOME/.claude/env-doctor}\"; [ -f \"$d/mechanic/active\" ] || exit 0; s=\"${CLAUDE_PLUGIN_ROOT}/hooks/mechanic_hook.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\" listen; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0",
+            "asyncRewake": true
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "d=\"${CLAUDE_PLUGIN_DATA:-$HOME/.claude/env-doctor}\"; [ -f \"$d/mechanic/active\" ] || exit 0; s=\"${CLAUDE_PLUGIN_ROOT}/hooks/mechanic_hook.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\" prompt; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0",
             "timeout": 5
           }
         ]

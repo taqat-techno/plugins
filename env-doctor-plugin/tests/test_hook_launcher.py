@@ -37,8 +37,15 @@ def _command_hooks():
                     yield event, hook["command"]
 
 
+_DATA = tempfile.mkdtemp(prefix="envdoc-launcher-")
+os.makedirs(os.path.join(_DATA, "mechanic"), exist_ok=True)
+# The mechanic's listen/prompt hooks are gated on this marker; open the gate so the
+# launcher properties below are checked for them too.
+open(os.path.join(_DATA, "mechanic", "active"), "w").close()
+
+
 def _run(command, root, path=None):
-    env = dict(os.environ, CLAUDE_PLUGIN_ROOT=str(root))
+    env = dict(os.environ, CLAUDE_PLUGIN_ROOT=str(root), CLAUDE_PLUGIN_DATA=_DATA)
     if path is not None:
         env["PATH"] = path
     return subprocess.run([SH, "-c", command], input=b'{"prompt": "\xd8\xb9"}',

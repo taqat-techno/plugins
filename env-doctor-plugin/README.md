@@ -62,6 +62,7 @@ the optional disk-image compaction needs an elevated PowerShell that you run you
 | `env-doctor-router` | the local environment is already broken: MCP, spawn/ENOENT, encoding, 401 login loops, LSP, browser, hooks, WSL networking, a slow local service in WSL (`PoolError`, minutes-long first login, OOM, `0x8007000e`), PowerShell, Syncthing, running-app config |
 | `dev-env-cleanup` | the disk or WSL is filling up, or after project work: old databases, orphaned filestores, scratch dirs, dead confs, caches, Docker, an `ext4.vhdx` that never shrank |
 | `long-running-jobs` | about to run something that may take more than ~3 minutes (test suite, install/upgrade, migration, dump/restore), or tempted to wait, sleep or poll |
+| `machine-mechanic` | an `[env-doctor mechanic]` note arrives while a local service runs (memory, CPU, disk or WSL pressure), or you want to turn the background watcher off or tune it |
 | `windows-script-and-task-authoring` | about to write a `.ps1`/`.cmd`/script for Windows, register a Scheduled Task, or compose a command across the Git Bash or WSL boundary |
 
 `env-doctor-router` references (one per branch): `mcp-not-loading.md`, `windows-wsl.md`,
@@ -87,6 +88,7 @@ the optional disk-image compaction needs an elevated PowerShell that you run you
 |---|---|---|---|
 | `hooks/session_start_env_advisory.py` | `SessionStart` | Runs cheap read-only checks and speaks only when one fails: a project `.mcp.json` that is invalid JSON, or that uses `${NAME}` without a default while `NAME` is unset (in the environment and in the `env` block of `.claude/settings*.json` and `~/.claude/settings.json`); a project inside a Syncthing folder whose `node_modules`, `.venv` or `venv` is not in `.stignore`; and on Windows (via `hooks/host_pressure.py`) a system drive under 10% free, a running WSL distro whose `ext4.vhdx` is over 1.5x its used space, or a WSL version with a known crash. It never starts WSL. The note goes to Claude as `additionalContext` and names variables, never values. A healthy machine gets nothing. | No |
 | `hooks/long_job_advisory.py` | `PreToolUse` (`Bash\|PowerShell`) | When a command looks like a long job (full or module-wide test run, install/upgrade with `--stop-after-init`, whole-tree `pytest`, label-less `manage.py test`, `test:e2e`, `pg_dump`/`pg_restore`) and would run in the foreground with a timeout above 3 minutes or none, reminds Claude to run it in the background and keep working. Also flags foreground sleep/poll loops and `pgrep -f`/`pkill -f`. Advisory only. | No |
+| `hooks/mechanic_hook.py` + `hooks/mechanic.py` | `PostToolUse` (`asyncRewake`), `UserPromptSubmit` | The machine mechanic. When Claude starts a local service, starts one background watcher per machine that samples memory, CPU, free disk and WSL every ~45 s at below-normal priority, matches `data/mechanic_rules.json`, and wakes Claude with a finding marked either "you may fix what you started" or "ask the user". A finding that arrives while Claude is idle is added to your next message. It never changes anything and stops 30 minutes after the last activity. See the `machine-mechanic` skill. | No |
 
 ## Configuration
 
@@ -97,6 +99,8 @@ the optional disk-image compaction needs an elevated PowerShell that you run you
 | `ENV_DOCTOR_HOST_CHECKS` | environment variable; `off` skips only the host-pressure part of the SessionStart check | `off` | unset |
 | `long_job_advice` | plugin option (`CLAUDE_PLUGIN_OPTION_LONG_JOB_ADVICE`) | `true`, `false` | `true` |
 | `ENV_DOCTOR_LONG_JOBS` | environment variable; `off` silences the long-job advisory | `off` | unset |
+| `mechanic` | plugin option (`CLAUDE_PLUGIN_OPTION_MECHANIC`) | `true`, `false` | `true` |
+| `ENV_DOCTOR_MECHANIC` | environment variable; `off` turns the mechanic off (the watcher exits at its next sample) | `off` | unset |
 | `~/.config/env-doctor/keep.txt` | file inside the environment being cleaned; one glob per line (database names, paths, file names) that cleaning never offers | patterns | absent |
 
 No per-project files. Cleaning writes plans to `~/.claude/env-doctor/plans/`, backups to
@@ -122,6 +126,10 @@ The `env-doctor-router` skill has a table of which branches apply on which OS.
   inside the distro. It writes nothing and makes no network calls. Its message names MCP
   servers, variable names, folder and distro names only.
 - The long-job hook reads the command text of Bash/PowerShell calls and writes nothing.
+- The mechanic reads system memory and CPU counters, free disk space, the WSL VM's memory
+  (`tasklist`), `%USERPROFILE%\.wslconfig` and, hourly while WSL runs, the disk-image size and
+  `df` inside the distro. It writes only its own state (`$CLAUDE_PLUGIN_DATA/mechanic/`:
+  findings, last sample, session markers) and changes nothing on the machine.
 - Cleaning reads database names, sizes and activity, conf keys (never `db_password` unless
   you set `ENVDOC_USE_CONF_PASSWORD=1`, and then only into psql's environment) and file
   sizes. It deletes only an approved plan, after a dry run.

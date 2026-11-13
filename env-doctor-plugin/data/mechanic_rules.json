@@ -1,0 +1,59 @@
+{
+  "_comment": "Rules for the env-doctor mechanic (hooks/mechanic.py). Single owner of thresholds, wording and authority. 'when' is a list of [metric, op, value] that must all hold; 'sustain' is how many samples in a row (one sample every ~45 s); 'cooldown_min' is the quiet time after a rule fires. 'authority' is 'agent' (the agent may fix it, limited to what it started itself) or 'user' (the agent tells the user and asks first). Metrics are listed in skills/machine-mechanic/SKILL.md.",
+  "rules": [
+    {
+      "id": "memory-high",
+      "when": [["mem_used_pct", ">=", 90]],
+      "sustain": 3,
+      "cooldown_min": 30,
+      "authority": "agent",
+      "text": "Memory has been {mem_used_pct:.0f}% used for about 2 minutes ({mem_avail_gib:.1f} GiB free).",
+      "fix": "Stop services or background jobs you started that are no longer needed, and run local Odoo with fewer --workers or lower limit_memory_* values."
+    },
+    {
+      "id": "cpu-saturated",
+      "when": [["cpu_pct", ">=", 95]],
+      "sustain": 5,
+      "cooldown_min": 30,
+      "authority": "agent",
+      "text": "CPU has been {cpu_pct:.0f}% busy for about 4 minutes.",
+      "fix": "Look for a stuck or duplicated job you started (a test run, a watcher, an asset build, a second copy of the same server) and stop it."
+    },
+    {
+      "id": "disk-critical",
+      "when": [["disk_free_gib", "<=", 3]],
+      "sustain": 1,
+      "cooldown_min": 30,
+      "authority": "user",
+      "text": "The system drive has only {disk_free_gib:.1f} GiB free. Postgres, Odoo filestores and WSL can fail to write at this level.",
+      "fix": "Tell the user now and run /env-doctor:clean to show them a cleanup plan. Delete nothing they have not approved."
+    },
+    {
+      "id": "disk-low",
+      "when": [["disk_free_gib", "<=", 10], ["disk_free_gib", ">", 3]],
+      "sustain": 1,
+      "cooldown_min": 180,
+      "authority": "user",
+      "text": "The system drive is down to {disk_free_gib:.1f} GiB free.",
+      "fix": "Offer the user /env-doctor:clean, which lists old databases, filestores and caches and deletes only what they approve."
+    },
+    {
+      "id": "wsl-memory-hog",
+      "when": [["wsl_mem_pct", ">=", 50], ["mem_used_pct", ">=", 85]],
+      "sustain": 2,
+      "cooldown_min": 60,
+      "authority": "user",
+      "text": "WSL holds {wsl_mem_gib:.1f} GiB ({wsl_mem_pct:.0f}% of RAM) while the machine is {mem_used_pct:.0f}% full. WSL keeps file cache it no longer needs. autoMemoryReclaim is {wsl_reclaim}.",
+      "fix": "Ask the user before running `wsl --shutdown`, because it stops every WSL service and terminal. For a lasting fix, suggest autoMemoryReclaim=gradual under [experimental] in %USERPROFILE%\\.wslconfig."
+    },
+    {
+      "id": "wsl-disk-bloat",
+      "when": [["vhdx_slack_gib", ">=", 10]],
+      "sustain": 1,
+      "cooldown_min": 720,
+      "authority": "user",
+      "text": "The WSL disk image is {vhdx_slack_gib:.0f} GiB larger than what the distro uses. It never shrinks by itself.",
+      "fix": "Offer /env-doctor:clean --scope wsl-disk, which plans a compaction the user runs elevated while WSL is idle."
+    }
+  ]
+}
