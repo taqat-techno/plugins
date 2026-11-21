@@ -81,7 +81,7 @@ The `ui-ux-mechanics` plugin's Figma integration uses an external Figma MCP that
 
 | Plugin | Hooks | Posture |
 |---|---|---|
-| `odoo` | 6 | SessionStart detection + `guard_core_odoo.py` **blocks** edits to core Odoo files (the one true data-loss guard) + `pre_odoo_sh_guard.py` **asks the user** before Odoo.sh production writes and opt-ins |
+| `odoo` | 8 | SessionStart detection + `guard_core_odoo.py` **blocks** edits to core Odoo files (the one true data-loss guard) + `pre_odoo_sh_guard.py` **asks the user** before Odoo.sh production writes and opt-ins (one script, registered for the odoo-sh tools, Bash and PowerShell) |
 | `notification` | 5 | All `async: true` — structurally cannot block Claude |
 | `django`, `fastapi` | 3 each | SessionStart detection + advisory write/bash guards |
 | `devops`, `rag`, `qa-browser`, `git-safety` | 2 each | Advisory; `qa-browser`'s production-URL gate is the only blocker among these four |
