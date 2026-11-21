@@ -1,5 +1,5 @@
 {
-  "description": "Odoo plugin hooks: core-file and connection-file protection, inline-JS check in Odoo modules, ask-before-destroying guard for Odoo volumes and databases, restart/clone advisories, and Odoo version detection",
+  "description": "Odoo plugin hooks: core-file and connection-file protection, inline-JS check in Odoo modules, ask-before-destroying guard for Odoo volumes and databases, user approval prompt for Odoo.sh write and shell actions, restart/clone advisories, and Odoo version detection",
   "hooks": {
     "SessionStart": [
       {
@@ -220,6 +220,98 @@
             "type": "command",
             "if": "Bash(*Createdb*)",
             "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/pre_odoo_restart_guard.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\"; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "mcp__.*odoo-sh__sh_(update|restart|shell|odoo_shell)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/pre_odoo_sh_guard.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\"; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "if": "Bash(*odoo_sh*)",
+            "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/pre_odoo_sh_guard.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\"; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "if": "Bash(*ODOO_SH*)",
+            "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/pre_odoo_sh_guard.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\"; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "if": "Bash(*Odoo_sh*)",
+            "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/pre_odoo_sh_guard.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\"; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "if": "Bash(*odoo-sh*)",
+            "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/pre_odoo_sh_guard.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\"; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "if": "Bash(*ODOO-SH*)",
+            "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/pre_odoo_sh_guard.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\"; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "if": "Bash(*Odoo-sh*)",
+            "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/pre_odoo_sh_guard.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\"; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "if": "PowerShell(*odoo_sh*)",
+            "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/pre_odoo_sh_guard.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\"; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "if": "PowerShell(*ODOO_SH*)",
+            "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/pre_odoo_sh_guard.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\"; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "if": "PowerShell(*Odoo_sh*)",
+            "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/pre_odoo_sh_guard.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\"; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "if": "PowerShell(*odoo-sh*)",
+            "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/pre_odoo_sh_guard.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\"; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "if": "PowerShell(*ODOO-SH*)",
+            "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/pre_odoo_sh_guard.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\"; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "if": "PowerShell(*Odoo-sh*)",
+            "command": "s=\"${CLAUDE_PLUGIN_ROOT}/hooks/pre_odoo_sh_guard.py\"; [ -f \"$s\" ] || exit 0; for c in python3 python py; do command -v $c >/dev/null 2>&1 || continue; [ $c = py ] && c='py -3'; $c \"$s\"; r=$?; [ $r -eq 49 ] || exit $r; done; exit 0",
             "timeout": 10
           }
         ]

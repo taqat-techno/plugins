@@ -353,6 +353,16 @@ def test_connection_file_edits_denied(path):
     assert out["permissionDecision"] == "deny" and "odoo_mcp.py" in out["permissionDecisionReason"]
 
 
+@pytest.mark.parametrize("path", [
+    "/home/jane/.odoo-mcp/odoo-sh.json",
+    "C:\\Users\\jane\\.odoo-mcp\\odoo-sh.json",
+    "C:\\Users\\jane\\.odoo-mcp\\sh-backups\\odoo-sh.20261121-101010-000000.json",
+])
+def test_odoo_sh_profile_edits_denied(path):
+    _, out = run_hook("upgrade/guard_core_odoo.py", _write(path, "{}"))
+    assert out["permissionDecision"] == "deny" and "odoo_sh.py" in out["permissionDecisionReason"]
+
+
 def test_project_files_named_profiles_json_pass():
     assert run_hook("upgrade/guard_core_odoo.py",
                     _write("/work/acme/config/profiles.json", "{}")) == (0, None)

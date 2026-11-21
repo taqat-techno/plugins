@@ -6,11 +6,12 @@ description: >-
   upgraded), a staging build was rebuilt and its database name or API key changed, a stage
   build might call production integrations, someone wants to run a daemon, worker, MCP
   server or long job on Odoo.sh, a build fails on an unknown or uninstallable dependency,
-  vendoring OCA modules into an Odoo.sh repo, merging branches with reverted history, or
-  proving which code an Odoo.sh build is actually running.
+  vendoring OCA modules into an Odoo.sh repo, merging branches with reverted history,
+  proving which code an Odoo.sh build is actually running, reading an Odoo.sh build's
+  install, upgrade or server log, or SSH to an Odoo.sh build failing or timing out.
 license: "MIT"
 metadata:
-  version: "1.0.0"
+  version: "1.1.0"
   author: "TaqaTechno"
   odoo-versions: ["16", "17", "18", "19"]
   categories: [odoo-sh, deployment, release, repository]
@@ -31,10 +32,41 @@ Example requests:
 - "Can I run our sync worker / MCP server inside Odoo.sh?"
 - "The Odoo.sh build says a dependency is unknown, but the module is in the repo"
 - "How do I add two OCA modules to our Odoo.sh repo?"
+- "Show me the install log of the staging build" / "which commit is production running?"
+- "ssh to the Odoo.sh build times out"
 
 Related: live record checks go through the `odoo` data MCP (skill `odoo-live-instance`);
 upgrade scripts and migrations belong to the `odoo-upgrade` skill; local servers to
 `odoo-service`.
+
+## 0. Reach the build itself first: the `odoo-sh` tools
+
+Odoo.sh has no API token for builds or logs; SSH to the build is the only programmatic way
+in. The plugin's `odoo-sh` MCP server does that, read-only by default:
+
+| Question | Tool |
+|---|---|
+| Which code does this build run? | `sh_commit` (git log -1 of `~/src/user` on the build) |
+| Why did the install/upgrade fail? | `sh_logs file=install errors_only=true` |
+| What is the server logging? | `sh_logs` (`file=odoo`, with `grep`, `since`, `errors_only`) |
+| Did the module version land? | `sh_modules names=[...]` (latest_version, state, write_date) |
+| Disk, workers, load | `sh_health` |
+| Anything else on the build (opt-in) | `sh_shell` (one command), `sh_odoo_shell` (snippet, rolled back) |
+
+- **Use them before reasoning from the branch** whenever a build's code or log is the
+  question; they are stronger evidence than the green build badge or an HTTP 200.
+- **No profile yet, or a call fails:** run `/odoo:sh-setup`. Its doctor names one cause per
+  failure (key not added in Odoo.sh, port 22 blocked by the network while 443 works, stale
+  build, ...) with the fix. Do not keep retrying a failing call.
+- **Everything but reads is opt-in.** `sh_update`, `sh_restart`, `sh_shell` and
+  `sh_odoo_shell` are refused unless the developer allowed that action on the profile; on a
+  production profile, ask every time and pass their answer verbatim as `approved_by_user`.
+  A hook also shows the developer an approval prompt for every production call and for
+  every `odoo_sh.py allow` that adds an action. Say what the call will do before you make
+  it; if they decline the prompt, stop and do not look for another route to the same change.
+- **Several projects or branches:** each is its own profile; pass `profile=<name>` when the
+  folder's default is not the one you need (`sh_status` lists them).
+- Record data still goes through the `odoo` data MCP (section 4).
 
 ## 1. A module upgrades only when its version changes
 
@@ -96,7 +128,8 @@ Odoo.sh neutralizes mail and crons, not your custom integrations.
 ## 4. HTTP 200 is not proof of a deploy
 
 Odoo.sh posts no commit status and no check runs to the Git host, and the old build can
-answer 200 while the new one is starting. Ask the application:
+answer 200 while the new one is starting. Ask the build (`sh_commit` for the code,
+`sh_logs file=install` for what the update did) and the application:
 
 - `ir.module.module` `latest_version` and `write_date` for the changed modules (changed
   modules carry a fresh timestamp; untouched ones keep the old one).
@@ -110,7 +143,7 @@ answer 200 while the new one is starting. Ask the application:
 A dependency can show as `unknown` in `ir.module.module` although its code is deployed,
 when the build's Apps list was not refreshed after the commit that added it.
 
-1. Compare the deployed commit with your local and remote branches.
+1. Compare the deployed commit (`sh_commit`) with your local and remote branches.
 2. Run `ir.module.module.update_list()` ("Update Apps List") and re-query.
 3. Only then treat the code as missing.
 

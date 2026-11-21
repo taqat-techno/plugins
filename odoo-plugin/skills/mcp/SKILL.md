@@ -52,7 +52,10 @@ server: only loopback Odoo processes and Postgres clusters registered in
 `~/.odoo-mcp/local-services.json` -- start, stop, logs, module install/upgrade, database
 operations and cleanup plans; it never touches stage or prod. Route "is my local server
 running", "restart it", "install this module locally" and "clean up scratch databases" to
-`odoo-local`; route record reads and writes to `odoo`.
+`odoo-local`; route record reads and writes to `odoo`. A third server, `odoo-sh`, reaches
+Odoo.sh builds over SSH (`~/.odoo-mcp/odoo-sh.json`, set up with `/odoo:sh-setup`): route
+"which commit is staging running", "show the build's install log" and "why did the Odoo.sh
+upgrade fail" to `sh_commit` / `sh_logs`, not to record queries.
 
 **Not an upgrade-repair tool.** Never edit valid production records through the MCP to get
 past an upgrade or migration failure: the MCP is for investigation and verification, and the

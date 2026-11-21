@@ -8,7 +8,7 @@ Listed in marketplace order. Component counts are the real contents of each plug
 
 | # | Plugin | Version | Category | Commands | Agents | Skills | Hooks | MCP | Evals | Docs |
 |---|---|---|---|---|---|---|---|---|---|---|
-| 1 | **odoo** | `4.4.1` | development | 20 | 5 | 25 | 5 | yes | 26 + 25 | [[Odoo Plugin\|Odoo-Plugin]] · [README](../../odoo-plugin/README.md) |
+| 1 | **odoo** | `4.6.0` | development | 21 | 5 | 25 | 5 | yes | 28 + 25 | [[Odoo Plugin\|Odoo-Plugin]] · [README](../../odoo-plugin/README.md) |
 | 2 | **devops** | `8.4.0` | productivity | 9 | 3 | 1 | 4 | yes | 1 + 1 | [[DevOps Plugin\|DevOps-Plugin]] · [README](../../devops-plugin/README.md) |
 | 3 | **m365** | `0.8.1` | productivity | 2 | 0 | 1 | 1 | yes | n/a | [README](../../m365-plugin/README.md) |
 | 4 | **notification** | `1.2.1` | productivity | 1 | 0 | 0 | 7 | — | n/a | [[Notification Plugin\|Notification-Plugin]] · [README](../../notification-plugin/README.md) |
@@ -69,7 +69,7 @@ Plugins without a dedicated wiki page are documented in their own `README.md`; t
 
 - **devops** — Azure DevOps MCP (`@azure-devops/mcp`, pinned to **2.8.0** deliberately; 2.9.0 collapses 90 tools into 37 renamed ones and breaks every agent, hook, and rule)
 - **rag** — ragtools MCP (spawns `rag serve` directly)
-- **odoo** — live-instance Odoo MCP for Odoo 14–19
+- **odoo** — three servers: live-instance data (`odoo`, Odoo 14–19), local services (`odoo-local`), and Odoo.sh builds over SSH (`odoo-sh`)
 
 Plugin-provided MCP tools are namespaced `mcp__plugin_<plugin>_<server>__<tool>`. A hook matcher or agent tool list written against the bare `mcp__<server>__` form silently never fires.
 

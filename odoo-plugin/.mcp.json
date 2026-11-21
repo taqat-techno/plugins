@@ -18,5 +18,15 @@
     "env": {
       "ODOO_LOCAL_PROJECT_DIR": "${CLAUDE_PROJECT_DIR:-}"
     }
+  },
+  "odoo-sh": {
+    "type": "stdio",
+    "command": "${ODOO_MCP_PYTHON:-python}",
+    "args": [
+      "${CLAUDE_PLUGIN_ROOT}/mcp_sh/server.py"
+    ],
+    "env": {
+      "ODOO_SH_PROJECT_DIR": "${CLAUDE_PROJECT_DIR:-}"
+    }
   }
 }

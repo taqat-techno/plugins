@@ -55,6 +55,7 @@ working directory, or asks).
 | `/odoo:ide` | `[vscode\|pycharm\|all] [--config CONFIG]` | PyCharm and VS Code configuration for Odoo |
 | `/odoo:init` | `[--version V] [--project NAME] [--port PORT] [--docker] [--db DB] [--no-venv]` | Create venv, config file and directories; check prerequisites |
 | `/odoo:mcp-setup` | `[status\|check\|add\|bind\|local\|migrate\|unlock\|audit\|doctor] [project/instance]` | Connect, check, migrate, unlock and repair the live-instance MCP connections |
+| `/odoo:sh-setup` | `[status\|keys\|add\|edit\|show\|doctor\|allow\|deny\|remove\|default] [profile]` | SSH access to Odoo.sh builds: pick a key, write the profile, classified connection doctor |
 | `/odoo:official-skills` | `[install\|update\|status\|remove] [--branch 20.0\|master] [--force]` | Install Odoo's official agent skills (20.0+) into the project; refuses on 14-19 |
 | `/odoo:owl` | `[lint\|decide\|doctor\|rules] [module-path]` | Lint OWL code for silent anti-patterns, choose a UI shape, diagnose code that never ran |
 | `/odoo:precheck` | `[module-path] [target-version]` | Read-only version-compatibility scan |
@@ -183,6 +184,23 @@ the script on stdin; servers start as `systemd-run --user` units. Drops pass a k
 dump-before-drop rail that no argument can switch off; cleanup is plan-first. Details and the
 `local_cleanup_plan` contract: [`mcp_local/README.md`](mcp_local/README.md).
 
+### Third MCP server: `odoo-sh` (Odoo.sh builds over SSH)
+
+`odoo-sh` (`mcp_sh/server.py`) reads Odoo.sh builds over SSH, the only programmatic access
+Odoo.sh gives to build logs and deployed code. Profiles live in `~/.odoo-mcp/odoo-sh.json`
+(key paths only, never keys), set up with `/odoo:sh-setup`. The build is resolved on every
+call from `<url>/web/database/list`; a pasted SSH address, host/user templates, a port,
+ProxyJump, a custom ssh binary and extra (allow-listed) ssh options cover setups where that
+does not fit. Any number of profiles (several projects and branches); keys from a file or
+ssh-agent, on Windows, macOS, Linux and WSL. Read-only tools: `sh_status`, `sh_doctor` (one
+classified result per failure: DNS, port 22 blocked while 443 works, key not added, stale
+build...), `sh_commit`, `sh_logs` (odoo/install/pip or any log file, with grep, since and
+errors-only filters, secrets redacted), `sh_modules`, `sh_health`. Opt-in per profile:
+`sh_update` / `sh_restart` + `sh_job`, `sh_shell`, `sh_odoo_shell` (rolled back); a
+prod-role profile also needs the developer's yes on every call, and a hook shows you an
+approval prompt for each of those calls and for every opt-in. Details:
+[`mcp_sh/README.md`](mcp_sh/README.md).
+
 ## Hooks
 
 All hooks are Python scripts started through a portable launcher (`python3`, then
@@ -193,10 +211,11 @@ proceed.
 | Hook | Event / matcher | What it does | Can it block? |
 |---|---|---|---|
 | `hooks/frontend/session_start.py` | SessionStart (`startup`) | When the workspace holds an Odoo source tree (`odooNN/`), tells Claude the Odoo, Bootstrap and Owl versions. Silent in any other project | No |
-| `hooks/upgrade/guard_core_odoo.py` | PreToolUse `Write\|Edit\|MultiEdit` | Refuses edits to core Odoo framework files (patterns in `config/odoo-upgrade.config.json`, overridable per project) and to the MCP connection file `~/.odoo-mcp/profiles.json` and its backups (change it with `scripts/mcp/odoo_mcp.py`) | Yes: denies the write with the reason |
+| `hooks/upgrade/guard_core_odoo.py` | PreToolUse `Write\|Edit\|MultiEdit` | Refuses edits to core Odoo framework files (patterns in `config/odoo-upgrade.config.json`, overridable per project) to the MCP connection file `~/.odoo-mcp/profiles.json` and its backups (change it with `scripts/mcp/odoo_mcp.py`), and to the Odoo.sh SSH profiles `~/.odoo-mcp/odoo-sh.json` and `sh-backups/` (change them with `scripts/mcp/odoo_sh.py`) | Yes: denies the write with the reason |
 | `hooks/frontend/pre_write_check.py` | PreToolUse `Write\|Edit\|MultiEdit` | Refuses inline executable `<script>` code in an Odoo module's XML; JSON-LD, templates and `src`-only tags pass; XML outside a module passes | Yes: denies the write (`ODOO_INLINE_SCRIPT_CHECK=warn` makes it a note, `off` disables it) |
 | `hooks/pre_odoo_volume_guard.py` | PreToolUse `Bash` | On an Odoo stack, asks you before commands that destroy data: `docker compose down -v`, `docker volume rm`/`prune`, `docker system prune --volumes`, `db_manager.py drop`/`reset-admin`/`restore --no-create`, `dropdb`, `psql -c "DROP DATABASE ..."`, `server_manager.py stop --all --yes`, also when run through `sudo -u`, `env`, `timeout`, `nohup`, `xargs`, `eval`, `bash -lc`, `powershell -Command` or inside a container (`docker exec`, `docker compose exec\|run`) | Yes: asks you to approve (`ODOO_DESTRUCTIVE_GUARD=off` disables it) |
 | `hooks/pre_odoo_restart_guard.py` | PreToolUse `Bash` | Advisory note on an unbounded `curl --retry-connrefused` readiness poll, a `pkill ... && ... odoo-bin` chain (self-kill, exit 144), and a `psql ... TEMPLATE` clone (no filestore) | No: advisory only |
+| `hooks/pre_odoo_sh_guard.py` | PreToolUse `Bash`, `PowerShell`, odoo-sh tools | Shows you an approval prompt before `sh_update` / `sh_restart` / `sh_shell` / `sh_odoo_shell` run on a prod-role Odoo.sh profile (every call), before `odoo_sh.py allow` adds an action to a profile, before a prod profile is changed to dev or stage, and before a shell command writes `~/.odoo-mcp/odoo-sh.json` directly | Yes: asks you to approve (`ODOO_SH_APPROVAL_PROMPT=off` disables it) |
 
 The guards match the command that will run, not text inside quotes, comments, `echo` or
 `grep` patterns.
@@ -210,6 +229,8 @@ This plugin has no `userConfig` options.
 | `ODOO_MCP_PYTHON` | environment | Interpreter for the MCP server (default `python`) |
 | `ODOO_MCP_HOME` | environment | Moves the MCP store from `~/.odoo-mcp/` (tests) |
 | `~/.odoo-mcp/profiles.json` | your file, changed with `scripts/mcp/odoo_mcp.py` | Every MCP project, instance, key and access level (example: `config/odoo-mcp.profiles.json.example`) |
+| `~/.odoo-mcp/odoo-sh.json` | your file, changed with `scripts/mcp/odoo_sh.py` | Odoo.sh SSH profiles: project, branch, role, URL, private key PATH (or ssh-agent), optional user/host/port/ProxyJump/ssh binary/ssh options/timeouts/folders, allowed actions |
+| `ODOO_SH_HOME` / `ODOO_SH_SSH` | environment | Moves the Odoo.sh store (tests) / picks the ssh binary |
 | `<project>/odoo-upgrade.config.json` | your file | Overrides the core-file patterns used by the core-file guard hook |
 | `<project>/.claude/odoo-service.local.md` | your file (git-ignore it) | Author, website, license and DB defaults for `/scaffold` and `/init` |
 | `config/odoo-docker.local.md.example` | example | Per-project Docker defaults for `/docker` |
@@ -246,6 +267,10 @@ Stored on your machine:
     user profile; on Linux/macOS it is written `0600` in a `0700` folder.
   - Local instances added by `odoo_mcp.py local` carry an expiring key and are pruned
     automatically.
+- **`~/.odoo-mcp/odoo-sh.json`**: Odoo.sh SSH profiles. It stores the path of your private
+  key, never the key, is refused inside a git tree, and keeps backups in `sh-backups/`,
+  host keys per host in `odoo-sh-known_hosts/` and an audit of changes and write actions in
+  `odoo-sh-audit.log`.
 - **`~/.odoo-mcp/backups/`**: the last 10 versions of `profiles.json`, plus `profiles-v1.json`
   and copies of the project files `migrate` changed. They hold the same secrets; keep them
   private.

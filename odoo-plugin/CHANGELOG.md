@@ -2,6 +2,119 @@
 
 All notable changes to `odoo-plugin` are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/). Versioning follows [SemVer](https://semver.org/).
 
+## [4.6.0] - 2026-11-21
+
+**Odoo.sh builds over SSH, on any machine, for any project.** Odoo.sh has no API token for
+builds or logs; SSH to a build, with a key the developer added to their Odoo.sh profile, is
+the only programmatic access. Before this release, a session that needed a build's upgrade
+log had no tool for it.
+
+### Added
+- **Third MCP server `odoo-sh`** (`mcp_sh/`, standard library only). Profiles live in
+  `~/.odoo-mcp/odoo-sh.json`, separate from `profiles.json` and refused inside a git tree.
+  - **Profiles:** any number per machine (several projects, several branches each), with
+    list, show, add, edit, remove and default. A call picks its profile by name, then by the
+    project folder, then the default, then the only profile.
+  - **Each profile holds:** project slug, branch, role (dev/stage/prod; unknown counts as
+    prod), URL (custom domains included), and the PATH of a private key or none (ssh-agent).
+    Overrides: ssh user/host templates, port, ProxyJump, ssh binary, allow-listed extra ssh
+    options, timeouts, source and logs folders. Allowed actions are read-only by default.
+  - **Build resolution, on every call:** `POST <url>/web/database/list` →
+    `<project>-<branch>-<buildid>` → `<buildid>@<project>-<branch>-<buildid>.dev.odoo.com`,
+    the address Odoo.sh shows in a branch's SSH menu. When that does not fit,
+    `--ssh "<the ssh command Odoo.sh shows>"` parses and pins the address.
+  - **Read tools:** `sh_status`, `sh_doctor`, `sh_commit` (branch, git log -1, uncommitted
+    changes on the build, submodules), `sh_logs` (odoo, install, pip or any file in the logs
+    folder; grep, since, errors-only with traceback lines, and pid filters run on the build),
+    `sh_modules` (ir_module_module via psql), `sh_health` (disk, odoosh-storage, load, memory,
+    workers, limits).
+  - **Opt-in tools,** each enabled separately with `odoo_sh.py allow ... --approved-by`:
+    - `sh_update` (`odoo-bin -u ... --stop-after-init --no-http`) and `sh_restart`
+      (`odoosh-restart http`), both background jobs read with `sh_job`;
+    - `sh_shell` (one non-interactive command);
+    - `sh_odoo_shell` (an `odoo-bin shell` snippet, always ending in `env.cr.rollback()`;
+      `commit()` is refused).
+
+    A prod-role profile needs `approved_by_user` on every call. Changes and opt-in calls go
+    to `odoo-sh-audit.log`.
+  - **Approval prompt the model cannot answer** (`hooks/pre_odoo_sh_guard.py`, PreToolUse):
+    `approved_by_user` and `--approved-by` are text the model passes, so the hook returns
+    `ask` and Claude Code puts the decision in front of the user. It prompts for every
+    update, restart, shell and odoo_shell call on a prod-role profile; for every
+    `odoo_sh.py allow` that adds an action (Bash and PowerShell); for changing a prod
+    profile to dev or stage; and for a shell command that writes `odoo-sh.json` directly.
+    It stays silent when the server would refuse the call anyway. Only the user can switch
+    it off, with `ODOO_SH_APPROVAL_PROMPT=off` in the environment.
+  - **ssh settings:** `BatchMode=yes` and no password or keyboard-interactive login, so ssh
+    never prompts and a passphrase is never asked for in chat. Also
+    `StrictHostKeyChecking=accept-new` with one known_hosts file per host, connect and
+    command timeouts, and the script sent on stdin to `bash -s`. The safety options come
+    before a profile's extra options, so a profile cannot weaken them. Options that could run
+    local commands are refused.
+  - **Platforms:** Windows tries Windows OpenSSH first (so the Windows ssh-agent is used),
+    then Git Bash or any ssh on PATH. macOS, Linux and WSL use ssh on PATH. Keys of any type
+    and file name are listed, with the Windows `.ssh` folders too under WSL.
+  - **Redaction:** the remote script collects the values of secret-looking keys in the
+    build's `odoo.conf` and environment. They are used locally to scrub the output, through
+    the data MCP's `guards.redact`, and then stripped. Pattern masks cover passwords, tokens,
+    bearer headers, URL credentials and private key blocks.
+  - **Why MCP tools rather than a guarded script:** the remote scripts are fixed, redaction
+    cannot be skipped, and the gate is enforced in code. See `mcp_sh/README.md`.
+- **`scripts/mcp/odoo_sh.py`:** the CLI for all of the above.
+  - `keys` lists keys with fingerprint and passphrase state. `--print` shows the line to paste
+    into Odoo.sh; `--generate --type ed25519|rsa|ecdsa` creates a key.
+  - It also covers profile management, allow/deny, the doctor, and read-only `run` as a
+    fallback while the server is not loaded.
+- **`/odoo:sh-setup`:** a guided flow, written for someone new to the plugin, from choosing a
+  key to reading logs. The doctor gives one result per failure, each with its fix:
+  - key: `key_missing`, `key_not_private`, `key_encrypted_no_agent`, `no_key`,
+    `key_permissions`;
+  - client and URL: `ssh_missing`, `url_dns_failure`, `url_unreachable`,
+    `db_list_unavailable`;
+  - build: `build_not_found`, `stale_build`, `dns_failure`;
+  - network: `tcp_timeout` (it says whether 443 on the same host and github.com:22 connect,
+    and suggests ProxyJump, a port override or another network), `tcp_refused`;
+  - server: `auth_refused` (including the reported Ed25519-refused case), `host_key_changed`,
+    `algorithm_mismatch`.
+
+  The command also lists what was left out and why: database or filestore downloads, file
+  edits, changes to `~/src`, interactive sessions and port forwarding, and a write-capable
+  psql.
+- **Hook:** the core-file guard also blocks direct edits to `~/.odoo-mcp/odoo-sh.json` and
+  `sh-backups/`.
+
+### Changed
+- `odoo-sh` skill 1.1.0: a new section 0 puts the `odoo-sh` tools first for proving deployed
+  code and reading build logs. Sections 4 and 5 use `sh_commit` / `sh_logs`, and the
+  description now triggers on build logs and on SSH to a build failing.
+- `mcp` skill: routes Odoo.sh build questions to `odoo-sh`.
+
+### Verified
+- **Live on a developer machine:**
+  - a staging build resolved from its URL;
+  - the doctor returned `tcp_timeout` on a network that blocks outbound 22 to Odoo.sh, while
+    443 on the same host and github.com:22 connected;
+  - the ssh arguments worked against github.com: a known_hosts file was written per host, and
+    `auth_refused` and `dns_failure` were classified correctly;
+  - the generated log and shell scripts ran in a local bash.
+- **Not verified:** a full login to an Odoo.sh build, or `odoo-bin shell`, `odoosh-restart`
+  and `odoo-bin -u` on a real build.
+- **Offline tests:** 63 in `tests/mcp_sh/` cover build resolution, every doctor class with
+  faked socket and ssh results, redaction, argument quoting, pasted addresses, several
+  profiles, agent mode, per-profile overrides, unsafe ssh options, the gates, the CLI, and a
+  check that no client or machine names appear in the shipped sources. Hook tests were added
+  too.
+
+### Evals
+- `fires-on-odoo-sh-build-install-log-over-ssh` (odoo-sh). Not piloted yet.
+
+## [4.5.1] - 2026-11-19
+
+### Changed
+- reviewer `orm_patterns.md`: `button_validate` discards what `action_confirm` returns, so a popup from Mark as To Do is skipped by Validate (and `(5, 0, 0)` deletes every line); a push step appends to any open transfer with the same procurement group, plus when push and pull rules fire; `next_by_code()` does not fall back to the parent company's sequence.
+- upgrade: moving records built by hand on production into a module (adopt the xmlids first, noupdate XML instead of CSV, unique generated xmlids, prove on a production copy).
+- solution-design `oca-search.md`: OCA module tests that need demo data.
+
 ## [4.5.0] - 2026-11-09
 
 **Translate a running database without deploying a module.** Taken from a session that translated

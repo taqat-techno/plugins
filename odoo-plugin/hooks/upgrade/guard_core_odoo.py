@@ -9,6 +9,9 @@ MCP server's connection file.
 2. `~/.odoo-mcp/profiles.json` (and its backups) holds every connection, key and access
    level. It is changed only through scripts/mcp/odoo_mcp.py, which validates, backs up
    and audits each change and needs the developer's yes to widen access.
+3. `~/.odoo-mcp/odoo-sh.json` (and sh-backups/) holds the Odoo.sh SSH profiles and their
+   allowed actions. It is changed only through scripts/mcp/odoo_sh.py, which needs the
+   developer's yes to allow update/restart.
 
 Refusals go out as `permissionDecision: "deny"` with the reason. Fails open: bad
 input, an exception or the 5 s watchdog all end in exit 0.
@@ -31,6 +34,7 @@ except Exception:
     pass
 
 _GUARD_RE = re.compile(r"(^|/)\.odoo-mcp/(profiles\.json|backups/)", re.IGNORECASE)
+_SH_GUARD_RE = re.compile(r"(^|/)\.odoo-mcp/(odoo-sh\.json|sh-backups/)", re.IGNORECASE)
 
 
 def _core_patterns():
@@ -58,6 +62,14 @@ def main() -> int:
             "<plugin>/scripts/mcp/odoo_mcp.py (add / bind / remove / migrate), which validates, "
             "backs up and logs every change; widening access needs the developer's yes passed "
             "as --approved-by." % file_path)
+        return 0
+
+    if _SH_GUARD_RE.search(normalized):
+        hooklib.deny(
+            "BLOCKED: %s holds the Odoo.sh SSH profiles. Change it with python "
+            "<plugin>/scripts/mcp/odoo_sh.py (add / allow / deny / remove), which validates, backs "
+            "up and logs every change; allowing update/restart needs the developer's yes passed as "
+            "--approved-by." % file_path)
         return 0
 
     for pattern in _core_patterns():
