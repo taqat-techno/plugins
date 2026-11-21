@@ -2,6 +2,18 @@
 
 All notable changes to `odoo-plugin` are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/). Versioning follows [SemVer](https://semver.org/).
 
+## [4.6.1] - 2026-11-21
+
+### Fixed
+- **Odoo.sh approval prompt could be skipped when no profile was named.** The hook
+  resolved the profile from the session's working folder, while the server resolves it
+  from its own environment. With a stage profile bound to the folder and a production
+  default, the hook saw stage and stayed silent while the server acted on production.
+  With no `profile` argument the hook now checks every profile the call could land on
+  (folder-bound, default, only one) and prompts if any is a production profile that
+  allows the action. Naming the profile is still resolved exactly.
+- Wiki catalog: the odoo hooks count now includes the approval hook.
+
 ## [4.6.0] - 2026-11-21
 
 **Odoo.sh builds over SSH, on any machine, for any project.** Odoo.sh has no API token for

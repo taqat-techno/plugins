@@ -93,12 +93,23 @@ def tool_reason(payload):
         return None
     action = m.group(1)
     args = hooklib.tool_input(payload)
-    project_dir = os.environ.get("CLAUDE_PROJECT_DIR") or payload.get("cwd") or ""
-    name, prof = _pick(args.get("profile"), project_dir)
-    if not prof or action not in (prof.get("allow") or ["read"]):
-        return None  # the server refuses this call itself
-    if (prof.get("role") or "prod") != "prod":
-        return None
+    explicit = args.get("profile")
+    if explicit:
+        candidates = [_pick(explicit, None)]
+    else:
+        # No profile named: the server resolves it from its own environment, which this
+        # hook cannot see for certain. Consider every profile the call could land on and
+        # prompt if any of them is a production profile that allows the action.
+        dirs = [os.environ.get("ODOO_SH_PROJECT_DIR"), os.environ.get("CLAUDE_PROJECT_DIR"),
+                payload.get("cwd"), None]
+        candidates = [_pick(None, d) for d in dict.fromkeys(d or None for d in dirs)]
+        os.environ.pop("ODOO_SH_PROJECT_DIR", None)
+        candidates.append(_pick(None, None))
+    hit = [(n, p) for n, p in candidates
+           if p and action in (p.get("allow") or ["read"]) and (p.get("role") or "prod") == "prod"]
+    if not hit:
+        return None  # the server refuses this call itself, or it is not production
+    name, prof = hit[0]
     detail = ""
     if action == "update":
         detail = " Modules: %s." % _short(args.get("modules") or "(none given)")
