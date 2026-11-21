@@ -46,7 +46,19 @@ Run the steps in order. Stop at any step that needs the developer, and wait for 
    step 6. If there is none, continue.
 2. **Pick a key.** Run `odoo_sh.py keys`. It lists every key in `~/.ssh` (any type, any file
    name) with its fingerprint and whether it has a passphrase. Under WSL it also lists the
-   Windows profile's `.ssh` folders. Ask the developer which key to use for Odoo.sh.
+   Windows profile's `.ssh` folders. Under each key it prints the fingerprint the way Odoo.sh
+   shows it (the colon-separated MD5 form). Ask the developer which key to use for Odoo.sh.
+   - **They already added a key in Odoo.sh** (typed in, or "Imported from GitHub"): ask for
+     the fingerprint shown in Odoo.sh under avatar > Profile > SSH keys > Active keys, then run
+     `odoo_sh.py keys --match <fingerprint>`. It names the local key that is the same one. Use
+     that key and skip step 3. Never guess: a profile pointing at a different key is refused
+     by Odoo.sh even though the key file is valid. If nothing matches, the listed key is not on
+     this machine; continue with a local key and step 3.
+   - **Odoo.sh can import keys from GitHub.** A key listed there as "Imported from GitHub"
+     is the developer's GitHub key, so the right local key is often the one they push to
+     GitHub with, not the default `id_ed25519`.
+   - **Where it is in Odoo.sh:** the avatar menu > Profile. Do not give a direct link to it.
+   - **Key types:** Odoo.sh accepts only `ssh-ed25519` and `ssh-rsa`. Do not offer another type.
    - **They want a new key:** ask first, then run `odoo_sh.py keys --generate odoo_sh`. That
      makes an ed25519 key with no passphrase. Add `--type rsa` for RSA. With
      `--passphrase-prompt`, ssh-keygen asks for the passphrase in their own terminal.
@@ -121,9 +133,9 @@ The doctor stops at the first step that fails and names one result:
 | `build_not_found` | No `<project>-<branch>-<id>` database on that URL | Check the project slug and branch; a build that is still starting has none yet |
 | `stale_build` | The build host is gone, or the build was replaced during the check | Retry; check the branch's current build |
 | `dns_failure` | A host override does not resolve | Fix it, or `--clear host` |
-| `tcp_timeout` | Port 22 times out. The result says whether 443 on the same host and `github.com:22` connect; if they do, the network drops SSH to Odoo.sh | `--proxy-jump`, `--port`, or another network |
+| `tcp_timeout` | Port 22 times out. The result says whether 443 on the same host and `github.com:22` connect. If they do, on a staging or production build the usual cause is the project's SSH allow-list: Odoo.sh drops SSH from addresses not listed under project Settings > Firewall. Otherwise the network drops SSH to Odoo.sh | A project admin adds the public IP the doctor prints to the allow-list (takes about 5 minutes). If it is already listed: `--proxy-jump`, `--port`, or another network |
 | `tcp_refused` | Port 22 is refused | Check a `--port` override |
-| `auth_refused` | The server refused the key | Add the public key in Odoo.sh > Profile > SSH keys; check access to the project; compare with the address in the SSH menu and paste it with `--ssh`; some users report ed25519 refused where RSA works |
+| `auth_refused` | The server refused the key. The result lists every local key with the fingerprint Odoo.sh shows | Point the profile at the key Odoo.sh lists (`odoo_sh.py keys --match <fingerprint>`, then `edit <name> --key`), or add the public key in Odoo.sh > avatar > Profile > SSH keys; check access to the project; compare with the address in the SSH menu and paste it with `--ssh`; some users report ed25519 refused where RSA works |
 | `key_permissions` | ssh refuses a key file that other accounts can read | Windows: `icacls`; macOS/Linux: `chmod 600`; WSL: copy the key out of `/mnt/c` into `~/.ssh` |
 | `host_key_changed` | The recorded host key differs | Check the build, then delete that host's file in `~/.odoo-mcp/odoo-sh-known_hosts/` |
 | `algorithm_mismatch` | The client and server share no algorithm | `--ssh-option ...+ssh-rsa`, or update ssh |

@@ -9,7 +9,8 @@ Any number of profiles: several projects, several branches each.
     odoo_sh.py list | show NAME        profiles without contacting builds / one profile in full
     odoo_sh.py keys [--dir D]          keys on this machine (any type, any file name)
     odoo_sh.py keys --print PATH       the public line to paste into Odoo.sh > Profile > SSH keys
-    odoo_sh.py keys --generate NAME [--type ed25519|rsa|ecdsa] [--passphrase-prompt]
+    odoo_sh.py keys --generate NAME [--type ed25519|rsa] [--passphrase-prompt]
+    odoo_sh.py keys --match FINGERPRINT   which local key is the one Odoo.sh lists (MD5 or SHA256)
     odoo_sh.py add NAME --project P --url URL [--branch B] [--role dev|stage|prod]
                        [--key PATH | --agent] [--ssh "<ssh command Odoo.sh shows>"]
                        [--ssh-user U] [--host H] [--port N] [--proxy-jump J]
@@ -113,11 +114,34 @@ def cmd_keys(a):
             return 1
         print("Paste this line into Odoo.sh > your avatar > Profile > SSH keys:\n")
         print(ki["public_key"])
+        if ki.get("type") and ki["type"] not in S.ODOO_SH_KEY_TYPES:
+            print("\nWARNING: this is a %s key; Odoo.sh accepts only ssh-ed25519 and ssh-rsa." % ki["type"])
+        print("\nAfter adding it, Odoo.sh lists it under Active keys as: %s" % ki.get("fingerprint_md5"))
         print("\nprivate key path for the profile: %s (%s, passphrase: %s)"
               % (ki["path"], ki["fingerprint"], {True: "yes - load it with ssh-add before use", False: "no",
                                                  None: "unknown"}[ki["encrypted"]]))
         return 0
     keys = S.list_keys(a.dir)
+    if a.match:
+        hits = S.match_keys(a.match, keys)
+        if a.json:
+            _print(hits, True)
+            return 0 if hits else 1
+        if not hits:
+            print("No key in %s has the fingerprint %s.\nThe key Odoo.sh lists is not on this machine "
+                  "(or its .pub file is missing). Either add one of the keys below in Odoo.sh "
+                  "(odoo_sh.py keys --print <path>), or copy that key pair here.\n"
+                  % (", ".join(S.key_dirs(a.dir)), a.match))
+        for k in hits:
+            usable = k["has_private_key"] and (k["type"] in S.ODOO_SH_KEY_TYPES)
+            print("MATCH  %s  %s  private=%s passphrase=%s  %s" % (
+                k["private_key_path"], k["type"], "yes" if k["has_private_key"] else "MISSING",
+                {True: "yes", False: "no", None: "?"}[k["passphrase"]], k["comment"] or ""))
+            if usable:
+                print("Use it: odoo_sh.py edit <profile> --key \"%s\"   (or add ... --key for a new profile)"
+                      % k["private_key_path"])
+        if hits:
+            return 0
     if a.json:
         _print(keys, True)
         return 0
@@ -129,7 +153,12 @@ def cmd_keys(a):
             k["fingerprint"] or "(no .pub)", k["type"] or "?", k["private_key_path"],
             "yes" if k["has_private_key"] else "MISSING",
             {True: "yes", False: "no", None: "?"}[k["passphrase"]], k["comment"] or ""))
+        if k.get("fingerprint_md5"):
+            print("    Odoo.sh shows it as: %s%s" % (
+                k["fingerprint_md5"],
+                "" if k["type"] in S.ODOO_SH_KEY_TYPES else "   (type not accepted by Odoo.sh: use ed25519 or rsa)"))
     print("\nShow the line to paste: odoo_sh.py keys --print <private key path>")
+    print("Find the key Odoo.sh already lists: odoo_sh.py keys --match <fingerprint from Odoo.sh>")
     if S.is_wsl():
         print("WSL: a key under /mnt/c must be copied to ~/.ssh and chmod 600 before ssh accepts it.")
     return 0
@@ -226,7 +255,10 @@ def main(argv=None):
     k = sub.add_parser("keys")
     k.add_argument("--print", metavar="PATH")
     k.add_argument("--generate", metavar="NAME")
-    k.add_argument("--type", choices=["ed25519", "rsa", "ecdsa"], default="ed25519")
+    k.add_argument("--type", choices=["ed25519", "rsa"], default="ed25519",
+                   help="Odoo.sh accepts only ssh-ed25519 and ssh-rsa keys")
+    k.add_argument("--match", metavar="FINGERPRINT",
+                   help="the fingerprint Odoo.sh shows under Profile > SSH keys > Active keys")
     k.add_argument("--passphrase-prompt", action="store_true")
     k.add_argument("--dir")
     for n in ("add", "edit"):

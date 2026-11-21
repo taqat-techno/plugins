@@ -58,6 +58,15 @@ in. The plugin's `odoo-sh` MCP server does that, read-only by default:
 - **No profile yet, or a call fails:** run `/odoo:sh-setup`. Its doctor names one cause per
   failure (key not added in Odoo.sh, port 22 blocked by the network while 443 works, stale
   build, ...) with the fix. Do not keep retrying a failing call.
+- **SSH is the access path; the browser is not a substitute.** When the developer asks for
+  access to a build, set up and use the SSH key. Do not drive the Odoo.sh web pages or its
+  web shell in a browser instead, and do not switch to that when SSH fails. Report the
+  doctor's result and its fixes, and let the developer choose (another network, a ProxyJump
+  host, a different key). The one browser step is theirs: pasting the public key into Odoo.sh.
+- **A key is already listed in Odoo.sh:** ask for the fingerprint shown there and run
+  `odoo_sh.py keys --match <fingerprint>` to find the same key on this machine. Odoo.sh
+  shows the colon-separated MD5 form, and `odoo_sh.py keys` prints that form under each key.
+  A profile that points at a different key is refused. Odoo.sh accepts only ed25519 and RSA.
 - **Everything but reads is opt-in.** `sh_update`, `sh_restart`, `sh_shell` and
   `sh_odoo_shell` are refused unless the developer allowed that action on the profile; on a
   production profile, ask every time and pass their answer verbatim as `approved_by_user`.

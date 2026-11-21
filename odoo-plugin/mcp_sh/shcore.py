@@ -193,7 +193,7 @@ def key_info(key_path: str) -> dict:
     private key material; public_key is the .pub line meant to be pasted into Odoo.sh."""
     p = expand(key_path)
     info = {"path": p, "exists": os.path.isfile(p), "private": False, "encrypted": None,
-            "public_key": None, "fingerprint": None, "type": None, "comment": None}
+            "public_key": None, "fingerprint": None, "fingerprint_md5": None, "type": None, "comment": None}
     if not info["exists"]:
         return info
     try:
@@ -237,8 +237,35 @@ def parse_public(line: str) -> dict:
     except Exception:
         return {}
     fp = "SHA256:" + base64.b64encode(hashlib.sha256(blob).digest()).decode("ascii").rstrip("=")
+    digest = hashlib.md5(blob).hexdigest()   # a display fingerprint, not a security use
+    md5 = ":".join(digest[i:i + 2] for i in range(0, 32, 2))
     return {"public_key": " ".join(parts[:3]) if len(parts) > 2 else " ".join(parts[:2]),
-            "type": parts[0], "comment": " ".join(parts[2:]) or None, "fingerprint": fp}
+            "type": parts[0], "comment": " ".join(parts[2:]) or None, "fingerprint": fp,
+            "fingerprint_md5": md5}
+
+
+# Odoo.sh accepts only these two key types (its SSH keys page says so).
+ODOO_SH_KEY_TYPES = ("ssh-ed25519", "ssh-rsa")
+
+
+def norm_fingerprint(text) -> str:
+    """A fingerprint as the user pasted it, reduced to a comparable form. Odoo.sh shows the
+    MD5 form (0c:87:...); ssh-keygen and GitHub show SHA256:..."""
+    t = str(text or "").strip()
+    if t.upper().startswith("SHA256:"):
+        return "SHA256:" + t[7:].rstrip("=")
+    if t.upper().startswith("MD5:"):
+        t = t[4:]
+    return t.replace(":", "").replace(" ", "").lower()
+
+
+def match_keys(fingerprint, keys) -> list:
+    """The keys in `keys` (from list_keys) whose MD5 or SHA256 fingerprint is `fingerprint`."""
+    want = norm_fingerprint(fingerprint)
+    if not want:
+        return []
+    return [k for k in keys if want in (norm_fingerprint(k.get("fingerprint")),
+                                        norm_fingerprint(k.get("fingerprint_md5")))]
 
 
 _NOT_KEYS = ("known_hosts", "known_hosts.old", "config", "authorized_keys", "authorized_keys2", "environment")
@@ -291,7 +318,8 @@ def list_keys(ssh_dir=None) -> list:
                 seen.add(priv)
                 out.append({"private_key_path": priv, "has_private_key": info.get("exists", False),
                             "passphrase": info.get("encrypted"), "type": pub["type"], "comment": pub["comment"],
-                            "fingerprint": pub["fingerprint"], "public_key": pub["public_key"]})
+                            "fingerprint": pub["fingerprint"], "fingerprint_md5": pub["fingerprint_md5"],
+                            "public_key": pub["public_key"]})
         for name in names:   # private keys without a .pub beside them
             full = os.path.join(d, name)
             if name.endswith(".pub") or name in _NOT_KEYS or full in seen or not os.path.isfile(full):
@@ -305,7 +333,7 @@ def list_keys(ssh_dir=None) -> list:
             if info["private"]:
                 out.append({"private_key_path": full, "has_private_key": True, "passphrase": info["encrypted"],
                             "type": None, "comment": "no .pub beside it (ssh-keygen -y -f <key> > <key>.pub)",
-                            "fingerprint": None, "public_key": None})
+                            "fingerprint": None, "fingerprint_md5": None, "public_key": None})
     return out
 
 
@@ -520,7 +548,10 @@ def ssh_run(prof: dict, target: dict, script: str, timeout=None) -> dict:
 def fix_for(cls: str, prof: dict, target: dict) -> list:
     name_hint = prof.get("_name") or "<profile>"
     if cls == "auth_refused":
-        fx = ["add this key's PUBLIC half in Odoo.sh: avatar > Profile > SSH keys "
+        fx = ["check that the profile uses the key Odoo.sh lists: copy the fingerprint from Odoo.sh "
+              "(avatar > Profile > SSH keys > Active keys) and run odoo_sh.py keys --match <fingerprint>; "
+              "if it names another key: odoo_sh.py edit %s --key <that key>" % name_hint,
+              "or add this key's PUBLIC half in Odoo.sh: avatar > Profile > SSH keys "
               "(odoo_sh.py keys --print <key> shows it), then retry - no rebuild needed",
               "your Odoo.sh user also needs access to the project (a collaborator on it)",
               "if the key has a passphrase, load it into ssh-agent first (ssh-add <key>): BatchMode never prompts",
@@ -553,6 +584,37 @@ def fix_for(cls: str, prof: dict, target: dict) -> list:
 # ------------------------------------------------------------------------------------
 # Doctor
 # ------------------------------------------------------------------------------------
+
+IP_LOOKUP_URLS = ("https://api.ipify.org", "https://checkip.amazonaws.com")
+_IPV4_RE = re.compile(r"^(?:\d{1,3}\.){3}\d{1,3}$")
+
+
+def public_ip(timeout: float = 4):
+    """This machine's public IPv4 as an IP-echo service sees it, or None. Only used to tell the
+    developer which address to put on the Odoo.sh SSH allow-list. The request carries no data.
+    ODOO_SH_NO_IP_LOOKUP=1 switches it off."""
+    if (os.environ.get("ODOO_SH_NO_IP_LOOKUP") or "").strip().lower() in ("1", "true", "yes", "on"):
+        return None
+    for url in IP_LOOKUP_URLS:
+        try:
+            with urllib.request.urlopen(url, timeout=timeout) as resp:
+                text = resp.read(64).decode("ascii", "replace").strip()
+            if _IPV4_RE.match(text):
+                return text
+        except Exception:
+            continue
+    return None
+
+
+def local_key_lines(keys=None) -> list:
+    """One line per local key in the form Odoo.sh displays, for matching against its list."""
+    out = []
+    for k in (list_keys() if keys is None else keys):
+        if k.get("fingerprint_md5"):
+            out.append("%s  %s  %s%s" % (k["fingerprint_md5"], k["private_key_path"], k.get("type") or "?",
+                                         "" if k.get("has_private_key") else "  (private half missing)"))
+    return out
+
 
 def doctor(name: str, prof: dict) -> dict:
     """Walk config > key > ssh client > URL/build > DNS > TCP > SSH auth and stop at the
@@ -599,7 +661,11 @@ def doctor(name: str, prof: dict) -> dict:
                                 "the key has a passphrase and no ssh-agent holds it; BatchMode never prompts",
                                 [f.replace("<key>", ki["path"]) for f in agent_fix]))
         else:
-            step("key", True, "%s %s" % (ki.get("type") or "key", ki.get("fingerprint") or "(no .pub beside it)"))
+            step("key", True, "%s %s%s" % (
+                ki.get("type") or "key", ki.get("fingerprint") or "(no .pub beside it)",
+                "  (Odoo.sh shows it as %s)" % ki["fingerprint_md5"] if ki.get("fingerprint_md5") else ""))
+            if ki.get("type") and ki["type"] not in ODOO_SH_KEY_TYPES:
+                step("key type", False, "%s - Odoo.sh accepts only ssh-ed25519 and ssh-rsa" % ki["type"])
     try:
         step("ssh client", True, find_ssh(prof))
     except ShError as e:
@@ -655,10 +721,33 @@ def doctor(name: str, prof: dict) -> dict:
                 return fail(ShError("tcp_refused", "TCP %s on %s was refused (%s)" % (port, host, ctx), fixes,
                                     https=https, control=ctl))
             if https == "open":
-                msg = ("TCP %s to %s timed out while 443 on the same host connects%s: the network between this "
-                       "machine and Odoo.sh drops SSH (firewall, ISP or corporate rule for that destination) - "
-                       "your key and the build are not the problem"
-                       % (port, host, " and %s:%s works" % CONTROL_HOST if ctl == "open" else ""))
+                seen = "TCP %s to %s timed out while 443 on the same host connects%s" % (
+                    port, host, " and %s:%s works" % CONTROL_HOST if ctl == "open" else "")
+                role = prof.get("role") or "prod"
+                ip = public_ip()
+                shown = ip or "this machine's public IP (look it up, for example at https://api.ipify.org)"
+                allow_fix = ("in Odoo.sh open the project > Settings > Firewall > \"Allow SSH to production and "
+                             "staging builds from specific IP addresses\" and add %s (IPv4, up to 10 addresses; "
+                             "it takes effect within about 5 minutes), then run the doctor again. A project "
+                             "admin has to do it" % shown)
+                if role in ("stage", "prod"):
+                    msg = ("%s: most likely the project's Odoo.sh SSH allow-list does not include %s. Odoo.sh "
+                           "silently drops SSH to production and staging builds from addresses that are not on "
+                           "that list, while HTTPS keeps working. If the address is already listed, the network "
+                           "between this machine and Odoo.sh drops SSH (firewall, ISP or corporate rule for that "
+                           "destination). Either way your key and the build are not the problem"
+                           % (seen, shown))
+                    fixes = [allow_fix] + fixes
+                else:
+                    msg = ("%s: the network between this machine and Odoo.sh drops SSH (firewall, ISP or "
+                           "corporate rule for that destination) - your key and the build are not the problem. "
+                           "The Odoo.sh SSH allow-list (project Settings > Firewall) covers production and "
+                           "staging builds; development builds are normally not behind it"
+                           % seen)
+                    fixes = fixes + ["if this build is really a staging or production build, set the role "
+                                     "(odoo_sh.py edit %s --role stage) and check the allow-list: %s"
+                                     % (name, allow_fix)]
+                return fail(ShError("tcp_timeout", msg, fixes, https=https, control=ctl, public_ip=ip))
             else:
                 msg = "TCP %s to %s timed out and 443 is %s too: the host is unreachable from here" % (port, host, https)
             return fail(ShError("tcp_timeout", msg, fixes, https=https, control=ctl))
@@ -677,6 +766,13 @@ def doctor(name: str, prof: dict) -> dict:
                                         % (target["build"], again["build"]), ["run the doctor again"]))
             except ShError:
                 pass
+        if e.cls == "auth_refused":
+            lines = local_key_lines()
+            if lines:
+                e.extra["local_keys"] = lines
+                e.fix.insert(0, "keys on this machine, with the fingerprint Odoo.sh shows under avatar > Profile > "
+                                "SSH keys > Active keys (a key \"Imported from GitHub\" is your GitHub key) - the "
+                                "profile must use the one listed there:\n      " + "\n      ".join(lines))
         return fail(e)
     if "__ODOOSH_OK__" not in res["stdout"]:
         step("ssh auth", False, "no shell")

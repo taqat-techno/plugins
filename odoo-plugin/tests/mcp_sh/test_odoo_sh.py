@@ -72,6 +72,7 @@ class Net:
         monkeypatch.setattr(S, "tcp_probe", lambda h, p, timeout=8: self.tcp.get((h, p), "open"))
         monkeypatch.setattr(S, "run_process", self.run)
         monkeypatch.setattr(S, "agent_has_keys", lambda prof=None: False)
+        monkeypatch.setattr(S, "public_ip", lambda timeout=4: "203.0.113.7")
 
     def http_post(self, url, body, timeout=15):
         self.calls.append(url)
@@ -508,3 +509,116 @@ def test_no_client_or_machine_names_in_shipped_sources():
             if f.is_file() and f.suffix in (".py", ".md"):
                 text = f.read_text(encoding="utf-8", errors="replace")
                 assert not any(b.lower() in text.lower() for b in banned), f
+
+
+# --------------------------------------------------------------------- matching the key Odoo.sh lists
+
+def _load_cli():
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("odoo_sh_cli", str(ROOT / "scripts" / "mcp" / "odoo_sh.py"))
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def _md5_of(pub_line):
+    import hashlib
+    d = hashlib.md5(base64.b64decode(pub_line.split()[1])).hexdigest()
+    return ":".join(d[i:i + 2] for i in range(0, 32, 2))
+
+
+def test_keys_carry_the_md5_fingerprint_odoo_sh_displays(key):
+    info = S.key_info(key)
+    assert info["fingerprint_md5"] == _md5_of(PUB)
+    listed = S.list_keys(str(Path(key).parent))
+    assert listed[0]["fingerprint_md5"] == _md5_of(PUB)
+
+
+def test_match_keys_accepts_every_way_a_fingerprint_is_shown(key):
+    keys = S.list_keys(str(Path(key).parent))
+    md5 = _md5_of(PUB)
+    sha = keys[0]["fingerprint"]
+    for shown in (md5, md5.upper(), "MD5:" + md5, "  " + md5 + " ", md5.replace(":", ""), sha, sha + "="):
+        assert [k["private_key_path"] for k in S.match_keys(shown, keys)] == [key], shown
+    assert S.match_keys("aa:bb:cc", keys) == [] and S.match_keys("", keys) == []
+
+
+def test_cli_match_names_the_key_and_generate_offers_only_accepted_types(key, capsys):
+    cli = _load_cli()
+    ssh_dir = str(Path(key).parent)
+    assert cli.main(["keys", "--dir", ssh_dir, "--match", _md5_of(PUB)]) == 0
+    out = capsys.readouterr().out
+    assert "MATCH" in out and key in out and "--key" in out
+    assert cli.main(["keys", "--dir", ssh_dir, "--match", "00:11"]) == 0
+    assert "No key in" in capsys.readouterr().out
+    assert cli.main(["keys", "--dir", ssh_dir]) == 0
+    assert "Odoo.sh shows it as: " + _md5_of(PUB) in capsys.readouterr().out
+    with pytest.raises(SystemExit):
+        cli.main(["keys", "--generate", "x", "--type", "ecdsa"])
+
+
+def test_doctor_shows_the_odoo_sh_form_and_flags_an_unaccepted_key_type(monkeypatch, key):
+    rep = _doctor(monkeypatch, key)
+    assert _md5_of(PUB) in json.dumps(rep)
+    assert any("keys --match" in f for f in S.fix_for("auth_refused", prof(key), {"pinned": False}))
+
+
+# --------------------------------------------------------------------- field results: allow-list, wrong key
+
+def test_doctor_tcp22_timeout_on_stage_names_the_ssh_allow_list_first(monkeypatch, key):
+    host = "acme-erp-stage-41234567.dev.odoo.com"
+    out = _doctor(monkeypatch, key, tcp={(host, 22): "timeout", (host, 443): "open"})
+    assert out["result"] == "tcp_timeout" and out["public_ip"] == "203.0.113.7"
+    assert "allow-list" in out["message"] and "203.0.113.7" in out["message"]
+    assert "Settings > Firewall" in out["fix"][0] and "203.0.113.7" in out["fix"][0]
+    assert any("proxy-jump" in f for f in out["fix"][1:])       # the network stays the second possibility
+
+
+def test_doctor_tcp22_timeout_without_an_ip_lookup_still_explains(monkeypatch, key):
+    host = "acme-erp-stage-41234567.dev.odoo.com"
+    Net(monkeypatch, tcp={(host, 22): "timeout", (host, 443): "open"})
+    monkeypatch.setattr(S, "public_ip", lambda timeout=4: None)
+    out = S.doctor("st", prof(key))
+    assert out["public_ip"] is None and "public IP" in out["fix"][0] and "Settings > Firewall" in out["fix"][0]
+
+
+def test_doctor_tcp22_timeout_on_dev_keeps_the_network_first(monkeypatch, key):
+    host = "acme-erp-stage-41234567.dev.odoo.com"
+    Net(monkeypatch, tcp={(host, 22): "timeout", (host, 443): "open"})
+    out = S.doctor("st", prof(key, role="dev"))
+    assert "proxy-jump" in out["fix"][0] and "development builds" in out["message"]
+    assert any("Settings > Firewall" in f for f in out["fix"])
+
+
+def test_public_ip_lookup_can_be_switched_off_and_rejects_junk(monkeypatch):
+    monkeypatch.setenv("ODOO_SH_NO_IP_LOOKUP", "1")
+    assert S.public_ip() is None
+    monkeypatch.delenv("ODOO_SH_NO_IP_LOOKUP")
+
+    class Resp:
+        def __init__(self, body):
+            self.body = body
+
+        def read(self, n):
+            return self.body
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+    answers = iter([b"<html>blocked</html>", b"198.51.100.9\n"])
+    monkeypatch.setattr(S.urllib.request, "urlopen", lambda url, timeout=4: Resp(next(answers)))
+    assert S.public_ip() == "198.51.100.9"
+
+
+def test_doctor_auth_refused_lists_local_keys_in_the_form_odoo_sh_shows(monkeypatch, key):
+    monkeypatch.setattr(S, "list_keys", lambda ssh_dir=None: [
+        {"private_key_path": key, "has_private_key": True, "type": "ssh-ed25519", "fingerprint_md5": _md5_of(PUB)},
+        {"private_key_path": key + "_gh", "has_private_key": True, "type": "ssh-ed25519",
+         "fingerprint_md5": "0c:87:f8:6d:72:b4:18:33:f3:b2:32:9f:ea:1f:bd:82"}])
+    out = _doctor(monkeypatch, key, ssh=(255, "", "x@y: Permission denied (publickey)."))
+    assert out["result"] == "auth_refused" and len(out["local_keys"]) == 2
+    assert "0c:87:f8:6d" in out["fix"][0] and "Imported from GitHub" in out["fix"][0]
+    assert "odoo.sh/profile" not in json.dumps(out)

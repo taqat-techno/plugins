@@ -8,7 +8,7 @@ Listed in marketplace order. Component counts are the real contents of each plug
 
 | # | Plugin | Version | Category | Commands | Agents | Skills | Hooks | MCP | Evals | Docs |
 |---|---|---|---|---|---|---|---|---|---|---|
-| 1 | **odoo** | `4.6.1` | development | 21 | 5 | 25 | 8 | yes | 28 + 25 | [[Odoo Plugin\|Odoo-Plugin]] · [README](../../odoo-plugin/README.md) |
+| 1 | **odoo** | `4.6.2` | development | 21 | 5 | 25 | 8 | yes | 28 + 25 | [[Odoo Plugin\|Odoo-Plugin]] · [README](../../odoo-plugin/README.md) |
 | 2 | **devops** | `8.4.0` | productivity | 9 | 3 | 1 | 4 | yes | 1 + 1 | [[DevOps Plugin\|DevOps-Plugin]] · [README](../../devops-plugin/README.md) |
 | 3 | **m365** | `0.13.4` | productivity | 2 | 0 | 1 | 2 | yes | n/a | [README](../../m365-plugin/README.md) |
 | 4 | **notification** | `1.2.1` | productivity | 1 | 0 | 0 | 7 | — | n/a | [[Notification Plugin\|Notification-Plugin]] · [README](../../notification-plugin/README.md) |

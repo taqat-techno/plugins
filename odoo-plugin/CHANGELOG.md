@@ -2,6 +2,34 @@
 
 All notable changes to `odoo-plugin` are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/). Versioning follows [SemVer](https://semver.org/).
 
+## [4.6.2] - 2026-11-21
+
+Two causes the Odoo.sh doctor misnamed on a real staging build, reported from the field.
+
+### Fixed
+- **Port 22 timing out is first the project's SSH allow-list, not the network.** Odoo.sh drops
+  SSH to production and staging builds from addresses that are not listed under project
+  Settings > Firewall, while HTTPS keeps answering. For stage and prod profiles the
+  `tcp_timeout` result now says so first, prints this machine's public IP to add (looked up
+  from an IP-echo service; `ODOO_SH_NO_IP_LOOKUP=1` switches the lookup off), and keeps the
+  network, ProxyJump and port fixes as the second possibility. Dev profiles keep the network
+  first and mention the allow-list.
+- **A refused key is usually the wrong key, not a missing one.** `auth_refused` now lists
+  every local key with the fingerprint Odoo.sh displays, so it can be matched against
+  avatar > Profile > SSH keys > Active keys.
+
+### Added
+- `odoo_sh.py keys` prints each key's fingerprint in the form Odoo.sh shows (colon-separated
+  MD5), and `odoo_sh.py keys --match <fingerprint>` names the local key Odoo.sh lists
+  (accepts the MD5 or SHA256 form). `keys --print` says how the key will appear once added.
+- `/odoo:sh-setup` asks for the fingerprint when a key is already in Odoo.sh, and notes that
+  a key "Imported from GitHub" is the developer's GitHub key.
+- `odoo-sh` skill: SSH is the access path; do not fall back to driving the Odoo.sh pages in
+  a browser when SSH fails.
+
+### Changed
+- Key generation offers only ed25519 and RSA, the two types Odoo.sh accepts (ecdsa removed).
+
 ## [4.6.1] - 2026-11-21
 
 ### Fixed
@@ -74,7 +102,7 @@ log had no tool for it.
     cannot be skipped, and the gate is enforced in code. See `mcp_sh/README.md`.
 - **`scripts/mcp/odoo_sh.py`:** the CLI for all of the above.
   - `keys` lists keys with fingerprint and passphrase state. `--print` shows the line to paste
-    into Odoo.sh; `--generate --type ed25519|rsa|ecdsa` creates a key.
+    into Odoo.sh; `--generate --type ed25519|rsa` creates a key.
   - It also covers profile management, allow/deny, the doctor, and read-only `run` as a
     fallback while the server is not loaded.
 - **`/odoo:sh-setup`:** a guided flow, written for someone new to the plugin, from choosing a
