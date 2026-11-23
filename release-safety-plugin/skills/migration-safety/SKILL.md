@@ -12,10 +12,10 @@ description: >-
   overrides that do not protect bulk deletes; cascade foreign keys into financial or audit tables;
   the live information_schema over committed schema files; and the MIGRATION SAFETY REPORT. Engine-
   and ORM-neutral.
-version: 0.2.0
+version: 0.3.0
 user-invocable: false
 metadata:
-  last_reviewed: 2026-07-23
+  last_reviewed: 2026-11-23
   owns:
     - the risky-migration / cutover skeleton (discover -> backup -> stage -> additive-then-cutover -> archive)
     - the additive-then-cutover-last ordering rule (expand / contract)
@@ -93,6 +93,8 @@ Additive changes are reversible and let old and new code coexist; destructive ch
 When you introspect an environment after applying, assert **both** directions: the new artifact is **present** *and* the old one is **absent**. A one-sided check cannot tell a rename-in-place from a new column added *beside* the old one — the new column exists in both stories, but in the second the values still sit in the orphaned original while the application reads an empty field. Only the old artifact's absence separates them.
 
 Then state what the check actually proved. Structure and data are separate claims: introspecting an environment whose table holds **zero rows** proves the shape changed and says nothing whatsoever about whether values survived the move. Data preservation is proven by the staging rehearsal on a **populated** copy (step 3), so the report must say which of the two the evidence covers rather than letting a structural pass read as both.
+
+A third claim comes before both: **the migration ran at all**. A script that is correct and never executes is a failed migration that reports success. Frameworks gate migrations by version, file name or an applied-migrations table, and skip what falls outside the gate without an error. Before trusting an introspection, show that this script executed on this environment (the framework's migration log or table, or a marker the script writes), and never edit a migration that has already been applied anywhere: environments that ran it will not run it again. Add a new one.
 
 ## Destructive & CASCADE review (mandatory before any delete/drop)
 

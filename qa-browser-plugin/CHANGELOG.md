@@ -2,6 +2,12 @@
 
 All notable changes to `qa-browser-plugin` are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/). Versioning follows [SemVer](https://semver.org/).
 
+## [0.9.7] - 2026-11-23
+
+### Added
+- role-smoke-tests: after an access change, walk the neighbour roles too (the ones that keep or lose access) and compare with the walk before; an admin walk proves nothing about the rule.
+- defect-triage-and-closure: a side finding seen while checking another item is filed or dismissed in writing; a withdrawn item is closed as not planned with a pointer, not as completed.
+
 ## [0.9.6] - 2026-11-09
 
 ### Changed

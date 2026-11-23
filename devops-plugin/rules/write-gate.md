@@ -148,6 +148,12 @@ Proceed? (yes/no)
 
 ### Work Item State Change
 
+State belongs to the team's process. Before proposing a state change, say what it claims:
+
+- **Done / Closed / Resolved** claims delivery. Propose it only with the evidence (the merged change, the verified build). Work that was withdrawn, superseded or found wrong is closed with the process's own state or reason for that (Removed, Cut, Won't Fix, Duplicate), and the confirmation includes a comment that says why and links what replaces it.
+- A state change with no comment is allowed by the tool and loses the reason. Add the comment in the same confirmation.
+- Do not move an item that a board automation or another role owns (triage, release sign-off) unless the user says they hold that role.
+
 ```
 READY TO UPDATE: #{id} {title}
 ----------------------------------

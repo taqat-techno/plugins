@@ -1,10 +1,10 @@
 ---
 name: release-verification
 description: "Use when someone asks whether a fix is live, deployed or released in a target environment (staging, production, a preview); before calling a fix done; before promoting between environments; when a deploy reports success but behaviour looks unchanged; when only some services of a multi-service deploy updated; when a deploy-from-source CLI was used; when a frontend is behind SSO or returns 401; when a red CI job is blamed on an env var; or when a client reports a bug that may already be fixed. Covers reconciling the deployed commit SHA with the environment (merged is not deployed), code-marker liveness probes instead of a /health 200, per-service SHAs, env-secret diffs by key name only, lockfile parity, printing the resolved connection target before any environment command, false-FAILURE masking, rollback readiness, and the RELEASE VERIFICATION REPORT. Read-only: it proposes go / no-go and never promotes."
-version: 0.3.0
+version: 0.4.0
 user-invocable: false
 metadata:
-  last_reviewed: 2026-07-23
+  last_reviewed: 2026-11-23
   owns:
     - the "FIXED means proven in the target environment, not merged" discipline
     - the deployed-SHA -> environment reconciliation (branch containment AND branch-to-environment mapping)
@@ -16,6 +16,7 @@ metadata:
     - the CI env-var false-FAILURE detection (a red env/setup error that masks a real test failure underneath -- the complement of the report-only false-PASS)
     - the unreachable-target evidence path (migration state read from the target's deploy log rather than a local status command; unauthenticated 401-vs-404 route-existence probing) for a target whose database admits no connection
     - the report-time-vs-deploy-time triage that separates already-fixed client reports from genuinely new bugs
+    - the shipped-versus-asked comparison (each required change and acceptance criterion: shipped as asked, differently, or not at all)
     - the RELEASE VERIFICATION REPORT output contract
   defers_to:
     - migration-safety skill for the risky-migration / cutover skeleton and destructive/CASCADE review
@@ -130,6 +131,20 @@ The wall still blocks the *browser* evidence, so pair the rolled-back target-DB 
 ### Report-time vs deploy-time triage (is this bug already fixed?)
 
 Before investigating a client-reported bug as new, compare its **report timestamp** to the last **deploy timestamp** for the target environment. A report filed *before* the fix deployed may already be resolved — a bug whose report time predates the deploy that fixed it is not a new bug. Reproduce against the **current** deployed SHA before spending effort; only a reproduction on the current build makes a report "genuinely still open."
+
+### Shipped versus asked (a merged item is not a delivered item)
+
+A merge proves that something was merged. When the work was specified in an issue, a ticket or a plan and built by someone else (a colleague, a pipeline, an agent), compare the shipped commit with the request before calling it delivered:
+
+```
+Required change / acceptance criterion     Shipped as asked | Shipped differently | Not shipped
+```
+
+- Diff the shipped commit against each required change. Include the tests, the migration or data step, and the documentation; these are the parts that go missing when an implementer rebuilds from a description.
+- Run each acceptance criterion against the deployed build. A criterion that was ticked without a run is unverified.
+- Check that a shipped migration can run in the target: its version gate, file name and ordering, not only its content.
+- Turn every side finding and every "out of scope" or "follow-up" note into a tracked item or a written dismissal. A note in a closed thread is neither.
+- An item that passed review on the first attempt has passed the gate. That says nothing yet about the outcome; items are often corrected or reverted days later by another item.
 
 ### Report-only gates (a green check that cannot block)
 

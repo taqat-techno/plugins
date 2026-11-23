@@ -4,6 +4,11 @@ All notable changes to the `git-safety` plugin are documented here. The format i
 based on [Keep a Changelog](https://keepachangelog.com/), and the project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [0.7.1] - 2026-11-23
+
+### Added
+- git-safety primitive 10: a fact about a branch ("already fixed", "not released yet", the current version) is read from the fetched remote ref and quoted with its commit, never from the working tree or memory; no literal next version in something another person applies later; a fix that exists only locally has fixed nothing upstream.
+
 ## [0.7.0] - 2026-11-09
 
 ### Changed

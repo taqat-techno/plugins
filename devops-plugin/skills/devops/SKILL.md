@@ -3,8 +3,8 @@ name: devops
 description: "Use when the user works with Azure DevOps: work items (create, update state, comment with @mentions, link, log hours), pull requests, sprints, standups, builds and pipelines, wiki, test plans, the az devops CLI, or the azure-devops MCP server. Also use when an Azure DevOps call fails: TF401320 on Completed Work (set Original Estimate first, never drop it), MCP auth or unknown-tool errors, an empty work item search, or a denied branch or push."
 license: "MIT"
 metadata:
-  version: "8.3.0"
-  last_reviewed: "2026-10-19"
+  version: "8.5.0"
+  last_reviewed: "2026-11-23"
   author: "TAQAT Techno"
   mode: "hybrid"
   mcp-server: "@azure-devops/mcp@2.8.0"
@@ -172,6 +172,8 @@ These workflows trigger via natural language. They replace former standalone com
 **Triggers**: "mark #ID as done", "resolve bug #ID", "close #ID", "move #ID to [state]"
 **Steps**: Follow `${CLAUDE_PLUGIN_ROOT}/data/state_machine.json` pre-flight (role → fetch → required fields → ask → confirm → execute) → offer time logging
 **Dev-Internal-fix check**: If completing a `[Dev-Internal-fix]` Task, verify QC was notified; ask if fix changes user-facing behavior
+
+**Hand-over quality and state claims.** Creating an item for someone else follows step 5a of `/devops:create` (runnable acceptance criteria, the change carried not described, no open decision, every remainder linked). A state change follows "Work Item State Change" in `${CLAUDE_PLUGIN_ROOT}/rules/write-gate.md`: Done claims delivery; withdrawn work is closed with its own reason and a comment.
 
 ### Workflow 2: Add Comment
 **Triggers**: "comment on #ID", "tell @name about #ID", "add note to #ID"

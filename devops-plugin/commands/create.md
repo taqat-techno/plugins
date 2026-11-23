@@ -44,6 +44,12 @@ If no type flag is given, detect from title keywords:
    - Tasks/Bugs/Enhancements MUST have a parent at the preset's requirement level (User Story, PBI, Requirement or Issue)
    - If no `under #ID`, search for matching parent and ask user to select
 5. **Detect sprint** — auto-assign to current iteration
+5a. **Check the hand-over** when the item will be worked by someone else (a colleague, another team, an automation). The rules are owned by the `handover-contract` skill of the optional `agent-safety-guards` plugin; without it, apply these four:
+   - Acceptance Criteria are effects a named user can observe on a named environment, runnable by the assignee, and one of them covers the hard half (existing data, the role that must be refused, the value that is printed). "Tests pass" is not a criterion.
+   - The Description carries the change itself when it already exists (a pushed commit or branch the assignee can reach, or the full code), not a summary of it.
+   - No open decision. "Either A or B" is a question for the product owner, not a task.
+   - Every "out of scope" or "follow-up" line names a work item id or an owner. Dependencies are added as work-item links (Predecessor / Successor), not as a sentence.
+   Show what is missing in the confirmation below and let the user fix or accept it. Do not rewrite their criteria silently.
 6. **Present confirmation** per `${CLAUDE_PLUGIN_ROOT}/rules/write-gate.md`:
    ```
    READY TO CREATE: Task

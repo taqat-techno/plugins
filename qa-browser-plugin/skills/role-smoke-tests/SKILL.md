@@ -8,15 +8,16 @@ description: >-
   per-role login recipe (storage state or env-var credentials, never stored passwords), the menu walk,
   fresh browser state per role, post-navigate waits (networkidle never settles on a hot-reloading dev
   server), and the cross-role consistency check.
-version: 0.3.0
+version: 0.4.0
 user-invocable: false
 metadata:
-  last_reviewed: 2026-07-23
+  last_reviewed: 2026-11-23
   owns:
     - per-role login flow pattern
     - menu-walk pattern (visit every item the role can see)
     - per-step evidence capture (screenshot + console + network)
     - cross-role consistency check (does role A see only what they should?)
+    - the neighbour-role walk after an access change (roles that keep or lose access, compared with the walk before)
     - role-rotation discipline (logout between roles, fresh storage state)
   defers_to:
     - runtime-reality-check (must pass before smoke starts)
@@ -114,6 +115,15 @@ Then verify against the project's permission matrix, if one exists (for example 
 | Role sees a menu item not in their matrix row | HIGH | manager sees `audit-log` |
 | Role does NOT see a menu item their matrix row allows | MEDIUM | support's matrix says `read:orders` but `orders` is missing from their menu |
 | Role sees the same menu items as another role and that is unexpected | LOW | viewer's menu identical to support's |
+
+### After an access change, walk the neighbours
+
+When the smoke follows a change to permissions (a new rule, a tightened role, a moved menu), the role that was fixed is the one most likely to pass. The regressions are in the roles next to it.
+
+- Walk **every role that shares the changed screens or records**, not only the role named in the ticket: the roles that should keep access, and the ones that should now lose it.
+- Compare each role's menu, buttons and reports with the walk from **before** the change, if one exists. A report or menu that disappeared from a role nobody mentioned is the finding.
+- Use real role accounts. An administrator bypasses the rule under test, so an admin walk proves nothing about it.
+- Record for each neighbour role: unchanged, gained, lost.
 
 ## Fresh state per role
 

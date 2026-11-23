@@ -7,16 +7,17 @@ description: >-
   granularity, the reporter's exact gesture, measuring before declaring evidence gone, file-before-fix
   ordering, and decomposing permission errors before calling them external. Not for a general 'is my
   work done' check or for writing tests.
-version: 0.2.0
+version: 0.3.0
 user-invocable: false
 metadata:
-  last_reviewed: 2026-08-10
+  last_reviewed: 2026-11-23
   owns:
     - the spec-granularity gate on a working-as-designed close (re-raised report => your rule model is the suspect)
     - the exact-gesture requirement for a cannot-reproduce close
     - the volunteered-workaround-is-the-highest-value-diagnostic rule
     - the measure-before-you-declare-evidence-gone rule (rotated .1 / archive / backup)
     - file-before-fix ORDERING, one bug at a time, deduped against the known cohort
+    - side findings and remainders are filed or dismissed in writing; a withdrawn item is closed as not planned with a pointer
     - the re-open instruction required in a retracted (not disproven) close
     - the requirement that a permissions-shaped error be decomposed BEFORE it is recorded as an external blocker (the decomposition method itself is not owned here)
     - re-probing an environment blocker before restating it in a later turn
@@ -125,6 +126,10 @@ The loop that holds:
 6. Then fix. Then validate end-to-end on a **clean instance** — a clean instance is what separates "the fix works" from "the fix works on a box already carrying the state my debugging left behind" (a warmed cache, a manually corrected row, a still-loaded module). Then move to the next bug.
 
 Filing precedes the fix. A fix with no filed issue is an undocumented behavior change: the diff records *what changed* but nothing records *what was wrong*, so the next person reading it cannot tell an intentional fix from an accidental regression.
+
+**A side finding is filed or dismissed in writing.** Something seen while checking another item (a route that looks open, a wrong label, a report that fails for one role) is not recorded by mentioning it in that item's thread. When the thread closes, the finding closes with it and nobody owns it. For each one: file it as its own item through the same loop, or write "not filing because ..." where the decision can be found. The same applies to "out of scope" and "follow-up" lines in an item you are closing.
+
+**Withdrawn is not completed.** An item you close because it was wrong, superseded or no longer wanted is closed as not planned, with a comment that says why and points to what replaces it. Closed as completed with no comment reads as delivered, and the defect it described is lost if it was real.
 
 ### 6. A RETRACTED close carries an explicit re-open instruction
 

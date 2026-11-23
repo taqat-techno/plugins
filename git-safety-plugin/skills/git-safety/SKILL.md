@@ -1,10 +1,10 @@
 ---
 name: git-safety
 description: "Use when about to run git add, commit, checkout/switch, restore, rm --cached, push, or a merge of two long-lived branches, or a gh/MCP repo write such as ticking issue checkboxes or opening an issue. Also use when the working tree is dirty before a branch switch or discard, when a push fails with \"Repository not found\" or prints a policy line, when a commit may land under the wrong author, or when merging \"identical\" branches gives surprising conflicts. Covers staging explicit paths instead of git add -A or \".\", re-checking the full git status right before commit and push, never switching or discarding with a dirty tree, the team-wide effect of git rm --cached, per-repo author and push identity, a no-mutation preview before any remote issue/PR/board write, and auditing auto-merged files across a reverted lineage. Advisory: it reasons and warns, and never changes git state itself."
-version: 0.1.0
+version: 0.2.0
 user-invocable: false
 metadata:
-  last_reviewed: 2026-07-23
+  last_reviewed: 2026-11-23
   owns:
     - stage explicit paths — never `git add -A` / `git add .` (a broad add co-stages unrelated files)
     - re-check the full `git status` immediately before commit/push (the tree is not stable between checks)
@@ -14,6 +14,7 @@ metadata:
     - remote-push identity (push account has access; CLI identity can revert between calls; MCP is not a permission bypass)
     - the remote-mutation preview gate (no-mutation preview per target + explicit go-ahead; minimal verified change set only)
     - merging long-lived branches across a reverted lineage (the AUTO-merged files are the danger; compare blobs and tree hashes)
+    - branch facts (already fixed, not released, current version) read from the fetched remote ref and quoted with its commit
   defers_to:
     - shared-checkout-safety skill when more than one agent/session/syncer shares the SAME working tree
     - devops plugin, if installed (git-remote-write-gate) for the Azure DevOps / provider-specific remote push-identity gate
@@ -113,6 +114,16 @@ Activate when any of these is about to happen:
 - Prove it at byte level before acting: the tree of your last shared commit equals the tree of its rewritten twin (`git diff <local-shared> <remote-twin>` is empty).
 - Then save local history on a backup branch, rebase **only your new commits** onto `origin/main`, push normally, and tell the user that those commits have new ids.
 - Never force-push to reconcile: it overwrites whoever rewrote the remote. Never merge: it duplicates every rewritten commit.
+
+### 10. A fact about a branch comes from the fetched ref, with its commit
+
+"Already fixed in #N", "not released yet", "the current version is X", "that file was removed" are claims about a branch at a moment. Read from your working tree or from memory, they describe your checkout, which can be days behind or ahead.
+
+- Before writing such a fact into an issue, a plan, a review or a migration, `git fetch` and read it from the remote ref: `git show origin/<branch>:<path>`, `git log origin/<branch> -1`, `git branch -r --contains <sha>`.
+- Quote the ref and the commit with the fact: "on `origin/release-12` at `469d538`". A fact with no ref is labelled as coming from the working tree.
+- When the checkout was not fetched, say so and give the date of the ref you read. "Still present on dev" then means present on your copy of dev.
+- Never write the next version number or a version-named folder as a literal in something another person will apply later. Another change can take that number first. Say "the next version above the release branch at merge".
+- A fix that exists only in your working tree has fixed nothing upstream. Do not close or mark anything resolved on it.
 
 ## Decision framework
 

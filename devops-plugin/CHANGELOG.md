@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [8.5.0] - 2026-11-23
+
+### Added
+- `/devops:create` step 5a: a hand-over check for items someone else will work. Acceptance criteria as observable, runnable effects including the hard half; the change carried, not summarised; no open decision; every remainder linked to an item or owner; dependencies as work-item links. Missing parts are shown in the confirmation, never rewritten silently. The full rules live in the `handover-contract` skill of the optional `agent-safety-guards` plugin.
+- Write gate, work item state change: Done claims delivery; withdrawn or superseded work is closed with the process's own reason and a comment; no moving items another role owns.
+
 ## [8.4.0] - 2026-11-09
 
 ### Changed

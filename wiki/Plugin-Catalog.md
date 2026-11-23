@@ -9,7 +9,7 @@ Listed in marketplace order. Component counts are the real contents of each plug
 | # | Plugin | Version | Category | Commands | Agents | Skills | Hooks | MCP | Evals | Docs |
 |---|---|---|---|---|---|---|---|---|---|---|
 | 1 | **odoo** | `4.7.0` | development | 21 | 5 | 25 | 8 | yes | 30 + 25 | [[Odoo Plugin\|Odoo-Plugin]] · [README](../../odoo-plugin/README.md) |
-| 2 | **devops** | `8.4.0` | productivity | 9 | 3 | 1 | 4 | yes | 1 + 1 | [[DevOps Plugin\|DevOps-Plugin]] · [README](../../devops-plugin/README.md) |
+| 2 | **devops** | `8.5.0` | productivity | 9 | 3 | 1 | 4 | yes | 1 + 1 | [[DevOps Plugin\|DevOps-Plugin]] · [README](../../devops-plugin/README.md) |
 | 3 | **m365** | `0.14.0` | productivity | 2 | 0 | 1 | 2 | yes | n/a | [README](../../m365-plugin/README.md) |
 | 4 | **notification** | `1.2.1` | productivity | 1 | 0 | 0 | 7 | — | n/a | [[Notification Plugin\|Notification-Plugin]] · [README](../../notification-plugin/README.md) |
 | 5 | **pandoc** | `3.0.3` | productivity | 4 | 0 | 1 | 0 | — | 1 + 1 | [[Pandoc Plugin\|Pandoc-Plugin]] · [README](../../pandoc-plugin/README.md) |
@@ -17,18 +17,18 @@ Listed in marketplace order. Component counts are the real contents of each plug
 | 7 | **ui-ux-mechanics** | `4.0.3` | design | 1 | 2 | 3 | 0 | — | 3 + 3 | [[Ui Ux Mechanics Plugin\|Ui-Ux-Mechanics-Plugin]] · [README](../../ui-ux-mechanics-plugin/README.md) |
 | 8 | **rag** | `0.21.0` | productivity | 9 | 1 | 4 | 2 | yes | 4 + 5 | [[Rag Plugin\|Rag-Plugin]] · [README](../../rag-plugin/README.md) |
 | 9 | **react-kit** | `0.8.2` | development | 3 | 1 | 16 | 0 | — | 16 + 16 | [README](../../react-kit-plugin/README.md) |
-| 10 | **qa-browser** | `0.9.6` | productivity | 5 | 2 | 13 | 4 | — | 13 + 13 | [README](../../qa-browser-plugin/README.md) |
+| 10 | **qa-browser** | `0.9.7` | productivity | 5 | 2 | 13 | 4 | — | 13 + 13 | [README](../../qa-browser-plugin/README.md) |
 | 11 | **docs-wiki** | `0.11.3` | productivity | 7 | 3 | 10 | 0 | — | 10 + 7 | [README](../../docs-wiki-plugin/README.md) |
 | 12 | **env-doctor** | `0.11.1` | productivity | 2 | 1 | 5 | 6 | — | 6 + 5 | [README](../../env-doctor-plugin/README.md) |
 | 13 | **agent-safety-guards** | `0.10.0` | productivity | 0 | 0 | 8 | 3 | — | 8 + 4 | [README](../../agent-safety-guards-plugin/README.md) |
-| 14 | **release-safety** | `0.6.0` | productivity | 1 | 0 | 3 | 2 | — | 3 + 3 | [README](../../release-safety-plugin/README.md) |
+| 14 | **release-safety** | `0.6.1` | productivity | 1 | 0 | 3 | 2 | — | 4 + 3 | [README](../../release-safety-plugin/README.md) |
 | 15 | **django** | `0.6.1` | development | 4 | 3 | 7 | 3 | — | 7 + 8 | [README](../../django-plugin/README.md) |
 | 16 | **fastapi** | `0.6.1` | development | 4 | 3 | 8 | 3 | — | 8 + 9 | [README](../../fastapi-plugin/README.md) |
-| 17 | **git-safety** | `0.7.0` | productivity | 0 | 0 | 2 | 1 | — | 2 + 2 | [README](../../git-safety-plugin/README.md) |
+| 17 | **git-safety** | `0.7.1` | productivity | 0 | 0 | 2 | 1 | — | 3 + 2 | [README](../../git-safety-plugin/README.md) |
 | 18 | **worktree** | `2.1.5` | development | 0 | 0 | 13 | 0 | — | 3 + 1 | [README](../../worktree-plugin/README.md) |
 | 19 | **sprint-recap** | `0.5.0` | productivity | 2 | 0 | 5 | 2 | — | 5 + 2 | [README](../../sprint-recap-plugin/README.md) |
 
-**Totals:** 79 commands · 24 agents · 126 skills · 47 hook handlers · 4 bundled MCP servers · 227 eval cases (121 must-fire + 106 must-not-fire).
+**Totals:** 79 commands · 24 agents · 126 skills · 47 hook handlers · 4 bundled MCP servers · 229 eval cases (123 must-fire + 106 must-not-fire).
 
 > `sprint-recap`'s 4 fire cases cover `sprint-evidence-correlation`, `sprint-step-script`, `sprint-capture-clips` and `sprint-repro-guide`. `sprint-video-overlays` has no case: it documents rendering conventions for a generated project rather than a question a user arrives with, so there is no natural prompt that should route to it.
 
