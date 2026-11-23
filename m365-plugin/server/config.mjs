@@ -25,7 +25,7 @@ export const READ_SCOPES = {
   calendar: ["Calendars.Read"],
   teams: ["Chat.Read"],
   channels: ["Team.ReadBasic.All", "Channel.ReadBasic.All", "ChannelMessage.Read.All"],
-  meetings: ["Calendars.Read", "Chat.Read", "OnlineMeetingTranscript.Read.All", "Files.Read.All"],
+  meetings: ["Calendars.Read", "Chat.Read", "OnlineMeetingTranscript.Read.All", "Files.Read.All", "OnlineMeetings.Read", "OnlineMeetingArtifact.Read.All"],
   people: ["People.Read", "User.ReadBasic.All"],
   files: ["Files.Read.All"],
   // off by default, so turning it on is the only thing that asks for this permission

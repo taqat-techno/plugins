@@ -2,6 +2,8 @@
 //   teams_meeting_find        calendar events that are Teams meetings, each with its meeting chat_id (from the join link)
 //   teams_meeting_transcript  the transcript as "[hh:mm:ss] Speaker: text", paged, fenced (machine speech-to-text)
 //   teams_meeting_files       files shared in the meeting chat, resolved to drive_id/item_id for onedrive_read_file
+//   teams_meeting_attendance  who actually joined and for how long (Teams attendance reports), for one meeting or for
+//                             every Teams meeting in a date range (the user's own minutes per meeting: a day's timesheet)
 // The meeting chat itself is read with teams_read_chat. The online-meeting id is derived from the chat (organizer + thread),
 // so OnlineMeetings.Read is not needed. Everything targets /me; nothing here changes anything.
 import { M365Error, UNTRUSTED_FIELDS, clean, fence, graphUtcMs, normName, parseBound, safeId, safeStr, seg, systemZone, wallClock, isValidZone } from "../util.mjs";
@@ -69,6 +71,63 @@ async function meetingChatId(ctx, a) {
 const transcriptDenied = (topic) => new M365Error("ACCESS_NEEDED", `Microsoft refused the transcript of "${clean(topic ?? "this meeting", 120)}".`, {
   hint: "Either the app lacks the delegated permission OnlineMeetingTranscript.Read.All (an admin grants it; m365_access_request writes the message), or the meeting's organizer has not made the transcript available to the user. Ask the organizer to share the transcript or recording. The meeting chat is still readable with teams_read_chat.",
 });
+
+
+// ---------------------------------------------------------------- attendance
+// Graph: GET /me/onlineMeetings/{id}/attendanceReports (at most the 50 most recent sessions), then each report with
+// $expand=attendanceRecords (the list returns them empty). Permission: OnlineMeetingArtifact.Read.All. Whether someone
+// who only attended may read a meeting's report is not documented: a refusal is returned as ATTENDANCE_NOT_AVAILABLE
+// with the calendar's invitation and response, which are never proof of attendance.
+const MAX_REPORTS = 10, MAX_RANGE_MEETINGS = 40, MAX_RANGE_DAYS = 31;
+const notAvailable = (e) => e?.code === "ACCESS_NEEDED" || e?.code === "NOT_FOUND" || e?.status === 401 || e?.status === 403 || e?.status === 404;
+const NOT_PROOF = "Invitation and response only: this is not proof that the user joined.";
+
+/** The online-meeting id of an event or join link: from the meeting chat (organizer + thread), else a JoinWebUrl lookup. */
+async function meetingIdFor(ctx, joinUrl) {
+  const chatId = chatIdFromJoinUrl(joinUrl);
+  if (chatId) {
+    try {
+      const chat = await ctx.graph.get(`/chats/${seg(chatId)}?$select=id,onlineMeetingInfo`);
+      const org = chat.onlineMeetingInfo?.organizer?.id;
+      if (org) return onlineMeetingId(org, chatId);
+    } catch { /* fall back to the join-link lookup */ }
+  }
+  if (!joinUrl) return null;
+  const q = String(joinUrl).replace(/'/g, "''");
+  const j = await ctx.graph.get(`/me/onlineMeetings?$filter=${encodeURIComponent(`JoinWebUrl eq '${q}'`)}`);
+  return j.value?.[0]?.id ?? null;
+}
+
+/** One meeting's sessions with their attendance records. */
+async function reportsFor(ctx, meetingId) {
+  const list = await ctx.graph.get(`/me/onlineMeetings/${seg(meetingId)}/attendanceReports`);
+  const sorted = (list.value ?? []).slice().sort((x, y) => String(x.meetingStartDateTime).localeCompare(String(y.meetingStartDateTime)));
+  const out = [];
+  for (const r of sorted.slice(-MAX_REPORTS)) {
+    const full = await ctx.graph.get(`/me/onlineMeetings/${seg(meetingId)}/attendanceReports/${seg(r.id)}?$expand=attendanceRecords`);
+    out.push({ ...r, attendanceRecords: full.attendanceRecords ?? [] });
+  }
+  return { reports: out, more: sorted.length > MAX_REPORTS };
+}
+
+const isMe = (rec, me) => (me.id && rec.identity?.id === me.id) ||
+  [me.mail, me.userPrincipalName].filter(Boolean).map((x) => String(x).toLowerCase()).includes(String(rec.emailAddress ?? "").toLowerCase());
+
+function reportOut(r, me, iana) {
+  const people = (r.attendanceRecords ?? []).map((x) => ({
+    me: isMe(x, me), name: clean(x.identity?.displayName, 120) || null, email: String(x.emailAddress ?? "").toLowerCase() || null,
+    role: x.role ?? null, total_seconds: x.totalAttendanceInSeconds ?? 0, minutes: Math.round((x.totalAttendanceInSeconds ?? 0) / 60),
+    intervals: (x.attendanceIntervals ?? []).map((i) => ({ joined: local(i.joinDateTime, iana), left: local(i.leaveDateTime, iana), seconds: i.durationInSeconds ?? null })),
+  })).sort((x, y) => Number(y.me) - Number(x.me) || y.total_seconds - x.total_seconds);
+  const mine = people.find((p) => p.me);
+  return {
+    start: local(r.meetingStartDateTime, iana), end: local(r.meetingEndDateTime, iana), participants: r.totalParticipantCount ?? people.length,
+    my_total_seconds: mine ? mine.total_seconds : 0, my_minutes: mine ? mine.minutes : 0, attended: Boolean(mine && mine.total_seconds > 0),
+    attendees: people,
+  };
+}
+
+const myResponse = (ev) => ({ invited: true, my_response: ev.responseStatus?.response ?? null, organizer: ev.isOrganizer ? "you" : clean(ev.organizer?.emailAddress?.name, 120) || null });
 
 export const tools = [
   {
@@ -175,6 +234,89 @@ export const tools = [
       }
       files.sort((x, y) => String(x.shared_at).localeCompare(String(y.shared_at)));
       return { chat_id: chatId, count: files.length, more: refs.length > 30, files, note: UNTRUSTED_FIELDS };
+    },
+  },
+  {
+    name: "teams_meeting_attendance", kind: "read", module: "meetings",
+    description: "Who actually joined a Teams meeting and for how long, from Teams attendance reports (not the invitation). One meeting: event_id (from calendar_list_events / teams_meeting_find) or join_url; returns each session with start/end and every attendee (the user first): role, email, minutes and join/leave intervals. A date range: from + to (up to 31 days) returns one row per Teams meeting with the user's own minutes, for a timesheet. When Microsoft does not give the report (status ATTENDANCE_NOT_AVAILABLE, for example the user was not the organizer), the invitation and response are shown instead: never treat those as proof of attendance. Names and emails are third-party data.",
+    inputSchema: { type: "object", properties: {
+      event_id: { type: "string" }, join_url: { type: "string", description: "A Teams meeting join link." },
+      from: { type: "string", description: "Range start (YYYY-MM-DD or ISO), with to." }, to: { type: "string" },
+      timezone: { type: "string", description: "IANA zone, default the profile's." } } },
+    async handler(a, ctx) {
+      const iana = zoneOf(a, ctx);
+      const me = await ctx.graph.get("/me?$select=id,mail,userPrincipalName");
+      const modes = [a.event_id, a.join_url, a.from || a.to].filter(Boolean).length;
+      if (modes !== 1) throw new M365Error("INVALID_ARGUMENT", "give exactly one of: event_id, join_url, or from + to");
+
+      if (a.from || a.to) {
+        if (!a.from || !a.to) throw new M365Error("INVALID_ARGUMENT", "a range needs both from and to");
+        const s = parseBound(a.from, "from", iana), e = parseBound(a.to, "to", iana, { endOfDay: true });
+        if (!(e > s) || e - s > MAX_RANGE_DAYS * 864e5) throw new M365Error("INVALID_ARGUMENT", `to must be after from, and the range at most ${MAX_RANGE_DAYS} days`);
+        const j = await ctx.graph.get(`/me/calendarView?startDateTime=${new Date(s).toISOString()}&endDateTime=${new Date(e).toISOString()}&$select=id,subject,start,end,organizer,isOrganizer,responseStatus,isOnlineMeeting,onlineMeeting,isCancelled&$top=250&$orderby=${encodeURIComponent("start/dateTime")}`, UTC);
+        const evs = (j.value ?? []).filter((x) => !x.isCancelled && x.onlineMeeting?.joinUrl);
+        const cache = new Map();
+        const rows = [];
+        let total = 0;
+        for (const ev of evs.slice(0, MAX_RANGE_MEETINGS)) {
+          const row = { event_id: ev.id, subject: clean(ev.subject, 300) || "(no subject)", start: local(ev.start?.dateTime, iana), end: local(ev.end?.dateTime, iana) };
+          try {
+            const url = ev.onlineMeeting.joinUrl;
+            if (!cache.has(url)) {
+              const mid = await meetingIdFor(ctx, url);
+              cache.set(url, mid ? await reportsFor(ctx, mid) : null);
+            }
+            const got = cache.get(url);
+            if (!got) throw Object.assign(new Error("no meeting"), { code: "NOT_FOUND" });
+            // A recurring meeting shares one join link: keep only the sessions of THIS occurrence.
+            const from = graphUtcMs(ev.start?.dateTime) - 2 * 3600e3, to = graphUtcMs(ev.end?.dateTime) + 2 * 3600e3;
+            const mine = got.reports.filter((r) => { const t = graphUtcMs(r.meetingStartDateTime); return t >= from && t <= to; }).map((r) => reportOut(r, me, iana));
+            const secs = mine.reduce((n, r) => n + r.my_total_seconds, 0);
+            total += secs;
+            Object.assign(row, { status: mine.length ? "ok" : "no_session", attended: secs > 0, my_minutes: Math.round(secs / 60), sessions: mine.length });
+          } catch (err) {
+            if (!notAvailable(err)) throw err;
+            Object.assign(row, { status: "ATTENDANCE_NOT_AVAILABLE", attended: null, ...myResponse(ev), note: NOT_PROOF });
+          }
+          rows.push(row);
+        }
+        return {
+          timezone: iana, from: wallClock(s, iana), to: wallClock(e, iana), meetings: rows.length, more: evs.length > MAX_RANGE_MEETINGS,
+          my_total_minutes: Math.round(total / 60), rows,
+          note: `${UNTRUSTED_FIELDS} status no_session: Teams has no attendance session for that occurrence (nobody joined, or the report is not ready yet).`,
+        };
+      }
+
+      let ev = null, joinUrl = null;
+      if (a.event_id) {
+        ev = await ctx.graph.get(`/me/events/${seg(safeId(a.event_id, "event_id"))}?$select=id,subject,start,end,organizer,isOrganizer,responseStatus,isOnlineMeeting,onlineMeeting`, UTC);
+        joinUrl = ev.onlineMeeting?.joinUrl ?? null;
+        if (!joinUrl) throw new M365Error("NOT_A_MEETING", "That event is not a Teams meeting, so Teams has no attendance for it.");
+      } else {
+        joinUrl = String(safeStr(a.join_url, "join_url", 2000) ?? "").trim();
+        if (!/^https:\/\/teams\.(microsoft|live)\.com\//i.test(joinUrl)) throw new M365Error("INVALID_ARGUMENT", "join_url must be a Teams meeting link (https://teams.microsoft.com/...)");
+      }
+      const head = ev ? { event_id: ev.id, subject: clean(ev.subject, 300) || "(no subject)", scheduled: { start: local(ev.start?.dateTime, iana), end: local(ev.end?.dateTime, iana) } } : { join_url: joinUrl };
+      try {
+        const mid = await meetingIdFor(ctx, joinUrl);
+        if (!mid) throw Object.assign(new Error("no meeting"), { code: "NOT_FOUND" });
+        const got = await reportsFor(ctx, mid);
+        const sessions = got.reports.map((r) => reportOut(r, me, iana));
+        return {
+          ...head, timezone: iana, status: sessions.length ? "ok" : "no_session", sessions, more_sessions: got.more,
+          my_total_minutes: Math.round(sessions.reduce((n, r) => n + r.my_total_seconds, 0) / 60),
+          note: `${UNTRUSTED_FIELDS} This includes attendee names and emails.`,
+        };
+      } catch (err) {
+        if (!notAvailable(err)) throw err;
+        return {
+          ...head, timezone: iana, status: "ATTENDANCE_NOT_AVAILABLE",
+          reason: err.code === "NOT_FOUND"
+            ? "Teams has no attendance report this account can open for that meeting (it may not have started, the report may not be ready, or only the organizer can see it)."
+            : "Microsoft refused the attendance report: the meeting's organizer can usually see it; an attendee may not. The app also needs OnlineMeetingArtifact.Read.All.",
+          ...(ev ? { fallback: { ...myResponse(ev), note: NOT_PROOF } } : {}),
+        };
+      }
     },
   },
 ];

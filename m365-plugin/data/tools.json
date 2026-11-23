@@ -31,7 +31,8 @@
     "teams_meeting_files",
     "onedrive_list_folder",
     "sharepoint_list_sites",
-    "sharepoint_list_libraries"
+    "sharepoint_list_libraries",
+    "teams_meeting_attendance"
   ],
   "local": [
     "m365_sign_in",

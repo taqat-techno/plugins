@@ -1,7 +1,7 @@
 ---
 name: m365
 description: "Use when the user asks about or wants to act in their Microsoft 365: find or read an email, draft or send one, what is on the calendar, schedule a meeting or find free time, read or send a Teams message, who 'Mahmoud' is, or what needs attention. Also when a tool reports NOT_SIGNED_IN, CONSENT_NEEDED or ACCESS_NEEDED."
-version: "0.13.4"
+version: "0.14.0"
 ---
 
 # Microsoft 365 tools
@@ -36,6 +36,7 @@ message for the admin.
 | When can we meet | `people_resolve` per person, then `calendar_find_free_slots` |
 | Move, rename, cancel a meeting; accept or decline an invitation | `calendar_list_events`, then `calendar_change_stage` |
 | A Teams conversation | `teams_find_chat`, then `teams_read_chat` |
+| Did I (or someone) actually join a meeting, for how long; a day's meeting time | `teams_meeting_attendance` (module `meetings`): `event_id`, or `from` + `to` for a range. `ATTENDANCE_NOT_AVAILABLE` shows only the invitation and response: say it is not proof of attendance |
 | A file in OneDrive | `onedrive_search`, `onedrive_read_file`; what is in a folder: `onedrive_list_folder` |
 | A SharePoint library | `sharepoint_list_sites`, `sharepoint_list_libraries`, then `onedrive_list_folder` with `drive_id` |
 | Put or organise files in OneDrive | `onedrive_upload`, `onedrive_create_folder`, `onedrive_move`, `onedrive_delete`, `onedrive_share_with` |

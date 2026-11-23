@@ -22,6 +22,8 @@ const NEEDS = [
   [/^\/users/, "User.ReadBasic.All"],
   [/^\/search\/query/, "Files.Read.All"],
   [/^\/me\/onlineMeetings\/.+\/transcripts/, "OnlineMeetingTranscript.Read.All (admin consent)"],
+  [/^\/me\/onlineMeetings\/.+\/attendanceReports/, "OnlineMeetingArtifact.Read.All"],
+  [/^\/me\/onlineMeetings\?/, "OnlineMeetings.Read"],
   [/^\/shares\//, "Files.Read.All"],
   [/^\/(sites|me\/followedSites)/, "Sites.Read.All"],
 ];

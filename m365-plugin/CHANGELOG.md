@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.14.0] - 2026-11-23
+
+### Added
+- **`teams_meeting_attendance`** (module `meetings`, read): who actually joined a Teams meeting and for how long, from
+  Teams attendance reports instead of the invitation. One meeting (`event_id` or `join_url`): every session with its
+  start/end and every attendee, the user first, with role, email, minutes and join/leave intervals. A date range
+  (`from` + `to`, up to 31 days): one row per Teams meeting with the user's own minutes and a total, for a timesheet;
+  a recurring meeting keeps only the session of each occurrence. When Microsoft does not hand over a report (a 403/404,
+  for example for a meeting the user only attended), the result is `ATTENDANCE_NOT_AVAILABLE` with a plain reason and
+  the invitation + response, labelled as not proof of attendance; never a crash. Attendee names and emails are marked
+  untrusted. Requested from Teqo's feedback FB-053929e8 (daily DevOps timesheet and monthly overtime).
+- The `meetings` module now also requests `OnlineMeetings.Read` (find a meeting by its join link) and
+  `OnlineMeetingArtifact.Read.All` (attendance reports). A sign-in with that module asks for them once.
+
 ## [0.13.4] - 2026-11-12
 
 ### Security

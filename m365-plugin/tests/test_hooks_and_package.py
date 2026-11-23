@@ -420,7 +420,7 @@ def test_packaged_server_runs_read_only_and_lists_no_write_tool(pkg, tmp_path):
     assert {"email_read", "events_since", "people_resolve", "m365_sign_in"} <= names
     # off unless the channels / meetings / sites modules are enabled
     channels = {"teams_list_teams", "teams_list_channels", "teams_read_channel",
-                "teams_meeting_find", "teams_meeting_transcript", "teams_meeting_files",
+                "teams_meeting_find", "teams_meeting_transcript", "teams_meeting_files", "teams_meeting_attendance",
                 "sharepoint_list_sites", "sharepoint_list_libraries"}
     assert names == (set(TOOLS["read"]) | set(TOOLS["local"])) - channels
 
