@@ -43,6 +43,7 @@ test-scope guard silently never fires.
 | `test-result-evidence` | a test run is being read as evidence (all-green control, old-version run, collection error, one-OS failure) |
 | `test-double-seams` | code reads a new attribute on an injected object, or a branch is called covered without its production entry point running |
 | `test-scope` | about to run tests during development or create a test file |
+| `handover-contract` | writing an issue, ticket, work item or subagent brief that someone without your working tree will implement or review, writing acceptance criteria, or implementing from such a hand-over |
 | `defensive-failure-design` | writing a failure path, retry, fallback, matching rule that feeds a bind, scoping hint or crash recorder |
 
 All load from their descriptions; none is a slash command. There are no commands or agents.

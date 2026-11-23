@@ -3,6 +3,34 @@
 All notable changes to the `agent-safety-guards` plugin are documented here.
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.0] - 2026-11-23
+
+Lessons from a retrospective of 292 issues handed to an AI implementation pipeline. The
+diagnosis was rarely wrong; the losses came from how the fix was proven, carried and followed up.
+
+### Added
+- **New skill `handover-contract`:** what an issue, ticket, work item or subagent brief must
+  carry when the receiver cannot see the author's working tree. Carry the tested change
+  complete instead of describing it; facts from the fetched target with its commit id;
+  acceptance criteria as runnable effects, one of them for the hard half (upgrade, refused
+  actor, printed value); no open decisions; an owner for every remainder; dependencies as
+  links; the receiver applies a supplied change and never meets a criterion by weakening its
+  test; a shipped-versus-asked comparison after delivery.
+- test-scope: three more widening triggers (a hook on a core write path or a new constraint,
+  a change that spans repositories, a reviewer naming a dependent flow) and the order for a
+  change on a shared path: baseline first, then the change, installed the way it ships
+  (declared dependencies alone and the full stack), and as an account holding only the
+  affected role.
+- test-result-evidence: rule 11. A "pass" recorded beside failing counts is a contradiction;
+  constant-assertion, skip-only and data-dependent skipping tests count as zero for the claim
+  they support; shape checks cannot be the only evidence for behaviour.
+
+## [0.9.0] - 2026-11-19
+
+### Added
+- defensive-failure-design: an approval is an explicit yes to the staged item, given after it, against the gate's own verbatim preview; no retry of a one-shot write on an ambiguous 502/504/timeout; destructive scripts must refuse unknown arguments instead of running their default action.
+- test-scope: match the fixture's configuration to the environment where the bug was seen before trusting a red/green result.
+
 ## [0.8.0] - 2026-11-09
 
 ### Changed

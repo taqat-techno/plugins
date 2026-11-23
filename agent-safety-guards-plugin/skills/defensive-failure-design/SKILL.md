@@ -128,6 +128,7 @@ A confirm step, an approval id, a read-only switch or a keep-list looks like a l
 - **Enforce at the layer every caller crosses.** A check that lives in a Claude Code hook disappears when the same server runs inside an agent bot, which has no hooks. A read-only mode that blocks the MCP write tools still lets the CLI or a script write. Put the check in the server or a proxy in front of it, list every write channel (tools, CLI, scripts, token scope), and test that each one is refused.
 - **Approval must be something the model cannot produce.** An `approved=yes` argument, a `--approved-by` flag or a `confirm` field is written by the model, so a prompt-injected agent supplies it as easily as a human. Use an interactive TTY prompt, a grant only an out-of-band tool can sign, a hook `ask`, an elicitation, or an approve action in the owner's channel.
 - **Bind an approval id to everything the apply step reads.** Hash the whole item (or every field apply consumes), not only the fields shown, and check that the target matches what the user saw. Otherwise the plan can be edited after approval while its id still matches.
+- **An approval is an explicit yes to this staged item, given after it was staged, against a preview the gate itself rendered.** "Any owner message in the last N minutes" approves whatever is staged, a "no" included. A preview the model paraphrases can describe a harmless change while a different one is staged. Require the yes to name the stage id or digest. Require the text the owner saw to contain the gate's own preview verbatim, with every shortened or omitted field named.
 - **Protection must not depend on input it can lose.** Unresolvable config protects everything it would have scoped. A caller-supplied pattern may add candidates but never remove a built-in protection. A destructive step backs up by default instead of above a size threshold.
 - **A list shown for approval is complete or the action refuses.** A disclosure list built by regex, or silently capped, looks complete and is not. Return a count and a `truncated` flag, and refuse when either says the list is partial.
 - **A gate whose check cannot run must ask or deny.** Audit the wrapper's fallback exits as well as the check: `[ -f "$s" ] || exit 0` approves the write when the script is missing or the interpreter is not found. This is the rule-6 restriction case applied to the gate itself; it does not change how advisory hooks such as `UserPromptSubmit` fail.
@@ -151,6 +152,7 @@ test expects nothing to happen? --> pair with a positive assertion; revert the f
 lookup may not resolve?         --> HINT: ignore it and widen. RESTRICTION: deny or refuse to start; never "no policy resolved" == "no policy needed"
 resolver returns nullable?      --> assert the RESOLVED object at each call site, not the presence of the config key
 building a confirm/approval gate? --> what enforces it with no hook? what fields does apply read? can the model write the approval?
+adding a retry to a write?      --> does this error prove nothing happened? if not, check the side effect instead of resending
 ```
 
 ## Validation checklist
@@ -185,6 +187,8 @@ building a confirm/approval gate? --> what enforces it with no hook? what fields
 | Add teardown to a failure path and stop there | Every post-failure consumer now reads state that moved under it, silently and without going red | Re-check each consumer that reads after the failure when cleanup is introduced |
 | Assert `toHaveLength(0)` for a case that should be silent | Passes identically against code with no handler at all — against the exact bug | Pair it with a positive assertion that the error still reaches the user elsewhere |
 | Treat an unrecognised profile / policy name as "no restriction" | The restriction disappears on a typo, and from outside that is indistinguishable from it working | Deny or refuse to start; assert the resolved policy is non-null |
+| Retry a one-shot write (message, email, payment) on a 502, 504 or timeout | A gateway error can arrive after the upstream already applied the write, so the retry duplicates it | Retry only on errors that prove nothing happened (connection refused, a 429 with Retry-After); otherwise check whether it landed, then report |
+| A destructive script runs its default action on any argument it does not recognise | `--help`, a typo or an unsupported flag falls through and performs the real action | Parse arguments strictly: print usage for `--help`, exit non-zero on any unknown flag, and act only on an explicit action |
 | Check that the policy config key is present | A present-but-misspelled value is the entire failure mode | Check the resolver's OUTPUT, at the call site that consumes it |
 | Ship a silence test without reverting the fix | A test that survives the revert never discriminated | Revert, confirm it goes red, restore |
 

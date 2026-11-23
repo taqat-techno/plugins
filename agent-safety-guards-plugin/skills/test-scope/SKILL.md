@@ -1,15 +1,16 @@
 ---
 name: test-scope
 description: Use when about to run tests during development, choosing which tests prove a change, or about to create a test file. Picks the smallest test set that still proves the change; the full suite runs only when the user asks or in CI.
-version: 0.1.0
+version: 0.2.0
 user-invocable: false
 metadata:
-  last_reviewed: 2026-09-27
+  last_reviewed: 2026-11-23
   owns:
     - the test-scope ladder (T0 static, T1 targeted, T2 affected, T3 full) and which tier each moment of development gets
     - batching (one test run per coherent change, never per edit)
     - the escalation triggers that widen a run, and the rule that widening stops at T2 unless the user asks
     - the FULL_SUITE=1 override semantics (who may use it and when)
+    - the order for a change on a shared path (baseline first, then the change, as it ships, as the affected actor)
     - test-file hygiene (extend before creating, scratch probes outside the repo, every new file justified)
     - the test-scope report block (what ran, what did not, what to run before merge)
     - the change-to-test mapping for generic runners (references/runner-recipes.md)
@@ -73,7 +74,24 @@ record in the report that T3 was not run and why it is recommended.
 | Security, access rules, permissions, settings or dependency versions changed | The modules whose behaviour they gate |
 | An injected collaborator gained a read, a method or a field | The consumers' tests (see `test-double-seams`) |
 | A narrow run is green but a wider run you have seen is red | The wider run wins - localise before reporting (see `test-result-evidence`) |
+| A hook or override on a core write path (create, write, delete, a state transition) or a new constraint | Every module whose flow passes through it, including ones that never mention your module |
+| The change spans repositories, a submodule or a vendored copy | The dependents in **each** repository, at the versions that ship together |
+| A reviewer says another flow depends on it | That flow's tests. "The data has none of those" is a fact about the data, not about the code path |
 | You cannot tell what depends on the change | Ask, or report that impact is unknown - never guess green |
+
+For a change on a shared path, run in this order:
+
+1. **Baseline first.** Run the widened set on the untouched target before the change. A
+   test that is already red is named in the report with whoever owns it. It is not absorbed
+   into your result and not blamed on your change.
+2. **Then the change.** Report every test that changed colour, in either direction.
+3. **Run it the way it ships.** A new or changed unit is proven twice: installed with only
+   its own declared dependencies, and inside the full stack it ships with. A copy of an
+   existing installation is not a clean install, and a unit tested only inside the full
+   stack has not shown its dependency list is complete.
+4. **Run it as the affected actor.** A change to who may do what is run as an account that
+   holds only that role, with one negative test for each way a record can match the new
+   rule. A run as the administrator or the superuser proves nothing about permissions.
 
 ## The full suite
 
@@ -110,7 +128,9 @@ record in the report that T3 was not run and why it is recommended.
   session scratchpad or the system temp directory, and are deleted when answered.
   A probe worth keeping becomes a real test in the right module.
 - **Every new test must bite**, meaning it fails without the change (the pre-fix run can
-  itself be scoped). Every new test file must be registered wherever the framework
+  itself be scoped). When the bug was seen in a live environment, set the fixture's
+  configuration to match that environment first. A fixture whose settings differ can
+  fail or pass for a reason unrelated to the bug. Every new test file must be registered wherever the framework
   discovers tests. A file that is never collected is worse than none, because it reads
   as coverage.
 - **Report each new test file** with its reason in one line.
@@ -162,3 +182,6 @@ recognise is simply allowed. See `${CLAUDE_PLUGIN_ROOT}/docs/decisions.md` D-001
 | A new `test_*.py` per bug in a unit that already has a test module | Scattered coverage nobody finds | Extend the existing module |
 | `check_x.py` / `try_x.py` scripts left in the repo | Noise; sometimes collected as tests | Scratchpad, then delete |
 | Reporting "tests pass" from a scoped run | Hides what was not run | The report block |
+| Running only the changed module after touching security or a core write path | The breakage is in the neighbours | The widened set, baseline first |
+| Proving a permission change as the administrator | The administrator bypasses the rule under test | An account with only the affected role |
+| "New install works" shown on a copy of an installed database | Missing dependencies are already loaded there | A clean install with only the declared dependencies |

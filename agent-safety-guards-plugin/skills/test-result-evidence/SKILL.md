@@ -1,10 +1,10 @@
 ---
 name: test-result-evidence
 description: "Use when a test run is being read as evidence: a negative control or bug-reproduction run that came back all green, a run aimed at a git worktree, previous tag or vendored old copy, a pytest or jest collection error, a collected count that dropped between versions, a teardown or temp-directory assertion, a failure that reproduces on only one OS, a fresh checker that flags most of a mature corpus, or a narrow test that passes while a wide one fails. Covers naming the discriminator before a control run, proving which artifact the run imported (editable installs pin the working tree), reading a collection ImportError as zero tests ran, comparing collected counts, asserting resources are closed rather than deleted, and proving the instrument fired at all. Reads results only; it does not write tests."
-version: 0.2.0
+version: 0.3.0
 user-invocable: false
 metadata:
-  last_reviewed: 2026-08-10
+  last_reviewed: 2026-11-23
   owns:
     - the named-discriminator rule (before any control, state the result that would have proven the opposite)
     - proving which artifact a control run imported (resolved module path printed before the invocation; editable-install sys.path pinning)
@@ -148,6 +148,26 @@ Observed shape: a fix made its unit test green, then the end-to-end run still sh
 - Treat the wide failure as the ground truth and the narrow pass as a statement about coverage.
 - Once located, upgrade the narrow test to exercise the real mechanism. A test that stays pointed at the old path re-opens the defect the moment the real one changes.
 - Never ship the scoped fix with its green attached while the wide run disagrees.
+
+### 11. A verdict cannot outvote its own counts, and an empty test counts as zero
+
+Read the numbers before the word. A review or gate that records "pass" beside "285 tests, 6
+failed" has recorded a contradiction; report the run, and treat the verdict as unset until
+someone explains the six.
+
+The same reading applies to what the tests contain:
+
+- A test whose body is a constant assertion (`assertTrue(True)`, `expect(true)`), a `pass`,
+  or an unconditional skip is **zero tests** for the claim it sits under, however it is
+  counted in the summary.
+- A test that skips when its data is missing (no demo data, an inactive language, an absent
+  optional package) has not run on any environment where that data is missing. Check the
+  skipped count on the environment that gates the change, not on your own.
+- A commit or review message that claims tests which are not in the diff is a claim, not a
+  result. Open the diff.
+- "Not overridden", "grep finds N", "the file is identical" are checks of shape. They can
+  support a behavioural claim; they cannot be the only evidence for one
+  (see `structural-assertions`).
 
 ## Decision framework
 
