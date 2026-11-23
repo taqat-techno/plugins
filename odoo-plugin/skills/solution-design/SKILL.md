@@ -140,6 +140,9 @@ verdict table; you review every `CUSTOM` and every skipped rung before presentin
 | "The client asked for a module." | The client asked for an outcome. A module is one possible answer. |
 | "Enforce it in code everywhere." | An invariant that must patch every core entry point (create, import, duplicate, RPC) is a maintenance sink. Prefer the native behaviour plus a helper. |
 | "Copy the core view/method and change it." | Inherit with XPath / `super()`. A copied core method silently stops receiving fixes. |
+| "Patch the custom rule again." | A custom rule that keeps needing patches is fighting standard behaviour. Ask first whether the rule should exist and who decides; the answer is often to remove it. Get that decision before the first patch, not after the third. |
+| "Fix it inside the vendored OCA module." | A vendored module is replaced on its next update. Extend it from your own module, or send the fix upstream. |
+| "Build a module for it; I'll check standard later." | The native setting is found in minutes (a per-company sender, a pricelist rule, a route). Check before the design, not after the module is filed. |
 
 ## Related skills
 

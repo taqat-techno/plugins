@@ -155,6 +155,37 @@ Both are T1 reasons to add `-u`, not reasons to run everything.
 Check `N tests` in the summary on every scoped run: a selector that matches nothing reports
 `of 0 tests` with exit 0 (traps 2 and 3).
 
+### Prove the change around itself (before calling it done or handing it over)
+
+A change proven only in its own module, as admin, on your own database has been proven where
+it works. The defects that come back are next to it. For any change to security, a core hook
+(`create`, `write`, `unlink`, `_action_done`, a state transition), a constraint or a module
+other modules depend on, T2 is this set:
+
+| Check | How | What it catches |
+|---|---|---|
+| **Baseline first** | Run the set below on the untouched release tip | A test that was already red; name it with its owner instead of absorbing it |
+| **Neighbours** | `python "${CLAUDE_PLUGIN_ROOT}/scripts/test/reverse_dependents.py" <module> --addons <path> [--addons <path>] [--model <model>]`, then run the `--test-tags` line it prints | A rule or hook that breaks another module's flow. Pass every addons path that ships together, other repositories and Enterprise included |
+| **Fresh install** | `-i <module>` on an empty database | A crash that an upgrade hides; anything only a migration sets up |
+| **Upgrade** | `-u <module>` on a copy of the newest stage or production backup, at its real installed version | Migrations that do not run, `noupdate` records, data that fights production configuration |
+| **Declared depends only** | Install the module alone on an empty database | A missing `depends`. A copy of an installed database already has every module loaded, so it cannot show this |
+| **Full stack** | Install with everything it ships with | Clashes with sibling modules, `auto_install` bridges |
+| **The role** | Run as a user holding only the affected group (`with_user`, or log in as them) | Anything admin and superuser bypass: an ACL, a record rule, an `unlink` reached through a `Command.delete` on a line |
+
+List every test that changed colour, in either direction. "Production has no such records"
+is a statement about data; the code path still runs for the next record.
+
+Environment differences that change the result, so state which one you ran:
+
+- **Enterprise accounting.** With `account_accountant` installed a reconciled invoice is
+  `in_payment`; without it, `paid` (`_get_invoice_in_payment_state`). Code or a test that
+  compares with `paid` alone passes on Community and fails on Enterprise.
+- **Demo data, languages, optional Python packages, system parameters.** A test that skips
+  when one is missing has not run on the gate database. Build the fixture (activate the
+  language, create the data) instead of skipping, and read the skipped count on the gate.
+- **A second company and the public website user.** Global multi-company rules apply to the
+  public user too.
+
 ### Long runs are background jobs (the 3-minute rule)
 
 Waiting on a test run blocks the whole session. Decide foreground or background from the
@@ -274,7 +305,7 @@ owner decide, or patch the consuming method instead.
 
 ### Anti-patterns (never)
 
-Dirty-DB reliance · `sudo()` everywhere · happy-path only · broad / fragile tests · sleeps / time assumptions · accidental install-order dependence · direct SQL where the ORM is under test · testing local migration scripts as product behavior · machine-specific passes · hardcoded client/project data · skipping security tests on permission-sensitive modules · treating "module installs / imports" as coverage · empty test files for show · claiming runtime / browser / upgrade validation that was not actually run · reading a run that matched no tests ("of 0 tests") as a pass · gating a test run's verdict on an ERROR-line log scan · creating fixtures on an inherited DB without auditing its integration config. Full catalogue with fixes: **`references/review-checklist.md`**.
+Dirty-DB reliance · `sudo()` everywhere · happy-path only · broad / fragile tests · sleeps / time assumptions · accidental install-order dependence · direct SQL where the ORM is under test · testing local migration scripts as product behavior · machine-specific passes · hardcoded client/project data · skipping security tests on permission-sensitive modules · treating "module installs / imports" as coverage · empty test files for show · a test that only skips or asserts a constant · relaxing a guard test so generated data passes · running only the changed module after touching security or a core hook · claiming runtime / browser / upgrade validation that was not actually run · reading a run that matched no tests ("of 0 tests") as a pass · gating a test run's verdict on an ERROR-line log scan · creating fixtures on an inherited DB without auditing its integration config. Full catalogue with fixes: **`references/review-checklist.md`**.
 
 ### Output templates
 

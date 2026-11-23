@@ -508,6 +508,13 @@ Use `odoo.tools.profiler.Profiler` (Python) or the developer-mode profiler
 
 ## What to NOT do
 
+- Don't present a finding you only read as a defect you saw. Mark each finding **reproduced**
+  (you ran it and saw the failure) or **static** (read from code, not run). A static finding
+  is a hypothesis: the form may not expose the field, the role may have no holders, the
+  parent definition may already handle it. Open the parent definition before blaming it.
+- Don't turn one review into a stack of work items. One review is one report. File an item
+  only for a finding you then reproduce at runtime as the affected role, and group hygiene
+  findings with no user impact into a single item or leave them in the report.
 - Don't invent rules. If a rule isn't in this skill or the Odoo docs,
   flag the issue as "convention question, not a docs rule".
 - Don't grade on personal style. PEP8 already excludes E501/E301/E302 in

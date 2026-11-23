@@ -192,6 +192,18 @@ before/after assertions.
 
 ## Before any write
 
+**A production fix made by hand is a hotfix, not a delivery.** If it must be made before the
+code ships: keep it as small as the emergency (the job position, not the department), create
+records with no module xmlid, and get the same change into code and a tracked item the same
+day. Data that a module re-loads on every update will overwrite what was set by hand, and a
+module update deletes records under its own xmlids that its files do not define. The
+mechanics are in the odoo-upgrade skill ("Production hand-edits to module-owned data").
+
+**What a database shows is a fact about data, not about the system.** "There are no purchase
+orders" does not mean the purchase flow never runs through the code you are changing, and a
+count you attribute to a migration may come from a live sync. Say what you read and from
+where; do not turn it into a claim about behaviour without running the flow.
+
 1. `odoo_search` the target ids first and show the user what will change. A wrong domain
    updates far more rows than intended, and there is no undo.
 2. State the record count out loud before writing.

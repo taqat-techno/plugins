@@ -2,6 +2,42 @@
 
 All notable changes to `odoo-plugin` are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/). Versioning follows [SemVer](https://semver.org/).
 
+## [4.7.0] - 2026-11-23
+
+Lessons from a retrospective of 292 issues filed against Odoo 17 modules and delivered by an
+AI pipeline. The diagnoses were mostly right; the defects that came back were next to the
+change: a migration that could not run, another module's tests, a role nobody logged in as.
+
+### Added
+- **odoo-upgrade: "A migration folder is a version gate".** A script runs only when
+  `installed < folder <= manifest` (checked in `odoo/modules/migration.py` for 17.0, 18.0
+  and 19.0). Read the installed version on every environment before choosing a folder; never
+  edit a shipped migration; a fresh install runs none; a file not named `pre-`, `post-` or
+  `end-` is ignored; no literal next version in a hand-over.
+- **Write guard: migration advice** (`hooks/upgrade/migration_advice.py`, advisory only). A
+  write under `migrations/<version>/` or `upgrades/<version>/` gets a note when the file
+  name cannot load, the folder is above the manifest version, or the script is already
+  committed. `ODOO_MIGRATION_GUARD=off` disables it.
+- **odoo-test: "Prove the change around itself".** For a change to security, a core hook, a
+  constraint or a shared module: baseline first, the neighbours' suites, fresh install and
+  upgrade on a real backup, declared depends alone and the full stack, and the role. Notes on
+  Enterprise accounting (`in_payment` versus `paid`), tests that skip on the gate
+  database, a second company and the public user.
+- **`scripts/test/reverse_dependents.py`:** lists the modules that depend on a module, or
+  inherit a model, from manifests alone, and prints the `--test-tags` selector for them.
+- **odoo-security:** an access change is measured as the role and around it; which control
+  refused (ACL or record rule); rights copied from production carry its defects; rules for an
+  emergency access hotfix.
+- **odoo-reviewer and the three analyzer agents:** every finding is marked reproduced or
+  static; one review is one report, not a stack of work items.
+- **odoo-solution-design:** three more red flags (patching a custom rule that fights
+  standard behaviour, fixing inside a vendored OCA module, building before checking the
+  native setting).
+- **odoo live-instance skill:** a hand-made production fix is a hotfix to be shipped as code
+  the same day; what a database shows is a fact about data, not about behaviour.
+- Evals: `fires-on-edit-shipped-migration-script`,
+  `fires-on-security-change-tested-only-in-own-module`.
+
 ## [4.6.2] - 2026-11-21
 
 Two causes the Odoo.sh doctor misnamed on a real staging build, reported from the field.

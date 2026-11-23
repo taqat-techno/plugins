@@ -399,6 +399,17 @@ own arguments have already eliminated. If nothing reachable remains that means
 failure, the repair is to **remove** the guard, not to reorder it — and the
 report should say so, because "reorder" leaves a false-positive raise in place.
 
+### An action returned from `action_confirm` never reaches a user who clicks Validate
+
+On a draft picking, `button_validate()` calls `action_confirm()` itself and
+discards its return value (17.0). A wizard or popup that a custom
+`action_confirm` returns appears only on the "Mark as To Do" path. Clicking
+Validate directly skips it, and the picking is done. Repeat the check in a
+`button_validate` override: return the action for a single record, and raise
+for a multi-record validate. If such a wizard replaces lines, unlink only the
+lines it replaces. Writing `[(5, 0, 0)]` to the one2many deletes every line,
+the ones the user meant to keep included.
+
 ### A relational field's `domain=` is not a write constraint
 
 The `domain=` on a `Many2one` / `Many2many` is a **UI / search descriptor**:
@@ -587,6 +598,14 @@ migration. The same flag that protects your data from being overwritten is what
 strands it here; `noupdate="0"` has the opposite failure (seeds re-imported and
 user edits wiped on every upgrade).
 
+### `next_by_code()` does not fall back to the parent company's sequence
+
+`ir.sequence.next_by_code()` uses only a sequence whose company is the current
+company or empty. If a standard sequence was assigned to the parent company,
+the first record created in a branch company fails with "No sequence defined".
+That can stay hidden until a newly installed module first asks for that code.
+Clear the sequence's company, or add a copy for the branch with the same code.
+
 ### Under `env.su`, mixin stamping neither happens nor is refused
 
 A tenancy/ownership mixin that stamps its anchor from the acting user's
@@ -603,6 +622,21 @@ per-line field outside that list is merged away: two lines with different
 values become one line with the summed quantity and one value. Append the
 field in an override (no `@api.model`, matching core) and test two
 same-product lines with different values.
+
+### A push step appends to any open transfer with the same procurement group
+
+`stock.move._assign_picking` puts a new move into an existing picking with the
+same `group_id`, source, destination and operation type, with `printed=False`,
+that is not done or cancelled. Moves with no procurement group all match one
+another. So receipts created by hand, or by code that never sets a group, feed
+one ever-growing next-step transfer, and same-product lines then merge inside
+it. In 17.0 push rules ignore `group_propagation_option`, and the rule form
+hides that section for push rules. Give each source document its own
+procurement group in code. Alternatively, OCA `procurement_auto_create_group`
+creates a new group for every pushed line, which means one transfer per line.
+A push rule fires when stock arrives at its source location. A pull rule fires
+only when its destination asks for stock. Either rule must be in a route that
+applies to the product actually moved.
 
 ### A filter on a non-searchable field matches everything (17.0)
 

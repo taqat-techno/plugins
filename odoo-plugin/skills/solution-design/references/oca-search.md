@@ -44,6 +44,9 @@ available for 17 until its migration PR is merged.
   stability, not about fitting your requirement.
 - No commit since the version branch was created, or only the migration commit: treat as
   unmaintained for that version.
+- Many OCA modules' own tests need demo data. A `setUpClass` error on a database installed
+  without demo data is not a module failure: rerun on a database with demo data before
+  judging it.
 - A module whose `depends` drags in a large stack you otherwise don't need costs more than
   a small custom extension; record that as the skip reason.
 

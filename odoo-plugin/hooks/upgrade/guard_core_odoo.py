@@ -13,6 +13,10 @@ MCP server's connection file.
    allowed actions. It is changed only through scripts/mcp/odoo_sh.py, which needs the
    developer's yes to allow update/restart.
 
+4. Advice, never a refusal: a write to `<module>/migrations/<version>/` gets a note when the
+   file name cannot load, the folder is above the manifest version, or the script is already
+   committed (see migration_advice.py). ODOO_MIGRATION_GUARD=off disables the note.
+
 Refusals go out as `permissionDecision: "deny"` with the reason. Fails open: bad
 input, an exception or the 5 s watchdog all end in exit 0.
 """
@@ -83,6 +87,14 @@ def main() -> int:
                 return 0
         except re.error:
             continue  # Skip malformed user-provided patterns
+
+    try:   # advisory only: a migration script that cannot run, or an edit to a shipped one
+        from migration_advice import advise
+        notes = advise(file_path, str(payload.get("tool_name") or ""))
+        if notes:
+            hooklib.context("PreToolUse", "\n".join(notes))
+    except Exception:
+        pass
     return 0
 
 

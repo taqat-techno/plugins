@@ -31,8 +31,8 @@ CLI_SCRIPTS = [
     "security/sql_scanner.py", "security/sudo_finder.py",
     "service/db_manager.py", "service/docker_manager.py", "service/env_initializer.py",
     "service/ide_configurator.py", "service/server_manager.py",
-    "test/coverage_reporter.py", "test/mock_data_factory.py", "test/test_generator.py",
-    "test/test_runner.py",
+    "test/coverage_reporter.py", "test/mock_data_factory.py", "test/reverse_dependents.py",
+    "test/test_generator.py", "test/test_runner.py",
     "upgrade/cli.py",
 ]
 

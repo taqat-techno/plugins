@@ -26,3 +26,8 @@ Return findings as a structured report:
 - **Coverage estimate**: Percentage of models/controllers with tests
 
 Prioritize uncovered items by complexity (models with many fields/methods first).
+
+Mark every finding **static** (read from the code, not run) unless you were given a run
+that shows it. A static finding is a hypothesis for the main conversation to reproduce
+before it becomes a work item; say so once at the top of the report. Return one report,
+not one item per finding.

@@ -5,13 +5,14 @@ description: >-
   that appear after an upgrade: tree to list, attrs, useService('rpc') no longer available, theme SCSS
   variables, manifest and security changes, portal XPath fixes and migration scripts. Also
   when a model or table rename, noupdate seed data, or moving a model to another module
-  could silently lose data.
+  could silently lose data, when a migration script did not run or a shipped one is about
+  to be edited, or when choosing the version folder for a new migration.
 license: "MIT"
 metadata:
   filePattern: "**/__manifest__.py,**/views/*.xml,**/static/src/js/*.js,**/static/src/scss/*.scss"
   bashPattern: "odoo.*upgrade|odoo.*precheck|odoo.*migrate"
   model: sonnet
-  last_reviewed: 2026-07-23
+  last_reviewed: 2026-11-23
 ---
 <!-- Last updated: 2026-07-23 -->
 
@@ -197,6 +198,38 @@ Write the manifest version in full (`19.0.1.0.0`): `adapt_version()` prefixes th
 versions of three parts or fewer, so `1.0.0` is stored as `19.0.1.0.0` while a four-part `1.0.0.1`
 is rejected. Compare folders against the stored value, not the typed one.
 
+### A migration folder is a version gate
+
+A script runs when, for that database,
+
+```
+installed version  <  folder version  <=  manifest version
+```
+
+(`odoo/modules/migration.py`; the same test in 17.0, 18.0 and 19.0). Everything outside the
+window is skipped without an error or a log line you would notice:
+
+- **A database already at or above the folder never runs it.** Before choosing a folder,
+  read the installed version on every environment the change will reach
+  (`SELECT name, latest_version FROM ir_module_module WHERE name = '<module>'`). The folder
+  must be above the highest of them.
+- **Never edit a migration that has shipped.** The databases that already ran it will not
+  run it again, so the edit reaches only the ones still behind. Put the fix in a new folder,
+  and bump the manifest to it.
+- **A folder above the manifest version does not run** until the manifest reaches it.
+- **A fresh install runs no migration.** What a migration sets up for existing databases
+  must also be true after a plain install, from data files or code. Prove both paths.
+- **A file whose name does not start with `pre-`, `post-` or `end-` is ignored.**
+  `post_migrate.py` loads nothing.
+- **Do not write a literal next version in an issue, a plan or a hand-over.** Another change
+  can take that number before yours merges. Write "the next version above the release
+  branch at merge" and let whoever merges pick it.
+- **"Not promoted yet" is a fact about a branch at a moment.** Read it from the fetched
+  release branch when you write it, and quote the commit.
+
+The write guard adds a note when a migration file has a name that cannot load, sits above
+the manifest version, or is already committed (`ODOO_MIGRATION_GUARD=off` disables it).
+
 Common patterns:
 
 | Pattern | Pre-Migrate | Post-Migrate |
@@ -266,6 +299,14 @@ present as a broken release rather than as a data problem:
   `_check_one_user_type` allows one user-type group per user, and the role adds
   the new type without removing the old. Ship it as code plus a pre-migration
   that unlinks the old type from the group's `implied_ids`, then resync holders.
+- **Moving records built by hand on production into the module** (groups, roles,
+  access rights, rules): adopt before the data loads. Attach the new xmlids to
+  the existing records (`ir.model.data`, `noupdate=True`) so the update takes them
+  over instead of creating copies. Ship them as `noupdate="1"` XML when UI edits
+  must survive; `ir.model.access.csv` rows are re-imported on every update. Xmlids
+  generated from record names can collide, so add a test that fails on a duplicate
+  xmlid. Prove it on a restored production copy: every record adopted, none
+  created, and the security tables identical before and after.
 
 Before debugging code when an upgrade crashes inserting rows the module ships,
 diff the module's xmlids against the target database. On hosted platforms that

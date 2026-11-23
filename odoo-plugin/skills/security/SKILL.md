@@ -174,6 +174,39 @@ The scanners above catch declaration-level issues. These runtime/design
 facts don't surface in a static scan but decide whether a control actually
 holds — verify them by hand.
 
+### An access change is measured as the role, and around the role
+
+- **Walk it as a user who holds only the affected group**: every button, report, smart
+  button and route that role is meant to use. Admin and `sudo()` bypass the thing under test.
+- **Walk the neighbours too**: the roles that were supposed to keep or lose access. A rule
+  that fixes one role often removes a menu or a report from another.
+- **One negative test per way a record can match the new rule**, not one for the rule.
+- **Run the other modules' security tests** (see "Prove the change around itself" in the
+  odoo-test skill). A new ACL or rule on a shared model turns tests red in modules that never
+  mention yours.
+- **Read which control refused.** A missing ACL and a record rule both raise `AccessError`,
+  with different text. The ACL message says the user is not allowed to access the model and
+  lists the groups that are. The record-rule message speaks of restricted records and, in
+  developer mode for an internal user, names the rules (17.0 `ir_model.py`, `ir_rule.py`;
+  wording differs by version). Granting an ACL when a rule refused changes nothing.
+- **Deleting a line through its parent is still an `unlink`** on the line model for that
+  user. Test it as the role.
+
+### Rights copied from a production database carry production's defects
+
+Adopting hand-built groups, ACLs and rules from a live database into module data makes the
+current state permanent, mistakes included. Review the export as code before shipping it: a
+menu hidden from the role that needs it, a delete right granted to a whole department, a rule
+with an empty domain. Never relax a guard test so the generated data passes; the test is
+telling you what the export got wrong. The adoption mechanics are in the odoo-upgrade skill.
+
+### A production hotfix to access rights
+
+Only as an emergency, and then: grant to the smallest group that needs it (a job position,
+not a department), never an unrestricted right on a core model such as `stock.move`, create
+it without a module xmlid (the module's next update deletes records under its own xmlids
+that its data files do not define), and ship it as code the same day.
+
 ### `/web/image` (and Binary routes) answer 200 on DENIED access
 
 `/web/image` returns **HTTP 200 with a placeholder image** when the caller
