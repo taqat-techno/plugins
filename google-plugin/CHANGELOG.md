@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.10.1] - 2026-11-26
+
+### Fixed (from Nino's live run of 0.10.0)
+- A saved file whose name has no extension, or one that does not fit its MIME type, gets the standard extension
+  for that type (image/jpeg -> .jpg, image/png -> .png, application/pdf -> .pdf, ...) before the never-overwrite
+  numbering: `name.jpg`, then `name (2).jpg`. Fitting extensions in any case or alias (.JPEG, .jfif, .htm) are kept;
+  a wrong one is kept too and the right one appended (`a.png` sent as JPEG -> `a.png.jpg`). Unknown or generic types
+  (application/octet-stream) never change a name. Applies to `drive_rest_download_file`, `drive_save_file` and
+  `gmail_get_attachment` (one rule in save.mjs). Seen live: a Drive JPEG named with a trailing space and no extension
+  was saved without one, so media tools could not open it. Also fixes `drive_save_file` doubling an alias
+  (`photo.jpeg` -> `photo.jpeg.jpg`).
+
 ## [0.10.0] - 2026-11-26
 
 ### Added

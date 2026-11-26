@@ -203,3 +203,45 @@ test("drive_rest_download_file: a hostile file name is cleaned and stays in the 
   await assert.rejects(noDir.callTool("drive_rest_download_file", { fileId: "evil" }), { code: "DOWNLOAD_NOT_CONFIGURED" });
   assert.ok(existsSync(dir));
 });
+
+// ------------------------------------------------------------------------------------------------ 0.10.1 extensions
+
+test("withExtension: adds the standard extension when missing or wrong, keeps a fitting one (any case or alias), leaves unknown types alone", async () => {
+  const { withExtension } = await import("../server/save.mjs");
+  assert.equal(withExtension("عبد الرحمن ايمن ", "image/jpeg"), "عبد الرحمن ايمن.jpg");
+  assert.equal(withExtension("photo.JPEG", "image/jpeg"), "photo.JPEG");
+  assert.equal(withExtension("photo.jfif", "image/jpeg; name=x"), "photo.jfif");
+  assert.equal(withExtension("a.png", "image/jpeg"), "a.png.jpg");
+  assert.equal(withExtension("page.htm", "text/html"), "page.htm");
+  assert.equal(withExtension("Mr. Smith", "application/pdf"), "Mr. Smith.pdf");
+  assert.equal(withExtension("data", "application/octet-stream"), "data");
+  assert.equal(withExtension("data", undefined), "data");
+  assert.equal(withExtension("x".repeat(400), "image/png").slice(-4), ".png", "length cap keeps the extension");
+});
+
+test("drive_rest_download_file: a name without extension (Nino's case) is saved as name.jpg, then name (2).jpg", async () => {
+  const dir = dl(), NAME = "عبد الرحمن ايمن ";
+  const c = ctxFor([tokenOk, drive([
+    ["files/img", { when: (u) => u.searchParams.get("alt") === "media", fn: () => bytes(Buffer.from([0xff, 0xd8, 0xff])) }],
+    ["files/img", () => json({ id: "img", name: NAME, mimeType: "image/jpeg", size: "3" })],
+  ])], { seed: SEED, extraEnv: { ...ON, GOOGLE_DOWNLOAD_DIR: dir } });
+  const a = await c.callTool("drive_rest_download_file", { fileId: "img" });
+  const b = await c.callTool("drive_rest_download_file", { fileId: "img" });
+  assert.equal(basename(a.saved.path), "عبد الرحمن ايمن.jpg");
+  assert.equal(basename(b.saved.path), "عبد الرحمن ايمن (2).jpg");
+  assert.equal(a.saved.filename, "عبد الرحمن ايمن.jpg");
+});
+
+test("gmail_get_attachment and drive_save_file add the extension too; a fitting one is not doubled", async () => {
+  const dir = dl();
+  const RAW = ["MIME-Version: 1.0", 'Content-Type: multipart/mixed; boundary="b"', "", "--b", "Content-Type: text/plain", "", "hi",
+    "--b", 'Content-Type: image/png; name="scan"', 'Content-Disposition: attachment; filename="scan"', "Content-Transfer-Encoding: base64", "", Buffer.from("PNG").toString("base64"), "--b--", ""].join("\r\n");
+  const ok = (data) => ({ content: [{ type: "text", text: JSON.stringify(data) }], structuredContent: data });
+  const c = ctxFor([tokenOk, mcp((p) => (p.name === "get_message"
+    ? ok({ id: "m1", raw: Buffer.from(RAW).toString("base64url") })
+    : ok({ id: p.arguments.fileId, title: p.arguments.fileId === "j" ? "holiday.jpeg" : "holiday", mimeType: "image/jpeg", content: Buffer.from("JPG").toString("base64") })))], { seed: SEED, extraEnv: { GOOGLE_DOWNLOAD_DIR: dir } });
+  const att = await c.callTool("gmail_get_attachment", { messageId: "m1", attachment: "1" });
+  assert.equal(basename(att.saved.path), "scan.png");
+  assert.equal(basename((await c.callTool("drive_save_file", { fileId: "n" })).saved.path), "holiday.jpg");
+  assert.equal(basename((await c.callTool("drive_save_file", { fileId: "j" })).saved.path), "holiday.jpeg", "not holiday.jpeg.jpg");
+});

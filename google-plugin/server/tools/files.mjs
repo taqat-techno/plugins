@@ -5,7 +5,7 @@
 //                         whose base64 result would be cut by the size cap)
 import { callGoogle } from "./bridge.mjs";
 import { attachmentsOf, parseMime } from "../mime.mjs";
-import { maxSaveBytes, saveBytes } from "../save.mjs";
+import { maxSaveBytes, saveBytes, withExtension } from "../save.mjs";
 import { GoogleError } from "../util.mjs";
 
 const GET_RAW = { name: "gmail_get_attachment", module: "gmail", remote: "get_message", grantAs: "gmail_get_message" };
@@ -25,16 +25,6 @@ function dataOf(r, tool) {
   try { return JSON.parse((r.content ?? []).find((c) => c.type === "text")?.text ?? "null"); } catch { return null; }
 }
 
-export const EXT = {
-  "application/vnd.google-apps.script+json": ".json", "image/svg+xml": ".svg", "application/zip": ".zip", "application/rtf": ".rtf",
-  "application/vnd.oasis.opendocument.text": ".odt", "application/vnd.oasis.opendocument.spreadsheet": ".ods",
-  "application/vnd.oasis.opendocument.presentation": ".odp", "application/epub+zip": ".epub", "text/tab-separated-values": ".tsv",
-  "text/markdown": ".md",
-  "text/plain": ".txt", "text/csv": ".csv", "text/html": ".html", "application/pdf": ".pdf", "image/png": ".png", "image/jpeg": ".jpg",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": ".docx",
-  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": ".xlsx",
-  "application/vnd.openxmlformats-officedocument.presentationml.presentation": ".pptx",
-};
 
 export const tools = [
   {
@@ -61,7 +51,7 @@ export const tools = [
         hit = same[0];
       }
       if (!hit) throw new GoogleError("NOT_FOUND", `No such attachment; the message has ${list.length}. Call without attachment to list them.`);
-      const path = saveBytes(ctx.cfg, hit.filename, hit.bytes);
+      const path = saveBytes(ctx.cfg, hit.filename, hit.bytes, hit.mimeType);
       return { tool: "gmail_get_attachment", untrusted: true, message_id: messageId, saved: { path, filename: hit.filename, mimeType: hit.mimeType, size: hit.size } };
     },
   },
@@ -81,9 +71,8 @@ export const tools = [
       if (Math.floor(b64.length * 3 / 4) > maxSaveBytes(ctx.cfg) + 3) throw new GoogleError("TOO_LARGE", `The file is over the ${Math.round(maxSaveBytes(ctx.cfg) / 1048576)} MB limit; nothing was saved.`, { hint: "The person can raise GOOGLE_MAX_SAVE_MB." });
       const bytes = Buffer.from(b64, "base64");
       const mimeType = String(data.mimeType ?? args.exportMimeType ?? "application/octet-stream");
-      let filename = String(data.title ?? fileId);
-      if (EXT[mimeType] && !filename.toLowerCase().endsWith(EXT[mimeType])) filename += EXT[mimeType];
-      const path = saveBytes(ctx.cfg, filename, bytes);
+      const filename = withExtension(String(data.title ?? fileId), mimeType);
+      const path = saveBytes(ctx.cfg, filename, bytes, mimeType);
       return { tool: "drive_save_file", untrusted: true, file_id: fileId, saved: { path, filename, mimeType, size: bytes.length } };
     },
   },

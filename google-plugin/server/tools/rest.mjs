@@ -12,8 +12,7 @@ import { createHash } from "node:crypto";
 import { createRest } from "../rest.mjs";
 import { addressOf, attachmentsOf, bodySources, bodyText, bodyViews, buildMessage, htmlToText, inlineParts, isEmail, parseMime, rawToBuffer } from "../mime.mjs";
 import { draftSnapshot, putSignature, textToHtml } from "../signature.mjs";
-import { maxSaveBytes, saveBytes } from "../save.mjs";
-import { EXT } from "./files.mjs";
+import { maxSaveBytes, saveBytes, withExtension } from "../save.mjs";
 import { readAttachments } from "../attach.mjs";
 import { guestGuard } from "../guards.mjs";
 import { fetchSignatureImages, signatureImageUrls } from "../sigimages.mjs";
@@ -479,9 +478,8 @@ export const tools = [
         got = await rest.bytes("drive", `files/${id}`, { query: { alt: "media", supportsAllDrives: true }, maxBytes: max });
         mimeType = type || got.contentType || "application/octet-stream";
       }
-      let filename = String(f.name || fileId);
-      if (exported && EXT[mimeType] && !filename.toLowerCase().endsWith(EXT[mimeType])) filename += EXT[mimeType];
-      const path = saveBytes(ctx.cfg, filename, got.bytes);
+      const filename = withExtension(String(f.name || fileId), mimeType);
+      const path = saveBytes(ctx.cfg, filename, got.bytes, mimeType);
       return { tool: "drive_rest_download_file", untrusted: true, file_id: fileId, exported, saved: { path, filename, mimeType, size: got.bytes.length } };
     },
   },
