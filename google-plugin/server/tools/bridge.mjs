@@ -14,6 +14,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { GoogleError } from "../util.mjs";
 import { guestGuard } from "../guards.mjs";
+import { WRITE_GRANT_PLAN } from "../grant.mjs";
 
 /** Google's calendar get_event, for the guest guard (same confirmation handling as every bridged call). */
 const GET_EVENT = { name: "calendar_get_event", module: "calendar", remote: "get_event" };
@@ -119,10 +120,12 @@ export function shapeResult(localName, x, caps) {
 
 // ------------------------------------------------------------------------------------------------ confirmations
 
-function confirmationNeeded(localName, why, grantName = localName) {
-  return new GoogleError("CONFIRMATION_NEEDED", `Google asks the human to confirm before ${localName} can run, and ${why}. The plugin never answers Google's confirmation for the human.`, {
-    hint: `Ask the human to run this in their own terminal and choose an answer on Google's form (for example "Always allow this tool"): node "${CLI_PATH}" grant ${grantName} . Then try again. Do not retry before they have.`,
-  });
+function confirmationNeeded(localName, why, grantName = localName, kind = "read") {
+  let hint;
+  if (kind === "read") hint = `Ask the human to run this in their own terminal and choose an answer on Google's form (for example "Always allow this tool"): node "${CLI_PATH}" grant ${grantName} . Then try again. Do not retry before they have.`;
+  else if (WRITE_GRANT_PLAN[grantName]) hint = `Ask the human to run this in their own terminal, on an item they are happy to change (it really performs ${grantName} on it), and answer Google's form: node "${CLI_PATH}" grant ${grantName} --target <id> . Then try again. Do not retry before they have.`;
+  else hint = `grant cannot ask Google's question for ${grantName}. The human can do this change in Google's own app, or use a client that shows Google's confirmation forms.`;
+  return new GoogleError("CONFIRMATION_NEEDED", `Google asks the human to confirm before ${localName} can run, and ${why}. The plugin never answers Google's confirmation for the human.`, { hint });
 }
 
 /** Checks the human's answer against Google's form before passing it back, so nothing outside the form is sent. */
@@ -154,8 +157,8 @@ export async function callGoogle(def, args, ctx, session = {}) {
   for (let round = 0; round < 4; round++) {
     const r = await ctx.remote.callTool(def.module, def.remote, args, extra);
     if (r.resultType !== "input_required") return r;
-    if (ctx.cfg.confirmMode === "error") throw confirmationNeeded(def.name, "the plugin is set to never forward confirmations (GOOGLE_CONFIRM_MODE=error)", grantName);
-    if (!session.canElicit || typeof session.elicit !== "function") throw confirmationNeeded(def.name, "this client cannot show Google's confirmation form", grantName);
+    if (ctx.cfg.confirmMode === "error") throw confirmationNeeded(def.name, "the plugin is set to never forward confirmations (GOOGLE_CONFIRM_MODE=error)", grantName, def.kind);
+    if (!session.canElicit || typeof session.elicit !== "function") throw confirmationNeeded(def.name, "this client cannot show Google's confirmation form", grantName, def.kind);
     const inputResponses = {};
     for (const [key, req] of Object.entries(r.inputRequests ?? {})) {
       const mode = req?.params?.mode ?? "form";

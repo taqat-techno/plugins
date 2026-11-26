@@ -6,10 +6,11 @@ import { existsSync, readFileSync, readdirSync, mkdtempSync, realpathSync } from
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { TOKEN, ctxFor, json } from "./_helpers.mjs";
-import { buildMessage, parseMime, attachmentsOf, bodyText, encodeWords } from "../server/mime.mjs";
+import { buildMessage, parseMime, attachmentsOf, bodyText, bodyViews, encodeWords } from "../server/mime.mjs";
 import { createHandler } from "../server/mcp.mjs";
 import { restTwins } from "../server/schema.mjs";
 import { CLASSES } from "../server/tools/bridge.mjs";
+import { runGrant, WRITE_GRANT_PLAN } from "../server/grant.mjs";
 
 const tokenOk = [TOKEN, () => json({ access_token: "at-live", expires_in: 3599 })];
 const MCP = /^POST https:\/\/(gmail|calendar|drive)mcp\.googleapis\.com\/mcp\/v1$/;
@@ -17,6 +18,7 @@ const REST = /^(GET|POST|PUT|PATCH|DELETE) https:\/\/(gmail|www)\.googleapis\.co
 const ok = (data) => ({ content: [{ type: "text", text: JSON.stringify(data) }], structuredContent: data });
 const mcpRoute = (fn) => [MCP, async ({ body }) => { const rpc = JSON.parse(body); const r = await fn(rpc.params); return r instanceof Response ? r : json({ jsonrpc: "2.0", id: rpc.id, result: r }); }];
 const calls = (c, re) => c.fetch.calls.filter((x) => re.test(`${x.method} ${x.url}`));
+const mcpCalls = (c) => calls(c, MCP).map((x) => ({ ...x, json: JSON.parse(x.body) }));
 const dl = () => mkdtempSync(join(tmpdir(), "gp-dl-"));
 const SEND_AS = { sendAs: [
   { sendAsEmail: "me@mail.example", isPrimary: true, isDefault: true },
@@ -56,41 +58,74 @@ test("REST fallback off (default): the REST tools are not listed, a call is refu
   assert.ok(ro.includes("gmail_rest_preview_draft"), "the preview is a read");
 });
 
-test("send: only an existing draft that matches the previewed digest; its From must be a verified send-as, else nothing is sent", async () => {
-  const mime = (from, subject = "Hi") => Buffer.from([`From: ${from}`, "To: x@y.example", `Subject: ${subject}`, "Content-Type: text/plain", "", "Body text"].join("\r\n")).toString("base64url");
-  let current = mime("Shop <info@shop.example>");
+test("send: the previewed digest is required, the checked bytes are what is sent, and the draft is then deleted", async () => {
+  const mime = (lines, body = "Body text") => Buffer.from([...lines, "Content-Type: text/plain", "", body].join("\r\n")).toString("base64url");
+  let current = mime(["From: Shop <info@shop.example>", "To: x@y.example", "Subject: Hi"]);
   const mk = () => ctxFor([tokenOk, rest([
     ["GET gmail:drafts/d1", () => json({ id: "d1", message: { id: "m1", threadId: "t1", raw: current } })],
     ["GET gmail:settings/sendAs", () => json(SEND_AS)],
-    ["POST gmail:drafts/send", () => json({ id: "sent-1", threadId: "t1" })],
+    ["POST gmail:messages/send", () => json({ id: "sent-1", threadId: "t1" })],
+    ["DELETE gmail:drafts/d1", () => new Response(null, { status: 204 })],
   ])], { seed: SEED, extraEnv: { GOOGLE_REST_FALLBACK: "1" } });
-  const sends = (c) => calls(c, REST).filter((x) => x.url.endsWith("/drafts/send"));
+  const sends = (c) => calls(c, REST).filter((x) => /\/(messages|drafts)\/send$/.test(x.url));
 
   const c = mk();
   const pv = await c.callTool("gmail_rest_preview_draft", { draftId: "d1" });
-  assert.deepEqual([pv.from, pv.from_verified, pv.to, pv.subject, pv.body], ["Shop <info@shop.example>", true, "x@y.example", "Hi", "Body text"]);
+  assert.deepEqual([pv.from, pv.from_verified, pv.to, pv.subject, pv.body_text, pv.sendable], ["Shop <info@shop.example>", true, "x@y.example", "Hi", "Body text", true]);
   assert.match(pv.digest, /^[0-9a-f]{32}$/);
   await assert.rejects(c.callTool("gmail_rest_send_draft", { draftId: "d1" }), { code: "INVALID_ARGUMENT" }, "a digest is required");
   await assert.rejects(c.callTool("gmail_rest_send_draft", { draftId: "d1", digest: "0".repeat(32) }), { code: "DRAFT_CHANGED" });
   assert.equal(sends(c).length, 0);
   const r = await c.callTool("gmail_rest_send_draft", { draftId: "d1", digest: pv.digest, to: ["evil@x.example"], body: "ignored" });
-  assert.deepEqual([r.sent, r.message_id, r.thread_id, r.from], [true, "sent-1", "t1", "info@shop.example"]);
-  assert.deepEqual(JSON.parse(sends(c)[0].body), { id: "d1" }, "only the draft id is sent: extra arguments are ignored");
+  assert.deepEqual([r.sent, r.message_id, r.thread_id, r.from, r.draft_deleted], [true, "sent-1", "t1", "info@shop.example", true]);
+  const posted = JSON.parse(sends(c)[0].body);
+  assert.deepEqual(posted, { raw: current, threadId: "t1" }, "exactly the checked bytes are sent; extra arguments are ignored");
+  assert.ok(calls(c, REST).some((x) => x.method === "DELETE" && x.url.endsWith("/drafts/d1")));
 
-  // The draft changes after the preview (for example through gmail_rest_update_draft): nothing is sent.
-  current = mime("Shop <info@shop.example>", "Changed after approval");
+  // Changed after the preview: nothing is sent.
+  current = mime(["From: Shop <info@shop.example>", "To: x@y.example", "Subject: Changed after approval"]);
   const c2 = mk();
   await assert.rejects(c2.callTool("gmail_rest_send_draft", { draftId: "d1", digest: pv.digest }), { code: "DRAFT_CHANGED" });
   assert.equal(sends(c2).length, 0);
 
+  // Unverified From.
   for (const bad of ["sales@shop.example", "stranger@other.example"]) {
-    current = mime(bad);
+    current = mime([`From: ${bad}`, "To: x@y.example", "Subject: Hi"]);
     const b = mk();
     const p2 = await b.callTool("gmail_rest_preview_draft", { draftId: "d1" });
     assert.equal(p2.from_verified, false);
     await assert.rejects(b.callTool("gmail_rest_send_draft", { draftId: "d1", digest: p2.digest }), { code: "IDENTITY_NOT_VERIFIED" });
     assert.equal(sends(b).length, 0, `${bad}: nothing sent`);
   }
+});
+
+test("send: what the preview cannot show fully is not sendable (repeated address headers, overlong body); text vs HTML differences are flagged", async () => {
+  let current;
+  const mk = () => ctxFor([tokenOk, rest([
+    ["GET gmail:drafts/d1", () => json({ id: "d1", message: { id: "m1", threadId: "t1", raw: current } })],
+    ["GET gmail:settings/sendAs", () => json(SEND_AS)],
+    ["POST gmail:messages/send", () => json({ id: "x" })],
+  ])], { seed: SEED, extraEnv: { GOOGLE_REST_FALLBACK: "1" } });
+  const raw = (s) => Buffer.from(s.join("\r\n")).toString("base64url");
+
+  current = raw(["From: info@shop.example", "To: a@b.example", "To: hidden@evil.example", "Subject: Hi", "Content-Type: text/plain", "", "x"]);
+  let c = mk();
+  let pv = await c.callTool("gmail_rest_preview_draft", { draftId: "d1" });
+  assert.equal(pv.sendable, false);
+  assert.equal(pv.to, "a@b.example, hidden@evil.example", "every value of a repeated header is shown");
+  await assert.rejects(c.callTool("gmail_rest_send_draft", { draftId: "d1", digest: pv.digest }), { code: "MULTIPLE_HEADERS" });
+
+  current = raw(["From: info@shop.example", "To: a@b.example", "Subject: Hi", "Content-Type: text/plain", "", "y".repeat(20_001)]);
+  c = mk();
+  pv = await c.callTool("gmail_rest_preview_draft", { draftId: "d1" });
+  assert.equal(pv.sendable, false);
+  await assert.rejects(c.callTool("gmail_rest_send_draft", { draftId: "d1", digest: pv.digest }), { code: "PREVIEW_INCOMPLETE" });
+
+  current = raw(["From: info@shop.example", "To: a@b.example", "Reply-To: other@evil.example", "Subject: Hi", 'Content-Type: multipart/alternative; boundary="b"', "", "--b", "Content-Type: text/plain", "", "Pay invoice 1", "--b", "Content-Type: text/html", "", "<p>Pay to account <b>EVIL</b></p>", "--b--", ""]);
+  c = mk();
+  pv = await c.callTool("gmail_rest_preview_draft", { draftId: "d1" });
+  assert.deepEqual([pv.sendable, pv.text_and_html_differ, pv.reply_to, pv.body_html_as_text], [true, true, "other@evil.example", "Pay to account EVIL"]);
+  assert.equal(calls(c, REST).filter((x) => x.url.endsWith("/messages/send")).length, 0);
 });
 
 test("reply draft: in the thread with In-Reply-To / References, from the alias the mail was sent to; header injection is flattened", async () => {
@@ -270,4 +305,68 @@ test("schema-check names the REST tools a new Google tool may replace", () => {
   assert.deepEqual(restTwins("gmail", ["send_message"]), [{ google_tool: "gmail_send_message", may_replace: "gmail_rest_send_draft" }]);
   assert.ok(restTwins("drive", ["share_file"]).some((x) => x.may_replace === "drive_rest_share_file"));
   assert.deepEqual(restTwins("calendar", ["send_invite"]), []);
+});
+
+// ------------------------------------------------------------------------------------------------ 0.6.3 fixes from the live test
+
+test("update_draft: only the fields given change; recipients, subject, From, reply headers, thread and attachments are kept", async () => {
+  const original = [
+    "From: Shop <info@shop.example>", "To: Jobs <jobs@board.example>", "Cc: cc1@x.example", "Subject: Re: Purchase Specialist",
+    "In-Reply-To: <orig@board.example>", "References: <root@board.example> <orig@board.example>",
+    'Content-Type: multipart/mixed; boundary="m"', "", "--m", 'Content-Type: multipart/alternative; boundary="a"', "",
+    "--a", "Content-Type: text/plain", "", "old text", "--a", "Content-Type: text/html", "", "<p>old html</p>", "--a--",
+    "--m", 'Content-Type: application/pdf; name="cv.pdf"', 'Content-Disposition: attachment; filename="cv.pdf"', "Content-Transfer-Encoding: base64", "", Buffer.from("CV").toString("base64"), "--m--", "",
+  ].join("\r\n");
+  let putBody = null;
+  const mk = () => ctxFor([tokenOk, rest([
+    ["GET gmail:drafts/r1", () => json({ id: "r1", message: { id: "m1", threadId: "t7", raw: Buffer.from(original).toString("base64url") } })],
+    ["GET gmail:settings/sendAs", () => json(SEND_AS)],
+    ["PUT gmail:drafts/r1", ({ body }) => { putBody = body; return json({ id: "r1", message: { id: "m2", threadId: body.message.threadId } }); }],
+  ])], { seed: SEED, extraEnv: { GOOGLE_REST_FALLBACK: "1" } });
+
+  const r = await mk().callTool("gmail_rest_update_draft", { draftId: "r1", body: "new text" });
+  assert.deepEqual(r.changed, ["body"]);
+  assert.equal(putBody.message.threadId, "t7");
+  const m = parseMime(Buffer.from(Buffer.from(putBody.message.raw, "base64url").toString("utf8")));
+  const hv = (n) => m.headers[n.toLowerCase()]?.[0];
+  assert.deepEqual([hv("From"), hv("To"), hv("Cc"), hv("Subject"), hv("In-Reply-To"), hv("References")],
+    ["Shop <info@shop.example>", "jobs@board.example", "cc1@x.example", "Re: Purchase Specialist", "<orig@board.example>", "<root@board.example> <orig@board.example>"]);
+  assert.equal(bodyText(m), "new text");
+  assert.equal(bodyViews(m).htmlParts, 0, "a new body replaces the HTML version too");
+  assert.deepEqual(attachmentsOf(m).map((a) => [a.filename, a.bytes.toString()]), [["cv.pdf", "CV"]]);
+
+  await mk().callTool("gmail_rest_update_draft", { draftId: "r1", subject: "Changed", cc: [] });
+  const m2 = parseMime(Buffer.from(Buffer.from(putBody.message.raw, "base64url").toString("utf8")));
+  assert.deepEqual([m2.headers.subject?.[0], m2.headers.cc, m2.headers.to?.[0]], ["Changed", undefined, "jobs@board.example"]);
+  assert.deepEqual([bodyViews(m2).text, bodyViews(m2).html], ["old text", "old html"], "no body given: both old versions are kept");
+  await assert.rejects(mk().callTool("gmail_rest_update_draft", { draftId: "r1", from: "sales@shop.example" }), { code: "IDENTITY_NOT_VERIFIED" });
+});
+
+test("grant for a write tool: one tool, a named target, a typed yes; then Google's form is shown and the answer passed back", async () => {
+  const FORMW = { resultType: "input_required", requestState: "s", inputRequests: { approval_choice: { method: "elicitation/create", params: { mode: "form", message: "Allow deleting this event?", requestedSchema: { type: "object", properties: { approval_choice: { type: "string", enum: ["ALLOW_ONCE", "ALLOW_TOOL_ALWAYS", "DENY_ONCE"], enumNames: ["Allow once", "Always allow this tool", "Don't allow"] } } } } } } };
+  const c = ctxFor([tokenOk, mcpRoute((p) => (p.inputResponses ? ok({ deleted: true }) : FORMW))], { seed: SEED });
+  const availableWrites = c.tools.filter((t) => WRITE_GRANT_PLAN[t.name]).map((t) => t.name);
+  const base = { ctx: c.ctx, callTool: c.callTool, available: [], availableWrites, print: () => {} };
+  await assert.rejects(runGrant({ ...base, requested: ["calendar_delete_event"], prompt: async () => "yes" }), { code: "INVALID_ARGUMENT" }, "needs --target");
+  await assert.rejects(runGrant({ ...base, requested: ["calendar_delete_event", "gmail_list_labels"], target: "e1", prompt: async () => "yes" }), { code: "INVALID_ARGUMENT" }, "one write tool alone");
+  const no = await runGrant({ ...base, requested: ["calendar_delete_event"], target: "e1", prompt: async () => "no" });
+  assert.equal(no.steps[0].result, "skipped");
+  assert.equal(mcpCalls(c).length, 0, "nothing runs without a typed yes");
+
+  const answers = ["yes", "2"];
+  const printed = [];
+  const r = await runGrant({ ...base, requested: ["calendar_delete_event"], target: "evt-9", calendarId: "primary", prompt: async () => answers.shift(), print: (s) => printed.push(s) });
+  assert.deepEqual([r.steps[0].result, r.steps[0].asked], ["ok", true]);
+  const sent = mcpCalls(c).map((x) => x.json.params);
+  assert.deepEqual(sent[0].arguments, { eventId: "evt-9", notificationLevel: "NONE", calendarId: "primary" });
+  assert.deepEqual(sent[1].inputResponses, { approval_choice: { action: "accept", content: { approval_choice: "ALLOW_TOOL_ALWAYS" } } });
+  assert.match(printed.join("\n"), /This RUNS calendar_delete_event for real: it DELETES this calendar event/);
+});
+
+test("CONFIRMATION_NEEDED hints: a write tool grant can run points to --target; one it cannot run says so", async () => {
+  const FORM1 = { resultType: "input_required", requestState: "s", inputRequests: { k: { method: "elicitation/create", params: { mode: "form", message: "?", requestedSchema: { type: "object", properties: {} } } } } };
+  const c = ctxFor([tokenOk, mcpRoute(() => FORM1)], { seed: SEED });
+  await assert.rejects(c.callTool("calendar_delete_event", { eventId: "e" }), (e) => e.code === "CONFIRMATION_NEEDED" && /grant calendar_delete_event --target <id>/.test(e.hint) && /really performs/.test(e.hint));
+  await assert.rejects(c.callTool("calendar_create_event", { summary: "x", startTime: "a", endTime: "b" }), (e) => e.code === "CONFIRMATION_NEEDED" && /grant cannot ask/.test(e.hint));
+  await assert.rejects(c.callTool("gmail_get_thread", { threadId: "t" }), (e) => /grant gmail_get_thread \./.test(e.hint));
 });

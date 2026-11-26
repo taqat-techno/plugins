@@ -185,6 +185,10 @@ It calls each read tool once on a harmless target (the first thread, draft, even
 question exactly as Google sends it, and sends only the number you type (`c` cancels). It prints whether Google asked
 and what you chose, never your mail, events or files. `grant gmail_get_message` covers one tool only.
 
+Google may also ask before a change, for example deleting a calendar event, even your own. `grant` can ask that
+question only by doing the change: `grant calendar_delete_event --target <event id>` deletes that one event after you
+type "yes", and shows Google's question for it. Use a test item.
+
 Google may offer "Always allow for this email" (or "for this owner"): that covers only that one item, so the next
 new sender or file owner is asked about again. If you answered that way and want the tool-wide answer, run
 `grant --fresh <tool>`: it looks past the items you already allowed until Google asks again.

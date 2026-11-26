@@ -60,6 +60,18 @@ export const FRESH_PLAN = {
   drive_read_file_content: { from: "fileIds", args: (id) => ({ fileId: id }) },
 };
 
+/**
+ * Write tools grant can run, on ONE item the human names with --target. Answering Google's form for a write means
+ * running that write for real, so grant says exactly what will happen and runs it only after the human types "yes".
+ */
+export const WRITE_GRANT_PLAN = {
+  calendar_delete_event: { args: (t, o) => ({ eventId: t, notificationLevel: "NONE", ...(o.calendarId ? { calendarId: o.calendarId } : {}) }), what: "DELETES this calendar event (attendees, if any, are not emailed: notificationLevel NONE)" },
+  gmail_trash_message: { args: (t) => ({ messageId: t }), what: "moves this message to Trash (recoverable for about 30 days)" },
+  gmail_trash_thread: { args: (t) => ({ threadId: t }), what: "moves this whole thread to Trash (recoverable for about 30 days)" },
+  gmail_mark_message_spam: { args: (t) => ({ messageId: t }), what: "marks this message as spam and moves it to Spam" },
+  gmail_mark_thread_spam: { args: (t) => ({ threadId: t }), what: "marks this whole thread as spam and moves it to Spam" },
+};
+
 /** Which plan step finds each value. */
 const PRODUCER = {
   threadId: "gmail_search_threads", messageId: "gmail_search_threads", draftId: "gmail_list_drafts", eventId: "calendar_list_events", fileId: "drive_list_recent_files",
@@ -100,11 +112,12 @@ export async function askInTerminal({ tool, params }, { prompt, print }) {
     }
     values.forEach((v, i) => print(`    ${i + 1}) ${labels?.[i] ?? v}`));
     print("    c) Cancel: answer nothing");
-    for (;;) {
+    for (let tries = 1; ; tries++) {
       const a = String(await prompt("  Your choice (number or c): ")).trim().toLowerCase();
       if (a === "c" || a === "") return { action: "cancel" };
       const n = Number(a);
       if (Number.isInteger(n) && n >= 1 && n <= values.length) { content[name] = values[n - 1]; print(`  -> sending: ${labels?.[n - 1] ?? values[n - 1]}`); break; }
+      if (tries >= 5) { print("  Too many answers that are not choices: cancelling."); return { action: "cancel" }; }
       print("  Not one of the choices; try again.");
     }
   }
@@ -115,7 +128,46 @@ export async function askInTerminal({ tool, params }, { prompt, print }) {
  * runGrant({ ctx, callTool, available, requested, prompt, print, now }) -> { steps: [...] }
  * callTool(name, args, session) is the server's own tool runner, so the calls go through the same bridge code.
  */
-export async function runGrant({ ctx, callTool, available, requested = [], prompt, print, now = Date.now(), fresh = false }) {
+/** grant for one write tool on a target the human named: say what happens, run only after a typed "yes". */
+async function runWriteGrant({ callTool, tool, target, calendarId, prompt, print }) {
+  const plan = WRITE_GRANT_PLAN[tool];
+  const rec = { tool, target, asked: false, answers: [] };
+  print("");
+  print(`[${tool}] on ${target}`);
+  print(`  This RUNS ${tool} for real: it ${plan.what}.`);
+  print("  It is how Google's question for this tool gets asked, so you can answer it. Use an item you are happy to change.");
+  const yes = String(await prompt('  Type "yes" to run it, anything else to stop: ')).trim().toLowerCase();
+  if (yes !== "yes") { rec.result = "skipped"; rec.reason = "not confirmed"; print("  skipped: nothing was run."); return { steps: [rec] }; }
+  const session = {
+    canElicit: true,
+    elicit: async (req) => {
+      rec.asked = true;
+      const ans = await askInTerminal(req, { prompt, print });
+      rec.answers.push({ form: String(req.params?.message ?? "").slice(0, 300), answer: ans.action === "accept" ? ans.content : ans.action });
+      return ans;
+    },
+  };
+  try {
+    await callTool(tool, plan.args(target, { calendarId }), session);
+    rec.result = "ok";
+    print(`  ${rec.asked ? "Google asked; the call then worked." : "Google did not ask; the call worked."}`);
+  } catch (e) {
+    if (e?.code === "ABORT_ERR" || e?.name === "AbortError") { rec.result = "stopped"; print("  stopped: nothing was answered."); return { steps: [rec] }; }
+    rec.result = "error";
+    rec.error = { code: e.code ?? "ERROR", message: String(e.message).slice(0, 300) };
+    print(`  error ${rec.error.code}: ${rec.error.message}`);
+  }
+  return { steps: [rec] };
+}
+
+export async function runGrant({ ctx, callTool, available, availableWrites = [], requested = [], target, calendarId, prompt, print, now = Date.now(), fresh = false }) {
+  const writes = requested.filter((n) => WRITE_GRANT_PLAN[n]);
+  if (writes.length) {
+    if (requested.length !== 1) throw new GoogleError("INVALID_ARGUMENT", "Grant one write tool at a time, on its own.");
+    if (!availableWrites.includes(writes[0])) throw new GoogleError("UNKNOWN_TOOL", `${writes[0]} is not enabled on this server.`);
+    if (!target || !String(target).trim()) throw new GoogleError("INVALID_ARGUMENT", `${writes[0]} needs --target <id>: the one item it will act on.`);
+    return runWriteGrant({ callTool, tool: writes[0], target: String(target).trim(), calendarId, prompt, print });
+  }
   const bad = requested.filter((n) => !available.includes(n));
   if (bad.length) throw new GoogleError("UNKNOWN_TOOL", `Not an enabled read tool: ${bad.join(", ").slice(0, 200)}.`, { hint: `Enabled read tools: ${available.join(", ")}` });
   const found = {};

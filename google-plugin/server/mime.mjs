@@ -125,19 +125,50 @@ export function attachmentsOf(root) {
 const charsetOf = (n) => parseParams(n.headers["content-type"]?.[0] ?? "").params.charset ?? "utf-8";
 const asText = (n) => { try { return new TextDecoder(charsetOf(n).toLowerCase()).decode(n.body); } catch { return n.body.toString("utf8"); } };
 
-/** The plain-text body; an HTML-only message is reduced to text. */
-export function bodyText(root) {
-  let plain = null, html = null;
-  walk(root, (n) => {
-    if (n.children.length || !n.body || n.disposition === "attachment" || n.filename) return;
-    if (n.mimeType === "text/plain" && plain === null) plain = asText(n);
-    if (n.mimeType === "text/html" && html === null) html = asText(n);
-  });
-  if (plain !== null) return plain;
-  if (html === null) return "";
-  return html.replace(/<(script|style)[\s\S]*?<\/\1>/gi, "").replace(/<br\s*\/?>|<\/p>|<\/div>|<\/tr>/gi, "\n").replace(/<[^>]+>/g, "")
+/** HTML reduced to readable text (tags dropped, common entities decoded). */
+export function htmlToText(html) {
+  return String(html).replace(/<(script|style)[\s\S]*?<\/\1>/gi, "").replace(/<br\s*\/?>|<\/p>|<\/div>|<\/tr>|<\/li>|<\/h[1-6]>/gi, "\n").replace(/<[^>]+>/g, "")
     .replace(/&nbsp;/g, " ").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, "&")
     .replace(/\n{3,}/g, "\n\n").trim();
+}
+
+/** Every text body of the message: the plain parts and the HTML parts reduced to text (not attachments). */
+export function bodyViews(root) {
+  const plain = [], html = [];
+  walk(root, (n) => {
+    if (n.children.length || !n.body || n.disposition === "attachment" || n.filename) return;
+    if (n.mimeType === "text/plain") plain.push(asText(n));
+    else if (n.mimeType === "text/html") html.push(htmlToText(asText(n)));
+  });
+  return { text: plain.join("\n\n"), html: html.join("\n\n"), textParts: plain.length, htmlParts: html.length };
+}
+
+/** Parts with a Content-ID (inline images), keyed by the id without angle brackets, lowercased. */
+export function inlineParts(root) {
+  const out = new Map();
+  walk(root, (n) => {
+    if (n.children.length || !n.body) return;
+    const id = n.headers["content-id"]?.[0];
+    if (id) out.set(id.trim().replace(/^<|>$/g, "").toLowerCase(), { mimeType: /^[\w.+-]+\/[\w.+-]+$/.test(n.mimeType) ? n.mimeType : "application/octet-stream", bytes: n.body });
+  });
+  return out;
+}
+
+/** The first plain-text and the first HTML body as written (not reduced), or null. */
+export function bodySources(root) {
+  let text = null, html = null;
+  walk(root, (n) => {
+    if (n.children.length || !n.body || n.disposition === "attachment" || n.filename) return;
+    if (n.mimeType === "text/plain" && text === null) text = asText(n);
+    else if (n.mimeType === "text/html" && html === null) html = asText(n);
+  });
+  return { text, html };
+}
+
+/** The plain-text body; an HTML-only message is reduced to text. */
+export function bodyText(root) {
+  const v = bodyViews(root);
+  return v.textParts ? v.text : v.html;
 }
 
 // ------------------------------------------------------------------------------------------------ building

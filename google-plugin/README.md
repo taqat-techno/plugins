@@ -153,6 +153,10 @@ node server/cli.mjs schema-check [--update] # Google's live tool list vs the rec
 node server/cli.mjs identity <messageId>    # gmail_message_identity from your terminal (headers only)
 ```
 
+`grant <write tool> --target <id>` (for `calendar_delete_event`, `gmail_trash_message`, `gmail_trash_thread`,
+`gmail_mark_message_spam`, `gmail_mark_thread_spam`) runs that ONE write for real on the item you name, after you type
+"yes", so Google's question for a write can be answered. Use an item you are happy to change.
+
 `grant` calls each read tool once on a harmless target (the first thread, draft, event or file it finds;
 `METADATA_ONLY` where offered), shows Google's form as sent and sends only the number you type (`c` cancels). It prints
 whether Google asked and your answer, never the data. `schema-check` exits 3 when Google added tools or changed or removed
@@ -230,14 +234,19 @@ sign-in (no new scope). With the switch off they are not listed and are refused;
 
 | Tool | Class | What it does |
 |---|---|---|
-| `gmail_rest_preview_draft` | read | The draft as it would be sent (From, To, Cc, Bcc, subject, body, attachments, From verified or not) and a digest. |
-| `gmail_rest_send_draft` | confirm | Sends an existing draft exactly as it is, by id plus the preview's digest: a draft changed since the preview is refused (`DRAFT_CHANGED`). Its From must be a verified send-as address (`IDENTITY_NOT_VERIFIED`). |
+| `gmail_rest_preview_draft` | read | The draft as it would be sent: every From, Sender, Reply-To, To, Cc, Bcc and Subject value, the text body and the HTML body as text (`text_and_html_differ`), attachments, From verified or not, `sendable` / `blockers`, and a digest. |
+| `gmail_rest_send_draft` | confirm | Re-reads the draft, checks the preview's digest (`DRAFT_CHANGED`), the blockers (`MULTIPLE_HEADERS`, `PREVIEW_INCOMPLETE`) and a verified From (`IDENTITY_NOT_VERIFIED`), sends exactly those checked bytes in the draft's thread, then deletes the draft. |
 | `gmail_rest_create_reply_draft` | write | Reply draft in the thread (In-Reply-To, References, "Re:"), From = chosen or the verified alias the mail was sent to. |
 | `gmail_rest_create_forward_draft` | write | Forward draft with the original text and attachments (25 MB max). |
-| `gmail_rest_update_draft` / `gmail_rest_delete_draft` | write | Replace a draft's content / delete a draft. |
+| `gmail_rest_create_draft` | write | New draft from a chosen verified send-as address, with that address's Gmail signature (`includeSignature`, default true). |
+| `gmail_rest_save_draft_html` | read | One safe, self-contained .html file of a draft in the download folder (header block + body as sent, inline images, no scripts or network), with the send digest. |
+| `gmail_rest_update_draft` / `gmail_rest_delete_draft` | write | Change only the given fields of a draft (the rest, threading and attachments are kept) / delete a draft. |
 | `drive_rest_trash_file` / `drive_rest_move_file` | confirm | Trash (recoverable about 30 days) / move into another folder. |
 | `drive_rest_untrash_file` / `drive_rest_rename_file` | write | Restore / rename. |
 | `drive_rest_share_file` / `drive_rest_unshare_file` | confirm | Share with one person or group (reader, commenter, writer; no public links, never ownership) / remove access (never the owner's). |
+
+Signatures: the REST draft tools add the From address's own Gmail signature (Settings > See all settings > Signature,
+per address) unless `includeSignature` is false, and report `signature_added`.
 
 Google's Workspace AI Tools Addendum says AI agents must use Google's MCP servers instead of REST from 2027-02-01.
 What Google does with a client that keeps using REST after that is not documented. `schema-check` exits 4 and lists

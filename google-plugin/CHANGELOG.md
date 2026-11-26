@@ -1,5 +1,56 @@
 # Changelog
 
+## [0.7.0] - 2026-11-26
+
+### Added
+- Per-address Gmail signatures on REST drafts. `includeSignature` (default true) on `gmail_rest_create_draft` (new),
+  `gmail_rest_create_reply_draft`, `gmail_rest_create_forward_draft` and `gmail_rest_update_draft` adds the From
+  address's own signature from Gmail settings (`users.settings.sendAs[].signature`, already read for the send-as check;
+  no new scope). It goes into the HTML version (wrapped in `<!--gp-signature-start-->` ... `<div class="gmail_signature">`
+  ... `<!--gp-signature-end-->`) and, as text after "-- ", into the text version; above the quoted history for forwards.
+  A text-only body gets an HTML version so the signature's links and formatting survive. Results report
+  `signature_added` and `signature_from`. An address without a signature gets none (`signature_added: false`).
+  `gmail_rest_update_draft` re-applies it when the body is replaced or From changes, replacing the old one in place
+  (never doubled), and leaves it alone otherwise (`signature_added: null`).
+- `gmail_rest_create_draft` (write, REST): a new draft from a chosen verified send-as address.
+- `gmail_rest_save_draft_html` (read, REST): saves one self-contained .html file of a draft into
+  `GOOGLE_DOWNLOAD_DIR` (never overwriting): a header block (From, To, Cc, Bcc, Subject, "DRAFT, not sent") above the
+  draft's HTML body as it will be sent, cid: images inlined as data: URIs, or the escaped text in <pre>. Scripts,
+  embeds, event attributes, javascript: links and refresh tags are removed, and a Content-Security-Policy blocks every
+  network request (remote images do not load) wherever the file is opened. Returns path and the same digest
+  `gmail_rest_preview_draft` / `gmail_rest_send_draft` use, so a picture of it is bound to what is sent.
+
+### Not verified
+- Which signature Google's own `gmail_create_draft` (`includeSignature`) uses: its description says "the user's
+  configured Gmail web signature" and it takes no From.
+
+## [0.6.3] - 2026-11-26
+
+### Fixed (from the first live test)
+- `gmail_rest_update_draft` with only `body` wiped To, Subject and the rest. Fields not given now keep their current
+  values: to, cc, bcc, subject, From, In-Reply-To / References, the thread and the attachments. The body is one unit:
+  body and/or htmlBody replace both versions; neither keeps both. to / cc / bcc replace that list ([] clears it).
+- Google asks the human before `calendar_delete_event` even for the user's own event without guests, and `grant`
+  covered read tools only. `grant <write tool> --target <id> [--calendar <id>]` now runs ONE write on an item the human
+  names, after saying exactly what it does and getting a typed "yes", and shows Google's form for it. Tools:
+  `calendar_delete_event` (notificationLevel NONE), `gmail_trash_message`, `gmail_trash_thread`,
+  `gmail_mark_message_spam`, `gmail_mark_thread_spam`. The CONFIRMATION_NEEDED hint points to it for those tools and
+  says plainly when grant cannot help.
+- `grant` cancels after 5 answers that are not one of the form's choices, instead of asking forever.
+
+## [0.6.2] - 2026-11-26
+
+### Fixed (security review of 0.6.1)
+- What is sent is now exactly what was checked: `gmail_rest_send_draft` sends the raw bytes it just verified against the
+  preview digest as a new message in the draft's thread (Gmail `messages.send`, covered by gmail.modify), then
+  deletes the draft (`draft_deleted` reports it). Before, it checked the draft and then asked Gmail to send the draft by
+  id, leaving a window for a change.
+- The preview shows everything that decides delivery and content: every value of From, Sender, Reply-To, To, Cc, Bcc and
+  Subject, the plain-text body and the HTML body as text (each up to 20,000 characters), and
+  `text_and_html_differ` when they do not match. It reports `sendable` and `blockers`.
+- A draft the preview cannot show in full is refused at send: repeated address or subject headers
+  (`MULTIPLE_HEADERS`), or a body over 20,000 characters or more than one text or HTML part (`PREVIEW_INCOMPLETE`).
+
 ## [0.6.1] - 2026-11-26
 
 ### Fixed (security review)

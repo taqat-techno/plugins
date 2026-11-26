@@ -6,6 +6,8 @@
 //   node server/cli.mjs sign-out             delete the saved sign-in on this computer
 //   node server/cli.mjs grant [--fresh] [tool ...]  answer Google's confirmation forms yourself, once per read tool;
 //                                            --fresh looks past items already allowed (per email / owner)
+//   node server/cli.mjs grant <write tool> --target <id> [--calendar <id>]   run ONE write (for example
+//                                            calendar_delete_event) on an item you name, after you type "yes"
 //   node server/cli.mjs schema-check [--update]   compare Google's live tool list with the recorded snapshot
 //   node server/cli.mjs identity <messageId>  which configured identity one message was sent to (headers only, no
 //                                            body); Google's form, if any, is shown here for you to answer
@@ -14,12 +16,12 @@
 // Output never contains a token or the client secret; grant never prints the data its test calls return.
 import { createInterface } from "node:readline/promises";
 import { createContext } from "./context.mjs";
-import { runGrant, askInTerminal } from "./grant.mjs";
+import { runGrant, askInTerminal, WRITE_GRANT_PLAN } from "./grant.mjs";
 import { schemaCheck } from "./schema.mjs";
 
 const [cmd = "status", ...rest] = process.argv.slice(2);
 const out = (o) => process.stdout.write(JSON.stringify(o, null, 2) + "\n");
-const USAGE = "usage: cli.mjs sign-in | status [--offline] | sign-out | grant [--fresh] [tool ...] | schema-check [--update] | identity <messageId>\n";
+const USAGE = "usage: cli.mjs sign-in | status [--offline] | sign-out | grant [--fresh] [tool ...] | grant <write tool> --target <id> | schema-check [--update] | identity <messageId>\n";
 
 try {
   const c = createContext();
@@ -45,13 +47,16 @@ try {
     }
   } else if (cmd === "grant") {
     const available = c.tools.filter((t) => t.kind === "read").map((t) => t.name);
+    const availableWrites = c.tools.filter((t) => WRITE_GRANT_PLAN[t.name]).map((t) => t.name);
+    const flag = (name) => { const i = rest.indexOf(name); return i >= 0 ? rest[i + 1] : undefined; };
+    const flagValues = new Set(["--target", "--calendar"].map(flag).filter(Boolean));
     const rl = createInterface({ input: process.stdin, output: process.stdout });
     const print = (s) => process.stdout.write(`${s}\n`);
     print("Google may ask you to allow each tool. Your answer is sent as you type it; nothing is answered for you.");
     print("Only whether Google asked and what you chose is shown here, never the data the test calls read.");
     let result;
     try {
-      result = await runGrant({ ctx, callTool: c.callTool, available, requested: rest.filter((a) => !a.startsWith("-")), fresh: rest.includes("--fresh"), prompt: (q) => rl.question(q), print });
+      result = await runGrant({ ctx, callTool: c.callTool, available, availableWrites, requested: rest.filter((a) => !a.startsWith("-") && !flagValues.has(a)), target: flag("--target"), calendarId: flag("--calendar"), fresh: rest.includes("--fresh"), prompt: (q) => rl.question(q), print });
     } finally { rl.close(); }
     print("\nSummary:");
     for (const s of result.steps) {

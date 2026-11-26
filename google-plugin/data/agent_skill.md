@@ -18,7 +18,8 @@ These tools act as the signed-in person through Google's own Workspace MCP serve
   Do not retry in a loop.
 - `CONFIRMATION_NEEDED`: Google wants the owner to allow this kind of read. You cannot answer it. Tell the owner to run
   the command in the error's `hint` (`node .../server/cli.mjs grant <tool>`) in their own terminal, then try again.
-  Never suggest which answer to pick.
+  Never suggest which answer to pick. For a change (for example `calendar_delete_event`) the hint names
+  `grant <tool> --target <id>`: it really performs the change on that item, so the owner picks a test item.
 
 ## Which tool
 | Wants | Tool |
@@ -41,8 +42,11 @@ These tools act as the signed-in person through Google's own Workspace MCP serve
   shared folder is visible to others). Say exactly what happens and who is emailed.
 - Without the REST fallback, mail is never sent by these tools: a draft waits in Gmail for the owner. With it
   (`*_rest_*` tools listed), `gmail_rest_send_draft` sends an existing draft exactly as it is: call `gmail_rest_preview_draft`,
-  show the owner From, To, subject and body, wait for a clear yes, then send with the preview's digest
-  (`DRAFT_CHANGED`: preview and ask again). Replies and forwards are drafts first (`gmail_rest_create_reply_draft`,
-  `gmail_rest_create_forward_draft`). There is never a permanent delete.
+  show the owner everything it returns (all recipients, Reply-To, subject, text and HTML body, attachments),
+  wait for a clear yes, then send with the preview's digest (`DRAFT_CHANGED`: preview and ask again; `sendable: false`:
+  it cannot be sent this way). Replies and forwards are drafts first (`gmail_rest_create_reply_draft`,
+  `gmail_rest_create_forward_draft`, or `gmail_rest_create_draft` for a new mail from a chosen address); they add that
+  address's Gmail signature by default. `gmail_rest_save_draft_html` saves the draft as a file to show the owner; its
+  digest is the one to send with. There is never a permanent delete.
 - `GUESTS_NEED_APPROVAL` and `WRITE_LIMIT_REACHED` are brakes: stop and tell the owner; do not retry or work around them.
 - To trash or mark spam, use those tools; a label call adding `TRASH` or `SPAM` is refused (`NEEDS_CONFIRM_TOOL`).

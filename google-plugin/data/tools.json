@@ -21,7 +21,8 @@
     "gmail_message_identity",
     "gmail_get_attachment",
     "drive_save_file",
-    "gmail_rest_preview_draft"
+    "gmail_rest_preview_draft",
+    "gmail_rest_save_draft_html"
   ],
   "local": [
     "google_sign_in",
@@ -46,7 +47,8 @@
     "gmail_rest_create_reply_draft",
     "gmail_rest_create_forward_draft",
     "drive_rest_untrash_file",
-    "drive_rest_rename_file"
+    "drive_rest_rename_file",
+    "gmail_rest_create_draft"
   ],
   "confirm": [
     "gmail_trash_thread",
@@ -84,7 +86,9 @@
     "drive_rest_move_file",
     "drive_rest_share_file",
     "drive_rest_unshare_file",
-    "gmail_rest_preview_draft"
+    "gmail_rest_preview_draft",
+    "gmail_rest_create_draft",
+    "gmail_rest_save_draft_html"
   ],
   "hidden": {
     "drive_download_file_content": "Replaced by drive_save_file, which saves the file instead of returning base64 (the size cap would cut it)."
@@ -120,6 +124,8 @@
     "drive_rest_move_file",
     "drive_rest_share_file",
     "drive_rest_unshare_file",
-    "gmail_rest_preview_draft"
+    "gmail_rest_preview_draft",
+    "gmail_rest_create_draft",
+    "gmail_rest_save_draft_html"
   ]
 }
