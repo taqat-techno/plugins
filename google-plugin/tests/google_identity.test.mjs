@@ -139,3 +139,14 @@ test("module and read-only filtering apply to the identity tools; the server lis
   assert.ok(names({ GOOGLE_READONLY: "true" }).includes("gmail_message_identity"));
   assert.ok(!names({ GOOGLE_MODULES: "calendar" }).some((n) => n.startsWith("gmail_")));
 });
+
+test("a hostile header cannot make address parsing slow (security review: quadratic regex)", () => {
+  const ids = loadIdentities(resolveConfig({ GOOGLE_IDENTITIES: JSON.stringify(IDS) }));
+  for (const junk of ["a".repeat(262_144), "a.".repeat(131_072), "x@".repeat(131_072)]) {
+    const t = Date.now();
+    const m = matchIdentity({ "x-forwarded-for": ["info@shop.example me@mail.example"], to: [junk], cc: [junk] }, ids);
+    matchIdentity({ to: [junk] }, ids);
+    assert.ok(Date.now() - t < 500, `took ${Date.now() - t} ms`);
+    assert.equal(m.identity.id, "sales");
+  }
+});

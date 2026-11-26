@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.5.5] - 2026-11-26
+
+### Fixed (security review)
+- Address parsing in `gmail_message_identity` ran an unanchored regex over sender-controlled header values (up to
+  256 KB), which took quadratic time: about 2 s for 64 KB, about 30 s for 256 KB. Each header value is now cut to
+  8 KB, split on separators, and each token checked with an anchored pattern: a 256 KB hostile header now parses in
+  about 1 ms. A regression test covers it.
+
 ## [0.5.4] - 2026-11-26
 
 ### Changed (security review)

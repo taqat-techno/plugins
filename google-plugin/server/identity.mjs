@@ -13,8 +13,15 @@
 import { readFileSync } from "node:fs";
 import { GoogleError } from "./util.mjs";
 
-const EMAIL = /[A-Za-z0-9._%+'!#$&*=?^`{|}~-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+/g;
-export const addresses = (value) => [...String(value ?? "").matchAll(EMAIL)].map((m) => m[0].toLowerCase());
+const EMAIL = /^[A-Za-z0-9._%+'!#$&*=?^`{|}~-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+$/;
+/** Header values come from senders. Each one is cut to this length before parsing, so a hostile header cannot make
+ *  parsing slow; a real address list that long is rare, and X-Forwarded-For (checked first) is short. */
+export const MAX_ADDRESS_HEADER = 8192;
+/** Email addresses in a header value: split on separators, each token checked with an anchored pattern (linear time). */
+export const addresses = (value) => String(value ?? "").slice(0, MAX_ADDRESS_HEADER)
+  .split(/[\s,;<>()"[\]:]+/)
+  .filter((t) => t.length <= 320 && EMAIL.test(t))
+  .map((t) => t.toLowerCase());
 
 /** Loads and checks the identity list. Returns [] when none is configured. */
 export function loadIdentities(cfg) {
