@@ -264,7 +264,7 @@ star, important, spam), batch modify and batch trash (up to 1000 ids), label cre
 `GOOGLE_GMAIL_SETTINGS=1` for filters, auto-reply, auto-forwarding, forwarding addresses, IMAP, POP, language and
 send-as; add `GOOGLE_FULL_MAILBOX=1` for permanent delete (message, thread, batch) and emptying Trash or Spam. Confirm
 class (the hook asks): permanent deletes, empty Trash / Spam, filters that forward or trash, auto-forwarding, forwarding
-addresses, send-as create / delete and send-as reply-to / SMTP changes. Each tool fails with `SCOPE_MISSING` when the sign-in lacks its scope.
+addresses, send-as create / delete, send-as reply-to / SMTP changes, and turning the auto-reply on. Each tool fails with `SCOPE_MISSING` when the sign-in lacks its scope.
 
 These give an agent that reads untrusted mail the means to forward all future mail elsewhere and delete permanently, with
 no question from Google. Turn them on only with an approval step for the confirm-class tools you trust the host to gate.

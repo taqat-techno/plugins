@@ -110,7 +110,8 @@
     "gmail_rest_delete_forwarding_address",
     "gmail_rest_create_send_as",
     "gmail_rest_delete_send_as",
-    "gmail_rest_update_send_as_routing"
+    "gmail_rest_update_send_as_routing",
+    "gmail_rest_set_auto_reply"
   ],
   "plugin_tools": [
     "gmail_message_identity",
@@ -172,7 +173,8 @@
     "gmail_rest_update_send_as",
     "gmail_rest_delete_send_as",
     "gmail_rest_verify_send_as",
-    "gmail_rest_update_send_as_routing"
+    "gmail_rest_update_send_as_routing",
+    "gmail_rest_set_auto_reply"
   ],
   "hidden": {
     "drive_download_file_content": "Replaced by drive_save_file, which saves the file instead of returning base64 (the size cap would cut it)."
@@ -252,6 +254,7 @@
     "gmail_rest_update_send_as",
     "gmail_rest_delete_send_as",
     "gmail_rest_verify_send_as",
-    "gmail_rest_update_send_as_routing"
+    "gmail_rest_update_send_as_routing",
+    "gmail_rest_set_auto_reply"
   ]
 }

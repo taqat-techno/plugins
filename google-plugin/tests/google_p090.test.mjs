@@ -161,7 +161,7 @@ test("settings: plain filters cannot forward or trash (NEEDS_CONFIRM_TOOL); the 
 test("classes: the takeover and destruction tools are confirm (hook asks), the rest write/read; permanent ones say so; the write limit counts them when set", async () => {
   const expectConfirm = ["gmail_rest_delete_message", "gmail_rest_delete_thread", "gmail_rest_batch_delete", "gmail_rest_empty_trash", "gmail_rest_empty_spam",
     "gmail_rest_create_filter_forward_or_delete", "gmail_rest_update_auto_forwarding", "gmail_rest_create_forwarding_address", "gmail_rest_delete_forwarding_address",
-    "gmail_rest_create_send_as", "gmail_rest_delete_send_as", "gmail_rest_update_send_as_routing"];
+    "gmail_rest_create_send_as", "gmail_rest_delete_send_as", "gmail_rest_update_send_as_routing", "gmail_rest_set_auto_reply"];
   for (const n of expectConfirm) assert.ok(CLASSES.confirm.includes(n), n);
   for (const n of ["gmail_rest_trash_message", "gmail_rest_batch_modify", "gmail_rest_create_filter", "gmail_rest_update_vacation", "gmail_rest_update_send_as", "gmail_rest_delete_label"]) assert.ok(CLASSES.write.includes(n), n);
   const hook = JSON.parse(readFileSync(new URL("../hooks/hooks.json", import.meta.url), "utf8")).hooks.PreToolUse[0].matcher;
@@ -172,4 +172,39 @@ test("classes: the takeover and destruction tools are confirm (hook asks), the r
   await c.callTool("gmail_rest_trash_message", { messageId: "m1" });
   await c.callTool("gmail_rest_trash_message", { messageId: "m2" });
   await assert.rejects(c.callTool("gmail_rest_trash_message", { messageId: "m3" }), { code: "WRITE_LIMIT_REACHED" });
+});
+
+test("auto-reply: the write tool can only turn it off; turning it on or setting text needs the confirm tool", async () => {
+  const seen = [];
+  const c = ctxFor([tokenOk, rest([["PUT settings/vacation", ({ body }) => json(body)]], seen)], { seed: allScopes, extraEnv: ALL_ON });
+  for (const args of [{ enableAutoReply: true }, { enableAutoReply: false, responseBodyPlainText: "Pay to account X" }]) {
+    await assert.rejects(c.callTool("gmail_rest_update_vacation", args), { code: "NEEDS_CONFIRM_TOOL" });
+  }
+  assert.equal(seen.length, 0, "nothing was changed");
+  assert.deepEqual((await c.callTool("gmail_rest_update_vacation", { enableAutoReply: false })).vacation, { enableAutoReply: false });
+  const on = await c.callTool("gmail_rest_set_auto_reply", { enableAutoReply: true, responseSubject: "Away", responseBodyPlainText: "Back Monday" });
+  assert.deepEqual(on.vacation, { enableAutoReply: true, responseSubject: "Away", responseBodyPlainText: "Back Monday" });
+  assert.ok(CLASSES.confirm.includes("gmail_rest_set_auto_reply") && CLASSES.write.includes("gmail_rest_update_vacation"));
+});
+
+test("write limit counts every item of a batch and of an empty-Trash run; filter actions are rebuilt from checked fields only", async () => {
+  const seen = [];
+  const c = ctxFor([tokenOk, rest([
+    ["POST messages/[a-z0-9]+/trash", () => json({ id: "x" })],
+    ["GET messages", () => json({ messages: Array.from({ length: 5 }, (_, i) => ({ id: `t${i}` })) })],
+    ["POST messages/batchDelete", () => new Response(null, { status: 204 })],
+    ["POST settings/filters", ({ body }) => json({ id: "f1", ...body })],
+  ], seen)], { seed: allScopes, extraEnv: { ...ALL_ON, GOOGLE_WRITE_LIMIT_PER_HOUR: "4" } });
+  await assert.rejects(c.callTool("gmail_rest_batch_trash", { messageIds: ["a", "b", "c", "d", "e"] }), (e) => e.code === "WRITE_LIMIT_REACHED" && /affect 5 item/.test(e.message));
+  assert.equal(seen.filter((x) => x.path.endsWith("/trash")).length, 0, "nothing trashed when the batch is over the limit");
+  assert.equal((await c.callTool("gmail_rest_batch_trash", { messageIds: ["a", "b", "c"] })).trashed, 3);
+  await assert.rejects(c.callTool("gmail_rest_empty_trash", {}), { code: "WRITE_LIMIT_REACHED" }, "5 messages in Trash, 1 left in the budget");
+  assert.equal(seen.filter((x) => x.path === "messages/batchDelete").length, 0);
+
+  for (const action of [{ addLabelIds: "TRASH" }, { addLabelIds: ["X"], forwardTo: "x@evil.example" }, { forward: ["x@evil.example"] }]) {
+    await assert.rejects(c.callTool("gmail_rest_create_filter", { criteria: { from: "a@b.example" }, action }), { code: "INVALID_ARGUMENT" }, JSON.stringify(action));
+  }
+  const ok = await c.callTool("gmail_rest_create_filter", { criteria: { from: "a@b.example" }, action: { addLabelIds: [" Label_1 "], removeLabelIds: ["INBOX"] } });
+  assert.deepEqual(seen.at(-1).body.action, { addLabelIds: ["Label_1"], removeLabelIds: ["INBOX"] }, "only the checked, normalised fields are sent");
+  assert.equal(ok.filter.id, "f1");
 });

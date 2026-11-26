@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.9.1] - 2026-11-26
+
+### Changed (security review)
+- The write limit counts every item a call affects: `gmail_rest_batch_trash` and `gmail_rest_batch_delete` count their
+  ids, `gmail_rest_empty_trash` / `_empty_spam` the messages found, and a call that would go over the remaining budget
+  is refused before anything changes.
+- Filter actions are rebuilt from checked fields only (addLabelIds / removeLabelIds as arrays of strings, forward as one
+  address); unknown fields or other shapes are refused, so what is checked is exactly what is sent.
+- Auto-reply split by effect: `gmail_rest_update_vacation` (write) can only turn the auto-reply OFF and refuses anything
+  else with `NEEDS_CONFIRM_TOOL`; new `gmail_rest_set_auto_reply` (confirm) turns it on or changes its text, because
+  Gmail then emails that text from the account's address to everyone who writes in. The hook asks before it.
+
 ## [0.9.0] - 2026-11-26
 
 ### Added (all opt-in; defaults unchanged)

@@ -53,12 +53,13 @@ function requireScopes(ctx, anyOf, tool) {
 }
 
 /** One tool definition. needs: undefined (REST switch only) | "settings" | "full". */
+const SELF_COUNTED = new Set(["gmail_rest_batch_trash", "gmail_rest_batch_delete", "gmail_rest_empty_trash", "gmail_rest_empty_spam"]);
 function tool(name, kind, needs, scopes, description, properties, required, run) {
   return {
     name, kind, module: "gmail", rest: true, ...(needs ? { needs } : {}), confirm: kind === "confirm",
     description: `${description} ${kind === "confirm" ? `${ASK} ` : ""}${NOTE}`,
     inputSchema: { type: "object", ...(required.length ? { required } : {}), properties },
-    async handler(args, ctx) { requireScopes(ctx, scopes, name); ctx.limiter?.check(name, ctx.cfg.writeLimitPerHour); return run(args ?? {}, createRest(ctx), ctx); },
+    async handler(args, ctx) { requireScopes(ctx, scopes, name); if (!SELF_COUNTED.has(name)) ctx.limiter?.check(name, ctx.cfg.writeLimitPerHour); return run(args ?? {}, createRest(ctx), ctx); },
   };
 }
 
@@ -83,7 +84,21 @@ async function deleteMany(rest, list) {
   return list.length;
 }
 
-const FILTER_RISKY = (action) => Boolean(action?.forward) || labelList(action?.addLabelIds).some((l) => l.toUpperCase() === "TRASH");
+/**
+ * A filter action rebuilt from checked fields only (addLabelIds, removeLabelIds as arrays of strings; forward as one
+ * address), so what is checked is exactly what is sent. Anything else is refused.
+ */
+function filterAction(action) {
+  if (!action || typeof action !== "object" || Array.isArray(action)) throw new GoogleError("INVALID_ARGUMENT", "action must be an object.");
+  const unknown = Object.keys(action).filter((k) => !["addLabelIds", "removeLabelIds", "forward"].includes(k));
+  if (unknown.length) throw new GoogleError("INVALID_ARGUMENT", `action has unsupported fields: ${unknown.join(", ").slice(0, 100)}.`);
+  for (const k of ["addLabelIds", "removeLabelIds"]) {
+    if (action[k] !== undefined && (!Array.isArray(action[k]) || action[k].some((x) => typeof x !== "string"))) throw new GoogleError("INVALID_ARGUMENT", `action.${k} must be an array of label ids.`);
+  }
+  if (action.forward !== undefined && (typeof action.forward !== "string" || !action.forward.trim())) throw new GoogleError("INVALID_ARGUMENT", "action.forward must be one address.");
+  return { ...(action.addLabelIds ? { addLabelIds: labelList(action.addLabelIds) } : {}), ...(action.removeLabelIds ? { removeLabelIds: labelList(action.removeLabelIds) } : {}), ...(action.forward ? { forward: action.forward.trim() } : {}) };
+}
+const FILTER_RISKY = (action) => Boolean(action.forward) || (action.addLabelIds ?? []).some((l) => l.toUpperCase() === "TRASH");
 const filterProps = {
   criteria: { type: "object", description: "Which mail: from, to, subject, query, negatedQuery, hasAttachment, excludeChats, size, sizeComparison (larger|smaller)." },
   action: { type: "object", description: "What to do: addLabelIds, removeLabelIds, forward (an address already verified as a forwarding address)." },
@@ -112,8 +127,9 @@ export const tools = [
   tool("gmail_rest_batch_modify", "write", undefined, MODIFY_ANY, `Add or remove labels on up to ${MAX_BATCH} Gmail messages at once (bulk read/unread, archive, spam, labels). Returns the count and ids, never content.`, { messageIds: arr(`Up to ${MAX_BATCH} message ids.`), ...labelsProps }, ["messageIds"],
     async (a, rest) => { const list = ids(a.messageIds, "messageIds"); await rest.call("gmail", "POST", "messages/batchModify", { body: { ids: list, addLabelIds: labelList(a.addLabelIds), removeLabelIds: labelList(a.removeLabelIds) } }); return { modified: list.length, message_ids: list }; }),
   tool("gmail_rest_batch_trash", "write", undefined, MODIFY_ANY, `Move up to ${MAX_BATCH} Gmail messages to Trash (recoverable for about 30 days), one call each. Returns counts and ids, never content.`, { messageIds: arr(`Up to ${MAX_BATCH} message ids.`) }, ["messageIds"],
-    async (a, rest) => {
+    async (a, rest, ctx) => {
       const list = ids(a.messageIds, "messageIds");
+      ctx.limiter?.check("gmail_rest_batch_trash", ctx.cfg.writeLimitPerHour, list.length);
       const failed = [];
       for (const m of list) { try { await rest.call("gmail", "POST", `messages/${enc(m)}/trash`); } catch (e) { failed.push({ id: m, code: e.code ?? "ERROR" }); } }
       return { trashed: list.length - failed.length, failed, message_ids: list };
@@ -133,11 +149,11 @@ export const tools = [
   tool("gmail_rest_delete_thread", "confirm", "full", FULL, `Delete a whole Gmail thread for good, skipping Trash. ${PERMANENT}`, { threadId: id("Thread id.") }, ["threadId"],
     async (a, rest) => { await rest.call("gmail", "DELETE", `threads/${enc(str(a.threadId, "threadId"))}`); return { deleted_permanently: true, thread_id: a.threadId }; }),
   tool("gmail_rest_batch_delete", "confirm", "full", FULL, `Delete up to ${MAX_BATCH} Gmail messages for good, skipping Trash. ${PERMANENT} Returns the count and ids.`, { messageIds: arr(`Up to ${MAX_BATCH} message ids.`) }, ["messageIds"],
-    async (a, rest) => { const list = ids(a.messageIds, "messageIds"); await deleteMany(rest, list); return { deleted_permanently: list.length, message_ids: list }; }),
+    async (a, rest, ctx) => { const list = ids(a.messageIds, "messageIds"); ctx.limiter?.check("gmail_rest_batch_delete", ctx.cfg.writeLimitPerHour, list.length); await deleteMany(rest, list); return { deleted_permanently: list.length, message_ids: list }; }),
   tool("gmail_rest_empty_trash", "confirm", "full", FULL, `Empty Gmail's Trash: every message in it is deleted for good. ${PERMANENT} Returns the count.`, {}, [],
-    async (_a, rest) => ({ deleted_permanently: await deleteMany(rest, await allIds(rest, "TRASH")), folder: "TRASH" })),
+    async (_a, rest, ctx) => { const list = await allIds(rest, "TRASH"); ctx.limiter?.check("gmail_rest_empty_trash", ctx.cfg.writeLimitPerHour, list.length); return { deleted_permanently: await deleteMany(rest, list), folder: "TRASH" }; }),
   tool("gmail_rest_empty_spam", "confirm", "full", FULL, `Empty Gmail's Spam folder: every message in it is deleted for good. ${PERMANENT} Returns the count.`, {}, [],
-    async (_a, rest) => ({ deleted_permanently: await deleteMany(rest, await allIds(rest, "SPAM")), folder: "SPAM" })),
+    async (_a, rest, ctx) => { const list = await allIds(rest, "SPAM"); ctx.limiter?.check("gmail_rest_empty_spam", ctx.cfg.writeLimitPerHour, list.length); return { deleted_permanently: await deleteMany(rest, list), folder: "SPAM" }; }),
 
   // ------------------------------------------------------------------------------------------ settings: filters
   tool("gmail_rest_list_filters", "read", "settings", READ_SETTINGS, "List Gmail filters (criteria and actions).", {}, [],
@@ -146,18 +162,28 @@ export const tools = [
     async (a, rest) => ({ filter: await rest.call("gmail", "GET", `settings/filters/${enc(str(a.filterId, "filterId"))}`) })),
   tool("gmail_rest_create_filter", "write", "settings", BASIC, "Create a Gmail filter that labels, archives, marks read, stars, marks important or never-spams matching mail. A filter that forwards or sends mail to Trash must use gmail_rest_create_filter_forward_or_delete (refused here).", filterProps, ["criteria", "action"],
     async (a, rest) => {
-      if (FILTER_RISKY(a.action)) throw new GoogleError("NEEDS_CONFIRM_TOOL", "This filter forwards mail or sends it to Trash; nothing was created.", { hint: "Use gmail_rest_create_filter_forward_or_delete, which asks the human first." });
-      return { filter: await rest.call("gmail", "POST", "settings/filters", { body: { criteria: a.criteria ?? {}, action: a.action ?? {} } }) };
+      const action = filterAction(a.action);
+      if (FILTER_RISKY(action)) throw new GoogleError("NEEDS_CONFIRM_TOOL", "This filter forwards mail or sends it to Trash; nothing was created.", { hint: "Use gmail_rest_create_filter_forward_or_delete, which asks the human first." });
+      return { filter: await rest.call("gmail", "POST", "settings/filters", { body: { criteria: a.criteria ?? {}, action } }) };
     }),
   tool("gmail_rest_create_filter_forward_or_delete", "confirm", "settings", BASIC, "Create a Gmail filter that forwards matching mail to another address (which must already be a verified forwarding address) and/or sends it to Trash. Forwarding filters keep sending future mail out silently. Name the address and the criteria.", filterProps, ["criteria", "action"],
-    async (a, rest) => ({ filter: await rest.call("gmail", "POST", "settings/filters", { body: { criteria: a.criteria ?? {}, action: a.action ?? {} } }) })),
+    async (a, rest) => ({ filter: await rest.call("gmail", "POST", "settings/filters", { body: { criteria: a.criteria ?? {}, action: filterAction(a.action) } }) })),
   tool("gmail_rest_delete_filter", "write", "settings", BASIC, "Delete a Gmail filter (mail already filtered is not changed).", { filterId: id("Filter id.") }, ["filterId"],
     async (a, rest) => { await rest.call("gmail", "DELETE", `settings/filters/${enc(str(a.filterId, "filterId"))}`); return { deleted: true, filter_id: a.filterId }; }),
 
   // ------------------------------------------------------------------------------------------ settings: auto-reply, forwarding
   tool("gmail_rest_get_vacation", "read", "settings", READ_SETTINGS, "Get Gmail's auto-reply (vacation responder) settings.", {}, [],
     async (_a, rest) => ({ vacation: await rest.call("gmail", "GET", "settings/vacation") })),
-  tool("gmail_rest_update_vacation", "write", "settings", BASIC, "Turn Gmail's auto-reply on or off and set it: enableAutoReply, responseSubject, responseBodyPlainText, responseBodyHtml, restrictToContacts, restrictToDomain, startTime / endTime (ms since epoch).",
+  // Split by effect: turning the auto-reply OFF sends nothing (write); turning it on or changing its text makes Gmail email
+  // every sender from the account's own address (confirm), like sending mail does.
+  tool("gmail_rest_update_vacation", "write", "settings", BASIC, "Turn Gmail's auto-reply OFF (enableAutoReply must be false). Turning it on or changing its text needs gmail_rest_set_auto_reply.",
+    { enableAutoReply: { type: "boolean", description: "Must be false." } }, ["enableAutoReply"],
+    async (a, rest) => {
+      const other = ["responseSubject", "responseBodyPlainText", "responseBodyHtml", "restrictToContacts", "restrictToDomain", "startTime", "endTime"].filter((k) => a[k] !== undefined);
+      if (a.enableAutoReply !== false || other.length) throw new GoogleError("NEEDS_CONFIRM_TOOL", "Turning the auto-reply on or setting its text makes Gmail email every sender; nothing was changed.", { hint: "Use gmail_rest_set_auto_reply, which asks the human first." });
+      return { vacation: await rest.call("gmail", "PUT", "settings/vacation", { body: { enableAutoReply: false } }) };
+    }),
+  tool("gmail_rest_set_auto_reply", "confirm", "settings", BASIC, "Turn Gmail's auto-reply on (or change it): Gmail then emails this text from the account's address to people who write in. enableAutoReply, responseSubject, responseBodyPlainText, responseBodyHtml, restrictToContacts, restrictToDomain, startTime / endTime (ms since epoch). Show the human the exact text and who will get it.",
     { enableAutoReply: { type: "boolean" }, responseSubject: { type: "string" }, responseBodyPlainText: { type: "string" }, responseBodyHtml: { type: "string" }, restrictToContacts: { type: "boolean" }, restrictToDomain: { type: "boolean" }, startTime: { type: "string" }, endTime: { type: "string" } }, ["enableAutoReply"],
     async (a, rest) => ({ vacation: await rest.call("gmail", "PUT", "settings/vacation", { body: pickKeys(a, ["enableAutoReply", "responseSubject", "responseBodyPlainText", "responseBodyHtml", "restrictToContacts", "restrictToDomain", "startTime", "endTime"]) }) })),
   tool("gmail_rest_get_auto_forwarding", "read", "settings", READ_SETTINGS, "Get Gmail's automatic forwarding setting (on/off, address, what happens to the copy).", {}, [],
