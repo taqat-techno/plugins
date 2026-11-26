@@ -4,11 +4,15 @@
 //   bridged tools         server/tools/bridge.mjs: Google's own MCP tools, filtered by module, read-only mode and the
 //                         optional allow / deny lists
 //   identity tools        server/tools/identity.mjs: the plugin's own (gmail module), filtered the same way
+//   file tools            server/tools/files.mjs: save an attachment or a Drive file into GOOGLE_DOWNLOAD_DIR
+//   REST tools            server/tools/rest.mjs: only with GOOGLE_REST_FALLBACK=1 (never listed or callable otherwise)
 import { tools as auth } from "./auth.mjs";
 import { bridgedTools } from "./bridge.mjs";
 import { tools as identity } from "./identity.mjs";
+import { tools as files } from "./files.mjs";
+import { tools as rest } from "./rest.mjs";
 
-export const ALL_TOOLS = [...auth, ...bridgedTools(), ...identity];
+export const ALL_TOOLS = [...auth, ...bridgedTools(), ...identity, ...files, ...rest];
 
 export function activeTools(cfg) {
   return filterTools(ALL_TOOLS, cfg);
@@ -23,6 +27,7 @@ export function filterTools(list, cfg) {
   return list.filter((t) => {
     if (cfg.toolsDeny.includes(t.name)) return false;
     if (t.module === "auth") return true;
+    if (t.rest && !cfg.restFallback) return false;
     if (!cfg.modules.includes(t.module)) return false;
     if (cfg.readOnly && (t.kind === "write" || t.kind === "confirm")) return false;
     if (cfg.toolsAllow.length && !cfg.toolsAllow.includes(t.name)) return false;

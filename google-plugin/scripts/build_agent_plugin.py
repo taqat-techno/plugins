@@ -55,6 +55,10 @@ Node 18+.
 | `GOOGLE_TOOLS_ALLOW` / `GOOGLE_TOOLS_DENY` | Optional: comma-separated tool names; deny wins. No new sign-in needed |
 | `GOOGLE_CONFIRM_MODE` | Optional: `forward` (default: pass Google's confirmation form to the host if it declared form elicitation, else `CONFIRMATION_NEEDED`) or `error` (never forward) |
 | `GOOGLE_IDENTITIES_FILE` / `GOOGLE_IDENTITIES` | Optional: the owner's addresses for `gmail_message_identity` (file path, or the JSON itself) |
+| `GOOGLE_DOWNLOAD_DIR`, `GOOGLE_MAX_SAVE_MB` | Optional: the one folder `gmail_get_attachment` / `drive_save_file` save into (set by the person only), and the size limit (default 25) |
+| `GOOGLE_REFUSE_GUEST_EVENTS` | Optional: `1` refuses calendar changes that involve other people (`GUESTS_NEED_APPROVAL`) |
+| `GOOGLE_WRITE_LIMIT_PER_HOUR` | Optional: `N` caps trash / spam / delete / move calls per rolling hour (`WRITE_LIMIT_REACHED`) |
+| `GOOGLE_REST_FALLBACK` | Optional: `1` adds the `*_rest_*` tools (send a draft, reply / forward drafts, draft edit and delete, Drive trash, move, rename, share) |
 | `GOOGLE_TIMEOUT_MS`, `GOOGLE_CONFIRM_TIMEOUT_MS`, `GOOGLE_MAX_STRING_CHARS`, `GOOGLE_MAX_RESULT_CHARS` | Optional limits |
 
 3. Sign in once by hand, on the machine that runs the host, as the account the bot should act as:

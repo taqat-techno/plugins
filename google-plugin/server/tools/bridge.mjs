@@ -13,6 +13,16 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { GoogleError } from "../util.mjs";
+import { guestGuard } from "../guards.mjs";
+
+/** Google's calendar get_event, for the guest guard (same confirmation handling as every bridged call). */
+const GET_EVENT = { name: "calendar_get_event", module: "calendar", remote: "get_event" };
+async function readEvent(q, ctx, session) {
+  const r = await callGoogle(GET_EVENT, q, ctx, session);
+  if (r.isError) throw new GoogleError("TOOL_ERROR", "get_event failed");
+  if (r.structuredContent !== undefined) return r.structuredContent;
+  try { return JSON.parse((r.content ?? []).find((c) => c.type === "text")?.text ?? "null"); } catch { return null; }
+}
 
 const DATA = new URL("../../data/", import.meta.url);
 export const CLASSES = JSON.parse(readFileSync(new URL("tools.json", DATA), "utf8"));
@@ -182,6 +192,8 @@ export function guardArgs(name, args) {
 /** Runs one bridged tool: Google's result, marked untrusted and size-capped. */
 export async function runBridged(def, args, ctx, session = {}) {
   guardArgs(def.name, args);
+  await guestGuard(def.name, args, ctx, (q) => readEvent(q, ctx, session));
+  ctx.limiter?.check(def.name, ctx.cfg.writeLimitPerHour);
   const r = await callGoogle(def, args, ctx, session);
   return shapeResult(def.name, r, { maxString: ctx.cfg.maxStringChars, maxTotal: ctx.cfg.maxResultChars });
 }

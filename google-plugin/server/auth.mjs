@@ -353,5 +353,8 @@ export function createAuth(cfg, { fetch: fetchImpl = globalThis.fetch, open = op
     return { signed_out: true, note: "The saved sign-in on this computer was deleted. To also remove the app's access at Google: Google Account > Security > Third-party connections." };
   }
 
-  return { getAccessToken, startSignIn, status, signOut, verify, cachePath, _scope: scope };
+  /** The signed-in address from the local cache (no network), or null. */
+  const cachedAccount = () => { try { return readCache()?.account?.email ?? null; } catch { return null; } };
+
+  return { getAccessToken, startSignIn, status, signOut, verify, cachePath, cachedAccount, _scope: scope };
 }

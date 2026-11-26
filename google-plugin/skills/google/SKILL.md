@@ -1,7 +1,7 @@
 ---
 name: google
 description: "Use when the user wants to read their Gmail, Google Calendar or Google Drive through the google plugin, connect, sign in to, sign out of or check the connection to their Google account, or when a google tool reports CONFIRMATION_NEEDED, AUTH_REQUIRED, AUTH_EXPIRED, NOT_CONFIGURED, SCOPE_NOT_GRANTED, MODULE_DISABLED, GOOGLE_FORBIDDEN or CLIENT_TYPE_WRONG."
-version: "0.5.5"
+version: "0.6.0"
 ---
 
 # Google plugin
@@ -31,6 +31,15 @@ re-exposes an allowlisted set of Google's tools, named `gmail_*`, `calendar_*` a
   Drafts are never sent by the plugin: the user sends them from Gmail. There is no send, no draft edit or delete, no Drive
   share, move or trash, and no permanent delete.
 - To put mail in Trash or Spam, use the trash / spam tools, never a label call (it is refused with `NEEDS_CONFIRM_TOOL`).
+
+## Files, guards and REST tools
+
+- `gmail_get_attachment` lists a message's attachments, or saves one into the person's download folder;
+  `drive_save_file` saves a Drive file. Results give a path, never bytes. `DOWNLOAD_NOT_CONFIGURED`: only the person
+  can set the folder.
+- `GUESTS_NEED_APPROVAL` and `WRITE_LIMIT_REACHED` are this server's own brakes: do not retry; tell the person.
+- Tools named `*_rest_*` exist only when the person switched the REST fallback on. `gmail_rest_send_draft` sends an
+  existing draft exactly as it is: show the person the draft and wait for a clear yes first.
 
 ## Which address a mail was for
 

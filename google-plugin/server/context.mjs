@@ -6,6 +6,7 @@ import { createAuth } from "./auth.mjs";
 import { createRemote } from "./remote.mjs";
 import { activeTools } from "./tools/index.mjs";
 import { GoogleError } from "./util.mjs";
+import { createWriteLimiter } from "./guards.mjs";
 
 export function createContext(env = process.env, deps = {}) {
   const ctx = {};
@@ -15,7 +16,8 @@ export function createContext(env = process.env, deps = {}) {
     const cfg = resolveConfig(env);
     const auth = createAuth(cfg, deps);
     const remote = createRemote({ urls: cfg.mcpUrls, auth, fetch: deps.fetch ?? globalThis.fetch, timeoutMs: cfg.timeoutMs });
-    Object.assign(ctx, { cfg, auth, remote, now: deps.now ?? (() => Date.now()) });
+    const now = deps.now ?? (() => Date.now());
+    Object.assign(ctx, { cfg, auth, remote, now, limiter: createWriteLimiter(now), fetch: deps.fetch ?? globalThis.fetch });
     tools = activeTools(cfg);
     byName = new Map(tools.map((t) => [t.name, t]));
   };

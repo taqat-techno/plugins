@@ -28,12 +28,26 @@ export function diffModule(mod, live) {
   return { added, removed, changed, exposed_affected };
 }
 
+/** Google tools whose name suggests they do what a REST fallback tool does (so the REST one can be removed). */
+const REST_TWINS = [
+  [/send/i, "gmail_rest_send_draft"], [/update_draft|edit_draft/i, "gmail_rest_update_draft"], [/delete_draft/i, "gmail_rest_delete_draft"],
+  [/reply/i, "gmail_rest_create_reply_draft"], [/forward/i, "gmail_rest_create_forward_draft"],
+  [/trash|delete/i, "drive_rest_trash_file"], [/untrash|restore/i, "drive_rest_untrash_file"], [/move/i, "drive_rest_move_file"],
+  [/rename/i, "drive_rest_rename_file"], [/share|permission/i, "drive_rest_share_file"], [/unshare|remove_permission|delete_permission/i, "drive_rest_unshare_file"],
+];
+export function restTwins(mod, names) {
+  const out = [];
+  for (const n of names) for (const [re, rest] of REST_TWINS) if (re.test(n) && rest.startsWith(`${mod}_`)) out.push({ google_tool: `${mod}_${n}`, may_replace: rest });
+  return out;
+}
+
 export async function schemaCheck(ctx, { update = false, modules = ctx.cfg.modules } = {}) {
   const report = {};
   const next = structuredClone(SNAPSHOT);
   for (const mod of modules) {
     const live = await ctx.remote.listTools(mod);
-    report[mod] = { live_tools: live.length, ...diffModule(mod, live) };
+    const d = diffModule(mod, live);
+    report[mod] = { live_tools: live.length, ...d, may_replace_rest: restTwins(mod, [...d.added, ...d.changed.map((c) => c.name)]) };
     next.servers[mod] = { url: ctx.cfg.mcpUrls[mod], tools: live.map(snapEntry) };
   }
   if (update) {

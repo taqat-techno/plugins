@@ -36,6 +36,11 @@ plugin's own identity tools.
 | (none) | `GOOGLE_CONFIRM_MODE` | `forward` (default): pass Google's confirmation form to the MCP client if it supports forms, else fail with `CONFIRMATION_NEEDED`. `error`: never forward. |
 | (none) | `GOOGLE_CONFIRM_TIMEOUT_MS` | How long a forwarded form may wait for the human. Default: 600000. |
 | Identities file (optional) | `GOOGLE_IDENTITIES_FILE` | Path to the identities JSON (below). `GOOGLE_IDENTITIES` can hold the JSON itself instead. |
+| Folder to save files into (optional) | `GOOGLE_DOWNLOAD_DIR` | The one folder `gmail_get_attachment` and `drive_save_file` save into. No default: without it they refuse. |
+| (none) | `GOOGLE_MAX_SAVE_MB` | Largest file they save. Default: 25. |
+| (none) | `GOOGLE_REFUSE_GUEST_EVENTS` | `1`: calendar changes that involve other people fail with `GUESTS_NEED_APPROVAL` (see Guards). Default off. |
+| (none) | `GOOGLE_WRITE_LIMIT_PER_HOUR` | `N`: trash / spam / delete / move calls past N per rolling hour fail with `WRITE_LIMIT_REACHED`. Default off. |
+| (none) | `GOOGLE_REST_FALLBACK` | `1`: adds the REST tools (see REST fallback). Default off. |
 | (none) | `GOOGLE_MAX_STRING_CHARS` / `GOOGLE_MAX_RESULT_CHARS` | Result size caps. Defaults: 20000 per string, 100000 per result. |
 
 The Claude Code setting (`GOOGLE_PLUGIN_*`) wins over the environment variable.
@@ -197,6 +202,45 @@ cannot redirect a code or token.
 
 **No device-code sign-in.** Google's device flow does not allow these scopes, and the copy-paste (OOB) flow is no longer
 supported. Sign-in needs a browser on the machine that runs the plugin.
+
+## Files
+
+| Tool | Class | What it does |
+|---|---|---|
+| `gmail_get_attachment` | read | Without `attachment`: lists the message's attachments. With an index or exact filename: saves it into `GOOGLE_DOWNLOAD_DIR` and returns path, filename, mimeType, size. |
+| `drive_save_file` | read | Saves a Drive file there (Google files exported, `exportMimeType` optional). Google refuses it for files owned by other people (`CONFIRMATION_UNSUPPORTED`); `drive_read_file_content` still reads those. |
+
+Files are never returned as bytes, never overwrite an existing file, and get a cleaned name inside that folder only.
+
+## Guards (off by default)
+
+- `GOOGLE_REFUSE_GUEST_EVENTS=1`: `calendar_create_event` / `calendar_update_event` naming anyone other than the
+  signed-in person, and `calendar_update_event` / `calendar_delete_event` / `calendar_respond_to_event` on an event
+  with other attendees or another organiser (looked up first; a failed lookup refuses), fail with
+  `GUESTS_NEED_APPROVAL`. A host can run one server with it on for direct use and a second, behind its own approval
+  step, with it off.
+- `GOOGLE_WRITE_LIMIT_PER_HOUR=N`: at most N calls per rolling hour, per server process, of Gmail trash, spam and
+  sensitive labels, `calendar_delete_event`, `gmail_rest_delete_draft`, `drive_rest_trash_file` and
+  `drive_rest_move_file`; then `WRITE_LIMIT_REACHED`.
+
+## REST fallback (off by default)
+
+`GOOGLE_REST_FALLBACK=1` adds tools for what Google's MCP servers lack, through Google's REST APIs with the same
+sign-in (no new scope). With the switch off they are not listed and are refused; read-only mode drops them.
+
+| Tool | Class | What it does |
+|---|---|---|
+| `gmail_rest_send_draft` | confirm | Sends an existing draft, by id only, exactly as it is. Its From must be a verified send-as address (`IDENTITY_NOT_VERIFIED`). |
+| `gmail_rest_create_reply_draft` | write | Reply draft in the thread (In-Reply-To, References, "Re:"), From = chosen or the verified alias the mail was sent to. |
+| `gmail_rest_create_forward_draft` | write | Forward draft with the original text and attachments (25 MB max). |
+| `gmail_rest_update_draft` / `gmail_rest_delete_draft` | write | Replace a draft's content / delete a draft. |
+| `drive_rest_trash_file` / `drive_rest_move_file` | confirm | Trash (recoverable about 30 days) / move into another folder. |
+| `drive_rest_untrash_file` / `drive_rest_rename_file` | write | Restore / rename. |
+| `drive_rest_share_file` / `drive_rest_unshare_file` | confirm | Share with one person or group (reader, commenter, writer; no public links, never ownership) / remove access (never the owner's). |
+
+Google's Workspace AI Tools Addendum says AI agents must use Google's MCP servers instead of REST from 2027-02-01.
+What Google does with a client that keeps using REST after that is not documented. `schema-check` exits 4 and lists
+`may_replace_rest` when Google adds a tool that may replace one of these, so the REST tool can be removed.
 
 ## Agent package (OpenClaw and other hosts)
 

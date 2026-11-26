@@ -1,5 +1,38 @@
 # Changelog
 
+## [0.6.0] - 2026-11-26
+
+### Added
+- `gmail_get_attachment` (read): lists a message's attachments, or saves one (by index or filename) into
+  `GOOGLE_DOWNLOAD_DIR` and returns path, filename, mimeType and size; never the bytes. The message is read RAW
+  through Google's MCP and parsed locally (nested multipart, base64 / quoted-printable, RFC 2231 / 2047 names).
+- `drive_save_file` (read): Google's `download_file_content`, decoded and saved the same way. It replaces exposing
+  `drive_download_file_content` (now hidden), whose base64 result the size cap would cut.
+- Guest guard, off by default (`GOOGLE_REFUSE_GUEST_EVENTS=1`): calendar create/update naming attendees other than the
+  signed-in person, and update/delete/respond on an event that has other attendees or another organiser (looked up
+  first; a failed lookup refuses), fail with `GUESTS_NEED_APPROVAL` before Google is called.
+- Write limit, off by default (`GOOGLE_WRITE_LIMIT_PER_HOUR=N`): trash / spam / sensitive-label / calendar delete /
+  draft delete / Drive trash and move calls past N per rolling hour in one process fail with `WRITE_LIMIT_REACHED`.
+- REST fallback, off by default (`GOOGLE_REST_FALLBACK=1`), for what Google's MCP servers lack; same sign-in, no new
+  scope (gmail.modify and drive cover every call). Tools are named `*_rest_*` so they cannot collide with a Google
+  tool, are absent from tools/list and refused when the switch is off, and are dropped in read-only mode:
+  - confirm: `gmail_rest_send_draft` (sends an existing draft by id only; its From must be a verified send-as, else
+    `IDENTITY_NOT_VERIFIED`), `drive_rest_trash_file`, `drive_rest_move_file`, `drive_rest_share_file` (a person or
+    group, reader / commenter / writer only), `drive_rest_unshare_file` (never the owner);
+  - write: `gmail_rest_update_draft`, `gmail_rest_delete_draft`, `gmail_rest_create_reply_draft` (in-thread, chosen
+    or matching verified From), `gmail_rest_create_forward_draft` (with the original attachments, 25 MB max),
+    `drive_rest_untrash_file`, `drive_rest_rename_file`.
+- `schema-check` exits 4 when Google adds, removes or changes a tool (3 now means only that the check failed), with
+  `drift` and per-module `may_replace_rest` hints in the JSON.
+- Settings `GOOGLE_DOWNLOAD_DIR` (userConfig "Folder to save files into"), `GOOGLE_MAX_SAVE_MB` (default 25).
+- New codes: `DOWNLOAD_NOT_CONFIGURED`, `TOO_LARGE`, `AMBIGUOUS`, `NOT_FOUND`, `MESSAGE_TOO_COMPLEX`,
+  `GUESTS_NEED_APPROVAL`, `WRITE_LIMIT_REACHED`, `IDENTITY_NOT_VERIFIED`, `REST_DISABLED`.
+
+### Found (A1)
+- `download_file_content` works for files the signed-in person owns. For files owned by other people Google answers
+  "requires user confirmation, which this client does not support" without offering a form, whether the client declares
+  form or form+url elicitation, so neither the plugin nor `grant` can answer it (live check 2026-11-26).
+
 ## [0.5.5] - 2026-11-26
 
 ### Fixed (security review)

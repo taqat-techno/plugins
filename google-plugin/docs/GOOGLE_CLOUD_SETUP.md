@@ -203,6 +203,11 @@ If one mailbox receives mail for several of your addresses (aliases, or business
 `gmail_message_identity` tells which one a message was sent to. List them in a JSON file and set its path in the plugin
 setting **Identities file** (or `GOOGLE_IDENTITIES_FILE`); the format is in the README.
 
+## Step 10 (optional): a folder for saved files
+
+`gmail_get_attachment` and `drive_save_file` save files into one folder you choose, and nowhere else: set it in the
+plugin setting **Folder to save files into** (or `GOOGLE_DOWNLOAD_DIR`). Without it they refuse to save.
+
 ## Signing out
 
 ```

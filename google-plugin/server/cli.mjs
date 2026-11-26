@@ -9,8 +9,8 @@
 //   node server/cli.mjs schema-check [--update]   compare Google's live tool list with the recorded snapshot
 //   node server/cli.mjs identity <messageId>  which configured identity one message was sent to (headers only, no
 //                                            body); Google's form, if any, is shown here for you to answer
-// Exit codes: 0 = OK; 3 = not signed in, sign-in failed, a live check failed, a grant step failed or the schema drifted
-// for an exposed tool (a scheduled check can alert on it); 1 = unexpected error; 2 = usage.
+// Exit codes: 0 = OK; 3 = not signed in, sign-in failed, a live check failed or a grant step failed (a scheduled check
+// can alert on it); 4 = schema-check found Google added, removed or changed a tool; 1 = unexpected error; 2 = usage.
 // Output never contains a token or the client secret; grant never prints the data its test calls return.
 import { createInterface } from "node:readline/promises";
 import { createContext } from "./context.mjs";
@@ -71,8 +71,10 @@ try {
     } finally { rl.close(); }
   } else if (cmd === "schema-check") {
     const report = await schemaCheck(ctx, { update: rest.includes("--update") });
-    out(report);
-    process.exit(Object.values(report).some((r) => r.exposed_affected.length || r.added.length) ? 3 : 0);
+    const drift = Object.values(report).some((r) => r.added.length || r.removed.length || r.changed.length);
+    out({ drift, ...report });
+    // 4 = Google added, removed or changed a tool (names in the JSON); 3 = the check itself failed (sign-in, network).
+    process.exit(drift ? 4 : 0);
   } else {
     process.stderr.write(USAGE);
     process.exit(2);

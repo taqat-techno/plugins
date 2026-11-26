@@ -307,11 +307,15 @@ test("schema-check diff: added, removed and changed tools are reported, and chan
   assert.ok(d.exposed_affected.includes("gmail_list_labels") && d.exposed_affected.includes("gmail_get_thread"));
 });
 
-test("no REST fallback: the server calls only Google's MCP servers and the OAuth endpoints", () => {
+test("hosts: Google's MCP servers and OAuth endpoints only; the REST hosts appear in server/rest.mjs alone", () => {
   const dir = new URL("../server/", import.meta.url);
   const files = [...readdirSync(dir).filter((f) => f.endsWith(".mjs")).map((f) => new URL(f, dir)), ...readdirSync(new URL("tools/", dir)).filter((f) => f.endsWith(".mjs")).map((f) => new URL(`tools/${f}`, dir))];
   const hosts = new Set();
-  for (const f of files) for (const m of readFileSync(f, "utf8").matchAll(/https:\/\/([a-z0-9.-]+\.(?:googleapis|google)\.com)/g)) hosts.add(m[1]);
+  for (const f of files) {
+    const found = [...readFileSync(f, "utf8").matchAll(/https:\/\/([a-z0-9.-]+\.(?:googleapis|google)\.com)/g)].map((m) => m[1]);
+    if (f.pathname.endsWith("/server/rest.mjs")) { assert.deepEqual([...new Set(found)].sort(), ["gmail.googleapis.com", "www.googleapis.com"]); continue; }
+    for (const h of found) hosts.add(h);
+  }
   assert.deepEqual([...hosts].sort(), ["accounts.google.com", "calendarmcp.googleapis.com", "drivemcp.googleapis.com", "gmailmcp.googleapis.com", "oauth2.googleapis.com", "openidconnect.googleapis.com", "www.googleapis.com",
     // only as the refused-scope guard constant (google_auth.test.mjs checks that it appears nowhere else)
     "mail.google.com"].sort());
@@ -320,15 +324,15 @@ test("no REST fallback: the server calls only Google's MCP servers and the OAuth
 // ------------------------------------------------------------------------------------------------ B3: write + confirm
 
 test("B3 classes: no Google tool is hidden; calendar create/update/delete/respond are confirm (whole tool); read-only drops every write", () => {
-  assert.deepEqual(CLASSES.hidden, {});
+  assert.deepEqual(Object.keys(CLASSES.hidden), ["drive_download_file_content"], "only the tool drive_save_file replaces is hidden");
   for (const n of ["calendar_create_event", "calendar_update_event", "calendar_delete_event", "calendar_respond_to_event"]) assert.ok(CLASSES.confirm.includes(n), n);
   for (const n of ["gmail_trash_thread", "gmail_trash_message", "gmail_mark_thread_spam", "gmail_mark_message_spam", "gmail_apply_sensitive_thread_label", "gmail_apply_sensitive_message_label", "drive_upload_file_revision", "drive_create_file", "drive_copy_file"]) assert.ok(CLASSES.confirm.includes(n), n);
   for (const n of CLASSES.confirm) assert.match(ALL_TOOLS.find((t) => t.name === n).description, /Ask the human first/, n);
   const ro = filterTools(ALL_TOOLS, resolveConfig({ GOOGLE_READONLY: "1" })).map((t) => t.name);
   assert.ok([...CLASSES.write, ...CLASSES.confirm].every((n) => !ro.includes(n)));
   assert.ok(CLASSES.read.every((n) => ro.includes(n)));
-  // No send, no draft edit or delete, no Drive share/move/trash, no permanent delete: Google offers none, the plugin adds none.
-  const all = ALL_TOOLS.map((t) => t.name).join(" ");
+  // With the REST switch off (default): no send, no draft edit or delete, no Drive share/move/trash, no permanent delete.
+  const all = filterTools(ALL_TOOLS, resolveConfig({})).map((t) => t.name).join(" "); // REST switch off (default)
   assert.doesNotMatch(all, /send|update_draft|delete_draft|share|move_file|trash_file|delete_message|delete_thread/);
 });
 
@@ -363,7 +367,7 @@ test("write-class label tools refuse Trash and Spam (the confirm tools exist for
 
 test("live finding: Google's 'requires user confirmation, which this client does not support' is CONFIRMATION_UNSUPPORTED, not a grant prompt", async () => {
   const c = ctxFor([tokenOk, google(() => ({ isError: true, content: [{ type: "text", text: "Action could not be completed. This action requires user confirmation, which this client does not support. Use a client that supports form elicitation to perform this action." }] }))]);
-  await assert.rejects(c.callTool("drive_download_file_content", { fileId: "f" }), (e) => e.code === "CONFIRMATION_UNSUPPORTED" && !/grant drive/.test(e.hint) && /drive_read_file_content/.test(e.hint));
+  await assert.rejects(c.callTool("drive_save_file", { fileId: "f" }), (e) => e.code === "CONFIRMATION_UNSUPPORTED" && !/grant drive/.test(e.hint) && /drive_read_file_content/.test(e.hint));
 });
 
 test("grant: Ctrl+C at a prompt stops the run instead of going on to the next tool", async () => {
@@ -379,7 +383,7 @@ test("GOOGLE_TOOLS_DENY removes the plugin's own local tools too: absent from to
   const listed = c.listTools().map((t) => t.name);
   for (const n of ["google_sign_in", "google_sign_out", "gmail_identities"]) assert.ok(!listed.includes(n), n);
   assert.ok(listed.includes("google_auth_status"));
-  assert.equal(listed.length, ALL_TOOLS.length - 3);
+  assert.equal(listed.length, ctxFor([tokenOk]).listTools().length - 3);
   await assert.rejects(c.callTool("google_sign_out", {}), { code: "UNKNOWN_TOOL" });
   await assert.rejects(c.callTool("google_sign_in", {}), { code: "UNKNOWN_TOOL" });
 });

@@ -6,4 +6,4 @@ import { serveStdio } from "./mcp.mjs";
 
 const { listTools, callTool, ctx, tools } = createContext();
 process.stderr.write(`[google] ready: modules=${ctx.cfg.modules.join(",")} read_only=${ctx.cfg.readOnly} tools=${tools.length} confirm_mode=${ctx.cfg.confirmMode} client_file=${ctx.cfg.clientSecretFile ? "set" : "MISSING"}\n`);
-serveStdio({ info: { name: "google", version: "0.5.5" }, listTools, callTool, confirmTimeoutMs: ctx.cfg.confirmTimeoutMs });
+serveStdio({ info: { name: "google", version: "0.6.0" }, listTools, callTool, confirmTimeoutMs: ctx.cfg.confirmTimeoutMs });

@@ -1,6 +1,6 @@
 {
   "name": "google",
-  "version": "0.5.5",
+  "version": "0.6.0",
   "license": "MIT",
   "description": "Gmail, Google Calendar and Google Drive for Claude Code and agent bots: a local bridge to Google's own Workspace MCP servers, signed in with your own Google Cloud OAuth client (Desktop app, loopback + PKCE). Exposes an allowlisted, classified set of Google's tools (read, write, and confirm-class tools that ask the human first), never answers Google's confirmation forms by itself (it forwards them to your client or you answer them with the grant command), marks results untrusted and caps their size. Never requests full mailbox access. Self-contained: no npm packages.",
   "author": {
@@ -47,6 +47,12 @@
       "type": "string",
       "title": "Identities file (optional)",
       "description": "Path to a JSON file listing your own addresses or aliases ({\"identities\":[{\"id\",\"label\",\"address\",\"matchTo\":[...],\"default\"}]}), used by gmail_message_identity to tell which of them a message was sent to. See the README. Falls back to GOOGLE_IDENTITIES_FILE.",
+      "default": ""
+    },
+    "google_download_dir": {
+      "type": "string",
+      "title": "Folder to save files into (optional)",
+      "description": "The one folder gmail_get_attachment and drive_save_file may save files into. Only you set it; tools cannot choose another folder. Falls back to GOOGLE_DOWNLOAD_DIR.",
       "default": ""
     }
   }

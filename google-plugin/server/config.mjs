@@ -86,6 +86,16 @@ export function resolveConfig(env = process.env) {
     // Identities for gmail_message_identity (server/identity.mjs): a JSON file path, or the JSON itself.
     identitiesFile: pick(env, "GOOGLE_PLUGIN_IDENTITIES_FILE", "GOOGLE_IDENTITIES_FILE"),
     identitiesJson: pick(env, "GOOGLE_IDENTITIES"),
+    // The ONE folder gmail_get_attachment / drive_save_file may write into. Set by the person only; no default.
+    downloadDir: pick(env, "GOOGLE_PLUGIN_DOWNLOAD_DIR", "GOOGLE_DOWNLOAD_DIR"),
+    // Largest file those tools save (MB).
+    maxSaveMb: Number(pick(env, "GOOGLE_MAX_SAVE_MB")) || 25,
+    // Off by default: refuse calendar changes that involve other people (server/guards.mjs).
+    refuseGuestEvents: bool(pick(env, "GOOGLE_REFUSE_GUEST_EVENTS")),
+    // Off by default (0): at most N trash / spam / delete / move calls per rolling hour in this process.
+    writeLimitPerHour: Math.max(0, Math.floor(Number(pick(env, "GOOGLE_WRITE_LIMIT_PER_HOUR")) || 0)),
+    // Off by default: Google REST API tools for what Google's MCP servers lack (server/tools/rest.mjs).
+    restFallback: bool(pick(env, "GOOGLE_PLUGIN_REST_FALLBACK", "GOOGLE_REST_FALLBACK")),
   };
 }
 

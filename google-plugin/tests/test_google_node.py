@@ -42,7 +42,7 @@ def test_server_speaks_mcp_over_stdio_with_no_install_step(tmp_path):
         p.stdin.write(json.dumps({"jsonrpc": "2.0", "method": "notifications/initialized"}) + "\n")
         tools = _rpc(p, {"jsonrpc": "2.0", "id": 2, "method": "tools/list"})["result"]["tools"]
         classes = json.loads((PLUGIN / "data" / "tools.json").read_text(encoding="utf-8"))
-        assert {t["name"] for t in tools} == set(classes["local"] + classes["read"] + classes["write"] + classes["confirm"])
+        assert {t["name"] for t in tools} == set(classes["local"] + classes["read"] + classes["write"] + classes["confirm"]) - set(classes["rest_tools"]), "REST tools are off by default"
         assert all(len(t["description"]) <= 1024 for t in tools)
         status = _rpc(p, {"jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": {"name": "google_auth_status", "arguments": {}}})
         body = json.loads(status["result"]["content"][0]["text"])
@@ -144,7 +144,7 @@ def test_agent_package_server_starts_from_the_package_and_lists_every_classified
         _rpc(p, {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVersion": "2025-06-18", "capabilities": {}}})
         tools = _rpc(p, {"jsonrpc": "2.0", "id": 2, "method": "tools/list"})["result"]["tools"]
         classes = json.loads((out / "data" / "tools.json").read_text(encoding="utf-8"))
-        assert {t["name"] for t in tools} == set(classes["read"] + classes["local"] + classes["write"] + classes["confirm"])
+        assert {t["name"] for t in tools} == set(classes["read"] + classes["local"] + classes["write"] + classes["confirm"]) - set(classes["rest_tools"])
         call = _rpc(p, {"jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": {"name": "gmail_list_labels", "arguments": {}}})
         assert json.loads(call["result"]["content"][0]["text"])["error"]["code"] == "NOT_CONFIGURED"
     finally:
