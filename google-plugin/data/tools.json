@@ -20,7 +20,8 @@
     "drive_read_file_content",
     "gmail_message_identity",
     "gmail_get_attachment",
-    "drive_save_file"
+    "drive_save_file",
+    "gmail_rest_preview_draft"
   ],
   "local": [
     "google_sign_in",
@@ -82,7 +83,8 @@
     "drive_rest_trash_file",
     "drive_rest_move_file",
     "drive_rest_share_file",
-    "drive_rest_unshare_file"
+    "drive_rest_unshare_file",
+    "gmail_rest_preview_draft"
   ],
   "hidden": {
     "drive_download_file_content": "Replaced by drive_save_file, which saves the file instead of returning base64 (the size cap would cut it)."
@@ -117,6 +119,7 @@
     "drive_rest_trash_file",
     "drive_rest_move_file",
     "drive_rest_share_file",
-    "drive_rest_unshare_file"
+    "drive_rest_unshare_file",
+    "gmail_rest_preview_draft"
   ]
 }

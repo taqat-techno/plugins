@@ -1,7 +1,7 @@
 ---
 name: google
 description: "Use when the user wants to read their Gmail, Google Calendar or Google Drive through the google plugin, connect, sign in to, sign out of or check the connection to their Google account, or when a google tool reports CONFIRMATION_NEEDED, AUTH_REQUIRED, AUTH_EXPIRED, NOT_CONFIGURED, SCOPE_NOT_GRANTED, MODULE_DISABLED, GOOGLE_FORBIDDEN or CLIENT_TYPE_WRONG."
-version: "0.6.0"
+version: "0.6.1"
 ---
 
 # Google plugin
@@ -39,7 +39,8 @@ re-exposes an allowlisted set of Google's tools, named `gmail_*`, `calendar_*` a
   can set the folder.
 - `GUESTS_NEED_APPROVAL` and `WRITE_LIMIT_REACHED` are this server's own brakes: do not retry; tell the person.
 - Tools named `*_rest_*` exist only when the person switched the REST fallback on. `gmail_rest_send_draft` sends an
-  existing draft exactly as it is: show the person the draft and wait for a clear yes first.
+  existing draft exactly as it is: call `gmail_rest_preview_draft`, show the person what it returns, wait for a clear
+  yes, then send with its digest (`DRAFT_CHANGED` means preview and ask again).
 
 ## Which address a mail was for
 

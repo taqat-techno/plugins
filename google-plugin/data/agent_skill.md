@@ -40,8 +40,9 @@ These tools act as the signed-in person through Google's own Workspace MCP serve
   by default), Gmail trash and spam, `drive_create_file`, `drive_copy_file` and `drive_upload_file_revision` (a file in a
   shared folder is visible to others). Say exactly what happens and who is emailed.
 - Without the REST fallback, mail is never sent by these tools: a draft waits in Gmail for the owner. With it
-  (`*_rest_*` tools listed), `gmail_rest_send_draft` sends an existing draft exactly as it is: show the owner From, To,
-  subject and body and wait for a clear yes. Replies and forwards are drafts first (`gmail_rest_create_reply_draft`,
+  (`*_rest_*` tools listed), `gmail_rest_send_draft` sends an existing draft exactly as it is: call `gmail_rest_preview_draft`,
+  show the owner From, To, subject and body, wait for a clear yes, then send with the preview's digest
+  (`DRAFT_CHANGED`: preview and ask again). Replies and forwards are drafts first (`gmail_rest_create_reply_draft`,
   `gmail_rest_create_forward_draft`). There is never a permanent delete.
 - `GUESTS_NEED_APPROVAL` and `WRITE_LIMIT_REACHED` are brakes: stop and tell the owner; do not retry or work around them.
 - To trash or mark spam, use those tools; a label call adding `TRASH` or `SPAM` is refused (`NEEDS_CONFIRM_TOOL`).

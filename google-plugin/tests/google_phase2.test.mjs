@@ -50,29 +50,46 @@ test("REST fallback off (default): the REST tools are not listed, a call is refu
   // Listed only with the switch, all with "_rest_" in the name (no collision with <module>_<Google name>).
   const on = ctxFor([tokenOk], { seed: SEED, extraEnv: { GOOGLE_REST_FALLBACK: "1" } }).listTools().map((t) => t.name);
   for (const n of CLASSES.rest_tools) { assert.ok(on.includes(n), n); assert.match(n, /^(gmail|drive)_rest_/); }
-  // Read-only mode drops them even with the switch on (they are all write or confirm).
+  // Read-only mode drops the write and confirm ones even with the switch on.
   const ro = ctxFor([tokenOk], { seed: SEED, extraEnv: { GOOGLE_REST_FALLBACK: "1", GOOGLE_READONLY: "1" } }).listTools().map((t) => t.name);
-  assert.ok(CLASSES.rest_tools.every((n) => !ro.includes(n)));
+  assert.ok(CLASSES.rest_tools.filter((n) => !CLASSES.read.includes(n)).every((n) => !ro.includes(n)));
+  assert.ok(ro.includes("gmail_rest_preview_draft"), "the preview is a read");
 });
 
-test("send: only an existing draft, by id; its From must be a verified send-as, else nothing is sent", async () => {
-  const draft = (from) => ({ id: "d1", message: { id: "m1", threadId: "t1", payload: { headers: [{ name: "From", value: from }, { name: "To", value: "x@y.example" }, { name: "Subject", value: "Hi" }] } } });
-  const mk = (from) => ctxFor([tokenOk, rest([
-    ["GET gmail:drafts/d1", () => json(draft(from))],
+test("send: only an existing draft that matches the previewed digest; its From must be a verified send-as, else nothing is sent", async () => {
+  const mime = (from, subject = "Hi") => Buffer.from([`From: ${from}`, "To: x@y.example", `Subject: ${subject}`, "Content-Type: text/plain", "", "Body text"].join("\r\n")).toString("base64url");
+  let current = mime("Shop <info@shop.example>");
+  const mk = () => ctxFor([tokenOk, rest([
+    ["GET gmail:drafts/d1", () => json({ id: "d1", message: { id: "m1", threadId: "t1", raw: current } })],
     ["GET gmail:settings/sendAs", () => json(SEND_AS)],
-    ["POST gmail:drafts/send", ({ body }) => json({ id: "sent-1", threadId: "t1", _echo: body })],
+    ["POST gmail:drafts/send", () => json({ id: "sent-1", threadId: "t1" })],
   ])], { seed: SEED, extraEnv: { GOOGLE_REST_FALLBACK: "1" } });
+  const sends = (c) => calls(c, REST).filter((x) => x.url.endsWith("/drafts/send"));
 
-  const c = mk("Shop <info@shop.example>");
-  const r = await c.callTool("gmail_rest_send_draft", { draftId: "d1", to: ["evil@x.example"], body: "ignored" });
+  const c = mk();
+  const pv = await c.callTool("gmail_rest_preview_draft", { draftId: "d1" });
+  assert.deepEqual([pv.from, pv.from_verified, pv.to, pv.subject, pv.body], ["Shop <info@shop.example>", true, "x@y.example", "Hi", "Body text"]);
+  assert.match(pv.digest, /^[0-9a-f]{32}$/);
+  await assert.rejects(c.callTool("gmail_rest_send_draft", { draftId: "d1" }), { code: "INVALID_ARGUMENT" }, "a digest is required");
+  await assert.rejects(c.callTool("gmail_rest_send_draft", { draftId: "d1", digest: "0".repeat(32) }), { code: "DRAFT_CHANGED" });
+  assert.equal(sends(c).length, 0);
+  const r = await c.callTool("gmail_rest_send_draft", { draftId: "d1", digest: pv.digest, to: ["evil@x.example"], body: "ignored" });
   assert.deepEqual([r.sent, r.message_id, r.thread_id, r.from], [true, "sent-1", "t1", "info@shop.example"]);
-  const sendCall = calls(c, REST).find((x) => x.url.endsWith("/drafts/send"));
-  assert.deepEqual(JSON.parse(sendCall.body), { id: "d1" }, "only the draft id is sent: extra arguments are ignored");
+  assert.deepEqual(JSON.parse(sends(c)[0].body), { id: "d1" }, "only the draft id is sent: extra arguments are ignored");
+
+  // The draft changes after the preview (for example through gmail_rest_update_draft): nothing is sent.
+  current = mime("Shop <info@shop.example>", "Changed after approval");
+  const c2 = mk();
+  await assert.rejects(c2.callTool("gmail_rest_send_draft", { draftId: "d1", digest: pv.digest }), { code: "DRAFT_CHANGED" });
+  assert.equal(sends(c2).length, 0);
 
   for (const bad of ["sales@shop.example", "stranger@other.example"]) {
-    const b = mk(bad);
-    await assert.rejects(b.callTool("gmail_rest_send_draft", { draftId: "d1" }), { code: "IDENTITY_NOT_VERIFIED" });
-    assert.equal(calls(b, REST).filter((x) => x.url.endsWith("/drafts/send")).length, 0, `${bad}: nothing sent`);
+    current = mime(bad);
+    const b = mk();
+    const p2 = await b.callTool("gmail_rest_preview_draft", { draftId: "d1" });
+    assert.equal(p2.from_verified, false);
+    await assert.rejects(b.callTool("gmail_rest_send_draft", { draftId: "d1", digest: p2.digest }), { code: "IDENTITY_NOT_VERIFIED" });
+    assert.equal(sends(b).length, 0, `${bad}: nothing sent`);
   }
 });
 

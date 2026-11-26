@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.6.1] - 2026-11-26
+
+### Fixed (security review)
+- `gmail_rest_send_draft` took only a draft id, so the approval prompt showed no content and the draft could change
+  between the human's look and the send. New `gmail_rest_preview_draft` (read, REST) returns From, To, Cc, Bcc,
+  subject, body, attachments, whether From is a verified send-as, and a digest of the raw draft; the send now requires
+  that digest and refuses with `DRAFT_CHANGED` (nothing sent) if the draft differs. The draft is read and checked
+  immediately before the send; a change in the instant between that check and Google's send is not covered.
+
 ## [0.6.0] - 2026-11-26
 
 ### Added

@@ -230,7 +230,8 @@ sign-in (no new scope). With the switch off they are not listed and are refused;
 
 | Tool | Class | What it does |
 |---|---|---|
-| `gmail_rest_send_draft` | confirm | Sends an existing draft, by id only, exactly as it is. Its From must be a verified send-as address (`IDENTITY_NOT_VERIFIED`). |
+| `gmail_rest_preview_draft` | read | The draft as it would be sent (From, To, Cc, Bcc, subject, body, attachments, From verified or not) and a digest. |
+| `gmail_rest_send_draft` | confirm | Sends an existing draft exactly as it is, by id plus the preview's digest: a draft changed since the preview is refused (`DRAFT_CHANGED`). Its From must be a verified send-as address (`IDENTITY_NOT_VERIFIED`). |
 | `gmail_rest_create_reply_draft` | write | Reply draft in the thread (In-Reply-To, References, "Re:"), From = chosen or the verified alias the mail was sent to. |
 | `gmail_rest_create_forward_draft` | write | Forward draft with the original text and attachments (25 MB max). |
 | `gmail_rest_update_draft` / `gmail_rest_delete_draft` | write | Replace a draft's content / delete a draft. |
