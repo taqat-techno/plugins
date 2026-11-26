@@ -21,6 +21,9 @@ export function restError(status, j, mod) {
   if (status === 403 && /insufficient (authentication )?scopes?|ACCESS_TOKEN_SCOPE_INSUFFICIENT|insufficientPermissions/i.test(`${msg} ${JSON.stringify(j?.error?.details ?? j?.error?.errors ?? "")}`)) {
     return new GoogleError("SCOPE_MISSING", `The saved sign-in does not include the permission this ${mod} call needs.`, { hint: "The person signs in again with the matching option on (GOOGLE_GMAIL_SETTINGS=1 for settings, GOOGLE_FULL_MAILBOX=1 for permanent delete): node server/cli.mjs sign-in." });
   }
+  if (status === 403 && /delegated domain-wide authority/i.test(msg)) {
+    return new GoogleError("GOOGLE_LIMITATION", `Google allows this ${mod} change only for Google Workspace admins using domain-wide delegation, not for this account: ${msg}`, { hint: "Do it in Gmail itself (Settings > See all settings > Accounts). Retrying will not help." });
+  }
   if (status === 403) return new GoogleError("GOOGLE_FORBIDDEN", `Google's ${mod} API refused the request (403)${msg ? `: ${msg}` : ""}.`, { hint: "Check that the API is enabled in the Cloud project and that the sign-in covers it." });
   if (status === 404) return new GoogleError("NOT_FOUND", `Google's ${mod} API found nothing with that id (404).`);
   if (status === 429) return new GoogleError("RATE_LIMITED", `Google's ${mod} API is rate limiting requests (429).`, { hint: "Wait a minute before trying again." });

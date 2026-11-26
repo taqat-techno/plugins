@@ -208,3 +208,11 @@ test("write limit counts every item of a batch and of an empty-Trash run; filter
   assert.deepEqual(seen.at(-1).body.action, { addLabelIds: ["Label_1"], removeLabelIds: ["INBOX"] }, "only the checked, normalised fields are sent");
   assert.equal(ok.filter.id, "f1");
 });
+
+test("Google's domain-wide-delegation refusal is GOOGLE_LIMITATION (do it in Gmail settings), not the generic 403", async () => {
+  const c = ctxFor([tokenOk, rest([["PATCH settings/sendAs/info%40shop\\.example", () => json({ error: { code: 403, message: "Access restricted to service accounts that have been delegated domain-wide authority", status: "PERMISSION_DENIED" } }, 403)]])], { seed: allScopes, extraEnv: ALL_ON });
+  await assert.rejects(c.callTool("gmail_rest_update_send_as", { sendAsEmail: "info@shop.example", signature: "x" }), (e) => e.code === "GOOGLE_LIMITATION" && /Gmail itself/.test(e.hint));
+  const tools = c.listTools();
+  for (const n of ["gmail_rest_create_send_as", "gmail_rest_delete_send_as", "gmail_rest_update_send_as"]) assert.match(tools.find((t) => t.name === n).description, /GOOGLE_LIMITATION/, n);
+  assert.match(tools.find((t) => t.name === "gmail_rest_untrash_message").description, /add INBOX/);
+});

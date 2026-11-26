@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.9.2] - 2026-11-26
+
+### Fixed (from the first live run of the Gmail admin tools)
+- Google's 403 "Access restricted to service accounts that have been delegated domain-wide authority" (seen live when
+  updating a non-primary send-as alias on a personal Gmail account) is now `GOOGLE_LIMITATION` with the hint to do it
+  in Gmail's settings, instead of the generic "enable the API" `GOOGLE_FORBIDDEN`. The send-as create / delete / update
+  descriptions say so.
+- `gmail_rest_untrash_message` / `_untrash_thread` descriptions: a restored message may not show in the inbox; add
+  INBOX with the modify tools if it should (seen live; whether untrash or the earlier change dropped INBOX is unverified).
+
 ## [0.9.1] - 2026-11-26
 
 ### Changed (security review)
