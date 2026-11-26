@@ -30,10 +30,13 @@ const SIGN_IN_WINDOW_MS = 300_000;
 const b64url = (buf) => buf.toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 const DAY = 86_400_000;
 
-/** The scope string sent to Google. Refuses the full-mailbox scope by construction. */
-export function scopeString(scopes) {
+/**
+ * The scope string sent to Google. Refuses the full-mailbox scope unless the person opted in (GOOGLE_FULL_MAILBOX=1,
+ * passed here as allowFullMailbox); without that the guard is exactly as before.
+ */
+export function scopeString(scopes, { allowFullMailbox = false } = {}) {
   const list = [...new Set(scopes)];
-  if (list.some((s) => s === FORBIDDEN_SCOPE || s.startsWith(FORBIDDEN_SCOPE))) {
+  if (!allowFullMailbox && list.some((s) => s === FORBIDDEN_SCOPE || s.startsWith(FORBIDDEN_SCOPE))) {
     throw new GoogleError("SCOPE_FORBIDDEN", "Refusing to request full mailbox access (https://mail.google.com/): it allows permanent delete.");
   }
   return list.join(" ");
@@ -78,7 +81,7 @@ function idTokenEmail(idToken) {
 
 export function createAuth(cfg, { fetch: fetchImpl = globalThis.fetch, open = openBrowser, now = () => Date.now() } = {}) {
   const cachePath = join(cfg.home, "token-cache.json");
-  const scope = scopeString(cfg.scopes);
+  const scope = scopeString(cfg.scopes, { allowFullMailbox: cfg.fullMailbox === true });
   let mem = { token: null, expiresAt: 0 };
   let pending = null; // one sign-in at a time: { state, started, url, message, error, account }
 
@@ -164,7 +167,7 @@ export function createAuth(cfg, { fetch: fetchImpl = globalThis.fetch, open = op
   const usableModules = (list) => Object.entries(moduleState(list)).filter(([, s]) => s.usable).map(([m]) => m);
 
   function grantProblem(list) {
-    if (list.includes(FORBIDDEN_SCOPE)) return new GoogleError("SCOPE_TOO_BROAD", "This client already holds full mailbox access (https://mail.google.com/) for the account; the plugin will not use such a sign-in.", { hint: "Remove the app's access in your Google Account > Security > Third-party connections, then sign in again." });
+    if (list.includes(FORBIDDEN_SCOPE) && cfg.fullMailbox !== true) return new GoogleError("SCOPE_TOO_BROAD", "This client already holds full mailbox access (https://mail.google.com/) for the account; the plugin will not use such a sign-in.", { hint: "Remove the app's access in your Google Account > Security > Third-party connections, then sign in again." });
     if (!usableModules(list).length) {
       const broad = Object.values(moduleState(list)).some((s) => s.too_broad);
       return broad
@@ -353,8 +356,11 @@ export function createAuth(cfg, { fetch: fetchImpl = globalThis.fetch, open = op
     return { signed_out: true, note: "The saved sign-in on this computer was deleted. To also remove the app's access at Google: Google Account > Security > Third-party connections." };
   }
 
+  /** The scopes the saved sign-in was granted (local cache, no network). */
+  const grantedScopes = () => { try { return readCache()?.scopes_granted ?? []; } catch { return []; } };
+
   /** The signed-in address from the local cache (no network), or null. */
   const cachedAccount = () => { try { return readCache()?.account?.email ?? null; } catch { return null; } };
 
-  return { getAccessToken, startSignIn, status, signOut, verify, cachePath, cachedAccount, _scope: scope };
+  return { getAccessToken, startSignIn, status, signOut, verify, cachePath, cachedAccount, grantedScopes, _scope: scope };
 }

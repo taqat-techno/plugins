@@ -1,5 +1,30 @@
 # Changelog
 
+## [0.9.0] - 2026-11-26
+
+### Added (all opt-in; defaults unchanged)
+- `GOOGLE_GMAIL_SETTINGS=1` requests gmail.settings.basic + gmail.settings.sharing; `GOOGLE_FULL_MAILBOX=1` requests
+  full mailbox access (https://mail.google.com/, the only scope that allows permanent delete). Both need a new sign-in,
+  are ignored in read-only mode or without the gmail module, and show in `status` as `scopes_missing` until granted.
+  The full-mailbox guard is unchanged without the option: the request builder refuses it and a sign-in that holds it is
+  refused (`SCOPE_TOO_BROAD`).
+- Every Gmail admin tool checks the saved sign-in's scopes first: `SCOPE_MISSING` with the sign-in hint (a REST 403
+  "insufficient scopes" maps to it too).
+- Mailbox tools (REST fallback): `gmail_rest_trash_message`, `_untrash_message`, `_trash_thread`, `_untrash_thread`,
+  `_modify_message`, `_modify_thread` (any label ids: read/unread, archive, star, important, spam), `_batch_modify`
+  (up to 1000), `_batch_trash` (up to 1000; counts and ids), `_create_label`, `_update_label`, `_delete_label` (write).
+- Full mailbox: `gmail_rest_delete_message`, `_delete_thread`, `_batch_delete`, `_empty_trash`, `_empty_spam`
+  (confirm; "PERMANENT: it cannot be undone or recovered"; empty_* page through every id and return the count).
+- Settings: filters (`_list_filters`, `_get_filter` read; `_create_filter` write, which refuses forward or Trash
+  actions with `NEEDS_CONFIRM_TOOL`; `_create_filter_forward_or_delete` confirm; `_delete_filter` write), auto-reply
+  (`_get_vacation` / `_update_vacation`), auto-forwarding (`_get_auto_forwarding` read / `_update_auto_forwarding`
+  confirm), forwarding addresses (`_list` read / `_create` / `_delete` confirm), IMAP, POP, language (get read /
+  update write), send-as (`_list`, `_get` read; `_create`, `_delete` confirm; `_update` write for display name and
+  signature only; `_update_send_as_routing` confirm for reply-to, default, alias and SMTP server, which can redirect mail;
+  `_verify` write). SMTP
+  passwords are sent to Google and never returned.
+- The optional write limit also counts the new trash and permanent-delete tools (off unless set).
+
 ## [0.8.2] - 2026-11-26
 
 ### Fixed (from the first live try of calendar_rest_delete_event)

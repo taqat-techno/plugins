@@ -218,6 +218,18 @@ setting **Identities file** (or `GOOGLE_IDENTITIES_FILE`); the format is in the 
 `gmail_get_attachment` and `drive_save_file` save files into one folder you choose, and nowhere else: set it in the
 plugin setting **Folder to save files into** (or `GOOGLE_DOWNLOAD_DIR`). Without it they refuse to save.
 
+## Optional: Gmail settings and permanent delete
+
+Two options add permissions, so each needs a new sign-in (`node server/cli.mjs sign-in`) after you turn it on:
+
+- `GOOGLE_GMAIL_SETTINGS=1` adds "basic settings" (filters, auto-reply, IMAP, POP, language) and "sharing settings"
+  (auto-forwarding, forwarding addresses, send-as addresses).
+- `GOOGLE_FULL_MAILBOX=1` adds full mailbox access (`https://mail.google.com/`), Gmail's only scope that allows deleting
+  mail permanently. Google rates it Restricted, like gmail.modify.
+
+Tick every box on Google's page. `status` lists any of these as `scopes_missing` until they are granted. A new sign-in
+starts the 7-day clock again if your app is External + Testing.
+
 ## Signing out
 
 ```

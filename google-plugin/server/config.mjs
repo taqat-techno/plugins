@@ -27,6 +27,8 @@ const G = "https://www.googleapis.com/auth/";
 export const SCOPES = {
   gmailModify: `${G}gmail.modify`,
   gmailReadonly: `${G}gmail.readonly`,
+  gmailSettingsBasic: `${G}gmail.settings.basic`,
+  gmailSettingsSharing: `${G}gmail.settings.sharing`,
   calendarEvents: `${G}calendar.events`,
   calendarEventsReadonly: `${G}calendar.events.readonly`,
   calendarListReadonly: `${G}calendar.calendarlist.readonly`,
@@ -36,6 +38,8 @@ export const SCOPES = {
 /** Full mailbox access, which includes permanent delete. The plugin must never request it: auth.mjs refuses to build a
  *  request that contains it, and a test asserts it. This constant exists only for that guard. */
 export const FORBIDDEN_SCOPE = "https://mail.google.com/";
+/** The same scope, for code that requests it on purpose: only with GOOGLE_FULL_MAILBOX=1 (never in read-only mode). */
+export const FULL_MAILBOX_SCOPE = FORBIDDEN_SCOPE;
 /** Sign-in identity only (non-sensitive): the account address comes from the ID token, whichever modules are on. */
 export const IDENTITY_SCOPES = ["openid", "email"];
 
@@ -55,8 +59,21 @@ export function moduleScopes(mod, readOnly) {
   return MODULE_SCOPES[mod][readOnly ? "read" : "write"];
 }
 
+/**
+ * Scopes added by the opt-in Gmail options:
+ *   GOOGLE_GMAIL_SETTINGS=1  gmail.settings.basic + gmail.settings.sharing (filters, auto-reply, forwarding, send-as ...)
+ *   GOOGLE_FULL_MAILBOX=1    full mailbox access, the only scope that allows PERMANENT delete
+ * Neither is ever added in read-only mode or when the gmail module is off.
+ */
+export function optionScopes(modules, readOnly, gmailSettings, fullMailbox) {
+  if (readOnly || !modules.includes("gmail")) return [];
+  return [...(gmailSettings ? [SCOPES.gmailSettingsBasic, SCOPES.gmailSettingsSharing] : []), ...(fullMailbox ? [FULL_MAILBOX_SCOPE] : [])];
+}
+
 export function resolveConfig(env = process.env) {
   const readOnly = bool(pick(env, "GOOGLE_PLUGIN_READONLY", "GOOGLE_READONLY"));
+  const gmailSettings = bool(pick(env, "GOOGLE_PLUGIN_GMAIL_SETTINGS", "GOOGLE_GMAIL_SETTINGS"));
+  const fullMailbox = bool(pick(env, "GOOGLE_PLUGIN_FULL_MAILBOX", "GOOGLE_FULL_MAILBOX"));
   const listed = pick(env, "GOOGLE_PLUGIN_MODULES", "GOOGLE_MODULES");
   const modules = listed ? [...new Set(listed.split(/[,\s]+/).map((s) => s.toLowerCase()).filter((m) => MODULES.includes(m)))] : [...MODULES];
   return {
@@ -67,7 +84,10 @@ export function resolveConfig(env = process.env) {
     readOnly,
     modules,
     // Every enabled module's scopes are requested at the first sign-in, so the human signs in once.
-    scopes: [...new Set([...IDENTITY_SCOPES, ...modules.flatMap((m) => moduleScopes(m, readOnly))])],
+    scopes: [...new Set([...IDENTITY_SCOPES, ...modules.flatMap((m) => moduleScopes(m, readOnly)), ...optionScopes(modules, readOnly, gmailSettings, fullMailbox)])],
+    // Opt-in Gmail options (off by default; each needs a new sign-in; ignored in read-only mode or without gmail).
+    gmailSettings: gmailSettings && modules.includes("gmail") && !readOnly,
+    fullMailbox: fullMailbox && modules.includes("gmail") && !readOnly,
     home: pick(env, "GOOGLE_PLUGIN_HOME") || join(homedir(), ".google-plugin"),
     timeoutMs: Number(pick(env, "GOOGLE_TIMEOUT_MS")) || 30_000,
     // Bridge to Google's Workspace MCP servers.

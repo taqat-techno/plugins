@@ -42,6 +42,8 @@ plugin's own identity tools.
 | (none) | `GOOGLE_WRITE_LIMIT_PER_HOUR` | `N`: trash / spam / delete / move calls past N per rolling hour fail with `WRITE_LIMIT_REACHED`. Default off. |
 | (none) | `GOOGLE_ATTACH_DIRS` | Folders local files may be attached from (separated like PATH). Default: `GOOGLE_DOWNLOAD_DIR`. Keys, tokens and the plugin's own files are refused even there. |
 | (none) | `GOOGLE_BOUNCE_CHECK_SECONDS` | After `gmail_rest_send_draft`, how long to look for a bounce. Default 10, 0 = off, max 30. |
+| (none) | `GOOGLE_GMAIL_SETTINGS` | `1`: also request gmail.settings.basic + gmail.settings.sharing (filters, auto-reply, forwarding, IMAP/POP, language, send-as tools). New sign-in needed. |
+| (none) | `GOOGLE_FULL_MAILBOX` | `1`: also request full mailbox access (https://mail.google.com/), the only scope that allows permanent delete (delete, empty Trash / Spam tools). New sign-in needed. Without it the plugin refuses that scope as before. |
 | (none) | `GOOGLE_REST_FALLBACK` | `1`: adds the REST tools (see REST fallback). Default off. |
 | (none) | `GOOGLE_MAX_STRING_CHARS` / `GOOGLE_MAX_RESULT_CHARS` | Result size caps. Defaults: 20000 per string, 100000 per result. |
 
@@ -254,6 +256,18 @@ per address) unless `includeSignature` is false, and report `signature_added`.
 Google's Workspace AI Tools Addendum says AI agents must use Google's MCP servers instead of REST from 2027-02-01.
 What Google does with a client that keeps using REST after that is not documented. `schema-check` exits 4 and lists
 `may_replace_rest` when Google adds a tool that may replace one of these, so the REST tool can be removed.
+
+## Gmail admin tools (opt-in)
+
+With `GOOGLE_REST_FALLBACK=1`: trash / untrash (message, thread), label changes (message, thread; read/unread, archive,
+star, important, spam), batch modify and batch trash (up to 1000 ids), label create / update / delete. Add
+`GOOGLE_GMAIL_SETTINGS=1` for filters, auto-reply, auto-forwarding, forwarding addresses, IMAP, POP, language and
+send-as; add `GOOGLE_FULL_MAILBOX=1` for permanent delete (message, thread, batch) and emptying Trash or Spam. Confirm
+class (the hook asks): permanent deletes, empty Trash / Spam, filters that forward or trash, auto-forwarding, forwarding
+addresses, send-as create / delete and send-as reply-to / SMTP changes. Each tool fails with `SCOPE_MISSING` when the sign-in lacks its scope.
+
+These give an agent that reads untrusted mail the means to forward all future mail elsewhere and delete permanently, with
+no question from Google. Turn them on only with an approval step for the confirm-class tools you trust the host to gate.
 
 ## Agent package (OpenClaw and other hosts)
 

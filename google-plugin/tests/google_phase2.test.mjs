@@ -50,7 +50,7 @@ test("REST fallback off (default): the REST tools are not listed, a call is refu
   for (const n of CLASSES.rest_tools) await assert.rejects(c.callTool(n, { draftId: "d", fileId: "f", messageId: "m", to: ["a@b.example"], email: "a@b.example", role: "reader", name: "x", folderId: "p" }), { code: "UNKNOWN_TOOL" });
   assert.equal(calls(c, REST).length, 0);
   // Listed only with the switch, all with "_rest_" in the name (no collision with <module>_<Google name>).
-  const on = ctxFor([tokenOk], { seed: SEED, extraEnv: { GOOGLE_REST_FALLBACK: "1" } }).listTools().map((t) => t.name);
+  const on = ctxFor([tokenOk], { seed: SEED, extraEnv: { GOOGLE_REST_FALLBACK: "1", GOOGLE_GMAIL_SETTINGS: "1", GOOGLE_FULL_MAILBOX: "1" } }).listTools().map((t) => t.name);
   for (const n of CLASSES.rest_tools) { assert.ok(on.includes(n), n); assert.match(n, /^(gmail|drive|calendar)_rest_/); }
   // Read-only mode drops the write and confirm ones even with the switch on.
   const ro = ctxFor([tokenOk], { seed: SEED, extraEnv: { GOOGLE_REST_FALLBACK: "1", GOOGLE_READONLY: "1" } }).listTools().map((t) => t.name);

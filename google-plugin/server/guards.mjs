@@ -14,6 +14,8 @@ export const CAPPED_TOOLS = new Set([
   "gmail_trash_thread", "gmail_trash_message", "gmail_apply_sensitive_thread_label", "gmail_apply_sensitive_message_label",
   "gmail_mark_thread_spam", "gmail_mark_message_spam", "calendar_delete_event",
   "gmail_rest_delete_draft", "drive_rest_trash_file", "drive_rest_move_file", "calendar_rest_delete_event",
+  "gmail_rest_trash_message", "gmail_rest_trash_thread", "gmail_rest_batch_trash", "gmail_rest_delete_message", "gmail_rest_delete_thread",
+  "gmail_rest_batch_delete", "gmail_rest_empty_trash", "gmail_rest_empty_spam",
 ]);
 
 const CAL_GUARDED = new Set(["calendar_create_event", "calendar_update_event", "calendar_delete_event", "calendar_respond_to_event", "calendar_rest_delete_event"]);

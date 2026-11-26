@@ -3,7 +3,7 @@
   "hooks": {
     "PreToolUse": [
       {
-        "matcher": "^mcp__(plugin_google_)?google__(gmail_trash_thread|gmail_trash_message|gmail_apply_sensitive_thread_label|gmail_apply_sensitive_message_label|gmail_mark_thread_spam|gmail_mark_message_spam|calendar_create_event|calendar_update_event|calendar_delete_event|calendar_respond_to_event|drive_upload_file_revision|drive_create_file|drive_copy_file|gmail_rest_send_draft|drive_rest_trash_file|drive_rest_move_file|drive_rest_share_file|drive_rest_unshare_file|calendar_rest_delete_event)$",
+        "matcher": "^mcp__(plugin_google_)?google__(gmail_trash_thread|gmail_trash_message|gmail_apply_sensitive_thread_label|gmail_apply_sensitive_message_label|gmail_mark_thread_spam|gmail_mark_message_spam|calendar_create_event|calendar_update_event|calendar_delete_event|calendar_respond_to_event|drive_upload_file_revision|drive_create_file|drive_copy_file|gmail_rest_send_draft|drive_rest_trash_file|drive_rest_move_file|drive_rest_share_file|drive_rest_unshare_file|calendar_rest_delete_event|gmail_rest_delete_message|gmail_rest_delete_thread|gmail_rest_batch_delete|gmail_rest_empty_trash|gmail_rest_empty_spam|gmail_rest_create_filter_forward_or_delete|gmail_rest_update_auto_forwarding|gmail_rest_create_forwarding_address|gmail_rest_delete_forwarding_address|gmail_rest_create_send_as|gmail_rest_delete_send_as|gmail_rest_update_send_as_routing)$",
         "hooks": [
           {
             "type": "command",

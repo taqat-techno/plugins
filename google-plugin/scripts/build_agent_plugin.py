@@ -60,6 +60,8 @@ Node 18+.
 | `GOOGLE_WRITE_LIMIT_PER_HOUR` | Optional: `N` caps trash / spam / delete / move calls per rolling hour (`WRITE_LIMIT_REACHED`) |
 | `GOOGLE_ATTACH_DIRS` | Optional: folders local files may be attached from (default: `GOOGLE_DOWNLOAD_DIR`) |
 | `GOOGLE_BOUNCE_CHECK_SECONDS` | Optional: seconds to look for a bounce after a send (default 10, 0 = off) |
+| `GOOGLE_GMAIL_SETTINGS` | Optional: `1` requests Gmail settings scopes and adds the settings tools (new sign-in) |
+| `GOOGLE_FULL_MAILBOX` | Optional: `1` requests full mailbox access and adds permanent delete / empty Trash and Spam (new sign-in) |
 | `GOOGLE_REST_FALLBACK` | Optional: `1` adds the `*_rest_*` tools (send a draft, reply / forward drafts, draft edit and delete, Drive trash, move, rename, share) |
 | `GOOGLE_TIMEOUT_MS`, `GOOGLE_CONFIRM_TIMEOUT_MS`, `GOOGLE_MAX_STRING_CHARS`, `GOOGLE_MAX_RESULT_CHARS` | Optional limits |
 
