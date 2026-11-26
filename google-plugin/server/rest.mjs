@@ -10,6 +10,7 @@ import { GoogleError } from "./util.mjs";
 export const REST_BASE = {
   gmail: "https://gmail.googleapis.com/gmail/v1/users/me/",
   drive: "https://www.googleapis.com/drive/v3/",
+  calendar: "https://www.googleapis.com/calendar/v3/",
 };
 
 const short = (s, n = 300) => String(s ?? "").replace(/\s+/g, " ").trim().slice(0, n);

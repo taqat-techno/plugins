@@ -13,10 +13,10 @@ import { GoogleError } from "./util.mjs";
 export const CAPPED_TOOLS = new Set([
   "gmail_trash_thread", "gmail_trash_message", "gmail_apply_sensitive_thread_label", "gmail_apply_sensitive_message_label",
   "gmail_mark_thread_spam", "gmail_mark_message_spam", "calendar_delete_event",
-  "gmail_rest_delete_draft", "drive_rest_trash_file", "drive_rest_move_file",
+  "gmail_rest_delete_draft", "drive_rest_trash_file", "drive_rest_move_file", "calendar_rest_delete_event",
 ]);
 
-const CAL_GUARDED = new Set(["calendar_create_event", "calendar_update_event", "calendar_delete_event", "calendar_respond_to_event"]);
+const CAL_GUARDED = new Set(["calendar_create_event", "calendar_update_event", "calendar_delete_event", "calendar_respond_to_event", "calendar_rest_delete_event"]);
 
 /** One sliding-window counter per process. */
 export function createWriteLimiter(now = () => Date.now()) {

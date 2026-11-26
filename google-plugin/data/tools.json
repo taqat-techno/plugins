@@ -68,7 +68,8 @@
     "drive_rest_trash_file",
     "drive_rest_move_file",
     "drive_rest_share_file",
-    "drive_rest_unshare_file"
+    "drive_rest_unshare_file",
+    "calendar_rest_delete_event"
   ],
   "plugin_tools": [
     "gmail_message_identity",
@@ -88,7 +89,8 @@
     "drive_rest_unshare_file",
     "gmail_rest_preview_draft",
     "gmail_rest_create_draft",
-    "gmail_rest_save_draft_html"
+    "gmail_rest_save_draft_html",
+    "calendar_rest_delete_event"
   ],
   "hidden": {
     "drive_download_file_content": "Replaced by drive_save_file, which saves the file instead of returning base64 (the size cap would cut it)."
@@ -126,6 +128,7 @@
     "drive_rest_unshare_file",
     "gmail_rest_preview_draft",
     "gmail_rest_create_draft",
-    "gmail_rest_save_draft_html"
+    "gmail_rest_save_draft_html",
+    "calendar_rest_delete_event"
   ]
 }

@@ -14,6 +14,7 @@ import { addressOf, attachmentsOf, bodySources, bodyText, bodyViews, buildMessag
 import { draftSnapshot, putSignature, textToHtml } from "../signature.mjs";
 import { saveBytes } from "../save.mjs";
 import { readAttachments } from "../attach.mjs";
+import { guestGuard } from "../guards.mjs";
 import { fetchSignatureImages, signatureImageUrls } from "../sigimages.mjs";
 import { addresses } from "../identity.mjs";
 import { decodeHeader } from "../identity.mjs";
@@ -377,6 +378,37 @@ export const tools = [
       return { untrusted: true, draft_id: r.id, message_id: r.message?.id, thread_id: r.message?.threadId, from: from.address, to, subject, attachments: atts.map((a) => a.filename), ...b.signature };
     },
   },
+  // -------------------------------------------------------------------------------------------- Calendar
+  {
+    name: "calendar_rest_delete_event", kind: "confirm", module: "calendar", rest: true, ownLimit: true,
+    description: `Delete a Google Calendar event (eventId; calendarId default primary). An instance id of a recurring event deletes that one occurrence; the series id deletes the whole series (the result says which). sendUpdates: none (default: attendees are NOT told and the event disappears from their calendars), externalOnly, or all (they get a cancellation email). The event is looked up first so the result can name it; with GOOGLE_REFUSE_GUEST_EVENTS=1 an event with other attendees or another organiser is refused (GUESTS_NEED_APPROVAL), and a failed lookup refuses. Counts toward the hourly write limit. Unlike calendar_delete_event, Google does not ask the human first. ${ASK} Name the event and when it is. ${REST_NOTE}`,
+    inputSchema: { type: "object", required: ["eventId"], properties: {
+      eventId: { type: "string" }, calendarId: { type: "string", description: "Default: primary." },
+      sendUpdates: { type: "string", enum: ["none", "externalOnly", "all"], description: "Who is emailed about the deletion. Default none." },
+    } },
+    async handler(args, ctx) {
+      const rest = createRest(ctx);
+      const eventId = str(args.eventId, "eventId");
+      const calendarId = String(args.calendarId ?? "").trim() || "primary";
+      const sendUpdates = args.sendUpdates ?? "none";
+      if (!["none", "externalOnly", "all"].includes(sendUpdates)) throw new GoogleError("INVALID_ARGUMENT", "sendUpdates must be none, externalOnly or all.");
+      const path = `calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(eventId)}`;
+      let event;
+      const lookup = async () => { event = await rest.call("calendar", "GET", path); return event; };
+      // The guard (when on) looks the event up itself and refuses if that fails; otherwise look it up here.
+      await guestGuard("calendar_rest_delete_event", { eventId, calendarId }, ctx, lookup);
+      if (!event) await lookup();
+      // Counted only once the call is allowed to go ahead (a refusal does not use up the hourly limit).
+      ctx.limiter?.check("calendar_rest_delete_event", ctx.cfg.writeLimitPerHour);
+      await rest.call("calendar", "DELETE", path, { query: { sendUpdates } });
+      const kind = event?.recurringEventId ? "instance" : Array.isArray(event?.recurrence) && event.recurrence.length ? "series" : "single";
+      return {
+        untrusted: true, deleted: true, eventId, calendarId, summary: event?.summary ?? null,
+        start: event?.start?.dateTime ?? event?.start?.date ?? null, recurring: kind, sendUpdates,
+        ...(kind === "instance" ? { recurringEventId: event.recurringEventId } : {}),
+      };
+    },
+  },
   // -------------------------------------------------------------------------------------------- Drive
   {
     name: "drive_rest_trash_file", kind: "confirm", module: "drive", rest: true,
@@ -463,5 +495,5 @@ export const tools = [
 for (const t of tools) {
   t.confirm = t.kind === "confirm";
   const run = t.handler;
-  t.handler = async (args, ctx, session) => { guardArgs(t.name, args); ctx.limiter?.check(t.name, ctx.cfg.writeLimitPerHour); return run(args ?? {}, ctx, session); };
+  t.handler = async (args, ctx, session) => { guardArgs(t.name, args); if (!t.ownLimit) ctx.limiter?.check(t.name, ctx.cfg.writeLimitPerHour); return run(args ?? {}, ctx, session); };
 }

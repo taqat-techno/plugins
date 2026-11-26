@@ -47,7 +47,8 @@ These tools act as the signed-in person through Google's own Workspace MCP serve
   it cannot be sent this way). Replies and forwards are drafts first (`gmail_rest_create_reply_draft`,
   `gmail_rest_create_forward_draft`, or `gmail_rest_create_draft` for a new mail from a chosen address); they add that
   address's Gmail signature by default. `gmail_rest_save_draft_html` saves the draft as a file to show the owner; its
-  digest is the one to send with. Files: `attachments` [{path, inline?, contentId?}] from the owner's allowed folders
+  digest is the one to send with. With the REST fallback, `calendar_rest_delete_event` deletes an event without
+  Google's per-delete question (it is confirm class: ask the owner first; name the event and time). Files: `attachments` [{path, inline?, contentId?}] from the owner's allowed folders
   only (inline + contentId for `<img src="cid:ID">`). After sending, `delivery_failed: true` means it bounced: tell the
   owner the reason and hint; `false` means no bounce seen yet, never "delivered". There is never a permanent delete.
 - `GUESTS_NEED_APPROVAL` and `WRITE_LIMIT_REACHED` are brakes: stop and tell the owner; do not retry or work around them.

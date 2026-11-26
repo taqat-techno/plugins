@@ -243,6 +243,7 @@ sign-in (no new scope). With the switch off they are not listed and are refused;
 | `gmail_rest_create_draft` | write | New draft from a chosen verified send-as address, with that address's Gmail signature (`includeSignature`, default true) and local `attachments` (inline with `contentId` for `<img src="cid:ID">`). |
 | `gmail_rest_save_draft_html` | read | One safe, self-contained .html file of a draft in the download folder (header block + body as sent, inline images, no scripts or network), with the send digest. The From address's own signature images are fetched and embedded (only URLs from that signature in Gmail settings; https, public hosts, images up to 1 MB). |
 | `gmail_rest_update_draft` / `gmail_rest_delete_draft` | write | Change only the given fields of a draft (the rest, threading and attachments are kept) / delete a draft. |
+| `calendar_rest_delete_event` | confirm | Delete an event (instance or series; `sendUpdates` none by default) without Google's per-delete question; guest guard and write limit apply. |
 | `drive_rest_trash_file` / `drive_rest_move_file` | confirm | Trash (recoverable about 30 days) / move into another folder. |
 | `drive_rest_untrash_file` / `drive_rest_rename_file` | write | Restore / rename. |
 | `drive_rest_share_file` / `drive_rest_unshare_file` | confirm | Share with one person or group (reader, commenter, writer; no public links, never ownership) / remove access (never the owner's). |

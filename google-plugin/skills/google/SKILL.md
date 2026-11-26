@@ -1,7 +1,7 @@
 ---
 name: google
 description: "Use when the user wants to read their Gmail, Google Calendar or Google Drive through the google plugin, connect, sign in to, sign out of or check the connection to their Google account, or when a google tool reports CONFIRMATION_NEEDED, AUTH_REQUIRED, AUTH_EXPIRED, NOT_CONFIGURED, SCOPE_NOT_GRANTED, MODULE_DISABLED, GOOGLE_FORBIDDEN or CLIENT_TYPE_WRONG."
-version: "0.8.0"
+version: "0.8.1"
 ---
 
 # Google plugin

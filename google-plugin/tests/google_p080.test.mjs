@@ -194,3 +194,61 @@ test("snapshot lists the attachments (name, type, size, inline marked) in the he
   assert.match(page, /<th>Attachments<\/th><td>logo\.png <span class="gp-att">\(image\/png, 11 bytes, inline in the body\)<\/span><br>&lt;b&gt;x&lt;_b&gt;\.pdf <span class="gp-att">\(application\/pdf, 14 bytes\)<\/span>/);
   assert.match(page, /src="data:image\/png;base64,/, "the inline image is shown in the body");
 });
+
+// ------------------------------------------------------------------------------------------------ 0.8.1 calendar_rest_delete_event
+
+function calCtx(event, env = {}, { lookupFails = false } = {}) {
+  const seen = [];
+  const c = ctxFor([tokenOk, [/^(GET|DELETE) https:\/\/www\.googleapis\.com\/calendar\/v3\//, ({ url, init }) => {
+    const u = new URL(url);
+    seen.push(`${init.method || "GET"} ${u.pathname} ${u.search}`);
+    if ((init.method || "GET") === "GET") return lookupFails ? json({ error: { code: 404, message: "Not Found" } }, 404) : json(event);
+    return new Response(null, { status: 204 });
+  }]], { seed: SEED, extraEnv: { GOOGLE_REST_FALLBACK: "1", ...env } });
+  return { c, seen };
+}
+const SOLO = { id: "e1", summary: "Dentist", start: { dateTime: "2026-11-27T23:00:00+02:00" }, organizer: { email: "me@mail.example", self: true } };
+const GROUP = { ...SOLO, attendees: [{ email: "me@mail.example", self: true }, { email: "pal@x.example" }] };
+
+test("calendar_rest_delete_event: looks up, deletes with sendUpdates (default none), and says what it deleted", async () => {
+  const { c, seen } = calCtx(SOLO);
+  const r = await c.callTool("calendar_rest_delete_event", { eventId: "e1" });
+  assert.deepEqual([r.deleted, r.eventId, r.calendarId, r.summary, r.start, r.recurring, r.sendUpdates], [true, "e1", "primary", "Dentist", "2026-11-27T23:00:00+02:00", "single", "none"]);
+  assert.deepEqual(seen, ["GET /calendar/v3/calendars/primary/events/e1 ", "DELETE /calendar/v3/calendars/primary/events/e1 ?sendUpdates=none"]);
+  const inst = calCtx({ ...SOLO, id: "e1_20261127", recurringEventId: "e1" });
+  const ri = await inst.c.callTool("calendar_rest_delete_event", { eventId: "e1_20261127", calendarId: "work@group.example", sendUpdates: "all" });
+  assert.deepEqual([ri.recurring, ri.recurringEventId, ri.calendarId], ["instance", "e1", "work@group.example"]);
+  assert.match(inst.seen[1], /calendars\/work%40group\.example\/events\/e1_20261127 \?sendUpdates=all$/);
+  const series = calCtx({ ...SOLO, recurrence: ["RRULE:FREQ=WEEKLY"] });
+  assert.equal((await series.c.callTool("calendar_rest_delete_event", { eventId: "e1" })).recurring, "series");
+  await assert.rejects(calCtx(SOLO).c.callTool("calendar_rest_delete_event", { eventId: "e1", sendUpdates: "everyone" }), { code: "INVALID_ARGUMENT" });
+  const nf = calCtx(SOLO, {}, { lookupFails: true });
+  await assert.rejects(nf.c.callTool("calendar_rest_delete_event", { eventId: "e1" }), { code: "NOT_FOUND" });
+  assert.equal(nf.seen.filter((x) => x.startsWith("DELETE")).length, 0, "nothing deleted when the lookup fails");
+  // Off by default: not listed, refused.
+  const off = ctxFor([tokenOk], { seed: SEED });
+  await assert.rejects(off.callTool("calendar_rest_delete_event", { eventId: "e1" }), { code: "UNKNOWN_TOOL" });
+});
+
+test("calendar_rest_delete_event with GOOGLE_REFUSE_GUEST_EVENTS=1: other attendees or a failed lookup refuse before any delete", async () => {
+  const ON = { GOOGLE_REFUSE_GUEST_EVENTS: "1" };
+  const g = calCtx(GROUP, ON);
+  await assert.rejects(g.c.callTool("calendar_rest_delete_event", { eventId: "e1" }), { code: "GUESTS_NEED_APPROVAL" });
+  const o = calCtx({ ...SOLO, organizer: { email: "boss@x.example" } }, ON);
+  await assert.rejects(o.c.callTool("calendar_rest_delete_event", { eventId: "e1" }), { code: "GUESTS_NEED_APPROVAL" });
+  const f = calCtx(SOLO, ON, { lookupFails: true });
+  await assert.rejects(f.c.callTool("calendar_rest_delete_event", { eventId: "e1" }), { code: "GUESTS_NEED_APPROVAL" });
+  for (const x of [g, o, f]) assert.equal(x.seen.filter((s) => s.startsWith("DELETE")).length, 0);
+  assert.equal((await calCtx(SOLO, ON).c.callTool("calendar_rest_delete_event", { eventId: "e1" })).deleted, true);
+  assert.equal((await calCtx(GROUP).c.callTool("calendar_rest_delete_event", { eventId: "e1" })).deleted, true, "guard off: guest events can be deleted");
+});
+
+test("calendar_rest_delete_event counts toward the hourly write limit; a guard refusal does not use a slot", async () => {
+  const env = { GOOGLE_WRITE_LIMIT_PER_HOUR: "1", GOOGLE_REFUSE_GUEST_EVENTS: "1" };
+  let event = GROUP;
+  const c = ctxFor([tokenOk, [/^(GET|DELETE) https:\/\/www\.googleapis\.com\/calendar\/v3\//, ({ init }) => ((init.method || "GET") === "GET" ? json(event) : new Response(null, { status: 204 }))]], { seed: SEED, extraEnv: { GOOGLE_REST_FALLBACK: "1", ...env } });
+  await assert.rejects(c.callTool("calendar_rest_delete_event", { eventId: "e1" }), { code: "GUESTS_NEED_APPROVAL" });
+  event = SOLO;
+  await c.callTool("calendar_rest_delete_event", { eventId: "e1" });
+  await assert.rejects(c.callTool("calendar_rest_delete_event", { eventId: "e2" }), { code: "WRITE_LIMIT_REACHED" });
+});

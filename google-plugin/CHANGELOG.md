@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.8.1] - 2026-11-26
+
+### Added
+- `calendar_rest_delete_event` (confirm, REST, only with `GOOGLE_REST_FALLBACK=1`): Calendar API events.delete under
+  the existing calendar.events scope. Google's MCP `calendar_delete_event` asks the human on every delete ("Allow once"
+  only), which an unattended agent cannot answer. Arguments: eventId, calendarId (default primary), sendUpdates
+  (none | externalOnly | all; default none, so attendees are not told). The event is looked up first; the result is
+  {deleted, eventId, calendarId, summary, start, recurring: single | instance | series, recurringEventId?, sendUpdates}.
+  `GOOGLE_REFUSE_GUEST_EVENTS=1` applies as for `calendar_delete_event` (other attendees or another organiser, or a
+  failed lookup: `GUESTS_NEED_APPROVAL`), and it counts toward `GOOGLE_WRITE_LIMIT_PER_HOUR` (a guard refusal does not
+  use a slot). The Claude Code hook asks before it.
+
 ## [0.8.0] - 2026-11-26
 
 ### Added
