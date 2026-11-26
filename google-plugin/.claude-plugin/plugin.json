@@ -1,0 +1,53 @@
+{
+  "name": "google",
+  "version": "0.5.4",
+  "license": "MIT",
+  "description": "Gmail, Google Calendar and Google Drive for Claude Code and agent bots: a local bridge to Google's own Workspace MCP servers, signed in with your own Google Cloud OAuth client (Desktop app, loopback + PKCE). Exposes an allowlisted, classified set of Google's tools (read, write, and confirm-class tools that ask the human first), never answers Google's confirmation forms by itself (it forwards them to your client or you answer them with the grant command), marks results untrusted and caps their size. Never requests full mailbox access. Self-contained: no npm packages.",
+  "author": {
+    "name": "TaqaTechno",
+    "email": "info@taqatechno.com",
+    "url": "https://github.com/taqat-techno"
+  },
+  "homepage": "https://github.com/taqat-techno/plugins/tree/main/google-plugin",
+  "repository": "https://github.com/taqat-techno/plugins",
+  "keywords": [
+    "google",
+    "gmail",
+    "google-calendar",
+    "google-drive",
+    "oauth",
+    "mcp"
+  ],
+  "userConfig": {
+    "google_client_secret_file": {
+      "type": "string",
+      "title": "Google client JSON file",
+      "description": "Path to the JSON file you downloaded for your own Google Cloud OAuth client of type 'Desktop app' (see docs/GOOGLE_CLOUD_SETUP.md). Only a path: never paste the file's contents anywhere. Falls back to the GOOGLE_CLIENT_SECRET_FILE environment variable.",
+      "default": ""
+    },
+    "google_client_id": {
+      "type": "string",
+      "title": "Client ID (optional)",
+      "description": "Leave empty: the client JSON file already holds it. If set, it must match the file, which guards against pointing at the wrong file.",
+      "default": ""
+    },
+    "google_modules": {
+      "type": "string",
+      "title": "Modules (optional)",
+      "description": "Comma-separated: gmail, calendar, drive. Leave empty for all three. Every enabled module's permission is asked for at sign-in; turning one on later needs a new sign-in.",
+      "default": ""
+    },
+    "google_read_only": {
+      "type": "boolean",
+      "title": "Read-only mode",
+      "description": "When on, the sign-in asks only for read permissions (gmail.readonly, calendar.events.readonly, drive.readonly) and no tool can change your data. Switching it needs a new sign-in.",
+      "default": false
+    },
+    "google_identities_file": {
+      "type": "string",
+      "title": "Identities file (optional)",
+      "description": "Path to a JSON file listing your own addresses or aliases ({\"identities\":[{\"id\",\"label\",\"address\",\"matchTo\":[...],\"default\"}]}), used by gmail_message_identity to tell which of them a message was sent to. See the README. Falls back to GOOGLE_IDENTITIES_FILE.",
+      "default": ""
+    }
+  }
+}

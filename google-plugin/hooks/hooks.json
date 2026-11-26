@@ -1,0 +1,17 @@
+{
+  "description": "Google hooks: a permissionDecision 'ask' gate on every tool in the confirm class of data/tools.json (calendar create/update/delete/respond, which email other people; Gmail trash and spam; Drive create, copy and revision upload, which can put content where others see it). The hook is a fixed printf with no script, so there is nothing that can fail open. A test keeps this matcher in step with data/tools.json. Hosts other than Claude Code read the confirm class from data/tools.json and gate it themselves.",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "^mcp__(plugin_google_)?google__(gmail_trash_thread|gmail_trash_message|gmail_apply_sensitive_thread_label|gmail_apply_sensitive_message_label|gmail_mark_thread_spam|gmail_mark_message_spam|calendar_create_event|calendar_update_event|calendar_delete_event|calendar_respond_to_event|drive_upload_file_revision|drive_create_file|drive_copy_file)$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "printf '%s' '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"ask\",\"permissionDecisionReason\":\"Google: this change can email other people (invitations, cancellations, replies to organisers), put or replace content in Drive where others can see it, or move mail to Trash or Spam. Please confirm it yourself.\"}}'",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}
