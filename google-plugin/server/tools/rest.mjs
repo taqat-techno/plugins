@@ -13,6 +13,7 @@ import { createRest } from "../rest.mjs";
 import { addressOf, attachmentsOf, bodySources, bodyText, bodyViews, buildMessage, htmlToText, inlineParts, isEmail, parseMime, rawToBuffer } from "../mime.mjs";
 import { draftSnapshot, putSignature, textToHtml } from "../signature.mjs";
 import { saveBytes } from "../save.mjs";
+import { fetchSignatureImages, signatureImageUrls } from "../sigimages.mjs";
 import { addresses } from "../identity.mjs";
 import { decodeHeader } from "../identity.mjs";
 import { guardArgs } from "./bridge.mjs";
@@ -162,7 +163,7 @@ export const tools = [
   },
   {
     name: "gmail_rest_save_draft_html", kind: "read", module: "gmail", rest: true,
-    description: `Save a picture-ready copy of a Gmail draft (draftId) as ONE self-contained .html file in the person's download folder: a header block (From, To, Cc, Bcc, Subject, "DRAFT, not sent") above the draft's HTML body exactly as it will be sent, signature included, inline images embedded. Scripts, event handlers and refresh tags are removed and a content policy blocks every network request, so remote images do not load. Returns path, the same digest gmail_rest_preview_draft and gmail_rest_send_draft use (so what is shown is bound to what is sent), from, to, cc, bcc, subject and sendable. Open it in a browser or render it to an image. ${REST_NOTE}`,
+    description: `Save a picture-ready copy of a Gmail draft (draftId) as ONE self-contained .html file in the person's download folder: a header block (From, To, Cc, Bcc, Subject, "DRAFT, not sent") above the draft's HTML body exactly as it will be sent, signature included, inline images embedded. Images of the From address's own Gmail signature are fetched once and embedded (only URLs found in that signature in Gmail settings; https, public hosts, images under 1 MB); every other remote image stays blocked: scripts, event handlers and refresh tags are removed and a content policy blocks every network request. signature_images_inlined / signature_images_failed report the fetches. Returns path, the same digest gmail_rest_preview_draft and gmail_rest_send_draft use (so what is shown is bound to what is sent), from, to, cc, bcc, subject and sendable. Open it in a browser or render it to an image. ${REST_NOTE}`,
     inputSchema: { type: "object", required: ["draftId"], properties: { draftId: { type: "string" } } },
     async handler(args, ctx) {
       const rest = createRest(ctx);
@@ -170,9 +171,31 @@ export const tools = [
       const { root, h, digest, blockers } = await readDraft(rest, draftId);
       const src = bodySources(root);
       const headers = { from: h("From"), to: h("To"), cc: h("Cc"), bcc: h("Bcc"), subject: h("Subject") };
-      const page = draftSnapshot({ headers, html: src.html, text: src.text ?? "", inline: inlineParts(root) });
+      // The From address's own signature images (from Gmail settings, never from the draft) are fetched and embedded
+      // where they appear inside the plugin's signature block, so the picture shows the logo recipients will see.
+      let html = src.html;
+      let inlined = 0, failed = [];
+      const block = html ? /<!--gp-signature-start-->[\s\S]*?<!--gp-signature-end-->/.exec(html) : null;
+      if (block) {
+        const list = await sendAsList(rest);
+        const fromAddr = addressOf(headers.from) ?? (list.find((x) => x.isDefault) ?? list.find((x) => x.primary))?.address;
+        const allowed = signatureImageUrls(list.find((x) => x.address === fromAddr)?.signature);
+        const used = signatureImageUrls(block[0]).filter((u) => allowed.includes(u));
+        if (used.length) {
+          const got = await fetchSignatureImages(used, { fetch: ctx.fetch, ...(ctx.lookup ? { lookup: ctx.lookup } : {}) });
+          failed = got.failed;
+          const newBlock = block[0].replace(/(<img\b[^>]*?\bsrc\s*=\s*)(["'])(.*?)\2/gi, (all, pre, q, url) => {
+            const data = got.images.get(url.replace(/&amp;/g, "&").trim());
+            if (!data) return all;
+            inlined++;
+            return `${pre}${q}${data}${q}`;
+          });
+          html = html.replace(block[0], () => newBlock);
+        }
+      }
+      const page = draftSnapshot({ headers, html, text: src.text ?? "", inline: inlineParts(root) });
       const path = saveBytes(ctx.cfg, `draft-${draftId}.html`, Buffer.from(page, "utf8"));
-      return { untrusted: true, path, digest, sendable: blockers.length === 0, from: headers.from, to: headers.to || null, cc: headers.cc || null, bcc: headers.bcc || null, subject: headers.subject };
+      return { untrusted: true, path, digest, sendable: blockers.length === 0, from: headers.from, to: headers.to || null, cc: headers.cc || null, bcc: headers.bcc || null, subject: headers.subject, signature_images_inlined: inlined, signature_images_failed: failed };
     },
   },
   {

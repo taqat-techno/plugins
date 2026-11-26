@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.7.1] - 2026-11-26
+
+### Added
+- `gmail_rest_save_draft_html` embeds the remote images of the From address's own Gmail signature (for example a
+  logo), so the snapshot shows what recipients will see. Only URLs found in that address's signature in Gmail settings
+  are fetched, and only where they appear inside the plugin's signature block; a URL that exists only in the draft is
+  never fetched, so draft content cannot steer the plugin to a host. Each fetch: https only; the host must resolve only
+  to public addresses (loopback, private, link-local, CGNAT and multicast refused, literal IPs too); no redirects; no
+  credentials; 5 s timeout; image/* other than SVG; 1 MB per image, 3 MB per snapshot. Every other remote image stays
+  blocked by the snapshot's content policy. The result adds `signature_images_inlined` (count) and
+  `signature_images_failed` ([{host, reason}]).
+
 ## [0.7.0] - 2026-11-26
 
 ### Added

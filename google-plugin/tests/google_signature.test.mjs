@@ -7,6 +7,7 @@ import { join } from "node:path";
 import { TOKEN, ctxFor, json } from "./_helpers.mjs";
 import { parseMime, bodyViews, bodySources } from "../server/mime.mjs";
 import { putSignature, sanitizeHtml, SIG_START } from "../server/signature.mjs";
+import { fetchSignatureImages, isPrivateAddress, signatureImageUrls } from "../server/sigimages.mjs";
 
 const tokenOk = [TOKEN, () => json({ access_token: "at-live", expires_in: 3599 })];
 const REST = /^(GET|POST|PUT|PATCH|DELETE) https:\/\/(gmail|www)\.googleapis\.com\//;
@@ -158,4 +159,70 @@ test("save_draft_html: one safe, self-contained file with the header block, inli
 test("sanitizeHtml: event attributes in any quoting, scripts, embeds and javascript: links are removed", () => {
   const s = sanitizeHtml(`<div onmouseover='x()' ONLOAD=y()><iframe src="a"></iframe><object data="b"></object><a href = "javascript:z()">k</a><img src=x onerror=alert(1)></div>`);
   assert.doesNotMatch(s, /on(mouseover|load|error)|iframe|object|javascript:/i);
+});
+
+// ------------------------------------------------------------------------------------------------ 0.7.1 signature images
+
+
+const PNG = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
+const imgRes = (bytes = PNG, type = "image/png", status = 200, headers = {}) => new Response(bytes, { status, headers: { "content-type": type, ...headers } });
+const publicDns = async () => [{ address: "93.184.216.34", family: 4 }];
+
+test("snapshot embeds only the From address's real signature images; draft-only URLs and quoted images are never fetched", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "gp-sigimg-"));
+  const LOGO = "https://cdn.shop.example/logo.png?v=1&amp;s=2";
+  const sendAs = { sendAs: [{ sendAsEmail: "info@shop.example", verificationStatus: "accepted", signature: `<div>Shop<img src="${LOGO}"></div>` }] };
+  const html = `<p>Hi</p><img src="https://track.example/q.gif"><br><!--gp-signature-start--><div class="gmail_signature"><div>Shop<img src="${LOGO}"><img src="https://evil.example/forged.png"></div></div><!--gp-signature-end-->`;
+  const raw = Buffer.from(["From: Shop <info@shop.example>", "To: a@b.example", "Subject: s", "Content-Type: text/html; charset=UTF-8", "", html].join("\r\n")).toString("base64url");
+  const fetched = [];
+  const c = ctxFor([tokenOk, rest([
+    ["GET gmail:drafts/d1", () => json({ id: "d1", message: { raw } })],
+    ["GET gmail:settings/sendAs", () => json(sendAs)],
+  ]), [/^GET https:\/\/(cdn\.shop|evil|track)\.example\//, ({ url }) => { fetched.push(url); return imgRes(); }]], { seed: SEED, extraEnv: { GOOGLE_REST_FALLBACK: "1", GOOGLE_DOWNLOAD_DIR: dir }, deps: { lookup: publicDns } });
+  const r = await c.callTool("gmail_rest_save_draft_html", { draftId: "d1" });
+  assert.deepEqual([r.signature_images_inlined, r.signature_images_failed], [1, []]);
+  assert.deepEqual(fetched, ["https://cdn.shop.example/logo.png?v=1&s=2"], "only the real signature's image");
+  const page = readFileSync(r.path, "utf8");
+  assert.match(page, /<img src="data:image\/png;base64,iVBORw0KGgo=">/);
+  assert.match(page, /src="https:\/\/evil\.example\/forged\.png"/, "a URL only the draft has stays remote (and blocked by the policy)");
+  assert.match(page, /src="https:\/\/track\.example\/q\.gif"/);
+  assert.match(page, /default-src 'none'; img-src data:/);
+});
+
+test("signature image fetch limits: https, public hosts only, no redirects, image types, size caps; failures are reported, never thrown", async () => {
+  const route = (map) => async (url, init) => {
+    assert.equal(init.redirect, "manual");
+    const h = map[new URL(url).hostname];
+    return h ? h() : imgRes();
+  };
+  const dns = async (host) => ({ "int.example": [{ address: "10.0.0.5" }], "mixed.example": [{ address: "93.184.216.34" }, { address: "127.0.0.1" }] }[host] ?? [{ address: "93.184.216.34" }]);
+  const { images, failed } = await fetchSignatureImages([
+    "http://plain.example/a.png", "https://127.0.0.1/a.png", "https://[::1]/a.png", "https://int.example/a.png", "https://mixed.example/a.png",
+    "https://redir.example/a.png", "https://html.example/a.png", "https://svg.example/a.svg", "https://big.example/a.png", "https://ok.example/a.png",
+    "https://user:pw@cred.example/a.png",
+  ], {
+    lookup: dns,
+    fetch: route({
+      "redir.example": () => new Response(null, { status: 302, headers: { location: "https://169.254.169.254/" } }),
+      "html.example": () => imgRes(Buffer.from("<html>"), "text/html"),
+      "svg.example": () => imgRes(Buffer.from("<svg/>"), "image/svg+xml"),
+      "big.example": () => imgRes(Buffer.alloc(1024 * 1024 + 1)),
+    }),
+  });
+  assert.deepEqual([...images.keys()], ["https://ok.example/a.png"]);
+  assert.deepEqual(failed.map((f) => f.reason), [
+    "not https", "host is not a public address", "host is not a public address", "host is not a public address", "host is not a public address",
+    "redirects are not followed", "not an allowed image type (text/html)", "not an allowed image type (image/svg+xml)", "over the 1 MB limit", "credentials in URL",
+  ]);
+
+  const many = Array.from({ length: 4 }, (_, i) => `https://h${i}.example/x.png`);
+  const total = await fetchSignatureImages(many, { lookup: publicDns, fetch: async () => imgRes(Buffer.alloc(900 * 1024)) });
+  assert.equal(total.images.size, 3, "the 3 MB total stops the fourth");
+  assert.match(total.failed[0].reason, /total/);
+});
+
+test("signature image helpers: private ranges and URL extraction", () => {
+  for (const ip of ["10.1.2.3", "172.16.0.1", "192.168.1.1", "127.0.0.1", "169.254.169.254", "100.64.0.1", "0.0.0.0", "224.0.0.1", "::1", "fd00::1", "fe80::1", "::ffff:127.0.0.1"]) assert.ok(isPrivateAddress(ip), ip);
+  for (const ip of ["93.184.216.34", "8.8.8.8", "2606:4700:4700::1111"]) assert.ok(!isPrivateAddress(ip), ip);
+  assert.deepEqual(signatureImageUrls(`<img src="https://a.example/1.png"><img src='http://b.example/2.png'><IMG alt=x SRC="https://a.example/1.png">`), ["https://a.example/1.png"]);
 });
