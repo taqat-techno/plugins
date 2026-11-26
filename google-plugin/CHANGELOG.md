@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.8.2] - 2026-11-26
+
+### Fixed (from the first live try of calendar_rest_delete_event)
+- Guest guard: when the event lookup fails with a coded error (`GOOGLE_FORBIDDEN`, `AUTH_EXPIRED`, `NOT_FOUND`,
+  `TOOL_ERROR`, ...), that error is returned as itself instead of `GUESTS_NEED_APPROVAL`, so a project-setup error is
+  not mistaken for "needs approval". It is still a refusal: nothing is changed. An error without a code still refuses
+  as `GUESTS_NEED_APPROVAL`.
+- Setup guide: the REST fallback calls the plain Gmail, Drive and Calendar APIs (`gmail.googleapis.com`,
+  `drive.googleapis.com`, `calendar-json.googleapis.com`) directly, so they must be enabled; the CalDAV API is a
+  different API.
+
 ## [0.8.1] - 2026-11-26
 
 ### Added

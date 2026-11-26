@@ -64,7 +64,12 @@ export async function guestGuard(name, args, ctx, lookup) {
   if (name === "calendar_create_event") return;
   let event;
   try { event = await lookup({ eventId: args.eventId, ...(args.calendarId ? { calendarId: args.calendarId } : {}) }); }
-  catch (e) { throw refuse(name, `the event's attendees could not be checked (${e.code ?? "error"})`); }
+  catch (e) {
+    // Still a refusal (nothing changes), but a setup or lookup error keeps its own code (GOOGLE_FORBIDDEN, AUTH_*,
+    // NOT_FOUND, ...) so it is not mistaken for "needs approval"; only an error without a code is wrapped.
+    if (e?.code) throw e;
+    throw refuse(name, "the event's attendees could not be checked");
+  }
   const existing = (event?.attendees ?? []).filter((a) => !a?.self && !a?.resource).map((a) => a?.email);
   const organizer = event?.organizer && !event.organizer.self ? [event.organizer.email] : [];
   if (others([...existing, ...organizer], own).length) throw refuse(name, "the event has other attendees, who would be notified");

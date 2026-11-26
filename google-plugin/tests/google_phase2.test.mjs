@@ -216,7 +216,7 @@ test("guest guard (GOOGLE_REFUSE_GUEST_EVENTS=1): other attendees are refused be
   for (const n of ["calendar_update_event", "calendar_delete_event", "calendar_respond_to_event"]) await assert.rejects(c2.callTool(n, { eventId: "e1", responseStatus: "accepted" }), { code: "GUESTS_NEED_APPROVAL" }, n);
   assert.ok(calls(c2, MCP).every((x) => JSON.parse(x.body).params.name === "get_event"), "only the lookup reached Google");
 
-  await assert.rejects(mk(ON, new Error("x")).callTool("calendar_delete_event", { eventId: "e1" }), { code: "GUESTS_NEED_APPROVAL" }, "a failed lookup refuses (fails closed)");
+  await assert.rejects(mk(ON, new Error("x")).callTool("calendar_delete_event", { eventId: "e1" }), { code: "TOOL_ERROR" }, "a failed lookup refuses (fails closed), with its own code");
   await mk({}, group).callTool("calendar_delete_event", { eventId: "e1" });
 });
 

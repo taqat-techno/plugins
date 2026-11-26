@@ -197,12 +197,12 @@ test("snapshot lists the attachments (name, type, size, inline marked) in the he
 
 // ------------------------------------------------------------------------------------------------ 0.8.1 calendar_rest_delete_event
 
-function calCtx(event, env = {}, { lookupFails = false } = {}) {
+function calCtx(event, env = {}, { lookupFails = false, lookupStatus = 404 } = {}) {
   const seen = [];
   const c = ctxFor([tokenOk, [/^(GET|DELETE) https:\/\/www\.googleapis\.com\/calendar\/v3\//, ({ url, init }) => {
     const u = new URL(url);
     seen.push(`${init.method || "GET"} ${u.pathname} ${u.search}`);
-    if ((init.method || "GET") === "GET") return lookupFails ? json({ error: { code: 404, message: "Not Found" } }, 404) : json(event);
+    if ((init.method || "GET") === "GET") return lookupFails ? json({ error: { code: lookupStatus, message: lookupStatus === 403 ? "Google Calendar API has not been used in project 1 before or it is disabled" : "Not Found" } }, lookupStatus) : json(event);
     return new Response(null, { status: 204 });
   }]], { seed: SEED, extraEnv: { GOOGLE_REST_FALLBACK: "1", ...env } });
   return { c, seen };
@@ -230,15 +230,21 @@ test("calendar_rest_delete_event: looks up, deletes with sendUpdates (default no
   await assert.rejects(off.callTool("calendar_rest_delete_event", { eventId: "e1" }), { code: "UNKNOWN_TOOL" });
 });
 
-test("calendar_rest_delete_event with GOOGLE_REFUSE_GUEST_EVENTS=1: other attendees or a failed lookup refuse before any delete", async () => {
+test("calendar_rest_delete_event with GOOGLE_REFUSE_GUEST_EVENTS=1: other attendees refuse (GUESTS_NEED_APPROVAL); a failed lookup refuses with its own code; nothing is deleted", async () => {
   const ON = { GOOGLE_REFUSE_GUEST_EVENTS: "1" };
   const g = calCtx(GROUP, ON);
   await assert.rejects(g.c.callTool("calendar_rest_delete_event", { eventId: "e1" }), { code: "GUESTS_NEED_APPROVAL" });
   const o = calCtx({ ...SOLO, organizer: { email: "boss@x.example" } }, ON);
   await assert.rejects(o.c.callTool("calendar_rest_delete_event", { eventId: "e1" }), { code: "GUESTS_NEED_APPROVAL" });
   const f = calCtx(SOLO, ON, { lookupFails: true });
-  await assert.rejects(f.c.callTool("calendar_rest_delete_event", { eventId: "e1" }), { code: "GUESTS_NEED_APPROVAL" });
-  for (const x of [g, o, f]) assert.equal(x.seen.filter((s) => s.startsWith("DELETE")).length, 0);
+  await assert.rejects(f.c.callTool("calendar_rest_delete_event", { eventId: "e1" }), { code: "NOT_FOUND" });
+  const forbidden = calCtx(SOLO, ON, { lookupFails: true, lookupStatus: 403 });
+  await assert.rejects(forbidden.c.callTool("calendar_rest_delete_event", { eventId: "e1" }), (e) => e.code === "GOOGLE_FORBIDDEN" && /Calendar API has not been used/.test(e.message), "a setup error is not reported as needing approval");
+  for (const x of [g, o, f, forbidden]) assert.equal(x.seen.filter((s) => s.startsWith("DELETE")).length, 0);
+  // An error without a code is still refused as GUESTS_NEED_APPROVAL (fails closed).
+  const { guestGuard } = await import("../server/guards.mjs");
+  const ctx = { cfg: { refuseGuestEvents: true }, auth: { cachedAccount: () => "me@mail.example" } };
+  await assert.rejects(guestGuard("calendar_delete_event", { eventId: "e1" }, ctx, async () => { throw new Error("boom"); }), { code: "GUESTS_NEED_APPROVAL" });
   assert.equal((await calCtx(SOLO, ON).c.callTool("calendar_rest_delete_event", { eventId: "e1" })).deleted, true);
   assert.equal((await calCtx(GROUP).c.callTool("calendar_rest_delete_event", { eventId: "e1" })).deleted, true, "guard off: guest events can be deleted");
 });

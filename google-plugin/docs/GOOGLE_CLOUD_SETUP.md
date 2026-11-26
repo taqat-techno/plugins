@@ -32,6 +32,12 @@ Source: [Configure the Google Workspace MCP servers](https://developers.google.c
 module now; turning modules on later then needs no trip back here. If one is off, sign-in still works, but that module's
 calls fail with `GOOGLE_FORBIDDEN` and Google's message says which API.
 
+The plain APIs (not only the MCP ones) matter even more if you switch on the REST fallback (`GOOGLE_REST_FALLBACK=1`):
+its tools call them directly. Their service names are `gmail.googleapis.com` (Gmail API), `drive.googleapis.com`
+(Google Drive API) and `calendar-json.googleapis.com` (Google Calendar API). The **CalDAV API** in the same library is a
+different API and does not count. A 403 saying "Google Calendar API has not been used in project ... or it is disabled"
+means the Google Calendar API is off.
+
 ## Step 3: set up the consent screen
 
 This is the page Google shows when you sign in ("App X wants to access your Google Account").

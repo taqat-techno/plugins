@@ -222,8 +222,8 @@ Files are never returned as bytes, never overwrite an existing file, and get a c
 
 - `GOOGLE_REFUSE_GUEST_EVENTS=1`: `calendar_create_event` / `calendar_update_event` naming anyone other than the
   signed-in person, and `calendar_update_event` / `calendar_delete_event` / `calendar_respond_to_event` on an event
-  with other attendees or another organiser (looked up first; a failed lookup refuses), fail with
-  `GUESTS_NEED_APPROVAL`. A host can run one server with it on for direct use and a second, behind its own approval
+  with other attendees or another organiser (looked up first), fail with `GUESTS_NEED_APPROVAL`. A failed lookup also
+  refuses, with its own code (for example `GOOGLE_FORBIDDEN` when the API is off). A host can run one server with it on for direct use and a second, behind its own approval
   step, with it off.
 - `GOOGLE_WRITE_LIMIT_PER_HOUR=N`: at most N calls per rolling hour, per server process, of Gmail trash, spam and
   sensitive labels, `calendar_delete_event`, `gmail_rest_delete_draft`, `drive_rest_trash_file` and
