@@ -22,6 +22,7 @@ SCRIPTS = PLUGIN_ROOT / "scripts"
 
 CLI_SCRIPTS = [
     "frontend/bootstrap_mapper.py", "frontend/version_detector.py",
+    "dashboard/list_sheets.py",
     "i18n/i18n_converter.py", "i18n/i18n_extractor.py", "i18n/i18n_reporter.py",
     "i18n/i18n_validator.py",
     "mcp/odoo_local.py", "mcp/odoo_mcp.py", "mcp/odoo_sh.py",

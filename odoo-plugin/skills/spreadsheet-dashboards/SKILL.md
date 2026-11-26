@@ -8,11 +8,13 @@ description: >-
   or trend, applying a brand palette or house style to dashboard charts and cards, a
   dashboard that behaves differently on Odoo 17 and 19, a dashboard shipped from a module
   that must stay editable from the Edit button or lost its UI edits after a module update,
-  or checking a dashboard's numbers against its pivots. Not for running tests or judging whether a task is finished.
-version: 0.3.0
+  checking a dashboard's numbers against its pivots, or a dashboard built on lists
+  (ODOO.LIST) and a reporting SQL view whose cards read too low, whose filter does not
+  apply, or which must keep working in a frozen or copied workbook. Not for running tests or judging whether a task is finished.
+version: 0.4.0
 user-invocable: false
 metadata:
-  last_reviewed: 2026-11-08
+  last_reviewed: 2026-11-26
   owns:
     - the Odoo 17 vs 19 version gate for every dashboard mechanism (mobile, chart colours, titles, scorecards, workbook shape)
     - the six-carrier model for applying a brand palette to a dashboard
@@ -25,9 +27,11 @@ metadata:
     - the period-over-period delta recipe (twin pivot + filter offset + scorecard baseline)
     - dashboard correctness rules (translatable-name domains, literal constants, unlabelled period exemptions)
     - the four-way A/B/C/D separation used to plan and review a dashboard redesign
+    - list workbooks - data sheets sized with headroom, a Calc sheet, reporting views checked against their source
   defers_to:
     - theme-scss / theme-design for website-theme SCSS variables and palettes (this skill governs backend dashboard chrome only)
     - reviewer for general Odoo module review conventions and manifest/version hygiene
+    - security for access lists and record rules on a reporting view's model
     - i18n / i18n-audit for `.pot` extraction, msgid discipline and the translation-file workflow once labels are wrapped in `=_t()`
     - stack-doctor for module-update and DB-lifecycle verification (reading the server log rather than the exit code, cloning a DB with its filestore) — this skill only says which checks a dashboard change needs
     - a general data-visualisation skill, where one is available, for chart-type choice and palette accessibility; this skill owns only the subset o-spreadsheet can actually express
@@ -194,6 +198,31 @@ Then translate the selection labels, board names and group name with the Export 
 round trip in `../i18n/references/live-db-translation.md`. Those translations are DB-only: re-run
 it whenever the label dataset or boards are rebuilt. The sheet itself stays LTR (rule 9).
 
+### 15. Lists instead of pivots: an option with its own traps
+
+A dashboard does not need pivots. Each Odoo **list** can sit on its own data sheet
+(`=ODOO.LIST(id, n, "field")`), a `Calc` sheet computes every card with `SUMIFS`, and the figures
+read `Calc`. Take this route when the board must keep working where live pivots do not survive (a
+frozen, exported or synchronised copy), when the numbers come from a grouped reporting view, or when
+a pivot over raw records makes the workbook too heavy. Stay with pivots for deltas, relation
+filters, relative periods and click-through: they are native there and hand-built here.
+
+Four things go wrong silently, and each has shipped a wrong number:
+
+- **Only the rows written in the sheet are loaded.** When the data grows past them, the extra rows
+  are dropped with no error and the cards read low. Size every data sheet with headroom
+  (`scripts/dashboard/list_sheets.py`).
+- **A list with no `fieldMatching` inherits another list's filter mapping** on the same model. Write
+  `"fieldMatching": {}` on every list.
+- **Values change type on the way in.** On 17 a boolean arrives as the text `TRUE` / `FALSE`, and on
+  17 and 18 a zero arrives as an empty cell, so a boolean criterion fails and `AVERAGE` reads high.
+- **A reporting view is only as right as its joins.** Check each view against its source model
+  (card values, no duplicate groups, total count) before any card is built on it, keep database ids
+  out of the SQL, and decide who may read it: a SQL view has no record rules of its own.
+
+Layout, the reporting-view rules, saving a workbook built outside the editor and copying a board to
+another database are in `references/list-workbooks.md`.
+
 ## Decision framework
 
 Route the change to its owning layer before writing anything:
@@ -204,6 +233,7 @@ Route the change to its owning layer before writing anything:
 | Sheet width, centring, dead scroll | **JSON (B)** | `colNumber`/`rowNumber` + `cols`/`rows` sizes |
 | Spacing between cards | **JSON (B)** | empty gutter columns + figure `x`/`y` |
 | KPI delta / baseline | **JSON (B)** | twin pivot + filter `offset: -1` + scorecard `baseline` |
+| Numbers that survive a frozen or copied workbook; a pivot too heavy to load | **JSON (B)** + a reporting view | lists on data sheets + `Calc` formulas (rule 15) |
 | Chart type, data, background, legend | **JSON (B)** | figure `data` + `metaData`/`searchParams` |
 | Series colours, chart title style (**19**) | **JSON (B)** | `dataSets[i].backgroundColor`, `title: {text, color, fontSize, bold, align}` |
 | Status fills in a table | **JSON (B)** | `conditionalFormats` (19: `customFormula`; 17: rule on a staged status value) |
@@ -251,6 +281,7 @@ Run this against any dashboard before calling it designed. Each line has caught 
 - [ ] **Scope-isolation regression check** — open at least one other spreadsheet dashboard and confirm it is visually unchanged.
 - [ ] Test on a **clone**, never a reference database — iterating on a dashboard means repeated module updates, and each one rewrites a non-`noupdate` `spreadsheet.dashboard` record, discarding any revisions users made through the UI in the meantime. `stack-doctor` owns how to clone safely (with the filestore, on its own config).
 - [ ] **Organic check (rule 13):** edit one cell through **Edit**, reload the dashboard (the change shows), update the module on the clone, reload again (the change survives); add a chart in the editor and confirm it gets the house card chrome.
+- [ ] **List boards (rule 15):** `python scripts/dashboard/list_sheets.py check <workbook.json>` reports no problem; every data sheet has headroom; each reporting view was compared with its source model; the revision count was read before the build and again before the write.
 - [ ] A malformed pivot yields `0`, not an error — spot-check every number against the underlying model before sign-off.
 
 ## Anti-patterns
@@ -282,6 +313,9 @@ Run this against any dashboard before calling it designed. Each line has caught 
 | Hand-writing the workbook JSON from scratch | Error-prone; a malformed pivot yields `0` rather than an error | Author in the editor UI, **File › Download as JSON** (debug mode), commit it as module data |
 | Exporting `spreadsheet_data` from a dashboard people have edited | The field keeps the original file; UI edits live in revisions and the snapshot | **File › Download as JSON** from the editor |
 | A custom dashboard record without `noupdate="1"` | Every module update rewrites `spreadsheet_binary_data`, which deletes all UI revisions | `<odoo noupdate="1">` around custom dashboard records |
+| A data sheet with exactly as many `ODOO.LIST` rows as the view has today | Rows past the last written one are never fetched; the card drops them without an error | Write headroom rows; empty ones return `""` and cost nothing |
+| A list saved without `fieldMatching` | Odoo copies the mapping of another list on the same model, so an unfiltered card is filtered | `"fieldMatching": {}` on every list |
+| A stage id, account id or company name inside a reporting view's SQL | Different on the next database; the view returns wrong numbers with no error | Join on an XML id, a code or a field that carries the meaning |
 | Writing `spreadsheet_binary_data` from a migration or sync job | Same wipe, with no warning to the people who edited it | Write only where `spreadsheet_revision_ids` is empty, or ship a new record |
 
 ## Cross-references
@@ -298,6 +332,12 @@ Reference material owned by this skill:
   and 19 shapes), the observed design grid, the delta recipe, filters, the section-header/drill-down
   idiom, formatting idioms, scoped SCSS (cards, page, sidebar, filters, print), the chart font and
   palette wrapper, the six-carrier brand-palette recipe, and the four-layer module architecture.
+- `skills/spreadsheet-dashboards/references/list-workbooks.md` — dashboards on lists instead of
+  pivots: when to choose them, the three-sheet layout, sizing data sheets, the traps (with what was
+  checked in source for 17, 18 and 19), reporting views (module model or OCA `bi_sql_editor`),
+  saving a workbook built outside the editor, copying a board to another database.
+- `scripts/dashboard/list_sheets.py` — offline helper: `build` data sheets from a spec, `resize`
+  them in an exported workbook, `check` rows written and missing `fieldMatching`.
 
 Owned elsewhere — reference, do not restate:
 
@@ -305,6 +345,7 @@ Owned elsewhere — reference, do not restate:
 - `frontend-js` — general Odoo asset-bundle and OWL conventions. Note the split this skill depends on: custom **JS** belongs in the lazy `spreadsheet.o_spreadsheet` bundle, custom **SCSS** in the eager `web.assets_backend`.
 - `reviewer` — module-level review conventions, manifest hygiene, version bumps.
 - `i18n` / `i18n-audit` — `.pot` extraction, msgid discipline and the translation workflow once labels are wrapped in `=_t()`. This skill only requires the wrapping; everything downstream of it is theirs. Translating boards on a live DB with no module deploy: rule 14 here (the JSON pattern), and `i18n/references/live-db-translation.md` (the import mechanics).
+- `security` — access lists and record rules for the model behind a reporting view. This skill only says the view has none until someone writes them.
 - `stack-doctor` — module-update verification from the log, and cloning a database with its filestore onto its own config. The two validation-checklist lines above are pointers into that skill, not a second copy of it.
 - A general data-visualisation skill, where one is available — chart-type selection, categorical palette construction and contrast/accessibility. This skill constrains those choices to what o-spreadsheet can express (rule 10: series colours come from a fixed runtime palette) but does not own them.
 - The decision/issue owner — owns every gated item in the four-way separation. This skill flags them; it never resolves them.

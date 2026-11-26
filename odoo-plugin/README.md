@@ -92,7 +92,7 @@ Skills load on their own when the request matches; each can also be invoked as
 | `reviewer` | Reviewing or estimating technical debt in Odoo 17/19 code |
 | `security` | Auditing access rules, record rules, routes, `sudo()` and SQL in a module |
 | `service` | Starting, stopping and setting up a local project; databases; module scaffolds; IDE setup |
-| `spreadsheet-dashboards` | Building, restyling or auditing `spreadsheet.dashboard` workbooks |
+| `spreadsheet-dashboards` | Building, restyling or auditing `spreadsheet.dashboard` workbooks, on pivots or on lists and reporting views |
 | `solution-design` | Turning a business process or feature request into an Odoo design: standard → configuration → OCA → Apps store → custom, with a fit-gap verdict table, before any module is scaffolded |
 | `stack-doctor` | A stack that starts but is wrong: orphaned volumes, Postgres that will not boot, upgrades that changed nothing, blank themes, unsafe restarts or DB clones |
 | `test` | Planning, writing, reviewing, running or debugging tests, including CI |

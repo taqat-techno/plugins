@@ -2,6 +2,38 @@
 
 All notable changes to `odoo-plugin` are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/). Versioning follows [SemVer](https://semver.org/).
 
+## [4.8.0] - 2026-11-26
+
+**`spreadsheet-dashboards` 0.4.0: dashboards on lists and reporting views.** Until now the skill
+covered pivots only. Lists are described as an option beside pivots, with a table of when to
+choose which; nothing here makes them mandatory.
+
+### Added
+- **Rule 15, "Lists instead of pivots"**, and `references/list-workbooks.md`: the three-sheet
+  layout (data sheets, `Calc`, figures), sizing data sheets with headroom, ten traps, reporting
+  views (one per grain, 1:1 joins, a count column, no database ids, access), the two ways to
+  publish a view (a module `_auto = False` model or OCA `bi_sql_editor`), saving a workbook built
+  outside the editor (revision count read before the build and again before the write), and
+  copying a board to another database.
+- **`scripts/dashboard/list_sheets.py`** (offline, JSON files only): `build` data sheets and list
+  definitions from a spec, `resize` them in an exported workbook, `check` rows written per list,
+  lists without `fieldMatching`, lists without an id tie-breaker, formulas reading an undefined
+  list. 13 tests in `tests/test_list_sheets.py`.
+- One decision-table row, one validation-checklist line and three anti-patterns in `SKILL.md`.
+- Eval cases `fires-on-list-dashboard-card-reads-low` and `ignores-excel-sumifs-monthly-table`.
+  Not piloted yet.
+
+### Evidence
+- Read in the Odoo source: only the rows asked for are fetched and a row past the data returns
+  `""` (17); a list with no `fieldMatching` takes `getFieldMatchingForModel` (17, 18);
+  `migrate4to5` moves `listFields` into `fieldMatching` (17, 18, 19); booleans are the text
+  `TRUE` / `FALSE` on 17 and real booleans on 18 and 19; a zero returns `""` on 17 and 18 and
+  stays zero on 19; a scorecard number takes its key cell's `textColor` (17).
+- Reported from a running Odoo 17 Enterprise database and not re-checked in source: the shared
+  list cache, the tab crash on very large workbooks, `create()` failing with the binary in the
+  values, style ids changing between exports, the stacked-card colour workaround. The reference
+  marks each of these.
+
 ## [4.7.0] - 2026-11-23
 
 Lessons from a retrospective of 292 issues filed against Odoo 17 modules and delivered by an
