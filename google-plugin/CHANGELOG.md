@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.7.2] - 2026-11-26
+
+### Fixed (security review of 0.7.1)
+- Signature image fetches: the public-address check now runs inside the DNS lookup the HTTPS connection itself uses, and
+  the connected socket's address is checked again, so a DNS answer that changes between check and connect cannot reach
+  a private host. Fetching uses node:https with that guarded lookup (no redirects, timeout, size cap while reading).
+- IPv6 is parsed into its 8 words instead of matched as text. Only global unicast (2000::/3) passes, minus 6to4
+  (2002::/16) and Teredo (2001:0::/32), which embed IPv4, and documentation (2001:db8::/32); IPv4-mapped addresses in
+  any notation (::ffff:7f00:1, ::127.0.0.1), NAT64 (64:ff9b::/96), fec0::/10, ULA, link-local and multicast are refused.
+
 ## [0.7.1] - 2026-11-26
 
 ### Added

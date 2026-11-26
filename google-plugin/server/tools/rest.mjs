@@ -182,7 +182,7 @@ export const tools = [
         const allowed = signatureImageUrls(list.find((x) => x.address === fromAddr)?.signature);
         const used = signatureImageUrls(block[0]).filter((u) => allowed.includes(u));
         if (used.length) {
-          const got = await fetchSignatureImages(used, { fetch: ctx.fetch, ...(ctx.lookup ? { lookup: ctx.lookup } : {}) });
+          const got = await fetchSignatureImages(used, { ...(ctx.imageGet ? { get: ctx.imageGet } : {}), ...(ctx.lookup ? { lookup: ctx.lookup } : {}) });
           failed = got.failed;
           const newBlock = block[0].replace(/(<img\b[^>]*?\bsrc\s*=\s*)(["'])(.*?)\2/gi, (all, pre, q, url) => {
             const data = got.images.get(url.replace(/&amp;/g, "&").trim());

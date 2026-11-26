@@ -7,7 +7,7 @@ import { join } from "node:path";
 import { TOKEN, ctxFor, json } from "./_helpers.mjs";
 import { parseMime, bodyViews, bodySources } from "../server/mime.mjs";
 import { putSignature, sanitizeHtml, SIG_START } from "../server/signature.mjs";
-import { fetchSignatureImages, isPrivateAddress, signatureImageUrls } from "../server/sigimages.mjs";
+import { fetchSignatureImages, ipv6Words, isPrivateAddress, pinnedGet, publicOnlyLookup, signatureImageUrls } from "../server/sigimages.mjs";
 
 const tokenOk = [TOKEN, () => json({ access_token: "at-live", expires_in: 3599 })];
 const REST = /^(GET|POST|PUT|PATCH|DELETE) https:\/\/(gmail|www)\.googleapis\.com\//;
@@ -165,8 +165,9 @@ test("sanitizeHtml: event attributes in any quoting, scripts, embeds and javascr
 
 
 const PNG = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
-const imgRes = (bytes = PNG, type = "image/png", status = 200, headers = {}) => new Response(bytes, { status, headers: { "content-type": type, ...headers } });
-const publicDns = async () => [{ address: "93.184.216.34", family: 4 }];
+const img = (bytes = PNG, type = "image/png", status = 200) => ({ status, type, bytes });
+/** A callback-style resolver (like dns.lookup) with a fixed table; unknown hosts get a public address. */
+const dnsTable = (table = {}) => (host, opts, cb) => { const r = table[host] ?? [{ address: "93.184.216.34", family: 4 }]; cb(null, r); };
 
 test("snapshot embeds only the From address's real signature images; draft-only URLs and quoted images are never fetched", async () => {
   const dir = mkdtempSync(join(tmpdir(), "gp-sigimg-"));
@@ -178,7 +179,7 @@ test("snapshot embeds only the From address's real signature images; draft-only 
   const c = ctxFor([tokenOk, rest([
     ["GET gmail:drafts/d1", () => json({ id: "d1", message: { raw } })],
     ["GET gmail:settings/sendAs", () => json(sendAs)],
-  ]), [/^GET https:\/\/(cdn\.shop|evil|track)\.example\//, ({ url }) => { fetched.push(url); return imgRes(); }]], { seed: SEED, extraEnv: { GOOGLE_REST_FALLBACK: "1", GOOGLE_DOWNLOAD_DIR: dir }, deps: { lookup: publicDns } });
+  ])], { seed: SEED, extraEnv: { GOOGLE_REST_FALLBACK: "1", GOOGLE_DOWNLOAD_DIR: dir }, deps: { lookup: dnsTable(), imageGet: async (url) => { fetched.push(url); return img(); } } });
   const r = await c.callTool("gmail_rest_save_draft_html", { draftId: "d1" });
   assert.deepEqual([r.signature_images_inlined, r.signature_images_failed], [1, []]);
   assert.deepEqual(fetched, ["https://cdn.shop.example/logo.png?v=1&s=2"], "only the real signature's image");
@@ -190,39 +191,49 @@ test("snapshot embeds only the From address's real signature images; draft-only 
 });
 
 test("signature image fetch limits: https, public hosts only, no redirects, image types, size caps; failures are reported, never thrown", async () => {
-  const route = (map) => async (url, init) => {
-    assert.equal(init.redirect, "manual");
-    const h = map[new URL(url).hostname];
-    return h ? h() : imgRes();
+  const replies = {
+    "redir.example": () => img(Buffer.alloc(0), "", 302),
+    "html.example": () => img(Buffer.from("<html>"), "text/html"),
+    "svg.example": () => img(Buffer.from("<svg/>"), "image/svg+xml"),
+    "big.example": () => img(Buffer.alloc(1024 * 1024 + 1)),
   };
-  const dns = async (host) => ({ "int.example": [{ address: "10.0.0.5" }], "mixed.example": [{ address: "93.184.216.34" }, { address: "127.0.0.1" }] }[host] ?? [{ address: "93.184.216.34" }]);
   const { images, failed } = await fetchSignatureImages([
-    "http://plain.example/a.png", "https://127.0.0.1/a.png", "https://[::1]/a.png", "https://int.example/a.png", "https://mixed.example/a.png",
+    "http://plain.example/a.png", "https://127.0.0.1/a.png", "https://[::1]/a.png", "https://[::ffff:7f00:1]/a.png", "https://int.example/a.png", "https://mixed.example/a.png",
     "https://redir.example/a.png", "https://html.example/a.png", "https://svg.example/a.svg", "https://big.example/a.png", "https://ok.example/a.png",
     "https://user:pw@cred.example/a.png",
   ], {
-    lookup: dns,
-    fetch: route({
-      "redir.example": () => new Response(null, { status: 302, headers: { location: "https://169.254.169.254/" } }),
-      "html.example": () => imgRes(Buffer.from("<html>"), "text/html"),
-      "svg.example": () => imgRes(Buffer.from("<svg/>"), "image/svg+xml"),
-      "big.example": () => imgRes(Buffer.alloc(1024 * 1024 + 1)),
-    }),
+    lookup: dnsTable({ "int.example": [{ address: "10.0.0.5", family: 4 }], "mixed.example": [{ address: "93.184.216.34", family: 4 }, { address: "::ffff:7f00:1", family: 6 }] }),
+    get: async (url) => (replies[new URL(url).hostname] ?? (() => img()))(),
   });
   assert.deepEqual([...images.keys()], ["https://ok.example/a.png"]);
   assert.deepEqual(failed.map((f) => f.reason), [
-    "not https", "host is not a public address", "host is not a public address", "host is not a public address", "host is not a public address",
+    "not https", "host is not a public address", "host is not a public address", "host is not a public address", "host is not a public address", "host is not a public address",
     "redirects are not followed", "not an allowed image type (text/html)", "not an allowed image type (image/svg+xml)", "over the 1 MB limit", "credentials in URL",
   ]);
 
   const many = Array.from({ length: 4 }, (_, i) => `https://h${i}.example/x.png`);
-  const total = await fetchSignatureImages(many, { lookup: publicDns, fetch: async () => imgRes(Buffer.alloc(900 * 1024)) });
+  const total = await fetchSignatureImages(many, { lookup: dnsTable(), get: async () => img(Buffer.alloc(900 * 1024)) });
   assert.equal(total.images.size, 3, "the 3 MB total stops the fourth");
   assert.match(total.failed[0].reason, /total/);
 });
 
-test("signature image helpers: private ranges and URL extraction", () => {
-  for (const ip of ["10.1.2.3", "172.16.0.1", "192.168.1.1", "127.0.0.1", "169.254.169.254", "100.64.0.1", "0.0.0.0", "224.0.0.1", "::1", "fd00::1", "fe80::1", "::ffff:127.0.0.1"]) assert.ok(isPrivateAddress(ip), ip);
-  for (const ip of ["93.184.216.34", "8.8.8.8", "2606:4700:4700::1111"]) assert.ok(!isPrivateAddress(ip), ip);
+test("the connection's own lookup refuses private answers (DNS rebinding cannot pass the check)", async () => {
+  // First answer public, every later one private: the early check passes, the connection's lookup must refuse.
+  let n = 0;
+  const flipping = (host, opts, cb) => { n++; cb(null, n === 1 ? [{ address: "93.184.216.34", family: 4 }] : [{ address: "127.0.0.1", family: 4 }]); };
+  const guarded = publicOnlyLookup(flipping);
+  await new Promise((done) => guarded("x.example", { all: true }, (err) => { assert.equal(err, null); done(); }));
+  await new Promise((done) => guarded("x.example", {}, (err) => { assert.equal(err?.code, "EPRIVATEHOST"); done(); }));
+  // The real https path with that lookup never connects to the private answer.
+  await assert.rejects(pinnedGet("https://x.example/logo.png", { cap: 1000, lookup: publicOnlyLookup((h, o, cb) => cb(null, [{ address: "127.0.0.1", family: 4 }])) }), { code: "EPRIVATEHOST" });
+});
+
+test("signature image helpers: only public IPv4 and global-unicast IPv6 pass, in any notation; URL extraction", () => {
+  const priv = ["10.1.2.3", "172.16.0.1", "192.168.1.1", "127.0.0.1", "169.254.169.254", "100.64.0.1", "0.0.0.0", "224.0.0.1",
+    "::", "::1", "fd00::1", "fe80::1", "fec0::1", "ff02::1", "::ffff:127.0.0.1", "::ffff:7f00:1", "0:0:0:0:0:ffff:7f00:1", "::127.0.0.1",
+    "64:ff9b::a00:1", "2002:7f00:1::1", "2001:0:4136:e378::1", "2001:db8::1", "not-an-ip", "1::2::3"];
+  for (const ip of priv) assert.ok(isPrivateAddress(ip), ip);
+  for (const ip of ["93.184.216.34", "8.8.8.8", "2606:4700:4700::1111", "2a00:1450:4001:80b::200e"]) assert.ok(!isPrivateAddress(ip), ip);
+  assert.deepEqual(ipv6Words("::ffff:127.0.0.1"), [0, 0, 0, 0, 0, 0xffff, 0x7f00, 1]);
   assert.deepEqual(signatureImageUrls(`<img src="https://a.example/1.png"><img src='http://b.example/2.png'><IMG alt=x SRC="https://a.example/1.png">`), ["https://a.example/1.png"]);
 });
