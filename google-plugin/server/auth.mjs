@@ -20,7 +20,7 @@ import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { FORBIDDEN_SCOPE, MODULE_SCOPES, NEEDS_CLIENT, moduleScopes } from "./config.mjs";
-import { GoogleError, replaceFile } from "./util.mjs";
+import { cliCmd, GoogleError, replaceFile } from "./util.mjs";
 
 export const AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth";
 export const TOKEN_URL = "https://oauth2.googleapis.com/token";
@@ -54,14 +54,14 @@ export function openBrowser(url) {
   } catch { return false; }
 }
 
-const EXPIRED_HINT = "Ask the human to sign in again (google_sign_in, or run: node server/cli.mjs sign-in). Do not retry this call in a loop: it will keep failing until they do.";
-const REQUIRED_HINT = "Ask the human to sign in (google_sign_in, or run: node server/cli.mjs sign-in). Do not retry until they have.";
+const expiredHint = (cli = "node server/cli.mjs") => `Ask the human to sign in again (google_sign_in, or run: ${cli} sign-in). Do not retry this call in a loop: it will keep failing until they do.`;
+const requiredHint = (cli = "node server/cli.mjs") => `Ask the human to sign in (google_sign_in, or run: ${cli} sign-in). Do not retry until they have.`;
 
 /** Maps Google's token-endpoint errors to a code. `refreshing`: a refresh-token grant (invalid_grant = the sign-in is dead). */
-export function classifyTokenError(j, status, { refreshing = false } = {}) {
+export function classifyTokenError(j, status, { refreshing = false, cli } = {}) {
   const code = String(j?.error ?? "unknown");
   if (refreshing && code === "invalid_grant") {
-    return new GoogleError("AUTH_EXPIRED", "The saved Google sign-in no longer works (expired or revoked). A human has to sign in again.", { hint: EXPIRED_HINT });
+    return new GoogleError("AUTH_EXPIRED", "The saved Google sign-in no longer works (expired or revoked). A human has to sign in again.", { hint: expiredHint(cli) });
   }
   if (code === "invalid_client" || code === "unauthorized_client") {
     return new GoogleError("CLIENT_INVALID", `Google rejected the OAuth client (${code}).`, { hint: "Check that the client JSON file is the current one for a Desktop app client and that the client was not deleted. See docs/GOOGLE_CLOUD_SETUP.md." });
@@ -80,6 +80,7 @@ function idTokenEmail(idToken) {
 }
 
 export function createAuth(cfg, { fetch: fetchImpl = globalThis.fetch, open = openBrowser, now = () => Date.now() } = {}) {
+  const CLI = cliCmd(cfg), EXPIRED_HINT = expiredHint(CLI), REQUIRED_HINT = requiredHint(CLI);
   const cachePath = join(cfg.home, "token-cache.json");
   const scope = scopeString(cfg.scopes, { allowFullMailbox: cfg.fullMailbox === true });
   let mem = { token: null, expiresAt: 0 };
@@ -191,7 +192,7 @@ export function createAuth(cfg, { fetch: fetchImpl = globalThis.fetch, open = op
       }
     }
     if (!res.ok || !j.access_token) {
-      const err = classifyTokenError(j, res.status, { refreshing: true });
+      const err = classifyTokenError(j, res.status, { refreshing: true, cli: CLI });
       try { writeCache({ ...used, last_refresh_error: { code: err.code, at: iso(now()) } }); } catch { /* status still reports the live error */ }
       throw err;
     }
@@ -273,7 +274,7 @@ export function createAuth(cfg, { fetch: fetchImpl = globalThis.fetch, open = op
       : `Open this address in a browser on this computer and sign in: ${url}`;
     code.then(async (c) => {
       const { res, j } = await tokenRequest(client, { grant_type: "authorization_code", code: c, redirect_uri: redirect, code_verifier: verifier });
-      if (!res.ok || !j.access_token) throw classifyTokenError(j, res.status);
+      if (!res.ok || !j.access_token) throw classifyTokenError(j, res.status, { cli: CLI });
       const list = granted(j.scope);
       const problem = grantProblem(list);
       if (problem) throw problem;

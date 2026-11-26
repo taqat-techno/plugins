@@ -12,7 +12,7 @@ export const PROTOCOL = "2026-07-28";
  *  plugin update must not silently undo the human's grants. */
 export const CLIENT_INFO = { name: "google-plugin", version: "1" };
 
-const EXPIRED_HINT = "Run google_auth_status (or `node server/cli.mjs status`). If it reports AUTH_EXPIRED, a human must sign in again; do not retry in a loop.";
+const expiredHint = (cli) => `Run google_auth_status (or \`${cli || "node server/cli.mjs"} status\`). If it reports AUTH_EXPIRED, a human must sign in again; do not retry in a loop.`;
 
 /** Reads a JSON or SSE response and returns the JSON-RPC message whose id matches. */
 async function readMessage(res, id) {
@@ -32,9 +32,9 @@ async function readMessage(res, id) {
 const short = (s, n = 300) => String(s ?? "").replace(/\s+/g, " ").trim().slice(0, n);
 
 /** Maps an HTTP / JSON-RPC failure to a stable, secret-free error. */
-export function remoteError(status, m, raw, mod) {
+export function remoteError(status, m, raw, mod, cli) {
   const msg = short(m?.error?.message ?? raw ?? "");
-  if (status === 401) return new GoogleError("AUTH_EXPIRED", `Google's ${mod} service did not accept the sign-in (401).`, { hint: EXPIRED_HINT });
+  if (status === 401) return new GoogleError("AUTH_EXPIRED", `Google's ${mod} service did not accept the sign-in (401).`, { hint: expiredHint(cli) });
   if (status === 403) return new GoogleError("GOOGLE_FORBIDDEN", `Google's ${mod} service refused the request (403)${msg ? `: ${msg}` : ""}.`, { hint: "Check in Google Cloud that the API and its MCP API are enabled for the project and that the OAuth client has 'Use this client for an AI-powered agent' ticked (docs/GOOGLE_CLOUD_SETUP.md)." });
   if (status === 429) return new GoogleError("RATE_LIMITED", `Google's ${mod} service is rate limiting requests (429).`, { hint: "Wait a minute before trying again." });
   if (status >= 500) return new GoogleError("GOOGLE_UNAVAILABLE", `Google's ${mod} service failed (${status}).`, { hint: "Try again later." });
@@ -43,10 +43,10 @@ export function remoteError(status, m, raw, mod) {
 }
 
 /**
- * createRemote({ urls, auth, fetch, timeoutMs }) -> { request(mod, method, params, name?) }
+ * createRemote({ urls, auth, fetch, timeoutMs, cliCommand }) -> { request(mod, method, params, name?) }
  * request returns the JSON-RPC result object; failures throw GoogleError.
  */
-export function createRemote({ urls, auth, fetch: fetchImpl = globalThis.fetch, timeoutMs = 30_000 }) {
+export function createRemote({ urls, auth, fetch: fetchImpl = globalThis.fetch, timeoutMs = 30_000, cliCommand }) {
   let rpcId = 0;
   async function request(mod, method, params = {}, name) {
     const url = urls[mod];
@@ -77,7 +77,7 @@ export function createRemote({ urls, auth, fetch: fetchImpl = globalThis.fetch, 
       throw new GoogleError("NETWORK_ERROR", `Cannot reach Google's ${mod} service: ${short(e?.message, 120)}.`);
     }
     const { m, raw } = await readMessage(res, id);
-    if (!res.ok || !m || m.error || !m.result) throw remoteError(res.status, m, raw, mod);
+    if (!res.ok || !m || m.error || !m.result) throw remoteError(res.status, m, raw, mod, cliCommand);
     return m.result;
   }
 

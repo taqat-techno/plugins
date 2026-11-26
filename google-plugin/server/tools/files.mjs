@@ -25,7 +25,11 @@ function dataOf(r, tool) {
   try { return JSON.parse((r.content ?? []).find((c) => c.type === "text")?.text ?? "null"); } catch { return null; }
 }
 
-const EXT = {
+export const EXT = {
+  "application/vnd.google-apps.script+json": ".json", "image/svg+xml": ".svg", "application/zip": ".zip", "application/rtf": ".rtf",
+  "application/vnd.oasis.opendocument.text": ".odt", "application/vnd.oasis.opendocument.spreadsheet": ".ods",
+  "application/vnd.oasis.opendocument.presentation": ".odp", "application/epub+zip": ".epub", "text/tab-separated-values": ".tsv",
+  "text/markdown": ".md",
   "text/plain": ".txt", "text/csv": ".csv", "text/html": ".html", "application/pdf": ".pdf", "image/png": ".png", "image/jpeg": ".jpg",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document": ".docx",
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": ".xlsx",

@@ -45,6 +45,7 @@ plugin's own identity tools.
 | (none) | `GOOGLE_GMAIL_SETTINGS` | `1`: also request gmail.settings.basic + gmail.settings.sharing (filters, auto-reply, forwarding, IMAP/POP, language, send-as tools). New sign-in needed. |
 | (none) | `GOOGLE_FULL_MAILBOX` | `1`: also request full mailbox access (https://mail.google.com/), the only scope that allows permanent delete (delete, empty Trash / Spam tools). New sign-in needed. Without it the plugin refuses that scope as before. |
 | (none) | `GOOGLE_REST_FALLBACK` | `1`: adds the REST tools (see REST fallback). Default off. |
+| (none) | `GOOGLE_CLI_COMMAND` | The command the person types to run this plugin's CLI (for example a wrapper that sets its own `GOOGLE_PLUGIN_HOME`). Used as text in every hint that names the CLI (sign-in, status, grant, write grant); never run by the plugin. Unset: the hints name `node .../server/cli.mjs` as before. |
 | (none) | `GOOGLE_MAX_STRING_CHARS` / `GOOGLE_MAX_RESULT_CHARS` | Result size caps. Defaults: 20000 per string, 100000 per result. |
 
 The Claude Code setting (`GOOGLE_PLUGIN_*`) wins over the environment variable.
@@ -234,7 +235,7 @@ Files are never returned as bytes, never overwrite an existing file, and get a c
 ## REST fallback (off by default)
 
 `GOOGLE_REST_FALLBACK=1` adds tools for what Google's MCP servers lack, through Google's REST APIs with the same
-sign-in (no new scope). With the switch off they are not listed and are refused; read-only mode drops them.
+sign-in (no new scope). With the switch off they are not listed and are refused; read-only mode keeps only the read ones.
 
 | Tool | Class | What it does |
 |---|---|---|
@@ -246,6 +247,8 @@ sign-in (no new scope). With the switch off they are not listed and are refused;
 | `gmail_rest_save_draft_html` | read | One safe, self-contained .html file of a draft in the download folder (header block + body as sent, inline images, no scripts or network), with the send digest. The From address's own signature images are fetched and embedded (only URLs from that signature in Gmail settings; https, public hosts, images up to 1 MB). |
 | `gmail_rest_update_draft` / `gmail_rest_delete_draft` | write | Change only the given fields of a draft (the rest, threading and attachments are kept) / delete a draft. |
 | `calendar_rest_delete_event` | confirm | Delete an event (instance or series; `sendUpdates` none by default) without Google's per-delete question; guest guard and write limit apply. |
+| `drive_rest_search_files` | read | Drive's own query language (files.list): `q`, `pageSize` (max 100), `pageToken`, `orderBy`, `corpora` / `driveId` / `includeItemsFromAllDrives`. Returns id, name, mimeType, owners, modifiedTime, size, `can_trash`, webViewLink and `nextPageToken`. |
+| `drive_rest_download_file` | read | Saves a file into the download folder like `drive_save_file` (same folder, size limit, name cleaning, never overwrites), but also for files other people own: it does not go through Google's confirmation, which the MCP refuses for those (`CONFIRMATION_UNSUPPORTED`). Google Docs / Sheets / Slides export as PDF by default, Drawings as PNG, or the given `mimeType`. |
 | `drive_rest_trash_file` / `drive_rest_move_file` | confirm | Trash (recoverable about 30 days) / move into another folder. |
 | `drive_rest_untrash_file` / `drive_rest_rename_file` | write | Restore / rename. |
 | `drive_rest_share_file` / `drive_rest_unshare_file` | confirm | Share with one person or group (reader, commenter, writer; no public links, never ownership) / remove access (never the owner's). |

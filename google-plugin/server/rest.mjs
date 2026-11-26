@@ -15,11 +15,11 @@ export const REST_BASE = {
 
 const short = (s, n = 300) => String(s ?? "").replace(/\s+/g, " ").trim().slice(0, n);
 
-export function restError(status, j, mod) {
+export function restError(status, j, mod, cli) {
   const msg = short(j?.error?.message ?? "");
   if (status === 401) return new GoogleError("AUTH_EXPIRED", `Google's ${mod} API did not accept the sign-in (401).`, { hint: "Run google_auth_status; if it reports AUTH_EXPIRED a human must sign in again. Do not retry in a loop." });
   if (status === 403 && /insufficient (authentication )?scopes?|ACCESS_TOKEN_SCOPE_INSUFFICIENT|insufficientPermissions/i.test(`${msg} ${JSON.stringify(j?.error?.details ?? j?.error?.errors ?? "")}`)) {
-    return new GoogleError("SCOPE_MISSING", `The saved sign-in does not include the permission this ${mod} call needs.`, { hint: "The person signs in again with the matching option on (GOOGLE_GMAIL_SETTINGS=1 for settings, GOOGLE_FULL_MAILBOX=1 for permanent delete): node server/cli.mjs sign-in." });
+    return new GoogleError("SCOPE_MISSING", `The saved sign-in does not include the permission this ${mod} call needs.`, { hint: `The person signs in again with the matching option on (GOOGLE_GMAIL_SETTINGS=1 for settings, GOOGLE_FULL_MAILBOX=1 for permanent delete): ${cli || "node server/cli.mjs"} sign-in.` });
   }
   if (status === 403 && /delegated domain-wide authority/i.test(msg)) {
     return new GoogleError("GOOGLE_LIMITATION", `Google allows this ${mod} change only for Google Workspace admins using domain-wide delegation, not for this account: ${msg}`, { hint: "Do it in Gmail itself (Settings > See all settings > Accounts). Retrying will not help." });
@@ -31,9 +31,13 @@ export function restError(status, j, mod) {
   return new GoogleError(status === 400 ? "INVALID_ARGUMENT" : "GOOGLE_ERROR", `Google's ${mod} API refused the request (${status})${msg ? `: ${msg}` : ""}.`);
 }
 
-/** createRest(ctx).call(mod, method, path, { query, body }) -> parsed JSON ({} for an empty reply). */
+/**
+ * createRest(ctx).call(mod, method, path, { query, body }) -> parsed JSON ({} for an empty reply).
+ * createRest(ctx).bytes(mod, path, { query, maxBytes }) -> { bytes, contentType }: a GET whose reply is a file. Stops
+ * reading past maxBytes and throws TOO_LARGE, so an oversized file never fills memory.
+ */
 export function createRest(ctx) {
-  async function call(mod, method, path, { query, body } = {}) {
+  async function send(mod, method, path, { query, body } = {}) {
     if (!ctx.cfg.restFallback) throw new GoogleError("REST_DISABLED", "The REST fallback is off (GOOGLE_REST_FALLBACK).");
     const token = await ctx.auth.getAccessToken(mod);
     const url = new URL(path, REST_BASE[mod]);
@@ -53,11 +57,42 @@ export function createRest(ctx) {
       if (e?.name === "TimeoutError" || e?.name === "AbortError") throw new GoogleError("TIMEOUT", `Google's ${mod} API did not answer in time.`);
       throw new GoogleError("NETWORK_ERROR", `Cannot reach Google's ${mod} API: ${short(e?.message, 120)}.`);
     }
+    return res;
+  }
+  async function failure(res, mod) {
     const text = await res.text();
     let j = {};
     if (text) { try { j = JSON.parse(text); } catch { j = {}; } }
-    if (!res.ok) throw restError(res.status, j, mod);
+    return restError(res.status, j, mod, ctx.cfg.cliCommand);
+  }
+  async function call(mod, method, path, opts = {}) {
+    const res = await send(mod, method, path, opts);
+    const text = await res.text();
+    let j = {};
+    if (text) { try { j = JSON.parse(text); } catch { j = {}; } }
+    if (!res.ok) throw restError(res.status, j, mod, ctx.cfg.cliCommand);
     return j;
   }
-  return { call };
+  async function bytes(mod, path, { query, maxBytes } = {}) {
+    const res = await send(mod, "GET", path, { query });
+    if (!res.ok) throw await failure(res, mod);
+    const tooLarge = () => new GoogleError("TOO_LARGE", `The file is over the ${Math.round(maxBytes / 1048576)} MB limit; nothing was saved.`, { hint: "The person can raise GOOGLE_MAX_SAVE_MB." });
+    const declared = Number(res.headers.get("content-length"));
+    if (maxBytes && declared > maxBytes) { try { await res.body?.cancel(); } catch { /* ignore */ } throw tooLarge(); }
+    const parts = [];
+    let total = 0;
+    try {
+      for await (const chunk of res.body ?? []) {
+        total += chunk.length;
+        if (maxBytes && total > maxBytes) throw tooLarge();
+        parts.push(Buffer.from(chunk));
+      }
+    } catch (e) {
+      if (e instanceof GoogleError) { try { await res.body?.cancel(); } catch { /* ignore */ } throw e; }
+      if (e?.name === "TimeoutError" || e?.name === "AbortError") throw new GoogleError("TIMEOUT", `Google's ${mod} API did not finish sending the file in time.`);
+      throw new GoogleError("NETWORK_ERROR", `The download from Google's ${mod} API broke off: ${short(e?.message, 120)}.`);
+    }
+    return { bytes: Buffer.concat(parts, total), contentType: String(res.headers.get("content-type") ?? "").split(";")[0].trim() };
+  }
+  return { call, bytes };
 }

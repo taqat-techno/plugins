@@ -1,7 +1,7 @@
 ---
 name: google
 description: "Use when the user wants to read their Gmail, Google Calendar or Google Drive through the google plugin, connect, sign in to, sign out of or check the connection to their Google account, or when a google tool reports CONFIRMATION_NEEDED, AUTH_REQUIRED, AUTH_EXPIRED, NOT_CONFIGURED, SCOPE_NOT_GRANTED, MODULE_DISABLED, GOOGLE_FORBIDDEN or CLIENT_TYPE_WRONG."
-version: "0.9.2"
+version: "0.10.0"
 ---
 
 # Google plugin
@@ -35,10 +35,12 @@ re-exposes an allowlisted set of Google's tools, named `gmail_*`, `calendar_*` a
 ## Files, guards and REST tools
 
 - `gmail_get_attachment` lists a message's attachments, or saves one into the person's download folder;
-  `drive_save_file` saves a Drive file. Results give a path, never bytes. `DOWNLOAD_NOT_CONFIGURED`: only the person
+  `drive_save_file` saves a Drive file (with the REST fallback, `drive_rest_download_file` also saves files other
+  people own, which `drive_save_file` cannot: `CONFIRMATION_UNSUPPORTED`). Results give a path, never bytes. `DOWNLOAD_NOT_CONFIGURED`: only the person
   can set the folder.
 - `GUESTS_NEED_APPROVAL` and `WRITE_LIMIT_REACHED` are this server's own brakes: do not retry; tell the person.
-- Tools named `*_rest_*` exist only when the person switched the REST fallback on. `gmail_rest_send_draft` sends an
+- Tools named `*_rest_*` exist only when the person switched the REST fallback on. `drive_rest_search_files` takes
+  Drive's query language and also finds files shared with the person. `gmail_rest_send_draft` sends an
   existing draft exactly as it is: call `gmail_rest_preview_draft`, show the person everything it returns (including
   the HTML body and `text_and_html_differ`), wait for a clear yes, then send with its digest (`DRAFT_CHANGED` means
   preview and ask again; `sendable: false` means it cannot be sent this way). `gmail_rest_save_draft_html` saves a
@@ -69,7 +71,8 @@ that form itself**.
 
 - If the client can show forms, the form is shown to the user; their answer is passed back as given.
 - Otherwise the call fails with `CONFIRMATION_NEEDED`. Tell the user and give them the command from the error's `hint`
-  (`node <plugin>/server/cli.mjs grant <tool>`) to run in **their own terminal**, where they pick an answer such as
+  (`node <plugin>/server/cli.mjs grant <tool>`, or the person's own command when they set one) to run in **their own
+  terminal**, where they pick an answer such as
   "Always allow this tool". Don't retry before they have. Never suggest an answer for them.
 - Google keeps saved answers for 90 days, and the user can't view or revoke them; after that `grant` is needed again.
 

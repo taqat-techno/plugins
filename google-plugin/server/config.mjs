@@ -107,6 +107,9 @@ export function resolveConfig(env = process.env) {
     identitiesFile: pick(env, "GOOGLE_PLUGIN_IDENTITIES_FILE", "GOOGLE_IDENTITIES_FILE"),
     identitiesJson: pick(env, "GOOGLE_IDENTITIES"),
     // The ONE folder gmail_get_attachment / drive_save_file may write into. Set by the person only; no default.
+    // Only used as text in hints (never run): the command the person types for this plugin's CLI, for example a
+    // wrapper that sets their own GOOGLE_PLUGIN_HOME. Unset: the hints name node and server/cli.mjs as before.
+    cliCommand: pick(env, "GOOGLE_PLUGIN_CLI_COMMAND", "GOOGLE_CLI_COMMAND").replace(/[\r\n]+/g, " ").slice(0, 300),
     downloadDir: pick(env, "GOOGLE_PLUGIN_DOWNLOAD_DIR", "GOOGLE_DOWNLOAD_DIR"),
     // Largest file those tools save (MB).
     maxSaveMb: Number(pick(env, "GOOGLE_MAX_SAVE_MB")) || 25,

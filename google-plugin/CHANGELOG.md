@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.10.0] - 2026-11-26
+
+### Added
+- `GOOGLE_CLI_COMMAND`: the command the person types for this plugin's CLI. Every hint that names the CLI uses it
+  (sign-in on AUTH_REQUIRED / AUTH_EXPIRED, `status` on an MCP 401, `grant` and `grant --target` on
+  CONFIRMATION_NEEDED, sign-in on SCOPE_MISSING). Text only, never run; a line break in it is flattened. Unset, the
+  hints are unchanged. Fixes the hints pointing a separately configured install (its own GOOGLE_PLUGIN_HOME) at the
+  default sign-in.
+- `drive_rest_search_files` (read, REST fallback): files.list with Drive's query language, paging, ordering, shared
+  drives. Google's MCP `drive_search_files` is unchanged.
+- `drive_rest_download_file` (read, REST fallback): files.get?alt=media, or files.export for Docs / Sheets / Slides
+  (PDF by default) and Drawings (PNG), with an optional `mimeType`. Same contract as `drive_save_file`: download
+  folder only, size limit (checked from the metadata, Content-Length and while reading), cleaned names, never
+  overwrites, supportsAllDrives. It does not go through Google's confirmation, so it also saves files other people own,
+  which the MCP refuses (CONFIRMATION_UNSUPPORTED). Folders, Forms and shortcuts are NOT_DOWNLOADABLE.
+
 ## [0.9.2] - 2026-11-26
 
 ### Fixed (from the first live run of the Gmail admin tools)

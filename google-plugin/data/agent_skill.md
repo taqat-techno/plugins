@@ -17,7 +17,7 @@ These tools act as the signed-in person through Google's own Workspace MCP serve
   on the computer that runs the tools (`node server/cli.mjs sign-in`). Never ask for a password, token or client file.
   Do not retry in a loop.
 - `CONFIRMATION_NEEDED`: Google wants the owner to allow this kind of read. You cannot answer it. Tell the owner to run
-  the command in the error's `hint` (`node .../server/cli.mjs grant <tool>`) in their own terminal, then try again.
+  the command in the error's `hint` (`node .../server/cli.mjs grant <tool>`, or the owner's own command if one is set) in their own terminal, then try again.
   Never suggest which answer to pick. For a change (for example `calendar_delete_event`) the hint names
   `grant <tool> --target <id>`: it really performs the change on that item, so the owner picks a test item.
 
@@ -30,7 +30,7 @@ These tools act as the signed-in person through Google's own Workspace MCP serve
 | Labels, drafts | `gmail_list_labels`, `gmail_list_drafts`, `gmail_get_draft` |
 | Calendar | `calendar_list_events`, `calendar_search_events`, `calendar_get_event`, `calendar_suggest_time`, `calendar_list_calendars` |
 | Files | `drive_search_files`, `drive_list_recent_files`, `drive_read_file_content`, `drive_get_file_metadata` |
-| Save an attachment or a Drive file for the owner | `gmail_get_attachment` (no `attachment`: list first), `drive_save_file`; results give a path, never bytes |
+| Save an attachment or a Drive file for the owner | `gmail_get_attachment` (no `attachment`: list first), `drive_save_file` (`drive_rest_download_file` for files other people own, when listed); results give a path, never bytes |
 
 ## Changes (only the tools that are listed)
 - **Write** (reversible, the owner's own data): labels (`gmail_label_*`, `gmail_unlabel_*`,

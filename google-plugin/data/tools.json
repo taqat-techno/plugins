@@ -32,7 +32,9 @@
     "gmail_rest_get_pop",
     "gmail_rest_get_language",
     "gmail_rest_list_send_as",
-    "gmail_rest_get_send_as"
+    "gmail_rest_get_send_as",
+    "drive_rest_search_files",
+    "drive_rest_download_file"
   ],
   "local": [
     "google_sign_in",
@@ -174,7 +176,9 @@
     "gmail_rest_delete_send_as",
     "gmail_rest_verify_send_as",
     "gmail_rest_update_send_as_routing",
-    "gmail_rest_set_auto_reply"
+    "gmail_rest_set_auto_reply",
+    "drive_rest_search_files",
+    "drive_rest_download_file"
   ],
   "hidden": {
     "drive_download_file_content": "Replaced by drive_save_file, which saves the file instead of returning base64 (the size cap would cut it)."
@@ -255,6 +259,8 @@
     "gmail_rest_delete_send_as",
     "gmail_rest_verify_send_as",
     "gmail_rest_update_send_as_routing",
-    "gmail_rest_set_auto_reply"
+    "gmail_rest_set_auto_reply",
+    "drive_rest_search_files",
+    "drive_rest_download_file"
   ]
 }

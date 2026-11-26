@@ -9,7 +9,7 @@
 // 403. SMTP passwords are never returned.
 import { createRest } from "../rest.mjs";
 import { FULL_MAILBOX_SCOPE, SCOPES } from "../config.mjs";
-import { GoogleError } from "../util.mjs";
+import { cliCmd, GoogleError } from "../util.mjs";
 
 const ASK = "Ask the human first and wait for a clear yes (class confirm).";
 const PERMANENT = "PERMANENT: it cannot be undone or recovered.";
@@ -47,7 +47,7 @@ function requireScopes(ctx, anyOf, tool) {
   if (!anyOf.some((s) => granted.includes(s))) {
     const opt = anyOf.includes(FULL_MAILBOX_SCOPE) && anyOf.length === 1 ? "GOOGLE_FULL_MAILBOX=1" : "GOOGLE_GMAIL_SETTINGS=1";
     throw new GoogleError("SCOPE_MISSING", `${tool} needs a permission the saved sign-in does not have (${anyOf.map((s) => s.replace(/^https:\/\/www\.googleapis\.com\/auth\//, "")).join(" or ")}).`, {
-      hint: `The person turns on ${opt} and signs in again: node server/cli.mjs sign-in. Do not retry before they have.`,
+      hint: `The person turns on ${opt} and signs in again: ${cliCmd(ctx.cfg)} sign-in. Do not retry before they have.`,
     });
   }
 }

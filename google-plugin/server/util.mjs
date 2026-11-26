@@ -22,3 +22,6 @@ export function replaceFile(tmp, dest) {
     }
   }
 }
+
+/** The CLI command for a hint: GOOGLE_CLI_COMMAND when set, else the given default text. */
+export const cliCmd = (cfg, dflt = "node server/cli.mjs") => (cfg?.cliCommand ? cfg.cliCommand : dflt);
