@@ -6,7 +6,7 @@
 // The client id has no plain GOOGLE_CLIENT_ID fallback on purpose: that name is common in other projects' environments,
 // and a stray value would make the plugin refuse a correct client file.
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { delimiter, join } from "node:path";
 
 const unset = (v) => v === undefined || v === null || String(v).trim() === "" || /\$\{/.test(String(v));
 const pick = (env, ...names) => {
@@ -96,6 +96,10 @@ export function resolveConfig(env = process.env) {
     writeLimitPerHour: Math.max(0, Math.floor(Number(pick(env, "GOOGLE_WRITE_LIMIT_PER_HOUR")) || 0)),
     // Off by default: Google REST API tools for what Google's MCP servers lack (server/tools/rest.mjs).
     restFallback: bool(pick(env, "GOOGLE_PLUGIN_REST_FALLBACK", "GOOGLE_REST_FALLBACK")),
+    // Folders local files may be attached from (separated like PATH). Empty = GOOGLE_DOWNLOAD_DIR only.
+    attachDirs: pick(env, "GOOGLE_PLUGIN_ATTACH_DIRS", "GOOGLE_ATTACH_DIRS").split(delimiter).map((x) => x.trim()).filter(Boolean),
+    // After gmail_rest_send_draft, how long to look for a bounce (seconds, 0 = off, at most 30).
+    bounceCheckSeconds: Math.min(30, Math.max(0, Number(pick(env, "GOOGLE_BOUNCE_CHECK_SECONDS") || 10))),
   };
 }
 

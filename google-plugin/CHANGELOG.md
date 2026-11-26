@@ -1,5 +1,30 @@
 # Changelog
 
+## [0.8.0] - 2026-11-26
+
+### Added
+- `attachments` on `gmail_rest_create_draft`, `gmail_rest_create_reply_draft` and `gmail_rest_update_draft`:
+  `[{ path, filename?, inline?, contentId? }]`, local files only. `inline: true` with a `contentId` puts the file in
+  multipart/related with that Content-ID, so `<img src="cid:ID">` in htmlBody shows it in the body; the signature is
+  still added. 25 MB in all. On update, attachments given replace the list; not given, the draft keeps its files (inline
+  ones stay inline). Results list `attachments` [{filename, mimeType, size, inline, contentId?}].
+- `GOOGLE_ATTACH_DIRS` (separated like PATH; default `GOOGLE_DOWNLOAD_DIR`): the only folders files may be attached
+  from. The path is checked as text first (absolute; no network, device, extended-length, drive-relative or stream
+  paths), then by its real path; files that look like keys, tokens or sign-ins, the plugin's own folder and the client
+  file are refused even inside an allowed folder (`PATH_NOT_ALLOWED`, `ATTACH_NOT_CONFIGURED`).
+- Bounce check after `gmail_rest_send_draft`: for up to `GOOGLE_BOUNCE_CHECK_SECONDS` (default 10, 0 = off, max 30) it
+  looks for a mailer-daemon / postmaster message after the send, in the sent message's thread or by search naming one of
+  the message's addresses. Result: `delivery_failed` (true / false / null when skipped), `bounce_check` ("no bounce
+  seen within N s (this does not prove delivery)" or where it was found), `bounce_reason` (short, one line),
+  `bounce_message_id` and a `hint` (for example a broken "Send mail as" SMTP login). Never claims delivery.
+- `gmail_rest_save_draft_html`: the header block lists the attachments (name, type, size; inline ones marked), and the
+  result has `attachments`.
+- `gmail_get_attachment` also lists inline images (parts with a Content-ID), marked `inline`.
+
+### Not verified
+- The exact form of Gmail's bounce for a failing "Send mail as" SMTP login (thread vs. separate message); the check
+  covers both, live behaviour is unconfirmed.
+
 ## [0.7.2] - 2026-11-26
 
 ### Fixed (security review of 0.7.1)

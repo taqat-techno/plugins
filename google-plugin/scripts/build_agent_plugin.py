@@ -58,6 +58,8 @@ Node 18+.
 | `GOOGLE_DOWNLOAD_DIR`, `GOOGLE_MAX_SAVE_MB` | Optional: the one folder `gmail_get_attachment` / `drive_save_file` save into (set by the person only), and the size limit (default 25) |
 | `GOOGLE_REFUSE_GUEST_EVENTS` | Optional: `1` refuses calendar changes that involve other people (`GUESTS_NEED_APPROVAL`) |
 | `GOOGLE_WRITE_LIMIT_PER_HOUR` | Optional: `N` caps trash / spam / delete / move calls per rolling hour (`WRITE_LIMIT_REACHED`) |
+| `GOOGLE_ATTACH_DIRS` | Optional: folders local files may be attached from (default: `GOOGLE_DOWNLOAD_DIR`) |
+| `GOOGLE_BOUNCE_CHECK_SECONDS` | Optional: seconds to look for a bounce after a send (default 10, 0 = off) |
 | `GOOGLE_REST_FALLBACK` | Optional: `1` adds the `*_rest_*` tools (send a draft, reply / forward drafts, draft edit and delete, Drive trash, move, rename, share) |
 | `GOOGLE_TIMEOUT_MS`, `GOOGLE_CONFIRM_TIMEOUT_MS`, `GOOGLE_MAX_STRING_CHARS`, `GOOGLE_MAX_RESULT_CHARS` | Optional limits |
 

@@ -62,7 +62,7 @@ export function ctxFor(routes, { extraEnv = {}, seed = true, deps = {} } = {}) {
   const h = home();
   if (seed) seedCache(h, typeof seed === "object" ? seed : {});
   const f = fakeFetch(routes);
-  const c = createContext(env(h, extraEnv), { fetch: f, open: () => true, now: () => NOW, ...deps });
+  const c = createContext(env(h, extraEnv), { fetch: f, open: () => true, now: () => NOW, sleep: async () => {}, ...deps });
   c.fetch = f; c.home = h;
   return c;
 }

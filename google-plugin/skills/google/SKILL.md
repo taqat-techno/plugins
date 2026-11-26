@@ -1,7 +1,7 @@
 ---
 name: google
 description: "Use when the user wants to read their Gmail, Google Calendar or Google Drive through the google plugin, connect, sign in to, sign out of or check the connection to their Google account, or when a google tool reports CONFIRMATION_NEEDED, AUTH_REQUIRED, AUTH_EXPIRED, NOT_CONFIGURED, SCOPE_NOT_GRANTED, MODULE_DISABLED, GOOGLE_FORBIDDEN or CLIENT_TYPE_WRONG."
-version: "0.7.2"
+version: "0.8.0"
 ---
 
 # Google plugin
@@ -43,7 +43,8 @@ re-exposes an allowlisted set of Google's tools, named `gmail_*`, `calendar_*` a
   the HTML body and `text_and_html_differ`), wait for a clear yes, then send with its digest (`DRAFT_CHANGED` means
   preview and ask again; `sendable: false` means it cannot be sent this way). `gmail_rest_save_draft_html` saves a
   picture-ready file of the draft with the same digest. The REST draft tools add the From address's Gmail signature by
-  default (`signature_added`).
+  default (`signature_added`) and take local `attachments` from the person's allowed folders. After a send, `delivery_failed: true`
+  means a bounce came back (tell the person the `bounce_reason` and `hint`); `false` only means none was seen yet.
 
 ## Which address a mail was for
 

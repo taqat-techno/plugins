@@ -10,6 +10,7 @@ export const SIG_START = "<!--gp-signature-start-->";
 export const SIG_END = "<!--gp-signature-end-->";
 const SIG_BLOCK = /<!--gp-signature-start-->[\s\S]*?<!--gp-signature-end-->/;
 
+const sizeText = (n) => (n >= 1048576 ? `${(n / 1048576).toFixed(1)} MB` : n >= 1024 ? `${Math.round(n / 1024)} KB` : `${n} bytes`);
 export const escapeHtml = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 
 /** Plain text as HTML that keeps its line breaks (dir=auto so Arabic and English both read right). */
@@ -72,7 +73,7 @@ export function sanitizeHtml(html) {
  * as it will be sent, cid: images inlined as data: URIs, nothing that can run, and a content policy that blocks every
  * network request (remote images do not load, scripts cannot run) wherever the file is opened.
  */
-export function draftSnapshot({ headers, html, text, inline }) {
+export function draftSnapshot({ headers, html, text, inline, attachments = [] }) {
   const row = (k, v) => (v ? `<tr><th>${escapeHtml(k)}</th><td>${escapeHtml(v)}</td></tr>` : "");
   let body;
   let styles = "";
@@ -94,10 +95,10 @@ export function draftSnapshot({ headers, html, text, inline }) {
 <html><head><meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'; font-src data:">
 <title>Draft: ${escapeHtml(headers.subject)}</title>
-<style>.gp-draft-head{font-family:system-ui,Segoe UI,Arial,sans-serif;font-size:14px;border:1px solid #ccc;border-radius:6px;padding:10px 12px;margin:0 0 14px;background:#fafafa}.gp-draft-head th{text-align:left;padding:2px 10px 2px 0;color:#555;vertical-align:top;white-space:nowrap}.gp-draft-head td{padding:2px 0}.gp-draft-tag{display:inline-block;background:#b00020;color:#fff;font-weight:600;border-radius:4px;padding:2px 8px;margin-bottom:6px}</style>
+<style>.gp-draft-head{font-family:system-ui,Segoe UI,Arial,sans-serif;font-size:14px;border:1px solid #ccc;border-radius:6px;padding:10px 12px;margin:0 0 14px;background:#fafafa}.gp-draft-head th{text-align:left;padding:2px 10px 2px 0;color:#555;vertical-align:top;white-space:nowrap}.gp-draft-head td{padding:2px 0}.gp-att{color:#666}.gp-draft-tag{display:inline-block;background:#b00020;color:#fff;font-weight:600;border-radius:4px;padding:2px 8px;margin-bottom:6px}</style>
 ${styles}
 </head><body>
-<div class="gp-draft-head"><span class="gp-draft-tag">DRAFT, not sent</span><table>${row("From", headers.from)}${row("To", headers.to)}${row("Cc", headers.cc)}${row("Bcc", headers.bcc)}${row("Subject", headers.subject)}</table></div>
+<div class="gp-draft-head"><span class="gp-draft-tag">DRAFT, not sent</span><table>${row("From", headers.from)}${row("To", headers.to)}${row("Cc", headers.cc)}${row("Bcc", headers.bcc)}${row("Subject", headers.subject)}${attachments.length ? `<tr><th>Attachments</th><td>${attachments.map((a) => `${escapeHtml(a.filename)} <span class="gp-att">(${escapeHtml(a.mimeType)}, ${sizeText(a.size)}${a.inline ? ", inline in the body" : ""})</span>`).join("<br>")}</td></tr>` : ""}</table></div>
 ${body}
 </body></html>
 `;

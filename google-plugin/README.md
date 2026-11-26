@@ -40,6 +40,8 @@ plugin's own identity tools.
 | (none) | `GOOGLE_MAX_SAVE_MB` | Largest file they save. Default: 25. |
 | (none) | `GOOGLE_REFUSE_GUEST_EVENTS` | `1`: calendar changes that involve other people fail with `GUESTS_NEED_APPROVAL` (see Guards). Default off. |
 | (none) | `GOOGLE_WRITE_LIMIT_PER_HOUR` | `N`: trash / spam / delete / move calls past N per rolling hour fail with `WRITE_LIMIT_REACHED`. Default off. |
+| (none) | `GOOGLE_ATTACH_DIRS` | Folders local files may be attached from (separated like PATH). Default: `GOOGLE_DOWNLOAD_DIR`. Keys, tokens and the plugin's own files are refused even there. |
+| (none) | `GOOGLE_BOUNCE_CHECK_SECONDS` | After `gmail_rest_send_draft`, how long to look for a bounce. Default 10, 0 = off, max 30. |
 | (none) | `GOOGLE_REST_FALLBACK` | `1`: adds the REST tools (see REST fallback). Default off. |
 | (none) | `GOOGLE_MAX_STRING_CHARS` / `GOOGLE_MAX_RESULT_CHARS` | Result size caps. Defaults: 20000 per string, 100000 per result. |
 
@@ -238,7 +240,7 @@ sign-in (no new scope). With the switch off they are not listed and are refused;
 | `gmail_rest_send_draft` | confirm | Re-reads the draft, checks the preview's digest (`DRAFT_CHANGED`), the blockers (`MULTIPLE_HEADERS`, `PREVIEW_INCOMPLETE`) and a verified From (`IDENTITY_NOT_VERIFIED`), sends exactly those checked bytes in the draft's thread, then deletes the draft. |
 | `gmail_rest_create_reply_draft` | write | Reply draft in the thread (In-Reply-To, References, "Re:"), From = chosen or the verified alias the mail was sent to. |
 | `gmail_rest_create_forward_draft` | write | Forward draft with the original text and attachments (25 MB max). |
-| `gmail_rest_create_draft` | write | New draft from a chosen verified send-as address, with that address's Gmail signature (`includeSignature`, default true). |
+| `gmail_rest_create_draft` | write | New draft from a chosen verified send-as address, with that address's Gmail signature (`includeSignature`, default true) and local `attachments` (inline with `contentId` for `<img src="cid:ID">`). |
 | `gmail_rest_save_draft_html` | read | One safe, self-contained .html file of a draft in the download folder (header block + body as sent, inline images, no scripts or network), with the send digest. The From address's own signature images are fetched and embedded (only URLs from that signature in Gmail settings; https, public hosts, images up to 1 MB). |
 | `gmail_rest_update_draft` / `gmail_rest_delete_draft` | write | Change only the given fields of a draft (the rest, threading and attachments are kept) / delete a draft. |
 | `drive_rest_trash_file` / `drive_rest_move_file` | confirm | Trash (recoverable about 30 days) / move into another folder. |

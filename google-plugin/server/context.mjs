@@ -17,7 +17,7 @@ export function createContext(env = process.env, deps = {}) {
     const auth = createAuth(cfg, deps);
     const remote = createRemote({ urls: cfg.mcpUrls, auth, fetch: deps.fetch ?? globalThis.fetch, timeoutMs: cfg.timeoutMs });
     const now = deps.now ?? (() => Date.now());
-    Object.assign(ctx, { cfg, auth, remote, now, limiter: createWriteLimiter(now), fetch: deps.fetch ?? globalThis.fetch, ...(deps.lookup ? { lookup: deps.lookup } : {}), ...(deps.imageGet ? { imageGet: deps.imageGet } : {}) });
+    Object.assign(ctx, { cfg, auth, remote, now, limiter: createWriteLimiter(now), fetch: deps.fetch ?? globalThis.fetch, ...(deps.lookup ? { lookup: deps.lookup } : {}), ...(deps.imageGet ? { imageGet: deps.imageGet } : {}), sleep: deps.sleep ?? ((ms) => new Promise((r) => setTimeout(r, ms))) });
     tools = activeTools(cfg);
     byName = new Map(tools.map((t) => [t.name, t]));
   };

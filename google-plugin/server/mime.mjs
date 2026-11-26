@@ -115,9 +115,12 @@ export function attachmentsOf(root) {
   const out = [];
   walk(root, (n) => {
     if (n.children.length || !n.body) return;
-    const isFile = n.disposition === "attachment" || Boolean(n.filename) || n.mimeType === "message/rfc822";
+    const cid = n.headers["content-id"]?.[0]?.trim().replace(/^<|>$/g, "");
+    const inlineImage = Boolean(cid) && !/^text\/(plain|html)$/.test(n.mimeType);
+    const isFile = n.disposition === "attachment" || Boolean(n.filename) || n.mimeType === "message/rfc822" || inlineImage;
     if (!isFile) return;
-    out.push({ index: out.length + 1, filename: n.filename || (n.mimeType === "message/rfc822" ? "message.eml" : `attachment-${out.length + 1}`), mimeType: n.mimeType, size: n.body.length, bytes: n.body });
+    const inline = Boolean(cid) && n.disposition !== "attachment";
+    out.push({ index: out.length + 1, filename: n.filename || (n.mimeType === "message/rfc822" ? "message.eml" : `attachment-${out.length + 1}`), mimeType: n.mimeType, size: n.body.length, bytes: n.body, inline, ...(cid ? { contentId: cid } : {}) });
   });
   return out;
 }
@@ -237,18 +240,26 @@ export function buildMessage(spec) {
   } else if (spec.html) body = textPart("text/html", spec.html);
   else body = textPart("text/plain", spec.text ?? "");
 
+  // Inline files (shown in the HTML body through <img src="cid:ID">) go with the body in multipart/related; the others
+  // are ordinary attachments in multipart/mixed around it.
   const atts = spec.attachments ?? [];
-  if (atts.length) {
+  const filePart = (a, disposition) => {
+    const name = String(a.filename ?? "attachment").replace(/[\r\n"\\]/g, "_");
+    const encName = encodeURIComponent(name).replace(/['()*]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`);
+    const type = /^[\w.+-]+\/[\w.+-]+$/.test(String(a.mimeType ?? "")) ? a.mimeType : "application/octet-stream";
+    const cid = disposition === "inline" ? String(a.contentId ?? "") : "";
+    if (cid && !/^[A-Za-z0-9._@-]{1,100}$/.test(cid)) throw new GoogleError("INVALID_ARGUMENT", "contentId may hold only letters, digits and . _ @ -.");
+    return [`Content-Type: ${type}; name="${encodeWords(name)}"`, `Content-Disposition: ${disposition}; filename*=UTF-8''${encName}`, ...(cid ? [`Content-ID: <${cid}>`, `X-Attachment-Id: ${cid}`] : []), "Content-Transfer-Encoding: base64", "", b64lines(a.bytes)].join("\r\n");
+  };
+  const inlines = atts.filter((a) => a.inline && a.contentId);
+  const files = atts.filter((a) => !(a.inline && a.contentId));
+  if (inlines.length) {
     const b = boundary();
-    const parts = [`Content-Type: multipart/mixed; boundary="${b}"`, "", `--${b}`, body];
-    for (const a of atts) {
-      const name = String(a.filename ?? "attachment").replace(/[\r\n"\\]/g, "_");
-      const encName = encodeURIComponent(name).replace(/['()*]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`);
-      const type = /^[\w.+-]+\/[\w.+-]+$/.test(String(a.mimeType ?? "")) ? a.mimeType : "application/octet-stream";
-      parts.push(`--${b}`, [`Content-Type: ${type}; name="${encodeWords(name)}"`, `Content-Disposition: attachment; filename*=UTF-8''${encName}`, "Content-Transfer-Encoding: base64", "", b64lines(a.bytes)].join("\r\n"));
-    }
-    parts.push(`--${b}--`);
-    body = parts.join("\r\n");
+    body = [`Content-Type: multipart/related; boundary="${b}"`, "", `--${b}`, body, ...inlines.flatMap((a) => [`--${b}`, filePart(a, "inline")]), `--${b}--`].join("\r\n");
+  }
+  if (files.length) {
+    const b = boundary();
+    body = [`Content-Type: multipart/mixed; boundary="${b}"`, "", `--${b}`, body, ...files.flatMap((a) => [`--${b}`, filePart(a, "attachment")]), `--${b}--`].join("\r\n");
   }
   return `${head.join("\r\n")}\r\n${body}\r\n`;
 }
