@@ -1,7 +1,7 @@
 ---
 name: google
-description: "Use when the user wants to read their Gmail, Google Calendar or Google Drive through the google plugin, connect, sign in to, sign out of or check the connection to their Google account, or when a google tool reports CONFIRMATION_NEEDED, AUTH_REQUIRED, AUTH_EXPIRED, NOT_CONFIGURED, SCOPE_NOT_GRANTED, MODULE_DISABLED, GOOGLE_FORBIDDEN or CLIENT_TYPE_WRONG."
-version: "0.11.0"
+description: "Use when the user wants to read their Gmail, Google Calendar, Google Drive or Google Photos through the google plugin, connect, sign in to, sign out of or check the connection to their Google account, or when a google tool reports CONFIRMATION_NEEDED, AUTH_REQUIRED, AUTH_EXPIRED, NOT_CONFIGURED, SCOPE_NOT_GRANTED, MODULE_DISABLED, GOOGLE_FORBIDDEN or CLIENT_TYPE_WRONG."
+version: "0.12.0"
 ---
 
 # Google plugin
@@ -54,6 +54,13 @@ Google's Gmail MCP service has its own small quota; after a bulk run it stayed R
 the REST fallback on, use the twin the error's hint names (`gmail_rest_search_threads`, `_search_messages`,
 `_get_message`, `_get_thread`, `_list_labels`, `_list_drafts`, `_get_draft`, `_get_attachment`); don't retry the
 MCP tool in a loop. Pace bulk work: the REST API is rate limited too.
+
+## Google Photos (when switched on)
+
+The `photos_*` tools see and change **only photos and albums the plugin uploaded itself**: Google removed access to the
+rest of the library in 2025 and offers no delete. Never promise to find, list or delete other photos. For those, call
+`photos_picker_start`, give the person the `pickerUri`, poll `photos_picker_status` at the given interval until
+`mediaItemsSet`, then `photos_picker_list` / `photos_picker_download` (within 60 minutes) and `photos_picker_end`.
 
 ## Gmail admin tools (when switched on)
 

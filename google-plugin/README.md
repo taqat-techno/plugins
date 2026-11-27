@@ -45,6 +45,7 @@ plugin's own identity tools.
 | (none) | `GOOGLE_GMAIL_SETTINGS` | `1`: also request gmail.settings.basic + gmail.settings.sharing (filters, auto-reply, forwarding, IMAP/POP, language, send-as tools). New sign-in needed. |
 | (none) | `GOOGLE_FULL_MAILBOX` | `1`: also request full mailbox access (https://mail.google.com/), the only scope that allows permanent delete (delete, empty Trash / Spam tools). New sign-in needed. Without it the plugin refuses that scope as before. |
 | (none) | `GOOGLE_REST_FALLBACK` | `1`: adds the REST tools (see REST fallback). Default off. |
+| (none) | `GOOGLE_PHOTOS` | `1`: adds the Google Photos tools and their four scopes (Picker, append-only, app-created read and edit; two in read-only mode). Needs the Photos Library API and Photos Picker API enabled and a new sign-in. Independent of `GOOGLE_REST_FALLBACK`. |
 | (none) | `GOOGLE_CLI_COMMAND` | The command the person types to run this plugin's CLI (for example a wrapper that sets its own `GOOGLE_PLUGIN_HOME`). Used as text in every hint that names the CLI (sign-in, status, grant, write grant); never run by the plugin. Unset: the hints name `node .../server/cli.mjs` as before. |
 | (none) | `GOOGLE_MAX_STRING_CHARS` / `GOOGLE_MAX_RESULT_CHARS` | Result size caps. Defaults: 20000 per string, 100000 per result. |
 
@@ -279,6 +280,22 @@ addresses, send-as create / delete, send-as reply-to / SMTP changes, and turning
 
 These give an agent that reads untrusted mail the means to forward all future mail elsewhere and delete permanently, with
 no question from Google. Turn them on only with an approval step for the confirm-class tools you trust the host to gate.
+
+## Google Photos (opt-in)
+
+`GOOGLE_PHOTOS=1`. Since 2025-03-31 Google lets an app see and change only the photos and albums it created itself (the whole-library
+scopes were removed and there is no delete through the API). So the plugin cannot search, list or delete the person's
+other photos; it reaches them only through the Picker, where the person picks them in Google Photos.
+
+| Tool | Class | What it does |
+|---|---|---|
+| `photos_picker_start` / `_status` / `_list` / `_end` | read | A picking session: `pickerUri` for the person, poll until `mediaItemsSet`, list what they picked, end it. |
+| `photos_picker_download` | read | Save picked items (`ids` or `all`, 50 per call) into the download folder: originals (`=d`), videos as Google's high-quality version (`=dv`), with the Bearer header, only to googleusercontent.com hosts; links last 60 minutes. |
+| `photos_upload` | write | Files from the allowed attachment folders (25 MB each, 50 per call) into Google Photos, optionally into an album the plugin created; per-file status. |
+| `photos_list_app_items` / `photos_search_app_items` / `photos_get_app_item` | read | The items the plugin uploaded; search by album, dates or media type. |
+| `photos_update_app_item_description` | write | Description of an item the plugin uploaded. |
+| `photos_create_album` / `photos_list_app_albums` / `photos_update_album_title` | write / read / write | Albums the plugin created. |
+| `photos_album_add_items` / `photos_album_remove_items` | write | 50 per call; removing only takes an item out of the album, nothing is deleted. |
 
 ## Agent package (OpenClaw and other hosts)
 

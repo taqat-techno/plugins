@@ -230,6 +230,19 @@ Two options add permissions, so each needs a new sign-in (`node server/cli.mjs s
 Tick every box on Google's page. `status` lists any of these as `scopes_missing` until they are granted. A new sign-in
 starts the 7-day clock again if your app is External + Testing.
 
+## Optional: Google Photos
+
+Set `GOOGLE_PHOTOS=1`, then in the same Cloud project enable the **Photos Library API** and the **Photos Picker API**
+(APIs & Services > Library), and sign in again. Google's page then also asks for:
+
+- `photospicker.mediaitems.readonly`: photos you pick yourself in Google Photos;
+- `photoslibrary.appendonly`: add photos and albums;
+- `photoslibrary.readonly.appcreateddata` and `photoslibrary.edit.appcreateddata`: see and change what the plugin added.
+
+Since 2025-03-31 Google lets an app see and change only the photos and albums it created itself (the whole-library
+scopes were removed and there is no delete through the API). So the plugin cannot search, list or delete the person's
+other photos; it reaches them only through the Picker, where the person picks them in Google Photos.
+
 ## Signing out
 
 ```

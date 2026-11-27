@@ -11,7 +11,12 @@ export const REST_BASE = {
   gmail: "https://gmail.googleapis.com/gmail/v1/users/me/",
   drive: "https://www.googleapis.com/drive/v3/",
   calendar: "https://www.googleapis.com/calendar/v3/",
+  photos: "https://photoslibrary.googleapis.com/v1/",
+  picker: "https://photospicker.googleapis.com/v1/",
 };
+/** Google Photos is not a Workspace API and has no MCP server: its calls do not need GOOGLE_REST_FALLBACK. */
+const OWN_SWITCH = new Set(["photos", "picker"]);
+const WORKSPACE = new Set(["gmail", "calendar", "drive"]);
 
 const short = (s, n = 300) => String(s ?? "").replace(/\s+/g, " ").trim().slice(0, n);
 
@@ -37,10 +42,12 @@ export function restError(status, j, mod, cli) {
  * reading past maxBytes and throws TOO_LARGE, so an oversized file never fills memory.
  */
 export function createRest(ctx) {
-  async function send(mod, method, path, { query, body } = {}) {
-    if (!ctx.cfg.restFallback) throw new GoogleError("REST_DISABLED", "The REST fallback is off (GOOGLE_REST_FALLBACK).");
-    const token = await ctx.auth.getAccessToken(mod);
-    const url = new URL(path, REST_BASE[mod]);
+  async function send(mod, method, path, { query, body, raw, headers: extraHeaders } = {}) {
+    if (!ctx.cfg.restFallback && !OWN_SWITCH.has(mod)) throw new GoogleError("REST_DISABLED", "The REST fallback is off (GOOGLE_REST_FALLBACK).");
+    if (OWN_SWITCH.has(mod) && !ctx.cfg.photos) throw new GoogleError("PHOTOS_DISABLED", "Google Photos is off (GOOGLE_PHOTOS).");
+    const token = await ctx.auth.getAccessToken(WORKSPACE.has(mod) ? mod : undefined);
+    // "./" keeps a path like "mediaItems:batchCreate" relative (otherwise "mediaItems:" would parse as a URL scheme).
+    const url = /^https:\/\//.test(path) ? new URL(path) : new URL(`./${path}`, REST_BASE[mod]);
     for (const [k, v] of Object.entries(query ?? {})) {
       if (v === undefined || v === null) continue;
       for (const x of Array.isArray(v) ? v : [v]) url.searchParams.append(k, String(x));
@@ -49,8 +56,8 @@ export function createRest(ctx) {
     try {
       res = await ctx.fetch(url.toString(), {
         method,
-        headers: { Authorization: `Bearer ${token}`, ...(body !== undefined ? { "Content-Type": "application/json" } : {}) },
-        ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+        headers: { Authorization: `Bearer ${token}`, ...(raw !== undefined ? { "Content-Type": "application/octet-stream" } : body !== undefined ? { "Content-Type": "application/json" } : {}), ...(extraHeaders ?? {}) },
+        ...(raw !== undefined ? { body: raw } : body !== undefined ? { body: JSON.stringify(body) } : {}),
         signal: AbortSignal.timeout(ctx.cfg.timeoutMs),
       });
     } catch (e) {
@@ -94,5 +101,13 @@ export function createRest(ctx) {
     }
     return { bytes: Buffer.concat(parts, total), contentType: String(res.headers.get("content-type") ?? "").split(";")[0].trim() };
   }
-  return { call, bytes };
+  /** POST raw bytes; Google answers with plain text (the Photos upload token). */
+  async function upload(mod, path, raw, headers = {}) {
+    const res = await send(mod, "POST", path, { raw, headers });
+    if (!res.ok) throw await failure(res, mod);
+    const text = (await res.text()).trim();
+    if (!text) throw new GoogleError("GOOGLE_ERROR", `Google's ${mod} API returned no upload token.`);
+    return text;
+  }
+  return { call, bytes, upload };
 }

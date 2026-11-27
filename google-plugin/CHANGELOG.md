@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.12.0] - 2026-11-27
+
+### Added: Google Photos (opt-in, `GOOGLE_PHOTOS=1`)
+- Four scopes, added to sign-in and to status's `scopes_missing`: photospicker.mediaitems.readonly,
+  photoslibrary.appendonly, photoslibrary.readonly.appcreateddata, photoslibrary.edit.appcreateddata (read-only mode:
+  the Picker and the read scope only). Missing ones give `SCOPE_MISSING` with the sign-in hint (GOOGLE_CLI_COMMAND).
+  Independent of GOOGLE_REST_FALLBACK (no Photos MCP server; not a Workspace API).
+- Picker: `photos_picker_start`, `photos_picker_status`, `photos_picker_list`, `photos_picker_download` (=d / =dv
+  with the Bearer header, sent only to https googleusercontent.com hosts; size limit and extension rule; 50 per call),
+  `photos_picker_end`.
+- Library (app-created only): `photos_upload` (attachment folders only; raw upload + one batchCreate; per-file status),
+  `photos_list_app_items`, `photos_search_app_items`, `photos_get_app_item`, `photos_update_app_item_description`,
+  `photos_create_album`, `photos_list_app_albums`, `photos_album_add_items`, `photos_album_remove_items`,
+  `photos_update_album_title`. Reads are read class, changes write (none can delete anything). Descriptions say they
+  cannot see or delete photos the plugin did not upload.
+- Facts from Google's docs (support/updates, picker and library references), checked 2026-11-27. Not yet run against
+  live Google; the Picker guide's polling example names photoslibrary.googleapis.com while the reference says
+  photospicker.googleapis.com (the plugin uses the reference).
+
+### Fixed
+- The REST client resolved a path such as `mediaItems:batchCreate` as a URL with the scheme "mediaitems:" (caught by
+  the new tests before release). Paths are now always relative to the API base. No earlier tool used such a path.
+
 ## [0.11.0] - 2026-11-27
 
 ### Added (Nino blocker: Google's Gmail MCP quota)

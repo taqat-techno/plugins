@@ -34,6 +34,10 @@ export const SCOPES = {
   calendarListReadonly: `${G}calendar.calendarlist.readonly`,
   drive: `${G}drive`,
   driveReadonly: `${G}drive.readonly`,
+  photosPicker: `${G}photospicker.mediaitems.readonly`,
+  photosAppend: `${G}photoslibrary.appendonly`,
+  photosReadApp: `${G}photoslibrary.readonly.appcreateddata`,
+  photosEditApp: `${G}photoslibrary.edit.appcreateddata`,
 };
 /** Full mailbox access, which includes permanent delete. The plugin must never request it: auth.mjs refuses to build a
  *  request that contains it, and a test asserts it. This constant exists only for that guard. */
@@ -70,10 +74,21 @@ export function optionScopes(modules, readOnly, gmailSettings, fullMailbox) {
   return [...(gmailSettings ? [SCOPES.gmailSettingsBasic, SCOPES.gmailSettingsSharing] : []), ...(fullMailbox ? [FULL_MAILBOX_SCOPE] : [])];
 }
 
+/**
+ * Scopes added by GOOGLE_PHOTOS=1 (Google Photos; not a Workspace module, so independent of GOOGLE_MODULES). Since
+ * 2025-03-31 these are the only Photos scopes: the Picker, plus the Library API limited to what this app created.
+ * Read-only mode keeps the Picker and the read scope only.
+ */
+export function photosScopes(photos, readOnly) {
+  if (!photos) return [];
+  return readOnly ? [SCOPES.photosPicker, SCOPES.photosReadApp] : [SCOPES.photosPicker, SCOPES.photosAppend, SCOPES.photosReadApp, SCOPES.photosEditApp];
+}
+
 export function resolveConfig(env = process.env) {
   const readOnly = bool(pick(env, "GOOGLE_PLUGIN_READONLY", "GOOGLE_READONLY"));
   const gmailSettings = bool(pick(env, "GOOGLE_PLUGIN_GMAIL_SETTINGS", "GOOGLE_GMAIL_SETTINGS"));
   const fullMailbox = bool(pick(env, "GOOGLE_PLUGIN_FULL_MAILBOX", "GOOGLE_FULL_MAILBOX"));
+  const photos = bool(pick(env, "GOOGLE_PLUGIN_PHOTOS", "GOOGLE_PHOTOS"));
   const listed = pick(env, "GOOGLE_PLUGIN_MODULES", "GOOGLE_MODULES");
   const modules = listed ? [...new Set(listed.split(/[,\s]+/).map((s) => s.toLowerCase()).filter((m) => MODULES.includes(m)))] : [...MODULES];
   return {
@@ -84,7 +99,9 @@ export function resolveConfig(env = process.env) {
     readOnly,
     modules,
     // Every enabled module's scopes are requested at the first sign-in, so the human signs in once.
-    scopes: [...new Set([...IDENTITY_SCOPES, ...modules.flatMap((m) => moduleScopes(m, readOnly)), ...optionScopes(modules, readOnly, gmailSettings, fullMailbox)])],
+    scopes: [...new Set([...IDENTITY_SCOPES, ...modules.flatMap((m) => moduleScopes(m, readOnly)), ...optionScopes(modules, readOnly, gmailSettings, fullMailbox), ...photosScopes(photos, readOnly)])],
+    // Opt-in Google Photos (server/tools/photos.mjs): needs a new sign-in.
+    photos,
     // Opt-in Gmail options (off by default; each needs a new sign-in; ignored in read-only mode or without gmail).
     gmailSettings: gmailSettings && modules.includes("gmail") && !readOnly,
     fullMailbox: fullMailbox && modules.includes("gmail") && !readOnly,

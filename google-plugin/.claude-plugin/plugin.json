@@ -1,6 +1,6 @@
 {
   "name": "google",
-  "version": "0.11.0",
+  "version": "0.12.0",
   "license": "MIT",
   "description": "Gmail, Google Calendar and Google Drive for Claude Code and agent bots: a local bridge to Google's own Workspace MCP servers, signed in with your own Google Cloud OAuth client (Desktop app, loopback + PKCE). Exposes an allowlisted, classified set of Google's tools (read, write, and confirm-class tools that ask the human first), never answers Google's confirmation forms by itself (it forwards them to your client or you answer them with the grant command), marks results untrusted and caps their size. Never requests full mailbox access. Self-contained: no npm packages.",
   "author": {

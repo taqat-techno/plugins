@@ -63,6 +63,7 @@ Node 18+.
 | `GOOGLE_GMAIL_SETTINGS` | Optional: `1` requests Gmail settings scopes and adds the settings tools (new sign-in) |
 | `GOOGLE_FULL_MAILBOX` | Optional: `1` requests full mailbox access and adds permanent delete / empty Trash and Spam (new sign-in) |
 | `GOOGLE_REST_FALLBACK` | Optional: `1` adds the `*_rest_*` tools (Gmail reads with their own quota, send a draft, reply / forward drafts, draft edit and delete, Drive search, download, trash, move, rename, share) |
+| `GOOGLE_PHOTOS` | Optional: `1` adds the Google Photos tools (Picker, upload, app-created items and albums) and their scopes (new sign-in; enable the Photos Library API and Photos Picker API) |
 | `GOOGLE_CLI_COMMAND` | Optional: the command the owner types for this server's CLI (for example a wrapper with its own `GOOGLE_PLUGIN_HOME`); hints name it instead of `node .../server/cli.mjs`. Text only, never run |
 | `GOOGLE_TIMEOUT_MS`, `GOOGLE_CONFIRM_TIMEOUT_MS`, `GOOGLE_MAX_STRING_CHARS`, `GOOGLE_MAX_RESULT_CHARS` | Optional limits |
 

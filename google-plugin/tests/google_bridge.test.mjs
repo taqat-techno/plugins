@@ -313,7 +313,7 @@ test("hosts: Google's MCP servers and OAuth endpoints only; the REST hosts appea
   const hosts = new Set();
   for (const f of files) {
     const found = [...readFileSync(f, "utf8").matchAll(/https:\/\/([a-z0-9.-]+\.(?:googleapis|google)\.com)/g)].map((m) => m[1]);
-    if (f.pathname.endsWith("/server/rest.mjs")) { assert.deepEqual([...new Set(found)].sort(), ["gmail.googleapis.com", "www.googleapis.com"]); continue; }
+    if (f.pathname.endsWith("/server/rest.mjs")) { assert.deepEqual([...new Set(found)].sort(), ["gmail.googleapis.com", "photoslibrary.googleapis.com", "photospicker.googleapis.com", "www.googleapis.com"]); continue; }
     for (const h of found) hosts.add(h);
   }
   assert.deepEqual([...hosts].sort(), ["accounts.google.com", "calendarmcp.googleapis.com", "drivemcp.googleapis.com", "gmailmcp.googleapis.com", "oauth2.googleapis.com", "openidconnect.googleapis.com", "www.googleapis.com",
@@ -330,7 +330,7 @@ test("B3 classes: no Google tool is hidden; calendar create/update/delete/respon
   for (const n of CLASSES.confirm) assert.match(ALL_TOOLS.find((t) => t.name === n).description, /Ask the human first/, n);
   const ro = filterTools(ALL_TOOLS, resolveConfig({ GOOGLE_READONLY: "1" })).map((t) => t.name);
   assert.ok([...CLASSES.write, ...CLASSES.confirm].every((n) => !ro.includes(n)));
-  assert.ok(CLASSES.read.filter((n) => !CLASSES.rest_tools.includes(n)).every((n) => ro.includes(n)));
+  assert.ok(CLASSES.read.filter((n) => !CLASSES.rest_tools.includes(n) && !(CLASSES.option_tools ?? []).includes(n)).every((n) => ro.includes(n)));
   // With the REST switch off (default): no send, no draft edit or delete, no Drive share/move/trash, no permanent delete.
   const all = filterTools(ALL_TOOLS, resolveConfig({})).map((t) => t.name).join(" "); // REST switch off (default)
   assert.doesNotMatch(all, /send|update_draft|delete_draft|share|move_file|trash_file|delete_message|delete_thread/);

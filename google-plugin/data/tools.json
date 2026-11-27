@@ -42,7 +42,16 @@
     "gmail_rest_list_labels",
     "gmail_rest_list_drafts",
     "gmail_rest_get_draft",
-    "gmail_rest_get_attachment"
+    "gmail_rest_get_attachment",
+    "photos_picker_start",
+    "photos_picker_status",
+    "photos_picker_list",
+    "photos_picker_download",
+    "photos_picker_end",
+    "photos_list_app_items",
+    "photos_search_app_items",
+    "photos_get_app_item",
+    "photos_list_app_albums"
   ],
   "local": [
     "google_sign_in",
@@ -87,7 +96,13 @@
     "gmail_rest_update_pop",
     "gmail_rest_update_language",
     "gmail_rest_update_send_as",
-    "gmail_rest_verify_send_as"
+    "gmail_rest_verify_send_as",
+    "photos_upload",
+    "photos_update_app_item_description",
+    "photos_create_album",
+    "photos_album_add_items",
+    "photos_album_remove_items",
+    "photos_update_album_title"
   ],
   "confirm": [
     "gmail_trash_thread",
@@ -194,7 +209,22 @@
     "gmail_rest_list_labels",
     "gmail_rest_list_drafts",
     "gmail_rest_get_draft",
-    "gmail_rest_get_attachment"
+    "gmail_rest_get_attachment",
+    "photos_picker_start",
+    "photos_picker_status",
+    "photos_picker_list",
+    "photos_picker_download",
+    "photos_picker_end",
+    "photos_list_app_items",
+    "photos_search_app_items",
+    "photos_get_app_item",
+    "photos_list_app_albums",
+    "photos_upload",
+    "photos_update_app_item_description",
+    "photos_create_album",
+    "photos_album_add_items",
+    "photos_album_remove_items",
+    "photos_update_album_title"
   ],
   "hidden": {
     "drive_download_file_content": "Replaced by drive_save_file, which saves the file instead of returning base64 (the size cap would cut it)."
@@ -286,5 +316,22 @@
     "gmail_rest_list_drafts",
     "gmail_rest_get_draft",
     "gmail_rest_get_attachment"
+  ],
+  "option_tools": [
+    "photos_picker_start",
+    "photos_picker_status",
+    "photos_picker_list",
+    "photos_picker_download",
+    "photos_picker_end",
+    "photos_list_app_items",
+    "photos_search_app_items",
+    "photos_get_app_item",
+    "photos_list_app_albums",
+    "photos_upload",
+    "photos_update_app_item_description",
+    "photos_create_album",
+    "photos_album_add_items",
+    "photos_album_remove_items",
+    "photos_update_album_title"
   ]
 }
