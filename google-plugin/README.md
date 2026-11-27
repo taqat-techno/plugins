@@ -235,7 +235,11 @@ Files are never returned as bytes, never overwrite an existing file, and get a c
 ## REST fallback (off by default)
 
 `GOOGLE_REST_FALLBACK=1` adds tools for what Google's MCP servers lack, through Google's REST APIs with the same
-sign-in (no new scope). With the switch off they are not listed and are refused; read-only mode keeps only the read ones.
+sign-in (no new scope). It also adds REST twins of the Gmail reads: seen live, after a bulk run Google's Gmail MCP
+service answered `RATE_LIMITED` for hours while the REST API (its own quota) still worked. A RATE_LIMITED Gmail MCP
+tool then names its twin, and `gmail_message_identity` reads the headers through REST by itself. REST reads do not go
+through Google's confirmation for mail from external senders. Google's AI tools addendum ends REST use by AI agents on
+2027-02-01. With the switch off they are not listed and are refused; read-only mode keeps only the read ones.
 
 | Tool | Class | What it does |
 |---|---|---|
@@ -247,6 +251,10 @@ sign-in (no new scope). With the switch off they are not listed and are refused;
 | `gmail_rest_save_draft_html` | read | One safe, self-contained .html file of a draft in the download folder (header block + body as sent, inline images, no scripts or network), with the send digest. The From address's own signature images are fetched and embedded (only URLs from that signature in Gmail settings; https, public hosts, images up to 1 MB). |
 | `gmail_rest_update_draft` / `gmail_rest_delete_draft` | write | Change only the given fields of a draft (the rest, threading and attachments are kept) / delete a draft. |
 | `calendar_rest_delete_event` | confirm | Delete an event (instance or series; `sendUpdates` none by default) without Google's per-delete question; guest guard and write limit apply. |
+| `gmail_rest_search_threads` / `gmail_rest_search_messages` | read | threads.list / messages.list: `q`, `labelIds`, `maxResults` (max 500), `pageToken`, `includeSpamTrash`; ids (+ snippets) and `nextPageToken`. `metadata=true` adds subject, sender, recipients and date for the first 25. Message ids go straight into the batch tools. |
+| `gmail_rest_get_message` / `gmail_rest_get_thread` | read | `format` full (headers, `plaintextBody` = text part or HTML as text, attachments with index, filename, mimeType, size) or metadata / minimal. Capped like the MCP tools. |
+| `gmail_rest_list_labels` / `gmail_rest_list_drafts` / `gmail_rest_get_draft` | read | Labels (`counts=true` adds message and thread counts), drafts list (`metadata=true`), one draft. |
+| `gmail_rest_get_attachment` | read | Like `gmail_get_attachment` (list, or save by index / filename into the download folder, extension rule), through REST. |
 | `drive_rest_search_files` | read | Drive's own query language (files.list): `q`, `pageSize` (max 100), `pageToken`, `orderBy`, `corpora` / `driveId` / `includeItemsFromAllDrives`. Returns id, name, mimeType, owners, modifiedTime, size, `can_trash`, webViewLink and `nextPageToken`. |
 | `drive_rest_download_file` | read | Saves a file into the download folder like `drive_save_file` (same folder, size limit, name cleaning, never overwrites), but also for files other people own: it does not go through Google's confirmation, which the MCP refuses for those (`CONFIRMATION_UNSUPPORTED`). Google Docs / Sheets / Slides export as PDF by default, Drawings as PNG, or the given `mimeType`. |
 | `drive_rest_trash_file` / `drive_rest_move_file` | confirm | Trash (recoverable about 30 days) / move into another folder. |

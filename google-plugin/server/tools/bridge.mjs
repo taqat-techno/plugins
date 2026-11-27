@@ -152,11 +152,33 @@ export function checkAnswer(ans, schema) {
  * `grant` terminal). Without canElicit, any confirmation ends in CONFIRMATION_NEEDED. def.grantAs names the tool the
  * human should run `grant` for (default def.name).
  */
+/** The REST twin (server/tools/gmail_read.mjs) an agent can use when a Gmail MCP tool is RATE_LIMITED. */
+export const REST_TWIN = {
+  gmail_search_threads: "gmail_rest_search_threads", gmail_get_thread: "gmail_rest_get_thread", gmail_get_message: "gmail_rest_get_message",
+  gmail_list_labels: "gmail_rest_list_labels", gmail_list_drafts: "gmail_rest_list_drafts", gmail_get_draft: "gmail_rest_get_draft",
+  gmail_get_attachment: "gmail_rest_get_attachment",
+};
+
+/** Seen live (2026-11-27): Google's Gmail MCP service kept answering 429 for hours while the REST API still worked. */
+function rateLimitHint(def, ctx) {
+  const twin = REST_TWIN[def.name];
+  if (def.module !== "gmail") return null;
+  if (!twin) return "Google's Gmail MCP limit has lasted hours after a bulk run; do not retry in a loop.";
+  return ctx.cfg.restFallback
+    ? `Use ${twin} instead: Gmail's REST quota is separate from the MCP service's (seen live), whose limit has lasted hours after a bulk run. Do not retry this tool in a loop.`
+    : `Google's Gmail MCP limit has lasted hours after a bulk run. With GOOGLE_REST_FALLBACK=1 (set by the person) ${twin} reads through Gmail's REST API, whose quota is separate. Do not retry in a loop.`;
+}
+
 export async function callGoogle(def, args, ctx, session = {}) {
   const grantName = def.grantAs ?? def.name;
   let extra = {};
   for (let round = 0; round < 4; round++) {
-    const r = await ctx.remote.callTool(def.module, def.remote, args, extra);
+    let r;
+    try { r = await ctx.remote.callTool(def.module, def.remote, args, extra); } catch (e) {
+      const hint = e?.code === "RATE_LIMITED" ? rateLimitHint(def, ctx) : null;
+      if (hint) throw new GoogleError("RATE_LIMITED", e.message, { hint });
+      throw e;
+    }
     if (r.resultType !== "input_required") return r;
     if (ctx.cfg.confirmMode === "error") throw confirmationNeeded(def.name, "the plugin is set to never forward confirmations (GOOGLE_CONFIRM_MODE=error)", grantName, def.kind, ctx.cfg);
     if (!session.canElicit || typeof session.elicit !== "function") throw confirmationNeeded(def.name, "this client cannot show Google's confirmation form", grantName, def.kind, ctx.cfg);

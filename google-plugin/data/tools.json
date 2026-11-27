@@ -34,7 +34,15 @@
     "gmail_rest_list_send_as",
     "gmail_rest_get_send_as",
     "drive_rest_search_files",
-    "drive_rest_download_file"
+    "drive_rest_download_file",
+    "gmail_rest_search_threads",
+    "gmail_rest_search_messages",
+    "gmail_rest_get_message",
+    "gmail_rest_get_thread",
+    "gmail_rest_list_labels",
+    "gmail_rest_list_drafts",
+    "gmail_rest_get_draft",
+    "gmail_rest_get_attachment"
   ],
   "local": [
     "google_sign_in",
@@ -178,7 +186,15 @@
     "gmail_rest_update_send_as_routing",
     "gmail_rest_set_auto_reply",
     "drive_rest_search_files",
-    "drive_rest_download_file"
+    "drive_rest_download_file",
+    "gmail_rest_search_threads",
+    "gmail_rest_search_messages",
+    "gmail_rest_get_message",
+    "gmail_rest_get_thread",
+    "gmail_rest_list_labels",
+    "gmail_rest_list_drafts",
+    "gmail_rest_get_draft",
+    "gmail_rest_get_attachment"
   ],
   "hidden": {
     "drive_download_file_content": "Replaced by drive_save_file, which saves the file instead of returning base64 (the size cap would cut it)."
@@ -261,6 +277,14 @@
     "gmail_rest_update_send_as_routing",
     "gmail_rest_set_auto_reply",
     "drive_rest_search_files",
-    "drive_rest_download_file"
+    "drive_rest_download_file",
+    "gmail_rest_search_threads",
+    "gmail_rest_search_messages",
+    "gmail_rest_get_message",
+    "gmail_rest_get_thread",
+    "gmail_rest_list_labels",
+    "gmail_rest_list_drafts",
+    "gmail_rest_get_draft",
+    "gmail_rest_get_attachment"
   ]
 }

@@ -245,3 +245,26 @@ test("gmail_get_attachment and drive_save_file add the extension too; a fitting 
   assert.equal(basename((await c.callTool("drive_save_file", { fileId: "n" })).saved.path), "holiday.jpg");
   assert.equal(basename((await c.callTool("drive_save_file", { fileId: "j" })).saved.path), "holiday.jpeg", "not holiday.jpeg.jpg");
 });
+
+test("rest bytes: a too-large declared Content-Length is refused before reading; an oversized stream stops being read", async () => {
+  let pulled = 0;
+  const endless = () => new ReadableStream({ pull(ctl) { pulled++; ctl.enqueue(new Uint8Array(1000)); if (pulled >= 50) ctl.close(); } });
+  const c = ctxFor([tokenOk, drive([
+    ["files/doc/export", () => new Response(endless(), { status: 200 })],
+    ["files/doc", () => json({ id: "doc", name: "d", mimeType: "application/vnd.google-apps.document" })],
+    ["files/hdr", { when: (u) => u.searchParams.get("alt") === "media", fn: () => new Response(endless(), { status: 200, headers: { "content-length": "50000" } }) }],
+    ["files/hdr", () => json({ id: "hdr", name: "h.bin", mimeType: "application/octet-stream" })],
+  ])], { seed: SEED, extraEnv: { ...ON, GOOGLE_DOWNLOAD_DIR: dl(), GOOGLE_MAX_SAVE_MB: String(2500 / 1048576) } });
+  await assert.rejects(c.callTool("drive_rest_download_file", { fileId: "doc" }), { code: "TOO_LARGE" });
+  assert.ok(pulled < 10, `stopped early (pulled ${pulled} chunks)`);
+  pulled = 0;
+  await assert.rejects(c.callTool("drive_rest_download_file", { fileId: "hdr" }), { code: "TOO_LARGE" });
+  assert.ok(pulled <= 1, `not read past the header (pulled ${pulled})`);
+});
+
+test("withExtension: MIME parameters are ignored and the length cap still holds with the added extension", async () => {
+  const { withExtension } = await import("../server/save.mjs");
+  assert.equal(withExtension("photo", "Image/JPEG; name=photo"), "photo.jpg");
+  const long = withExtension("y".repeat(400), "image/png");
+  assert.ok(long.length <= 150 && long.endsWith(".png"), String(long.length));
+});

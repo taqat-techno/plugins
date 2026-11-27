@@ -7,14 +7,16 @@
 //   file tools            server/tools/files.mjs: save an attachment or a Drive file into GOOGLE_DOWNLOAD_DIR
 //   REST tools            server/tools/rest.mjs: only with GOOGLE_REST_FALLBACK=1 (never listed or callable otherwise)
 //   Gmail admin tools     server/tools/gmail_admin.mjs: REST too, plus GOOGLE_GMAIL_SETTINGS / GOOGLE_FULL_MAILBOX
+//   Gmail read tools      server/tools/gmail_read.mjs: REST twins of the Gmail MCP reads (own quota)
 import { tools as auth } from "./auth.mjs";
 import { bridgedTools } from "./bridge.mjs";
 import { tools as identity } from "./identity.mjs";
 import { tools as files } from "./files.mjs";
 import { tools as rest } from "./rest.mjs";
 import { tools as gmailAdmin } from "./gmail_admin.mjs";
+import { tools as gmailRead } from "./gmail_read.mjs";
 
-export const ALL_TOOLS = [...auth, ...bridgedTools(), ...identity, ...files, ...rest, ...gmailAdmin];
+export const ALL_TOOLS = [...auth, ...bridgedTools(), ...identity, ...files, ...rest, ...gmailAdmin, ...gmailRead];
 
 export function activeTools(cfg) {
   return filterTools(ALL_TOOLS, cfg);

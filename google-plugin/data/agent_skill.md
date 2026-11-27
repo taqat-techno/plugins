@@ -30,6 +30,7 @@ These tools act as the signed-in person through Google's own Workspace MCP serve
 | Labels, drafts | `gmail_list_labels`, `gmail_list_drafts`, `gmail_get_draft` |
 | Calendar | `calendar_list_events`, `calendar_search_events`, `calendar_get_event`, `calendar_suggest_time`, `calendar_list_calendars` |
 | Files | `drive_search_files`, `drive_list_recent_files`, `drive_read_file_content`, `drive_get_file_metadata` |
+| A Gmail tool is `RATE_LIMITED` | Use the REST twin its hint names (`gmail_rest_search_threads`, `gmail_rest_get_message`, ...; listed only with the REST fallback). Never retry in a loop; pace bulk work |
 | Save an attachment or a Drive file for the owner | `gmail_get_attachment` (no `attachment`: list first), `drive_save_file` (`drive_rest_download_file` for files other people own, when listed); results give a path, never bytes |
 
 ## Changes (only the tools that are listed)

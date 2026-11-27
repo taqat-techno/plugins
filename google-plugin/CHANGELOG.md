@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.11.0] - 2026-11-27
+
+### Added (Nino blocker: Google's Gmail MCP quota)
+- Seen live: after about 850 calls in a bulk cleanup, Google's Gmail MCP service answered 429 for the sign-in for 8+
+  hours, while Gmail's REST API on the same sign-in still worked. With `GOOGLE_REST_FALLBACK=1` there are now REST
+  twins of the Gmail reads (read class, untrusted, capped like bridged results, shapes close to the MCP tools):
+  `gmail_rest_search_threads`, `gmail_rest_search_messages` (ids for the batch tools), `gmail_rest_get_message`,
+  `gmail_rest_get_thread` (format full / metadata, `plaintextBody` from the text part with its charset or the HTML as
+  text, attachments listed), `gmail_rest_list_labels` (optional counts), `gmail_rest_list_drafts`,
+  `gmail_rest_get_draft`, `gmail_rest_get_attachment` (same save contract and extension rule). `metadata=true` on the
+  listings looks up at most 25 items.
+- A RATE_LIMITED Gmail MCP tool's hint names its REST twin (or the REST switch when it is off) instead of "wait a
+  minute". Calendar and Drive keep the old hint.
+- `gmail_message_identity`: on RATE_LIMITED from the MCP path, with the REST switch on, it reads the headers through
+  REST (format metadata) and says `via: "rest"`.
+- These REST reads do not go through Google's confirmation for mail from external senders. Google's addendum ends REST
+  use by AI agents on 2027-02-01.
+
+### Fixed (tests)
+- The mutation runs reported for 0.10.0 and 0.10.1 were invalid: `node --test tests/` fails on a directory argument
+  here, so every run "failed". Rerun with the test files listed and a clean baseline: four gaps were found and closed
+  with tests (download stops reading at the size limit / on a too-large Content-Length, MIME parameters, the name length
+  cap with the added extension).
+
 ## [0.10.1] - 2026-11-26
 
 ### Fixed (from Nino's live run of 0.10.0)

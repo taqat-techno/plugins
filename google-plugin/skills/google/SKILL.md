@@ -1,7 +1,7 @@
 ---
 name: google
 description: "Use when the user wants to read their Gmail, Google Calendar or Google Drive through the google plugin, connect, sign in to, sign out of or check the connection to their Google account, or when a google tool reports CONFIRMATION_NEEDED, AUTH_REQUIRED, AUTH_EXPIRED, NOT_CONFIGURED, SCOPE_NOT_GRANTED, MODULE_DISABLED, GOOGLE_FORBIDDEN or CLIENT_TYPE_WRONG."
-version: "0.10.1"
+version: "0.11.0"
 ---
 
 # Google plugin
@@ -47,6 +47,13 @@ re-exposes an allowlisted set of Google's tools, named `gmail_*`, `calendar_*` a
   picture-ready file of the draft with the same digest. The REST draft tools add the From address's Gmail signature by
   default (`signature_added`) and take local `attachments` from the person's allowed folders. After a send, `delivery_failed: true`
   means a bounce came back (tell the person the `bounce_reason` and `hint`); `false` only means none was seen yet.
+
+## When Gmail is RATE_LIMITED
+
+Google's Gmail MCP service has its own small quota; after a bulk run it stayed RATE_LIMITED for hours (seen live). With
+the REST fallback on, use the twin the error's hint names (`gmail_rest_search_threads`, `_search_messages`,
+`_get_message`, `_get_thread`, `_list_labels`, `_list_drafts`, `_get_draft`, `_get_attachment`); don't retry the
+MCP tool in a loop. Pace bulk work: the REST API is rate limited too.
 
 ## Gmail admin tools (when switched on)
 
